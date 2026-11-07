@@ -1,8 +1,9 @@
-import { createMemo, createSignal, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, on, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
+import { easingOut, reorderMs } from "../ui/reorderMotion";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
 import { foldIdOf, isWorkstream, layoutRail, type NodeRow, type RailRow } from "./layout";
@@ -37,10 +38,37 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
-export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
+/** U6550a, M5: a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
+const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: Accessor<string | null>) => {
+  let drawn = new Map<string, number>();
+  const rows = () => [...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []];
+
+  createEffect(on(lifted, () => {
+    const before = drawn;
+    const reduced = matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    drawn = new Map();
+
+    if (reduced || before.size === 0) return;
+
+    for (const row of rows()) {
+      if (!("animate" in row) || row.matches("[data-dnd-dragging], [data-dnd-dropping]")) continue;
+      const was = before.get(row.dataset.id!);
+      const options = { duration: reorderMs(row), easing: easingOut(row) };
+
+      if (was === undefined) row.animate({ opacity: [0, 1] }, options);
+      else if (Math.abs(was - row.getBoundingClientRect().top) >= 1) row.animate({ translate: [`0 ${was - row.getBoundingClientRect().top}px`, "0 0"] }, options);
+    }
+  }, { defer: true }));
+
+  return () => { drawn = new Map(rows().map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
+};
+
+export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, container: Accessor<HTMLElement | undefined>) => {
   const { rail, now } = connected;
   /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
-  const [lifted, onLift] = createSignal<string | null>(null);
+  const [lifted, setLifted] = createSignal<string | null>(null);
+  const keepDrawn = createLiftMotion(container, lifted);
   const collapsed = rail.collapsed;
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
@@ -156,7 +184,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const dropRules = {
     nests: (id: string) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
     takes: (id: string, parent: string | null) => placeable(placeNodes(), id, parent),
-    onLift,
+    onLift: (id: string | null) => { keepDrawn(); setLifted(id); },
   };
 
   return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };
