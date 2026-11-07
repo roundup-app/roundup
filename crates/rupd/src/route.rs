@@ -47,52 +47,12 @@ impl Daemon {
         let method = request["method"].as_str().unwrap_or_default();
         if method == "terminal.write" {
             // A child may not turn its Terminal keystrokes into a user's answer by claiming
-            // `user`; H21's process identity applies here. The wire reader already resolved it.
+            // `user`; H21's caller identity applies here. The wire reader already resolved it.
             let actor = actor.unwrap_or_else(|| self.terminal_writer(conn));
             if actor.kind == ActorKind::Agent {
                 conn.actor = actor;
             }
-        } else if method.starts_with("deliverable.")
-            || matches!(method, "project.open" | "project.start")
-            || crate::actions::is_action(method)
-            || matches!(
-                method,
-                "terminal.catchUp"
-                    | "todo.delete"
-                    | "todo.deletion"
-                    | "todo.restore"
-                    | "todo.redo"
-                    | "rail.remove"
-                    | "rail.deletion"
-                    | "rail.restore"
-                    | "rail.redo"
-                    | "message.progress"
-                    | "message.report"
-                    | "message.acceptResult"
-                    | "message.verifyResult"
-                    | "message.resolveResult"
-                    | "message.reconcileWork"
-                    | "message.resumeWork"
-            )
-            || matches!(
-                method,
-                "daemon.getNaming"
-                    | "daemon.setNaming"
-                    | "rail.group"
-                    | "rail.removeSelection"
-                    | "rail.rename"
-                    | "rail.setAlertLevel"
-                    | "workstream.setAuto"
-                    | "agent.spawn"
-                    | "agent.stop"
-                    | "agent.interrupt"
-                    | "agent.prompt"
-                    | "agent.setOrder"
-                    | "agent.setVisibility"
-                    | "agent.resume"
-                    | "agent.instructions"
-            )
-        {
+        } else if takes_caller_identity(method) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = if method == "rail.tree" {
@@ -352,11 +312,69 @@ impl Daemon {
     }
 }
 
+/// The one table of methods that take the caller's identity (`action_actor`)
+/// instead of the connection's. The wire reader and the router both read it (Z6395a).
+pub(crate) fn takes_caller_identity(method: &str) -> bool {
+    method.starts_with("deliverable.")
+        || crate::actions::is_action(method)
+        || matches!(
+            method,
+            "project.open"
+                | "project.start"
+                | "terminal.catchUp"
+                | "todo.delete"
+                | "todo.deletion"
+                | "todo.restore"
+                | "todo.redo"
+                | "rail.remove"
+                | "rail.deletion"
+                | "rail.restore"
+                | "rail.redo"
+                | "message.progress"
+                | "message.report"
+                | "message.acceptResult"
+                | "message.verifyResult"
+                | "message.resolveResult"
+                | "message.reconcileWork"
+                | "message.resumeWork"
+                | "daemon.getNaming"
+                | "daemon.setNaming"
+                | "rail.group"
+                | "rail.removeSelection"
+                | "rail.rename"
+                | "rail.setAlertLevel"
+                | "workstream.setAuto"
+                | "agent.spawn"
+                | "agent.stop"
+                | "agent.interrupt"
+                | "agent.prompt"
+                | "agent.setOrder"
+                | "agent.setVisibility"
+                | "agent.resume"
+                | "agent.instructions"
+        )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use base64::{Engine, engine::general_purpose::STANDARD};
     use std::sync::Mutex;
+
+    #[test]
+    fn z6395a_one_table_decides_which_methods_take_the_process_identity() {
+        for method in [
+            "terminal.catchUp",
+            "todo.delete",
+            "deliverable.read",
+            "agent.spawn",
+        ] {
+            assert!(takes_caller_identity(method), "{method}");
+        }
+        for method in ["daemon.ping", "rail.tree", "terminal.write"] {
+            assert!(!takes_caller_identity(method), "{method}");
+        }
+    }
 
     #[derive(Clone, Default)]
     struct Input(Arc<Mutex<Vec<Vec<u8>>>>);

@@ -275,6 +275,11 @@ impl Agents {
         }
     }
 
+    /// U6380c: whether the user named `id`; a row that is gone reads false.
+    pub fn user_named(&self, id: &str) -> bool {
+        self.shared.rail().user_named(id).unwrap_or(false)
+    }
+
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
     pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
         self.shared.rail().name(id)

@@ -304,6 +304,10 @@ impl Daemon {
                     context::text(&nodes, &context),
                     &settings,
                     self.agents.naming_settled(&id),
+                    self.agents.user_named(&id),
+                    nodes.iter().any(|node| {
+                        node.id == id && node.kind == contracts::agent::NodeKind::Workstream
+                    }),
                 );
                 rpc::reply(&contracts::agent::Brief {
                     stdout: agents::claude_code::session_start_context(&text),
