@@ -51,6 +51,7 @@ pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;
+pub use rail::{home_in, is_home_in, maker_in, registered_in};
 pub mod rewind;
 mod scan;
 pub mod worktree;
