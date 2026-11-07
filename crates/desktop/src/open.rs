@@ -21,7 +21,7 @@ pub enum Launch {
     Path { path: PathBuf, line: Option<u32> },
 }
 
-/// Refuses what must open nothing: a scheme but `http` and `https`, a relative path, a path that does not exist.
+/// Refuses what must open nothing: a scheme but `http`, `https` and `mailto`, a relative path, a path that does not exist.
 pub fn check(target: Target) -> Result<Launch, RpcError> {
     match target {
         Target::Url { url } => {
@@ -29,7 +29,7 @@ pub fn check(target: Target) -> Result<Launch, RpcError> {
                 .split_once(':')
                 .map(|(scheme, _)| scheme.to_ascii_lowercase());
             match scheme.as_deref() {
-                Some("http" | "https") => Ok(Launch::Url(url)),
+                Some("http" | "https" | "mailto") => Ok(Launch::Url(url)),
                 _ => Err(RpcError::forbidden(format!(
                     "only http and https links open: {url}"
                 ))),
