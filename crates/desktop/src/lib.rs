@@ -13,6 +13,7 @@ mod idle;
 mod launch;
 mod menu;
 mod menu_bar;
+mod navigation;
 mod open;
 mod paste;
 mod reopen;
@@ -78,6 +79,7 @@ fn build_with_feedback<R: Runtime>(
                 .build(),
         )
         .plugin(window::plugin())
+        .plugin(navigation::plugin())
         .manage(fork_app::Identity::of(config.data_dir.as_deref()))
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
