@@ -13,7 +13,7 @@ impl Pads {
         name::validate(&p.new_name)?;
         let store = self.store()?;
         let mut mirror = MirrorRename::default();
-        let pad = store.atomically(|| {
+        let pad = store.atomically(|_tx| {
             let pad = get(&store, &p.name)?;
             if pad.incarnation != p.expected_incarnation || pad.name != p.name {
                 return Err(Error::conflict("the original pad name or creation changed"));

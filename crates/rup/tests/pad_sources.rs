@@ -18,7 +18,10 @@ async fn dv3_revoked_access_survives_recreation_and_restart() {
     let db = Connection::open(project.data_dir().join("project.db")).unwrap();
     let first = source(&db, "NOTES").unwrap().unwrap();
     client
-        .request("pad.delete", json!({"name":"notes"}))
+        .request(
+            "pad.delete",
+            json!({"name":"notes","operation":"del-notes"}),
+        )
         .await
         .unwrap();
     project.restart(&[]);
@@ -125,7 +128,10 @@ async fn dv3_rejected_file_deletion_restarts_without_denial_then_retry_commits()
     std::fs::create_dir(&file).unwrap();
     assert!(
         client
-            .request("pad.delete", json!({"name":"notes"}))
+            .request(
+                "pad.delete",
+                json!({"name":"notes","operation":"del-notes"})
+            )
             .await
             .is_err()
     );
@@ -138,14 +144,20 @@ async fn dv3_rejected_file_deletion_restarts_without_denial_then_retry_commits()
     std::fs::write(&file, "keep").unwrap();
     let client = project.client().await;
     client
-        .request("pad.delete", json!({"name":"notes"}))
+        .request(
+            "pad.delete",
+            json!({"name":"notes","operation":"del-notes"}),
+        )
         .await
         .unwrap();
     project.restart(&[]);
     let client = project.client().await;
     assert_eq!(
         client
-            .request("pad.delete", json!({"name":"notes"}))
+            .request(
+                "pad.delete",
+                json!({"name":"notes","operation":"del-notes"})
+            )
             .await
             .unwrap_err()
             .code,
@@ -178,7 +190,10 @@ async fn u2773c_pads_external_change_keeps_original() {
             .await
             .unwrap();
         client
-            .request("pad.delete", json!({"name":"notes"}))
+            .request(
+                "pad.delete",
+                json!({"name":"notes","operation":"del-notes"}),
+            )
             .await
             .unwrap();
         let replacement = if replacement_after_restart.is_some() {

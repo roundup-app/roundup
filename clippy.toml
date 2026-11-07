@@ -2,3 +2,9 @@
 # and writes splits; no function takes two bools).
 max-fn-params-bools = 1
 too-many-lines-threshold = 100
+
+# P9a, T6a: a deletion receipt is written through `storage::ledger::retain(&Transaction, ..)`; no
+# runtime check of the connection's mode stands in for that type. Rail removal keeps its copy (allowed there).
+disallowed-methods = [
+    { path = "rusqlite::Connection::is_autocommit", reason = "take a `&Transaction`, so the type proves the transaction" },
+]

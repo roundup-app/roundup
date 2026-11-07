@@ -1,10 +1,12 @@
 //! Retained deletion lives in the same Project transaction as the rows it removes.
 use crate::error::{Error, reply};
+use contracts::agent::OperationKey;
 use contracts::todo::{DeleteParams, Deletion, DeletionParams, DeletionState, RedoParams, TodoId};
 use contracts::{Actor, EventData, Verb};
 use rpc::Ctx;
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde_json::Value;
+use storage::ledger::{self, Ledger, Refusal, Retained};
 
 use crate::{Todos, item};
 
@@ -33,7 +35,7 @@ impl Todos {
     /// Rail coordination can include this exact chosen set in its Project transaction.
     /// The caller commits all participants before publishing returned events or Touches.
     pub fn delete_in(
-        tx: &Connection,
+        tx: &Transaction,
         actor: &Actor,
         p: &DeleteParams,
         after_touch: i64,
@@ -65,7 +67,7 @@ impl Todos {
         if let Some(result) = receipt(&tx, &ctx.actor, &p.operation)? {
             let previous: Option<String> = tx.query_row(
                 "SELECT json_extract(result,'$.source') FROM todo_deletions WHERE operation=?",
-                [&p.operation],
+                [p.operation.as_str()],
                 |r| r.get(0),
             )?;
             if previous.as_deref() != Some(&p.source) {
@@ -93,7 +95,7 @@ impl Todos {
             &tx,
             &ctx.actor,
             &DeleteParams {
-                operation: p.operation.clone(),
+                operation: OperationKey::new(p.operation.as_str()).map_err(Error::InvalidParams)?,
                 ids: source.deleted,
             },
             ctx.touches.sequence()?,
@@ -251,44 +253,37 @@ fn receipt(db: &Connection, actor: &Actor, operation: &str) -> Result<Option<Del
 }
 
 fn retain(
-    db: &Connection,
+    db: &Transaction,
     actor: &Actor,
     p: &DeleteParams,
     after_touch: i64,
     remove: bool,
 ) -> Result<(Deletion, Vec<EventData>), Error> {
-    if db.is_autocommit() {
-        return Err(Error::internal("Todo retention requires a transaction"));
-    }
-    if p.operation.is_empty()
-        || p.operation.len() > 128
-        || (remove && p.ids.is_empty())
-        || p.ids.len() > 10000
-    {
+    if (remove && p.ids.is_empty()) || p.ids.len() > 10000 {
         return Err(Error::InvalidParams(
-            "deletion needs a key (1–128 bytes) and 1–10000 chosen ids".into(),
+            "deletion needs 1–10000 chosen ids".into(),
         ));
     }
     let mut chosen = p.ids.clone();
     chosen.sort_unstable();
     chosen.dedup();
     let chosen_json = serde_json::to_string(&chosen)?;
-    if let Some(result) = receipt(db, actor, &p.operation)? {
-        let previous: String = db.query_row(
-            "SELECT chosen FROM todo_deletions WHERE operation = ?",
-            [&p.operation],
-            |r| r.get(0),
-        )?;
-        if previous != chosen_json {
+    let actor_json = serde_json::to_string(actor)?;
+    match ledger::retain(db, Ledger::Todos, &actor_json, &p.operation, &chosen_json) {
+        Ok(Retained::Replay(result)) => return Ok((serde_json::from_str(&result)?, Vec::new())),
+        Ok(Retained::Fresh) => {}
+        Err(Refusal::Forbidden) => {
+            return Err(Error::Forbidden("deletion belongs to another Actor".into()));
+        }
+        Err(Refusal::Conflict) => {
             return Err(Error::Conflict(
                 "deletion key already names another chosen set".into(),
             ));
         }
-        return Ok((result, Vec::new()));
+        Err(Refusal::Sql(error)) => return Err(error.into()),
     }
-    let actor_json = serde_json::to_string(actor)?;
     let mut result = Deletion {
-        operation: p.operation.clone(),
+        operation: p.operation.as_str().to_owned(),
         deleted: Vec::new(),
         missing: Vec::new(),
         state: DeletionState::Deleted,
@@ -315,7 +310,7 @@ fn retain(
             }
             _ => "todo IN (SELECT value FROM json_each(?2))",
         };
-        db.execute(&format!("INSERT INTO {retained} (operation,{columns}) SELECT ?1,{columns} FROM {live} WHERE {condition}"), params![p.operation, selected])?;
+        db.execute(&format!("INSERT INTO {retained} (operation,{columns}) SELECT ?1,{columns} FROM {live} WHERE {condition}"), params![p.operation.as_str(), selected])?;
     }
     let mut unblocked = Vec::<u32>::new();
     if remove {
@@ -346,7 +341,7 @@ fn retain(
         let names: String = db
             .query_row(
                 "SELECT json_group_object(CAST(id AS TEXT),name) FROM nodes WHERE CAST(id AS TEXT) IN (SELECT home FROM deleted_todos WHERE operation=?1 UNION SELECT json_extract(owner,'$.id') FROM deleted_todos WHERE operation=?1)",
-                [&p.operation],
+                [p.operation.as_str()],
                 |r| r.get(0),
             )
             ?;
@@ -358,7 +353,7 @@ fn retain(
     db.execute(
         "INSERT INTO todo_deletions(operation,actor,chosen,result) VALUES (?,?,?,?)",
         params![
-            p.operation,
+            p.operation.as_str(),
             actor_json,
             chosen_json,
             serde_json::to_string(&record)?
@@ -392,7 +387,7 @@ fn publish(ctx: &Ctx, events: Vec<EventData>) -> Result<(), Error> {
 impl Todos {
     /// One selection shares the existing Todo participant receipt across its Workstream Homes.
     pub fn retain_workstream_in(
-        db: &Connection,
+        db: &Transaction,
         actor: &Actor,
         operation: &str,
         homes: &[String],
@@ -431,7 +426,7 @@ impl Todos {
             db,
             actor,
             &DeleteParams {
-                operation: participant,
+                operation: OperationKey::new(participant.as_str()).map_err(Error::InvalidParams)?,
                 ids,
             },
             after_touch,
@@ -617,7 +612,7 @@ impl Todos {
     /// Retain and remove the prior successful set and its restored Home/owner edges.
     /// The coordinator's transaction has already checked the acknowledged boundary.
     pub fn redo_workstream_in(
-        db: &Connection,
+        db: &Transaction,
         actor: &Actor,
         source: &str,
         operation: &str,
@@ -653,7 +648,7 @@ impl Todos {
             db,
             actor,
             &DeleteParams {
-                operation: participant,
+                operation: OperationKey::new(participant.as_str()).map_err(Error::InvalidParams)?,
                 ids: previous.deleted.clone(),
             },
             after_touch,

@@ -85,7 +85,13 @@ impl Offered {
         match self.input {
             Input::None => Value::Null,
             Input::OwnId => serde_json::json!({ "id": agent }),
-            Input::Arguments => Value::Object(arguments.unwrap_or_default()),
+            Input::Arguments => {
+                let mut arguments = arguments.unwrap_or_default();
+                if matches!(self.method, "pad.delete" | "todo.delete") {
+                    with_key(&mut arguments);
+                }
+                Value::Object(arguments)
+            }
             Input::ArgumentsWithOwnId => own("id", arguments.unwrap_or_default()),
             Input::ArgumentsWithOwnReader => match arguments {
                 Some(arguments) => own("reader", arguments),
@@ -111,6 +117,17 @@ impl std::fmt::Display for Gone {
 }
 
 /// The JSON Schema of `P`, which a params struct makes an object.
+/// P9a, T6a: a deletion's retry key is the caller's; one the caller gave none is made here, so a
+/// replay after an unknown reply is possible. The Daemon makes none.
+fn with_key(arguments: &mut JsonObject) {
+    if arguments.get("operation").is_none_or(Value::is_null) {
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).expect("the system has a random source");
+        let key: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        arguments.insert("operation".into(), key.into());
+    }
+}
+
 fn schema_of<P: JsonSchema>() -> JsonObject {
     schemars::schema_for!(P).ensure_object().clone()
 }

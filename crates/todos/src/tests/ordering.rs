@@ -273,7 +273,6 @@ fn t5642a_list_preserves_the_callers_transaction() {
     )
     .unwrap();
     let listed = store.list().unwrap();
-    assert!(!store.db.is_autocommit());
     assert_eq!(listed[0].id, 2);
     assert_eq!(listed[0].body, "uncommitted");
     assert_eq!(listed[0].blockers, [1]);

@@ -201,7 +201,10 @@ async fn t27_a_removed_pad_or_heading_reads_missing() {
         json!([{"url": whole, "state": "ok"}, {"url": section, "state": "missing"}])
     );
     client
-        .request("pad.delete", json!({"name": "notes"}))
+        .request(
+            "pad.delete",
+            json!({"name":"notes","operation":"del-notes"}),
+        )
         .await
         .unwrap();
     assert_eq!(

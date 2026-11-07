@@ -255,7 +255,7 @@ mod tests {
 #[derive(Clone, Debug, Serialize, Deserialize, specta::Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteParams {
-    pub operation: String,
+    pub operation: crate::agent::OperationKey,
     pub ids: Vec<u32>,
 }
 

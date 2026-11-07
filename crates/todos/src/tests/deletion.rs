@@ -193,7 +193,7 @@ async fn u3787a_transaction_refusal_retains_nothing_and_deletes_nothing() {
         &tx,
         &Actor::user(),
         &contracts::todo::DeleteParams {
-            operation: "coordinated".into(),
+            operation: contracts::agent::OperationKey::new("coordinated").unwrap(),
             ids: vec![1],
         },
         0,

@@ -363,7 +363,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
     for (const pad of (await app.handlers["pad.list"]?.(null)) ?? []) {
       if (pad.home !== workstream.id) continue;
-      await app.handlers["pad.delete"]?.({ name: pad.name });
+      await app.handlers["pad.delete"]?.({ name: pad.name, operation: crypto.randomUUID() });
       result.removed.push({ id: pad.name, kind: "pad", name: pad.name });
     }
 

@@ -24,7 +24,7 @@ impl Shared {
         actor: Actor,
         id: &str,
         scope: RemoveScope,
-        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+        apply: impl FnOnce(&rusqlite::Transaction, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let _lifecycle = self.door_lifecycle.write().await;
         let door = self.rail().node(id)?;
@@ -266,7 +266,7 @@ impl Agents {
         actor: Actor,
         id: &str,
         scope: RemoveScope,
-        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+        apply: impl FnOnce(&rusqlite::Transaction, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         self.shared.guard_reach(&actor, id, false)?;
         self.shared
@@ -313,7 +313,7 @@ impl Agents {
         actor: Actor,
         ids: Vec<String>,
         operation: &str,
-        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+        apply: impl FnOnce(&rusqlite::Transaction, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let shared = &self.shared;
         let _lifecycle = shared.door_lifecycle.write().await;
@@ -424,7 +424,7 @@ impl Agents {
 
     /// Participate in the owning Todo transaction; this starts no processes.
     pub fn restore_reversible_in(
-        db: &rusqlite::Connection,
+        db: &rusqlite::Transaction,
         actor: &Actor,
         p: &contracts::agent::DeletionParams,
     ) -> Result<Removal, RpcError> {
@@ -438,7 +438,7 @@ impl Agents {
         &self,
         actor: Actor,
         p: contracts::agent::RedoParams,
-        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+        apply: impl FnOnce(&rusqlite::Transaction, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, Option<T>), RpcError> {
         let _lifecycle = self.shared.door_lifecycle.write().await;
         let listed = self.shared.terminals.list().await;

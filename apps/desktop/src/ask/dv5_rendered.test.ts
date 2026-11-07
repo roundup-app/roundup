@@ -81,7 +81,7 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
     await browser("wait", "--fn", "window.__dv6.copied.length === 2");
     expect(await evaluate("window.__dv6.copied.map(text => text.split('\\n').slice(0, 2).join('\\n'))")).toEqual([`${url}\nrup link read ${url}`, `${url}\nrup link read ${url}`]);
     await capture("keyboard-copied");
-    await app.rpc("pad.delete", { name: pad.name });
+    await app.rpc("pad.delete", { name: pad.name, operation: crypto.randomUUID() });
     await browser("focus", `${row} button`);
     await browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'F10',shiftKey:true,bubbles:true,cancelable:true}))`);
     await browser("wait", "--fn", "!!document.querySelector('.made [role=alert]')");

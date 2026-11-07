@@ -93,10 +93,13 @@ impl Store {
     }
 
     /// Runs `work` in one write transaction: its Store calls commit together or not at all, and no other connection writes meanwhile.
-    pub fn atomically<T>(&self, work: impl FnOnce() -> Result<T, Error>) -> Result<T, Error> {
+    pub fn atomically<T>(
+        &self,
+        work: impl FnOnce(&Transaction) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         let tx = Transaction::new_unchecked(&self.db, TransactionBehavior::Immediate)
             .map_err(Error::internal)?;
-        let out = work()?;
+        let out = work(&tx)?;
         tx.commit().map_err(Error::internal)?;
         Ok(out)
     }

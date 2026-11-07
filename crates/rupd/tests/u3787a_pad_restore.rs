@@ -159,7 +159,12 @@ async fn u3787a_name_conflicts_keep_the_operation_retryable() {
             .await["restored"],
             false
         );
-        call(&w, "pad.delete", json!({"name":replacement})).await;
+        call(
+            &w,
+            "pad.delete",
+            json!({"name":replacement,"operation":format!("del-{}", replacement)}),
+        )
+        .await;
         assert_eq!(
             call(&w, "pad.restore", deletion_id(&receipt)).await["pad"],
             original
@@ -235,7 +240,7 @@ async fn u3787a_stale_delete_never_removes_a_replacement_creation() {
         w.client
             .request(
                 "pad.delete",
-                json!({"name":"notes","expectedIncarnation":old["incarnation"]})
+                json!({"name":"notes","operation":"del-n2","expectedIncarnation":old["incarnation"]})
             )
             .await
             .unwrap_err()
@@ -455,7 +460,7 @@ async fn u3787a_coordinator_retains_authoritative_content_inside_its_transaction
         &contracts::Actor::user(),
         &contracts::pad::DeleteParams {
             name: "notes".into(),
-            operation: Some("cascade".into()),
+            operation: contracts::agent::OperationKey::new("cascade").unwrap(),
             expected_incarnation: None,
         },
     )
@@ -514,7 +519,12 @@ async fn u3787a_shared_pad_deletion_restore_preserves_publication_revocation() {
     )
     .await;
     let publication = call(&w,"deliverable.publish",json!({"key":"result","title":"Result","target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":1}})).await;
-    let receipt = call(&w, "pad.delete", json!({"name":"notes"})).await;
+    let receipt = call(
+        &w,
+        "pad.delete",
+        json!({"name":"notes","operation":"del-notes"}),
+    )
+    .await;
     call(&w, "pad.restore", deletion_id(&receipt)).await;
     let resolved = call(
         &w,
@@ -542,7 +552,12 @@ async fn u3787a_restore_keeps_exact_existing_refs() {
     let url = format!("roundup://pad/notes?project={key}#Result");
     let todo = call(&w, "todo.create", json!({"title":"references"})).await;
     call(&w, "todo.addRef", json!({"id":todo["id"],"url":url})).await;
-    let receipt = call(&w, "pad.delete", json!({"name":"notes"})).await;
+    let receipt = call(
+        &w,
+        "pad.delete",
+        json!({"name":"notes","operation":"del-notes"}),
+    )
+    .await;
     call(&w, "pad.restore", deletion_id(&receipt)).await;
     assert_eq!(
         call(&w, "todo.refs", json!({"id":todo["id"]})).await,
@@ -564,7 +579,7 @@ async fn u3787a_delete_after_rename_restores_the_authoritative_name_and_creation
     let receipt = call(
         &w,
         "pad.delete",
-        json!({"name":"Moved","expectedIncarnation":pad["incarnation"]}),
+        json!({"name":"Moved","operation":"del-moved","expectedIncarnation":pad["incarnation"]}),
     )
     .await;
     call(&w, "pad.restore", deletion_id(&receipt)).await;
@@ -790,7 +805,12 @@ async fn u3787a_redo_refuses_replacement_and_retries_only_the_retained_incarnati
             .code,
         rpc::code::NOT_FOUND
     );
-    call(&w, "pad.delete", json!({"name":"NOTES"})).await;
+    call(
+        &w,
+        "pad.delete",
+        json!({"name":"NOTES","operation":"del-NOTES"}),
+    )
+    .await;
     call(&w, "pad.restore", deletion_id(&later)).await;
     let redone = call(&w, "pad.redoDelete", request).await;
     assert_eq!(redone["pad"], pad);
