@@ -1,5 +1,3 @@
 disallowed-methods = [
-    { path = "std::env::var", reason = "the Daemon reads its environment once, in `Observers::from_env`" },
-    { path = "std::env::var_os", reason = "the Daemon reads its environment once, in `Observers::from_env`" },
     { path = "tokio::runtime::Handle::try_current", reason = "a background task starts at the composition root, never by asking whether a runtime is there" },
 ]
