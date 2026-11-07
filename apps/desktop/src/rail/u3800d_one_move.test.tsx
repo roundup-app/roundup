@@ -79,14 +79,14 @@ it("u3800g_focus_lands_on_the_dropped_row", async () => {
 it("u3800g_collection_survives_a_redraw_that_leaves_the_tree_as_it_was", async () => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree40();
-  const [now, setNow] = createSignal(NOW);
-  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, () => now());
+  const clock = createSignal(NOW);
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, clock[0]);
 
   createRoot(dispose => {
     const tree = createRailTree(connected, () => new Set(), () => undefined);
     const collection = tree.collection();
     const expanded = tree.expanded();
-    setNow(NOW + 1000);
+    clock[1](NOW + 1000);
     expect(tree.collection()).toBe(collection);
     expect(tree.expanded()).toBe(expanded);
     dispose();
