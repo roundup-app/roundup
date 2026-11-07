@@ -87,7 +87,8 @@ pub(super) fn send_params(value: Value) -> Result<SendParams, Error> {
         value.get("kind").and_then(Value::as_str),
         Some("note" | "question")
     ) {
-        return Err(Error::invalid_params("kind is required and must be `note` or `question`",
+        return Err(Error::invalid_params(
+            "kind is required and must be `note` or `question`",
         ));
     }
     params(value)

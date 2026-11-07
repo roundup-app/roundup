@@ -149,11 +149,7 @@ impl Messages {
     }
 
     /// B42: inside the write that makes the note, the request goes with it.
-    pub(crate) fn fire_inside(
-        &self,
-        store: &crate::store::Store,
-        wake: u32,
-    ) -> Result<(), Error> {
+    pub(crate) fn fire_inside(&self, store: &crate::store::Store, wake: u32) -> Result<(), Error> {
         if store.delete_wake(wake)? {
             Ok(())
         } else {

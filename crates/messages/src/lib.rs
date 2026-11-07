@@ -53,7 +53,6 @@ use contracts::message::{
 };
 use contracts::{Actor, ActorKind, EventData, Kind, Verb};
 pub use delivery::ended;
-pub use error::Error;
 #[cfg(test)]
 use delivery::on_status;
 use delivery::{
@@ -61,6 +60,7 @@ use delivery::{
     load_rail_nodes, reconcile, start_listener,
 };
 use dispatch::{is_receiver, item, params, reply, require_user, send_params};
+pub use error::Error;
 use flight::confirm_ids;
 pub use inbox::NoteInbox;
 use receiver_view::{gone_drops, idle_batch};

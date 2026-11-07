@@ -58,13 +58,15 @@ impl Messages {
         continuation: Option<&continuation::Continue>,
     ) -> Result<Message, Error> {
         if is_receiver(&ctx.actor, &p.to) {
-            return Err(Error::invalid_params("a Message cannot be sent to its own sender",
+            return Err(Error::invalid_params(
+                "a Message cannot be sent to its own sender",
             ));
         }
         let receiver_status = self.resolve_receiver(&p.to).await?;
         if p.body.is_empty() || p.body.len() > MAX_BODY_BYTES {
-            return Err(Error::invalid_params(format!("body must be 1 to {MAX_BODY_BYTES} bytes"),
-            ));
+            return Err(Error::invalid_params(format!(
+                "body must be 1 to {MAX_BODY_BYTES} bytes"
+            )));
         }
         if let Some(status) = &receiver_status
             && ended(status)
@@ -88,8 +90,9 @@ impl Messages {
                 if let Some(reply_to) = p.reply_to
                     && store.get(reply_to)?.is_none()
                 {
-                    return Err(Error::invalid_params(format!("replyTo names no Message: {reply_to}"),
-                    ));
+                    return Err(Error::invalid_params(format!(
+                        "replyTo names no Message: {reply_to}"
+                    )));
                 }
                 if let Some(wake) = wake {
                     self.fire_inside(store, wake)?;

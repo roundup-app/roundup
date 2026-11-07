@@ -133,7 +133,7 @@ impl Waker {
             Ok((events, _)) => events,
             Err(err) if err.code == code::EVENTS_EXPIRED => Vec::new(),
             Err(err) => {
-                eprintln!("rupd: wake: the event log was not read: {}", err.message);
+                eprintln!("rupd: wake: the event log was not read: {}", err);
                 Vec::new()
             }
         }
@@ -172,7 +172,7 @@ impl Waker {
             if (wake.finished.clone(), wake.seen) != before
                 && let Err(err) = self.messages.keep_wake(wake.id, &wake.finished, wake.seen)
             {
-                eprintln!("rupd: wake: not kept: {}", err.message);
+                eprintln!("rupd: wake: not kept: {}", err);
             }
             return None;
         }
@@ -191,7 +191,7 @@ impl Waker {
             }),
             Ok(false) => None,
             Err(err) => {
-                eprintln!("rupd: wake: not fired: {}", err.message);
+                eprintln!("rupd: wake: not fired: {}", err);
                 None
             }
         }
@@ -218,7 +218,7 @@ impl Waker {
         let wakes = match self.messages.wakes() {
             Ok(wakes) => wakes,
             Err(err) => {
-                eprintln!("rupd: wake: requests not read: {}", err.message);
+                eprintln!("rupd: wake: requests not read: {}", err);
                 return;
             }
         };
@@ -248,7 +248,7 @@ impl Waker {
             // since a resume of it (B36) is the same Agent; nothing is sent to a `done` Agent.
             if kind_of(&world, &wake.waiter).is_none() {
                 if let Err(err) = self.messages.drop_wakes_of(&wake.waiter) {
-                    eprintln!("rupd: wake: not dropped: {}", err.message);
+                    eprintln!("rupd: wake: not dropped: {}", err);
                 }
                 continue;
             }
@@ -289,7 +289,7 @@ impl Waker {
                 .repeats_last_note(&parent, &status.id, status.status.kind)
             && let Err(err) = self.messages.note_attention(&parent, &entry).await
         {
-            eprintln!("rupd: wake: note to {parent} not sent: {}", err.message);
+            eprintln!("rupd: wake: note to {parent} not sent: {}", err);
         }
     }
 

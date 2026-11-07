@@ -11,12 +11,10 @@ impl Messages {
             ));
         }
         if p.to == Actor::user().id {
-            return Err(Error::invalid_params("a Route cannot deliver to the user",
-            ));
+            return Err(Error::invalid_params("a Route cannot deliver to the user"));
         }
         if p.from == p.to {
-            return Err(Error::invalid_params("a Route's from and to must differ",
-            ));
+            return Err(Error::invalid_params("a Route's from and to must differ"));
         }
         let nodes = if by_agent {
             load_rail_nodes(&self.inner).await?

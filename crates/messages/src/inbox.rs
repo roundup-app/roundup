@@ -110,7 +110,8 @@ pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Resul
     if inbox.check(&note.to).await != Inbox::Mismatch {
         return Ok(());
     }
-    Err(Error::inbox_unavailable("Message pending: Claude Code changed its message format",
+    Err(Error::inbox_unavailable(
+        "Message pending: Claude Code changed its message format",
     ))
 }
 
@@ -133,8 +134,7 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
         let mut attempts = Vec::new();
         for record in records {
             let report: contracts::message::ResultReport =
-                serde_json::from_str(&record.map_err(Error::internal)?)
-                    .map_err(Error::internal)?;
+                serde_json::from_str(&record.map_err(Error::internal)?).map_err(Error::internal)?;
             attempts.push(report.attempt);
         }
         Ok(attempts)
@@ -556,6 +556,7 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
         );
         assert_eq!(lock(&inbox.batches)[0].len(), 1);
         let store = lock(&messages.inner.store);
@@ -588,7 +589,8 @@ pub(crate) mod tests {
                 vec![first.clone()],
                 Inbox::Ok,
             )
-            .await;
+            .await
+            .unwrap();
             messages.confirm_inbox("m", &[first.id]);
             repeat = pending(&messages, &Actor::daemon(), "same note");
             lock(&messages.inner.store)
@@ -605,7 +607,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         assert!(lock(&inbox.batches).is_empty());
         assert_eq!(
             lock(&messages.inner.store)
@@ -647,7 +650,8 @@ pub(crate) mod tests {
             vec![first.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         messages.confirm_inbox("m", &[first.id]);
         tokio::time::advance(std::time::Duration::from_secs(31)).await;
         let repeat = pending(&messages, &Actor::daemon(), &body);
@@ -659,7 +663,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Missing,
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(
             lock(&messages.inner.store)
                 .get(repeat.id)
@@ -676,7 +681,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(lock(&inbox.batches).len(), 1);
         assert_eq!(
             lock(&messages.inner.store)
@@ -767,6 +773,7 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
         );
         assert_eq!(rail.reads.load(Ordering::SeqCst), 1);
         let expected: Vec<_> = notes
@@ -798,6 +805,7 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
         );
         assert_eq!(rail.reads.load(Ordering::SeqCst), 0);
     }
@@ -823,7 +831,11 @@ pub(crate) mod tests {
             pending(&messages, &agent("b"), "removed"),
             pending(&messages, &agent("missing-id"), "unknown"),
         ];
-        assert!(send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok).await);
+        assert!(
+            send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok)
+                .await
+                .unwrap()
+        );
         let batches = lock(&inbox.batches);
         assert_eq!(batches[0][0].2, "last observed");
         assert_eq!(batches[0][1].2, "removed original");
@@ -854,7 +866,8 @@ pub(crate) mod tests {
                 vec![note.clone()],
                 Inbox::Ok,
             )
-            .await;
+            .await
+            .unwrap();
             assert!(lock(&inbox.batches).is_empty());
             assert!(!lock(&messages.inner.store).in_flight(note.id).unwrap());
             assert_eq!(
@@ -878,6 +891,7 @@ pub(crate) mod tests {
                         Inbox::Ok
                     )
                     .await
+                    .unwrap()
                 );
             } else {
                 assert!(
@@ -890,6 +904,7 @@ pub(crate) mod tests {
                         Inbox::Ok
                     )
                     .await
+                    .unwrap()
                 );
                 assert_eq!(lock(&inbox.batches)[0][0].0, note.id);
                 assert!(lock(&messages.inner.store).in_flight(note.id).unwrap());

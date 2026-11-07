@@ -296,11 +296,7 @@ async fn on_idle(
         ) || store.require_generation(agent, at).is_err()
         {
             if reserved {
-                let ids: Vec<u32> = store
-                    .list_pending_to(agent)?
-                    .iter()
-                    .map(|m| m.id)
-                    .collect();
+                let ids: Vec<u32> = store.list_pending_to(agent)?.iter().map(|m| m.id).collect();
                 failure::hold(inner, &ids, Some(failure::RESTART_RESERVED));
             }
             return Ok(());
@@ -766,11 +762,15 @@ mod tests {
             )
             .unwrap();
         let quiet = pending(&messages, &Actor::daemon(), &body);
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await.unwrap();
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         assert!(lock(&inbox.batches).is_empty());
         assert!(!lock(&messages.inner.store).in_flight(quiet.id).unwrap());
         let ordinary = pending(&messages, &Actor::user(), "please continue");
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await.unwrap();
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         {
             let batches = lock(&inbox.batches);
             assert_eq!(batches.len(), 1);
@@ -787,7 +787,9 @@ mod tests {
                 MessageStatus::Pending
             );
         }
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await.unwrap();
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         assert_eq!(lock(&inbox.batches).len(), 1);
         messages.confirm_inbox("m", &[quiet.id, ordinary.id]);
         for id in [history.id, quiet.id, ordinary.id] {
@@ -796,7 +798,9 @@ mod tests {
                 MessageStatus::Delivered
             );
         }
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await.unwrap();
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         assert_eq!(lock(&inbox.batches).len(), 1);
         // BatchRail rejects every method but rail.tree: no Terminal write or prompt is possible.
     }

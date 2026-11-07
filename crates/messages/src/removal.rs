@@ -2,9 +2,9 @@
 //! `lib.rs` routes the call and `store.rs` keeps the rows.
 
 use crate::Error;
+use crate::dispatch::reply;
 use contracts::message::{MessageId, MessageStatus, Reason};
 use contracts::{ActorKind, EventData, Verb};
-use crate::dispatch::reply;
 use rpc::Ctx;
 use rusqlite::params;
 use serde_json::Value;

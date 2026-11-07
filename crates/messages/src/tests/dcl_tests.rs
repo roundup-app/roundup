@@ -225,7 +225,7 @@ async fn u6260a_a_reserved_restart_is_reported_and_a_settled_message_forgets_its
     assert_eq!(seen.waiting.as_deref(), Some(failure::RESTART_RESERVED));
 
     assert!(lock(&inner.store).drop_merged(note.id).unwrap());
-    failure::forget_settled(inner);
+    failure::forget_settled(inner).unwrap();
     assert!(lock(&inner.waiting).is_empty());
 }
 

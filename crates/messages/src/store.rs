@@ -116,9 +116,7 @@ impl Store {
 
     pub(crate) fn reserve_retirement(&self, agent: &str, key: &str) -> Result<(), Error> {
         if self.is_protected(agent)? {
-            return Err(Error::conflict(
-                "another operation reserved this receiver",
-            ));
+            return Err(Error::conflict("another operation reserved this receiver"));
         }
         self.db
             .execute(
@@ -184,12 +182,7 @@ impl Store {
         Ok(())
     }
 
-    pub(crate) fn record_restart_note(
-        &self,
-        agent: &str,
-        key: &str,
-        id: u32,
-    ) -> Result<(), Error> {
+    pub(crate) fn record_restart_note(&self, agent: &str, key: &str, id: u32) -> Result<(), Error> {
         self.db
             .execute(
                 "UPDATE message_restarts SET note=? WHERE agent=? AND key=?",
@@ -397,11 +390,7 @@ impl Store {
 
     /// The `pending` Messages to `to` bound before `before`, in the order they became deliverable
     /// (B7): their `rank`, ties by id.
-    pub(crate) fn pending_queue(
-        &self,
-        to: &str,
-        before: Binding,
-    ) -> Result<Vec<Message>, Error> {
+    pub(crate) fn pending_queue(&self, to: &str, before: Binding) -> Result<Vec<Message>, Error> {
         self.db
             .prepare(
                 "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
@@ -480,10 +469,7 @@ impl Store {
 
     /// B30, B39: saves the in-flight record of every `id` in one transaction, only if all are
     /// still `pending`; `None` and no change otherwise. The prompt is named by its first id.
-    pub(crate) fn record_flight_all(
-        &mut self,
-        ids: &[u32],
-    ) -> Result<Option<Vec<Message>>, Error> {
+    pub(crate) fn record_flight_all(&mut self, ids: &[u32]) -> Result<Option<Vec<Message>>, Error> {
         let mut partial = false;
         let prompt = ids.first().copied().unwrap_or_default();
         let marked = self.atomically(|store| {
@@ -696,12 +682,7 @@ impl Store {
             .map_err(Error::internal)
     }
 
-    pub(crate) fn update_wake(
-        &self,
-        id: u32,
-        finished: &[String],
-        seen: u64,
-    ) -> Result<(), Error> {
+    pub(crate) fn update_wake(&self, id: u32, finished: &[String], seen: u64) -> Result<(), Error> {
         self.db
             .execute(
                 "UPDATE wakes SET finished = ?2, seen = ?3 WHERE id = ?1",
@@ -795,11 +776,8 @@ impl Store {
                  ORDER BY id"
             ))
             .and_then(|mut stmt| {
-                stmt.query_map(
-                    params![to, daemon, crate::pushes::PREFIX],
-                    row_to_message,
-                )?
-                .collect()
+                stmt.query_map(params![to, daemon, crate::pushes::PREFIX], row_to_message)?
+                    .collect()
             })
             .map_err(Error::internal)
     }

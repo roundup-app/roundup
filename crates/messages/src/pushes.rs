@@ -156,7 +156,7 @@ fn pieces(body: &str) -> Vec<Piece<'_>> {
         while lines.peek().is_some_and(|next| next.starts_with("  ")) {
             block.extend(lines.next());
         }
-        match digest::parse_entry(head, &block[1..]) {
+        match digest::parse_entry(head, block.get(1..).unwrap_or_default()) {
             Some(entry) => out.push(Piece::Block(entry, block)),
             None => out.extend(block.into_iter().map(Piece::Line)),
         }
@@ -225,10 +225,14 @@ pub(crate) fn bodies_of(found: &[Message]) -> Vec<String> {
             let body = without(&message.body, &later);
             // Equal adjacent digests reach the shared rendered comparison together (B5763b).
             // Different updates still replace the older child's content under B34.
-            if index == 0
-                || found[index - 1].kind != MessageKind::Note
-                || found[index - 1].from != message.from
-                || found[index - 1].body != message.body
+            if index
+                .checked_sub(1)
+                .and_then(|previous| found.get(previous))
+                .is_none_or(|previous| {
+                    previous.kind != MessageKind::Note
+                        || previous.from != message.from
+                        || previous.body != message.body
+                })
             {
                 later.extend(names_in(&message.body));
             }
@@ -273,13 +277,14 @@ fn compose(header: &str, entries: &[DigestEntry]) -> String {
         taken = fit(1 + MORE_BYTES);
     }
     let mut body = header.to_owned();
-    for line in &lines[..taken] {
+    for line in lines.iter().take(taken) {
         body.push('\n');
         body.push_str(line);
     }
     if taken < lines.len() {
-        let names: Vec<&str> = entries[taken..]
+        let names: Vec<&str> = entries
             .iter()
+            .skip(taken)
             .map(|entry| entry.name.as_str())
             .collect();
         let more = format!("[+{} more: {}]", names.len(), names.join(", "));
@@ -398,10 +403,9 @@ async fn roll_up(
     {
         return;
     }
-    let body = if plain && slot.waiting.len() == 1 && slot.waiting[0].2 == 1 {
-        push_body(&slot.waiting[0].1)
-    } else {
-        rollup_body(&slot.waiting)
+    let body = match slot.waiting.as_slice() {
+        [(_, entry, 1)] if plain => push_body(entry),
+        waiting => rollup_body(waiting),
     };
     match send_digest(inner, meta, body).await {
         Ok(()) => {

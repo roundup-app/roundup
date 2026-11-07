@@ -18,9 +18,7 @@ impl Messages {
             return if previous == key {
                 Ok(())
             } else {
-                Err(Error::conflict(
-                    "another retirement reserved this receiver",
-                ))
+                Err(Error::conflict("another retirement reserved this receiver"))
             };
         }
         let nodes = load_rail_nodes(&self.inner).await?;
@@ -45,9 +43,7 @@ impl Messages {
             .retirement(agent)?
             .ok_or_else(|| Error::conflict("retirement not reserved"))?;
         if previous != key {
-            return Err(Error::conflict(
-                "another retirement reserved this receiver",
-            ));
+            return Err(Error::conflict("another retirement reserved this receiver"));
         }
         if completed {
             return Ok(());

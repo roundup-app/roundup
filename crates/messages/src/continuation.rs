@@ -201,9 +201,7 @@ impl Messages {
     /// and its Message; nothing more is sent.
     pub async fn continue_work(&self, c: Continue) -> Result<(Choice, Message), Error> {
         if c.actions.is_empty() {
-            return Err(Error::conflict(
-                "there is no unfinished action to accept",
-            ));
+            return Err(Error::conflict("there is no unfinished action to accept"));
         }
         if let Some(found) = self.accepted_now(&c)? {
             return Ok(found);
@@ -231,9 +229,13 @@ impl Messages {
         };
         // After the commit: a failure here is a lost reply, and a retry returns this decision.
         (self.inner.fault)("continuation_reply").map_err(Error::internal)?;
+        let first = c
+            .actions
+            .first()
+            .ok_or_else(|| Error::internal("accepted continuation names no action"))?;
         let decision = self
             .store()?
-            .decision_of(&c.actions[0])?
+            .decision_of(first)?
             .ok_or_else(|| Error::internal("accepted decision vanished"))?;
         Ok((decision, message))
     }

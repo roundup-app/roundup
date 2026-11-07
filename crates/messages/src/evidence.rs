@@ -45,9 +45,7 @@ impl Messages {
                     || previous.author != report.author
                     || previous.attempt != report.attempt
                 {
-                    return Err(Error::conflict(
-                        "report key already names another result",
-                    ));
+                    return Err(Error::conflict("report key already names another result"));
                 }
                 return Ok(previous);
             }
@@ -81,18 +79,12 @@ impl Messages {
             .map_err(Error::internal)?
             .query_map([agent], |r| r.get::<_, String>(0))
             .map_err(Error::internal)?
-            .map(|r| {
-                serde_json::from_str(&r.map_err(Error::internal)?).map_err(Error::internal)
-            })
+            .map(|r| serde_json::from_str(&r.map_err(Error::internal)?).map_err(Error::internal))
             .collect()
     }
 
     /// Append exact-version acceptance; repeating an identical fact does not duplicate it.
-    pub fn accept_result(
-        &self,
-        report: &str,
-        acceptance: &ResultAcceptance,
-    ) -> Result<(), Error> {
+    pub fn accept_result(&self, report: &str, acceptance: &ResultAcceptance) -> Result<(), Error> {
         self.result_fact(report, "acceptance", acceptance)
     }
 
@@ -146,9 +138,7 @@ impl Messages {
             .map_err(Error::internal)?
             .query_map(params![report, kind], |r| r.get::<_, String>(0))
             .map_err(Error::internal)?
-            .map(|r| {
-                serde_json::from_str(&r.map_err(Error::internal)?).map_err(Error::internal)
-            })
+            .map(|r| serde_json::from_str(&r.map_err(Error::internal)?).map_err(Error::internal))
             .collect()
     }
 }

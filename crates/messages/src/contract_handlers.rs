@@ -7,7 +7,9 @@ impl Messages {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.send(ctx, send_params(value)?).await.map_err(RpcError::from)
+        self.send(ctx, send_params(value)?)
+            .await
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_message_get(
@@ -34,7 +36,9 @@ impl Messages {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.drop_message(ctx, params(value)?).await.map_err(RpcError::from)
+        self.drop_message(ctx, params(value)?)
+            .await
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_route_set(
@@ -43,7 +47,9 @@ impl Messages {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.set_route(ctx, params(value)?).await.map_err(RpcError::from)
+        self.set_route(ctx, params(value)?)
+            .await
+            .map_err(RpcError::from)
     }
 
     pub(super) async fn rpc_route_list(

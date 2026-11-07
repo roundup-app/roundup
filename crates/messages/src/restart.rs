@@ -77,7 +77,8 @@ impl Messages {
     ) -> Result<(), Error> {
         if key.is_empty() || first_prompt.is_some_and(|p| p.is_empty() || p.len() > MAX_BODY_BYTES)
         {
-            return Err(Error::invalid_params("empty restart key or invalid first prompt",
+            return Err(Error::invalid_params(
+                "empty restart key or invalid first prompt",
             ));
         }
         let _delivery = self.inner.delivery.write().await;
@@ -94,8 +95,7 @@ impl Messages {
             .find(|n| n.id == agent)
             .ok_or_else(|| Error::not_found(agent))?;
         if first_prompt.is_some() && node.kind != contracts::agent::NodeKind::Workstream {
-            return Err(Error::invalid_params("first prompt note requires a Door",
-            ));
+            return Err(Error::invalid_params("first prompt note requires a Door"));
         }
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;
@@ -121,9 +121,7 @@ impl Messages {
         {
             let store = self.store()?;
             if store.bound(id)?.0 != ordinal {
-                return Err(Error::conflict(
-                    "first prompt recorded for another Attempt",
-                ));
+                return Err(Error::conflict("first prompt recorded for another Attempt"));
             }
             if matches!(restart.prompt, FirstPrompt::Published { .. }) {
                 return store
