@@ -20,6 +20,25 @@
   background-color: var(--rail-ground);
 }
 
+/* A pointer drag in a tree marks the drop's depth with one line along the dragged row's top edge, in the top layer over the row: the box spans the row's width at lift and cuts the line off at its right edge. */
+.sortable-line {
+  position: fixed;
+  inset: 0 auto auto;
+  height: var(--stroke-width);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sortable-line-bar {
+  position: absolute;
+  inset: 0;
+  background-color: var(--accent);
+}
+
 .sortable-handle {
   position: relative;
   z-index: 1;

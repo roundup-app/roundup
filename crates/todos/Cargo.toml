@@ -9,7 +9,9 @@ async-trait.workspace = true
 contracts = { path = "../contracts" }
 pads = { path = "../pads" }
 rpc = { path = "../rpc" }
+serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 
 provenance = { path = "../provenance" }
 rusqlite.workspace = true
