@@ -246,7 +246,8 @@ mod tests {
         let old = dir.path().join("shell_old.log");
         let current = dir.path().join("shell.log");
         std::fs::write(&old, "2026-11-04 old line\n").unwrap();
-        let start = std::time::SystemTime::now();
+        let start =
+            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_800_000_000);
         std::fs::File::options()
             .write(true)
             .open(&old)
@@ -254,6 +255,12 @@ mod tests {
             .set_modified(start - std::time::Duration::from_secs(3600))
             .unwrap();
         std::fs::write(&current, "this run first\nthis run last\n").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&current)
+            .unwrap()
+            .set_modified(start)
+            .unwrap();
         let path = this_runs_log(dir.path(), start - std::time::Duration::from_secs(60)).unwrap();
         assert_eq!(path, current);
         assert_eq!(log_tail(&path).last().unwrap(), "this run last");
