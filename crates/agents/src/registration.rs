@@ -256,7 +256,10 @@ impl Shared {
         actor: Actor,
         payload: Value,
     ) -> Result<Applied, RpcError> {
-        if let Err(err) = rail.attach_terminal(id, &terminal_id) {
+        if let Err(err) = rail
+            .attach_terminal(id, &terminal_id)
+            .map_err(RpcError::from)
+        {
             self.fail_resume(
                 runs,
                 id,
@@ -335,7 +338,8 @@ impl Shared {
                     err.code,
                     format!(
                         "{}; cannot detach Terminal {terminal_id}: {}",
-                        err.message, detach.message
+                        err.message,
+                        RpcError::from(detach).message
                     ),
                 ),
             };
