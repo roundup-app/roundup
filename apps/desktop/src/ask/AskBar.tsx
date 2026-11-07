@@ -34,6 +34,9 @@ import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { ToolCallLine } from "./ToolCallLine";
+import { ProjectOverview } from "./Overview";
+import { createDeliverables, Deliverables } from "./Deliverables";
+import { createCut } from "../ink/Tip";
 import "./styles.css";
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
@@ -341,18 +344,11 @@ export const AskBar = (props: {
             const start = () => item.label.toLowerCase().indexOf((mentionOf(text()) ?? "").toLowerCase());
             const end = () => start() + (mentionOf(text())?.length ?? 0);
 
-            let name: HTMLSpanElement | undefined;
-            const [cut, setCut] = createSignal(false);
-            onMount(() => {
-              if (!name) return;
-              const observer = new ResizeObserver(() => setCut(!!name && name.scrollWidth > name.clientWidth));
-              observer.observe(name);
-              onCleanup(() => observer.disconnect());
-            });
+            const [cutRef, cut] = createCut();
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(node()?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
+            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={cutRef} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(node()?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
         <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
@@ -413,227 +409,4 @@ const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof
     <Requested id="attention" label={copy.needsYou}><Inbox /></Requested>
     <Requested id="made" label={copy.deliverables}><Deliverables state={props.deliverables} /></Requested>
   </>;
-};
-
-const ProjectOverview = () => {
-  const { rail, hasView, hideView } = useConnectedProject();
-  const attention = createMemo(() => attentionOrder(rail.nodes, rail.dismissed));
-  const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
-  const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
-
-  const emptyWorkstreams = () => hasView("workstreams") && workstreams().length === 0;
-
-  const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
-
-  const heads = new Map<string, HTMLElement>();
-
-  const entries = () => hasView("workstreams")
-    ? [...workstreams().flatMap(node => [node, ...under(node.id)]), ...attention().filter(node => node.kind !== "workstream" && resolvedWorkstream(rail.nodes, node.id) === null)]
-    : attention();
-
-  const content = createRowCollection(() => entries().filter(node => {
-    const head = heads.get(node.id);
-
-    return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
-  }).map(node => ({ value: node.id, label: node.name })), { onActivate: id => rail.select(id) });
-
-  const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} selected={content.selection.isSelected(node.id)} head={element => {
-    heads.set(node.id, element); content.register(element, node.id);
-    onCleanup(() => { if (heads.get(node.id) === element) heads.delete(node.id); });
-  }} />;
-
-  return <section class="project-overview" aria-label={copy.projectOverview} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
-    <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
-    <Show when={attention().length === 0}><p class="overview-quiet">{emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0)}</p></Show>
-    <ul class="overview-list">
-      <For each={hasView("workstreams") ? workstreams() : []}>{(node) => <li>
-        {entry(node)}
-        <Show when={under(node.id).length > 0}><ul class="overview-attention">
-          <For each={under(node.id)}>{(agent) => <li>{entry(agent, true)}</li>}</For>
-        </ul></Show>
-        <Show when={called(node.id).length > 0}><ul class="overview-calls">
-          <For each={called(node.id)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
-        </ul></Show>
-      </li>}</For>
-      <For each={hasView("workstreams") ? attention().filter(node => node.kind !== "workstream" && resolvedWorkstream(rail.nodes, node.id) === null) : attention()}>{(node) => <li>{entry(node, true)}</li>}</For>
-      <For each={hasView("workstreams") ? called(null) : []}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
-    </ul>
-  </section>;
-};
-
-const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolean; select: () => void; selected: boolean; head: (element: HTMLButtonElement) => void }) => {
-  const status = () => props.status ? props.node.status : null;
-  const [cut, setCut] = createSignal(false);
-  let name: HTMLSpanElement | undefined;
-  const measure = () => setCut(!!name && name.scrollWidth > name.clientWidth);
-
-  createEffect(() => {
-    if (props.node.name) queueMicrotask(measure);
-  });
-  onMount(() => {
-    if (!name) return;
-    const observer = new ResizeObserver(measure);
-
-    observer.observe(name);
-    onCleanup(() => observer.disconnect());
-  });
-
-  return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
-    const tip = trigger();
-
-    return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry row-wash"
-      data-overview-item={props.node.id + ":" + props.node.attempt + ":" + props.node.status_revision} aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
-      data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
-      <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
-        <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status()?.kind} data-tone={status()?.kind === "error" ? "red" : undefined}>
-          <Show when={status()}>{(status) => <KindGlyph kind={status().kind} />}</Show>
-        </span>
-      }</Tip>
-      <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <Show when={errorCause(status(), false)}>{cause => <ReservedLine status={cause()} />}</Show>
-    </button>;
-  }}</Tip>;
-};
-
-/** DV5: metadata stays separate from resolution. Never retain a resolved path between opens. */
-const createDeliverables = () => {
-  const { unseen } = useConnectedProject();
-
-  const [records, setRecords] = createStore<Deliverable[]>([]);
-  // Matching publication ids retain their row and keyboard focus across RPC snapshots.
-  createComputed(() => setRecords(reconcile(unseen.publications.records(), { key: "id" })));
-
-  return { ...unseen.publications, records: () => records };
-};
-
-const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {
-  const connected = useConnectedProject();
-  const scope = shelfScope(connected);
-  const [filter, setFilter] = createSignal("");
-
-  const choices = createMemo(() => [
-    { value: "", label: copy.overview },
-    ...connected.rail.nodes.filter(node => node.kind === "workstream").map(node => ({ value: `home:${node.id}`, label: node.name })),
-    ...[...new Map(props.state.records().filter(record => record.maker.kind === "agent").map(record => [record.maker.id, record.maker_name])).entries()].map(([id, label]) => ({ value: `maker:${id}`, label })),
-  ]);
-
-
-  const line = dismissable(() => props.state.failure());
-
-  const records = createMemo(() => props.state.records().filter(record => filter() === "" ? scope.includes(record.home, record.maker)
-    : filter() === `home:${record.home}` || record.maker.kind === "agent" && filter() === `maker:${record.maker.id}`));
-
-  const selected = connected.madeSelected;
-  const setSelected = connected.selectMade;
-  const [pending, setPending] = createSignal<string | null>(null);
-  const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
-  const failure = (id: string): string | null => failures().get(id) ?? null;
-
-  const fail = (id: string, cause: string) => setFailures(all => new Map(all).set(id, cause));
-  const clear = (id: string) => setFailures(all => all.has(id) ? new Map([...all].filter(([each]) => each !== id)) : all);
-  // P3557c: a failure leaves with its record; it never moves to another.
-  createEffect(() => {
-    const present = new Set(props.state.records().map(record => record.id));
-    setFailures(all => [...all.keys()].every(id => present.has(id)) ? all : new Map([...all].filter(([id]) => present.has(id))));
-  });
-  let disposed = false;
-  onCleanup(() => { disposed = true; });
-
-  const open = async (record: Deliverable) => {
-    if (pending() !== null || connected.daemonExit() !== null) return;
-    setSelected(record.id);
-    setPending(record.id);
-    clear(record.id);
-
-    try {
-      const cause = await openDeliverable(connected.app, record.project, record.id);
-
-      if (!disposed && cause !== null) fail(record.id, cause);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      if (!disposed) fail(record.id, error.message);
-    } finally {
-      if (!disposed) setPending(null);
-    }
-  };
-
-  const heads = new Map<string, HTMLElement>();
-
-  const content = createRowCollection(() => records().filter(record => {
-    const head = heads.get(record.id);
-
-    return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
-  }).map(record => ({ value: record.id, label: record.title })), {
-    onActivate: id => {
-      const record = records().find(record => record.id === id);
-
-      if (record) void open(record);
-    },
-  });
-
-  const copied = createCopyLabels(() => records().map(record => record.id));
-
-  const openMenu = (record: Deliverable, x: number, y: number) => {
-    const feedback = copied().get(record.id);
-    setSelected(record.id);
-    clear(record.id);
-    void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
-      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => fail(record.id, cause)).map(entry => entry.id !== "copy-link" ? entry : {
-        ...entry, label: copy.copy, run: () => feedback?.run(async () => {
-          const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id }).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
-
-          if (resolved.kind === "unavailable") throw new Error(copy.deliverableUnavailable[resolved.cause]);
-
-          const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
-          await writeText(connected.app, `${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
-        }, () => clear(record.id), error => fail(record.id, error.message)),
-      }), x, y);
-  };
-
-  let section: HTMLElement | undefined;
-  registerKeys({ kind: "region", element: () => section }, [{
-    chords: ["ContextMenu", "Shift+F10"],
-    when: event => event.target instanceof HTMLElement && event.target.matches(".made-open"),
-    run: event => {
-      if (event.repeat || !(event.target instanceof HTMLElement)) return;
-      const id = event.target.closest<HTMLElement>("[data-deliverable]")?.dataset.deliverable;
-      const record = records().find(record => record.id === id);
-
-      if (record) {
-        const box = event.target.getBoundingClientRect();
-        openMenu(record, box.left, box.bottom);
-      }
-    },
-  }]);
-
-  const home = (record: Deliverable) => record.home === null ? copy.overview
-    : connected.rail.nodes.find(node => node.id === record.home)?.name ?? copy.unavailableHome;
-
-  const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
-    : record.target.kind === "pad" ? copy.deliverableRevision() : copy.deliverableRetained;
-
-  return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
-      <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
-      <ReservedLine message={line.message()} status={props.state.loading() ? copy.deliverablesLoading : null} dismiss={line.dismiss} recover={{ run: () => props.state.reload() }} />
-      <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
-      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
-        onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
-            heads.set(record.id, element); content.register(element, record.id);
-            onCleanup(() => { if (heads.get(record.id) === element) heads.delete(record.id); });
-          }} data-row-selected={content.selection.isSelected(record.id)} aria-current={selected() === record.id ? "true" : undefined}
-          aria-label={copy.openDeliverable(record.title)} aria-describedby={`made-details-${record.id} made-time-${record.id}`} aria-disabled={pending() !== null}
-          onClick={() => { void open(record); }}>
-          <span class="made-content">
-            <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>
-            <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
-            <span id={`made-details-${record.id}`} class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
-            <time id={`made-time-${record.id}`} class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.publishedWhen(new Date(record.published_at).toISOString())}</time>
-          </span>
-          <Icon name="right" />
-        </button>}</Tip>
-        <ReservedLine overlay message={failure(record.id)} dismiss={() => clear(record.id)} />
-      </li>}</For></ul>
-    </section>;
 };
