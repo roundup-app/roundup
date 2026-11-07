@@ -228,7 +228,7 @@ pub(super) async fn resync(inner: &Arc<Inner>) -> bool {
 }
 
 /// Read the Rail as the Daemon and persist its current sender names for removal/reopen.
-pub(super) async fn load_rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, RpcError> {
+pub(super) async fn load_rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, Error> {
     let ctx = Ctx {
         actor: Actor::daemon(),
         bus: inner.bus.clone(),
@@ -236,13 +236,13 @@ pub(super) async fn load_rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, RpcE
     };
     let tree = inner.agents.call(&ctx, "rail.tree", Value::Null).await?;
 
-    let nodes: Vec<RailNode> = serde_json::from_value(tree).map_err(RpcError::internal)?;
+    let nodes: Vec<RailNode> = serde_json::from_value(tree).map_err(Error::internal)?;
     record_sender_names(inner, &nodes)?;
     Ok(nodes)
 }
 
 /// Save the last Rail names observed by Messages for delivery after removal.
-fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), RpcError> {
+fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), Error> {
     let mut store = lock(&inner.store);
     store.atomically(|store| {
         for node in nodes {
@@ -395,7 +395,7 @@ fn reconcile_node(
     store: &mut Store,
     node: &RailNode,
     restart: bool,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let at = binding(node);
     let poisoned = store.generation(&node.id)?.is_some_and(|state| {
         state.attempt == at.0
@@ -451,9 +451,9 @@ pub(super) fn accept_receiver(
     inner: &Inner,
     store: &mut Store,
     node: &RailNode,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     if store.retirement(&node.id)?.is_some() {
-        return Err(RpcError::conflict("receiver reserved for retirement"));
+        return Err(Error::conflict("receiver reserved for retirement"));
     }
     reconcile_node(inner, store, node, false)?;
     store.require_generation(&node.id, binding(node))
@@ -465,7 +465,7 @@ pub(super) fn accept_reservation(
     inner: &Inner,
     store: &mut Store,
     node: &RailNode,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let at = binding(node);
     reconcile_node(inner, store, node, false)?;
     if ended(node) {
@@ -473,7 +473,7 @@ pub(super) fn accept_reservation(
             .generation(&node.id)?
             .is_none_or(|state| state.attempt != at.0)
         {
-            return Err(RpcError::conflict("stale receiver Attempt"));
+            return Err(Error::conflict("stale receiver Attempt"));
         }
         Ok(())
     } else {
@@ -518,7 +518,7 @@ pub(super) fn reconcile(
     agent: &str,
     at: store::Binding,
     end: Ending,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let mut events = Vec::new();
     let result = reconcile_into(store, agent, at, end, &mut events);
     for event in events {
@@ -533,7 +533,7 @@ fn reconcile_into(
     at: store::Binding,
     end: Ending,
     events: &mut Vec<EventData>,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let Ending {
         end,
         receiver,
@@ -660,7 +660,7 @@ fn return_notes(
     store: &mut Store,
     agent: &str,
     dropped: &[Message],
-) -> Result<Vec<Message>, RpcError> {
+) -> Result<Vec<Message>, Error> {
     let mut senders: Vec<&Actor> = Vec::new();
     for message in dropped {
         if message.from.kind == ActorKind::Agent && !senders.contains(&&message.from) {
@@ -700,7 +700,7 @@ impl Messages {
     /// `to`'s Status, when it names an Agent or a Door; `None` when it names the user.
     /// `NOT_FOUND` when it names no Actor; `INVALID_PARAMS` when it names a plain
     /// Workstream, which cannot receive a Message.
-    pub(super) async fn resolve_receiver(&self, to: &str) -> Result<Option<RailNode>, RpcError> {
+    pub(super) async fn resolve_receiver(&self, to: &str) -> Result<Option<RailNode>, Error> {
         if to == Actor::user().id {
             return Ok(None);
         }
@@ -708,7 +708,7 @@ impl Messages {
         let node = nodes
             .into_iter()
             .find(|node| node.id == to)
-            .ok_or_else(|| RpcError::not_found(format!("actor {to}")))?;
+            .ok_or_else(|| Error::not_found(format!("actor {to}")))?;
         Ok(Some(node))
     }
 }

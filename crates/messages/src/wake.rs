@@ -2,10 +2,11 @@
 //! decides from `agent.status` Events when a request holds; this module keeps the requests across a
 //! restart and turns a pending request into exactly one Message.
 
+use crate::Error;
 use contracts::agent::DigestEntry;
 use contracts::message::{MessageKind, SendParams};
 use contracts::{Actor, Kind};
-use rpc::{Ctx, RpcError};
+use rpc::Ctx;
 
 use crate::digest::{cut, kind_word};
 use crate::{Messages, lock};
@@ -76,10 +77,10 @@ impl Messages {
         any_of: bool,
         finished: &[String],
         seen: u64,
-    ) -> Result<Wake, RpcError> {
+    ) -> Result<Wake, Error> {
         let store = lock(&self.inner.store);
         if store.count_wakes(waiter)? >= OPEN_REQUESTS {
-            return Err(RpcError::conflict(format!(
+            return Err(Error::conflict(format!(
                 "{waiter} already has {OPEN_REQUESTS} open wake requests"
             )));
         }
@@ -87,28 +88,28 @@ impl Messages {
     }
 
     /// B44: every open request, oldest first.
-    pub fn wakes(&self) -> Result<Vec<Wake>, RpcError> {
+    pub fn wakes(&self) -> Result<Vec<Wake>, Error> {
         lock(&self.inner.store).wakes()
     }
 
     /// B44: the request `id` if it is still open.
-    pub fn wake(&self, id: u32) -> Result<Option<Wake>, RpcError> {
+    pub fn wake(&self, id: u32) -> Result<Option<Wake>, Error> {
         lock(&self.inner.store).wake(id)
     }
 
     /// B44: the request `id` has been decided up to Event `seen`, with `finished` seen finished.
-    pub fn keep_wake(&self, id: u32, finished: &[String], seen: u64) -> Result<(), RpcError> {
+    pub fn keep_wake(&self, id: u32, finished: &[String], seen: u64) -> Result<(), Error> {
         lock(&self.inner.store).update_wake(id, finished, seen)
     }
 
     /// B41(f): `waiter` ended, so its requests are dropped without a note.
-    pub fn drop_wakes_of(&self, waiter: &str) -> Result<(), RpcError> {
+    pub fn drop_wakes_of(&self, waiter: &str) -> Result<(), Error> {
         lock(&self.inner.store).delete_wakes_of(waiter)
     }
 
     /// B42: in one write, removes request `wake` and creates the Message `body` from the Daemon
     /// to `to`. `false` when the request was not open, so nothing was made.
-    pub async fn fire_wake(&self, wake: u32, to: &str, body: String) -> Result<bool, RpcError> {
+    pub async fn fire_wake(&self, wake: u32, to: &str, body: String) -> Result<bool, Error> {
         let ctx = Ctx {
             actor: Actor::daemon(),
             bus: self.inner.bus.clone(),
@@ -125,14 +126,14 @@ impl Messages {
             .await
         {
             Ok(_) => Ok(true),
-            Err(err) if err.message == GONE => Ok(false),
+            Err(err) if err.to_string() == GONE => Ok(false),
             Err(err) => Err(err),
         }
     }
 
     /// B43: tells `parent`, at once and outside B22's caps, that `entry`'s Agent failed or needs
     /// the user. The note is the digest push of that entry (B33).
-    pub async fn note_attention(&self, parent: &str, entry: &DigestEntry) -> Result<(), RpcError> {
+    pub async fn note_attention(&self, parent: &str, entry: &DigestEntry) -> Result<(), Error> {
         let ctx = Ctx {
             actor: Actor::daemon(),
             bus: self.inner.bus.clone(),
@@ -152,11 +153,11 @@ impl Messages {
         &self,
         store: &crate::store::Store,
         wake: u32,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), Error> {
         if store.delete_wake(wake)? {
             Ok(())
         } else {
-            Err(RpcError::conflict(GONE))
+            Err(Error::conflict(GONE))
         }
     }
 }

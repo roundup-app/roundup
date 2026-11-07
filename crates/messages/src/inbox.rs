@@ -103,16 +103,14 @@ pub(crate) fn is_inbox_send(p: &SendParams) -> bool {
 /// is a `mismatch`: the note stays `pending` until Claude Code or the Daemon changes. A `missing`
 /// inbox is not told: the session is starting or gone, and the note goes at the Agent's next
 /// passing check.
-pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), RpcError> {
+pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), Error> {
     let Some(inbox) = inner.inbox.get() else {
         return Ok(());
     };
     if inbox.check(&note.to).await != Inbox::Mismatch {
         return Ok(());
     }
-    Err(RpcError::new(
-        code::INBOX_UNAVAILABLE,
-        "Message pending: Claude Code changed its message format",
+    Err(Error::inbox_unavailable("Message pending: Claude Code changed its message format",
     ))
 }
 
@@ -123,24 +121,26 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
     if lock(&inner.snapshotted).contains(&(agent.to_owned(), at.0)) {
         return None;
     }
-    let reported = |id: &str| -> Result<Vec<String>, RpcError> {
+    let attempts = |id: &str| -> Result<Vec<String>, Error> {
         let store = lock(&inner.store);
         let mut rows = store
             .db
             .prepare("SELECT record FROM message_results WHERE agent=? ORDER BY seq")
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let records = rows
             .query_map([id], |r| r.get::<_, String>(0))
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let mut attempts = Vec::new();
         for record in records {
             let report: contracts::message::ResultReport =
-                serde_json::from_str(&record.map_err(RpcError::internal)?)
-                    .map_err(RpcError::internal)?;
+                serde_json::from_str(&record.map_err(Error::internal)?)
+                    .map_err(Error::internal)?;
             attempts.push(report.attempt);
         }
         Ok(attempts)
     };
+    // The seam to `agents` speaks `RpcError`.
+    let reported = |id: &str| attempts(id).map_err(RpcError::from);
     let jobs = inbox.open_jobs(agent, &reported);
     if jobs.is_empty() {
         return None;

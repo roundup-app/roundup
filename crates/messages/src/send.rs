@@ -10,7 +10,7 @@ use receiver_view::send_status;
 const OPEN_BOUND: u32 = 32;
 
 impl Messages {
-    pub(super) async fn send(&self, ctx: &Ctx, p: SendParams) -> Result<Value, RpcError> {
+    pub(super) async fn send(&self, ctx: &Ctx, p: SendParams) -> Result<Value, Error> {
         // B51(f): the authenticated sender hears when the inbox format is unavailable.
         let uses_inbox = inbox::is_inbox_send(&p);
         if uses_inbox {
@@ -24,7 +24,7 @@ impl Messages {
     }
 
     /// B51(g): a new send is refused before allocating a Message or question chain.
-    async fn refuse_repeat(&self, ctx: &Ctx, p: &SendParams) -> Result<(), RpcError> {
+    async fn refuse_repeat(&self, ctx: &Ctx, p: &SendParams) -> Result<(), Error> {
         let Ok(Some(receiver)) = self.resolve_receiver(&p.to).await else {
             return Ok(());
         };
@@ -32,7 +32,7 @@ impl Messages {
             .store()?
             .is_inbox_repeat(&ctx.actor, &p.to, &p.body, binding(&receiver).0, None)?
         {
-            return Err(RpcError::conflict(inbox::REPEAT));
+            return Err(Error::conflict(inbox::REPEAT));
         }
         Ok(())
     }
@@ -44,7 +44,7 @@ impl Messages {
         ctx: &Ctx,
         p: SendParams,
         merge: bool,
-    ) -> Result<Message, RpcError> {
+    ) -> Result<Message, Error> {
         self.send_message_with(ctx, p, merge, None, None).await
     }
 
@@ -56,24 +56,20 @@ impl Messages {
         merge: bool,
         wake: Option<u32>,
         continuation: Option<&continuation::Continue>,
-    ) -> Result<Message, RpcError> {
+    ) -> Result<Message, Error> {
         if is_receiver(&ctx.actor, &p.to) {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "a Message cannot be sent to its own sender",
+            return Err(Error::invalid_params("a Message cannot be sent to its own sender",
             ));
         }
         let receiver_status = self.resolve_receiver(&p.to).await?;
         if p.body.is_empty() || p.body.len() > MAX_BODY_BYTES {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                format!("body must be 1 to {MAX_BODY_BYTES} bytes"),
+            return Err(Error::invalid_params(format!("body must be 1 to {MAX_BODY_BYTES} bytes"),
             ));
         }
         if let Some(status) = &receiver_status
             && ended(status)
         {
-            return Err(RpcError::conflict(format!(
+            return Err(Error::conflict(format!(
                 "{} cannot receive a Message: its Kind is {:?}",
                 p.to, status.status
             )));
@@ -92,9 +88,7 @@ impl Messages {
                 if let Some(reply_to) = p.reply_to
                     && store.get(reply_to)?.is_none()
                 {
-                    return Err(RpcError::new(
-                        code::INVALID_PARAMS,
-                        format!("replyTo names no Message: {reply_to}"),
+                    return Err(Error::invalid_params(format!("replyTo names no Message: {reply_to}"),
                     ));
                 }
                 if let Some(wake) = wake {
@@ -103,14 +97,14 @@ impl Messages {
                 if let Some(c) = continuation
                     && store.accepted(c)?.is_some()
                 {
-                    return Err(RpcError::conflict("an action was already accepted"));
+                    return Err(Error::conflict("an action was already accepted"));
                 }
                 if !digest
                     && wake.is_none()
                     && continuation.is_none()
                     && store.count_open(&p.to)? >= OPEN_BOUND
                 {
-                    return Err(RpcError::conflict(format!(
+                    return Err(Error::conflict(format!(
                         "{} already has {OPEN_BOUND} pending Messages",
                         p.to
                     )));
@@ -130,7 +124,7 @@ impl Messages {
                 if merge {
                     let oldest = store.open_digests(&p.to)?;
                     let [first, second, ..] = oldest.as_slice() else {
-                        return Err(RpcError::conflict("fewer than two pushed digests to merge"));
+                        return Err(Error::conflict("fewer than two pushed digests to merge"));
                     };
                     body = pushes::merged_body(first, second);
                     folded = vec![first.id, second.id];
@@ -162,11 +156,11 @@ impl Messages {
                     receiver_status.as_ref().map_or((0, 0), binding),
                 )?;
                 if wake.is_some() {
-                    (self.inner.fault)("wake").map_err(RpcError::internal)?;
+                    (self.inner.fault)("wake").map_err(Error::internal)?;
                 }
                 if let Some(c) = continuation {
                     store.accept_continuation(c, message.id)?;
-                    (self.inner.fault)("continuation").map_err(RpcError::internal)?;
+                    (self.inner.fault)("continuation").map_err(Error::internal)?;
                 }
                 let mut merged = Vec::new();
                 for id in folded {

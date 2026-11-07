@@ -3,13 +3,14 @@
 //! oldest two merging into one when a twenty-first arrives. No cap loses a count: each digest has
 //! a weight, read from its body, and a rollup or a merge weighs what it holds.
 
+use crate::Error;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use contracts::Actor;
 use contracts::agent::DigestEntry;
 use contracts::message::{Message, MessageKind, SendParams};
-use rpc::{Ctx, RpcError};
+use rpc::Ctx;
 
 use crate::digest::{self, cut, entry_text, push_body};
 use crate::{Inner, Messages, lock, pushes};
@@ -347,7 +348,7 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
     match crate::load_rail_nodes(inner).await {
         Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
-        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
+        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err)),
     }
     ledger.persist(inner, Some((meta, subagent)));
 }
@@ -368,7 +369,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
                     }
                 }
             }
-            Err(err) => crate::log_failure("push", &err.message),
+            Err(err) => crate::log_failure("push", &err.to_string()),
         }
     }
     ledger
@@ -407,12 +408,12 @@ async fn roll_up(
             slot.sent.push_back(now);
             slot.waiting.clear();
         }
-        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
+        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err)),
     }
 }
 
 /// Sends one pushed digest, then merges the oldest two while more than 20 are open.
-async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(), RpcError> {
+async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(), Error> {
     let messages = Messages {
         inner: Arc::clone(inner),
     };
@@ -427,14 +428,14 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
         body,
         reply_to: None,
     };
-    crate::trip(inner, "push").map_err(RpcError::internal)?;
+    crate::trip(inner, "push").map_err(Error::internal)?;
     messages.send_message(&ctx, params(body), false).await?;
     while lock(&inner.store).open_digests(meta)?.len() > OPEN_DIGESTS {
         if let Err(err) = messages
             .send_message(&ctx, params(PREFIX.to_owned()), true)
             .await
         {
-            crate::log_failure("push", &err.message);
+            crate::log_failure("push", &err.to_string());
             break;
         }
     }
@@ -444,7 +445,7 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
 /// DCL10: per Door, the changes it has not received, read from storage: pending Messages
 /// (a pushed digest standing for its weight) plus the ledger's waiting entries, a change counted
 /// once when a pending digest already holds its entry.
-pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, RpcError> {
+pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, Error> {
     let ledger = inner.pushes.lock().await;
     let pending = lock(&inner.store).pending_all()?;
     let mut counts: HashMap<String, u32> = HashMap::new();
@@ -487,7 +488,7 @@ impl Messages {
     }
 
     /// DCL10: per Door, how many changes it has not received, read from the stored backlog.
-    pub async fn waiting_counts(&self) -> Result<HashMap<String, u32>, RpcError> {
+    pub async fn waiting_counts(&self) -> Result<HashMap<String, u32>, Error> {
         waiting_counts(&self.inner).await
     }
 }

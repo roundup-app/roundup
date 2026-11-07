@@ -1,6 +1,7 @@
 //! B19, B20: what a Door is told about its children, composed from the Rail, the Todos, the
 //! Pads and the Messages, which only the Daemon holds together. Nothing here reads a Terminal.
 
+use crate::Error;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -10,7 +11,6 @@ use contracts::message::Message;
 use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, Kind};
-use rpc::RpcError;
 
 const LAST_BYTES: usize = 120;
 const PAD_NAME_BYTES: usize = 32;
@@ -418,7 +418,7 @@ impl Seen {
     }
 
     /// B20: the digest of Door `id`, asked for by `caller`.
-    pub fn ask(&self, caller: &Actor, id: &str, from: &Sources) -> Result<Digest, RpcError> {
+    pub fn ask(&self, caller: &Actor, id: &str, from: &Sources) -> Result<Digest, Error> {
         let projection = Projection::new(from);
         let from = &projection;
         let allowed = match caller.kind {
@@ -436,14 +436,14 @@ impl Seen {
             } else {
                 &caller.id
             };
-            return Err(RpcError::forbidden(format!(
+            return Err(Error::forbidden(format!(
                 "{caller_name} may not read the digest of {}",
                 name(id)
             )));
         }
-        let node = from.node(id).ok_or_else(|| RpcError::not_found(name(id)))?;
+        let node = from.node(id).ok_or_else(|| Error::not_found(name(id)))?;
         if node.kind != NodeKind::Workstream {
-            return Err(RpcError::conflict(format!("{} is no Door", node.name)));
+            return Err(Error::conflict(format!("{} is no Door", node.name)));
         }
         let children = from.children(id);
         let mut book = self.book();
