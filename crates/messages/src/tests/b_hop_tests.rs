@@ -159,7 +159,7 @@ impl Hops {
                 .parse::<i64>()
                 .unwrap()
                 + 1;
-            node.status_revision = Some(contracts::agent::Ordinal::new(revision as i64).unwrap());
+            node.status_revision = Some(contracts::agent::Ordinal::new(revision).unwrap());
         }
         self.bus.emit(
             Actor::daemon(),
@@ -167,7 +167,7 @@ impl Hops {
                 ended: false,
                 id: id.into(),
                 attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-                status_revision: contracts::agent::Ordinal::new(revision as i64).unwrap(),
+                status_revision: contracts::agent::Ordinal::new(revision).unwrap(),
                 status,
             })),
         );

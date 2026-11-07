@@ -946,12 +946,12 @@ fn b5641c_fresh_sources_keep_delivery_history() {
 #[test]
 fn b5641b_completion_keeps_question_and_note_time_bounds() {
     for (question_at, note_at, attempt, expected) in [
-        (Some(9), 20, "run", "final"),
-        (Some(10), 20, "run", "note"),
-        (Some(30), 20, "run", "note"),
-        (None, 21, "run", "note"),
-        (None, 19, "other", "note"),
-        (None, 19, "run", "final"),
+        (Some(9), 20, "1", "final"),
+        (Some(10), 20, "1", "note"),
+        (Some(30), 20, "1", "note"),
+        (None, 21, "1", "note"),
+        (None, 19, "2", "note"),
+        (None, 19, "1", "final"),
     ] {
         let mut nodes = rail();
         nodes[1].attempt = Some(contracts::agent::Ordinal::parse(attempt).unwrap());
@@ -966,7 +966,7 @@ fn b5641b_completion_keeps_question_and_note_time_bounds() {
         }
         let mut from = sources(&nodes, &[], &[], &messages);
         from.completed
-            .insert("a".into(), ("run:1".into(), 10, 20, "final".into()));
+            .insert("a".into(), ("1:1".into(), 10, 20, "final".into()));
         assert_eq!(
             Seen::default().entry_of("a", &from, false).unwrap().last,
             expected
