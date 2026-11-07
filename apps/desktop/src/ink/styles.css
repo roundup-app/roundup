@@ -129,6 +129,13 @@ p.ink[role="alert"] {
   line-height: var(--space-4);
 }
 
+.shelf-row :is(.todo-row-button, .pad-name) {
+  margin: 0;
+  padding: var(--space-1) 0;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
 .shelf-title {
   width: fit-content;
   max-width: 100%;

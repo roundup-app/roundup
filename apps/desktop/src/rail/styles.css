@@ -187,8 +187,10 @@
   min-width: 0;
 }
 
-.spawn-prompt-field {
+.field-frame.spawn-prompt-field {
   display: block;
+  width: calc(100% - 2 * var(--space-3));
+  margin-inline: var(--space-3);
   resize: none;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -539,8 +541,10 @@
   background: var(--ground);
 }
 
-.rail-row[data-editing="true"] input {
-  width: 100%;
+/* The field ends before the row's icons, which stay inert while the name is edited. */
+.rail-row[data-editing="true"] .row-tail {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .rail-recovery summary {
