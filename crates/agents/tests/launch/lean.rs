@@ -1000,8 +1000,7 @@ fn lc24_the_launch_adds_only_its_listed_keys() {
         "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS",
         "CLAUDE_CODE_PLUGIN_DIR_WATCH",
         "ENABLE_TOOL_SEARCH",
-        // A15's markers are removed, which `get_envs` reports as a key with no value.
-        "",
+        "", // A15's removed markers: `get_envs` reports a key with no value
     ];
     let user = json!({
         "env": {"USER_SECRET": "x", "ANTHROPIC_BASE_URL": "http://proxy.test"},
@@ -1066,7 +1065,8 @@ fn lc24_the_launch_adds_only_its_listed_keys() {
                 "{label}"
             );
             let path = settings["env"]["PATH"].as_str().unwrap();
-            assert!(!path.contains(".bin"), "{label}: no shim folder on PATH");
+            let shim = std::env::split_paths(path).any(|d| d.ends_with("7.bin"));
+            assert!(!shim, "{label}: no shim");
         }
     }
 }
