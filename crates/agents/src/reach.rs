@@ -185,9 +185,9 @@ impl crate::Agents {
             let runs = self.shared.runs();
             runs.iter().find_map(|(agent, slot)| match slot {
                 crate::Slot::Running(run)
-                    if run.terminal_id == terminal
+                    if run.terminal_id() == terminal
                         && run
-                            .adapter
+                            .adapter()
                             .status()
                             .is_some_and(|status| status.kind == Kind::NeedsYou) =>
                 {

@@ -170,9 +170,11 @@ impl Shared {
     pub(super) fn observe_program(&self, terminal: &str, status: Status) {
         let found = self.runs().iter().find_map(|(id, slot)| match slot {
             Slot::Running(run)
-                if run.terminal_id == terminal && !run.ended && !run.adapter.has_hook_signal() =>
+                if run.terminal_id() == terminal
+                    && !run.ended()
+                    && !run.adapter().has_hook_signal() =>
             {
-                Some((id.clone(), run.attempt.to_string()))
+                Some((id.clone(), run.attempt().to_string()))
             }
             _ => None,
         });
@@ -271,7 +273,7 @@ impl Shared {
             }
             match runs.get_mut(id) {
                 Some(Slot::Running(run)) => {
-                    if run.ended {
+                    if run.ended() {
                         return Err(RpcError::not_found(format!("{name} has ended")));
                     }
                     // A21: a Signal naming a conversation of the current Attempt saves it
@@ -284,25 +286,13 @@ impl Shared {
                         && let Err(err) = save_signal_conversation(rail, run, id, payload)
                     {
                         self.events.observed.notify_waiters();
-                        if let Some(status) =
-                            run.adapter.fail(format!("cannot save conversation: {err}"))
+                        if let Some(status) = run
+                            .adapter_mut()
+                            .fail(format!("cannot save conversation: {err}"))
                         {
-                            run.status_revision = run
-                                .status_revision
-                                .next()
-                                .expect("Status revision exhausted");
-                            self.bus.emit(
-                                actor.clone(),
-                                EventData::AgentStatus(Box::new(StatusEvent {
-                                    ended: false,
-                                    id: id.to_owned(),
-                                    attempt: run.attempt.clone(),
-                                    status_revision: run.status_revision.clone(),
-                                    status,
-                                })),
-                            );
+                            run.publish(&self.bus, actor.clone(), id, status);
                         }
-                        self.spawn_kill(run.terminal_id.clone());
+                        self.spawn_kill(run.terminal_id().to_owned());
                         return Err(err);
                     }
                     self.apply(
@@ -368,53 +358,37 @@ impl Shared {
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
-            run.session_started
-                .get_or_insert_with(tokio::time::Instant::now);
+            run.note_session_start();
         }
         if star {
-            run.starred = true;
+            run.note_star();
         }
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
-            && !run.input_started
+            && !run.input_started()
         {
-            self.save_input_started(id, &run.attempt)?;
-            run.input_started = true;
+            self.save_input_started(id, run.attempt())?;
+            run.start_input();
         }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
             && run
-                .steer
-                .as_ref()
+                .steer()
                 .and_then(|steer| steer.slash_written.as_ref())
                 .is_none_or(|gate| *gate.lock().expect("slash-command write gate"))
         {
             // H12 permits a late submission after refusal. Keep that acknowledgement even
             // after the Steer's timeout so a coordinator retry need not Resume again.
-            if matches!(run.first_prompt, Some(FirstPrompt::Written)) {
-                run.first_prompt = Some(FirstPrompt::Acknowledged);
-            }
-            if let Some(steer) = run.steer.take() {
-                let _ = steer.submitted.send(());
-            }
+            run.submit_steer();
         } else if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
-            run.steer = None;
-            // No writer owns a prompt still waiting for H19. Drop it before settling;
-            // a released/queued writer must publish its own completion instead.
-            if run.prompt.take().is_some() {
-                run.first_pending = false;
-                if let Some(completion) = &run.first_completion {
-                    completion.send_replace(Some(FirstSteerCompletion::Refused));
-                }
-            }
+            // The Agent is over: no Steer or Interrupt waits on it. A prompt no writer owns is
+            // refused; a released or queued writer must publish its own completion instead.
+            run.finish_waits();
         }
         // H13: the Interrupt's wait ends with the title (or the Dismissal of its dialog) that
         // leaves the Agent idle, or with the Agent.
         let acks = matches!(observation, Observation::Title(_) | Observation::Tick);
-        if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
-            run.interrupt = None;
-        }
         if let Observation::Signal(payload) = &observation {
             // Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
             let mut calls = self
@@ -423,7 +397,7 @@ impl Shared {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
             let mut current = calls.remove(id);
-            if claude_code::toolcall::fold(&mut current, payload, &run.cwd, (self.clock)())
+            if claude_code::toolcall::fold(&mut current, payload, run.cwd(), (self.clock)())
                 && let Some(tracked) = &current
             {
                 self.bus.emit(
@@ -438,38 +412,38 @@ impl Shared {
                 calls.insert(id.to_owned(), tracked);
             }
         }
-        let was_kind = run.adapter.status().map(|status| status.kind);
-        let was_finished = run.adapter.finished();
-        let was_final_text = run.adapter.final_text();
-        let was_completed = run.adapter.completed_turn().map(str::to_owned);
-        let was_background = run.adapter.retained();
+        let was_kind = run.adapter().status().map(|status| status.kind);
+        let was_finished = run.adapter().finished();
+        let was_final_text = run.adapter().final_text();
+        let was_completed = run.adapter().completed_turn().map(str::to_owned);
+        let was_background = run.adapter().retained();
         let signal = matches!(observation, Observation::Signal(_));
-        let (changed, completion_changed) = run.adapter.observe_completion(observation);
+        let (changed, completion_changed) = run.adapter_mut().observe_completion(observation);
         let changed = changed.or_else(|| {
-            if !exited || run.ended {
+            if !exited || run.ended() {
                 return None;
             }
-            let mut status = run.adapter.status()?.clone();
+            let mut status = run.adapter().status()?.clone();
             status.since = (self.clock)();
             Some(status)
         });
-        if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind)).is_some()
+        if super::rail_view::visibility_protection(run.adapter().status().map(|s| s.kind)).is_some()
             && let Some(rail) = rail.as_deref_mut()
             && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
         {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        if was_final_text != run.adapter.final_text() || completion_changed {
+        if was_final_text != run.adapter().final_text() || completion_changed {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        if let Some(turn) = run.adapter.completed_turn()
+        if let Some(turn) = run.adapter().completed_turn()
             && was_completed.as_deref() != Some(turn)
         {
             self.bus.emit(
                 actor.clone(),
                 EventData::AgentCompleted(contracts::event::Completion {
                     maker: id.to_owned(),
-                    attempt: run.attempt.to_string(),
+                    attempt: run.attempt().to_string(),
                     turn: turn.to_owned(),
                 }),
             );
@@ -480,11 +454,10 @@ impl Shared {
                     .as_ref()
                     .is_some_and(|status| Some(status.kind) != was_kind))
             && run
-                .steer
-                .as_ref()
+                .steer()
                 .and_then(|steer| steer.slash_written.as_ref())
                 .is_some_and(|gate| *gate.lock().expect("slash-command write gate"))
-            && let Some(steer) = run.steer.take()
+            && let Some(steer) = run.take_steer()
         {
             let _ = steer.submitted.send(());
         }
@@ -500,26 +473,26 @@ impl Shared {
                 && changed
                     .as_ref()
                     .is_some_and(|status| status.kind == Kind::Idle))
-            && let Some(waiting) = run.interrupt.take()
+            && let Some(waiting) = run.take_interrupt()
         {
             let _ = waiting.send(());
         }
         if exited {
-            run.ended = true;
+            run.exit();
             if let Some(rail) = rail.as_deref_mut() {
                 rail.detach_terminal(id)?;
             }
         }
         // DCL3c: background work is saved before its Status is published, so a reopen finds it.
-        let background = run.adapter.retained();
+        let background = run.adapter().retained();
         if background != was_background {
-            self.save_background(id, &run.attempt, background)?;
+            self.save_background(id, run.attempt(), background)?;
         }
         // U3566c: a counted finish is saved before its Status is published.
-        if run.adapter.finished() != was_finished
+        if run.adapter().finished() != was_finished
             && let Some(rail) = rail.as_deref_mut()
         {
-            rail.set_finished(id, run.adapter.finished())?;
+            rail.set_finished(id, run.adapter().finished())?;
         }
         // Announced while `runs` is parked, so announcements leave in the order the Status
         // changed; `emit` never blocks.
@@ -533,25 +506,13 @@ impl Shared {
             );
             let status = waiting_on(&status, self.wait_of(id));
             let status = resume_wait::resuming(&status, self.resume_of(id).as_ref());
-            run.status_revision = run
-                .status_revision
-                .next()
-                .expect("Status revision exhausted");
-            let event = StatusEvent {
-                ended: run.ended,
-                id: id.to_owned(),
-                attempt: run.attempt.clone(),
-                status_revision: run.status_revision.clone(),
-                status,
-            };
-            self.bus
-                .emit(actor.clone(), EventData::AgentStatus(event.into()));
+            run.publish(&self.bus, actor.clone(), id, status);
             if resume_moved {
                 self.bus.emit(Actor::daemon(), EventData::RailChanged);
             }
         }
         if let (Some(rail), Some(name)) = (rail, first_prompt)
-            && !std::mem::replace(&mut run.named, true)
+            && run.claim_name()
             && self
                 .automatic_renaming
                 .as_ref()
@@ -583,8 +544,8 @@ impl Shared {
             }
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.prompt.take_if(|_| run.session_started.is_some());
-        Ok((prompt, run.adapter.tick_at()))
+        let prompt = run.release_prompt();
+        Ok((prompt, run.adapter().tick_at()))
     }
 }
 
@@ -597,7 +558,7 @@ pub(super) fn channel_in(
 ) -> Option<Channel> {
     let slot = slot?;
     let live = match slot {
-        Slot::Running(run) => !run.ended && !run.closing,
+        Slot::Running(run) => !run.ended() && !run.closing(),
         Slot::Starting { .. } | Slot::Resuming { .. } => true,
         Slot::Closing | Slot::ResumeCleanup { .. } => false,
     };
@@ -698,11 +659,11 @@ impl Shared {
             let Some(Slot::Running(run)) = runs.get(id) else {
                 return Ok(tick_at);
             };
-            if run.ended || !run.adapter.needs_processes() {
+            if run.ended() || !run.adapter().needs_processes() {
                 return Ok(tick_at);
             }
             // A program that is gone has no work; its Exit follows.
-            self.terminals.program_pid(&run.terminal_id)
+            self.terminals.program_pid(run.terminal_id())
         };
         let Some(root) = root else {
             return self.observe(
@@ -736,13 +697,13 @@ impl Agents {
         let Slot::Running(run) = runs.get(maker)? else {
             return None;
         };
-        if run.ended || run.closing {
+        if run.ended() || run.closing() {
             return None;
         }
         Some(contracts::event::Completion {
             maker: maker.to_owned(),
-            attempt: run.attempt.to_string(),
-            turn: run.adapter.turn()?.to_owned(),
+            attempt: run.attempt().to_string(),
+            turn: run.adapter().turn()?.to_owned(),
         })
     }
 
@@ -753,7 +714,7 @@ impl Agents {
             .runs()
             .iter()
             .filter_map(|(id, slot)| match slot {
-                Slot::Running(run) if !run.ended && run.adapter.stalled(limit_ms) => {
+                Slot::Running(run) if !run.ended() && run.adapter().stalled(limit_ms) => {
                     Some(id.clone())
                 }
                 _ => None,
@@ -767,8 +728,8 @@ impl Agents {
             .runs()
             .iter()
             .filter_map(|(id, slot)| match slot {
-                Slot::Running(run) if !run.ended && run.adapter.compactions() > 0 => {
-                    Some((id.clone(), run.adapter.compactions()))
+                Slot::Running(run) if !run.ended() && run.adapter().compactions() > 0 => {
+                    Some((id.clone(), run.adapter().compactions()))
                 }
                 _ => None,
             })
@@ -785,14 +746,14 @@ impl Agents {
                 let Slot::Running(run) = slot else {
                     return None;
                 };
-                if run.ended {
+                if run.ended() {
                     return None;
                 }
-                let (turn, started, ended, text) = run.adapter.completed_text()?;
+                let (turn, started, ended, text) = run.adapter().completed_text()?;
                 Some((
                     id.clone(),
                     (
-                        format!("{}:{turn}", run.attempt),
+                        format!("{}:{turn}", run.attempt()),
                         *started,
                         *ended,
                         text.clone(),
