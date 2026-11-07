@@ -107,7 +107,7 @@ impl Agents {
                     let runs = self.shared.runs();
                     match runs.get(id) {
                         Some(Slot::Running(run))
-                            if run.attempt == attempt && !run.ended && !run.closing =>
+                            if *run.attempt == *attempt && !run.ended && !run.closing =>
                         {
                             if run.session_started.is_some()
                                 && !run.first_pending
@@ -187,7 +187,7 @@ impl Agents {
                 return Err(error);
             }
         };
-        let attempt = node.attempt.clone().unwrap_or_default();
+        let attempt = node.attempt.as_deref().unwrap_or_default().to_owned();
         let started = async {
             loop {
                 let observed = self.shared.events.observed.notified();

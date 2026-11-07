@@ -733,12 +733,12 @@ fn b37_an_older_idle_snapshot_cannot_supersede_a_needs_you_digest() {
     let seen = Seen::default();
     let mut idle = rail();
     idle[1].status = Some(status(Kind::Idle, "idle"));
-    idle[1].status_revision = Some("4".into());
+    idle[1].status_revision = Some(contracts::agent::Ordinal::parse("4").unwrap());
     seen.baseline(&sources(&idle, &[], &[], &[]));
 
     let mut asking = idle.clone();
     asking[1].status = Some(status(Kind::NeedsYou, "Bash: ls"));
-    asking[1].status_revision = Some("5".into());
+    asking[1].status_revision = Some(contracts::agent::Ordinal::parse("5").unwrap());
     seen.entry_of("a", &sources(&asking, &[], &[], &[]), true)
         .unwrap();
 
@@ -946,15 +946,15 @@ fn b5641c_fresh_sources_keep_delivery_history() {
 #[test]
 fn b5641b_completion_keeps_question_and_note_time_bounds() {
     for (question_at, note_at, attempt, expected) in [
-        (Some(9), 20, "run", "final"),
-        (Some(10), 20, "run", "note"),
-        (Some(30), 20, "run", "note"),
-        (None, 21, "run", "note"),
-        (None, 19, "other", "note"),
-        (None, 19, "run", "final"),
+        (Some(9), 20, "1", "final"),
+        (Some(10), 20, "1", "note"),
+        (Some(30), 20, "1", "note"),
+        (None, 21, "1", "note"),
+        (None, 19, "2", "note"),
+        (None, 19, "1", "final"),
     ] {
         let mut nodes = rail();
-        nodes[1].attempt = Some(attempt.into());
+        nodes[1].attempt = Some(contracts::agent::Ordinal::parse(attempt).unwrap());
         let mut note = sent(10, "a", "m", "note");
         note.at = note_at;
         let mut messages = vec![note];
@@ -966,7 +966,7 @@ fn b5641b_completion_keeps_question_and_note_time_bounds() {
         }
         let mut from = sources(&nodes, &[], &[], &messages);
         from.completed
-            .insert("a".into(), ("run:1".into(), 10, 20, "final".into()));
+            .insert("a".into(), ("1:1".into(), 10, 20, "final".into()));
         assert_eq!(
             Seen::default().entry_of("a", &from, false).unwrap().last,
             expected

@@ -13,7 +13,7 @@ pub(crate) struct Declared {
 }
 
 pub(crate) fn schema_of<T: JsonSchema>() -> Value {
-    serde_json::to_value(schemars::schema_for!(T)).expect("a schema is JSON")
+    schemars::schema_for!(T).to_value()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
@@ -111,17 +111,20 @@ fn distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let mut row: Vec<usize> = (0..=b.len()).collect();
     for (i, ca) in a.chars().enumerate() {
-        let mut diagonal = row[0];
-        row[0] = i + 1;
+        let mut next = vec![i + 1];
         for (j, cb) in b.iter().enumerate() {
-            let above = row[j + 1];
-            row[j + 1] = (diagonal + usize::from(ca != *cb))
-                .min(above + 1)
-                .min(row[j] + 1);
-            diagonal = above;
+            let diagonal = row.get(j).copied().unwrap_or_default();
+            let above = row.get(j + 1).copied().unwrap_or_default();
+            let left = next.last().copied().unwrap_or_default();
+            next.push(
+                (diagonal + usize::from(ca != *cb))
+                    .min(above + 1)
+                    .min(left + 1),
+            );
         }
+        row = next;
     }
-    row[b.len()]
+    row.last().copied().unwrap_or_default()
 }
 
 /// The smallest value a schema document accepts: required fields only, the first choice of each union.
