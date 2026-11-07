@@ -353,8 +353,8 @@ pub(crate) fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> (String, Pa
 
 /// B21, B22: accepts one changed entry, retaining it until its Door can receive it.
 ///
-/// DTC2: a quiet entry (`waking` false, or its child under an open Wake request of the Door) is
-/// stored and starts no turn; `release_quiet` writes it with the next Message the Door takes.
+/// DTC2: a quiet entry (`waking` false) is stored and starts no turn; a waking one, the report or
+/// end note of a child, is never made quiet, whatever Wake request the Door holds; `release_quiet` writes it with the next Message the Door takes.
 pub(crate) async fn push(
     inner: &Arc<Inner>,
     meta: &str,
@@ -362,7 +362,7 @@ pub(crate) async fn push(
     entry: &DigestEntry,
     waking: bool,
 ) {
-    let quiet = !waking || under_wake(inner, meta, subagent);
+    let quiet = !waking;
     // DCL4's observer ends the Daemon here, after the change was recorded as told and before it is
     // queued; the hook refuses nothing.
     let _ = crate::trip(inner, "push.queue");
@@ -395,29 +395,18 @@ pub(crate) async fn push(
     ledger.persist(inner, Some((meta, subagent)));
 }
 
-/// DTC2: whether `door` holds an open Wake request naming `child`.
-fn under_wake(inner: &Arc<Inner>, door: &str, child: &str) -> bool {
-    lock(&inner.store)
-        .wakes()
-        .map(|wakes| {
-            wakes
-                .iter()
-                .any(|wake| wake.waiter == door && wake.ids.iter().any(|id| id == child))
-        })
-        .unwrap_or(false)
-}
-
 /// DTC2: a Door is about to take Messages, so the quiet entries waiting for it go out with them, as
 /// one rollup (B22) in the same inbox write. A busy ledger is a push in progress that sends its own.
 pub(crate) fn release_quiet<'a>(
     inner: &'a Arc<Inner>,
     door: &'a str,
+    turn_start: bool,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
     // Boxed: the rollup it sends is delivered through `on_idle`, which calls this again.
-    Box::pin(release(inner, door))
+    Box::pin(release(inner, door, turn_start))
 }
 
-async fn release(inner: &Arc<Inner>, door: &str) {
+async fn release(inner: &Arc<Inner>, door: &str, turn_start: bool) {
     let Ok(mut ledger) = inner.pushes.try_lock() else {
         return;
     };
@@ -427,9 +416,12 @@ async fn release(inner: &Arc<Inner>, door: &str) {
     if !slot.all_quiet || slot.waiting.is_empty() {
         return;
     }
-    if !lock(&inner.store)
-        .list_pending_to(door)
-        .is_ok_and(|pending| !pending.is_empty())
+    // A Door turn already under way (the user's prompt) takes the quiet notes though nothing else
+    // waits; a Door at rest takes them only with a Message, so quiet notes alone start no turn.
+    if !turn_start
+        && !lock(&inner.store)
+            .list_pending_to(door)
+            .is_ok_and(|pending| !pending.is_empty())
     {
         return;
     }

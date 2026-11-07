@@ -988,3 +988,6 @@ async fn subscribe(run: &Run) -> Client {
     events.request("events.subscribe", json!({})).await.unwrap();
     events
 }
+
+#[path = "support/dtc2_quiet_notes.rs"]
+mod dtc2_quiet_notes;
