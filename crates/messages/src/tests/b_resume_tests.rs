@@ -121,7 +121,7 @@ async fn b5551a_a_surviving_agent_accepts_messages_after_its_first_status() {
                     .await
                     .unwrap();
                 drop(before);
-                let store = Store::open(&dir.path().join("messages.db")).unwrap();
+                let store = Store::open(dir.path()).unwrap();
                 store.bind(3, (1, i64::MAX)).unwrap();
                 store
                     .set_generation(

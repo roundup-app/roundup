@@ -1,4 +1,4 @@
-//! SQLite persistence for Messages and Routes. `<dir>/messages.db` (ADR 0004, WAL).
+//! SQLite persistence for Messages and Routes. `<dir>/project.db` (ADR 0004, WAL).
 
 use crate::Error;
 use std::path::Path;
@@ -61,11 +61,11 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn open(path: &Path) -> Result<Self, OpenError> {
-        let mut db = Connection::open(path)?;
-        db.pragma_update(None, "journal_mode", "WAL")?;
-        crate::schema::open(&mut db, path)?;
-        Ok(Self { db })
+    /// The Project database in `dir`, opened through `storage::connect` (N22).
+    pub(crate) fn open(dir: &Path) -> Result<Self, OpenError> {
+        Ok(Self {
+            db: storage::connect(dir)?,
+        })
     }
 
     pub(crate) fn record_sender_name(&self, agent: &str, name: &str) -> Result<(), Error> {

@@ -18,10 +18,10 @@ impl From<Value> for Frame {
 
 impl Frame {
     /// The frame as the client reads it.
-    pub(crate) fn into_value(self) -> Value {
+    pub(crate) fn into_value(self) -> serde_json::Result<Value> {
         match self {
-            Self::Value(value) => value,
-            Self::Json(text) => serde_json::from_str(&text).expect("a written frame is JSON"),
+            Self::Value(value) => Ok(value),
+            Self::Json(text) => serde_json::from_str(&text),
         }
     }
 

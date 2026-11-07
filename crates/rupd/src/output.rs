@@ -3,8 +3,9 @@
 //! Each selection has its own task and its own bounded path to the socket writer, so a connection
 //! that reads slowly sees a gap in that Terminal's bytes and slows nothing else.
 
+use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
@@ -30,7 +31,7 @@ struct Selected(Mutex<HashMap<String, JoinHandle<()>>>);
 
 impl Drop for Selected {
     fn drop(&mut self) {
-        for task in self.0.get_mut().expect("selections lock").values() {
+        for task in self.0.get_mut().values() {
             task.abort();
         }
     }
@@ -55,12 +56,7 @@ impl Port {
 
     fn select_with(&self, id: &str, stream: Stream) {
         let task = tokio::spawn(forward(id.to_owned(), stream, self.frames.clone()));
-        let earlier = self
-            .selected
-            .0
-            .lock()
-            .expect("selections lock")
-            .insert(id.to_owned(), task);
+        let earlier = self.selected.0.lock().insert(id.to_owned(), task);
         if let Some(earlier) = earlier {
             earlier.abort();
         }
@@ -68,7 +64,7 @@ impl Port {
 
     /// Release the selection of Terminal `id`; none selected is not an error.
     pub(crate) fn release(&self, id: &str) {
-        if let Some(task) = self.selected.0.lock().expect("selections lock").remove(id) {
+        if let Some(task) = self.selected.0.lock().remove(id) {
             task.abort();
         }
     }
@@ -97,14 +93,14 @@ async fn forward(id: String, mut stream: Stream, frames: mpsc::Sender<Frame>) {
             item = stream.next() => item,
         };
         let Some(item) = item else { return };
-        let frame = frame(&id, &item);
+        let Ok(frame) = frame(&id, &item) else { return };
         if frames.send(frame).await.is_err() {
             return;
         }
     }
 }
 
-fn frame(id: &str, item: &Output) -> Frame {
+fn frame(id: &str, item: &Output) -> serde_json::Result<Frame> {
     #[derive(Serialize)]
     struct Envelope<T> {
         jsonrpc: &'static str,
@@ -143,7 +139,7 @@ fn frame(id: &str, item: &Output) -> Frame {
             },
         }),
     };
-    Frame::Json(text.expect("Terminal output fields serialize to JSON"))
+    text.map(Frame::Json)
 }
 
 #[cfg(test)]
@@ -188,8 +184,8 @@ mod tests {
     #[test]
     fn r5638a_output_line_preserves_bytes_and_metadata() {
         let (id, item) = fixture();
-        let value = line_value(&frame(&id, &item).into_line().unwrap());
-        assert_eq!(value, old_frame(&id, &item).into_value());
+        let value = line_value(&frame(&id, &item).unwrap().into_line().unwrap());
+        assert_eq!(value, old_frame(&id, &item).into_value().unwrap());
         let Output::Bytes { bytes, .. } = item else {
             unreachable!()
         };
@@ -210,8 +206,8 @@ mod tests {
             to: u64::MAX,
         };
         assert_eq!(
-            line_value(&frame(&id, &gap).into_line().unwrap()),
-            old_frame(&id, &gap).into_value()
+            line_value(&frame(&id, &gap).unwrap().into_line().unwrap()),
+            old_frame(&id, &gap).into_value().unwrap()
         );
     }
 
@@ -221,8 +217,9 @@ mod tests {
         let (mut old, mut new) = (None, None);
         let before =
             allocation_counter::measure(|| old = Some(old_frame(&id, &item).into_line().unwrap()));
-        let after =
-            allocation_counter::measure(|| new = Some(frame(&id, &item).into_line().unwrap()));
+        let after = allocation_counter::measure(|| {
+            new = Some(frame(&id, &item).unwrap().into_line().unwrap())
+        });
         assert_eq!(
             line_value(old.as_ref().unwrap()),
             line_value(new.as_ref().unwrap())
@@ -247,8 +244,8 @@ mod tests {
         .unwrap();
         drop(tx);
         port.select_with("one", Stream::Memory(rx));
-        let gap = pending.recv().await.unwrap().into_value();
-        let tail = pending.recv().await.unwrap().into_value();
+        let gap = pending.recv().await.unwrap().into_value().unwrap();
+        let tail = pending.recv().await.unwrap().into_value().unwrap();
         assert_eq!(
             gap,
             json!({"jsonrpc":"2.0","method":"terminal.gap","params":{"id":"one","from":7,"to":19}})
@@ -260,7 +257,7 @@ mod tests {
                 .unwrap(),
             b"tail\xc3"
         );
-        let task = port.selected.0.lock().unwrap().remove("one").unwrap();
+        let task = port.selected.0.lock().remove("one").unwrap();
         task.await.unwrap();
     }
 
@@ -279,7 +276,7 @@ mod tests {
         assert!(!other.is_closed());
         other.send(Output::Gap { from: 3, to: 9 }).await.unwrap();
         assert_eq!(
-            pending.recv().await.unwrap().into_value()["params"]["id"],
+            pending.recv().await.unwrap().into_value().unwrap()["params"]["id"],
             "two"
         );
         assert!(pending.try_recv().is_err());

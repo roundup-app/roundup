@@ -20,13 +20,7 @@ impl Pads {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused.
     pub fn open(dir: &Path, _bus: Bus) -> Result<Self, OpenError> {
         Ok(Self {
-            store: Mutex::new(Store::open(&dir.join(
-                if dir.join("project.db").exists() {
-                    "project.db"
-                } else {
-                    "pads.db"
-                },
-            ))?),
+            store: Mutex::new(Store::open(dir)?),
             files_dir: dir.join("pads"),
         })
     }

@@ -14,13 +14,13 @@ storage = { path = "../storage" }
 serde.workspace = true
 serde_json.workspace = true
 rusqlite.workspace = true
-rusqlite_migration.workspace = true
 tokio.workspace = true
 backon = "1"
 thiserror.workspace = true
 
 [dev-dependencies]
 allocation-counter = "0.8.1"
+rusqlite_migration.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 

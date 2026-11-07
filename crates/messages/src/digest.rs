@@ -212,12 +212,10 @@ pub struct Intent {
 pub struct Seen(Mutex<Book>);
 
 impl Seen {
-    /// A `Seen` whose Pad cursors live in `path` (`project.db` in production), as they were when the
+    /// A `Seen` whose Pad cursors live in the Project database of `dir`, as they were when the
     /// Daemon last ran (B23).
-    pub fn open(path: &Path) -> rusqlite::Result<Self> {
-        let mut db = rusqlite::Connection::open(path)?;
-        db.pragma_update(None, "journal_mode", "WAL")?;
-        crate::digest_schema::open(&mut db, path)?;
+    pub fn open(dir: &Path) -> rusqlite::Result<Self> {
+        let db = storage::connect(dir)?;
         let named = db
             .prepare("SELECT door, child, newest FROM pad_cursors")?
             .query_map([], |row| Ok(((row.get(0)?, row.get(1)?), row.get(2)?)))?
@@ -236,8 +234,7 @@ impl Seen {
             .into_iter()
             .filter_map(|(key, json)| Some((key, serde_json::from_str(&json).ok()?)))
             .collect();
-        let tell_db = rusqlite::Connection::open(path)?;
-        tell_db.pragma_update(None, "journal_mode", "WAL")?;
+        let tell_db = storage::connect(dir)?;
         Ok(Self(Mutex::new(Book {
             named,
             told: TellMap {

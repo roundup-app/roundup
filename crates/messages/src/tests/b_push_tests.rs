@@ -770,11 +770,7 @@ async fn dcl10a_a_refused_ledger_write_keeps_the_entry_waiting() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
     door_terminal(&h, None);
-    let path = dir.path().join(if dir.path().join("project.db").exists() {
-        "project.db"
-    } else {
-        "messages.db"
-    });
+    let path = dir.path().join("project.db");
     let other = rusqlite::Connection::open(&path).unwrap();
     other
         .execute(
