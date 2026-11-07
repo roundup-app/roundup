@@ -55,7 +55,15 @@ it("u6398a_a_pointer_press_on_a_shelf_owner_group_starts_one_projection", async 
 it("u6398a_a_pointer_press_on_the_rail_footer_list_starts_one_projection", async () => {
   const { connected } = await mountRail([agent("a", "working", "busy", { alert_level: "quiet" })]);
   connected.held.retain({ agent: "a", name: "Agent", kind: "needs-you", line: "needs you", at: 1 });
-  fireEvent.click(await waitFor(() => { const trigger = document.querySelector<HTMLElement>(".rail-footer .disclosure-trigger"); expect(trigger).not.toBeNull(); return trigger!; }), { detail: 1 });
+
+  const trigger = await waitFor(() => {
+    const found = document.querySelector<HTMLElement>(".rail-footer .disclosure-trigger");
+    expect(found).not.toBeNull();
+
+    return found!;
+  });
+
+  fireEvent.click(trigger, { detail: 1 });
   expect(engine.animateLayout).toHaveBeenCalledOnce();
 });
 
