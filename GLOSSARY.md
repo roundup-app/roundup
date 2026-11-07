@@ -84,6 +84,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Rollup | same | — |
 | Attempt | same | — |
 | Status revision | same | — |
+| Ordinal (`Ordinal`; an Attempt or Status revision on the wire: a canonical positive decimal string) | same | — |
 | Finish count (`Status.finished`, `finished`) | same | — |
 | Unseen (`unseen`, `UnseenState`) | Unread result | — |
 | Resume (`ResumeParams`, `ResumeMode`) | same | — |

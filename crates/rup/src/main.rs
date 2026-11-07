@@ -203,9 +203,9 @@ async fn ping(options: &Options) -> Result<(), String> {
 async fn signal(agent_id: &str) -> Result<bool, String> {
     let attempt =
         std::env::var("ROUNDUP_ATTEMPT").map_err(|_| "ROUNDUP_ATTEMPT is required".to_owned())?;
-    if contracts::agent::parse_positive_ordinal(&attempt).is_none() {
-        return Err("ROUNDUP_ATTEMPT must be a canonical positive signed 64-bit decimal".into());
-    }
+    let attempt = contracts::agent::Ordinal::parse(&attempt).ok_or_else(|| {
+        "ROUNDUP_ATTEMPT must be a canonical positive signed 64-bit decimal".to_owned()
+    })?;
     let mut input = String::new();
     std::io::stdin()
         .read_to_string(&mut input)
@@ -287,7 +287,11 @@ async fn identified(agent_id: &str) -> Result<rpc::Client, String> {
 }
 
 /// Identify as Agent `agent_id` and hand the Daemon its Signal.
-async fn deliver(agent_id: &str, attempt: String, payload: Value) -> Result<bool, String> {
+async fn deliver(
+    agent_id: &str,
+    attempt: contracts::agent::Ordinal,
+    payload: Value,
+) -> Result<bool, String> {
     let client = identified(agent_id).await?;
     let signal = SignalParams {
         id: agent_id.to_owned(),

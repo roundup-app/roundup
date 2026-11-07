@@ -292,6 +292,7 @@ impl Messages {
 }
 
 fn parse_attempt(attempt: &str) -> Result<i64, RpcError> {
-    contracts::agent::parse_positive_ordinal(attempt)
+    contracts::agent::Ordinal::parse(attempt)
+        .map(|n| n.get())
         .ok_or_else(|| RpcError::new(code::INVALID_PARAMS, "invalid Attempt"))
 }

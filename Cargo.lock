@@ -5532,6 +5532,7 @@ dependencies = [
  "serde_json",
  "stats_alloc",
  "tempfile",
+ "terminal",
  "tokio",
  "vt100",
 ]

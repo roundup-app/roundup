@@ -1,4 +1,5 @@
 use super::*;
+use contracts::agent::Ordinal;
 
 /// State the Terminal watchers and the RPC calls share.
 /// A33: an `idle` Status of an Agent that waits on blocker `wait` reads `blocked`; every other
@@ -81,7 +82,7 @@ impl Shared {
             }
             run.status_revision = run
                 .status_revision
-                .checked_add(1)
+                .next()
                 .expect("Status revision exhausted");
             self.bus.emit(
                 Actor::daemon(),
@@ -89,7 +90,7 @@ impl Shared {
                     ended: false,
                     id: id.clone(),
                     attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.to_string(),
+                    status_revision: run.status_revision.clone(),
                     status: after,
                 })),
             );
@@ -101,7 +102,7 @@ impl Shared {
         agent_lock(&self.runs).expect("runs lock")
     }
 
-    pub(super) fn mark_starting(&self, id: &str, attempt: String) {
+    pub(super) fn mark_starting(&self, id: &str, attempt: Ordinal) {
         let since = (self.clock)();
         self.runs().insert(
             id.to_owned(),
@@ -132,7 +133,7 @@ impl Shared {
             Some(Slot::Running(run)) => {
                 run.adapter.turn().map(|turn| contracts::agent::FinalText {
                     turn: turn.to_owned(),
-                    attempt: run.attempt.clone(),
+                    attempt: run.attempt.to_string(),
                     finished: run.adapter.finished().to_string(),
                     kind: run.adapter.final_text(),
                 })
@@ -140,9 +141,9 @@ impl Shared {
             _ => None,
         };
         node.status_revision = match runs.get(&node.id) {
-            Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
+            Some(Slot::Running(run)) => Some(run.status_revision.clone()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.
-            Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some("1".into()),
+            Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some(Ordinal::first()),
             _ => None,
         };
         let live = match runs.get(&node.id) {
@@ -180,7 +181,7 @@ impl Shared {
         #[cfg(feature = "test-support")]
         if let Some(status) = self.rail_view.statuses.lock().unwrap().get(&node.id) {
             node.status = Some(status.clone());
-            node.status_revision = Some("1".into());
+            node.status_revision = Some(Ordinal::first());
         }
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {

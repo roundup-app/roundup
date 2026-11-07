@@ -46,7 +46,7 @@ macro_rules! declarations {
         pub fn owner_namespace(method: &str) -> Option<&'static str> {
             match method { $($($wire => Some($namespace),)*)* _ => None }
         }
-        pub(crate) fn exported() -> Vec<ExportedMethod> { vec![$($(typed::<$params, $result>($wire),)*)*] }
+        pub(crate) fn exported() -> Result<Vec<ExportedMethod>, crate::methods::ExportError> { vec![$($(typed::<$params, $result>($wire),)*)*].into_iter().collect() }
         pub fn metadata() -> Vec<crate::methods::Metadata> {
             vec![$($(crate::methods::Metadata { name: $wire, mcp: mcp_choice!($role($($tool)*)), perf: perf_disposition!($perf($($disposition)*)), description: method_text!($text$(($description))?, $role($($tool)*)), },)*)*]
         }

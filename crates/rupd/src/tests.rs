@@ -300,7 +300,7 @@ struct Echo;
 #[async_trait::async_trait]
 impl Module for Echo {
     fn namespaces(&self) -> &'static [&'static str] {
-        &["echo"]
+        &["ask"]
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, _params: Value) -> Result<Value, RpcError> {
@@ -313,9 +313,9 @@ async fn module_methods_reach_their_module_with_the_callers_actor() {
     let (_dir, mut daemon) = daemon();
     daemon.register(Arc::new(Echo));
 
-    let reply = ask(&daemon, r#"{"jsonrpc":"2.0","id":1,"method":"echo.hello"}"#).await;
+    let reply = ask(&daemon, r#"{"jsonrpc":"2.0","id":1,"method":"ask.list"}"#).await;
 
-    assert_eq!(reply["result"]["method"], "echo.hello");
+    assert_eq!(reply["result"]["method"], "ask.list");
     assert_eq!(reply["result"]["actor"], "you");
 }
 

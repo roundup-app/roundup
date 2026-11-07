@@ -42,7 +42,7 @@ impl Agents {
             if rail.role(&node.id)? != Some(SpawnRole::Job) {
                 continue;
             }
-            let attempt = node.attempt.clone().unwrap_or_default();
+            let attempt = node.attempt.as_deref().unwrap_or_default().to_owned();
             if !reported_attempts(&node.id)?.contains(&attempt) {
                 open.push(OpenJob {
                     id: node.id,
