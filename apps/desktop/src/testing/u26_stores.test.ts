@@ -184,7 +184,7 @@ describe("u26 the in-memory Pads", () => {
   it("u26_deleting_a_pad_removes_it_from_the_list_and_sends_pad_changed", async () => {
     const { app, announced } = pads([pad("plan"), pad("other")]);
 
-    await app.rpc("pad.delete", { name: "plan" });
+    await app.rpc("pad.delete", { name: "plan", operation: crypto.randomUUID() });
 
     expect([(await app.rpc("pad.list", null)).map((each) => each.name), announced]).toEqual([["other"], [{ name: "pad.changed", data: { name: "plan" } }]]);
   });
@@ -192,7 +192,7 @@ describe("u26 the in-memory Pads", () => {
   it("u26_deleting_a_pad_that_does_not_exist_fails_with_not_found", async () => {
     const { app } = pads([]);
 
-    await expect(app.rpc("pad.delete", { name: "gone" })).rejects.toMatchObject({ code: -32001 });
+    await expect(app.rpc("pad.delete", { name: "gone", operation: crypto.randomUUID() })).rejects.toMatchObject({ code: -32001 });
   });
 
 
