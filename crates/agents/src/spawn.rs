@@ -167,6 +167,7 @@ impl Agents {
                 rail.set_user_named(&node.id)?;
             }
             if given.is_some()
+                && !(params.app_named == Some(true) && !by_agent)
                 && let Some(slot) = self.shared.runs().get_mut(&node.id)
             {
                 slot.settle_name();

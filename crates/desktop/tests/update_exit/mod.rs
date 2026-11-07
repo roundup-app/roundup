@@ -124,6 +124,7 @@ impl Real {
             prompt: None,
             order: None,
             name: None,
+            app_named: None,
             parent: None,
             role: None,
             model: None,
