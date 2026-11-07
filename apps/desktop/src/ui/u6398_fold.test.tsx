@@ -34,8 +34,9 @@ const surfaces = () => (
     {(() => {
       const [open, setOpen] = createSignal(false);
 
-      return <button type="button" aria-expanded={open()} onClick={() => setOpen(!open())}>Plain</button>;
+      return <button type="button" class="rail-chevron" aria-expanded={open()} onClick={() => setOpen(!open())}>Plain</button>;
     })()}
+    <button type="button" aria-expanded="false">Tab</button>
   </>
 );
 
@@ -54,6 +55,14 @@ it("u6398a_a_pointer_press_on_a_fold_starts_one_projection_through_the_fold_help
   }
 });
 
+it("u6398a_a_press_on_a_non_fold_control_starts_no_projection", async () => {
+  install();
+  render(surfaces);
+  fireEvent.click(screen.getByRole("button", { name: "Tab" }), { detail: 1 });
+  await new Promise(resolve => setTimeout(resolve, 80));
+  expect(engine.animateLayout).not.toHaveBeenCalled();
+});
+
 it("u6398b_a_second_press_retargets_the_running_projection", async () => {
   install();
   engine.animateLayout.mockImplementation(() => new Promise<{ finished: Promise<void> }>(() => {}));
@@ -63,6 +72,7 @@ it("u6398b_a_second_press_retargets_the_running_projection", async () => {
   fireEvent.click(plain, { detail: 1 });
   const [first, second] = engine.animateLayout.mock.calls;
   expect(second?.[0]).toBe(first?.[0]);
+  expect(document.querySelectorAll("[data-layout]").length).toBeGreaterThan(0);
   expect(engine.animate).not.toHaveBeenCalled();
 });
 

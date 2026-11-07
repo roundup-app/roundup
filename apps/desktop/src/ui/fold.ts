@@ -2,8 +2,8 @@ import { animate as motionAnimate, animateLayout as motionLayout } from "motion"
 import { createRoot, createEffect } from "solid-js";
 import type { Accessor } from "solid-js";
 
-/** Every fold control in the App: Ark's tree branch and collapsible triggers, and the plain buttons that carry `aria-expanded`. */
-const folds = '[data-scope="tree-view"][data-part="branch-control"], [data-scope="collapsible"][data-part="trigger"], button[aria-expanded]:not([aria-haspopup])';
+/** Every fold control in the App: Ark's tree branch and collapsible triggers, and the Rail's chevrons and section heads. */
+const folds = '[data-scope="tree-view"][data-part="branch-control"], [data-scope="tree-view"][data-part="branch-trigger"], [data-scope="collapsible"][data-part="trigger"], .rail-chevron, .rail-group-chevron, .section-head';
 
 /** What slides when a fold changes the layout above it; nesting is handled by the projection tree. */
 const movers = '[role="treeitem"], [data-part="item"], [data-part="branch-control"], .rail-row, .todo-row';
@@ -108,7 +108,17 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
       const session: Session = { scope };
       running = session;
       const known = new Set(scope.querySelectorAll(bodies));
-      void animateLayout(scope, () => settled(scope).then(() => turn(animate, control, seconds, ease)), { duration: seconds, ease }).then(group => {
+      const pressed = control.getBoundingClientRect().top;
+
+      /** The scroll offset follows the pressed row, so the browser's clamp never moves it under the pointer. */
+      const hold = () => {
+        if (!control.isConnected || scope === doc.body) return;
+        const drift = control.getBoundingClientRect().top - pressed;
+
+        if (drift) scope.scrollTop += drift;
+      };
+
+      void animateLayout(scope, () => settled(scope).then(() => { hold(); turn(animate, control, seconds, ease); }), { duration: seconds, ease }).then(group => {
         if (!retargeting) for (const body of scope.querySelectorAll<HTMLElement>(bodies)) if (!known.has(body)) animate(body, { opacity: [0, 1] }, { duration: seconds, ease });
         void group.finished.finally(() => {
           if (running !== session) return;
