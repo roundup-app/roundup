@@ -227,8 +227,8 @@ run("u6239 Project tab drag", () => {
 
   for (const [surface, url, open, selector, rail] of [
     ["rail", "/harness.html?seed=tree-40", async () => {}, ".rail .rail-row .sortable-handle", true],
-    ["todo", shelfUrl, todos, ".shelf .todo-row .sortable-handle", null],
-    ["pad", shelfUrl, () => shelfTab("pads"), ".shelf .pad-row-head .sortable-handle", null],
+    ["todo", shelfUrl, todos, ".shelf .todo-row .sortable-handle", false],
+    ["pad", shelfUrl, () => shelfTab("pads"), ".shelf .pad-row-head .sortable-handle", false],
     ["shelf", shelfUrl, todos, ".shelf .sortable-handle", true],
   ] as const) {
     it(`u6554b_every_held_row_is_opaque_and_on_top_${surface}`, async () => {
