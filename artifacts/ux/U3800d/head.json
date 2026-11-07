@@ -6,75 +6,65 @@
   "drops": [
     {
       "drop": 1,
-      "moved": true,
-      "moves": 1,
-      "longest_task_ms": 252,
-      "press_to_next_paint_ms": 29.1
+      "moved": "agent-2",
+      "longest_task_ms": 57,
+      "press_to_next_paint_ms": 142.2
     },
     {
       "drop": 2,
-      "moved": true,
-      "moves": 2,
-      "longest_task_ms": 148,
-      "press_to_next_paint_ms": 22.9
+      "moved": "agent-3",
+      "longest_task_ms": 48,
+      "press_to_next_paint_ms": 118
     },
     {
       "drop": 3,
-      "moved": true,
-      "moves": 3,
-      "longest_task_ms": 195,
-      "press_to_next_paint_ms": 23.7
+      "moved": "agent-5",
+      "longest_task_ms": 71,
+      "press_to_next_paint_ms": 100.4
     },
     {
       "drop": 4,
-      "moved": true,
-      "moves": 4,
-      "longest_task_ms": 132,
-      "press_to_next_paint_ms": 19.4
+      "moved": "agent-6",
+      "longest_task_ms": 75,
+      "press_to_next_paint_ms": 109.6
     },
     {
       "drop": 5,
-      "moved": true,
-      "moves": 5,
-      "longest_task_ms": 177,
-      "press_to_next_paint_ms": 24
+      "moved": "agent-8",
+      "longest_task_ms": 39,
+      "press_to_next_paint_ms": 90.2
     },
     {
       "drop": 6,
-      "moved": true,
-      "moves": 6,
-      "longest_task_ms": 129,
-      "press_to_next_paint_ms": 21.6
+      "moved": "agent-9",
+      "longest_task_ms": 41,
+      "press_to_next_paint_ms": 104.1
     },
     {
       "drop": 7,
-      "moved": true,
-      "moves": 7,
-      "longest_task_ms": 177,
-      "press_to_next_paint_ms": 24.7
+      "moved": "agent-11",
+      "longest_task_ms": 83,
+      "press_to_next_paint_ms": 118.7
     },
     {
       "drop": 8,
-      "moved": true,
-      "moves": 8,
-      "longest_task_ms": 134,
-      "press_to_next_paint_ms": 20.7
+      "moved": "agent-12",
+      "longest_task_ms": 70,
+      "press_to_next_paint_ms": 105.7
     },
     {
       "drop": 9,
-      "moved": true,
-      "moves": 9,
-      "longest_task_ms": 170,
-      "press_to_next_paint_ms": 22.9
+      "moved": "agent-14",
+      "longest_task_ms": 35,
+      "press_to_next_paint_ms": 70.4
     },
     {
       "drop": 10,
-      "moved": true,
-      "moves": 10,
-      "longest_task_ms": 125,
-      "press_to_next_paint_ms": 21.6
+      "moved": "agent-15",
+      "longest_task_ms": 38,
+      "press_to_next_paint_ms": 90.2
     }
   ],
-  "max_longest_task_ms": 252,
-  "max_press_to_next_paint_ms": 29.1
+  "median_longest_task_ms": 57,
+  "max_longest_task_ms": 83
 }
