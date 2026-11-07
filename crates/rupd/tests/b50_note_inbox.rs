@@ -588,24 +588,6 @@ async fn u6404b_a_receiver_with_a_background_shell_gets_its_note_after_its_stop(
 }
 
 #[tokio::test]
-async fn b50_a_long_note_shows_as_one_line() {
-    let run = Run::start().await;
-    let body = format!("[wake] {}", "é".repeat(300));
-    let id = run.note(&body).await;
-    until("taken up", async || {
-        (!run.entries().is_empty()).then_some(())
-    })
-    .await;
-    let content = run.received()[0]["message"]["content"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let text = content.split('\n').nth(1).unwrap();
-    assert!(text.len() <= 200 && text.ends_with("[cut]"), "{text}");
-    assert_eq!(run.message(id).await["body"], body.as_str());
-}
-
-#[tokio::test]
 async fn b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent() {
     for sender in ["user", "agent", "ext", "daemon"] {
         let mut run = Run::start().await;

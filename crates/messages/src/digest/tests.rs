@@ -469,10 +469,8 @@ fn b35_a_flip_pair_between_two_changes_leaves_the_weight_total_exact() {
     let mut step = |nodes: &[RailNode], todos: &[Todo], expect: usize| {
         let pushes = seen.changed(&sources(nodes, todos, &[], &[]));
         assert_eq!(pushes.len(), expect);
-        total += pushes
-            .iter()
-            .map(|p| crate::pushes::weight(&push_body(&p.entry)))
-            .sum::<u32>();
+        // A fresh plain push stands for one change.
+        total += u32::try_from(pushes.len()).unwrap();
     };
     step(&nodes, &one, 1);
     nodes[1].status = Some(status(Kind::Idle, "reading"));

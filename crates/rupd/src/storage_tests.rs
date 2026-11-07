@@ -69,7 +69,7 @@ fn pads_standalone(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = storage::migrations().len() - 6;
+    let prefix = storage::migrations().len() - 7;
     Migrations::new(storage::migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();
@@ -196,6 +196,12 @@ async fn n16_all_stores_share_one_project_database() {
     expected.extend(standalone::schema(&resize_schema));
     let rail = include_str!("../../storage/migrations/project/0027-rail-deletions.sql");
     resize_schema.execute_batch(rail).unwrap();
+    // B6506: the Messages' payload column is the one Project migration.
+    resize_schema
+        .execute_batch(include_str!(
+            "../../storage/migrations/project/0052-message-payload.sql"
+        ))
+        .unwrap();
     expected.extend(standalone::schema(&resize_schema));
     let mut retention = Connection::open_in_memory().unwrap();
     agents::schema::open(&mut retention, Path::new("agents")).unwrap();
