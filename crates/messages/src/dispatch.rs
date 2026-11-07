@@ -119,7 +119,7 @@ impl Module for Messages {
 impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         trip(&self.inner, method).map_err(RpcError::internal)?;
-        contracts::messages_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        contracts::messages_methods!(rpc::dispatch_values, self, ctx, method, value)
     }
 }
 

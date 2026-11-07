@@ -2,14 +2,13 @@
 use contracts::todo::{AssignParams, MoveParams, ReorderParams, Todo};
 use contracts::{EventData, Verb};
 use rpc::Ctx;
-use serde_json::Value;
 
 use super::{Todos, item};
-use crate::error::{Error, reply};
+use crate::error::Error;
 
 impl Todos {
     /// The Daemon has checked `home` against the Rail (T13). A move to the Home it has changes nothing.
-    pub(super) fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Todo, Error> {
+    pub(super) async fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Todo, Error> {
         let store = self.store()?;
         let todo = store.get(p.id)?;
         if todo.home == p.home {
@@ -22,7 +21,7 @@ impl Todos {
     }
 
     /// T17: the Daemon has checked the Agent against the Rail. The owner it has changes nothing.
-    pub(super) fn assign(&self, ctx: &Ctx, p: AssignParams) -> Result<Todo, Error> {
+    pub(super) async fn assign(&self, ctx: &Ctx, p: AssignParams) -> Result<Todo, Error> {
         let owner = p
             .owner
             .map(contracts::common::Owner::into_actor)
@@ -47,7 +46,7 @@ impl Todos {
     }
 
     /// T11: the Todo goes before `before`, or last. A move to the place it holds changes nothing.
-    pub(super) fn reorder(&self, ctx: &Ctx, p: ReorderParams) -> Result<Value, Error> {
+    pub(super) async fn reorder(&self, ctx: &Ctx, p: ReorderParams) -> Result<Todo, Error> {
         let store = self.store()?;
         let todo = store.get(p.id)?;
         if let Some(before) = p.before {
@@ -60,11 +59,11 @@ impl Todos {
             }
         }
         if store.successor(p.id)? == p.before {
-            return reply(&todo);
+            return Ok(todo);
         }
         let todo = store.reorder(p.id, p.before)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
-        reply(&todo)
+        Ok(todo)
     }
 }

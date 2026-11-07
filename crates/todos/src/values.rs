@@ -1,17 +1,16 @@
 //! Todo creation, edits and blocker transitions.
 use std::collections::BTreeSet;
 
-use contracts::todo::{CreateParams, SetBlockersParams, TodoId, UpdateParams};
+use contracts::todo::{CreateParams, SetBlockersParams, Todo, TodoId, UpdateParams};
 use contracts::{EventData, Verb};
 use rpc::Ctx;
-use serde_json::Value;
 
 use super::{Todos, cycle, item};
-use crate::error::{Error, reply};
+use crate::error::Error;
 
 impl Todos {
     /// The creator is the calling Actor; a `creator` field sent in the params is ignored.
-    pub(super) fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, Error> {
+    pub(super) async fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Todo, Error> {
         let owner = p
             .owner
             .map(contracts::common::Owner::into_actor)
@@ -28,10 +27,10 @@ impl Todos {
         )?;
         ctx.touch(Verb::Wrote, &item(todo.id))?;
         ctx.emit(EventData::TodoCreated(todo.clone().into()));
-        reply(&todo)
+        Ok(todo)
     }
 
-    pub(super) fn update(&self, ctx: &Ctx, p: UpdateParams) -> Result<Value, Error> {
+    pub(super) async fn update(&self, ctx: &Ctx, p: UpdateParams) -> Result<Todo, Error> {
         if p.title.is_none() && p.body.is_none() && p.priority.is_none() {
             return Err(Error::InvalidParams(
                 "update needs a title, a body or a priority".into(),
@@ -42,7 +41,7 @@ impl Todos {
             let todo = store.get(p.id)?;
             if p.priority.is_none_or(|value| value == todo.priority) {
                 store.require_change(p.id, p.expected_change)?;
-                return reply(&todo);
+                return Ok(todo);
             }
         }
         let todo = store.update(
@@ -56,32 +55,32 @@ impl Todos {
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
-        reply(&todo)
+        Ok(todo)
     }
 
-    pub(super) fn complete(&self, ctx: &Ctx, p: TodoId) -> Result<Value, Error> {
+    pub(super) async fn complete(&self, ctx: &Ctx, p: TodoId) -> Result<Todo, Error> {
         let store = self.store()?;
         let was_blocked = store.blocked_ids()?;
         let todo = store.set_done(p.id, true, ctx.touches.sequence()?, &ctx.actor)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
-        reply(&todo)
+        Ok(todo)
     }
 
-    pub(super) fn reopen(&self, ctx: &Ctx, p: TodoId) -> Result<Value, Error> {
+    pub(super) async fn reopen(&self, ctx: &Ctx, p: TodoId) -> Result<Todo, Error> {
         let store = self.store()?;
         let todo = store.get(p.id)?;
         if !todo.done {
-            return reply(&todo);
+            return Ok(todo);
         }
         let todo = store.set_done(p.id, false, ctx.touches.sequence()?, &ctx.actor)?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
-        reply(&todo)
+        Ok(todo)
     }
 
-    pub(super) fn set_blockers(&self, ctx: &Ctx, p: SetBlockersParams) -> Result<Value, Error> {
+    pub(super) async fn set_blockers(&self, ctx: &Ctx, p: SetBlockersParams) -> Result<Todo, Error> {
         let store = self.store()?;
         let was_blocked = store.blocked_ids()?;
         store.get(p.id)?;
@@ -102,7 +101,7 @@ impl Todos {
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
-        reply(&todo)
+        Ok(todo)
     }
 }
 

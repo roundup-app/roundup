@@ -1,10 +1,9 @@
 //! Retained deletion lives in the same Project transaction as the rows it removes.
-use crate::error::{Error, reply};
+use crate::error::Error;
 use contracts::todo::{DeleteParams, Deletion, DeletionParams, DeletionState, RedoParams, TodoId};
 use contracts::{Actor, EventData, Verb};
 use rpc::Ctx;
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
-use serde_json::Value;
 
 use crate::{Todos, item};
 
@@ -41,16 +40,16 @@ impl Todos {
         retain(tx, actor, p, after_touch, true)
     }
 
-    pub(super) fn delete(&self, ctx: &Ctx, p: DeleteParams) -> Result<Value, Error> {
+    pub(super) async fn delete(&self, ctx: &Ctx, p: DeleteParams) -> Result<Deletion, Error> {
         let store = self.store()?;
         let tx = store.db.unchecked_transaction()?;
         let (result, events) = Self::delete_in(&tx, &ctx.actor, &p, ctx.touches.sequence()?)?;
         tx.commit()?;
         publish(ctx, events)?;
-        reply(&result)
+        Ok(result)
     }
 
-    pub(super) fn redo(&self, ctx: &Ctx, p: RedoParams) -> Result<Value, Error> {
+    pub(super) async fn redo(&self, ctx: &Ctx, p: RedoParams) -> Result<Deletion, Error> {
         let store = self.store()?;
         let tx = store.db.unchecked_transaction()?;
         let source = receipt(&tx, &ctx.actor, &p.source)?
@@ -73,7 +72,7 @@ impl Todos {
                     "redo key already names another operation".into(),
                 ));
             }
-            return reply(&result);
+            return Ok(result);
         }
         let (targets, successor): (Option<String>, Option<String>) = tx.query_row(
             "SELECT json_extract(result,'$.restoredTargets'),json_extract(result,'$.redo') FROM todo_deletions WHERE operation=?",
@@ -109,14 +108,14 @@ impl Todos {
         )?;
         tx.commit()?;
         publish(ctx, events)?;
-        reply(&result)
+        Ok(result)
     }
 
-    pub(super) fn deletion(&self, ctx: &Ctx, p: DeletionParams) -> Result<Value, Error> {
-        reply(&receipt(&self.store()?.db, &ctx.actor, &p.operation)?)
+    pub(super) async fn deletion(&self, ctx: &Ctx, p: DeletionParams) -> Result<Option<Deletion>, Error> {
+        Ok(receipt(&self.store()?.db, &ctx.actor, &p.operation)?)
     }
 
-    pub(super) fn restore(&self, ctx: &Ctx, p: DeletionParams) -> Result<Value, Error> {
+    pub(super) async fn restore(&self, ctx: &Ctx, p: DeletionParams) -> Result<Deletion, Error> {
         let (result, events) = self.restore_with(
             &ctx.actor,
             &p.operation,
@@ -125,7 +124,7 @@ impl Todos {
             |_| Ok(()),
         )?;
         publish(ctx, events)?;
-        reply(&result)
+        Ok(result)
     }
 
     /// Restore data and a coordinator's graph changes in the same Project transaction.

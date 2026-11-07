@@ -837,6 +837,6 @@ impl Module for Terminals {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        contracts::terminal_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        contracts::terminal_methods!(rpc::dispatch_values, self, ctx, method, value)
     }
 }

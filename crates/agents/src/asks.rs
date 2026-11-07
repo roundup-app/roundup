@@ -642,7 +642,7 @@ impl Module for Asks {
                 "Ask methods carry a Steer from the user",
             ));
         }
-        contracts::asks_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        contracts::asks_methods!(rpc::dispatch_values, self, ctx, method, value)
     }
 }
 

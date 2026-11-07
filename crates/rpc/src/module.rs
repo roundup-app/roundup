@@ -399,3 +399,15 @@ macro_rules! dispatch_methods {
         }
     };
 }
+
+/// Transitional: the `Value` form for modules not yet migrated; removed with the last one.
+#[macro_export]
+macro_rules! dispatch_values {
+    ([$this:ident, $ctx:ident, $method:ident, $value:ident]
+     $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)*) => {
+        match $method {
+            $($wire => $this.$handler($ctx, $method, $value).await,)*
+            _ => Err($crate::RpcError::method_not_found($method)),
+        }
+    };
+}

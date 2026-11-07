@@ -15,7 +15,7 @@ impl Module for Agents {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        contracts::agents_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        contracts::agents_methods!(rpc::dispatch_values, self, ctx, method, value)
     }
 }
 

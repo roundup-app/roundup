@@ -164,7 +164,7 @@ impl Daemon {
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
         if owner == "daemon" {
-            return contracts::daemon_methods!(rpc::dispatch_methods, self, conn, method, params);
+            return contracts::daemon_methods!(rpc::dispatch_values, self, conn, method, params);
         }
         if row.gate == Gate::RefTarget {
             self.require_ref_target(&params)?;
