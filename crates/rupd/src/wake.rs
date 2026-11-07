@@ -90,11 +90,13 @@ fn why_working(labels: Vec<String>) -> String {
 
 impl Waker {
     /// B41: `agent.wake`. Saves the request, decides it at once, and answers `{id, fired}`.
-    pub async fn ask(&self, caller: &Actor, params: serde_json::Value) -> Result<Woken, RpcError> {
+    pub async fn ask(&self, caller: &Actor, params: WakeParams) -> Result<Woken, RpcError> {
         if caller.kind != ActorKind::Agent {
             return Err(RpcError::forbidden("only an Agent may ask to be woken"));
         }
-        let WakeParams { ids, any } = parse_request(params)?;
+        let WakeParams { ids, any } = WakeRequest::try_from(params)
+            .map_err(|message| RpcError::new(code::INVALID_PARAMS, message))?
+            .0;
         let mut seen = std::collections::HashSet::new();
         if let Some(repeated) = ids.iter().find(|id| !seen.insert(id.as_str())) {
             return Err(RpcError::new(
