@@ -36,7 +36,7 @@
           {
             "id": "toolu_dcl7_resume",
             "name": "mcp__roundup__agent_resume",
-            "arguments": "{\"id\": \"open-job\", \"mode\": \"normal\"}"
+            "arguments": "{\"id\": \"open-job\"}"
           }
         ]
       }

@@ -203,15 +203,33 @@ async fn dcl7_update_reconciles_todos_and_pads_through_mcp() {
 
 #[tokio::test]
 async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
-    let mut project = daemon::start_real("dcl7_restart_resumes_only_jobs_selected_by_door", &[]);
+    quit_and_relaunch("dcl7_restart_resumes_only_jobs_selected_by_door").await;
+}
+
+#[tokio::test]
+async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
+    quit_and_relaunch("dcr4_relaunch_carries_on_the_cut_off_job_only").await;
+}
+
+/// DCL7a and DCR4: the Job is mid-turn and the Consult has finished when the App quits; after the
+/// relaunch the Door's own `agent_resume` without `mode` carries on the Job and nothing else.
+async fn quit_and_relaunch(fixture: &str) {
+    let mut project = daemon::start_real(fixture, &[]);
     let (door, job, consult) = door_with_children(&project, true).await;
     model_saw(&project, "[stopped]").await;
+    // The Job begins a second turn that the quit interrupts.
+    daemon::signal(
+        &project.client().await,
+        &job,
+        json!({"hook_event_name": "UserPromptSubmit"}),
+    )
+    .await;
     let before = project.model.as_ref().unwrap().journal().len();
 
     let claude = daemon::aimock::routed_claude(project.dir.path());
     let home = project.dir.path().join("home");
     let url = project.model.as_ref().unwrap().url.clone();
-    project.crash();
+    project.close().await;
     project.restart(&[
         ("ROUNDUP_CLAUDE_BIN", claude.to_str().unwrap()),
         ("HOME", home.to_str().unwrap()),
