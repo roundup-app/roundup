@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { agent } from "../testing/nodes";
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { openTabs, path, projectTabs, tab } from "./stripFixture";
 
 // jsdom has no layout; Ark excludes zero-size controls from its focus targets.
@@ -63,6 +65,17 @@ it("u6544b_close_to_the_left_and_right_close_only_that_side", async () => {
   open("b");
   await app.pickMenu("Close Right");
   await waitFor(() => expect(app.closed).toEqual([path("c")]));
+});
+
+it("u6544b_bulk_close_asks_about_one_project_then_closes_the_rest", async () => {
+  const { app } = await openTabs({ a: [], b: [agent("w", "working", "x")], c: [], d: [] });
+
+  open("d");
+  await app.pickMenu("Close Left");
+  await questionDialog();
+  await waitFor(() => expect(app.closed).toEqual([path("a")]));
+  await answerQuestion(true);
+  await waitFor(() => expect([...app.closed].sort()).toEqual([path("a"), path("b"), path("c")]));
 });
 
 it("u6544c_recover_drafts_in_menu", async () => {

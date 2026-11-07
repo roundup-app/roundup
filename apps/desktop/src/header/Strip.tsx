@@ -62,7 +62,8 @@ export const Strip = (props: {
   let observer: ResizeObserver | undefined;
   const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
 
-  const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()));
+  // The question stays the same object until its Project or running work changes, so an unrelated tab update never re-asks it.
+  const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()), undefined, { equals: (a, b) => a?.path === b?.path && a?.name === b?.name && JSON.stringify(a?.running) === JSON.stringify(b?.running) });
 
   const requestClose = (tab: StripTab) => {
     if (asking() !== null) return;
@@ -74,13 +75,21 @@ export const Strip = (props: {
     }
   };
 
-  /** U6544b: each Project closes as its X does; one with running work asks first, and the others wait for a later ask. */
-  const closeAll = (closing: string[]) => {
-    for (const path of closing) {
+  /** U6544b: each Project closes as its X does; one with running work asks first, and the ones after it wait in line for their turn. */
+  let waiting: string[] = [];
+
+  const next = () => {
+    while (asking() === null && waiting.length > 0) {
+      const path = waiting.shift();
       const tab = props.tabs.find(each => each.path === path);
 
       if (tab) requestClose(tab);
     }
+  };
+
+  const closeAll = (closing: string[]) => {
+    waiting = [...closing];
+    next();
   };
 
   let settling = 0;
@@ -291,13 +300,17 @@ export const Strip = (props: {
         {edge(copy.right, right())}
       </div>
       <IconButton data-flat-add="" class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
-      <CloseDialog app={props.app} opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
+      <CloseDialog app={props.app} opener={closeOpener()} tab={question()} onCancel={() => { setAsking(null); next(); }} onStop={() => {
         const path = asking();
 
         if (!path) return;
         setAsking(null);
 
-        return props.onClose(path);
+        const closed = props.onClose(path);
+
+        next();
+
+        return closed;
       }} />
     </div>
   );
