@@ -31,7 +31,9 @@ impl Run {
     /// 2 s after the child rests, so it is let pass before the quiet window is counted.
     async fn let_settled_pass(&self) {
         let _ = tokio::time::timeout(Duration::from_secs(8), async {
+            let mut tick = tokio::time::interval(Duration::from_millis(50));
             loop {
+                tick.tick().await;
                 let delivered = self
                     .user
                     .request("message.list", json!({}))
@@ -48,7 +50,6 @@ impl Run {
                 if delivered {
                     break;
                 }
-                tokio::time::sleep(Duration::from_millis(50)).await;
             }
         })
         .await;
