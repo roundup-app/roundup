@@ -1,5 +1,6 @@
 //! FS5979: the host side of `fork_branch` and `fork_make`.
 
+use crate::error::Error;
 use contracts::data::{ForkAgents, ForkColour, ForkParams, ForkProject};
 use rpc::{RpcError, code};
 use serde::Deserialize;
@@ -100,16 +101,13 @@ pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
     };
     let forks = home.join("forks");
 
-    (1..)
-        .map(|n| {
-            forks.join(if n == 1 {
-                slug.to_string()
-            } else {
-                format!("{slug}-{n}")
-            })
-        })
-        .find(|path| !path.exists())
-        .expect("an unused folder name")
+    let mut path = forks.join(slug);
+    let mut n = 1_u64;
+    while path.exists() {
+        n += 1;
+        path = forks.join(format!("{slug}-{n}"));
+    }
+    path
 }
 
 /// The line `just app` prints once everything is built and only the App's launch is left.
@@ -146,8 +144,9 @@ fn start(mut command: Command) -> Result<(), RpcError> {
         .spawn()
         .map_err(|error| RpcError::internal(format!("just: {error}")))?;
     let (tx, rx) = mpsc::channel();
-    let stdout = child.stdout.take().expect("piped stdout");
-    let stderr = child.stderr.take().expect("piped stderr");
+    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err(Error::internal("just: its output was not piped").into());
+    };
     let started = tx.clone();
     std::thread::spawn(move || {
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {

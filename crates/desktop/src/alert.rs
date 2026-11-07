@@ -8,6 +8,8 @@ use rpc::{RpcError, code};
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
+use crate::error::Locked;
+
 /// The event the webview hears when the owner clicks a banner.
 pub const CLICKED: &str = "state-alert-clicked";
 
@@ -77,10 +79,7 @@ impl Alerts {
                 "State alerts refused: notifications denied in System Settings",
             ));
         }
-        let mut cached = self
-            .permission
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut cached = self.permission.locked("alert permission")?;
         // The lock stays taken across the wait, so a second alert waits for the same answer and then raises its own banner.
         // An unanswered prompt ends as a refusal naming the timeout; it is not kept, so the next alert asks again.
         let deadline = Instant::now() + self.wait;

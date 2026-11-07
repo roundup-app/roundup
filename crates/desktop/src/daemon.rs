@@ -14,6 +14,7 @@ use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::time::timeout;
 
 use crate::config::Config;
+use crate::error::{Error, Locked, Reported};
 
 const STDERR_LINES_KEPT: usize = 20;
 /// A grandchild that inherited the Daemon's stderr can hold the pipe open after the Daemon is gone.
@@ -54,7 +55,14 @@ struct StderrTail(Arc<Mutex<VecDeque<String>>>);
 
 impl StderrTail {
     fn push(&self, line: String) {
-        let mut lines = self.0.lock().expect("stderr tail lock");
+        // A poisoned tail only loses diagnostic lines.
+        let Some(mut lines) = self
+            .0
+            .locked("stderr tail lock")
+            .reported("keep stderr tail")
+        else {
+            return;
+        };
         if lines.len() == STDERR_LINES_KEPT {
             lines.pop_front();
         }
@@ -62,7 +70,13 @@ impl StderrTail {
     }
 
     fn text(&self) -> String {
-        let lines = self.0.lock().expect("stderr tail lock");
+        let Some(lines) = self
+            .0
+            .locked("stderr tail lock")
+            .reported("read stderr tail")
+        else {
+            return String::new();
+        };
         lines.iter().cloned().collect::<Vec<_>>().join("\n")
     }
 }
@@ -97,9 +111,10 @@ pub async fn start(
             log::warn!(target: "roundup::shell", "start Project Daemon: IO {:?}", err.kind());
             RpcError::internal(format!("cannot start {}: {err}", config.rupd_bin.display()))
         })?;
-    let stdin = child.stdin.take().expect("stdin was requested piped");
-    let stdout = child.stdout.take().expect("stdout was requested piped");
-    let stderr = child.stderr.take().expect("stderr was requested piped");
+    let piped = || Error::internal("a piped stream of the Daemon was not taken");
+    let stdin = child.stdin.take().ok_or_else(piped)?;
+    let stdout = child.stdout.take().ok_or_else(piped)?;
+    let stderr = child.stderr.take().ok_or_else(piped)?;
     let owned_socket = OwnedSocket(socket.to_path_buf());
     let tail = StderrTail::default();
     let drain = tauri::async_runtime::spawn(drain(stderr, tail.clone()));

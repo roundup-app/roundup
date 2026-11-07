@@ -19,8 +19,10 @@ use tokio::time::{Duration, sleep, timeout};
 
 use crate::config::Config;
 use crate::daemon::{self, OwnedSocket};
+use crate::error::{Error, Locked, Reported};
 use crate::reopen::GIVE_UP;
 use crate::store::Store;
+use crate::unanswered::unanswered;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Project {
@@ -144,7 +146,7 @@ impl AppState {
 
     pub fn projects(&self) -> Result<Vec<Listed>, RpcError> {
         self.store.load()?;
-        self.entries()
+        self.entries()?
             .iter()
             .map(|entry| {
                 Ok(Listed {
@@ -214,7 +216,7 @@ impl AppState {
         self.store.load()?;
         let key = path.display().to_string();
         let mut pending = self
-            .entries()
+            .entries()?
             .iter()
             .find(|entry| entry.path == key)
             .map(|entry| (entry.lifetime.clone(), entry.cancel.subscribe()));
@@ -230,14 +232,14 @@ impl AppState {
         if self.closed.load(Ordering::SeqCst) {
             return Err(not_open(&key));
         }
-        if self.is_running(&key) {
+        if self.is_running(&key)? {
             if !keep_on_failure {
                 self.store.record_recent(&key)?;
             }
             return self.project_at(&key);
         }
         let (lifetime, mut cancel, reopening) = {
-            let mut entries = self.entries();
+            let mut entries = self.entries()?;
             if self.closed.load(Ordering::SeqCst)
                 || pending.as_ref().is_some_and(|(lifetime, _)| {
                     !entries
@@ -261,7 +263,7 @@ impl AppState {
             let entry = entries
                 .iter_mut()
                 .find(|entry| entry.path == key)
-                .expect("inserted above");
+                .ok_or_else(|| Error::internal("the Project entry vanished while opening"))?;
             entry.failures = 0;
             // Explicit Reopen retires any delayed attempt from the previous recovery.
             entry.lifetime = Arc::new(());
@@ -270,7 +272,7 @@ impl AppState {
         };
         loop {
             let (connected, answer) = oneshot::channel();
-            let run = *self.runs.lock().expect("runs lock");
+            let run = *self.runs.locked("runs lock")?;
             let result = tokio::select! {
                 biased;
                 _ = cancel.changed() => return Err(not_open(&key)),
@@ -292,7 +294,7 @@ impl AppState {
                         if keep_on_failure {
                             self.save_open()?;
                         } else {
-                            self.entries()
+                            self.entries()?
                                 .retain(|entry| !Arc::ptr_eq(&entry.lifetime, &lifetime));
                         }
                         return Err(err);
@@ -335,7 +337,7 @@ impl AppState {
         let (socket, run) =
             self.open_ref(path, |open| (open.socket.path().to_path_buf(), open.run))?;
         let result = self.subscribe_run(path, channel, params, socket, run).await;
-        let mut entries = self.entries();
+        let mut entries = self.entries()?;
         if let Some(entry) = entries.iter_mut().find(|entry| entry.path == path)
             && let Phase::Open(open) = &mut entry.phase
             && open.run == run
@@ -373,7 +375,7 @@ impl AppState {
                 }
             }
         });
-        let mut entries = self.entries();
+        let mut entries = self.entries()?;
         match entries.iter_mut().find(|entry| entry.path == path) {
             Some(Entry {
                 phase: Phase::Open(open),
@@ -413,8 +415,9 @@ impl AppState {
                 client.request("terminal.output", json!({ "id": id })),
             )
             .await?;
-        let first = started["offset"]
-            .as_u64()
+        let first = started
+            .get("offset")
+            .and_then(Value::as_u64)
             .ok_or_else(|| RpcError::internal("terminal.output answered no offset"))?;
         let pump = tauri::async_runtime::spawn(async move {
             // Dropping the client at the end closes the socket, which releases the selection.
@@ -448,7 +451,7 @@ impl AppState {
                 }
             }
         });
-        let mut entries = self.entries();
+        let mut entries = self.entries()?;
         match entries.iter_mut().find(|entry| entry.path == path) {
             Some(Entry {
                 phase: Phase::Open(open),
@@ -491,7 +494,7 @@ impl AppState {
             // A closed webview channel has no live confirmation to invalidate.
             let _ = channel.send(serde_json::json!({"method":"action.closed"}));
         });
-        let mut entries = self.entries();
+        let mut entries = self.entries()?;
         match entries.iter_mut().find(|entry| entry.path == path) {
             Some(Entry {
                 phase: Phase::Open(open),
@@ -530,7 +533,7 @@ impl AppState {
 
     /// X14: releases the App's selection of one Terminal; the other Terminals' streams go on.
     pub fn terminal_output_stop(&self, path: &str, id: &str) -> Result<(), RpcError> {
-        let mut entries = self.entries();
+        let mut entries = self.entries()?;
         match entries.iter_mut().find(|entry| entry.path == path) {
             Some(Entry {
                 phase: Phase::Open(open),
@@ -548,7 +551,7 @@ impl AppState {
     /// Ends the Project's Daemon by closing its stdin, so a Daemon started with `--attached` stops
     /// its Agents and Terminals and exits (S3); the other Projects go on.
     pub fn close_project(&self, path: &str) -> Result<(), RpcError> {
-        let mut entries = self.entries();
+        let mut entries = self.entries()?;
         let Some(index) = entries.iter().position(|entry| entry.path == path) else {
             return Err(not_open(path));
         };
@@ -566,7 +569,7 @@ impl AppState {
         name: &str,
         base: Option<&str>,
     ) -> Result<Project, RpcError> {
-        let entries = self.entries();
+        let entries = self.entries()?;
         if !entries.iter().any(|entry| entry.path == path) {
             return Err(not_open(path));
         }
@@ -595,7 +598,7 @@ impl AppState {
     /// Daemon does not answer, nothing is ended and the call fails naming its Project.
     pub async fn exit_for_update(&self) -> Result<(), RpcError> {
         let open: Vec<(String, Arc<Client>)> = self
-            .entries()
+            .entries()?
             .iter()
             .filter_map(|entry| match &entry.phase {
                 Phase::Open(open) => Some((entry.path.clone(), Arc::clone(&open.client))),
@@ -620,7 +623,7 @@ impl AppState {
         }
         self.closed.store(true, Ordering::SeqCst);
         let mut left = Vec::new();
-        for entry in self.entries().iter_mut() {
+        for entry in self.entries()?.iter_mut() {
             if let Phase::Open(open) = &mut entry.phase
                 && let Some(leave) = open.leave.take()
             {
@@ -639,19 +642,20 @@ impl AppState {
     /// Closes every Daemon's stdin (S3).
     pub fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
-        self.entries().clear();
+        if let Some(mut entries) = self.entries().reported("close Daemons") {
+            entries.clear();
+        }
     }
 
-    fn entries(&self) -> MutexGuard<'_, Vec<Entry>> {
-        self.entries
-            .lock()
-            .expect("the entries lock is never kept across a panic")
+    fn entries(&self) -> Result<MutexGuard<'_, Vec<Entry>>, Error> {
+        self.entries.locked("the entries lock")
     }
 
-    fn is_running(&self, path: &str) -> bool {
-        self.entries()
+    fn is_running(&self, path: &str) -> Result<bool, Error> {
+        Ok(self
+            .entries()?
             .iter()
-            .any(|entry| entry.path == path && matches!(entry.phase, Phase::Open(_)))
+            .any(|entry| entry.path == path && matches!(entry.phase, Phase::Open(_))))
     }
 
     fn name_of(&self, path: &str) -> Result<String, RpcError> {
@@ -670,7 +674,7 @@ impl AppState {
 
     fn save_open(&self) -> Result<(), RpcError> {
         let paths = self
-            .entries()
+            .entries()?
             .iter()
             .map(|entry| entry.path.clone())
             .collect();
@@ -678,12 +682,10 @@ impl AppState {
     }
 
     /// Commits the run number a successful open used, so the next one gets a fresh socket path (S5).
-    fn commit_run(&self, run: u64) {
-        let mut runs = self
-            .runs
-            .lock()
-            .expect("the runs lock is never kept across a panic");
+    fn commit_run(&self, run: u64) -> Result<(), Error> {
+        let mut runs = self.runs.locked("the runs lock")?;
         *runs = run + 1;
+        Ok(())
     }
 
     async fn start_daemon<R: Runtime>(
@@ -717,7 +719,7 @@ impl AppState {
             actions: None,
             connected,
         };
-        let mut entries = self.entries();
+        let mut entries = self.entries()?;
         let Some(entry) = entries
             .iter_mut()
             .find(|entry| entry.path == key && Arc::ptr_eq(&entry.lifetime, lifetime))
@@ -732,12 +734,12 @@ impl AppState {
         open.leave = Some(leave);
         entry.phase = Phase::Open(open);
         drop(entries);
-        self.commit_run(run);
+        self.commit_run(run)?;
         self.project_at(&key)
     }
 
     fn record_failure(&self, path: &str, lifetime: &Arc<()>) -> Option<u8> {
-        let mut entries = self.entries();
+        let mut entries = self.entries().reported("record Daemon failure")?;
         let entry = entries
             .iter_mut()
             .find(|entry| entry.path == path && Arc::ptr_eq(&entry.lifetime, lifetime))?;
@@ -753,7 +755,9 @@ impl AppState {
         cause: Option<String>,
     ) {
         let state = app.state::<AppState>();
-        let mut entries = state.entries();
+        let Some(mut entries) = state.entries().reported("record Daemon exit") else {
+            return;
+        };
         let Some(entry) = entries.iter_mut().find(|entry| entry.path == path) else {
             return;
         };
@@ -814,7 +818,14 @@ impl AppState {
                     _ = cancel.changed() => return,
                     starting = state.starting.lock() => starting,
                 };
-                let run = *state.runs.lock().expect("runs lock");
+                let Some(run) = state
+                    .runs
+                    .locked("runs lock")
+                    .reported("recover Project")
+                    .map(|runs| *runs)
+                else {
+                    return;
+                };
                 let (connected, answer) = oneshot::channel();
                 let result = tokio::select! {
                     biased;
@@ -825,10 +836,12 @@ impl AppState {
                 match result {
                     Ok(_) => {
                         {
-                            let entries = state.entries();
-                            if !entries.iter().any(|entry| {
-                                entry.path == path
-                                    && matches!(&entry.phase, Phase::Open(open) if open.run == run)
+                            let current = state.entries().reported("recover Project");
+                            if !current.is_some_and(|entries| {
+                                entries.iter().any(|entry| {
+                                    entry.path == path
+                                        && matches!(&entry.phase, Phase::Open(open) if open.run == run)
+                                })
                             }) {
                                 return;
                             }
@@ -842,11 +855,12 @@ impl AppState {
                             return;
                         };
                         failures = count;
-                        let entries = state.entries();
-                        if !entries
-                            .iter()
-                            .any(|entry| Arc::ptr_eq(&entry.lifetime, &lifetime))
-                        {
+                        let current = state.entries().reported("recover Project");
+                        if !current.is_some_and(|entries| {
+                            entries
+                                .iter()
+                                .any(|entry| Arc::ptr_eq(&entry.lifetime, &lifetime))
+                        }) {
                             return;
                         }
                         Self::notify(
@@ -894,7 +908,7 @@ impl AppState {
     /// The guard every read of a Project's Daemon shares: `INTERNAL` once it has exited,
     /// `CONFLICT` when no such Project is open.
     fn open_ref<T>(&self, path: &str, read: impl FnOnce(&Open) -> T) -> Result<T, RpcError> {
-        match self.entries().iter().find(|entry| entry.path == path) {
+        match self.entries()?.iter().find(|entry| entry.path == path) {
             Some(Entry {
                 phase: Phase::Open(open),
                 ..
@@ -918,45 +932,6 @@ impl AppState {
     }
 }
 
-/// Methods that write nothing: a timeout on one leaves no outcome unknown (U5301b).
-fn writes_nothing(method: &str) -> bool {
-    const READS: [&str; 20] = [
-        "list",
-        "get",
-        "read",
-        "tree",
-        "describe",
-        "digest",
-        "context",
-        "extras",
-        "instructions",
-        "skills",
-        "snapshot",
-        "screen",
-        "search",
-        "history",
-        "touched",
-        "worktreeState",
-        "comments",
-        "getHistory",
-        "listHanded",
-        "preview",
-    ];
-    method
-        .split_once('.')
-        .is_some_and(|(_, name)| READS.contains(&name))
-}
-
-fn unanswered(method: &str, bound: Duration) -> RpcError {
-    if writes_nothing(method) {
-        RpcError::internal(format!("no reply to {method} within {bound:?}"))
-    } else {
-        RpcError::internal(format!(
-            "no reply to {method} within {bound:?}; whether the Daemon applied it is unknown"
-        ))
-    }
-}
-
 fn not_open(path: &str) -> RpcError {
     RpcError::conflict(format!("no Project is open at {path}"))
 }
@@ -968,31 +943,4 @@ fn named_after(path: &Path) -> String {
         || reached.display().to_string(),
         |name| name.to_string_lossy().into_owned(),
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const BOUND: Duration = Duration::from_secs(5);
-
-    #[test]
-    fn u5301b_a_timed_out_read_says_the_daemon_did_not_answer() {
-        for method in ["todo.list", "pad.list", "rail.tree"] {
-            let message = unanswered(method, BOUND).message;
-            assert!(message.starts_with(&format!("no reply to {method} within")));
-            assert!(!message.contains("unknown"), "{message}");
-        }
-    }
-
-    #[test]
-    fn u5301b_a_timed_out_mutation_stays_unknown() {
-        for method in ["rail.remove", "todo.create"] {
-            assert!(
-                unanswered(method, BOUND)
-                    .message
-                    .contains("whether the Daemon applied it is unknown")
-            );
-        }
-    }
 }

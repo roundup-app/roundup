@@ -2,6 +2,8 @@
 
 use rpc::{RpcError, code};
 use std::sync::Mutex;
+
+use crate::error::{Locked, Reported};
 #[cfg(target_vendor = "apple")]
 use tauri::Emitter;
 use tauri::{Manager, Runtime, Window, plugin::TauriPlugin};
@@ -14,11 +16,13 @@ fn native_material<R: Runtime>(window: Window<R>) -> bool {
     if window.label() != "main" {
         return false;
     }
-    *window
+    // The command's signature stays `bool`: an untrusted state is no confirmed material.
+    window
         .state::<Material>()
         .0
-        .lock()
-        .expect("material state poisoned")
+        .locked("material state")
+        .reported("read native material")
+        .is_some_and(|material| *material)
 }
 
 #[tauri::command]
@@ -84,11 +88,14 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                     if let Err(error) = applied {
                         crate::diagnostics::failure("apply native material", &error);
                     }
-                    *window
+                    if let Some(mut material) = window
                         .state::<Material>()
                         .0
-                        .lock()
-                        .expect("material state poisoned") = enabled;
+                        .locked("material state")
+                        .reported("store native material")
+                    {
+                        *material = enabled;
+                    }
                     if let Err(error) = window.emit("native-material", enabled) {
                         crate::diagnostics::failure("deliver native material", &error);
                     }

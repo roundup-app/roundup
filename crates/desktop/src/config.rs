@@ -79,7 +79,7 @@ impl Config {
         let file_name = self
             .socket
             .file_name()
-            .expect("the socket path has a file name");
+            .ok_or("the socket path has no file name")?;
         let path = self
             .socket
             .with_file_name(format!("{run}-{}", file_name.to_string_lossy()));
@@ -93,7 +93,7 @@ impl Config {
             context.config_mut().build.dev_url = Some(
                 format!("http://localhost:{port}")
                     .parse()
-                    .expect("a port makes a URL"),
+                    .map_err(std::io::Error::other)?,
             );
         }
         if let Some(dir) = &self.data_dir {

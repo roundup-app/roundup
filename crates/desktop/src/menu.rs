@@ -3,12 +3,14 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
-use rpc::{RpcError, code};
+use rpc::RpcError;
 use serde::Deserialize;
 use tauri::Emitter;
 use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, Submenu};
 use tauri::{AppHandle, LogicalPosition, Manager, Runtime, State, WebviewWindow};
 use tokio::sync::oneshot;
+
+use crate::error::{Error, Locked, Reported};
 
 /// U3799: extend Tauri's standard application menu without replacing its native actions.
 pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
@@ -25,7 +27,11 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
                 None
             }
         })
-        .expect("Tauri's macOS default starts with the application submenu");
+        .ok_or_else(|| {
+            tauri::Error::Io(std::io::Error::other(
+                "Tauri's macOS default menu has no application submenu",
+            ))
+        })?;
     #[cfg(not(target_vendor = "apple"))]
     let application = {
         let submenu = Submenu::new(app, app.package_info().name.clone(), true)?;
@@ -173,7 +179,13 @@ fn open_project_page<R: Runtime>(app: &AppHandle<R>, command: &str) {
         return;
     }
     let selected = app.state::<ProjectMenu>();
-    let path = selected.0.lock().expect("Project menu lock");
+    let Some(path) = selected
+        .0
+        .locked("Project menu lock")
+        .reported("emit Project command")
+    else {
+        return;
+    };
     if let Some(path) = path.as_ref()
         && let Err(error) = app.emit(
             "open-project-page",
@@ -194,19 +206,21 @@ pub fn select_project_menu<R: Runtime>(
     path: Option<String>,
     items: Option<Vec<Item>>,
 ) -> Result<(), RpcError> {
-    let menu = app.menu().ok_or_else(|| internal("No application menu"))?;
+    let menu = app
+        .menu()
+        .ok_or_else(|| Error::internal("No application menu"))?;
     let Some(MenuItemKind::Submenu(project)) = menu.get("project-menu") else {
-        return Err(internal("No Project menu"));
+        return Err(Error::internal("No Project menu").into());
     };
-    for item in project.items().map_err(internal)? {
-        project.remove(&item).map_err(internal)?;
+    for item in project.items().map_err(Error::internal)? {
+        project.remove(&item).map_err(Error::internal)?;
     }
-    project.set_enabled(true).map_err(internal)?;
+    project.set_enabled(true).map_err(Error::internal)?;
     if let Some(MenuItemKind::Submenu(application)) =
-        menu.items().map_err(internal)?.into_iter().next()
+        menu.items().map_err(Error::internal)?.into_iter().next()
         && let Some(MenuItemKind::MenuItem(fork)) = application.get("fork-sheet")
     {
-        fork.set_enabled(path.is_some()).map_err(internal)?;
+        fork.set_enabled(path.is_some()).map_err(Error::internal)?;
     }
     let mut items = items.unwrap_or_default();
     if path.is_none() {
@@ -216,8 +230,8 @@ pub fn select_project_menu<R: Runtime>(
     }
     if let Some(MenuItemKind::Submenu(edit)) = menu.get("edit-menu") {
         // Replace only the two history commands, leaving native Cut/Copy/Paste responders intact.
-        for item in edit.items().map_err(internal)?.into_iter().take(2) {
-            edit.remove(&item).map_err(internal)?;
+        for item in edit.items().map_err(Error::internal)?.into_iter().take(2) {
+            edit.remove(&item).map_err(Error::internal)?;
         }
         let history: Vec<_> = items
             .iter()
@@ -225,23 +239,23 @@ pub fn select_project_menu<R: Runtime>(
             .collect();
         if history.is_empty() {
             edit.insert(
-                &tauri::menu::PredefinedMenuItem::undo(&app, None).map_err(internal)?,
+                &tauri::menu::PredefinedMenuItem::undo(&app, None).map_err(Error::internal)?,
                 0,
             )
-            .map_err(internal)?;
+            .map_err(Error::internal)?;
             edit.insert(
-                &tauri::menu::PredefinedMenuItem::redo(&app, None).map_err(internal)?,
+                &tauri::menu::PredefinedMenuItem::redo(&app, None).map_err(Error::internal)?,
                 1,
             )
-            .map_err(internal)?;
+            .map_err(Error::internal)?;
         } else {
             for (index, item) in history.into_iter().enumerate() {
                 let (entry, _) =
                     project_kind(&app, item, true, |app, id, label, enabled, accelerator| {
                         MenuItem::with_id(app, id, label, enabled, accelerator)
                     })
-                    .map_err(internal)?;
-                edit.insert(&entry, index).map_err(internal)?;
+                    .map_err(Error::internal)?;
+                edit.insert(&entry, index).map_err(Error::internal)?;
             }
         }
     }
@@ -259,17 +273,20 @@ pub fn select_project_menu<R: Runtime>(
             }
             if separated {
                 project
-                    .append(&tauri::menu::PredefinedMenuItem::separator(&app).map_err(internal)?)
-                    .map_err(internal)?;
+                    .append(
+                        &tauri::menu::PredefinedMenuItem::separator(&app)
+                            .map_err(Error::internal)?,
+                    )
+                    .map_err(Error::internal)?;
             }
             for item in entries {
                 let (entry, item_hints) =
                     project_kind(&app, item, true, |app, id, label, enabled, accelerator| {
                         MenuItem::with_id(app, id, label, enabled, accelerator)
                     })
-                    .map_err(internal)?;
-                let index = project.items().map_err(internal)?.len();
-                project.append(&entry).map_err(internal)?;
+                    .map_err(Error::internal)?;
+                let index = project.items().map_err(Error::internal)?.len();
+                project.append(&entry).map_err(Error::internal)?;
                 hints.extend(item_hints.into_iter().map(|(mut path, hint)| {
                     path.insert(0, index);
                     (path, hint)
@@ -278,12 +295,9 @@ pub fn select_project_menu<R: Runtime>(
             separated = true;
         }
         #[cfg(target_vendor = "apple")]
-        native::project_menu_hints(&app, hints).map_err(internal)?;
+        native::project_menu_hints(&app, hints).map_err(Error::internal)?;
     }
-    *app.state::<ProjectMenu>()
-        .0
-        .lock()
-        .expect("Project menu lock") = path;
+    *app.state::<ProjectMenu>().0.locked("Project menu lock")? = path;
     Ok(())
 }
 
@@ -305,7 +319,12 @@ pub struct Choice(Mutex<Option<oneshot::Sender<String>>>);
 
 impl Choice {
     pub fn chosen(&self, event: &MenuEvent) {
-        if let Some(sender) = self.0.lock().expect("choice lock").take() {
+        if let Some(sender) = self
+            .0
+            .locked("choice lock")
+            .reported("answer context menu")
+            .and_then(|mut choice| choice.take())
+        {
             let _ = sender.send(event.id().0.clone());
         }
     }
@@ -438,10 +457,6 @@ fn sequence_hints(items: &[Item]) -> Vec<(String, String)> {
         .collect()
 }
 
-fn internal(error: impl ToString) -> RpcError {
-    RpcError::new(code::INTERNAL, error.to_string())
-}
-
 #[tauri::command]
 pub async fn show_context_menu<R: Runtime>(
     window: WebviewWindow<R>,
@@ -451,10 +466,10 @@ pub async fn show_context_menu<R: Runtime>(
     y: f64,
 ) -> Result<Option<String>, RpcError> {
     let app = window.app_handle();
-    let menu = Menu::new(app).map_err(internal)?;
-    append(app, &menu, &items).map_err(internal)?;
+    let menu = Menu::new(app).map_err(Error::internal)?;
+    append(app, &menu, &items).map_err(Error::internal)?;
     let (sender, mut receiver) = oneshot::channel();
-    *choice.0.lock().expect("choice lock") = Some(sender);
+    *choice.0.locked("choice lock")? = Some(sender);
     let (shown, closed) = oneshot::channel();
     let target = window.as_ref().window();
     let popped = target.clone();
@@ -468,14 +483,17 @@ pub async fn show_context_menu<R: Runtime>(
             let result = popped.popup_menu_at(&menu, LogicalPosition::new(x, y));
             let _ = shown.send(result);
         })
-        .map_err(internal)?;
-    closed.await.map_err(internal)?.map_err(internal)?;
+        .map_err(Error::internal)?;
+    closed
+        .await
+        .map_err(Error::internal)?
+        .map_err(Error::internal)?;
     // The pop-up returns as the menu closes; the event of a choice follows at once.
     let picked = tokio::time::timeout(Duration::from_millis(100), &mut receiver)
         .await
         .ok()
         .and_then(Result::ok);
-    choice.0.lock().expect("choice lock").take();
+    choice.0.locked("choice lock")?.take();
     Ok(picked)
 }
 

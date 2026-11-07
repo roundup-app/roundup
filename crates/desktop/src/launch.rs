@@ -10,6 +10,8 @@ use tauri::Listener;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, Runtime, State};
 
+use crate::error::{Locked, Reported};
+
 #[derive(Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub(crate) enum NativeOpen {
@@ -46,10 +48,13 @@ impl Delivery {
 }
 
 pub(crate) fn deliver<R: Runtime>(app: &AppHandle<R>, request: NativeOpen) {
-    app.state::<Mutex<Delivery>>()
-        .lock()
-        .expect("native delivery lock")
-        .push(request);
+    if let Some(mut delivery) = app
+        .state::<Mutex<Delivery>>()
+        .locked("native delivery lock")
+        .reported("deliver native open")
+    {
+        delivery.push(request);
+    }
 }
 
 /// The single-instance plugin already forwards links on Linux/Windows. macOS delivers
@@ -115,7 +120,7 @@ pub(crate) fn native_open<R: Runtime>(
             "native opens belong to the main window",
         ));
     }
-    let mut delivery = state.lock().expect("native delivery lock");
+    let mut delivery = state.locked("native delivery lock")?;
     delivery.consumer = Some(channel);
     delivery.flush();
     Ok(())

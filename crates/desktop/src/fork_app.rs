@@ -185,26 +185,26 @@ pub(crate) fn tint(image: &Image<'_>, colour: ForkColour) -> Image<'static> {
 /// The mean of `rgba` over `factor` by `factor` blocks, weighted by alpha.
 fn shrink(rgba: &[u8], side: usize, factor: usize) -> Vec<u8> {
     let out = side / factor;
-    let mut small = vec![0u8; out * out * 4];
+    let mut small = Vec::with_capacity(out * out * 4);
+    let byte = |at: usize| rgba.get(at).copied().map_or(0, u64::from);
     for y in 0..out {
         for x in 0..out {
             let mut sum = [0u64; 4];
             for dy in 0..factor {
                 for dx in 0..factor {
                     let at = ((y * factor + dy) * side + x * factor + dx) * 4;
-                    let alpha = u64::from(rgba[at + 3]);
-                    for c in 0..3 {
-                        sum[c] += u64::from(rgba[at + c]) * alpha;
+                    let alpha = byte(at + 3);
+                    for (c, total) in sum.iter_mut().take(3).enumerate() {
+                        *total += byte(at + c) * alpha;
                     }
                     sum[3] += alpha;
                 }
             }
             let n = (factor * factor) as u64;
-            let at = (y * out + x) * 4;
-            for c in 0..3 {
-                small[at + c] = sum[c].checked_div(sum[3]).unwrap_or(0) as u8;
+            for total in sum.iter().take(3) {
+                small.push(total.checked_div(sum[3]).unwrap_or(0) as u8);
             }
-            small[at + 3] = (sum[3] / n) as u8;
+            small.push((sum[3] / n) as u8);
         }
     }
     small

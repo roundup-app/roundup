@@ -1,9 +1,20 @@
 //! The App: starts a Daemon for each open Project and passes calls and events to the webview (`scenarios/app.md`).
 
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
+
 pub mod alert;
 mod config;
 mod daemon;
 mod diagnostics;
+mod error;
 mod facts;
 mod feedback;
 mod fork;
@@ -19,6 +30,7 @@ mod paste;
 mod reopen;
 mod state;
 mod store;
+mod unanswered;
 mod update;
 mod window;
 

@@ -15,6 +15,8 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
+use crate::error::{Error, Locked, Reported};
+
 const TRAY: &str = "roundup-menu-bar";
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -124,12 +126,15 @@ fn age(since: i64, now: i64) -> String {
 /// Re-style the tray menu at each opening: ages and light/dark tones stay current.
 #[cfg(target_os = "macos")]
 fn refresh_looks<R: Runtime>(app: &AppHandle<R>) {
-    let entries = app
+    let Some(entries) = app
         .state::<MenuBar<R>>()
         .entries
-        .lock()
-        .expect("menu-bar entries lock")
-        .clone();
+        .locked("menu-bar entries lock")
+        .reported("refresh menu-bar rows")
+        .map(|entries| entries.clone())
+    else {
+        return;
+    };
     style_tray(app, &entries);
 }
 
@@ -174,9 +179,10 @@ fn title(entry: &Entry, two_lines: bool) -> String {
 }
 
 fn action_id(action: &Action) -> String {
+    // `Action` holds strings only, so it always serializes.
     format!(
         "menu-bar:{}",
-        serde_json::to_string(action).expect("menu action serializes")
+        serde_json::to_string(action).unwrap_or_default()
     )
 }
 
@@ -193,39 +199,35 @@ const FINGERTIPS: (f64, f64) = (25.2, 5.04);
 /// A clear halo parts the dot from the fingers. Alpha alone supplies the three static looks;
 /// macOS supplies the ink for the current menu-bar appearance.
 fn image(mark: Mark) -> Image<'static> {
-    let mut rgba = vec![0; GLYPH.len() * 4];
-    for y in 0..SIDE {
-        for x in 0..SIDE {
-            let distance =
-                (f64::from(x) + 0.5 - FINGERTIPS.0).hypot(f64::from(y) + 0.5 - FINGERTIPS.1);
-            let inside = |radius: f64| (radius - distance + 0.5).clamp(0.0, 1.0);
-            let (halo, dot) = match mark {
-                Mark::Waiting => (6.48, inside(4.32)),
-                Mark::Ready => (4.68, inside(2.52)),
-                Mark::Empty => (6.48, inside(4.32) - inside(2.16)),
-            };
-            // x and y are below SIDE, so the index is inside both buffers.
-            let index = (y * SIDE + x) as usize;
-            let glyph = f64::from(GLYPH[index]) / 255.0 * (1.0 - inside(halo));
-            // alpha is clamped to 0..1 before scaling to a byte.
-            rgba[index * 4 + 3] = (glyph.max(dot) * 255.0).round() as u8;
-        }
+    let mut rgba = Vec::with_capacity(GLYPH.len() * 4);
+    for (index, &glyph_alpha) in GLYPH.iter().enumerate() {
+        // GLYPH holds SIDE * SIDE bytes, so both coordinates fit u32.
+        let (x, y) = (index as u32 % SIDE, index as u32 / SIDE);
+        let distance = (f64::from(x) + 0.5 - FINGERTIPS.0).hypot(f64::from(y) + 0.5 - FINGERTIPS.1);
+        let inside = |radius: f64| (radius - distance + 0.5).clamp(0.0, 1.0);
+        let (halo, dot) = match mark {
+            Mark::Waiting => (6.48, inside(4.32)),
+            Mark::Ready => (4.68, inside(2.52)),
+            Mark::Empty => (6.48, inside(4.32) - inside(2.16)),
+        };
+        let glyph = f64::from(glyph_alpha) / 255.0 * (1.0 - inside(halo));
+        // alpha is clamped to 0..1 before scaling to a byte.
+        rgba.extend([0, 0, 0, (glyph.max(dot) * 255.0).round() as u8]);
     }
     Image::new_owned(rgba, SIDE, SIDE)
 }
 
-fn internal(error: impl ToString) -> RpcError {
-    RpcError::new(rpc::code::INTERNAL, error.to_string())
-}
-
 fn chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
-    app.state::<MenuBar<R>>()
+    if let Some(dispatch) = app
+        .state::<MenuBar<R>>()
         .dispatch
-        .lock()
-        .expect("menu-bar lock")
-        .chosen(id, |action| {
+        .locked("menu-bar lock")
+        .reported("choose menu-bar row")
+    {
+        dispatch.chosen(id, |action| {
             deliver(app, action);
         });
+    }
 }
 
 fn deliver<R: Runtime>(app: &AppHandle<R>, action: &Action) {
@@ -247,7 +249,7 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     menu: Presentation,
 ) -> Result<(), RpcError> {
     let holder = app.state::<MenuBar<R>>();
-    let mut dispatch = holder.dispatch.lock().expect("menu-bar lock");
+    let mut dispatch = holder.dispatch.locked("menu-bar lock")?;
     let next = dispatch.replacement(&menu.entries);
     let rows: Vec<(String, String, bool)> = menu
         .entries
@@ -273,8 +275,10 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     let (shown, template) = presented(menu.mark, fork);
     let tray = match app.tray_by_id(TRAY) {
         Some(tray) => {
-            tray.set_icon(Some(shown.clone())).map_err(internal)?;
-            tray.set_icon_as_template(template).map_err(internal)?;
+            tray.set_icon(Some(shown.clone()))
+                .map_err(Error::internal)?;
+            tray.set_icon_as_template(template)
+                .map_err(Error::internal)?;
             tray
         }
         None => TrayIconBuilder::with_id(TRAY)
@@ -297,25 +301,25 @@ pub(crate) fn set_menu_bar<R: Runtime>(
                 }
             })
             .build(&app)
-            .map_err(internal)?,
+            .map_err(Error::internal)?,
     };
     #[cfg(target_os = "macos")]
     native::set_tray_menu(&tray, rows, looks(&menu.entries, provenance::now_ms()))
-        .map_err(internal)?;
+        .map_err(Error::internal)?;
     #[cfg(not(target_os = "macos"))]
     {
-        let native = Menu::new(&app).map_err(internal)?;
+        let native = Menu::new(&app).map_err(Error::internal)?;
         for (id, title, enabled) in rows {
-            let item =
-                MenuItem::with_id(&app, id, title, enabled, None::<&str>).map_err(internal)?;
-            native.append(&item).map_err(internal)?;
+            let item = MenuItem::with_id(&app, id, title, enabled, None::<&str>)
+                .map_err(Error::internal)?;
+            native.append(&item).map_err(Error::internal)?;
         }
-        tray.set_menu(Some(native)).map_err(internal)?;
+        tray.set_menu(Some(native)).map_err(Error::internal)?;
     }
     *dispatch = next;
     drop(dispatch);
-    *holder.entries.lock().expect("menu-bar entries lock") = menu.entries;
-    *holder.dock.lock().expect("Dock presentation lock") = menu.dock;
+    *holder.entries.locked("menu-bar entries lock")? = menu.entries;
+    *holder.dock.locked("Dock presentation lock")? = menu.dock;
     #[cfg(target_os = "macos")]
     install_dock(&app)?;
     Ok(())
@@ -341,16 +345,18 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
                     let entries = refresh
                         .state::<MenuBar<R>>()
                         .dock
-                        .lock()
-                        .expect("Dock presentation lock")
-                        .clone();
+                        .locked("Dock presentation lock")
+                        .reported("read Dock rows")
+                        .map(|entries| entries.clone())
+                        .unwrap_or_default();
                     entries
                         .iter()
                         .map(|entry| native::Row {
                             title: title(entry, false),
-                            action: entry.action.as_ref().map(|action| {
-                                serde_json::to_string(action).expect("menu action serializes")
-                            }),
+                            action: entry
+                                .action
+                                .as_ref()
+                                .and_then(|action| serde_json::to_string(action).ok()),
                         })
                         .collect()
                 },
@@ -363,7 +369,7 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
                     }
                 },
             )
-            .map_err(internal)?,
+            .map_err(Error::internal)?,
         );
         Ok(())
     })
@@ -375,9 +381,15 @@ pub(crate) fn dock_chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
         if let Some(action) = owner.as_ref().and_then(|menu| menu.chosen(id)) {
             // The displayed Dock row retains its original identity while tracking. The
             // connected App reports a removed Agent instead of silently choosing another.
-            let action: Action =
-                serde_json::from_str(&action).expect("Dock action was serialized by this adapter");
-            deliver(app, &action);
+            match serde_json::from_str::<Action>(&action) {
+                Ok(action) => deliver(app, &action),
+                Err(error) => {
+                    crate::diagnostics::report(
+                        "choose Dock row",
+                        &format!("JSON {:?}", error.classify()),
+                    );
+                }
+            }
         }
     });
 }

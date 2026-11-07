@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use rpc::RpcError;
+
+use crate::error::Locked;
 use serde::{Deserialize, Serialize};
 
 const FILE: &str = "projects.json";
@@ -115,10 +117,7 @@ impl Store {
     }
 
     fn with<T>(&self, persist: bool, change: impl FnOnce(&mut Saved) -> T) -> Result<T, RpcError> {
-        let mut guard = self
-            .saved
-            .lock()
-            .expect("the store lock is never kept across a panic");
+        let mut guard = self.saved.locked("the store lock")?;
         let saved = guard
             .get_or_insert_with(|| self.read())
             .as_mut()
