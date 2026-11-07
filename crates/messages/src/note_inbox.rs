@@ -37,6 +37,10 @@ pub trait NoteInbox: Send + Sync {
     ) -> Vec<(String, String, String)> {
         Vec::new()
     }
+    /// DCR3: whether `job` is in the Reach of `door`, the only Jobs its snapshot may name.
+    fn in_reach(&self, _door: &str, _job: &str) -> bool {
+        true
+    }
     /// B50: write `notes` as entries; the answer names the failed state.
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox>;
 }
@@ -83,6 +87,10 @@ impl NoteInbox for agents::Agents {
             .into_iter()
             .map(|job| (job.id, job.name, job.attempt))
             .collect()
+    }
+
+    fn in_reach(&self, door: &str, job: &str) -> bool {
+        agents::Agents::in_reach(self, door, job)
     }
 
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {

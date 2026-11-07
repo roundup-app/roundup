@@ -57,7 +57,11 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
     };
     // The seam to `agents` speaks `RpcError`.
     let reported = |id: &str| attempts(id).map_err(RpcError::from);
-    let jobs = inbox.open_jobs(agent, &reported);
+    let jobs: Vec<_> = inbox
+        .open_jobs(agent, &reported)
+        .into_iter()
+        .filter(|(id, ..)| inbox.in_reach(agent, id))
+        .collect();
     if jobs.is_empty() {
         return None;
     }
@@ -497,6 +501,48 @@ pub(crate) mod tests {
             )
             .unwrap();
         (messages, rail, inbox)
+    }
+
+    struct TwoDoors;
+
+    #[async_trait]
+    impl NoteInbox for TwoDoors {
+        async fn check(&self, _: &str) -> Inbox {
+            Inbox::Ok
+        }
+        fn open_jobs(
+            &self,
+            _: &str,
+            _: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
+        ) -> Vec<(String, String, String)> {
+            ["a-job", "b-job"]
+                .map(|id| (id.to_owned(), id.to_uppercase(), "1".to_owned()))
+                .to_vec()
+        }
+        fn in_reach(&self, door: &str, job: &str) -> bool {
+            job.starts_with(&door[..1])
+        }
+        fn write(&self, _: &str, _: &[Entry]) -> Result<(), Inbox> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn dcr3_open_jobs_note_leaves_out_another_workstream() {
+        let dir = tempfile::tempdir().unwrap();
+        let env = Env {
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+            clock: Arc::new(|| 100_000),
+            fault: Arc::new(|_| Ok(())),
+        };
+        let messages =
+            Messages::open_with(dir.path(), Bus::new(), Arc::new(BatchRail::default()), env)
+                .unwrap();
+        messages.set_inbox(Arc::new(TwoDoors));
+        let note = open_job_snapshot(&messages.inner, "a-door", (1, 2)).unwrap();
+        assert!(note.contains("a-job"));
+        assert!(!note.contains("b-job") && !note.contains("B-JOB"));
+        assert_eq!(open_job_snapshot(&messages.inner, "c-door", (1, 2)), None);
     }
 
     #[tokio::test(start_paused = true)]
