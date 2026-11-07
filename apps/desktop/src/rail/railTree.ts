@@ -38,13 +38,13 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
-/** U6550a, M5: a lift or cancel by key is immediate (M1); a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
+/** U6550a, M5: a lift or cancel by key is immediate (M1); a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn (once the sortable has cleared its own shifts) and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
 const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: Accessor<string | null>) => {
   let drawn = new Map<string, number>();
   let keyed = false;
   const rows = () => [...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []];
 
-  createEffect(on(lifted, () => {
+  createEffect(on(lifted, () => queueMicrotask(() => {
     const before = drawn;
     const reduced = matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
@@ -61,7 +61,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
       // A row the sortable shifted slides itself from that shift; a second translate here would double it.
       else if (!row.style.translate && Math.abs(was - row.getBoundingClientRect().top) >= 1) row.animate({ translate: [`0 ${was - row.getBoundingClientRect().top}px`, "0 0"] }, options);
     }
-  }, { defer: true }));
+  }), { defer: true }));
 
   // A row inside a collapsed group is inert and not drawn: it returns by fading in, never by sliding from where the hidden group left it.
   return (keyboard: boolean) => { keyed = keyboard; drawn = new Map(rows().filter(row => !row.closest("[inert], [hidden]")).map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };

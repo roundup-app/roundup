@@ -839,7 +839,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const relax = () => {
       tree?.onLift?.(null, !pointerDrag);
 
-      if (pointerDrag) { place(others(source).map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(); }
+      // A tree's lift motion slides the rows from where they show once the Rail has redrawn; a slide from the old shift here would add to it.
+      if (pointerDrag) { place(others(source).map(({ element }) => ({ element, shift: 0 })), !tree); reclipAfterSlide(); }
     };
 
     const final = !tree || event.canceled || !isSortable(source) ? null
