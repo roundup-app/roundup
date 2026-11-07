@@ -11,7 +11,7 @@ import { useFieldContext } from "@ark-ui/solid/field";
 import "./Select.css";
 import { floatingControl } from "./Dialog";
 import { Select as ArkSelect, createListCollection } from "@ark-ui/solid/select";
-import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, type JSX } from "solid-js";
 import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
 import { Portal } from "solid-js/web";

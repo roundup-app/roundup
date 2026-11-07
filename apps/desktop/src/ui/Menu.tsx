@@ -7,7 +7,7 @@ import { getInitialFocus } from "@zag-js/dom-query";
 import { useLocaleContext } from "@ark-ui/solid/locale";
 import { useEnvironmentContext } from "@ark-ui/solid/environment";
 import { Menu as ArkMenu, useMenuContext } from "@ark-ui/solid/menu";
-import { createComputed, createContext, createMemo, createSignal, createUniqueId, on, onCleanup, splitProps, useContext } from "solid-js";
+import { createComputed, createContext, createMemo, createSignal, createUniqueId, on, splitProps, useContext } from "solid-js";
 import { floatingControl } from "./Dialog";
 import { trackSurface } from "./openSurfaces";
 import "./Menu.css";
