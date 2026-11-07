@@ -272,13 +272,13 @@ class Codex(unittest.TestCase):
 
 class Stream(unittest.TestCase):
     def test_l23_a_codex_error_event_with_a_text_message_is_logged_not_a_crash(self):
-        lines = [dict(type='error', message='schema rejected'), 'text', dict(type='x', message='s', item='s'), dict(type='assistant', message=dict(content=[dict(type='tool_use', name='Bash', input=dict(command='FOO=1 gh api -H "x" repos/a'))]))]
+        lines = [dict(type='error', message='schema rejected'), 'text', dict(type='x', message='s', item='s'), dict(type='assistant', message=dict(content=['x'] + [dict(type='tool_use', name='Bash', input=dict(command=c)) for c in ('cd apps/desktop && FOO=1 pnpm vitest related src/a.ts', 'FOO=1 gh api -H "x"', 'echo ghp_abc')]))]
         out = io.StringIO()
         with tempfile.TemporaryDirectory() as path, redirect_stdout(out):
             code = builder.stream([sys.executable, '-c', 'import json,sys; [print(json.dumps(l)) for l in %r]' % lines], '', f'{path}/events', {}, None, None)
         self.assertEqual(code, 0)
         self.assertIn('::error::schema rejected', out.getvalue())
-        self.assertIn('assistant  tool_use gh api -H\n', out.getvalue())
+        self.assertIn('assistant  tool_use pnpm vitest related tool_use gh api tool_use echo\n', out.getvalue())
 
     def test_l23_codex_gets_a_closed_schema_with_every_property_required(self):
         schema = {'type': 'object', 'properties': {'verdict': {'enum': ['approve', 'reject']}, 'findings': {'type': 'string'}},
