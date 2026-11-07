@@ -104,10 +104,12 @@
   user-select: text;
 }
 
-/* The frame sits inside the tab, clear of its divider and the strip's hairline. */
+/* The frame is the 24 px control height, centred in the tab, so its focus ring sits whole inside the strip. */
 .field-inline.tab-rename {
   width: calc(100% - 2 * var(--space-1));
-  margin: var(--space-1);
+  min-height: var(--space-5);
+  height: var(--space-5);
+  margin: auto var(--space-1);
 }
 
 .strip-add {

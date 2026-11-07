@@ -107,7 +107,7 @@
 }
 
 /* U6545a: a field that edits text in place (a tab, row or title rename) is the frame at the text's own size, inside the row's text column. */
-.field-inline.field-inline:is(input, textarea) {
+.field-inline:is(input, textarea) {
   min-height: var(--space-6);
   margin: 0;
   padding: var(--space-1) var(--space-2);
