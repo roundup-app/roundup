@@ -65,8 +65,6 @@ impl Daemon {
         let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
         let context_todos = Arc::clone(&todos);
-        let context_bus = bus.clone();
-        let context_touches = Arc::clone(&touches);
         let base_at = begun.elapsed();
         let agents = Arc::new(
             configure(agents::Agents::open(
@@ -87,15 +85,8 @@ impl Daemon {
             })
             .with_context(move |nodes, id| {
                 let todos = Arc::clone(&context_todos);
-                let ctx = Ctx {
-                    actor: Actor::daemon(),
-                    bus: context_bus.clone(),
-                    touches: Arc::clone(&context_touches),
-                };
                 async move {
-                    let todos: Vec<contracts::todo::Todo> =
-                        serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
-                            .map_err(RpcError::internal)?;
+                    let todos = todos.list_all()?;
                     let context = context::compose(&nodes, &todos, &id)?;
                     Ok(context::text(&nodes, &context))
                 }
@@ -151,6 +142,7 @@ impl Daemon {
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
+            rail: agents.clone(),
             program_statuses: Default::default(),
             terminals: Arc::clone(&terminals),
             wake_gate: Default::default(),
@@ -310,22 +302,13 @@ impl Watchers {
     /// Bus it follows closes only when the Daemon is gone.
     pub(crate) fn spawn(self, daemon: &Daemon) -> tokio::task::JoinSet<()> {
         let mut set = tokio::task::JoinSet::new();
-        let (touches, bus) = (Arc::clone(&daemon.touches), daemon.bus.clone());
         let todos = Arc::clone(&daemon.todos);
         set.spawn(waits::keep(
             self.waits,
             Arc::clone(&daemon.agents),
             move || {
-                let ctx = Ctx {
-                    actor: Actor::daemon(),
-                    bus: bus.clone(),
-                    touches: Arc::clone(&touches),
-                };
                 let todos = Arc::clone(&todos);
-                async move {
-                    let list = todos.call(&ctx, "todo.list", Value::Null).await.ok()?;
-                    serde_json::from_value(list).ok()
-                }
+                async move { todos.list_all().ok() }
             },
         ));
         set.spawn(Arc::clone(&daemon.program_statuses).run(

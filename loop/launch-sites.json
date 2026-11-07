@@ -777,6 +777,11 @@
     "data": "Greps committed rupd sources for method-name comparisons; no Daemon launch.",
     "kind": "reference"
   },
+  "tools/typed-calls/guard.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Greps committed rupd sources for method-name calls; no Daemon launch.",
+    "kind": "reference"
+  },
   "tools/contracts/test_addition.py": {
     "cleanup": "Temporary checkout is removed on success and failure; no Daemon launch.",
     "data": "Edits copied sources in a temporary directory; names rupd files only.",

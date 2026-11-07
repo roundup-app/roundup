@@ -1,6 +1,7 @@
 //! A3308: ordinary Messages ask the Door to assign unassigned Todos. The retained Message
 //! and Todo owner history together identify a firing, including after a Daemon restart.
 use super::*;
+use crate::rail_index::RailIndex;
 use crate::route::policy::{Serial, policy};
 use contracts::agent::{NodeKind, RailNode};
 use contracts::message::Message;
@@ -89,31 +90,24 @@ impl Daemon {
 
     async fn require_auto_slot(&self, actor: &Actor) -> Result<(), RpcError> {
         let nodes = self.rail().await?;
-        let mut at = nodes.iter().find(|node| node.id == actor.id);
-        while let Some(node) = at {
-            if node.kind == NodeKind::Workstream {
-                if node.auto == Some(true) {
-                    let running = queue::running(
-                        &nodes,
-                        &self.queue.launching.lock().expect("Queue launching lock"),
-                    );
-                    if !running.contains(&node.id)
-                        && self
-                            .agents
-                            .workstream_cap()?
-                            .is_some_and(|cap| running.len() >= cap as usize)
-                    {
-                        return Err(RpcError::conflict(
-                            "Workstream cap reached; wait for a running Workstream to finish",
-                        ));
-                    }
-                }
-                break;
+        let Some(door) = RailIndex::new(&nodes).workstream_of(&actor.id) else {
+            return Ok(());
+        };
+        if door.auto == Some(true) {
+            let running = queue::running(
+                &nodes,
+                &self.queue.launching.lock().expect("Queue launching lock"),
+            );
+            if !running.contains(&door.id)
+                && self
+                    .agents
+                    .workstream_cap()?
+                    .is_some_and(|cap| running.len() >= cap as usize)
+            {
+                return Err(RpcError::conflict(
+                    "Workstream cap reached; wait for a running Workstream to finish",
+                ));
             }
-            at = node
-                .parent
-                .as_ref()
-                .and_then(|parent| nodes.iter().find(|node| &node.id == parent));
         }
         Ok(())
     }

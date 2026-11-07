@@ -49,7 +49,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        Ok(self.get(ctx, params(value)?)?)
+        Ok(crate::error::reply(&self.get(ctx, params(value)?)?)?)
     }
 
     async fn rpc_todo_get_history(
@@ -121,7 +121,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        Ok(self.assign(ctx, params(value)?)?)
+        Ok(crate::error::reply(&self.assign(ctx, params(value)?)?)?)
     }
 
     async fn rpc_todo_hand(
@@ -139,7 +139,7 @@ impl Todos {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        Ok(self.move_to(ctx, params(value)?)?)
+        Ok(crate::error::reply(&self.move_to(ctx, params(value)?)?)?)
     }
 
     async fn rpc_todo_delete(

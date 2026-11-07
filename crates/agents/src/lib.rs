@@ -300,6 +300,8 @@ pub struct Agents {
 
 mod dispatch;
 mod door;
+mod typed;
+pub use typed::RailRead;
 mod ending;
 mod events;
 mod import_work;

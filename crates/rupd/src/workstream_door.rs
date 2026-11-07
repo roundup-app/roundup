@@ -81,6 +81,7 @@ for line in sys.stdin:
         actions: Default::default(),
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
         agents: agents.clone(),
+        rail: agents.clone(),
         wake_gate: Default::default(),
         sender: Default::default(),
         restarting: Default::default(),
