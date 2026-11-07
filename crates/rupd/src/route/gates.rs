@@ -1,4 +1,5 @@
 use super::*;
+use crate::field::Field;
 use crate::rail_index::RailIndex;
 
 impl Daemon {
@@ -177,12 +178,14 @@ impl Daemon {
         let ctx = self.ctx(Actor::daemon());
         let home = Some(door.id.clone());
         if pad {
-            let name = created["name"]
+            let name = created
+                .field("name")
                 .as_str()
                 .ok_or_else(|| RpcError::internal("a created Pad has no name"))?;
             return rpc::reply(&self.pads.set_home(&ctx, name, home)?);
         }
-        let id = created["id"]
+        let id = created
+            .field("id")
             .as_u64()
             .and_then(|id| u32::try_from(id).ok())
             .ok_or_else(|| RpcError::internal("a created Todo has no id"))?;

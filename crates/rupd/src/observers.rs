@@ -94,12 +94,12 @@ pub(crate) fn messages_env(
     let mut env = messages::Env::system(touches);
     // B21/B22's real-Daemon observer supplies time and records send attempts without a new RPC.
     if let Some(path) = observers.messages_clock.clone() {
+        let system = env.clock.clone();
         env.clock = Arc::new(move || {
             std::fs::read_to_string(&path)
-                .expect("read Messages fake clock")
-                .trim()
-                .parse()
-                .expect("Messages fake clock milliseconds")
+                .ok()
+                .and_then(|text| text.trim().parse().ok())
+                .unwrap_or_else(|| system())
         });
     }
     let op = observers.messages_fault.clone();
@@ -110,12 +110,12 @@ pub(crate) fn messages_env(
         env.fault = Arc::new(move |name| {
             if let Some(path) = &observer {
                 use std::io::Write;
-                let mut file = std::fs::OpenOptions::new()
+                std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)
                     .open(path)
-                    .expect("open Messages observer");
-                writeln!(file, "{name}").expect("write Messages operation");
+                    .and_then(|mut file| writeln!(file, "{name}"))
+                    .map_err(|err| format!("Messages observer could not record {name}: {err}"))?;
             }
             let selected = fault_file
                 .as_ref()
@@ -255,10 +255,11 @@ impl std::io::Write for ObservedInput {
             }
             Some("partial") if !self.partial => {
                 self.partial = true;
-                return self.writer.write(&bytes[..bytes.len().min(1)]);
+                return self.writer.write(bytes.get(..1).unwrap_or(bytes));
             }
             Some("partial") => return Err(std::io::Error::other("input observer partial write")),
-            Some("end") => panic!("input observer ended without a result"),
+            // Ends the input thread so the effect's result sender drops unsent.
+            Some("end") => return Err(std::io::Error::other(terminal::InputEnded)),
             _ => {}
         }
         self.writer.write(bytes)

@@ -49,7 +49,7 @@ pub fn project_data(data: &Path, project: &Path) -> io::Result<PathBuf> {
     let canonical = project.canonicalize()?;
     let digest = Sha256::digest(canonical.as_os_str().as_encoded_bytes());
     let mut hex = String::new();
-    for byte in &digest[..8] {
+    for byte in digest.iter().take(8) {
         let _ = write!(hex, "{byte:02x}");
     }
     let name = canonical
