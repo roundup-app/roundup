@@ -1,0 +1,13 @@
+[package]
+name = "herdr-spike-remote"
+edition = "2024"
+version = "0.0.0"
+publish = false
+
+[workspace]
+
+[dependencies]
+base64 = "0.23"
+nix = { version = "0.28", features = ["term", "signal", "fs"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "time"] }

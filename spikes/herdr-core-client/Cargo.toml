@@ -1,0 +1,25 @@
+[package]
+name = "herdr-core-client-spike"
+edition = "2024"
+version = "0.0.0"
+publish = false
+
+# Throwaway spike: its own workspace, so the repo's workspace and CI never build it.
+[workspace]
+
+[dependencies]
+terminal = { path = "../../crates/terminal" }
+contracts = { path = "../../crates/contracts" }
+rpc = { path = "../../crates/rpc" }
+base64 = "0.23"
+nix = { version = "0.28", features = ["term", "signal", "ioctl", "process"] }
+serde_json = "1"
+tempfile = "3"
+vt100 = "=0.16.2"
+regex = "1"
+tokio = { version = "1", features = ["full"] }
+
+[patch.crates-io]
+rusqlite = { path = "../../vendor/rusqlite-0.40.2" }
+vt100 = { path = "../../vendor/vt100-0.16.2" }
+vte = { path = "../../vendor/vte-0.15.0" }
