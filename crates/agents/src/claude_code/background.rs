@@ -401,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn u6461a_a_stop_held_only_by_an_unreadable_process_table_is_labelled_waiting() {
+    fn u6461a_a_stop_kept_working_only_by_an_unreadable_process_table_is_labelled_waiting() {
         let mut a = ClaudeCode::new(|| 1_900);
         hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
         hook(&mut a, json!({"hook_event_name":"Stop"}));
