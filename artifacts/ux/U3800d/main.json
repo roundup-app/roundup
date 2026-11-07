@@ -7,74 +7,65 @@
     {
       "drop": 1,
       "moved": true,
-      "moves": 1,
-      "longest_task_ms": 276,
-      "press_to_next_paint_ms": 28.4
+      "longest_task_ms": 77,
+      "press_to_next_paint_ms": 11.6
     },
     {
       "drop": 2,
       "moved": true,
-      "moves": 2,
-      "longest_task_ms": 173,
-      "press_to_next_paint_ms": 23.3
+      "longest_task_ms": 80,
+      "press_to_next_paint_ms": 26.3
     },
     {
       "drop": 3,
       "moved": true,
-      "moves": 3,
-      "longest_task_ms": 206,
-      "press_to_next_paint_ms": 22.6
+      "longest_task_ms": 74,
+      "press_to_next_paint_ms": 25.5
     },
     {
       "drop": 4,
       "moved": true,
-      "moves": 4,
-      "longest_task_ms": 178,
-      "press_to_next_paint_ms": 21.1
+      "longest_task_ms": 82,
+      "press_to_next_paint_ms": 43.6
     },
     {
       "drop": 5,
       "moved": true,
-      "moves": 5,
-      "longest_task_ms": 214,
-      "press_to_next_paint_ms": 22.5
+      "longest_task_ms": 193,
+      "press_to_next_paint_ms": 38.4
     },
     {
       "drop": 6,
       "moved": true,
-      "moves": 6,
-      "longest_task_ms": 169,
-      "press_to_next_paint_ms": 34.6
+      "longest_task_ms": 86,
+      "press_to_next_paint_ms": 26.9
     },
     {
       "drop": 7,
       "moved": true,
-      "moves": 7,
-      "longest_task_ms": 211,
-      "press_to_next_paint_ms": 22.5
+      "longest_task_ms": 56,
+      "press_to_next_paint_ms": 41.8
     },
     {
       "drop": 8,
       "moved": true,
-      "moves": 8,
-      "longest_task_ms": 171,
-      "press_to_next_paint_ms": 21.3
+      "longest_task_ms": 79,
+      "press_to_next_paint_ms": 42.8
     },
     {
       "drop": 9,
       "moved": true,
-      "moves": 9,
-      "longest_task_ms": 212,
-      "press_to_next_paint_ms": 21.2
+      "longest_task_ms": 123,
+      "press_to_next_paint_ms": 24.5
     },
     {
       "drop": 10,
       "moved": true,
-      "moves": 10,
-      "longest_task_ms": 183,
-      "press_to_next_paint_ms": 29.9
+      "longest_task_ms": 64,
+      "press_to_next_paint_ms": 36.2
     }
   ],
-  "max_longest_task_ms": 276,
-  "max_press_to_next_paint_ms": 34.6
+  "max_longest_task_ms": 193,
+  "max_press_to_next_paint_ms": 43.6,
+  "method": "CDP Tracing of 10 pointer drops (tokens below/above logins) on just harness; longest main-thread task within 400 ms of the pointerup mark; press = a timer 20 ms after release, then the next rAF (a frame wait is included)"
 }
