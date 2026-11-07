@@ -26,8 +26,8 @@ use std::path::PathBuf;
 pub use client::{Client, OutputFrame};
 pub use error::{RpcError, code};
 pub use module::{
-    Bus, Ctx, CtxOnly, EVENT_WINDOW, EventLog, Handler, Module, Reply, Subscription, WithParams,
-    json, params, reply,
+    Bus, Ctx, CtxOnly, Declared, EVENT_WINDOW, EventLog, Handler, Module, Reply, Subscription,
+    WithParams, json, params, reply,
 };
 
 /// Why a module could not start (a bad database, an unwritable directory).

@@ -6,10 +6,10 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-DECLARATION = '        "project.contractProbe": contracts::todo::TodoId => contracts::todo::TodoId, rpc_contract_probe, all(schema(contracts::todo::TodoId, "A harmless contract fixture.")), measured("ping_p95_ms"), tool;\n'
+DECLARATION = '        "project.contractProbe": contracts::todo::TodoId => contracts::todo::TodoId, contract_probe, all(schema(contracts::todo::TodoId, "A harmless contract fixture.")), measured("ping_p95_ms"), tool;\n'
 HANDLER = '''
 impl Todos {
-    pub async fn rpc_contract_probe(&self, ctx: &Ctx, p: contracts::todo::TodoId) -> Result<contracts::todo::TodoId, crate::error::Error> {
+    pub async fn contract_probe(&self, ctx: &Ctx, p: contracts::todo::TodoId) -> Result<contracts::todo::TodoId, crate::error::Error> {
         ctx.touch(contracts::Verb::Read, "c4:contractProbe")?;
         Ok(contracts::todo::TodoId {id: p.id + 1})
     }

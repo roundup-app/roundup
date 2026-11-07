@@ -341,6 +341,12 @@ pub struct WithParams;
 /// Marks a handler of a method with no params: it takes the context only.
 pub struct CtxOnly;
 
+/// A type a handler may return for the declared result `R`: `R` itself, or a type its owner
+/// implements this for when the wire bytes must stay as the answerer sent them.
+pub trait Declared<R> {}
+
+impl<R> Declared<R> for R {}
+
 /// A typed handler, called by `dispatch_methods!`: `P` and `R` are the declared params and result,
 /// `C` the context the owner passes (`&Ctx`, or the Daemon's connection).
 #[allow(async_fn_in_trait)]
@@ -349,11 +355,11 @@ pub trait Handler<S, C, P, R, M> {
     async fn run(self, this: &S, ctx: C, value: Value) -> Result<Value, RpcError>;
 }
 
-impl<F, S, C, P, R, E> Handler<S, C, P, R, WithParams> for F
+impl<F, S, C, P, R, Q, E> Handler<S, C, P, R, WithParams> for F
 where
-    F: AsyncFn(&S, C, P) -> Result<R, E>,
+    F: AsyncFn(&S, C, P) -> Result<Q, E>,
     P: DeserializeOwned,
-    R: Serialize,
+    Q: Serialize + Declared<R>,
     E: Into<RpcError>,
 {
     async fn run(self, this: &S, ctx: C, value: Value) -> Result<Value, RpcError> {
@@ -362,10 +368,10 @@ where
     }
 }
 
-impl<F, S, C, R, E> Handler<S, C, (), R, CtxOnly> for F
+impl<F, S, C, R, Q, E> Handler<S, C, (), R, CtxOnly> for F
 where
-    F: AsyncFn(&S, C) -> Result<R, E>,
-    R: Serialize,
+    F: AsyncFn(&S, C) -> Result<Q, E>,
+    Q: Serialize + Declared<R>,
     E: Into<RpcError>,
 {
     async fn run(self, this: &S, ctx: C, _value: Value) -> Result<Value, RpcError> {

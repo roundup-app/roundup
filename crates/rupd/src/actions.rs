@@ -139,6 +139,14 @@ fn invalid(message: String) -> RpcError {
     RpcError::new(code::INVALID_PARAMS, message)
 }
 
+/// `action.list` rows as the App answered them, followed by the User actions: the declared
+/// `Vec<ActionRow>` on the wire, with an optional App arg still carrying no `required` key.
+#[derive(serde::Serialize)]
+#[serde(transparent)]
+pub(super) struct ListedRows(Value);
+
+impl rpc::Declared<Vec<ActionRow>> for ListedRows {}
+
 impl Daemon {
     /// Validate the folder, relay `method` to the App and answer what the App answered, with the
     /// folder as resolved here.
@@ -280,15 +288,19 @@ impl Daemon {
         Ok(self.extensions.rows())
     }
 
-    pub(super) async fn action_list(&self, conn: &mut Conn) -> Result<Vec<ActionRow>, RpcError> {
-        let mut rows = self.app_rows().await?;
+    pub(super) async fn action_list(&self, conn: &mut Conn) -> Result<ListedRows, RpcError> {
+        let mut rows = self.app_list().await?;
         self.ctx(conn.actor.clone())
             .touch(Verb::Read, "action:list")?;
-        // UA1: the User actions follow the App's rows.
-        self.extensions
-            .built_in(self, rows.iter().map(|row| row.name.clone()).collect());
-        rows.extend(self.extensions.rows());
-        Ok(rows)
+        // UA1: the User actions follow the App's rows, which stay as the App answered them.
+        if let Some(app) = rows.as_array_mut() {
+            let names = app
+                .iter()
+                .filter_map(|row| row["name"].as_str().map(str::to_owned));
+            self.extensions.built_in(self, names.collect());
+            app.extend(self.extensions.rows().iter().map(|row| json!(row)));
+        }
+        Ok(ListedRows(rows))
     }
 
     pub(super) async fn action_run(
@@ -306,7 +318,9 @@ impl Daemon {
         if let Some(result) = self.extensions.run(self, &run).await {
             return serde_json::from_value(result?).map_err(RpcError::internal);
         }
-        let rows = self.app_rows().await?;
+        // Decode-only: the rows are read here, never re-encoded.
+        let rows: Vec<ActionRow> =
+            serde_json::from_value(self.app_list().await?).map_err(RpcError::internal)?;
         let row = rows
             .iter()
             .find(|row| row.name == run.name)
@@ -348,10 +362,10 @@ impl Daemon {
     }
 
     /// The App's own list, as it answered.
-    pub(crate) async fn app_rows(&self) -> Result<Vec<ActionRow>, RpcError> {
+    pub(crate) async fn app_list(&self) -> Result<Value, RpcError> {
         match self.actions.relay("action.list", Value::Null).await {
             Relay::NoApp | Relay::Lost => Err(app_closed()),
-            Relay::Answer(answer) => serde_json::from_value(answer?).map_err(RpcError::internal),
+            Relay::Answer(answer) => answer,
         }
     }
 }

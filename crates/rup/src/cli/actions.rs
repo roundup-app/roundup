@@ -179,7 +179,7 @@ fn type_name(kind: ArgType) -> &'static str {
 
 fn arg_label(arg: &ActionArg) -> String {
     let pair = format!("{}=<{}>", arg.key, type_name(arg.kind));
-    if arg.required == Some(true) {
+    if arg.required {
         pair
     } else {
         format!("[{pair}]")
@@ -289,7 +289,7 @@ fn misfit(row: &ActionRow, given: &[ActionPair]) -> Option<String> {
     }
     for arg in &row.args {
         let Some(pair) = given.iter().find(|pair| pair.key == arg.key) else {
-            if arg.required == Some(true) {
+            if arg.required {
                 return Some(format!(
                     "missing argument \"{}\" for {}; its arguments: {}",
                     arg.key,
