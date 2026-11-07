@@ -72,7 +72,7 @@ async fn u3789a_rename_retains_creation_and_content_after_restart() {
                 "exact\n text 🌱\n"
             );
         }
-        let db = rusqlite::Connection::open(dir.path().join("pads.db")).unwrap();
+        let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
         let source = pads::source(&db, "Plan").unwrap().unwrap();
         assert_eq!(
             pads::source_state(&db, source.incarnation).unwrap(),

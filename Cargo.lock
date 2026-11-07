@@ -3611,7 +3611,6 @@ dependencies = [
  "pulldown-cmark",
  "rpc",
  "rusqlite",
- "rusqlite_migration",
  "serde",
  "serde_json",
  "storage",
