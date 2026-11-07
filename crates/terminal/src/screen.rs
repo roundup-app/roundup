@@ -82,7 +82,7 @@ impl vt100::Callbacks for Seen {
     }
 }
 
-pub(super) fn formatted_snapshot(screen: &vt100::Screen) -> Result<Vec<u8>, RpcError> {
+pub(super) fn formatted_snapshot(screen: &vt100::Screen) -> Result<Vec<u8>, Error> {
     let visible = screen.state_formatted();
     let alternate = screen.alternate_screen();
     let prefix = if alternate {
@@ -91,7 +91,7 @@ pub(super) fn formatted_snapshot(screen: &vt100::Screen) -> Result<Vec<u8>, RpcE
         &[]
     };
     if prefix.len() + visible.len() > SNAPSHOT_MAX_BYTES {
-        return Err(RpcError::conflict(
+        return Err(Error::conflict(
             "terminal visible screen exceeds snapshot limit",
         ));
     }
@@ -133,24 +133,31 @@ impl Terminals {
         &self,
         params: &contracts::terminal::CatchUpParams,
     ) -> Result<contracts::terminal::CatchUp, RpcError> {
+        Ok(self.catch_up_in(params)?)
+    }
+
+    fn catch_up_in(
+        &self,
+        params: &contracts::terminal::CatchUpParams,
+    ) -> Result<contracts::terminal::CatchUp, Error> {
         use contracts::terminal::CatchUp;
         if let Some(remote) = self.remote(&params.id)? {
             return remote.call(
                 "terminal.catchUp",
-                serde_json::to_value(params).map_err(RpcError::internal)?,
+                serde_json::to_value(params).map_err(Error::internal)?,
             );
         }
         let number = parse_terminal_number(&params.id)?;
-        let table = self.shared.table();
+        let table = self.shared.table()?;
         let entry = table
             .get(&number)
-            .ok_or_else(|| RpcError::not_found(format!("terminal {}", params.id)))?;
+            .ok_or_else(|| Error::not_found(format!("terminal {}", params.id)))?;
         if entry.info.incarnation != params.incarnation {
-            return Err(RpcError::conflict(
+            return Err(Error::conflict(
                 "original Terminal is no longer available in this Project",
             ));
         }
-        let state = entry.screen.lock().expect("terminal screen lock");
+        let state = entry.screen.locked("terminal screen lock")?;
         let data = state.log.raw(params.after)?;
         let id = entry.info.id.clone();
         let incarnation = entry.info.incarnation.clone();

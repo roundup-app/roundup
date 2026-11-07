@@ -17,7 +17,7 @@ pub(super) struct Recording {
 }
 
 impl Recording {
-    pub(super) fn new(run: &str) -> Result<Self, RpcError> {
+    pub(super) fn new(run: &str) -> Result<Self, Error> {
         if run.is_empty()
             || run.len() > 64
             || !run.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
@@ -25,7 +25,7 @@ impl Recording {
             return Err(invalid("invalid keystroke run identity"));
         }
         let marker = regex::bytes::Regex::new(&format!("\x1b\\]777;{run}-[0-9]{{1,6}}\x07a"))
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         Ok(Self {
             run: run.into(),
             marker,
@@ -34,13 +34,15 @@ impl Recording {
         })
     }
 
-    pub(super) fn receive(&mut self, bytes: &[u8], received: f64) -> Vec<Sample> {
+    pub(super) fn receive(&mut self, bytes: &[u8], received: f64) -> Result<Vec<Sample>, Error> {
         let mut queued = Vec::new();
         for found in self.marker.find_iter(bytes) {
             // The regexp accepts only ASCII, so every matched marker is UTF-8.
-            let token = String::from_utf8(found.as_bytes().to_vec()).expect("ASCII marker");
+            let Ok(token) = String::from_utf8(found.as_bytes().to_vec()) else {
+                continue;
+            };
             if let Some(sample) = self.samples.get(&token) {
-                sample.lock().expect("sample lock").ambiguous = true;
+                sample.locked("sample lock")?.ambiguous = true;
                 continue;
             }
             // Recorder exhaustion leaves missing evidence, never a refused or reordered user write.
@@ -57,19 +59,21 @@ impl Recording {
             self.samples.insert(token, Arc::clone(&sample));
             queued.push(sample);
         }
-        queued
+        Ok(queued)
     }
 
-    pub(super) fn read(&mut self, bytes: &[u8], at: f64) {
+    pub(super) fn read(&mut self, bytes: &[u8], at: f64) -> Result<(), Error> {
         let previous = self.tail.len();
         self.tail.extend_from_slice(bytes);
         for found in self.marker.find_iter(&self.tail) {
             if found.end() <= previous {
                 continue;
             }
-            let token = std::str::from_utf8(found.as_bytes()).expect("ASCII marker");
+            let Ok(token) = std::str::from_utf8(found.as_bytes()) else {
+                continue;
+            };
             if let Some(sample) = self.samples.get(token) {
-                let mut sample = sample.lock().expect("sample lock");
+                let mut sample = sample.locked("sample lock")?;
                 if sample.read.is_some() {
                     sample.ambiguous = true;
                 }
@@ -80,12 +84,13 @@ impl Recording {
         if self.tail.len() > 100 {
             self.tail.drain(..self.tail.len() - 100);
         }
+        Ok(())
     }
 
-    pub(super) fn samples(&self) -> Vec<KeystrokeSample> {
+    pub(super) fn samples(&self) -> Result<Vec<KeystrokeSample>, Error> {
         self.samples
             .values()
-            .map(|sample| sample.lock().expect("sample lock").clone())
+            .map(|sample| Ok(sample.locked("sample lock")?.clone()))
             .collect()
     }
 }
