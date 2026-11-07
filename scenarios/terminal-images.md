@@ -54,4 +54,4 @@ A reply that claims a feature the emulator lacks is changed or removed in the sa
 
 **U6144b a Daemon Terminal's environment claims only this emulator.** Given a Daemon Terminal started from a launcher whose `TERM` is `xterm-ghostty` and whose `TERM_PROGRAM` is set, or whose caller passes them, then the program sees `TERM=xterm-256color` and none of `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `CLAUDE_CODE_FORCE_TERMINAL_IMAGES` or another terminal's variables. Test: `u6144b_a_terminal_claims_only_this_emulator` (same file).
 
-**U6144c retired 2026-11-06.** The owner: "I hate the claude code images rendering it casues claude code to fully break in roundup. I think we need to remove that speciall calude code render image flag". The forced flag drew Kitty U=1 placeholders that `@xterm/addon-image` cannot draw (xtermjs/xterm.js#6198, open); Claude Code now falls back to text.
+**U6144c retired 2026-11-06.** The owner (2026-11-06): Claude Code's image rendering breaks its whole screen in roundup, so the forced flag goes. The forced flag drew Kitty U=1 placeholders that `@xterm/addon-image` cannot draw (xtermjs/xterm.js#6198, open); Claude Code now falls back to text.
