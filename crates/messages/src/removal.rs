@@ -2,19 +2,17 @@
 //! `lib.rs` routes the call and `store.rs` keeps the rows.
 
 use crate::Error;
-use crate::dispatch::reply;
-use contracts::message::{MessageId, MessageStatus, Reason};
+use contracts::message::{Message, MessageId, MessageStatus, Reason};
 use contracts::{ActorKind, EventData, Verb};
 use rpc::Ctx;
 use rusqlite::params;
-use serde_json::Value;
 
 use super::receiver_view::user_drop_moves;
 use super::store::{Store, text_of};
 use super::{Messages, item, require_user};
 
 impl Messages {
-    pub(super) async fn drop_message(&self, ctx: &Ctx, p: MessageId) -> Result<Value, Error> {
+    pub(super) async fn drop_message(&self, ctx: &Ctx, p: MessageId) -> Result<Message, Error> {
         require_user(ctx, "drop a Message")?;
         let message = self.get_or_not_found(p.id)?;
         if message.status != MessageStatus::Pending || message.from.kind != ActorKind::User {
@@ -30,7 +28,7 @@ impl Messages {
         ctx.touch(Verb::Wrote, &item(p.id))?;
         let dropped = self.get_or_not_found(p.id)?;
         ctx.emit(EventData::MessageDropped(dropped.clone().into()));
-        reply(&dropped)
+        Ok(dropped)
     }
 }
 

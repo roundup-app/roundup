@@ -1,9 +1,9 @@
 //! A5168a to A5168d: the GitHub tools. Each runs the `gh` on the Daemon's `PATH` in the Project's
 //! folder with the Daemon's own environment, so the owner's login decides what it may do.
 
+use contracts::ActorKind;
 use contracts::github::{Issue, Number, Pr, SetBodyParams, State};
-use contracts::{Actor, ActorKind};
-use rpc::{RpcError, code, params};
+use rpc::{RpcError, code};
 use serde::Deserialize;
 use serde_json::Value;
 use std::process::Stdio;
@@ -232,66 +232,82 @@ impl Daemon {
     }
 
     /// A5168a, A5168b: a Door (or the user) calls these; no other Agent does.
-    pub(crate) async fn github(
-        &self,
-        conn: &Conn,
-        method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        let Actor { kind, .. } = &conn.actor;
-        if *kind == ActorKind::Agent {
+    async fn github_caller(&self, conn: &Conn) -> Result<(), RpcError> {
+        if conn.actor.kind == ActorKind::Agent {
             self.require_door(&conn.actor).await?;
         }
-        match method {
-            "github.prSetBody" => {
-                let p: SetBodyParams = params(value)?;
-                let n = number(p.number)?;
-                if p.body.is_empty() {
-                    return Err(RpcError::new(
-                        code::INVALID_PARAMS,
-                        "body must not be empty",
-                    ));
-                }
-                gh(
-                    &self.project,
-                    &["pr", "edit", &n, "--body-file", "-"],
-                    Some(&p.body),
-                )
-                .await?;
-                rpc::reply(&self.pr_now(&n).await?)
-            }
-            "github.prReady" | "github.prAutoMerge" => {
-                let n = number(params::<Number>(value)?.number)?;
-                let before = self.pr_now(&n).await?;
-                let ready = method == "github.prReady";
-                if before.state != State::Open {
-                    return Err(RpcError::conflict(format!(
-                        "PR {n} is {:?}, so it cannot be changed",
-                        before.state
-                    )));
-                }
-                if (ready && !before.draft) || (!ready && before.auto_merge) {
-                    return rpc::reply(&before);
-                }
-                let args: &[&str] = if ready {
-                    &["pr", "ready", &n]
-                } else {
-                    &["pr", "merge", &n, "--auto", "--merge"]
-                };
-                gh(&self.project, args, None).await?;
-                rpc::reply(&self.pr_now(&n).await?)
-            }
-            "github.issueGet" => rpc::reply(
-                &self
-                    .issue_now(&number(params::<Number>(value)?.number)?)
-                    .await?,
-            ),
-            _ => rpc::reply(
-                &self
-                    .pr_now(&number(params::<Number>(value)?.number)?)
-                    .await?,
-            ),
+        Ok(())
+    }
+
+    pub(crate) async fn github_pr_get(&self, conn: &mut Conn, p: Number) -> Result<Pr, RpcError> {
+        self.github_caller(conn).await?;
+        self.pr_now(&number(p.number)?).await
+    }
+
+    pub(crate) async fn github_issue_get(
+        &self,
+        conn: &mut Conn,
+        p: Number,
+    ) -> Result<Issue, RpcError> {
+        self.github_caller(conn).await?;
+        self.issue_now(&number(p.number)?).await
+    }
+
+    pub(crate) async fn github_pr_set_body(
+        &self,
+        conn: &mut Conn,
+        p: SetBodyParams,
+    ) -> Result<Pr, RpcError> {
+        self.github_caller(conn).await?;
+        let n = number(p.number)?;
+        if p.body.is_empty() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "body must not be empty",
+            ));
         }
+        gh(
+            &self.project,
+            &["pr", "edit", &n, "--body-file", "-"],
+            Some(&p.body),
+        )
+        .await?;
+        self.pr_now(&n).await
+    }
+
+    pub(crate) async fn github_pr_ready(&self, conn: &mut Conn, p: Number) -> Result<Pr, RpcError> {
+        self.github_caller(conn).await?;
+        self.change_pr(&number(p.number)?, true).await
+    }
+
+    pub(crate) async fn github_pr_auto_merge(
+        &self,
+        conn: &mut Conn,
+        p: Number,
+    ) -> Result<Pr, RpcError> {
+        self.github_caller(conn).await?;
+        self.change_pr(&number(p.number)?, false).await
+    }
+
+    /// Mark a draft PR ready (`ready`) or enable auto-merge on it; one already so is left as it is.
+    async fn change_pr(&self, n: &str, ready: bool) -> Result<Pr, RpcError> {
+        let before = self.pr_now(n).await?;
+        if before.state != State::Open {
+            return Err(RpcError::conflict(format!(
+                "PR {n} is {:?}, so it cannot be changed",
+                before.state
+            )));
+        }
+        if (ready && !before.draft) || (!ready && before.auto_merge) {
+            return Ok(before);
+        }
+        let args: &[&str] = if ready {
+            &["pr", "ready", n]
+        } else {
+            &["pr", "merge", n, "--auto", "--merge"]
+        };
+        gh(&self.project, args, None).await?;
+        self.pr_now(n).await
     }
 }
 
@@ -323,13 +339,13 @@ pub(crate) mod tests {
 
     async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, RpcError> {
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
-        let conn = Conn {
-            actor: Actor::user(),
+        let mut conn = Conn {
+            actor: contracts::Actor::user(),
             peer: None,
             events,
             output: None,
         };
-        daemon.github(&conn, method, params).await
+        daemon.route(&mut conn, method, params).await
     }
 
     fn argv(bin: &tempfile::TempDir) -> String {

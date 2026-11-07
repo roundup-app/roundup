@@ -5,13 +5,12 @@ use agents::claude_code::skill_setup::Install;
 use contracts::ActorKind;
 use contracts::skill::{SkillFiles, SkillItem};
 use rpc::RpcError;
-use serde_json::Value;
 
 use crate::{Conn, Daemon};
 
 /// The Adapter's answer to one method. A refused item is an outcome in the answer; a failed write
 /// is an error naming the path and the system's reason (SK11).
-pub fn skill_call(install: &Install, method: &str) -> Result<Value, RpcError> {
+pub fn skill_call(install: &Install, method: &str) -> Result<SkillFiles, RpcError> {
     let items = match method {
         "skill.status" => install
             .status()
@@ -31,7 +30,7 @@ pub fn skill_call(install: &Install, method: &str) -> Result<Value, RpcError> {
                 .collect()
         }
     };
-    rpc::reply(&SkillFiles {
+    Ok(SkillFiles {
         items: items
             .into_iter()
             .map(|(item, state, path)| SkillItem {
@@ -48,7 +47,7 @@ impl Daemon {
         clippy::disallowed_methods,
         reason = "the skill installer resolves the user's own Claude Code folder from the live environment"
     )]
-    pub(super) fn skill(&self, conn: &Conn, method: &str) -> Result<Value, RpcError> {
+    fn skill(&self, conn: &Conn, method: &str) -> Result<SkillFiles, RpcError> {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
                 "only the user changes what is installed in their Claude Code folder",
@@ -62,13 +61,26 @@ impl Daemon {
             Install::from_vars(|name| std::env::var_os(name), &rup).map_err(RpcError::internal)?;
         skill_call(&install, method)
     }
+
+    pub(super) async fn skill_status(&self, conn: &mut Conn) -> Result<SkillFiles, RpcError> {
+        self.skill(conn, "skill.status")
+    }
+
+    pub(super) async fn skill_setup(&self, conn: &mut Conn) -> Result<SkillFiles, RpcError> {
+        self.skill(conn, "skill.setup")
+    }
+
+    pub(super) async fn skill_remove(&self, conn: &mut Conn) -> Result<SkillFiles, RpcError> {
+        self.skill(conn, "skill.remove")
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn states(answer: &Value) -> Vec<(String, String)> {
+    fn states(answer: &SkillFiles) -> Vec<(String, String)> {
+        let answer = serde_json::to_value(answer).unwrap();
         answer["items"]
             .as_array()
             .unwrap()
