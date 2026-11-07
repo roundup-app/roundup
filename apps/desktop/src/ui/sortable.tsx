@@ -934,11 +934,11 @@ const Item = (props: ItemProps) => {
   return untrack(() => props.children(sortable));
 };
 
-/** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. */
-const Handle = (props: { label: string; tooltip?: string; onLift?: () => void; ref: (element: HTMLButtonElement | undefined) => void }) => {
+/** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. The row beside it names what moves, so it shows no tooltip (U6614a). */
+const Handle = (props: { label: string; onLift?: () => void; ref: (element: HTMLButtonElement | undefined) => void }) => {
   onCleanup(() => props.ref(undefined));
 
-  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} tooltip={props.tooltip} ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => {
+  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} bare ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => {
     event.stopPropagation();
 
     if (event.key === " " || event.key === "Enter") props.onLift?.();
