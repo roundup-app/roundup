@@ -200,10 +200,7 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
                 node.id == agent
                     && !delivery::ended(node)
                     && node.status_revision.is_some()
-                    && node
-                        .status
-                        .as_ref()
-                        .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Blocked | Kind::Error))
+                    && node.status.as_ref().is_some_and(delivery::ready)
             });
         let stored = lock(&inner.store)
             .list_pending_to(&agent)
