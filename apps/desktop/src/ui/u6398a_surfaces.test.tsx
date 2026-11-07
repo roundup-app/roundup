@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { node, workstream } from "../testing/nodes";
+import { agent, node, USER, workstream } from "../testing/nodes";
+import { openShelf, padOf } from "../pads/padsFixture";
 import { mountRail } from "../rail/railFixture";
 import { mountTodos, todo } from "../todos/testHarness";
 import { foldMotion } from "./fold";
@@ -33,4 +34,18 @@ it("u6398a_a_pointer_press_on_the_todos_done_fold_starts_one_projection", async 
   fireEvent.click(await screen.findByRole("button", { name: "1 done" }), { detail: 1 });
   expect(engine.animateLayout).toHaveBeenCalledOnce();
   expect(screen.getByText(/old one/)).toBeTruthy();
+});
+
+it("u6398a_a_pointer_press_on_the_idle_fold_starts_one_projection", async () => {
+  await mountRail([workstream("stream"), agent("parent", "done", "done", { parent: "stream", final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } })]);
+  await waitFor(() => expect(document.querySelector(".rail-fold")).not.toBeNull());
+  fireEvent.click(document.querySelector(".rail-fold")!, { detail: 1 });
+  expect(engine.animateLayout).toHaveBeenCalledOnce();
+});
+
+it("u6398a_a_pointer_press_on_a_shelf_owner_group_starts_one_projection", async () => {
+  await openShelf([{ ...padOf("alpha", USER), home: "w1" }]);
+  const control = await waitFor(() => document.querySelector<HTMLElement>(".pads-tab .shelf-group-control")!);
+  fireEvent.click(control, { detail: 1 });
+  expect(engine.animateLayout).toHaveBeenCalledOnce();
 });
