@@ -71,6 +71,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
   // Ark's handlers arrive as a function or a [function, data] tuple.
   const invoke = <E extends Event>(handler: JSX.EventHandlerUnion<HTMLDivElement, E> | undefined, event: E & { currentTarget: HTMLDivElement; target: Element }) => {
     if (!handler) return;
+
     if (0 in handler) handler[0](handler[1], event);
     else handler(event);
   };
