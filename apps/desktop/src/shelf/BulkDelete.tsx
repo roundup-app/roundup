@@ -29,6 +29,8 @@ export const createBulkDelete = <Id,>(props: {
   clear: () => void;
   cancelSelection: () => void;
   afterRemoval?: () => () => HTMLElement | null;
+  /** U6455a: the row holding focus, selected alone after a full success. */
+  focused?: () => Id | undefined;
   remove: (ids: readonly Id[]) => Promise<readonly { id: Id; message: string }[]>;
   blocked: Accessor<boolean>;
   reload: () => Promise<string | null>;
@@ -130,7 +132,12 @@ export const createBulkDelete = <Id,>(props: {
       setFailures(remaining);
       setQuestion(null);
       readback = undefined;
-      queueMicrotask(() => focus(() => focusAfter()?.focus()));
+      queueMicrotask(() => focus(() => {
+        focusAfter()?.focus();
+        const next = remaining.length === 0 ? props.focused?.() : undefined;
+
+        if (next !== undefined) props.replace([next]);
+      }));
     };
 
     await readback();
