@@ -57,14 +57,15 @@ it("u6550d_escape_after_a_pointer_lift_slides_each_row_once", async () => {
     return { id: row.dataset.id, translates: translates.length, from: first === undefined ? null : parseFloat(String(first).split(" ")[1]), layout: row.getBoundingClientRect().top - now };
   })`);
 
-  const moved = rows.filter(row => row.id in lifted && Math.abs(lifted[row.id]! - row.layout) >= 1);
+  const moved = rows.filter(row => row.id !== "backend" && row.id in lifted && Math.abs(lifted[row.id]! - row.layout) >= 1);
 
   // U6550d commissions this assertion: each row's translate animations after Escape.
   // oxlint-disable-next-line anti-slop/no-new-web-assertions
   expect(moved.length).toBeGreaterThan(0);
 
   for (const row of rows) {
-    if (!(row.id in lifted)) continue;
+    // The held Workstream is the pointer's, not a row the lift moved.
+    if (row.id === "backend" || !(row.id in lifted)) continue;
     const slid = Math.abs(lifted[row.id]! - row.layout) >= 1;
 
     // oxlint-disable-next-line anti-slop/no-new-web-assertions
