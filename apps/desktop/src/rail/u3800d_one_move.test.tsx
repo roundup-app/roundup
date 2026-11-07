@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it } from "vitest";
-import { agent, workstream } from "../testing/nodes";
+import { connectProject } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import { createRailTree } from "./railTree";
+import { agent, workstream, NOW } from "../testing/nodes";
 import { mountRail, rowOf, settled } from "./railFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -70,4 +74,21 @@ it("u3800g_focus_lands_on_the_dropped_row", async () => {
   await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
 
   expect(document.activeElement).toBe(rowOf("F7"));
+});
+
+it("u3800g_collection_survives_a_redraw_that_leaves_the_tree_as_it_was", async () => {
+  const app = createFakeApp();
+  app.handlers["rail.tree"] = () => tree40();
+  const [now, setNow] = createSignal(NOW);
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, now);
+
+  createRoot(dispose => {
+    const tree = createRailTree(connected, () => new Set(), () => undefined);
+    const collection = tree.collection();
+    const expanded = tree.expanded();
+    setNow(NOW + 1000);
+    expect(tree.collection()).toBe(collection);
+    expect(tree.expanded()).toBe(expanded);
+    dispose();
+  });
 });
