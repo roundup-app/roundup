@@ -9,6 +9,14 @@ use serde_json::Value;
 
 use crate::Daemon;
 
+/// The deletion a retained operation holds; a receipt without one is a store fault.
+fn retained(removal: &contracts::agent::Removal) -> Result<&contracts::agent::Deletion, RpcError> {
+    removal
+        .deletion
+        .as_ref()
+        .ok_or_else(|| RpcError::internal("retained operation has no deletion"))
+}
+
 impl Daemon {
     pub(crate) async fn remove_selection(
         &self,
@@ -36,14 +44,7 @@ impl Daemon {
             }
             if let Some(receipt) = self.agents.rail_deletion(actor, operation)? {
                 let ids = if receipt.selection.is_empty() {
-                    vec![
-                        receipt
-                            .deletion
-                            .as_ref()
-                            .expect("retained operation")
-                            .id
-                            .clone(),
-                    ]
+                    vec![retained(&receipt)?.id.clone()]
                 } else {
                     receipt.selection.clone()
                 };
@@ -68,7 +69,7 @@ impl Daemon {
             let todos = Arc::clone(&self.todos);
             let pads = Arc::clone(&self.pads);
             let caller = actor.clone();
-            let retention = operation.clone();
+            let retention = operation.to_string();
             let selected = p.ids.clone();
             let (removal, (files, events, owners)) = self.agents.remove_reversible_with(actor.clone(), p.ids, &operation, move |db, removal| {
                 todos::Todos::retain_workstream_in(db, &caller, &retention, &homes)?;
@@ -86,7 +87,10 @@ impl Daemon {
                 let mut removed = selected.clone();
                 removed.extend(removal.removed.iter().filter(|i| i.kind == RemovalKind::Agent).map(|i| i.id.clone()));
                 let owners = todos::Todos::remove_owners_in(db, &Actor::daemon(), &retention, &removed)?;
-                removal_touch(db, &caller, &selected[0], Some(&retention), removal)?;
+                let first = selected
+                    .first()
+                    .ok_or_else(|| RpcError::new(rpc::code::INVALID_PARAMS, "empty Rail selection"))?;
+                removal_touch(db, &caller, first, Some(&retention), removal)?;
                 Ok((files,events,owners))
             }).await?;
             for file in files {
@@ -115,7 +119,7 @@ impl Daemon {
             let node = tree
                 .iter()
                 .find(|n| n.id == *id)
-                .expect("validated selection");
+                .ok_or_else(|| RpcError::not_found("Rail selection"))?;
             if node.kind == NodeKind::Workstream {
                 let removal: Removal = serde_json::from_value(
                     self.remove_workstream(actor, id, RemoveScope::This).await?,
@@ -251,22 +255,10 @@ impl Daemon {
                 Err(RpcError::not_found("Rail removal"))
             };
         };
-        if receipt
-            .deletion
-            .as_ref()
-            .expect("retained operation")
-            .project
-            != p.project
-        {
+        if retained(&receipt)?.project != p.project {
             return Err(RpcError::forbidden("removal belongs to another Project"));
         }
-        if method == "rail.deletion"
-            || receipt
-                .deletion
-                .as_ref()
-                .expect("retained operation")
-                .restored
-        {
+        if method == "rail.deletion" || retained(&receipt)?.restored {
             return rpc::reply(&receipt);
         }
         let actor = conn.actor.clone();
@@ -307,7 +299,7 @@ impl Daemon {
                         removal_touch(
                             db,
                             &actor,
-                            &result.deletion.as_ref().expect("retained operation").id,
+                            &retained(&result)?.id,
                             Some(&p.operation),
                             &result,
                         )?;

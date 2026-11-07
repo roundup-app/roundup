@@ -147,8 +147,9 @@ impl Daemon {
                         .iter()
                         .position(|r| r.revision == report.instruction.revision)
                         .is_some_and(|at| at >= substantive)
-                    && !reports[index + 1..]
+                    && !reports
                         .iter()
+                        .skip(index + 1)
                         .any(|later| later.request.target.id == report.request.target.id));
             results.push(ResultProgress {
                 report: report.clone(),
@@ -175,7 +176,7 @@ impl Daemon {
                 "only the authenticated Agent may report its own Attempt",
             ));
         }
-        check_report_bounds(p)
+        Ok(())
     }
 
     /// The submitted delivery a report names, in the reporting Agent's current Attempt.
@@ -231,9 +232,15 @@ impl Daemon {
             .iter()
             .position(|r| r.revision == delivery.revision)
             .ok_or_else(|| RpcError::not_found("instruction revision is absent"))?;
-        let instruction = instructions.revisions[index].clone();
-        let order_revision = instructions.revisions[..=index]
+        let instruction = instructions
+            .revisions
+            .get(index)
+            .cloned()
+            .ok_or_else(|| RpcError::not_found("instruction revision is absent"))?;
+        let order_revision = instructions
+            .revisions
             .iter()
+            .take(index + 1)
             .rev()
             .find(|r| matches!(r.instruction, contracts::agent::Instruction::Order { .. }))
             .map(|r| r.revision.clone());
@@ -265,14 +272,15 @@ impl Daemon {
         messages: &Messages,
         progress: &ProgressParams,
         report: &str,
-    ) -> Result<(Vec<ResultReport>, usize), RpcError> {
+    ) -> Result<(Vec<ResultReport>, ResultReport), RpcError> {
         self.result_instructions(conn, progress).await?;
         let reports = messages.result_reports(&progress.id)?;
-        let at = reports
+        let named = reports
             .iter()
-            .position(|r| r.report == report)
+            .find(|r| r.report == report)
+            .cloned()
             .ok_or_else(|| RpcError::not_found("result report is absent"))?;
-        Ok((reports, at))
+        Ok((reports, named))
     }
 
     async fn result_accept(
@@ -285,23 +293,17 @@ impl Daemon {
             project: p.project,
             id: p.id,
         };
-        let (reports, at) = self
+        let (_, report) = self
             .named_report(conn, messages, &progress, &p.report)
             .await?;
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user may accept a result"));
         }
-        if p.evidence.trim().is_empty() || p.evidence.len() > 8192 {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "acceptance evidence is empty or too long",
-            ));
-        }
         let acceptance = ResultAcceptance {
             actor: conn.actor.clone(),
-            evidence: p.evidence,
+            evidence: p.evidence.into(),
         };
-        messages.accept_result(&reports[at].report, &acceptance)?;
+        messages.accept_result(&report.report, &acceptance)?;
         rpc::reply(&acceptance)
     }
 
@@ -321,10 +323,10 @@ impl Daemon {
             project: p.project,
             id: p.id,
         };
-        let (reports, at) = self
+        let (_, named) = self
             .named_report(conn, messages, &progress, &p.report)
             .await?;
-        let report = &reports[at];
+        let report = &named;
         if report.request.state != ResultState::UnknownEffect {
             return Err(RpcError::conflict(
                 "external resolution requires an unknown-effect report",
@@ -345,10 +347,10 @@ impl Daemon {
             project: p.project,
             id: p.id,
         };
-        let (reports, at) = self
+        let (reports, named) = self
             .named_report(conn, messages, &progress, &p.report)
             .await?;
-        let report = &reports[at];
+        let report = &named;
         let unresolved = Self::unresolved_reports(messages, &reports)?;
         if let Some(resolved) = messages
             .result_observations(&report.report)?
@@ -450,30 +452,6 @@ impl Daemon {
     }
 }
 
-/// A report names non-empty, bounded text: key, result, target and next action.
-fn check_report_bounds(p: &ReportParams) -> Result<(), RpcError> {
-    for (name, value, bound) in [
-        ("key", p.key.as_str(), 256),
-        ("result", p.result.as_str(), 8192),
-        ("target", p.target.id.as_str(), 1024),
-        ("target revision", p.target.revision.as_str(), 1024),
-    ] {
-        if value.trim().is_empty() || value.len() > bound {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                format!("{name} is empty or too long"),
-            ));
-        }
-    }
-    if p.next.len() > 8192 {
-        return Err(RpcError::new(
-            rpc::code::INVALID_PARAMS,
-            "next action is too long",
-        ));
-    }
-    Ok(())
-}
-
 /// GET only: checking an uncertain effect must never issue it again or follow a redirect to one.
 async fn read_resolution(
     source: &str,
@@ -489,8 +467,7 @@ async fn read_resolution(
         Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
         _ => false,
     };
-    if source.len() > 4096
-        || !url.username().is_empty()
+    if !url.username().is_empty()
         || url.password().is_some()
         || url.fragment().is_some()
         || !(url.scheme() == "https" || (url.scheme() == "http" && loopback))
@@ -508,9 +485,6 @@ async fn read_resolution(
     };
     if evidence.target != report.request.target {
         return unknown("the authoritative receipt names another target or version");
-    }
-    if evidence.revision.trim().is_empty() || evidence.revision.len() > 1024 {
-        return unknown("the authoritative receipt has no usable source revision");
     }
     if evidence.observed_at < now.saturating_sub(60) || evidence.observed_at > now.saturating_add(5)
     {
@@ -556,7 +530,9 @@ async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
         .kill_on_drop(true)
         .spawn()
         .map_err(|_| "the authoritative source reader could not start".to_string())?;
-    let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+    let (Some(mut out), Some(mut err)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err("the authoritative source reader could not start".to_string());
+    };
     let mut body = Vec::new();
     let read = (&mut out)
         .take(LIMIT as u64 + 1)

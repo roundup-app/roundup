@@ -32,7 +32,7 @@ impl Messages {
                 .db
                 .query_row(
                     "SELECT record FROM message_results WHERE agent=? AND request_key=?",
-                    params![report.request.id, report.request.key],
+                    params![report.request.id, report.request.key.as_str()],
                     |r| r.get(0),
                 )
                 .optional()
@@ -53,7 +53,7 @@ impl Messages {
                 .db
                 .execute(
                     "INSERT INTO message_results(agent,request_key,record) VALUES(?,?,'')",
-                    params![report.request.id, report.request.key],
+                    params![report.request.id, report.request.key.as_str()],
                 )
                 .map_err(Error::internal)?;
             report.report = store.db.last_insert_rowid().to_string();

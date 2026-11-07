@@ -1,8 +1,9 @@
 //! DCL2: a Workstream's state, derived from its Door and every Agent below it, apart from the
 //! Door's own Kind.
 
+use parking_lot::Mutex;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use contracts::agent::{NodeKind, RailNode, WorkstreamState};
@@ -176,7 +177,7 @@ pub(crate) async fn tell_changes(
     mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
 ) {
     if let Some(now) = derived_now(&reader, &messages, &agents).await {
-        *tell.told.lock().unwrap_or_else(|p| p.into_inner()) = now;
+        *tell.told.lock() = now;
     }
     let mut timer =
         tokio::time::interval_at(tokio::time::Instant::now() + TELL_PERIOD, TELL_PERIOD);
@@ -198,7 +199,7 @@ pub(crate) async fn tell_changes(
             continue;
         };
         let changed = {
-            let mut last = tell.told.lock().unwrap_or_else(|p| p.into_inner());
+            let mut last = tell.told.lock();
             // A row that came or went is the Rail's shape, which `rail.changed` already told.
             let changed = now
                 .iter()

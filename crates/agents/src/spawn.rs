@@ -140,7 +140,7 @@ impl Agents {
             Err(mut err) => {
                 let mut rail = self.shared.rail();
                 let mut runs = self.shared.runs();
-                if runs.get(&id).is_some_and(|slot| slot.attempt() == attempt) {
+                if runs.slot(&id).is_some_and(|slot| slot.attempt() == attempt) {
                     runs.remove(&id);
                     self.shared.events.observed.notify_waiters();
                     if rail.node(&id)?.worktree.is_none() {
@@ -321,7 +321,7 @@ impl Agents {
             rail.set_user_named(&node.id)?;
         }
         if request.settle_name
-            && let Some(slot) = self.shared.runs().get_mut(&node.id)
+            && let Some(slot) = self.shared.runs().slot_mut(&node.id)
         {
             slot.settle_name();
         }
@@ -347,7 +347,7 @@ impl Agents {
         let (node, saved_cwd) = {
             let rail = self.shared.rail();
             let node = rail.node(&id)?;
-            let saved_cwd = match self.shared.runs().get(&id) {
+            let saved_cwd = match self.shared.runs().slot(&id) {
                 Some(Slot::Running(run)) => Some(run.cwd().to_owned()),
                 _ => None,
             };
@@ -712,12 +712,10 @@ mod idle_tests {
                     true,
                     false,
                 );
-                shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+                shared.apply(Some(&mut rail), &mut earlier, &mut Facts::default(), &node.id, &Actor::user(),
                     Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
                 assert!(earlier.input_started());
-                shared
-                    .runs()
-                    .insert(node.id.clone(), Slot::Running(earlier));
+                shared.runs().put(node.id.clone(), Slot::Running(earlier));
             }
             let prompt = order::first_input(
                 None,
@@ -746,6 +744,7 @@ mod idle_tests {
                     .apply(
                         Some(&mut rail),
                         &mut run,
+                        &mut Facts::default(),
                         &node.id,
                         &Actor::daemon(),
                         observation,
@@ -756,7 +755,7 @@ mod idle_tests {
                 assert!(!run.input_started());
                 assert!(run.steer().is_none());
             }
-            shared.apply(Some(&mut rail), &mut run, &node.id, &Actor::user(),
+            shared.apply(Some(&mut rail), &mut run, &mut Facts::default(), &node.id, &Actor::user(),
                 Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"my request"})), None).unwrap();
             assert!(run.input_started());
         }
@@ -782,34 +781,39 @@ mod idle_tests {
             true,
             false,
         );
-        shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
+        shared.apply(Some(&mut rail), &mut earlier, &mut Facts::default(), &node.id, &Actor::user(),
             Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
         assert!(earlier.input_started());
-        shared
-            .runs()
-            .insert(node.id.clone(), Slot::Running(earlier));
+        shared.runs().put(node.id.clone(), Slot::Running(earlier));
         let (done, _completion) = oneshot::channel();
         let conversation = "00000000-0000-4000-8000-000000000001";
         let mut runs = HashMap::from([(
             node.id.clone(),
-            Slot::Resuming {
-                mode: contracts::agent::ResumeMode::default(),
-                attempt: contracts::agent::Ordinal::parse("2").unwrap(),
-                since: 0,
-                old: None,
-                conversation_id: conversation.into(),
-                cwd: "/".into(),
-                prompt: None,
-                starred: true,
-                terminal_id: Some("fixture".into()),
-                parked: VecDeque::new(),
-                done,
+            Agent {
+                facts: Facts::default(),
+                slot: Slot::Resuming {
+                    mode: contracts::agent::ResumeMode::default(),
+                    attempt: contracts::agent::Ordinal::parse("2").unwrap(),
+                    since: 0,
+                    old: None,
+                    conversation_id: conversation.into(),
+                    cwd: "/".into(),
+                    prompt: None,
+                    starred: true,
+                    terminal_id: Some("fixture".into()),
+                    parked: VecDeque::new(),
+                    done,
+                },
             },
         )]);
         let (input, _) = shared.finish_resuming(Some(&mut rail), &mut runs, &node.id, Actor::daemon(),
             serde_json::json!({"hook_event_name":"SessionStart","source":"resume","session_id":conversation})).unwrap();
         assert!(input.is_none());
-        let Some(Slot::Running(run)) = runs.get_mut(&node.id) else {
+        let Some(Agent {
+            slot: Slot::Running(run),
+            facts,
+        }) = runs.get_mut(&node.id)
+        else {
             panic!("resume was not promoted")
         };
         assert!(!run.input_started());
@@ -817,6 +821,7 @@ mod idle_tests {
             .apply(
                 Some(&mut rail),
                 run,
+                facts,
                 &node.id,
                 &Actor::user(),
                 Observation::Signal(

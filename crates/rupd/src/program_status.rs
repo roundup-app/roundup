@@ -4,9 +4,10 @@
 //! decides, on an injected clock, when a change leaves as a `terminal.status` event. Nothing a
 //! record holds is logged or written anywhere else.
 
+use parking_lot::Mutex;
 use provenance::now_ms;
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use contracts::terminal::TerminalStatusEvent;
 use contracts::{EventData, Kind, Status};
@@ -89,8 +90,8 @@ pub(crate) struct Statuses {
 }
 
 impl Statuses {
-    fn slots(&self) -> std::sync::MutexGuard<'_, BTreeMap<String, Slot>> {
-        self.slots.lock().unwrap_or_else(|p| p.into_inner())
+    fn slots(&self) -> parking_lot::MutexGuard<'_, BTreeMap<String, Slot>> {
+        self.slots.lock()
     }
 
     /// A Terminal's records are now `records` (empty once it is removed). Returns the events to

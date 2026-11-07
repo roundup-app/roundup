@@ -8,7 +8,7 @@ impl Shared {
         let Some(shared) = self.me.upgrade() else {
             return;
         };
-        let (completion, startup_context) = match self.runs().get(id) {
+        let (completion, startup_context) = match self.runs().slot(id) {
             Some(Slot::Running(run)) if run.attempt() == attempt => {
                 (run.first().completion(), run.startup_context())
             }
@@ -34,7 +34,7 @@ impl Shared {
             if let Err(err) = &result {
                 eprintln!("agents: the coordination text of {id} failed: {err}");
             }
-            if let Some(Slot::Running(run)) = shared.runs().get_mut(&id)
+            if let Some(Slot::Running(run)) = shared.runs().slot_mut(&id)
                 && run.attempt() == attempt
             {
                 run.first_mut().settle();
@@ -63,7 +63,7 @@ impl Shared {
             .rail()
             .name(id)
             .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
-        match self.runs().get(id) {
+        match self.runs().slot(id) {
             Some(Slot::Running(run))
                 if attempt.is_none_or(|attempt| run.attempt() == attempt)
                     && !run.ended()
@@ -109,7 +109,7 @@ impl Agents {
         };
         let mut completion = {
             let runs = self.shared.runs();
-            let Some(Slot::Running(run)) = runs.get(id) else {
+            let Some(Slot::Running(run)) = runs.slot(id) else {
                 return Err(missing());
             };
             if run.attempt() != attempt {
@@ -271,8 +271,8 @@ impl Shared {
         let (terminal_id, attempt, submitted, slash_written) = loop {
             let mut completion = {
                 let mut runs = self.runs();
-                let Some(Slot::Running(run)) = runs.get_mut(id) else {
-                    return Err(SteerError::Refused(match runs.get(id) {
+                let Some(Slot::Running(run)) = runs.slot_mut(id) else {
+                    return Err(SteerError::Refused(match runs.slot(id) {
                         Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
                             id: id.to_owned(),
                             name: name.clone(),
@@ -467,7 +467,7 @@ impl Shared {
             .name(id)
             .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?;
         let mut runs = self.runs();
-        let ended = match runs.get_mut(id) {
+        let ended = match runs.slot_mut(id) {
             Some(Slot::Running(run)) if run.terminal_id() == terminal_id => {
                 run.take_steer();
                 // An unacknowledged Steer can release input without a Kind change.
@@ -494,8 +494,8 @@ impl Shared {
         let not_found = || RpcError::not_found(format!("{name} is not running"));
         let (terminal_id, acked) = {
             let mut runs = self.runs();
-            let Some(Slot::Running(run)) = runs.get_mut(id) else {
-                return Err(match runs.get(id) {
+            let Some(Slot::Running(run)) = runs.slot_mut(id) else {
+                return Err(match runs.slot(id) {
                     Some(Slot::Starting { .. } | Slot::Resuming { .. }) => RpcError::new(
                         code::NOT_RUNNING,
                         format!("{name} has no turn to interrupt yet"),
@@ -570,7 +570,7 @@ impl Shared {
                 }
             },
         };
-        if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
+        if let Some(Slot::Running(run)) = self.runs().slot_mut(id) {
             run.take_interrupt();
         }
         Err(error)
@@ -579,6 +579,7 @@ impl Shared {
 
 #[cfg(test)]
 mod tests {
+    use crate::agent::Runs;
     use crate::tests::*;
     #[tokio::test]
     async fn a2703a_prompt_storage_failure_stays_an_error() {
@@ -634,7 +635,7 @@ mod tests {
         std::sync::Arc::get_mut(&mut watched.shared)
             .unwrap()
             .terminals = terminals.clone();
-        if let Some(crate::Slot::Running(run)) = watched.shared.runs().get_mut("7013") {
+        if let Some(crate::Slot::Running(run)) = watched.shared.runs().slot_mut("7013") {
             run.set_terminal_id(terminal.id.clone());
         }
         let error = watched.shared.interrupt("7013").await.unwrap_err();
@@ -665,13 +666,13 @@ mod tests {
                     shared.runs().remove("7013");
                 }
                 "closing" => {
-                    shared.runs().insert("7013".into(), crate::Slot::Closing);
+                    shared.runs().put("7013".into(), crate::Slot::Closing);
                 }
                 "starting" => {
                     shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap())
                 }
                 "ended" => {
-                    if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
+                    if let Some(crate::Slot::Running(run)) = shared.runs().slot_mut("7013") {
                         run.exit();
                     }
                 }
@@ -690,7 +691,7 @@ mod tests {
                 "interrupted" => {
                     let (tx, rx) = tokio::sync::oneshot::channel();
                     receiver = Some(rx);
-                    if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
+                    if let Some(crate::Slot::Running(run)) = shared.runs().slot_mut("7013") {
                         run.wait_for_interrupt(tx);
                     }
                 }

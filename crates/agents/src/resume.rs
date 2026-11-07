@@ -60,7 +60,7 @@ impl Agents {
                 (NodeKind::Group, _) => return Err(RpcError::conflict("a Group has no program")),
                 (NodeKind::Agent, None) => None,
                 (NodeKind::Workstream, None) => {
-                    if matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended())
+                    if matches!(self.shared.runs().slot(id), Some(Slot::Running(run)) if !run.ended())
                     {
                         return Err(RpcError::conflict(format!(
                             "{id} is a Workstream whose Door is running"
@@ -106,7 +106,7 @@ impl Agents {
             )));
         };
         claude_code::extras::resolve(&self.launcher.extras_sources(self.project_dir()), &extras)?;
-        let live = match self.shared.runs().get(&id) {
+        let live = match self.shared.runs().slot(&id) {
             Some(Slot::Running(run)) => !run.ended(),
             Some(_) => return Err(RpcError::conflict(format!("{id} is starting or stopping"))),
             None => false,
@@ -217,12 +217,12 @@ impl Agents {
         };
         let attempt = rail.allocate_attempt(id)?;
         self.shared.events.observed.notify_waiters();
-        let old = match runs.remove(id) {
+        let old = match runs.take(id) {
             Some(Slot::Running(run)) => Some(Box::new(run)),
             _ => None,
         };
         let (done_tx, done_rx) = oneshot::channel();
-        runs.insert(
+        runs.put(
             id.to_owned(),
             Slot::Resuming {
                 mode: mode.unwrap_or_default(),
@@ -248,8 +248,8 @@ impl Agents {
 
     /// A resume refuses a slot that is starting, stopping, resuming or (without an explicit
     /// mode) running.
-    fn check_slot(runs: &HashMap<String, Slot>, id: &str, explicit: bool) -> Result<(), RpcError> {
-        match runs.get(id) {
+    fn check_slot(runs: &HashMap<String, Agent>, id: &str, explicit: bool) -> Result<(), RpcError> {
+        match runs.slot(id) {
             Some(Slot::Starting { .. }) => {
                 return Err(RpcError::conflict(format!("{id} is still starting")));
             }
@@ -266,7 +266,7 @@ impl Agents {
             Some(Slot::Running(run)) if !run.ended() && !explicit => {
                 return Err(RpcError::conflict(format!("{id} is running")));
             }
-            None | Some(Slot::Running(_)) => {}
+            None | Some(Slot::Running(_) | Slot::Gone) => {}
         }
         Ok(())
     }
@@ -302,9 +302,19 @@ impl Agents {
         let stop_terminal = {
             let mut runs = self.shared.runs();
             match runs.get_mut(id) {
-                Some(Slot::Resuming { old: Some(old), .. }) if !old.ended() => {
-                    self.shared
-                        .apply(None, old, id, &ctx.actor, Observation::Stopped, None)?;
+                Some(Agent {
+                    slot: Slot::Resuming { old: Some(old), .. },
+                    facts,
+                }) if !old.ended() => {
+                    self.shared.apply(
+                        None,
+                        old,
+                        facts,
+                        id,
+                        &ctx.actor,
+                        Observation::Stopped,
+                        None,
+                    )?;
                     Some(old.terminal_id().to_owned())
                 }
                 _ => None,
@@ -312,7 +322,7 @@ impl Agents {
         };
         if let Some(terminal) = stop_terminal {
             self.shared.stop_and_confirm(&terminal).await?;
-            if let Some(Slot::Resuming { old: Some(old), .. }) = self.shared.runs().get_mut(id) {
+            if let Some(Slot::Resuming { old: Some(old), .. }) = self.shared.runs().slot_mut(id) {
                 old.exit();
             }
         }
@@ -425,7 +435,7 @@ impl Agents {
     /// Record the new Terminal in the Attempt's slot; false when the slot is no longer ours.
     fn claim_terminal(&self, id: &str, attempt: &Ordinal, terminal_id: &str) -> bool {
         let mut runs = self.shared.runs();
-        match runs.get_mut(id) {
+        match runs.slot_mut(id) {
             Some(Slot::Resuming {
                 attempt: active,
                 terminal_id: slot,
@@ -503,7 +513,7 @@ impl Shared {
     /// channel owns cleanup; the caller must await it even after the acknowledgement timer.
     pub(super) fn rollback_resume(&self, id: &str, attempt: &Ordinal, error: RpcError) {
         let mut runs = self.runs();
-        if !matches!(runs.get(id), Some(Slot::Resuming { attempt: active, .. }) if active == attempt)
+        if !matches!(runs.slot(id), Some(Slot::Resuming { attempt: active, .. }) if active == attempt)
         {
             return;
         }
@@ -512,7 +522,7 @@ impl Shared {
             terminal_id,
             done,
             ..
-        }) = runs.remove(id)
+        }) = runs.take(id)
         else {
             unreachable!("matched under the same lock")
         };
@@ -533,7 +543,7 @@ impl Shared {
     /// sender, so dropping an RPC receiver cannot detach cleanup from its ownership record.
     pub(super) fn fail_resume(
         &self,
-        runs: &mut HashMap<String, Slot>,
+        runs: &mut HashMap<String, Agent>,
         id: &str,
         attempt: Ordinal,
         abandoned: Abandoned,
@@ -546,12 +556,12 @@ impl Shared {
         } = abandoned;
         let Some(terminal_id) = terminal_id else {
             if let Some(old) = old {
-                runs.insert(id.to_owned(), Slot::Running(*old));
+                runs.put(id.to_owned(), Slot::Running(*old));
             }
             let _ = done.send(Err(error));
             return;
         };
-        runs.insert(
+        runs.put(
             id.to_owned(),
             Slot::ResumeCleanup {
                 old,
@@ -592,8 +602,8 @@ impl Shared {
             let mut runs = shared.runs();
             match cleanup {
                 Ok(()) => {
-                    if let Some(Slot::ResumeCleanup { old: Some(old), .. }) = runs.remove(&id) {
-                        runs.insert(id.clone(), Slot::Running(*old));
+                    if let Some(Slot::ResumeCleanup { old: Some(old), .. }) = runs.take(&id) {
+                        runs.put(id.clone(), Slot::Running(*old));
                     }
                     error
                 }
@@ -605,7 +615,7 @@ impl Shared {
                         pending,
                         error: stored,
                         ..
-                    }) = runs.get_mut(&id)
+                    }) = runs.slot_mut(&id)
                     {
                         *pending = false;
                         *stored = error.clone();
@@ -665,7 +675,7 @@ mod tests {
         assert_eq!(launches.load(Ordering::SeqCst), 0);
         assert!(agents.shared.terminals.list().await.is_empty());
         let runs = agents.shared.runs();
-        assert!(matches!(runs.get(&id), Some(Slot::Running(run)) if !run.yolo()));
+        assert!(matches!(runs.slot(&id), Some(Slot::Running(run)) if !run.yolo()));
     }
 
     #[tokio::test]
