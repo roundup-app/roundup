@@ -4,9 +4,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { appSettings } from "../settings/preferences";
 import { copy } from "./copy";
-import { shelfSliding } from "../shelf/sliding";
-import { drawerSliding } from "../drawer/sliding";
-import { resizeDragging } from "../resize/dragging";
+import { layoutMoving } from "../resize/motion";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Recovery } from "../ink/ReservedLine";
@@ -108,7 +106,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
     try {
       if (!host) throw new Error(copy.terminalDestinationUnavailable);
-      const prepared = await screens.prepare(host, () => !resizeDragging() && !drawerSliding() && !shelfSliding(), controller.signal);
+      const prepared = await screens.prepare(host, () => !layoutMoving(), controller.signal);
 
       return { ...prepared, dispose: () => {
         prepared.dispose();
@@ -142,7 +140,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
     const id = terminalId();
 
-    if (resizeDragging() || drawerSliding() || shelfSliding()) return;
+    if (layoutMoving()) return;
 
     if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), true);
   };
@@ -151,13 +149,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     pendingFrame ??= requestAnimationFrame(refit);
   };
 
-  // U389, U371: a Resize edge drag changes the pane's width every frame; the Terminal is fitted once when it ends.
-  createEffect(on(resizeDragging, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
-
-  // U430: a Drawer's slide narrows or widens the pane over its duration; the Terminal is fitted once when it ends.
-  createEffect(on(drawerSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
-
-  createEffect(on(shelfSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+  // U389, U430, U371: an edge drag or a Drawer or Shelf slide changes the pane's width every frame; the Terminal is fitted once when it ends.
+  createEffect(on(layoutMoving, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
   // X14: the Terminal the selection leaves stops receiving output; only its subscription is released.
   createEffect(on(terminalId, (_id, previous) => { if (previous != null) screens.hide(previous); }, { defer: true }));
