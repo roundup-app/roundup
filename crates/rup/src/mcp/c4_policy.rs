@@ -1,6 +1,18 @@
 use super::*;
 use std::collections::BTreeMap;
 
+/// C5459c: a `Text<N>` field adds `maxLength` to the input schema; nothing else of it may change.
+fn without_max_length(value: &mut Value) {
+    match value {
+        Value::Object(map) => {
+            map.remove("maxLength");
+            map.values_mut().for_each(without_max_length);
+        }
+        Value::Array(items) => items.iter_mut().for_each(without_max_length),
+        _ => {}
+    }
+}
+
 #[test]
 fn c4_declarations_preserve_mcp_policy() {
     // Captured from main 09f5f6611, plus D11's `kept`: descriptions, names, schemas, reshaping, injection and role sets.
@@ -15,9 +27,7 @@ fn c4_declarations_preserve_mcp_policy() {
                     ("reader".into(), "supplied-reader".into()),
                 ])),
             );
-            (
-                offer.method,
-                serde_json::json!({
+            let mut row = serde_json::json!({
                     "tool": offer.tool, "params": params,
                     "takes_params": offer.input != Input::None && offer.input != Input::OwnId,
                     "own_id": matches!(offer.input, Input::OwnId | Input::ArgumentsWithOwnId),
@@ -25,8 +35,9 @@ fn c4_declarations_preserve_mcp_policy() {
                     "waits_for_user": offer.delivery == Delivery::WaitsForUser,
                     "door_only": offer.audience == Audience::DoorOnly,
                     "stream": offer.delivery == Delivery::Stream,
-                }),
-            )
+            });
+            without_max_length(&mut row["tool"]["inputSchema"]);
+            (offer.method, row)
         })
         .collect();
     for (method, expected) in before["commands"].as_object().unwrap() {

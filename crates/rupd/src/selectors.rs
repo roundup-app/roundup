@@ -1,5 +1,6 @@
 //! Canonicalize Agent and Workstream inputs before authority checks and effects.
 use super::*;
+use crate::field::Field;
 use crate::route::policy::{Inputs, policy};
 use contracts::agent::{NodeKind, RailNode};
 
@@ -113,14 +114,8 @@ fn owner(
     last_id: i64,
     value: &mut Value,
 ) -> Result<(), RpcError> {
-    if value.is_string() {
-        let id = select(
-            nodes,
-            actor,
-            last_id,
-            value.as_str().unwrap(),
-            NodeKind::Agent,
-        )?;
+    if let Some(text) = value.as_str() {
+        let id = select(nodes, actor, last_id, text, NodeKind::Agent)?;
         *value = json!({"kind":"agent", "id":id, "parent":null});
     } else if value["kind"] == "agent" {
         // Explicit Actors retain opaque stored identities, including retired owners.
@@ -145,11 +140,14 @@ impl Daemon {
             .ok_or_else(|| RpcError::method_not_found(method))?
             .inputs;
         if inputs == Inputs::StartDoor
-            && let Some(id) = params["id"].as_str()
+            && let Some(id) = params.field("id").as_str()
         {
             let nodes = self.rail().await?;
             let last_id = self.agents.rail_last_id()?;
-            params["id"] = select(&nodes, actor, last_id, id, NodeKind::Workstream)?.into();
+            let selected = select(&nodes, actor, last_id, id, NodeKind::Workstream)?;
+            if let Some(object) = params.as_object_mut() {
+                object.insert("id".to_owned(), selected.into());
+            }
             return Ok(params);
         }
         if inputs == Inputs::Wake {
@@ -157,7 +155,7 @@ impl Daemon {
         }
         // Provenance also filters historical user/Extension Actors and retired Agent identities.
         if inputs == Inputs::Provenance
-            && let Some(id) = params["actor_id"].as_str()
+            && let Some(id) = params.field("actor_id").as_str()
             && id != "me"
             && !id.starts_with("name:")
             && (id == actor.id
@@ -189,7 +187,8 @@ impl Daemon {
             Inputs::To => fields.push(("to", true)),
             Inputs::RouteSet => {
                 // Reserved sender identities keep their meaning even when an Agent shares the name.
-                if !params["from"]
+                if !params
+                    .field("from")
                     .as_str()
                     .is_some_and(|from| from == Actor::daemon().id || from.starts_with("ext:"))
                 {
@@ -198,29 +197,36 @@ impl Daemon {
                 fields.push(("to", true));
             }
             Inputs::Maker => fields.push(("maker", true)),
-            Inputs::Provenance if params["actor_id"] != Actor::daemon().id => {
+            Inputs::Provenance
+                if params.field("actor_id").as_str() != Some(Actor::daemon().id.as_str()) =>
+            {
                 fields.push(("actor_id", true))
             }
-            Inputs::Reader if params["after"].is_null() => fields.push(("reader", false)),
+            Inputs::Reader if params.field("after").is_null() => fields.push(("reader", false)),
             Inputs::Agent => fields.push(("agent", false)),
             _ => {}
         }
         let has_owner = inputs == Inputs::Owner;
         let has_list = matches!(inputs, Inputs::Wake | Inputs::Rewind);
-        if !has_owner && !has_list && !fields.iter().any(|(field, _)| params[*field].is_string()) {
+        if !has_owner
+            && !has_list
+            && !fields
+                .iter()
+                .any(|(field, _)| params.field(field).is_string())
+        {
             return Ok(params);
         }
         let nodes = self.rail().await?;
         let last_id = self.agents.rail_last_id()?;
         // Retained removal receipts keep their authority and key-conflict precedence.
         if inputs == Inputs::Remove
-            && let Some(operation) = params["operation"].as_str()
+            && let Some(operation) = params.field("operation").as_str()
         {
             if actor.kind != ActorKind::User {
                 return Err(RpcError::forbidden("only the user retains a Rail removal"));
             }
             if self.agents.rail_deletion(actor, operation)?.is_some()
-                && let Some(id) = params["id"].as_str()
+                && let Some(id) = params.field("id").as_str()
                 && select(&nodes, actor, last_id, id, NodeKind::Agent)
                     .is_err_and(|e| e.code == code::NOT_FOUND)
             {

@@ -1,14 +1,10 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
+use super::row::{COLUMNS as NODES, NodeRow};
 use super::*;
-use contracts::agent::Ordinal;
 
 // R3696c: adding visibility made the compound empty-history read cost 915 VM steps.
 // Test the preparation gate once, then read the ordinary rows without per-node predicates.
 const PREPARING: &str = "SELECT EXISTS(SELECT 1 FROM closed_sources WHERE published=0)";
-const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work, model, effort,
-                conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, start_attribution, visibility FROM nodes";
-
 pub(super) fn load_nodes(
     db: &Connection,
     include_preparation: bool,
@@ -32,93 +28,9 @@ fn load_with<T>(
         db.prepare_cached(&format!("{NODES} WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))"))
     }?;
     let rows = query.query_map([], |row| {
-        let kind = match row.get_ref(1)?.as_str()? {
-            "group" => NodeKind::Group,
-            "workstream" => NodeKind::Workstream,
-            _ => NodeKind::Agent,
-        };
-        let worktree = match (
-            row.get::<_, Option<String>>(7)?,
-            row.get::<_, Option<String>>(8)?,
-            row.get::<_, Option<String>>(9)?,
-        ) {
-            (Some(path), Some(branch), Some(base)) => Some(Worktree { path, branch, base }),
-            _ => None,
-        };
-        let stored = row
-            .get_ref(10)?
-            .as_str_or_null()?
-            .and_then(|json| serde_json::from_str(json).ok());
-        let work = match kind {
-            NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
-            NodeKind::Agent => stored,
-            NodeKind::Group => None,
-        };
-        let node = RailNode {
-            workstream_state: None,
-            waiting: None,
-            unreachable: None,
-            resume: None,
-            start_attribution: row
-                .get_ref(19)?
-                .as_str_or_null()?
-                .map(serde_json::from_str)
-                .transpose()
-                .map_err(|error| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        19,
-                        rusqlite::types::Type::Text,
-                        Box::new(error),
-                    )
-                })?,
-            visibility: match row.get_ref(20)?.as_str()? {
-                "internal" => contracts::agent::RailVisibility::Internal,
-                _ => contracts::agent::RailVisibility::Shown,
-            },
-            alert_level: serde_json::from_str(row.get_ref(18)?.as_str()?).map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    18,
-                    rusqlite::types::Type::Text,
-                    Box::new(error),
-                )
-            })?,
-            opening_prompt: if kind == NodeKind::Workstream {
-                row.get(17)?
-            } else {
-                None
-            },
-            auto: (kind == NodeKind::Workstream)
-                .then(|| row.get(15))
-                .transpose()?,
-            id: row.get::<_, i64>(0)?.to_string(),
-            kind,
-            name: row.get(2)?,
-            parent: row.get::<_, Option<i64>>(3)?.map(|id| id.to_string()),
-            order: row.get(4)?,
-            status: None,
-            status_revision: None,
-            final_text: None,
-            attempt: Ordinal::new(row.get::<_, i64>(5)?),
-            terminal_id: row.get(6)?,
-            worktree,
-            // R3696c: SQL null predicates cost 280 extra VM steps per forty nodes.
-            // Borrow the fields without copying conversation text; presentation gates
-            // availability on the live Attempt (R16).
-            can_resume: !matches!(row.get_ref(13)?, rusqlite::types::ValueRef::Null)
-                && !matches!(row.get_ref(14)?, rusqlite::types::ValueRef::Null),
-            can_make_workstream: false,
-            can_save_as_mode: false,
-            yolo: false,
-            channel: None,
-            stray: Vec::new(),
-            work,
-            model: row.get(11)?,
-            effort: row.get(12)?,
-            inbox: None,
-            tool_call: None,
-            overview: None,
-        };
-        Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
+        let node = NodeRow::read(row)?;
+        let finished = node.finished;
+        Ok(map(node.into_node(), finished))
     })?;
     let mut nodes = Vec::with_capacity(capacity);
     for row in rows {

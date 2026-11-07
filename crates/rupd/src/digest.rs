@@ -60,14 +60,17 @@ impl Reader {
     /// B21's isolated observer acknowledges the snapshot only after every push was judged.
     fn observed(&self, world: &World) {
         if let Some(path) = &self.observer {
-            let mut file = std::fs::OpenOptions::new()
+            let written = std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(path)
-                .expect("open Digest observer");
-            writeln!(file, "{}", json!({"nodes":world.nodes,"todos":world.todos}))
-                .expect("write Digest comparison acknowledgement");
-            eprintln!("rupd: digest comparison complete");
+                .and_then(|mut file| {
+                    writeln!(file, "{}", json!({"nodes":world.nodes,"todos":world.todos}))
+                });
+            match written {
+                Ok(()) => eprintln!("rupd: digest comparison complete"),
+                Err(err) => eprintln!("rupd: digest comparison was not acknowledged: {err}"),
+            }
         }
     }
 
@@ -285,7 +288,7 @@ async fn push_once(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
     use std::time::Duration;
 
     use async_trait::async_trait;
@@ -306,7 +309,7 @@ mod tests {
 
         async fn call(&self, _: &Ctx, method: &str, _: Value) -> Result<Value, RpcError> {
             assert_eq!(method, "pad.list");
-            let listed = self.listed.lock().unwrap().clone();
+            let listed = self.listed.lock().clone();
             self.reads.send(listed.clone()).unwrap();
             rpc::reply(&listed)
         }
@@ -342,7 +345,7 @@ mod tests {
             reader,
             daemon.sender.get().unwrap().clone(),
             Arc::new(messages::digest::Seen::default()),
-            Arc::default(),
+            Arc::new(crate::settlement::Settlements::in_memory().unwrap()),
             None,
             bus.subscribe(),
         ));
@@ -351,7 +354,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(initial[0].name, "plan");
-        pads.listed.lock().unwrap().clear();
+        pads.listed.lock().clear();
         bus.emit(
             Actor::daemon(),
             EventData::PadDeleted(contracts::pad::PadName {
@@ -387,7 +390,7 @@ mod tests {
             reader,
             daemon.sender.get().unwrap().clone(),
             Arc::new(messages::digest::Seen::default()),
-            Arc::default(),
+            Arc::new(crate::settlement::Settlements::in_memory().unwrap()),
             None,
             bus.subscribe(),
         ));
@@ -443,7 +446,7 @@ mod tests {
                 daemon.reader(),
                 Arc::clone(&messages),
                 Arc::clone(&daemon.digests),
-                Arc::default(),
+                Arc::new(crate::settlement::Settlements::in_memory().unwrap()),
                 None,
                 daemon.bus.subscribe(),
             ));
@@ -460,7 +463,7 @@ mod tests {
         }
 
         fn add_children(&self, from: usize, to: usize) {
-            let mut nodes = self.state.nodes.lock().unwrap();
+            let mut nodes = self.state.nodes.lock();
             for i in from..to {
                 let mut node = nodes[1].clone();
                 node.id = format!("c{i}");

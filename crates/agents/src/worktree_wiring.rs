@@ -782,7 +782,7 @@ mod tests {
             tokio::time::timeout(Duration::from_secs(10), async {
                 loop {
                     let ready = matches!(
-                        agents.shared.runs().get(&id),
+                        agents.shared.runs().slot(&id),
                         Some(Slot::Resuming {
                             terminal_id: Some(_),
                             ..

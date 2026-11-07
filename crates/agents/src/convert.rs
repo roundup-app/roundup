@@ -22,7 +22,7 @@ impl Agents {
                     "{id} is not a root Agent with a saved conversation"
                 )));
             }
-            matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended())
+            matches!(self.shared.runs().slot(id), Some(Slot::Running(run)) if !run.ended())
         };
         if live
             && let Err(error) = self

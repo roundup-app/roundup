@@ -26,6 +26,7 @@ mod remote;
 pub use owner::TerminalOwner;
 mod program;
 mod pty;
+pub use pty::InputEnded;
 mod recorder;
 mod scheme;
 mod screen;

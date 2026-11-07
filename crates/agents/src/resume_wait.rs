@@ -2,7 +2,6 @@
 //! resumes the Agent after 1, 4 and 16 minutes (jittered). The table here holds each waiting
 //! Agent's step; the Daemon sends the Message when `take_due` names it.
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use backon::{BackoffBuilder, ExponentialBuilder};
@@ -58,29 +57,21 @@ impl Resume {
     }
 }
 
-/// Folds one raw (adapter) Status into `table` for `id`; whether the entry changed.
-pub(crate) fn fold(
-    table: &mut HashMap<String, Resume>,
-    id: &str,
-    status: &Status,
-    now: i64,
-) -> bool {
+/// Folds one raw (adapter) Status into an Agent's `resume`; whether it changed.
+pub(crate) fn fold(entry: &mut Option<Resume>, status: &Status, now: i64) -> bool {
     match status.kind {
         Kind::Error => match claude_code::transient_cause(&status.label) {
-            None => table.remove(id).is_some(),
-            Some(cause) => match table.get_mut(id) {
+            None => entry.take().is_some(),
+            Some(cause) => match &mut *entry {
                 None => {
                     let at = Some(now + delay_ms(0, now));
-                    table.insert(
-                        id.to_owned(),
-                        Resume {
-                            cause,
-                            sent: 0,
-                            at,
-                            awaiting: false,
-                            running: false,
-                        },
-                    );
+                    *entry = Some(Resume {
+                        cause,
+                        sent: 0,
+                        at,
+                        awaiting: false,
+                        running: false,
+                    });
                     true
                 }
                 Some(entry) if entry.running || entry.awaiting => {
@@ -91,7 +82,7 @@ pub(crate) fn fold(
                 Some(_) => false,
             },
         },
-        Kind::Working => match table.get_mut(id) {
+        Kind::Working => match &mut *entry {
             Some(entry) if entry.awaiting => {
                 entry.awaiting = false;
                 entry.running = true;
@@ -99,23 +90,22 @@ pub(crate) fn fold(
             }
             Some(entry) if entry.running => false,
             // A turn nobody here asked for started: the rest of the resumes are cancelled.
-            Some(_) => table.remove(id).is_some(),
+            Some(_) => entry.take().is_some(),
             None => false,
         },
-        _ => table.remove(id).is_some(),
+        _ => entry.take().is_some(),
     }
-}
-
-/// A Message reached `id` while its resume waits: the remaining resumes are cancelled.
-pub(crate) fn withdraw(table: &mut HashMap<String, Resume>, id: &str) -> bool {
-    table.remove(id).is_some()
 }
 
 /// Marks every resume due at `now` as sent and names its Agent. A resume never fires while its
 /// turn runs.
-pub(crate) fn take_due(table: &mut HashMap<String, Resume>, now: i64) -> Vec<String> {
+pub(crate) fn take_due<'a>(
+    agents: impl Iterator<Item = (&'a String, &'a mut Option<Resume>)>,
+    now: i64,
+) -> Vec<String> {
     let mut due = Vec::new();
-    for (id, entry) in table.iter_mut() {
+    for (id, entry) in agents {
+        let Some(entry) = entry else { continue };
         let Some(at) = entry.at else { continue };
         if at > now || entry.running || entry.awaiting {
             continue;
@@ -130,7 +120,7 @@ pub(crate) fn take_due(table: &mut HashMap<String, Resume>, now: i64) -> Vec<Str
 
 impl Shared {
     pub(super) fn resume_of(&self, id: &str) -> Option<Resume> {
-        self.resumes.lock().expect("resumes lock").get(id).cloned()
+        self.runs().get(id)?.facts.resume.clone()
     }
 }
 
@@ -138,7 +128,10 @@ impl Agents {
     /// U6248b: the Agents whose next resume is due; each is sent the resume Message by the caller.
     pub fn take_due_resumes(&self) -> Vec<String> {
         let due = take_due(
-            &mut self.shared.resumes.lock().expect("resumes lock"),
+            self.shared
+                .runs()
+                .iter_mut()
+                .map(|(id, agent)| (id, &mut agent.facts.resume)),
             (self.shared.clock)(),
         );
         if !due.is_empty() {
@@ -152,7 +145,11 @@ impl Agents {
     /// U6248b: a Message other than the resume itself reached `id`; its remaining resumes are
     /// cancelled.
     pub fn withdraw_resume(&self, id: &str) {
-        let moved = withdraw(&mut self.shared.resumes.lock().expect("resumes lock"), id);
+        let moved = self
+            .shared
+            .runs()
+            .get_mut(id)
+            .is_some_and(|agent| agent.facts.resume.take().is_some());
         if moved {
             self.shared
                 .bus
@@ -162,9 +159,10 @@ impl Agents {
 
     /// U6248b: how long until the earliest waiting resume is due, on the Agents' clock.
     pub fn until_next_resume(&self) -> Option<Duration> {
-        let table = self.shared.resumes.lock().expect("resumes lock");
-        let at = table
+        let runs = self.shared.runs();
+        let at = runs
             .values()
+            .filter_map(|agent| agent.facts.resume.as_ref())
             .filter(|e| !e.running && !e.awaiting)
             .filter_map(|e| e.at)
             .min()?;
@@ -204,8 +202,25 @@ pub(super) fn resuming(status: &Status, resume: Option<&Resume>) -> Status {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     const MIN: i64 = 60_000;
+
+    type Table = HashMap<String, Option<Resume>>;
+
+    fn fold_in(table: &mut Table, id: &str, status: &Status, now: i64) -> bool {
+        fold(table.entry(id.into()).or_default(), status, now)
+    }
+
+    fn due(table: &mut Table, now: i64) -> Vec<String> {
+        take_due(table.iter_mut(), now)
+    }
+
+    fn withdraw(table: &mut Table, id: &str) -> bool {
+        table
+            .get_mut(id)
+            .is_some_and(|entry| entry.take().is_some())
+    }
 
     fn status(kind: Kind, label: &str) -> Status {
         Status {
@@ -226,74 +241,71 @@ mod tests {
     #[test]
     fn u6248b_a_message_cancels_the_rest() {
         let mut table = HashMap::new();
-        fold(&mut table, "a", &overloaded(), 0);
-        let first = table["a"].at.expect("waiting");
+        fold_in(&mut table, "a", &overloaded(), 0);
+        let first = table["a"].as_ref().unwrap().at.expect("waiting");
         assert!(withdraw(&mut table, "a"));
-        assert!(take_due(&mut table, first).is_empty());
+        assert!(due(&mut table, first).is_empty());
         assert!(!withdraw(&mut table, "a"));
     }
 
     #[test]
     fn u6248b_roundup_resumes_after_a_transient_stop_failure() {
         let mut table = HashMap::new();
-        assert!(fold(&mut table, "a", &overloaded(), 0));
-        let first = table["a"].at.expect("waiting");
+        assert!(fold_in(&mut table, "a", &overloaded(), 0));
+        let first = table["a"].as_ref().unwrap().at.expect("waiting");
         assert!((MIN..=2 * MIN).contains(&first), "1 min, jittered");
-        assert!(take_due(&mut table, first - 1).is_empty());
-        let shown = resuming(&overloaded(), table.get("a"));
+        assert!(due(&mut table, first - 1).is_empty());
+        let shown = resuming(&overloaded(), table.get("a").and_then(Option::as_ref));
         assert_eq!(
             (shown.kind, shown.label.as_str()),
             (Kind::Blocked, "Claude is overloaded")
         );
 
         // The first resume is sent once; the next waits 4 minutes.
-        assert_eq!(take_due(&mut table, first), ["a"]);
-        assert!(
-            take_due(&mut table, first).is_empty(),
-            "one Message per step"
-        );
-        let second = table["a"].at.expect("waiting");
+        assert_eq!(due(&mut table, first), ["a"]);
+        assert!(due(&mut table, first).is_empty(), "one Message per step");
+        let second = table["a"].as_ref().unwrap().at.expect("waiting");
         assert!((first + 4 * MIN..=first + 8 * MIN).contains(&second));
 
         // Its turn starts and fails again: the schedule goes on.
-        assert!(!fold(
+        assert!(!fold_in(
             &mut table,
             "a",
             &status(Kind::Working, "working"),
             first
         ));
-        assert!(
-            take_due(&mut table, second).is_empty(),
-            "none while a turn runs"
-        );
-        assert!(fold(&mut table, "a", &overloaded(), first + 1));
-        assert_eq!(take_due(&mut table, second), ["a"]);
-        let third = table["a"].at.expect("waiting");
+        assert!(due(&mut table, second).is_empty(), "none while a turn runs");
+        assert!(fold_in(&mut table, "a", &overloaded(), first + 1));
+        assert_eq!(due(&mut table, second), ["a"]);
+        let third = table["a"].as_ref().unwrap().at.expect("waiting");
         assert!((second + 16 * MIN..=second + 32 * MIN).contains(&third));
-        fold(&mut table, "a", &status(Kind::Working, "working"), second);
-        fold(&mut table, "a", &overloaded(), second + 1);
-        assert_eq!(take_due(&mut table, third), ["a"]);
+        fold_in(&mut table, "a", &status(Kind::Working, "working"), second);
+        fold_in(&mut table, "a", &overloaded(), second + 1);
+        assert_eq!(due(&mut table, third), ["a"]);
 
         // After the third resume the row is exhausted: `error`, with Resume.
-        assert_eq!(table["a"].at, None);
-        assert!(take_due(&mut table, i64::MAX).is_empty(), "never a fourth");
-        assert!(!fold(
+        assert_eq!(table["a"].as_ref().unwrap().at, None);
+        assert!(due(&mut table, i64::MAX).is_empty(), "never a fourth");
+        assert!(!fold_in(
             &mut table,
             "a",
             &status(Kind::Working, "working"),
             third
         ));
-        assert!(fold(&mut table, "a", &overloaded(), third + 1));
-        assert_eq!(resuming(&overloaded(), table.get("a")).kind, Kind::Error);
+        assert!(fold_in(&mut table, "a", &overloaded(), third + 1));
+        assert_eq!(
+            resuming(&overloaded(), table.get("a").and_then(Option::as_ref)).kind,
+            Kind::Error
+        );
     }
 
     #[test]
     fn u6248b_a_turn_a_stop_or_a_user_cancels_the_rest() {
         for kind in [Kind::Working, Kind::Idle, Kind::Done] {
             let mut table = HashMap::new();
-            fold(&mut table, "a", &overloaded(), 0);
-            assert!(fold(&mut table, "a", &status(kind, "x"), 1));
-            assert!(take_due(&mut table, i64::MAX).is_empty());
+            fold_in(&mut table, "a", &overloaded(), 0);
+            assert!(fold_in(&mut table, "a", &status(kind, "x"), 1));
+            assert!(due(&mut table, i64::MAX).is_empty());
         }
     }
 
@@ -304,9 +316,12 @@ mod tests {
             Kind::Error,
             "Claude could not sign in; open its Terminal, sign in, then retry.",
         );
-        assert!(!fold(&mut table, "a", &failed, 0));
-        assert!(table.is_empty());
-        assert!(take_due(&mut table, i64::MAX).is_empty());
-        assert_eq!(resuming(&failed, table.get("a")).kind, Kind::Error);
+        assert!(!fold_in(&mut table, "a", &failed, 0));
+        assert!(table.values().all(Option::is_none));
+        assert!(due(&mut table, i64::MAX).is_empty());
+        assert_eq!(
+            resuming(&failed, table.get("a").and_then(Option::as_ref)).kind,
+            Kind::Error
+        );
     }
 }

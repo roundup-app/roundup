@@ -80,7 +80,7 @@ impl From<DeliverableError> for RpcError {
 type Ret<T> = std::result::Result<T, DeliverableError>;
 
 pub(crate) struct Publications {
-    db: std::sync::Mutex<Connection>,
+    db: parking_lot::Mutex<Connection>,
     cache: PathBuf,
     quota: i64,
 }
@@ -89,7 +89,7 @@ impl Publications {
     #[cfg(test)]
     pub(crate) fn in_memory(cache: PathBuf) -> Self {
         Self {
-            db: std::sync::Mutex::new(
+            db: parking_lot::Mutex::new(
                 Connection::open_in_memory().expect("test publication database"),
             ),
             cache,
@@ -105,7 +105,7 @@ impl Publications {
         }
     }
     pub(crate) fn invalidate_revoked(&self) -> std::result::Result<(), RpcError> {
-        let db = self.db.lock().expect("publication database poisoned");
+        let db = self.db.lock();
         for record in store::live_in(&db)? {
             if let PublishedTarget::Pad { incarnation, .. } = record.target
                 && matches!(
@@ -142,7 +142,7 @@ impl Publications {
         #[cfg(not(feature = "test-support"))]
         let quota = QUOTA;
         Ok(Self {
-            db: std::sync::Mutex::new(db),
+            db: parking_lot::Mutex::new(db),
             cache,
             quota,
         })
@@ -167,7 +167,12 @@ fn open_directory(
 impl Publications {
     fn directory(&self, create: bool) -> std::io::Result<std::fs::File> {
         use rustix::fs::{CWD, Mode};
-        let parent = open_directory(CWD, self.cache.parent().expect("Project data"))?;
+        let parent = open_directory(
+            CWD,
+            self.cache
+                .parent()
+                .ok_or_else(|| std::io::Error::other("Project data has no parent"))?,
+        )?;
         if create {
             match rustix::fs::mkdirat(&parent, "publication-files", Mode::from_raw_mode(0o700)) {
                 Ok(()) | Err(rustix::io::Errno::EXIST) => {}
@@ -380,11 +385,7 @@ impl Daemon {
         } else {
             None
         };
-        let mut db = self
-            .publications
-            .db
-            .lock()
-            .expect("publication database poisoned");
+        let mut db = self.publications.db.lock();
         let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let settles = matches!(method, "deliverable.publish" | "deliverable.remove");
         if settles {
@@ -448,16 +449,11 @@ impl Daemon {
     }
 }
 
-/// The refusals of a publish request that need no database: who may publish, and the shape.
-fn check_publish(actor: ActorKind, p: &PublishParams) -> Ret<()> {
+/// The refusal of a publish request that needs no database: who may publish.
+fn check_publish(actor: ActorKind) -> Ret<()> {
     if actor == ActorKind::Ext {
         return Err(DeliverableError::Forbidden(
             "only the user or an authenticated maker can publish".into(),
-        ));
-    }
-    if p.key.is_empty() || p.key.len() > 256 || p.title.trim().is_empty() || p.title.len() > 4096 {
-        return Err(DeliverableError::Invalid(
-            "publication key/title is empty or too long".into(),
         ));
     }
     Ok(())
@@ -478,7 +474,7 @@ fn publish(
 ) -> Ret<Done> {
     let (conn, tx) = (call.conn, call.tx);
     let p: PublishParams = rpc::params(args)?;
-    check_publish(conn.actor.kind, &p)?;
+    check_publish(conn.actor.kind)?;
     let request = serde_json::to_string(&p)?;
     let actor_key = format!("{:?}:{}", conn.actor.kind, conn.actor.id);
     if let Some((old, record, removed)) = store::previous_in(tx, &actor_key, &p.key)? {
@@ -513,7 +509,7 @@ fn publish(
             Some(_) => agents::home_in(tx, &conn.actor.id)?,
             None => None,
         },
-        title: p.title,
+        title: p.title.into(),
         published_at: now_ms()?,
         target: captured.target,
     };

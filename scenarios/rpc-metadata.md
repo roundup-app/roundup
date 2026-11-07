@@ -51,7 +51,8 @@ assertion name the retained test proving its then-clause, or its replacement her
 
 **C5459c existing methods keep their metadata.** Given every method served by the
 implementation's base on `origin/main`, when the declarations become the metadata
-source, then each keeps its tool name, role set, input schema, parameter adaptation
+source, then each keeps its tool name, role set, input schema (a `Text<N>` field adds its
+`maxLength`, nothing else), parameter adaptation
 and non-exposure reason; each keeps all measured-metric memberships or its off-path
 reason, and its summary and full description. Policy: retain a before/after record
 of these values for every base method and compare by method name, with no missing

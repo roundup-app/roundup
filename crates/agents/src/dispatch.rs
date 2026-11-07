@@ -499,7 +499,7 @@ impl Agents {
                         },
                     );
                 }
-                if let Some(slot) = shared.runs().get_mut(&id) {
+                if let Some(slot) = shared.runs().slot_mut(&id) {
                     slot.settle_name();
                 }
                 node

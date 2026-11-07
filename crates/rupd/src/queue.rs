@@ -1,9 +1,10 @@
 //! A3194 to A3197: a Workstream that owns a Todo, the Start choice, and the Queue that starts
 //! Doors under the Project's cap. Only the user's own `now` and this Queue start a Door.
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use agents::Agents;
 use contracts::agent::{CreateWorkstreamParams, Order, RailNode, RemoveParams, StartDoorParams};
@@ -66,6 +67,29 @@ fn seeded_order(title: &str, body: &str) -> Order {
         ask: ask.trim().to_owned(),
         done: None,
         limits: Vec::new(),
+    }
+}
+
+/// `CapParams` whose `cap` was checked while parsing: null, or a whole number from 1 to `u32::MAX`.
+#[derive(serde::Deserialize)]
+#[serde(try_from = "CapParams")]
+struct CapRequest {
+    cap: Option<u32>,
+}
+
+impl TryFrom<CapParams> for CapRequest {
+    type Error = &'static str;
+
+    fn try_from(params: CapParams) -> Result<Self, Self::Error> {
+        let cap = match params.cap {
+            None | Some(Value::Null) => None,
+            Some(Value::Number(n)) => match n.as_u64().and_then(|n| u32::try_from(n).ok()) {
+                Some(n) if n >= 1 => Some(n),
+                _ => return Err("cap must be a whole number of 1 or more, or null"),
+            },
+            Some(_) => return Err("cap must be a whole number of 1 or more, or null"),
+        };
+        Ok(Self { cap })
     }
 }
 
@@ -187,7 +211,7 @@ impl Queuer {
 
     pub async fn state(&self) -> Result<QueueState, RpcError> {
         let nodes = self.nodes().await?;
-        let launching = self.memory.launching.lock().unwrap().clone();
+        let launching = self.memory.launching.lock().clone();
         Ok(QueueState {
             running: running(&nodes, &launching).len() as u32,
             cap: self.agents.workstream_cap()?,
@@ -259,15 +283,7 @@ impl Queuer {
         rpc::reply(&node)
     }
 
-    fn set_cap(&self, CapParams { cap }: CapParams) -> Result<Value, RpcError> {
-        let cap = match cap {
-            None | Some(Value::Null) => None,
-            Some(Value::Number(n)) => match n.as_u64() {
-                Some(n) if (1..=u64::from(u32::MAX)).contains(&n) => Some(n as u32),
-                _ => return Err(refuse("cap must be a whole number of 1 or more, or null")),
-            },
-            Some(_) => return Err(refuse("cap must be a whole number of 1 or more, or null")),
-        };
+    fn set_cap(&self, CapRequest { cap }: CapRequest) -> Result<Value, RpcError> {
         self.agents.set_workstream_cap(cap)?;
         self.changed();
         rpc::reply(&())
@@ -282,7 +298,7 @@ impl Queuer {
         start: &mut (dyn FnMut(String) -> Starting<'static> + Send),
     ) -> Result<(), RpcError> {
         let _pass = self.memory.pass.lock().await;
-        let mut count = running(nodes, &self.memory.launching.lock().unwrap()).len() as u32;
+        let mut count = running(nodes, &self.memory.launching.lock()).len() as u32;
         let cap = self.agents.workstream_cap()?;
         let mut changed = false;
         for entry in self.agents.queue_entries()? {
@@ -301,11 +317,7 @@ impl Queuer {
             match start(entry.workstream.clone()).await {
                 Ok(()) => {
                     self.agents.queue_remove(&entry.workstream)?;
-                    self.memory
-                        .launching
-                        .lock()
-                        .unwrap()
-                        .insert(entry.workstream);
+                    self.memory.launching.lock().insert(entry.workstream);
                     count += 1;
                 }
                 Err(err) => {
@@ -346,7 +358,7 @@ impl Queuer {
                     let mut pass = false;
                     match &event.data {
                         EventData::AgentStatus(status) => {
-                            self.memory.launching.lock().unwrap().remove(&status.id);
+                            self.memory.launching.lock().remove(&status.id);
                             pass = self.count_changed().await;
                         }
                         EventData::RailChanged => pass = self.count_changed().await,
@@ -383,8 +395,8 @@ impl Queuer {
         let Ok(nodes) = self.nodes().await else {
             return false;
         };
-        let now = running(&nodes, &self.memory.launching.lock().unwrap());
-        let mut last = self.memory.running.lock().unwrap();
+        let now = running(&nodes, &self.memory.launching.lock());
+        let mut last = self.memory.running.lock();
         if *last == now {
             return false;
         }

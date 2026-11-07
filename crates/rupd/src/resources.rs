@@ -3,9 +3,10 @@
 //! program; disk is the size of the Agent's Worktree. Nothing here runs between calls, and
 //! nothing is sent to an Agent.
 
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use contracts::project::{AgentResources, ResourceTotal, Resources};
@@ -114,8 +115,8 @@ fn tree(procs: &[Proc], root: u32) -> (Vec<&Proc>, u64) {
     let mut found: Vec<&Proc> = procs.iter().filter(|p| p.pid == root).collect();
     let mut seen: HashSet<u32> = found.iter().map(|p| p.pid).collect();
     let mut at = 0;
-    while at < found.len() {
-        let pid = found[at].pid;
+    while let Some(&proc) = found.get(at) {
+        let pid = proc.pid;
         at += 1;
         for child in children.get(&pid).into_iter().flatten() {
             if seen.insert(child.pid) {
@@ -262,7 +263,7 @@ impl Sampler {
     /// waited for up to a second; a size not ready is the last one, or `None`.
     async fn sizes(&self, paths: &[&PathBuf]) -> HashMap<PathBuf, Option<u64>> {
         for path in paths {
-            let mut disks = self.disks.lock().unwrap_or_else(|p| p.into_inner());
+            let mut disks = self.disks.lock();
             let disk = disks.entry((*path).clone()).or_default();
             let stale = disk.walked.is_none_or(|at| at.elapsed() >= DISK_TTL);
             if stale && !disk.walking {
@@ -275,7 +276,7 @@ impl Sampler {
                 );
                 std::thread::spawn(move || {
                     let bytes = walk(&path);
-                    let mut disks = disks.lock().unwrap_or_else(|p| p.into_inner());
+                    let mut disks = disks.lock();
                     let disk = disks.entry(path).or_default();
                     disk.bytes = bytes;
                     disk.walked = Some(Instant::now());
@@ -290,7 +291,7 @@ impl Sampler {
             // Register before reading the predicate so completion cannot miss this waiter.
             let walked = self.walked.notified();
             let done = {
-                let disks = self.disks.lock().unwrap_or_else(|p| p.into_inner());
+                let disks = self.disks.lock();
                 paths
                     .iter()
                     .all(|path| disks.get(*path).is_none_or(|d| !d.walking))
@@ -299,7 +300,7 @@ impl Sampler {
                 break;
             }
         }
-        let disks = self.disks.lock().unwrap_or_else(|p| p.into_inner());
+        let disks = self.disks.lock();
         paths
             .iter()
             .map(|path| {
@@ -396,7 +397,7 @@ mod tests {
         std::fs::write(dir.path().join("b"), [0u8; 5]).unwrap();
         assert_eq!(sampler.sizes(&[&path]).await[&path], Some(10));
         // Advance only the cache's stored completion time: expire it at D8's 30 s boundary.
-        sampler.disks.lock().unwrap().get_mut(&path).unwrap().walked =
+        sampler.disks.lock().get_mut(&path).unwrap().walked =
             Some(Instant::now() - Duration::from_secs(30));
         assert_eq!(sampler.sizes(&[&path]).await[&path], Some(15));
         drop(dir);
@@ -458,17 +459,12 @@ mod tests {
         std::fs::write(cached.join("before"), [0; 7]).unwrap();
         assert_eq!(sampler.sizes(&[&cached]).await[&cached], Some(7));
         std::fs::write(cached.join("after"), [0; 2]).unwrap();
-        sampler
-            .disks
-            .lock()
-            .unwrap()
-            .get_mut(&cached)
-            .unwrap()
-            .walked = Some(Instant::now() - Duration::from_secs(30));
+        sampler.disks.lock().get_mut(&cached).unwrap().walked =
+            Some(Instant::now() - Duration::from_secs(30));
 
         // Block the actual walk, not the sampler state. Moving it onto the caller must fail
         // this bound too. The finite hold prevents that mutant from stranding the test thread.
-        let release = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+        let release = Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
         let shared = Arc::clone(&release);
         let (entered, arrivals) = std::sync::mpsc::channel();
         sampler.walk = Arc::new(move |path| {

@@ -18,7 +18,7 @@ async fn serve_for_the_parent() {
     };
     let dir = Path::new(&dir);
     let (daemon, watchers) = rupd::Daemon::open(&dir.join(".roundup")).unwrap();
-    daemon.reattach_owners().await;
+    daemon.reattach_owners().await.unwrap();
     let listener = tokio::net::UnixListener::bind(dir.join("rupd.sock")).unwrap();
     rupd::serve(listener, std::sync::Arc::new(daemon), watchers)
         .await

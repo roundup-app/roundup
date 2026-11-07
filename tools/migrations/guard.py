@@ -46,6 +46,14 @@ def entries(revision):
     return groups
 
 
+def moved(before, prefix, members):
+    """A recorded collision set moving whole to another directory is no new exception."""
+    return any(
+        members == RECORDED.get((directory, prefix)) and members <= names
+        for directory, names in before.items()
+    )
+
+
 def audit(before, after):
     errors = []
     for directory, names in sorted(after.items()):
@@ -58,7 +66,7 @@ def audit(before, after):
         for name in names:
             prefixes[int(re.match(rb"^[0-9]+", name)[0])].add(name)
         for prefix, members in sorted(prefixes.items()):
-            if len(members) > 1 and members != RECORDED.get((directory, prefix)):
+            if len(members) > 1 and members != RECORDED.get((directory, prefix)) and not moved(before, prefix, members):
                 paths = ", ".join(os.fsdecode(directory + b"/" + n) for n in sorted(members))
                 errors.append(f"prefix {prefix} conflicts: {paths}")
     return errors

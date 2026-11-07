@@ -558,7 +558,7 @@ async fn t4597_an_unowned_reply_is_readable_and_waits_for_idle() {
         assert_eq!(thread, again, "tool reads preserve read state");
         // owner_told::SETTLE is 40 ms. This window also proves working Agents get none.
         tokio::time::advance(Duration::from_millis(80)).await;
-        assert!(state.entries.lock().unwrap().is_empty());
+        assert!(state.entries.lock().is_empty());
         assert!(
             user.request("message.list", json!({}))
                 .await
@@ -574,7 +574,7 @@ async fn t4597_an_unowned_reply_is_readable_and_waits_for_idle() {
             .await
             .unwrap();
         let note_id = {
-            let entries = state.entries.lock().unwrap();
+            let entries = state.entries.lock();
             assert_eq!(entries.len(), 1, "{entries:?}");
             assert_eq!(entries[0].0, "1");
             assert_eq!(entries[0].2, Actor::daemon().id);
@@ -587,7 +587,7 @@ async fn t4597_an_unowned_reply_is_readable_and_waits_for_idle() {
         let note = shim.value("message_get", json!({"id":note_id})).await;
         assert_eq!(note["kind"], "note");
         assert_eq!(note["to"], "1");
-        assert_eq!(*state.terminal_writes.lock().unwrap(), 0);
+        assert_eq!(*state.terminal_writes.lock(), 0);
     }
 }
 
@@ -775,7 +775,7 @@ async fn u4698c_mcp_sets_priority_as_the_authenticated_actor() {
                 history
             );
         }
-        assert_eq!(*state.terminal_writes.lock().unwrap(), 0);
+        assert_eq!(*state.terminal_writes.lock(), 0);
         assert_eq!(
             serde_json::to_value(shim.client.list_all_tools().await.unwrap()).unwrap(),
             serde_json::to_value(offered).unwrap()

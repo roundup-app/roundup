@@ -1,7 +1,7 @@
 #![deny(clippy::too_many_lines)]
 
 use super::*;
-use crate::agent::fold;
+use crate::agent::{self, fold};
 
 impl Observation {
     /// The word a log line names this Observation by; a Signal by its vendor event.
@@ -29,8 +29,6 @@ pub(super) struct State {
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
     /// B50, B51: what the Claude inbox of each Agent is and what its transcript has recorded.
     pub(super) inbox: Arc<InboxState>,
-    /// U3780a: the current or last tool call of each Agent.
-    pub(super) tool_calls: Mutex<HashMap<String, claude_code::toolcall::Tracked>>,
 }
 
 impl Drop for State {
@@ -174,14 +172,17 @@ impl Shared {
     /// PS9.2: Terminal `terminal`'s program status reaches the Agent that runs in it, if its
     /// adapter has no hook Signal; any other Agent keeps the Kind its Signals give (PS9.1).
     pub(super) fn observe_program(&self, terminal: &str, status: Status) {
-        let found = self.runs().iter().find_map(|(id, slot)| match slot {
-            Slot::Running(run)
-                if run.terminal_id() == terminal && !run.ended() && !run.view().hooked =>
-            {
-                Some((id.clone(), run.attempt().to_string()))
-            }
-            _ => None,
-        });
+        let found = self
+            .runs()
+            .iter()
+            .find_map(|(id, agent)| match &agent.slot {
+                Slot::Running(run)
+                    if run.terminal_id() == terminal && !run.ended() && !run.view().hooked =>
+                {
+                    Some((id.clone(), run.attempt().to_string()))
+                }
+                _ => None,
+            });
         if let Some((id, attempt)) = found {
             let _ = self.observe(Actor::daemon(), &id, &attempt, Observation::Program(status));
         }
@@ -197,7 +198,7 @@ impl Shared {
                 self.rail().name(id)?
             )));
         }
-        let attempt = self.runs().get(id).map(|slot| slot.attempt().to_owned());
+        let attempt = self.runs().slot(id).map(|slot| slot.attempt().to_owned());
         if let Some(attempt) = attempt {
             self.set_channel(actor.clone(), id, &attempt, Channel::Up);
         }
@@ -206,26 +207,25 @@ impl Shared {
 
     /// E6: whether the live Attempt of `id` has not yet reported its Channel or missed the deadline.
     pub(super) fn channel_pending(&self, id: &str) -> bool {
-        let runs = self.runs();
-        let channels = self.channels.lock().expect("channels lock");
-        channel_in(&channels, id, runs.get(id)) == Some(Channel::Pending)
+        channel_in(self.runs().get(id)) == Some(Channel::Pending)
     }
 
     /// E6: move the Channel of `attempt` to `channel` and say so, unless it is there already or
     /// the Attempt is no longer the live one.
     pub(super) fn set_channel(&self, by: Actor, id: &str, attempt: &str, channel: Channel) {
         let changed = {
-            let runs = self.runs();
-            let slot = runs.get(id).filter(|slot| slot.attempt() == attempt);
-            let mut channels = self.channels.lock().expect("channels lock");
-            let current = channel_in(&channels, id, slot);
+            let mut runs = self.runs();
+            let agent = runs
+                .get_mut(id)
+                .filter(|agent| agent.slot.attempt() == attempt);
+            let current = channel_in(agent.as_deref());
             // `up` is final for an Attempt; `missing` never replaces it.
             let moves = match (current, channel) {
                 (None, _) | (Some(Channel::Up), _) => false,
                 (Some(now), next) => now != next,
             };
-            if moves {
-                channels.insert(id.to_owned(), (attempt.to_owned(), channel));
+            if let (true, Some(agent)) = (moves, agent) {
+                agent.facts.channel = Some((attempt.to_owned(), channel));
             }
             moves
         };
@@ -287,18 +287,21 @@ impl Shared {
         let (prompt, tick_at) = {
             let mut runs = self.runs();
             // A20: an Observation from an earlier Attempt is ignored, never an error to its sender.
-            if runs.get(id).is_some_and(|slot| slot.attempt() != attempt) {
+            if runs.slot(id).is_some_and(|slot| slot.attempt() != attempt) {
                 eprintln!(
                     "agents: {id}: ignored {} from earlier Attempt {attempt}",
                     observation.name()
                 );
                 return Ok(None);
             }
-            if runs.get(id).is_some_and(Slot::closing) {
+            if runs.slot(id).is_some_and(Slot::closing) {
                 return Err(RpcError::conflict(format!("{name} is stopping")));
             }
-            match runs.get_mut(id) {
-                Some(Slot::Running(run)) => {
+            match runs
+                .get_mut(id)
+                .map(|agent| (&mut agent.slot, &mut agent.facts))
+            {
+                Some((Slot::Running(run), agent_facts)) => {
                     if run.ended() {
                         return Err(RpcError::not_found(format!("{name} has ended")));
                     }
@@ -313,6 +316,7 @@ impl Shared {
                     self.apply(
                         rail.as_deref_mut(),
                         run,
+                        agent_facts,
                         id,
                         &actor,
                         observation,
@@ -322,7 +326,7 @@ impl Shared {
                 // A14: a Signal here is parked, in arrival order, for when the Agent is
                 // registered, instead of `NOT_FOUND`; anything else cannot arrive this early
                 // (`watch` only starts once the Agent is `Running`).
-                Some(Slot::Starting { parked, .. }) => {
+                Some((Slot::Starting { parked, .. }, _)) => {
                     let Observation::Signal(payload) = observation else {
                         return Err(RpcError::not_found(&name));
                     };
@@ -331,7 +335,7 @@ impl Shared {
                 }
                 // A22: a non-ack Signal is parked exactly as `Starting`'s; the ack promotes to
                 // `Running` and wakes the pending `agent.resume` (`finish_resuming`).
-                Some(Slot::Resuming { starred, .. }) => {
+                Some((Slot::Resuming { starred, .. }, _)) => {
                     if let Observation::Title(title) = &observation {
                         *starred |= title.starts_with('✳');
                         return Ok(None);
@@ -341,8 +345,8 @@ impl Shared {
                     };
                     self.finish_resuming(rail.as_deref_mut(), &mut runs, id, actor, payload)?
                 }
-                None => return Err(RpcError::not_found(&name)),
-                Some(Slot::Closing | Slot::ResumeCleanup { .. }) => {
+                None | Some((Slot::Gone, _)) => return Err(RpcError::not_found(&name)),
+                Some((Slot::Closing | Slot::ResumeCleanup { .. }, _)) => {
                     return Err(RpcError::conflict(format!("{name} is stopping")));
                 }
             }
@@ -356,10 +360,12 @@ impl Shared {
     /// Fold `observation` into `run`, which `observe` has already found `Running`; `rail`, when
     /// given, is locked by the caller, never here, so a caller draining several Signals under
     /// one `rail`-then-`runs` lock section (`finish_starting`) is never asked to lock it twice.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn apply(
         &self,
         mut rail: Option<&mut rail::Rail>,
         run: &mut Run,
+        agent_facts: &mut agent::Facts,
         id: &str,
         actor: &Actor,
         observation: Observation,
@@ -380,26 +386,27 @@ impl Shared {
         }
         // The payload is borrowed here, before `decide` consumes it, so no Signal is copied.
         if let Observation::Signal(payload) = &observation {
-            self.announce_tool_call(actor, id, run.cwd(), payload);
+            self.announce_tool_call(agent_facts, actor, id, run.cwd(), payload);
         }
         let now = (self.clock)();
         for effect in fold::decide(run, id, observation, &facts, now, first_prompt) {
-            self.perform(rail.as_deref_mut(), run, id, actor, effect)?;
+            self.perform(rail.as_deref_mut(), run, agent_facts, id, actor, effect)?;
         }
         let prompt = run.release_prompt();
         Ok((prompt, run.view().next_due))
     }
 
     /// Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
-    fn announce_tool_call(&self, actor: &Actor, id: &str, cwd: &str, payload: &serde_json::Value) {
-        let mut calls = self
-            .events
-            .tool_calls
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let mut current = calls.remove(id);
-        if claude_code::toolcall::fold(&mut current, payload, cwd, (self.clock)())
-            && let Some(tracked) = &current
+    fn announce_tool_call(
+        &self,
+        agent_facts: &mut agent::Facts,
+        actor: &Actor,
+        id: &str,
+        cwd: &str,
+        payload: &serde_json::Value,
+    ) {
+        if claude_code::toolcall::fold(&mut agent_facts.tool_call, payload, cwd, (self.clock)())
+            && let Some(tracked) = &agent_facts.tool_call
         {
             self.bus.emit(
                 actor.clone(),
@@ -409,9 +416,6 @@ impl Shared {
                 })),
             );
         }
-        if let Some(tracked) = current {
-            calls.insert(id.to_owned(), tracked);
-        }
     }
 
     /// Do one `Effect` of `fold::decide` under the locks `apply` holds.
@@ -419,6 +423,7 @@ impl Shared {
         &self,
         rail: Option<&mut rail::Rail>,
         run: &mut Run,
+        agent_facts: &mut agent::Facts,
         id: &str,
         actor: &Actor,
         effect: fold::Effect,
@@ -476,7 +481,7 @@ impl Shared {
                     rail.set_finished(id, finished)?;
                 }
             }
-            Effect::Publish(status) => self.publish_status(run, id, actor, status),
+            Effect::Publish(status) => self.publish_status(run, agent_facts, id, actor, status),
             Effect::Name(name) => {
                 if let Some(rail) = rail {
                     self.name_from_prompt(rail, run, id, actor, name)?;
@@ -488,16 +493,18 @@ impl Shared {
 
     /// Announced while `runs` is parked, so announcements leave in the order the Status
     /// changed; `emit` never blocks.
-    fn publish_status(&self, run: &mut Run, id: &str, actor: &Actor, status: Status) {
+    fn publish_status(
+        &self,
+        run: &mut Run,
+        agent_facts: &mut agent::Facts,
+        id: &str,
+        actor: &Actor,
+        status: Status,
+    ) {
         // U6248b: the raw Status moves the resume table before it is announced.
-        let resume_moved = resume_wait::fold(
-            &mut self.resumes.lock().expect("resumes lock"),
-            id,
-            &status,
-            (self.clock)(),
-        );
-        let status = waiting_on(&status, self.wait_of(id));
-        let status = resume_wait::resuming(&status, self.resume_of(id).as_ref());
+        let resume_moved = resume_wait::fold(&mut agent_facts.resume, &status, (self.clock)());
+        let status = waiting_on(&status, agent_facts.wait);
+        let status = resume_wait::resuming(&status, agent_facts.resume.as_ref());
         run.publish(&self.bus, actor.clone(), id, status);
         if resume_moved {
             self.bus.emit(Actor::daemon(), EventData::RailChanged);
@@ -549,20 +556,16 @@ impl Shared {
     }
 }
 
-/// E6: the Channel of the live Attempt in `slot`; `None` when no program runs (a Workstream whose Door
-/// never started, an Agent with no live Terminal). An entry of an earlier Attempt reads `pending`.
-pub(super) fn channel_in(
-    channels: &HashMap<String, (String, Channel)>,
-    id: &str,
-    slot: Option<&Slot>,
-) -> Option<Channel> {
-    let slot = slot?;
+/// E6: the Channel of the live Attempt of `agent`; `None` when no program runs (a Workstream whose
+/// Door never started, an Agent with no live Terminal). An entry of an earlier Attempt reads `pending`.
+pub(super) fn channel_in(agent: Option<&Agent>) -> Option<Channel> {
+    let Agent { slot, facts } = agent?;
     let live = match slot {
         Slot::Running(run) => !run.ended() && !run.closing(),
         Slot::Starting { .. } | Slot::Resuming { .. } => true,
-        Slot::Closing | Slot::ResumeCleanup { .. } => false,
+        Slot::Closing | Slot::ResumeCleanup { .. } | Slot::Gone => false,
     };
-    live.then(|| match channels.get(id) {
+    live.then(|| match &facts.channel {
         Some((attempt, channel)) if attempt == slot.attempt() => *channel,
         _ => Channel::Pending,
     })
@@ -658,7 +661,7 @@ impl Shared {
     ) -> Result<Option<i64>, RpcError> {
         let root = {
             let runs = self.runs();
-            let Some(Slot::Running(run)) = runs.get(id) else {
+            let Some(Slot::Running(run)) = runs.slot(id) else {
                 return Ok(tick_at);
             };
             if run.ended() || !run.view().needs_snapshot {
@@ -696,7 +699,7 @@ impl Agents {
     /// U504: the observed maker turn at publication capture; absence must never be guessed.
     pub fn turn_identity(&self, maker: &str) -> Option<contracts::event::Completion> {
         let runs = self.shared.runs();
-        let Slot::Running(run) = runs.get(maker)? else {
+        let Slot::Running(run) = runs.slot(maker)? else {
             return None;
         };
         if run.ended() || run.closing() {
@@ -715,7 +718,7 @@ impl Agents {
         self.shared
             .runs()
             .iter()
-            .filter_map(|(id, slot)| match slot {
+            .filter_map(|(id, agent)| match &agent.slot {
                 Slot::Running(run)
                     if !run.ended()
                         && run
@@ -735,7 +738,7 @@ impl Agents {
         self.shared
             .runs()
             .iter()
-            .filter_map(|(id, slot)| match slot {
+            .filter_map(|(id, agent)| match &agent.slot {
                 Slot::Running(run) if !run.ended() && run.view().compactions > 0 => {
                     Some((id.clone(), run.view().compactions))
                 }
@@ -750,8 +753,8 @@ impl Agents {
         self.shared
             .runs()
             .iter()
-            .filter_map(|(id, slot)| {
-                let Slot::Running(run) = slot else {
+            .filter_map(|(id, agent)| {
+                let Slot::Running(run) = &agent.slot else {
                     return None;
                 };
                 if run.ended() {
