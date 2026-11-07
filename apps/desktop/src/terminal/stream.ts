@@ -46,7 +46,7 @@ export type PumpHolder = {
   emulator: Emulator;
   stream: Stream | null;
   complete: boolean;
-  /** The size the Daemon's PTY last held, as sent or as a snapshot reported; null when unknown. */
+  /** The size the Daemon's PTY last had, as sent or as a snapshot reported; null when unknown. */
   resizeSize: Size | null;
 };
 
