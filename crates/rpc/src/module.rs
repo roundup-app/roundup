@@ -96,7 +96,10 @@ impl Bus {
         if let Some(log) = &self.shared.log {
             match log.append(&event) {
                 Ok(seq) => event.seq = Some(seq),
-                Err(err) => eprintln!("rpc: an event was not saved: {}", err.message),
+                Err(err) => {
+                    eprintln!("rpc: an event was not saved: {}", err.message);
+                    return;
+                }
             }
         }
         let _ = self.shared.sender.send(event);

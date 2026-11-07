@@ -1,6 +1,7 @@
 import * as xtermModule from "@xterm/xterm";
 import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { FitAddon } from "@xterm/addon-fit";
+import type { Terminal } from "@xterm/xterm";
 import { afterEach, expect, it, vi } from "vitest";
 import { createXtermEmulators } from "./emulator";
 import { DEFAULT_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -128,6 +129,36 @@ it("u102_a_second_chord_before_restoration_keeps_the_reflow_anchor", async () =>
   const buffer = terminal.buffer.active;
   expect(buffer.getLine(buffer.viewportY)?.translateToString(true)).toMatch(/^030 /);
   expect(terminal.markers).toHaveLength(0);
+  emulator.dispose();
+});
+
+it("u6418b_a_fit_that_changes_the_columns_renders_the_rows_before_it_returns", () => {
+  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+  const spy = vi.spyOn(xtermModule, "Terminal");
+
+  const emulator = createXtermEmulators(undefined, () => ({
+    activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; },
+  }))("t-a");
+
+  const terminal = spy.mock.instances[0];
+
+  if (!terminal) throw new Error("xterm was not created");
+  spy.mockRestore();
+  vi.spyOn(LigaturesAddon.prototype, "activate").mockImplementation(() => {});
+  vi.spyOn(terminal, "focus").mockImplementation(() => {});
+  let cols = 100;
+  vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => terminal.resize(cols, 24));
+  emulator.show(document.body.appendChild(document.createElement("div")));
+  // jsdom has no renderer to fire onRender, so watch the render service's synchronous request.
+  // SAFETY: xterm 6.1 keeps its render service on `_core` once opened, which `show` did above.
+  const service = (terminal as Terminal & { _core: { _renderService: { refreshRows(a: number, b: number, sync: boolean): void } } })._core._renderService;
+  const refresh = vi.spyOn(service, "refreshRows");
+  emulator.fit();
+  expect(refresh).not.toHaveBeenCalledWith(0, 23, true);
+  cols = 90;
+  emulator.fit();
+  expect(refresh).toHaveBeenCalledWith(0, 23, true);
   emulator.dispose();
 });
 

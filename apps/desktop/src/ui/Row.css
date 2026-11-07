@@ -34,8 +34,12 @@
 
 .row-wash[data-todo-drop] { --row-wash: var(--hover); }
 
-/* U6399a: a row that only opens and closes (a fold, a group head) is never selected or active. Hover and keyboard focus show the hover tint; the app draws no control ring (U4382a). A requested group (U4457) keeps its state. */
-.row-wash-inert:is(:hover, :focus, :has(:focus-visible)):not([data-requested="true"], [data-todo-drop]) {
+/* U6399a: a row that only opens and closes (a fold, a group head) is never selected or active. Hover and keyboard focus (`:focus-visible`, never a click's `:focus`) show the hover tint; the app draws no control ring (U4382a). A requested group (U4457) keeps its state. */
+.row-wash-inert:focus:not([data-requested="true"]) {
+  --row-wash: var(--transparent);
+}
+
+.row-wash-inert:is(:hover, :focus-visible, :has(:focus-visible)):not([data-requested="true"], [data-todo-drop]) {
   --row-wash: var(--hover);
 }
 

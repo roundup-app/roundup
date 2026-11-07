@@ -14,8 +14,20 @@ if (!args.length) {
   if (fixtures.status !== 0) process.exit(fixtures.status ?? 1);
 }
 const json = args.includes("json");
-const lint = spawnSync(resolve(repo, "node_modules/.bin/oxlint"), args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+const ratcheted = code => /^solid\(|^typescript\(switch-exhaustiveness-check\)$/.test(code);
+const lint = spawnSync(resolve(repo, "node_modules/.bin/oxlint"), args.length ? args : ["-f", "json"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 if (lint.error) throw lint.error;
+if (!args.length && [0, 1].includes(lint.status)) {
+  // `tools/lint/scan.py oxlint` holds the Solid and exhaustiveness findings as exact debt; they never reach this status.
+  const report = JSON.parse(lint.stdout);
+  report.diagnostics = report.diagnostics.filter(item => !ratcheted(item.code));
+  report.number_of_errors = report.diagnostics.filter(item => item.severity === "error").length;
+  lint.status = report.number_of_errors ? 1 : 0;
+  lint.stdout = report.diagnostics.map(item => {
+    const span = item.labels[0]?.span;
+    return `${item.filename}:${span?.line ?? 0}:${span?.column ?? 0}: ${item.severity} ${item.code}: ${item.message}\n`;
+  }).join("");
+}
 if (![0, 1].includes(lint.status)) {
   process.stdout.write(lint.stdout);
   process.stderr.write(lint.stderr);
@@ -45,4 +57,5 @@ if (json) {
   for (const failure of failures) process.stderr.write(failure + "\n");
 }
 process.stderr.write(lint.stderr);
-process.exit(lint.status || (failures.length ? 1 : 0));
+const debt = args.length ? { status: 0 } : spawnSync("python3", [resolve(repo, "tools/lint/scan.py"), "oxlint", "--root", root], { stdio: "inherit" });
+process.exit(lint.status || (failures.length ? 1 : 0) || (debt.status ?? 2));

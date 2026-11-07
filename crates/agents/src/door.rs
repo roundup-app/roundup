@@ -321,7 +321,7 @@ impl Agents {
                 Slot::Starting {
                     attempt: attempt.clone(),
                     since: (self.shared.clock)(),
-                    named: true,
+                    named: false,
                     parked: VecDeque::new(),
                 },
             );
