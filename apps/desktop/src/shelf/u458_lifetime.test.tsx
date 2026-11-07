@@ -19,7 +19,10 @@ it("u458_hidden_rows_and_context_changes_clear_selection", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "1 done" }));
-  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 /, hidden: true }).getAttribute("aria-pressed")).toBe("false");
+  expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #1 /, hidden: true })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "1 done" }));
+  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }).getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(screen.getByRole("button", { name: "1 done" }));
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }), { metaKey: true });
   connected.rail.select("scope-row");
   await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #2 /, pressed: true })).toBeNull());
