@@ -1,7 +1,8 @@
-import { animate as motionAnimate, animateLayout as motionLayout } from "motion";
+import { animate as motionAnimate } from "motion";
 import { createRoot, createEffect } from "solid-js";
 import type { Accessor } from "solid-js";
 import { attachFold } from "./foldProject";
+import { translateOf } from "./reorderMotion";
 
 /** Every fold control in the App: Ark's tree branch and collapsible triggers, and the Rail's chevrons and section heads. */
 const folds = '[data-scope="tree-view"][data-part="branch-control"], [data-scope="tree-view"][data-part="branch-trigger"], [data-scope="collapsible"][data-part="trigger"], .rail-chevron, .rail-group-chevron, .section-head, [data-fold]';
@@ -29,13 +30,48 @@ export type FoldEngine = {
 
 type Ease = [number, number, number, number];
 
+/** The animations on a row that run its translate. */
+const cancelTranslates = (row: Element) => {
+  for (const animation of row.getAnimations()) {
+    const translating = animation instanceof CSSTransition ? animation.transitionProperty === "translate" : animation.effect instanceof KeyframeEffect && animation.effect.getKeyframes().some(frame => "translate" in frame);
+
+    if (translating) animation.cancel();
+  }
+};
+
+/** The rows to slide: the innermost movers, since an outer one carries them with it. */
+const drawn = (scope: Element) => [...scope.querySelectorAll<HTMLElement>(movers)].filter(row => !row.closest("[inert], [hidden]") && !row.querySelector(movers));
+
+/**
+ * Rows slide by `translate` from where they were drawn to where the change leaves them (M5, M11). A row the sortable shifts slides itself, and the row it holds is the pointer's. A row that was not drawn fades in unless a fading body carries it.
+ */
+const slide = async (scope: Element, update: () => Promise<void>, { duration, ease }: { duration: number; ease: Ease }) => {
+  const first = new Map(drawn(scope).map(row => [row, row.getBoundingClientRect().top]));
+
+  await update();
+
+  const rows = drawn(scope).filter(row => !row.matches("[data-dnd-dragging], [data-dnd-dropping]"));
+
+  // A row slides once, by its real displacement: a translate still running on it would be read into the distance and added to it.
+  for (const row of rows) if (!row.style.translate) cancelTranslates(row);
+  const tops = rows.map(row => row.getBoundingClientRect().top - translateOf(row).y);
+  const options = { duration: duration * 1000, easing: `cubic-bezier(${ease.join(",")})` };
+  const running: Animation[] = [];
+
+  rows.forEach((row, at) => {
+    const was = first.get(row);
+
+    if (was === undefined) {
+      if (!row.closest(bodies)) running.push(row.animate({ opacity: [0, 1] }, options));
+    } else if (!row.style.translate && Math.abs(was - tops[at]!) >= 1) running.push(row.animate({ translate: [`0 ${was - tops[at]!}px`, "0 0"] }, options));
+  });
+
+  return { finished: Promise.allSettled(running.map(animation => animation.finished)).then(() => undefined) };
+};
+
 const motion: FoldEngine = {
   animate: (element, keyframes, options) => motionAnimate(element, keyframes, options),
-  animateLayout: async (scope, update, options) => {
-    const group = await motionLayout(scope, update, options);
-
-    return { finished: Promise.resolve(group).then(() => undefined) };
-  },
+  animateLayout: slide,
 };
 
 const scrollRegion = (from: Element): Element => {
@@ -47,7 +83,7 @@ const scrollRegion = (from: Element): Element => {
 };
 
 /**
- * One fold helper (U6398a-d): a pointer press on any fold control commits the final layout once and Motion projects the rows below from where they were drawn (M5, M11); arriving rows fade in and unmounted ones fade out. A key press (`detail` 0) folds at once (M1); reduced motion fades the arriving rows only (M10). A press while a projection runs retargets that projection from where the rows are drawn (U6398b).
+ * One fold helper (U6398a-d): a pointer press on any fold control commits the final layout once and the rows below slide by `translate` from where they were drawn (M5, M11); arriving rows fade in and unmounted ones fade out. A key press (`detail` 0) folds at once (M1); reduced motion fades the arriving rows only (M10). A press while a projection runs retargets that projection from where the rows are drawn (U6398b).
  */
 export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate, animateLayout }: FoldEngine = motion): () => void {
   return createRoot(dispose => {
