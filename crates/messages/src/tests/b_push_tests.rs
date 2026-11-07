@@ -867,7 +867,7 @@ async fn b6506_the_body_is_the_rendering_of_the_payload() {
     assert_eq!(shapes.len(), 4, "{shapes:?}");
 }
 
-/// B6506: a Message from anyone but `rupd` is a `Note`, whatever its body starts with.
+/// B6506: a Message from anyone but the daemon is a `Note`, whatever its body starts with.
 #[tokio::test]
 async fn b6506_a_user_note_that_starts_with_digest_is_a_note() {
     let dir = tempfile::tempdir().unwrap();
