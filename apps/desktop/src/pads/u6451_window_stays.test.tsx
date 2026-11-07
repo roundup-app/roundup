@@ -28,3 +28,17 @@ it("u6451b_a_pad_link_opens_through_open_target_once", async () => {
   expect(field.value).toBe("see [the site](https://example.com) now");
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(0);
 });
+
+it("u6451a_a_printed_link_is_left_to_its_own_handler", () => {
+  const calls: unknown[] = [];
+  const stop = routeWebLinks(document, { openTarget: async target => { calls.push(target); } });
+  const printed = document.body.appendChild(document.createElement("a"));
+
+  printed.className = "target-link";
+  printed.href = "https://example.com/";
+  fireEvent.click(printed);
+  fireEvent(printed, new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 2 }));
+  stop();
+  printed.remove();
+  expect(calls).toEqual([]);
+});

@@ -7,7 +7,10 @@ export const routeWebLinks = (doc: Document, app: Pick<AppSeam, "openTarget">): 
   const route = (event: MouseEvent) => {
     const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
 
-    if (!anchor) return;
+    if (!anchor || event.button > 1) return;
+
+    // A printed link (`TargetText`) opens itself; routing it here would open it twice.
+    if (anchor.matches(".target-link, a[data-native-link]")) return;
 
     const raw = anchor.getAttribute("href") ?? "";
     const target = URL.canParse(raw, doc.baseURI) ? new URL(raw, doc.baseURI) : null;
