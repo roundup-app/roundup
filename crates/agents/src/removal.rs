@@ -668,7 +668,6 @@ mod tests {
     }
     #[tokio::test]
     async fn d9_workstream_removal_enters_all_sixteen_stops_before_any_is_released() {
-        use crate::AgentAdapter;
         struct Shutdown {
             entered: tokio::sync::mpsc::UnboundedSender<()>,
             release: tokio::sync::Semaphore,
@@ -699,7 +698,7 @@ mod tests {
             let Slot::Running(run) = runs.get_mut(&id).unwrap() else {
                 unreachable!()
             };
-            run.adapter_mut().observe(Observation::Signal(
+            run.observe(Observation::Signal(
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
@@ -726,7 +725,6 @@ mod tests {
     }
     #[tokio::test]
     async fn a34_a_failed_stop_waits_for_every_accepted_stop_before_returning() {
-        use crate::AgentAdapter;
         struct Shutdown {
             entered: tokio::sync::mpsc::UnboundedSender<String>,
             release: tokio::sync::Semaphore,
@@ -762,7 +760,7 @@ mod tests {
                 unreachable!()
             };
             run.set_terminal_id(terminal.into());
-            run.adapter_mut().observe(Observation::Signal(
+            run.observe(Observation::Signal(
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }

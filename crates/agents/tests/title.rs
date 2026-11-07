@@ -60,7 +60,10 @@ impl Clocked {
 
     fn at(&mut self, ms: i64, observation: Observation) -> Option<Kind> {
         self.now.store(ms, Ordering::SeqCst);
-        self.adapter.observe(observation).map(|status| status.kind)
+        self.adapter
+            .observe(observation)
+            .changed
+            .map(|status| status.kind)
     }
 
     fn signal(&mut self, ms: i64, event: &str) -> Option<Kind> {

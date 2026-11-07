@@ -109,7 +109,11 @@ fn replay_signals(payloads: &[Value]) -> Vec<Kind> {
     let mut adapter = ClaudeCode::new(|| 0);
     payloads
         .iter()
-        .filter_map(|payload| adapter.observe(Observation::Signal(payload.clone())))
+        .filter_map(|payload| {
+            adapter
+                .observe(Observation::Signal(payload.clone()))
+                .changed
+        })
         .map(|status| status.kind)
         .collect()
 }
@@ -169,7 +173,10 @@ fn clone_observation(observation: &Observation) -> Observation {
         | Observation::Processes { .. }
         | Observation::Stopped
         | Observation::Exit { .. }
-        | Observation::Program(_) => {
+        | Observation::Program(_)
+        | Observation::Finished(_)
+        | Observation::Failed(_)
+        | Observation::Resumed(_) => {
             unreachable!("a timeline never carries a Tick, Stopped or Exit")
         }
     }
@@ -192,7 +199,7 @@ impl Clocked {
 
     fn at(&mut self, ms: i64, observation: Observation) -> Option<Status> {
         self.now.store(ms, Ordering::SeqCst);
-        self.adapter.observe(observation)
+        self.adapter.observe(observation).changed
     }
 }
 

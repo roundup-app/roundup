@@ -284,13 +284,14 @@ impl Shared {
                 if first.is_some_and(|attempt| attempt != run.attempt())
                     || run.ended()
                     || run.closing()
-                    || run.adapter().is_ended()
+                    || run.view().ended
                 {
                     return Err(SteerError::Refused(not_found(&name)));
                 }
                 let kind = run
-                    .adapter()
-                    .status()
+                    .view()
+                    .status
+                    .as_ref()
                     .map_or(Kind::Working, |status| status.kind);
                 if let Some(attempt) = record.as_ref().and_then(|record| record.attempt.as_deref())
                 {
@@ -506,8 +507,9 @@ impl Shared {
                 return Err(not_found());
             }
             let kind = run
-                .adapter()
-                .status()
+                .view()
+                .status
+                .as_ref()
                 .map_or(Kind::Working, |status| status.kind);
             if matches!(kind, Kind::Idle | Kind::Done | Kind::Error) {
                 return Err(RpcError::new(
