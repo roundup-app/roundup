@@ -478,7 +478,9 @@ impl Shared {
             }
             Effect::SaveFinished(finished) => {
                 if let Some(rail) = rail {
-                    rail.set_finished(id, finished)?;
+                    if let Some(id) = crate::id::AgentId::parse(id) {
+                        rail.set_finished(id, finished)?;
+                    }
                 }
             }
             Effect::Publish(status) => self.publish_status(run, agent_facts, id, actor, status),
