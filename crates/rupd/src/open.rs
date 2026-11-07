@@ -121,6 +121,7 @@ impl Daemon {
             actions: Default::default(),
             extensions: extensions::Host::new(dir.join("extensions")),
             config: crate::config::Config::new(dir.to_path_buf()),
+            machine_core: Default::default(),
         };
         let services_at = begun.elapsed();
         daemon.register(todos);

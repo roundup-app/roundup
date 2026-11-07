@@ -111,6 +111,8 @@
     Method { name: "daemon.getNaming", params: "null", result: "project_NamingSettings" },
     Method { name: "daemon.setNaming", params: "project_NamingSettings", result: "null" },
     Method { name: "data.fork", params: "data_ForkParams", result: "data_ForkResult" },
+    Method { name: "machine.list", params: "null", result: "machine_Machine[]" },
+    Method { name: "machine.add", params: "machine_AddParams", result: "machine_Machine[]" },
     Method { name: "skill.status", params: "null", result: "skill_SkillFiles" },
     Method { name: "skill.setup", params: "null", result: "skill_SkillFiles" },
     Method { name: "skill.remove", params: "null", result: "skill_SkillFiles" },

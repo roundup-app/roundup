@@ -61,6 +61,8 @@ export const CONTRACT = {
     "github.prSetBody": "e724ea4dd71a6bae",
     "import.list": "c4650c9d3c737ffa",
     "link.read": "f2614e7b71299ebb",
+    "machine.add": "99db1ff4fa51f901",
+    "machine.list": "433e152f21107246",
     "message.acceptResult": "a6dca4e5af9c812c",
     "message.drop": "5016380ce53c6e0a",
     "message.get": "1de0012e412ba03d",

@@ -188,6 +188,8 @@ static TABLE: &[(&str, Policy)] = &[
     ("github.prSetBody", PLAIN),
     ("import.list", PLAIN),
     ("link.read", PLAIN),
+    ("machine.add", PLAIN),
+    ("machine.list", PLAIN),
     ("message.acceptResult", Policy { actor: Actor::Caller, inputs: Inputs::Id, ..PLAIN }),
     ("message.drop", PLAIN),
     ("message.get", PLAIN),

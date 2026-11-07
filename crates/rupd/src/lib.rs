@@ -49,6 +49,7 @@ mod github;
 #[cfg(test)]
 mod group_tests;
 mod link;
+mod machines;
 #[cfg(test)]
 mod naming_tests;
 mod observers;
@@ -156,6 +157,8 @@ pub struct Daemon {
     extensions: extensions::Host,
     /// MC40, MC41: the owner's look and keys files.
     config: config::Config,
+    /// MC1: how a call reaches herdr-core; a connection opens only when a Machine method asks.
+    machine_core: machines::Core,
 }
 
 /// What `rail.remove` left dangling.
