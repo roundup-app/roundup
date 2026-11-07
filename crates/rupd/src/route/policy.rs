@@ -119,15 +119,12 @@ const PLAIN: Policy = Policy {
     releases: false,
 };
 
-/// The row of `method`, or `None` for a name the Daemon does not serve. A declared method with
-/// no row runs as PLAIN, so a new method needs one declaration and one handler (C4).
+/// The row of `method`, or `None` for a name the Daemon does not serve.
 pub(crate) fn policy(method: &str) -> Option<&'static Policy> {
-    match TABLE.binary_search_by_key(&method, |row| row.0) {
-        Ok(at) => Some(&TABLE[at].1),
-        Err(_) => contracts::methods::method_names()
-            .contains(&method)
-            .then_some(&PLAIN),
-    }
+    TABLE
+        .binary_search_by_key(&method, |row| row.0)
+        .ok()
+        .map(|at| &TABLE[at].1)
 }
 
 /// Sorted by name, one row per method.
