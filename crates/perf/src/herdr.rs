@@ -160,13 +160,25 @@ impl Core {
         Ok(Core(child))
     }
 
+    /// Opens the core's socket, retrying on each change in its directory until it answers or 10 s pass.
     fn dial(&self, socket: &Path) -> Res<Conn> {
+        use notify::Watcher;
+        let dir = socket.parent().unwrap_or(Path::new("."));
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut watcher = notify::recommended_watcher(move |_| {
+            let _ = tx.send(());
+        })
+        .map_err(|e| e.to_string())?;
+        watcher.watch(dir, notify::RecursiveMode::NonRecursive).map_err(|e| e.to_string())?;
         let end = Instant::now() + Duration::from_secs(10);
         loop {
             match Conn::open(socket) {
                 Ok(c) => return Ok(c),
                 Err(e) if Instant::now() > end => return Err(format!("no core socket: {e}")),
-                Err(_) => std::thread::sleep(Duration::from_millis(1)),
+                Err(_) => {
+                    let _ = rx.recv_timeout(end.saturating_duration_since(Instant::now()));
+                }
             }
         }
     }
