@@ -44,6 +44,7 @@ lint-rust base="": lint-repo
     tools/update/update.test.sh
     tools/library-reuse.sh
     tools/method-policy/guard.sh
+    tools/worktree-prefix.sh
     tools/typed-calls/guard.sh
     just proofs
 

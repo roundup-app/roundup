@@ -6,17 +6,14 @@ use std::path::Path;
 use contracts::agent::{ChangedFile, ChangedFiles, ChangedStatus};
 use rpc::{RpcError, code};
 
-use super::{Git, Worktree, failed, invalid};
+use super::{Git, Worktree, WorktreeError, failed, invalid};
 
 impl Git {
     /// U2539a: the files the Worktree's working tree differs in from the merge base of its branch
     /// and its Base, outside `.roundup/`, sorted by path. Runs no command that writes.
     pub fn changed_files(&self, worktree: &Worktree) -> Result<ChangedFiles, RpcError> {
         if !worktree.path.is_dir() {
-            return Err(RpcError::new(
-                code::NOT_FOUND,
-                format!("worktree_missing: {}", worktree.path.display()),
-            ));
+            return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let dir = &worktree.path;
         let base = self.comparison_base(worktree)?;
@@ -229,7 +226,7 @@ fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcErr
     validate_comparison_path(path)?;
     let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK;
     let mut directory = open(root, flags | OFlags::DIRECTORY, Mode::empty())
-        .map_err(|err| RpcError::new(code::NOT_FOUND, format!("worktree_missing: {err}")))?;
+        .map_err(|err| RpcError::from(WorktreeError::Missing(err.to_string())))?;
     let mut parts = path.split('/').peekable();
     while let Some(part) = parts.next() {
         let last = parts.peek().is_none();
