@@ -229,6 +229,17 @@ const InProject = (props: { open: ConnectedProject | Error | undefined; failed?:
   </Show>
 );
 
+// The fold helper loads after mount so Motion's layout projection stays out of the entry bundle (R3800).
+const documentMotion = (reducedMotion: Accessor<boolean>) => {
+  const stopPress = pressFeedback(document, reducedMotion);
+  const fold = import("./ui/fold").then(({ foldMotion }) => foldMotion(document, reducedMotion));
+
+  return () => {
+    stopPress();
+    void fold.then(stop => stop());
+  };
+};
+
 export const App = (props: {
   app: AppCalls;
   reducedMotion: Accessor<boolean>;
@@ -263,7 +274,7 @@ export const App = (props: {
   };
 
   onMount(() => {
-    onCleanup(pressFeedback(document, props.reducedMotion));
+    onCleanup(documentMotion(props.reducedMotion));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });

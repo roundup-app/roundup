@@ -284,7 +284,7 @@ it("u5502_project_close_reopen_reconciles_its_own_publications", async () => {
   }
 
   await waitFor(() => expect(actions(app)).toHaveLength(2));
-  fireEvent.click(screen.getByLabelText("Close api"));
+  fireEvent.click(tab("api").closest(".project-tab")!.querySelector<HTMLElement>(".tab-close")!);
   await waitFor(() => expect(app.closed).toEqual([path("api")]));
   await waitFor(() => expect(actions(app)).toEqual([{ kind: "agent", path: path("web"), agent: "a" }]));
   app.nativeOpen({ kind: "project", path: path("api") });

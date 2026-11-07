@@ -178,6 +178,12 @@ it.each<[boolean, RpcError]>([
 });
 
 
+/** U6544c: a tab's recovery is in its right-click menu. */
+const recoverFrom = async (app: Pick<ReturnType<typeof createFakeApp>, "pickMenu">, element: HTMLElement) => {
+  fireEvent.contextMenu(element, { clientX: 40, clientY: 10 });
+  await app.pickMenu(recoveryCopy.recoverDrafts);
+};
+
 it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => {
   const { app } = await openTabs({ api: [], web: [] });
   fireEvent.click(tab("api"));
@@ -271,10 +277,10 @@ it("u2773c_header_external_change_keeps_original", async () => {
   await screen.findByText("Project name changed");
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
   expect(tab("B")).toBeDefined();
-  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · B" }));
+  await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^B`) }));
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByText(" exact 雪 ", { exact: true, normalizer: text => text })).toBeDefined();
-  expect(within(recovery).getByRole("status", { name: "Failed" })).toBeDefined();
+  within(recovery).getByText(" exact 雪 ", { exact: true, normalizer: text => text });
+  within(recovery).getByRole("status", { name: "Failed" });
 });
 
 it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", async () => {
@@ -332,7 +338,7 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   view.unmount();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   fireEvent.click(await within(await screen.findByRole("tablist", { name: "Projects" })).findByRole("tab", { name: "api" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
+  await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(dialog).getByText(nextText, { exact: true, normalizer: text => text })).toBeDefined();
   const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : recoveryCopy.draftStatus.unknown} ·`) });
@@ -356,7 +362,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
   press("Escape");
-  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · api" }));
+  await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const copied: string[] = [];
   vi.spyOn(app, "clipboardWrite").mockImplementation(async (value: string) => { copied.push(value); });
@@ -378,7 +384,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
 
 
 it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
-  renderTabs({ api: [], web: [] });
+  const { app } = renderTabs({ api: [], web: [] });
   const key = `roundup:drafts:${path("api")}`;
   const original = JSON.stringify({ version: 1, drafts: [{ revision: "incompatible-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: 42 }, selection: null, status: "draft", policy: "ordinary" }] });
   window.localStorage.setItem(key, original);
@@ -388,12 +394,12 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
   fireEvent.input(input, { target: { value: "  memory 雪  " } });
   press("Escape");
   expect(window.localStorage.getItem(key)).toBe(original);
-  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · api" }));
+  await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(dialog).getByText("  memory 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  within(dialog).getByText("  memory 雪  ", { exact: true, normalizer: text => text });
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
   expect(window.localStorage.getItem(key)).toBe(original);
-  expect(within(dialog).getByRole("alert")).toBeDefined();
+  within(dialog).getByRole("alert");
 });
 
 it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
@@ -565,7 +571,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   const { app, authority, drafts, destination, a, b, view } = await selectedHeader();
   const other = authority(path("web"));
   const elsewhere = other.edit({ ...destination, object: path("web") }, { name: "other Project", base: "same name" }, null, "ordinary").draft;
-  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · same name" }));
+  await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^same name`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
   const copied: string[] = [];
@@ -609,7 +615,7 @@ it.each([
   await waitFor(() => expect(projectTabs().every(tab => tab.getAttribute("aria-busy") === "false")).toBe(true));
   fireEvent.click(tab("api"));
   const records = (project: string) => JSON.parse(window.localStorage.getItem(key(project))!).drafts;
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
+  await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   let dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
   const blocked = vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
@@ -632,7 +638,7 @@ it.each([
     press("Enter");
     await waitFor(() => expect(records(project)).toEqual(project === "web" ? [] : action === "acknowledged save" ? [a] : [a, { ...b, status: action === "failed save" ? "failed" : "unknown" }]));
     fireEvent.click(document.querySelector(`[data-path="${path("api")}"] [role="tab"]`)!);
-    fireEvent.click(await within(document.querySelector(`[data-path="${path("api")}"]`)!).findByRole("button", { name: /^Recover unfinished work ·/ }));
+    await recoverFrom(app, document.querySelector<HTMLElement>(`[data-path="${path("api")}"] [role="tab"]`)!);
     dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   }
 
@@ -656,7 +662,7 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   const memory = "  memory e\u0301 🧭  ";
   fireEvent.input(input, { target: { value: memory } });
   press("Escape");
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
+  await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));

@@ -5,6 +5,14 @@ import type { App, NativeQuestion, RemovalQuestion, RemovalAnswer } from "../app
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 
+const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion) => {
+  if (!("thisLabel" in question)) return app.ask(question);
+
+  if (!app.askRemoval) throw new Error(copy.nativeRemovalAlertUnavailable);
+
+  return app.askRemoval(question);
+};
+
 /** A native question owns one request until answered. A request the system cannot show authorizes nothing and is never replayed (U6249d C10): its cause goes to the log and the same question is asked in the App, where the user answers it. */
 export const NativeAlert = (props: {
   app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>;
@@ -31,14 +39,7 @@ export const NativeAlert = (props: {
 
     try {
       const question = { ...props.question };
-      let answer: boolean | RemovalAnswer;
-
-      if ("thisLabel" in question) {
-        const askRemoval = props.app.askRemoval;
-
-        if (!askRemoval) throw new Error(copy.nativeRemovalAlertUnavailable);
-        answer = await askRemoval(question);
-      } else answer = await props.app.ask(question);
+      const answer = await askNative(props.app, question);
       const accepted = answer !== false && answer !== "cancel";
 
       if (mine !== generation || !props.open) return;
@@ -54,7 +55,7 @@ export const NativeAlert = (props: {
 
       if (accepted) await props.onConfirm(answer === "this" || answer === "all" ? answer : undefined);
       else props.onCancel();
-      queueMicrotask(() => focus(() => props.finalFocus()?.focus({ preventScroll: true })));
+      queueMicrotask(() => focus(() => untrack(() => props.finalFocus())?.focus({ preventScroll: true })));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
@@ -67,7 +68,8 @@ export const NativeAlert = (props: {
       answered();
       pending = false;
 
-      if (repeat) void request();
+      // An answer that opened the next question (a queued close) asks it now that this request is done.
+      if (repeat || (mine !== generation && untrack(() => props.open))) void request();
     }
   };
 

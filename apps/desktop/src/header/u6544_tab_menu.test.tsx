@@ -1,0 +1,119 @@
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { questionProbe } from "../testing/menuProbe";
+import { agent } from "../testing/nodes";
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { openTabs, path, projectTabs, tab } from "./stripFixture";
+
+// jsdom has no layout; Ark excludes zero-size controls from its focus targets.
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(20);
+  vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1024);
+  vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(768);
+});
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+
+const keepDraft = (name: string) => localStorage.setItem(`roundup:drafts:${path(name)}`, JSON.stringify({ version: 1, drafts: [
+  { revision: "kept", destination: { surface: "header", object: path(name), recipient: null }, value: { name: "Saved", base: name }, selection: null, status: "failed", policy: "ordinary" },
+] }));
+
+const open = (name: string) => fireEvent.contextMenu(tab(name), { clientX: 40, clientY: 10 });
+
+it("u6544a_tab_draws_no_pencil_and_keeps_its_close_slot", async () => {
+  keepDraft("api");
+  await openTabs({ api: [], web: [] }, true);
+
+  const api = tab("api").closest(".project-tab")!;
+
+  expect(api.querySelector(".tab-recover")).toBeNull();
+  expect(api.querySelector(".tab-close")).not.toBeNull();
+  expect(api.querySelector(".tab-close")!.getAttribute("data-visible")).toBe("false");
+  expect(projectTabs().map(each => each.closest(".project-tab")!.querySelector(".tab-close")!.getAttribute("data-visible"))).toContain("true");
+});
+
+it("u6544b_close_others_left_right", async () => {
+  const { app } = await openTabs({ a: [], b: [], c: [] });
+  const labels = () => app.menuLabels();
+
+  open("a");
+  expect(labels()).toEqual(expect.arrayContaining(["Close", "Close Others", "Close to the Right"]));
+  expect(labels()).not.toContain("Close to the Left");
+  await app.closeMenu();
+
+  open("c");
+  expect(labels()).not.toContain("Close to the Right");
+  expect(labels()).toContain("Close to the Left");
+  await app.closeMenu();
+
+  open("b");
+  await app.pickMenu("Close Others");
+  await waitFor(() => expect(app.closed.sort()).toEqual([path("a"), path("c")]));
+  app.closed.length = 0;
+  open("b");
+  expect(labels()).not.toContain("Close Others");
+  await app.closeMenu();
+});
+
+it("u6544b_close_to_the_left_and_right_close_only_that_side", async () => {
+  const { app } = await openTabs({ a: [], b: [], c: [] });
+
+  open("b");
+  await app.pickMenu("Close to the Left");
+  await waitFor(() => expect(app.closed).toEqual([path("a")]));
+  app.closed.length = 0;
+
+  open("b");
+  await app.pickMenu("Close to the Right");
+  await waitFor(() => expect(app.closed).toEqual([path("c")]));
+});
+
+it("u6544b_bulk_close_asks_about_one_project_then_closes_the_rest", async () => {
+  const { app } = await openTabs({ a: [], b: [agent("w", "working", "x")], c: [], d: [] });
+
+  open("d");
+  await app.pickMenu("Close to the Left");
+  await questionDialog();
+  await waitFor(() => expect([...app.closed].sort()).toEqual([path("a"), path("c")]));
+  await answerQuestion(true);
+  await waitFor(() => expect([...app.closed].sort()).toEqual([path("a"), path("b"), path("c")]));
+});
+
+it("u6578a_multi_close_asks_each_running_tab_in_turn", async () => {
+  const { app } = await openTabs({ a: [agent("w", "working", "x")], b: [agent("v", "working", "y")], c: [], d: [] });
+
+  open("d");
+  await app.pickMenu("Close Others");
+  await questionDialog();
+  await waitFor(() => expect(app.closed).toEqual([path("c")]));
+  await answerQuestion(true);
+  await waitFor(() => expect(app.closed).toContain(path("a")));
+  await waitFor(() => expect(questionProbe.count).toBe(2));
+  await answerQuestion(false);
+  await Promise.resolve();
+  await waitFor(() => expect(questionProbe.shown).toBeNull());
+  expect([...app.closed].sort()).toEqual([path("a"), path("c")]);
+});
+
+it("u6544c_recover_drafts_in_menu", async () => {
+  keepDraft("api");
+  const { app } = await openTabs({ api: [], web: [] }, true);
+
+  open("web");
+  expect(app.menuLabels()).not.toContain("Recover unfinished work");
+  await app.closeMenu();
+
+  open("api");
+  await app.pickMenu("Recover unfinished work");
+  await waitFor(() => expect(document.querySelector(".header-recovery")).not.toBeNull());
+});
+
+it("u6544b_backspace_on_a_focused_tab_closes_exactly_that_project", async () => {
+  const { app } = await openTabs({ a: [], b: [], c: [] });
+
+  fireEvent.keyDown(tab("b"), { key: "Backspace" });
+  await waitFor(() => expect(app.closed).toEqual([path("b")]));
+  app.closed.length = 0;
+  fireEvent.keyDown(tab("c"), { key: "Delete" });
+  await waitFor(() => expect(app.closed).toEqual([path("c")]));
+});

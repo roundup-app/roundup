@@ -55,11 +55,12 @@ it("u497_no_native_titles", async () => {
 
 it("u494_removed_origin_is_safe", async () => {
   await openTabs({ api: [agent("a", "working", "x")], web: [] });
-  const close = screen.getByLabelText("Close api");
-  close.focus();
+  const close = tab("api").closest(".project-tab")!.querySelector<HTMLElement>(".tab-close")!;
+  const origin = tab("api");
+  origin.focus();
   fireEvent.click(close);
   await questionDialog();
-  close.remove();
+  origin.remove();
   await answerQuestion(false);
   await waitFor(() => expect(questionProbe.shown).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(tab("web")));

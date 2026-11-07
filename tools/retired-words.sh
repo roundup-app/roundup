@@ -31,6 +31,7 @@ alert_tokens = {
         "u5501_opening_an_agent_clears_only_its_held_rows",
     },
     "apps/desktop/src/rail/u6249d_failure.test.tsx": {"held", "held-row"},
+    "apps/desktop/src/ui/u6398a_surfaces.test.tsx": {"held"},
     "crates/messages/src/failure.rs": {"held"},
     "crates/messages/src/tests/dcl_tests.rs": {"u6260a_held_prompt_is_reported_to_its_sender"},
     "apps/desktop/src/ui/u6239_browser.test.ts": {

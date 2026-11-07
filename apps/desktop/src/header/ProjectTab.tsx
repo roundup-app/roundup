@@ -14,11 +14,10 @@ import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
 import { Dialog } from "../ui/Dialog";
 import type { SortableParts } from "../ui/sortable";
-import { Tip } from "../ui/Tip";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import type { App } from "../app/seam";
 import { modalOpen, registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, TAB_CLOSE, ariaChord } from "../keys/chords";
 import { MARKS, markOf, nameParts } from "./tab";
 import { PROJECT_ALERTS, type ProjectAlerts } from "../state/projectAlerts";
 import type { StripTab } from "./tab";
@@ -66,6 +65,21 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
 };
 
 /** One Project's library-owned tab, with a sibling close control. */
+type BulkCloses = { others?: (() => void) | undefined; left?: (() => void) | undefined; right?: (() => void) | undefined };
+
+const bulkCloseItems = (closing: BulkCloses = {}) => [
+  { id: "close-others", label: copy.closeOthers, enabled: closing.others !== undefined, run: () => closing.others?.() },
+  { id: "close-left", label: copy.closeToLeft, enabled: closing.left !== undefined, run: () => closing.left?.() },
+  { id: "close-right", label: copy.closeToRight, enabled: closing.right !== undefined, run: () => closing.right?.() },
+];
+
+const closeOnKey = (close: () => void) => (press: KeyboardEvent) => {
+  if (TAB_CLOSE.presses.includes(press.key) && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && !press.isComposing) {
+    press.preventDefault();
+    close();
+  }
+};
+
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
@@ -83,6 +97,8 @@ export const ProjectTab = (props: {
   onMark: () => void;
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
+  /** U6544b: the menu's bulk closes; absent when that item would close nothing. */
+  closing?: BulkCloses | undefined;
   /** U2694a: the seam that shows the tab's system menu; a tab without one has none. */
   app?: Pick<App, "showContextMenu" | "writeClipboardText"> | undefined;
   ref?: (element: HTMLElement) => void;
@@ -145,9 +161,8 @@ export const ProjectTab = (props: {
 
   let base: string | undefined;
   let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
-  let initialName = "";
+  let initialName = "", revision: string | undefined;
   let restored: "none" | "current" | "selected" = "none";
-  let revision: string | undefined;
 
   const capture = (field: HTMLInputElement) => {
     const previous = records().find(draft => draft.revision === revision);
@@ -192,7 +207,7 @@ export const ProjectTab = (props: {
   ]);
 
   return <>
-    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
+    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); props.sort?.ref(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
@@ -202,8 +217,10 @@ export const ProjectTab = (props: {
 
         if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
+          ...(records().length || problem() || copyFailure() ? [{ id: "recover", label: copy.recoverDrafts, run: () => { recover(true); } }] : []),
           { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: props.alerts === level, run: () => props.onAlerts(level) })) },
           { id: "close", label: copy.close, run: () => props.onClose() },
+          ...bulkCloseItems(props.closing),
         ], x, y));
       }}>
       <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={async (saved, refocus) => {
@@ -236,7 +253,8 @@ export const ProjectTab = (props: {
         }
       }} />}</Show>}>
         <Tabs.Trigger value={props.tab.path} class="tab-name-button"
-          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy}
+          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
+          onKeyDown={closeOnKey(() => props.onClose())}
           ref={(element) => { button = element; props.sort?.handleRef(element); onCleanup(() => props.sort?.handleRef(undefined)); }}
           onClick={(click) => {
             if (click.target instanceof Element && click.target.closest('.tab-mark')) {
@@ -248,10 +266,7 @@ export const ProjectTab = (props: {
           <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
         </Tabs.Trigger>
         <div class="tab-actions">
-        <Show when={records().length || problem() || copyFailure()}>
-          <Tip text={copy.recoverDrafts}>{trigger => <IconButton {...trigger()} class="tab-recover" data-visible={near() || props.selected} tabIndex={props.selected ? 0 : -1} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.name)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
-        </Show>
-        <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
+        <IconButton class="tab-close" aria-hidden="true" tabIndex={-1} aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.selected || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
         </div>
       </Show>
     </FlatTab>

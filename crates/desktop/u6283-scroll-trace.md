@@ -108,3 +108,35 @@ What this shows:
 - Scripted dimension reads in the profile (`updateLayoutIfDimensionsOutOfDate`) are 9 and 17 samples, above the 2 after #6302. The sample counts are 1 ms each; the profiler does not name the script.
 
 Per Observer line: the frame line is still not proven (trace 1 has a 33.33 ms gap, trace 2 has none, two runs only). Forced layout from roundup scripts is not zero: the ancestor walk still runs 28 times, the vendored library and the App's own `index` reads remain. Two 33.3 ms frames are not attributed in any run: the shim run and the trace runs are separate runs with no frame timing in the shim.
+
+## Trace 4, case B: a resumed Claude Code conversation
+
+Date: 2026-11-07, one Mac (Apple silicon, 120 Hz display), screen unlocked, no one using the Mac during a run.
+Bundle: debug `.app` of 9438f670c (merge of #6443), identifier `dev.roundup.app6283k`. It holds #6332 and predates #6453, so it still forces Claude Code's terminal images. Case B draws none.
+Terminal content: one Agent's Terminal running a live `claude --resume <session> --model haiku` of a real 30 MB Claude Code conversation (about 117k tokens of context). No prompt was sent, so no model ran.
+Scroll: computer-use scroll tool, 20 batches of 15 ticks at one point, wheel input, not a trackpad. B1 scrolls up from the bottom, B2 scrolls down from the top.
+Recorder: `xcrun xctrace record --template 'Animation Hitches' --attach <App pid> --time-limit 16s`, scroll started about 3 s after the recorder. The display figures come from the App's WebKit GPU process surface, as in the tables above. A 30 s attach run wrote an 18 GB trace that had not finished saving after 150 s; it was killed and deleted, so these runs are 16 s.
+
+| measure | B1 (scroll up) | B2 (scroll down) |
+|---|---|---|
+| hitches attributed to the roundup process | 3 (each 8.33 ms; one at the scroll's start, two after it) | 9 (seven 8.33 ms, two 16.67 ms) |
+| displayed frames, and gaps over 16.7 ms | 44, and 20 | 107, and 31 |
+| gaps over 25 / over 33.4 ms | 19 / 18 | 23 / 18 |
+| p50 / p95 / p99 of the gap | 16.67 / 50.0 / 75.0 ms | 16.67 / 75.0 / 100 ms |
+| longest gap | 75 ms | 100 ms |
+
+Gaps over 100 ms (idle time between bursts) are left out of the figures. One run per direction.
+
+Idle baseline: the same bundle with no scroll showed 90 hitches in 12 s, so hitch counts are noisy in this setup.
+
+What was seen: Claude Code draws in the alternate screen with mouse tracking on. A wheel tick therefore goes to Claude Code, which redraws the conversation, and the Terminal's scrollback stays still. The gaps between displayed frames follow that redraw cadence, about 41 to 50 ms. This trace makes no claim about whether Claude Code or roundup is the slow side.
+
+Per Observer line:
+
+| line | result |
+|---|---|
+| no frame over 16.7 ms | NOT PROVEN: B1 and B2 both show gaps over 16.7 ms, set by Claude Code's redraw cadence |
+| no forced layout started by roundup's scripts | NOT MEASURED in this trace |
+| a long Claude Code conversation scrolls as plain text does (U6283e) | NOT PROVEN: the scroll is Claude Code's redraw, not roundup's scrollback |
+
+Next: case C (four pictures read in the same resumed session), then the same resumed session in macOS Terminal as a baseline. That baseline separates Claude Code's redraw cost from roundup's (U6283c).
