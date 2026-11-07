@@ -216,14 +216,14 @@ async fn b22_the_twenty_first_open_digest_merges_the_oldest_two() {
         last.body
     );
     // The newest entry of each child the two named: #2 changed c1, #1 changed c0.
-    assert_eq!(h.pl(&last).names(), ["c1", "c0"]);
+    assert_eq!(h.pl(last).names(), ["c1", "c0"]);
     // `m` reads a Message that was merged away (P7).
     let got = h
         .call_as(agent("top"), "message.get", json!({"id": 1}))
         .await
         .unwrap();
     assert_eq!(got["reason"], "merged");
-    assert_eq!(h.pl(&last).weight(), 2);
+    assert_eq!(h.pl(last).weight(), 2);
 }
 
 #[tokio::test]
@@ -236,15 +236,9 @@ async fn b22_a_merge_counts_the_changes_a_merged_digest_already_counted() {
     }
     let standing = h.standing().await;
     assert_eq!(standing.len(), 20);
-    assert_eq!(
-        standing
-            .iter()
-            .map(|m| h.pl(&m).weight())
-            .sum::<u32>(),
-        60
-    );
+    assert_eq!(standing.iter().map(|m| h.pl(m).weight()).sum::<u32>(), 60);
     // A merge that is itself merged later weighs its own N.
-    assert!(standing.iter().any(|m| h.pl(&m).weight() >= 3));
+    assert!(standing.iter().any(|m| h.pl(m).weight() >= 3));
 }
 
 #[tokio::test]
@@ -263,22 +257,13 @@ async fn b22_after_a_burst_of_100_changes_every_change_is_counted_once() {
     h.at(2 * (10 * 60_000 + 1_000_000)).await;
 
     let all = h.all().await;
-    let digests: Vec<&Message> = all
-        .iter()
-        .filter(|m| h.pl(m).is_digest())
-        .collect();
+    let digests: Vec<&Message> = all.iter().filter(|m| h.pl(m).is_digest()).collect();
     let standing: Vec<&&Message> = digests
         .iter()
         .filter(|m| m.status != MessageStatus::Dropped)
         .collect();
     assert_eq!(changes, 100);
-    assert_eq!(
-        standing
-            .iter()
-            .map(|m| h.pl(&m).weight())
-            .sum::<u32>(),
-        100
-    );
+    assert_eq!(standing.iter().map(|m| h.pl(m).weight()).sum::<u32>(), 100);
     assert!(standing.len() <= 20);
     // Every digest is standing, or named by a merge, and `m` can open each.
     for dropped in digests
@@ -472,13 +457,7 @@ async fn burst_of_100(same_children: bool) {
     h.at(10 * 60_000 + 1_000_000).await;
     h.at(2 * (10 * 60_000 + 1_000_000)).await;
     let standing = h.standing().await;
-    assert_eq!(
-        standing
-            .iter()
-            .map(|m| h.pl(&m).weight())
-            .sum::<u32>(),
-        100
-    );
+    assert_eq!(standing.iter().map(|m| h.pl(m).weight()).sum::<u32>(), 100);
     assert!(standing.len() <= 20);
 }
 
@@ -547,14 +526,14 @@ async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
     let standing = h.standing().await;
     let ninth: Vec<_> = standing
         .iter()
-        .filter(|m| h.pl(&m).names().contains(&"c8".into()))
+        .filter(|m| h.pl(m).names().contains(&"c8".into()))
         .collect();
     assert_eq!(
         ninth.len(),
         1,
         "the ninth entry was silently lost while its Door was stopped"
     );
-    assert_eq!(h.pl(&ninth[0]).weight(), 1);
+    assert_eq!(h.pl(ninth[0]).weight(), 1);
 }
 
 fn door_terminal(h: &Pushes, terminal: Option<&str>) {
@@ -592,10 +571,7 @@ async fn b21_stopped_changes_compact_by_subagent_and_keep_weight_after_failed_st
     let sent = h.standing().await;
     assert_eq!(sent.len(), 1);
     assert_eq!(h.pl(&sent[0]).weight(), 100);
-    assert_eq!(
-        h.pl(&sent[0]).entries(),
-        [entry("renamed-100", 100)]
-    );
+    assert_eq!(h.pl(&sent[0]).entries(), [entry("renamed-100", 100)]);
 }
 
 #[tokio::test]

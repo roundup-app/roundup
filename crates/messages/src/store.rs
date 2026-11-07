@@ -359,9 +359,7 @@ impl Store {
                    AND json_extract(payload, '$.Digest') IS NOT NULL
                  ORDER BY id",
             )
-            .and_then(|mut stmt| {
-                stmt.query_map(params![to], row_to_message)?.collect()
-            })
+            .and_then(|mut stmt| stmt.query_map(params![to], row_to_message)?.collect())
             .map_err(Error::internal)
     }
 

@@ -158,10 +158,7 @@ mod tests {
         other.name = "other".into();
         // The first duplicate in the newest Message wins, including inside a merge.
         let (given, history) = typed(&[
-            (
-                digest(1, MessageStatus::Delivered, &old),
-                vec![old.clone()],
-            ),
+            (digest(1, MessageStatus::Delivered, &old), vec![old.clone()]),
             (
                 digest(2, MessageStatus::Delivered, &current),
                 vec![current.clone(), old.clone()],
@@ -231,10 +228,8 @@ mod tests {
             entry(Kind::Error, "a", 2),
             entry(Kind::NeedsYou, "a", 2),
         ] {
-            let (pending, payloads) = typed(&[(
-                digest(2, MessageStatus::Pending, &next),
-                vec![next.clone()],
-            )]);
+            let (pending, payloads) =
+                typed(&[(digest(2, MessageStatus::Pending, &next), vec![next.clone()])]);
             assert!(
                 !are_quiet_digests((&given, &history), (&pending, &payloads)),
                 "{}",

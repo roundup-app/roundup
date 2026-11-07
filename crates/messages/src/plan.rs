@@ -223,7 +223,9 @@ mod tests {
     #[test]
     fn b5763c_write_splits_said_repeat_and_empty_and_snapshot_rides_the_last_note() {
         let mut b = batch(vec![note(1, "again"), note(2, "new"), note(3, "[wake]")]);
-        b.payloads.0.insert(3, pushes::Payload::Wake { ids: vec![] });
+        b.payloads
+            .0
+            .insert(3, pushes::Payload::Wake { ids: vec![] });
         b.previous = Some("again".into());
         b.snapshot = Some("[open jobs]\n- j".into());
         let Plan::Write {

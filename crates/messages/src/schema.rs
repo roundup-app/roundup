@@ -130,10 +130,8 @@ mod tests {
             entries: vec![b.clone()],
             stands_for: 4,
         };
-        let (merged, merged_payload) = pushes::merged(
-            (&older, &plain_payload),
-            (&newer, &folded_payload),
-        );
+        let (merged, merged_payload) =
+            pushes::merged((&older, &plain_payload), (&newer, &folded_payload));
         let wake = "[wake]\nworker is idle\n  last: done".to_owned();
 
         let mut db = Connection::open_in_memory().unwrap();
@@ -168,7 +166,12 @@ mod tests {
                 .unwrap();
             serde_json::from_str(&text).unwrap()
         };
-        let expected = [plain_payload, folded_payload, rollup_payload, merged_payload];
+        let expected = [
+            plain_payload,
+            folded_payload,
+            rollup_payload,
+            merged_payload,
+        ];
         for ((id, body), expected) in ids.iter().zip(digests).zip(expected) {
             assert_eq!(payload(*id), expected, "{body}");
         }

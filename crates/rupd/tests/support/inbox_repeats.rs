@@ -23,6 +23,7 @@ impl Module for Rail {
 
 struct Peer {
     writes: Mutex<Vec<u32>>,
+    lines: Mutex<Vec<String>>,
     session: Mutex<String>,
     transcript: PathBuf,
     state: Mutex<Inbox>,
@@ -51,6 +52,11 @@ impl messages::NoteInbox for Peer {
             .lock()
             .unwrap()
             .extend(entries.iter().map(|entry| entry.id));
+        self.lines.lock().unwrap().extend(
+            entries
+                .iter()
+                .map(|entry| entry.content("uds:/probe/service", "default")),
+        );
         Ok(())
     }
 }
@@ -74,6 +80,7 @@ impl Delivery {
         }]))));
         let peer = Arc::new(Peer {
             writes: Mutex::default(),
+            lines: Mutex::default(),
             session: Mutex::new("same-session".into()),
             transcript: dir.path().join("transcript.jsonl"),
             state: Mutex::new(Inbox::Ok),
@@ -512,10 +519,17 @@ async fn b5763b_rendered_labels_and_the_one_line_cut_decide_equality() {
     let other = h.send("note", "same body").await;
     assert_eq!(h.writes(), [first, other]);
     let prefix = "é".repeat(150);
-    let left = messages::digest::push_body(&digest(&format!("{prefix} left")));
     let right = messages::digest::push_body(&digest(&format!("{prefix} right")));
-    let long = h.send("note", &left).await;
-    let repeat = h.send("note", &right).await;
+    h.messages
+        .note_attention("receiver", &digest(&format!("{prefix} left")))
+        .await
+        .unwrap();
+    let long = h.all().await.last().unwrap()["id"].as_u64().unwrap() as u32;
+    h.messages
+        .note_attention("receiver", &digest(&format!("{prefix} right")))
+        .await
+        .unwrap();
+    let repeat = h.all().await.last().unwrap()["id"].as_u64().unwrap() as u32;
     assert_eq!(h.writes(), [first, other, long]);
     assert_eq!(h.get(repeat).await["reason"], "repeat of last inbox entry");
     assert!(
@@ -543,4 +557,89 @@ async fn b5763c_an_unwritten_note_still_requires_its_own_receipt() {
     assert!(h.get(id).await["reason"].is_null());
     h.messages.confirm_inbox("receiver", &[id]);
     assert_eq!(h.get(id).await["status"], "delivered");
+}
+
+/// The id of the newest Message to `receiver`.
+async fn newest(h: &Delivery) -> u32 {
+    h.all().await.last().unwrap()["id"].as_u64().unwrap() as u32
+}
+
+/// A quiet digest of one working child: the Daemon's own push, as B21 makes it.
+async fn quiet_digest(h: &Delivery) -> u32 {
+    h.messages
+        .note_attention("receiver", &digest(""))
+        .await
+        .unwrap();
+    newest(h).await
+}
+
+// B5168f: a quiet digest starts no turn, and no idle delivers it.
+#[tokio::test(start_paused = true)]
+async fn b5168f_a_quiet_digest_starts_no_turn() {
+    let h = Delivery::new();
+    let id = quiet_digest(&h).await;
+    assert!(h.writes().is_empty());
+    assert_eq!(h.get(id).await["status"], "pending");
+    h.edge().await;
+    assert!(h.writes().is_empty(), "no idle delivers it");
+    assert_eq!(h.get(id).await["status"], "pending");
+}
+
+// B5168f: a finished result is news, so it starts one turn.
+#[tokio::test(start_paused = true)]
+async fn b5168f_a_finished_result_starts_one_turn() {
+    let h = Delivery::new();
+    h.messages
+        .note_attention("receiver", &digest("done: the build is green"))
+        .await
+        .unwrap();
+    assert_eq!(h.writes(), [newest(&h).await]);
+}
+
+// B5168f: a held quiet digest rides the next delivery once, across a restart too.
+#[tokio::test(start_paused = true)]
+async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
+    for restart in [false, true] {
+        let mut h = Delivery::new();
+        let held = quiet_digest(&h).await;
+        if restart {
+            h.reopen();
+            assert!(h.writes().is_empty());
+            assert_eq!(h.get(held).await["status"], "pending");
+        }
+        let next = h.send("note", "hello").await;
+        until("both taken up", async || {
+            (h.writes() == [held, next]).then_some(())
+        })
+        .await;
+        h.edge().await;
+        assert_eq!(h.writes(), [held, next], "delivered once");
+    }
+}
+
+// B50(d): a Wake's long text is cut to one line of the TUI; a note's text is not.
+#[tokio::test(start_paused = true)]
+async fn b50_a_long_note_shows_as_one_line() {
+    let h = Delivery::new();
+    let wake = h
+        .messages
+        .save_wake("receiver", &["child".into()], false, &["child".into()], 0)
+        .unwrap();
+    let body = format!("[wake] {}", "é".repeat(300));
+    assert!(
+        h.messages
+            .fire_wake(wake.id, "receiver", vec!["child".into()], body.clone())
+            .await
+            .unwrap()
+    );
+    let id = newest(&h).await;
+    let content = h.peer.lines.lock().unwrap()[0].clone();
+    let text = content.split('\n').nth(1).unwrap();
+    assert!(text.len() <= 200 && text.ends_with("[cut]"), "{text}");
+    assert_eq!(h.get(id).await["body"], body.as_str());
+    let plain = h.send("note", &body).await;
+    assert!(
+        h.peer.lines.lock().unwrap()[1].contains(&body),
+        "note {plain} is whole"
+    );
 }
