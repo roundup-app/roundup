@@ -13,6 +13,7 @@ it("u6451b_a_pad_link_opens_through_open_target_once", async () => {
   const stop = routeWebLinks(document, { openTarget: async target => { calls.push(target); } });
 
   const before = location.href;
+
   const link = await waitFor(() => {
     const anchor = field.querySelector<HTMLAnchorElement>("a[href]");
     expect(anchor).not.toBeNull();
