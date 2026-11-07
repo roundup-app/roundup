@@ -17,6 +17,7 @@ import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
 import { CHORDS, type ActionValue } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
+import { easingOut, reorderMs } from "../ui/reorderMotion";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
@@ -198,6 +199,28 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   };
 
   const [container, setContainer] = createSignal<HTMLElement>();
+
+  /** U6550a, M5: a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn and rows that return fade in, on the reorder Tokens. */
+  let drawn = new Map<string, number>();
+  const readDrawn = () => new Map([...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []].map(row => [row.dataset.id!, row.getBoundingClientRect().top]));
+
+  createEffect(on(lifted, () => {
+    const before = drawn;
+    const reduced = matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    drawn = new Map();
+
+    if (reduced || before.size === 0) return;
+
+    for (const row of container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []) {
+      if (!("animate" in row) || row.matches("[data-dnd-dragging], [data-dnd-dropping]")) continue;
+      const was = before.get(row.dataset.id!);
+      const options = { duration: reorderMs(row), easing: easingOut(row) };
+
+      if (was === undefined) row.animate({ opacity: [0, 1] }, options);
+      else if (Math.abs(was - row.getBoundingClientRect().top) >= 1) row.animate({ translate: [`0 ${was - row.getBoundingClientRect().top}px`, "0 0"] }, options);
+    }
+  }, { defer: true }));
   const [field, setField] = createSignal<HTMLTextAreaElement>();
 
   /** The focusable element of the row `id`: its item, or the control of its branch. */
@@ -730,6 +753,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
             return content ? content.getBoundingClientRect().left - element.getBoundingClientRect().left : 0;
           },
           ...dropRules,
+          onLift: (id: string | null) => { drawn = readDrawn(); dropRules.onLift(id); },
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
           accepts: () => !pointerOutside(),
