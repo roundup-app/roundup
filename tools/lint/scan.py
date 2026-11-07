@@ -18,7 +18,7 @@ FUNCTION_RULES = {
     'eslint(max-lines-per-function)': r'\((\d+)\)',
 }
 # State-holder lints (U6416): existing sites are exact debt; later Issues move them to a store or a queue.
-HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)')
+HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)', 'anti-slop(no-draft-bypass)')
 TESTS = re.compile(r'\.test\.tsx?$|/testing/|/perf/')
 SECTIONS = {'web': ['size', 'ast', 'typos', 'ruff'], 'rust': ['dependencies']}
 
