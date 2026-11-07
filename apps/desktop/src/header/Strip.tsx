@@ -64,7 +64,7 @@ const createClosing = (props: { tabs: StripTab[]; onClose: (path: string) => voi
     next();
   };
 
-  return { asking, setAsking, closeOpener, question, requestClose, closeAll, next };
+  return { asking, setAsking, closeOpener, setCloseOpener, question, requestClose, closeAll, next };
 };
 
 /** The header's strip (U179): one tab per open Project in the order the user left them (U6220c), then a quiet `+`. */
@@ -96,7 +96,7 @@ export const Strip = (props: {
   const [listElement, setListElement] = createSignal<HTMLDivElement>();
   let observer: ResizeObserver | undefined;
 
-  const { asking, setAsking, closeOpener, question, requestClose, closeAll, next } = createClosing(props);
+  const { asking, setAsking, closeOpener, setCloseOpener, question, requestClose, closeAll, next } = createClosing(props);
 
   let settling = 0;
   let flips = 0;
