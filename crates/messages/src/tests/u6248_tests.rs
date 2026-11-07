@@ -30,6 +30,10 @@ impl crate::NoteInbox for Gated {
 }
 
 fn open(dir: &std::path::Path) -> (Messages, Arc<Gated>, Arc<AtomicI64>) {
+    open_on(dir, Bus::new())
+}
+
+fn open_on(dir: &std::path::Path, bus: Bus) -> (Messages, Arc<Gated>, Arc<AtomicI64>) {
     let rail = Arc::new(BatchRail::default());
     let mut node = live("m");
     node.status = Some(Status {
@@ -44,7 +48,7 @@ fn open(dir: &std::path::Path) -> (Messages, Arc<Gated>, Arc<AtomicI64>) {
         clock: Arc::new(move || clock.load(Ordering::SeqCst)),
         fault: Arc::new(|_| Ok(())),
     };
-    let messages = Messages::open_with(dir, Bus::new(), rail, env).unwrap();
+    let messages = Messages::open_with(dir, bus, rail, env).unwrap();
     let inbox = Arc::new(Gated::default());
     messages.set_inbox(inbox.clone());
     lock(&messages.inner.store)
@@ -142,4 +146,41 @@ async fn u6248a_a_receipt_after_the_second_miss_keeps_the_line_empty() {
     assert_eq!(writes(&inbox).len(), 3);
     messages.confirm_inbox("m", &[note.id]);
     assert_eq!(messages.delivery_failure("m"), None);
+}
+
+#[tokio::test]
+async fn u177_a_message_waits_for_the_channel_event_then_is_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let bus = Bus::new();
+    let (messages, inbox, _) = open_on(dir.path(), bus.clone());
+    let mut completed = messages.inner.completed.subscribe();
+    while completed.recv().await.unwrap() != "initial" {}
+    let note = pending(&messages, &Actor::daemon(), "from daemon");
+    for channel in [
+        contracts::agent::Channel::Pending,
+        contracts::agent::Channel::Up,
+    ] {
+        if channel == contracts::agent::Channel::Up {
+            inbox.input_started.store(true, Ordering::SeqCst);
+        }
+        bus.emit(
+            Actor::daemon(),
+            EventData::AgentChannel(contracts::agent::ChannelEvent {
+                id: "m".into(),
+                channel,
+            }),
+        );
+        if channel == contracts::agent::Channel::Pending {
+            tokio::task::yield_now().await;
+            assert!(writes(&inbox).is_empty());
+        } else {
+            for _ in 0..100 {
+                if !writes(&inbox).is_empty() {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }
+    }
+    assert_eq!(writes(&inbox), vec![vec![note.id]]);
 }

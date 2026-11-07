@@ -15,19 +15,46 @@ use crate::claude_code::ClaudeCode;
 use crate::{Observation, Run, Slot};
 
 use crate::tests::*;
+
 #[tokio::test]
 async fn u177_a_door_attempt_awaits_its_channel_until_it_is_up_or_missing() {
-    for settled in [
-        contracts::agent::Channel::Up,
-        contracts::agent::Channel::Missing,
+    for (door, mcp, settled, awaiting) in [
+        (true, true, None, true),
+        (true, true, Some(contracts::agent::Channel::Up), false),
+        (true, true, Some(contracts::agent::Channel::Missing), false),
+        (false, true, None, false),
+        (true, false, None, false),
     ] {
         let watched = Watched::named();
         let shared = &watched.shared;
-        assert!(shared.channel_pending("7013"));
-
-        shared.set_channel(Actor::daemon(), "7013", "1", settled);
-
-        assert!(!shared.channel_pending("7013"), "{settled:?}");
+        let id = {
+            let mut rail = shared.rail();
+            let kind = if door {
+                contracts::agent::NodeKind::Workstream
+            } else {
+                contracts::agent::NodeKind::Agent
+            };
+            let node = rail.insert(kind, "d", None, None).unwrap();
+            rail.set_mcp(&contracts::project::Mcp { on: mcp }).unwrap();
+            node.id
+        };
+        let run = shared.runs().remove("7013").unwrap();
+        shared.runs().insert(id.clone(), run);
+        if let Some(channel) = settled {
+            shared.set_channel(Actor::daemon(), &id, "1", channel);
+        }
+        let agents = crate::Agents {
+            shared: Arc::clone(shared),
+            dir: watched._dir.path().to_owned(),
+            launcher: crate::Launcher::new(
+                "claude",
+                watched._dir.path().join("claude.json"),
+                watched._dir.path().join("rup"),
+                None,
+            ),
+            forked: false,
+        };
+        assert_eq!(agents.awaiting_channel(&id), awaiting, "{door} {mcp} {settled:?}");
     }
 }
 

@@ -302,7 +302,7 @@ impl Agents {
 
     /// E6, B51: a Door takes Messages once its `rup mcp` is up, or the Channel deadline passed;
     /// a note it takes before then can ask for a tool Claude Code has not connected yet.
-    fn awaiting_channel(&self, id: &str) -> bool {
+    pub(crate) fn awaiting_channel(&self, id: &str) -> bool {
         let mcp = self
             .shared
             .rail()
