@@ -1,4 +1,7 @@
+#![deny(clippy::too_many_lines)]
+
 use super::*;
+use crate::agent::fold;
 
 impl Observation {
     /// The word a log line names this Observation by; a Signal by its vendor event.
@@ -246,6 +249,26 @@ impl Shared {
         });
     }
 
+    /// A21: a failed save fails the call, settles the Status to `error` and stops the Terminal,
+    /// since `agent.spawn` has already returned by the time a Running Agent can reach here (the
+    /// parked window's own save is `finish_starting`'s; A22's resuming is `finish_resuming`'s).
+    fn fail_conversation_save(
+        &self,
+        actor: &Actor,
+        id: &str,
+        run: &mut Run,
+        err: RpcError,
+    ) -> RpcError {
+        self.events.observed.notify_waiters();
+        if let (Some(status), _) = run.observe(Observation::Failed(format!(
+            "cannot save conversation: {err}"
+        ))) {
+            run.publish(&self.bus, actor.clone(), id, status);
+        }
+        self.spawn_kill(run.terminal_id().to_owned());
+        err
+    }
+
     /// Fold `observation` into Agent `id`'s Status. A change is announced as `agent.status`, and
     /// the first `SessionStart` Steers the prompt the Agent was spawned with. Returns when, on `clock`, the
     /// adapter wants its next `Observation::Tick`.
@@ -257,13 +280,7 @@ impl Shared {
         observation: Observation,
     ) -> Result<Option<i64>, RpcError> {
         let name = self.rail().name(id)?;
-        let first_prompt = match &observation {
-            Observation::Signal(payload) => claude_code::see(payload)
-                .prompt
-                .filter(|prompt| !order::is_clarification_steer(prompt))
-                .map(name::from_prompt),
-            _ => None,
-        };
+        let first_prompt = fold::first_prompt(&observation);
         // Taken before `runs`, as every other path does, so a rename and a prompt cannot deadlock.
         // U3566c: any Observation may end a turn, and the finish count is saved with its Status.
         let mut rail = Some(self.rail());
@@ -286,22 +303,12 @@ impl Shared {
                         return Err(RpcError::not_found(format!("{name} has ended")));
                     }
                     // A21: a Signal naming a conversation of the current Attempt saves it
-                    // before being applied; a failed save fails this call, settles the Status
-                    // to `error` and stops the Terminal, since `agent.spawn` has already
-                    // returned by the time a Running Agent can reach here (the parked window's
-                    // own save is `finish_starting`'s; A22's resuming is `finish_resuming`'s).
+                    // before being applied (see `fail_conversation_save`).
                     if let Observation::Signal(payload) = &observation
                         && let Some(rail) = rail.as_deref_mut()
                         && let Err(err) = save_signal_conversation(rail, run, id, payload)
                     {
-                        self.events.observed.notify_waiters();
-                        if let (Some(status), _) = run.observe(Observation::Failed(format!(
-                            "cannot save conversation: {err}"
-                        ))) {
-                            run.publish(&self.bus, actor.clone(), id, status);
-                        }
-                        self.spawn_kill(run.terminal_id().to_owned());
-                        return Err(err);
+                        return Err(self.fail_conversation_save(&actor, id, run, err));
                     }
                     self.apply(
                         rail.as_deref_mut(),
@@ -360,165 +367,153 @@ impl Shared {
     ) -> Result<Applied, RpcError> {
         // The caller holds `runs`: a woken observer reads the completed fold after unlock.
         self.events.observed.notify_waiters();
-        let exited = matches!(observation, Observation::Exit { .. });
-        // A4452a: coordination waits for SessionStart; no star gates it.
-        let session_start = matches!(&observation, Observation::Signal(payload)
-            if claude_code::see(payload).session_start);
-        let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
-        if session_start {
+        let facts = fold::Facts::of(&observation);
+        if facts.session_start {
             run.note_session_start();
         }
-        if star {
+        if facts.star {
             run.note_star();
         }
-        if matches!(&observation, Observation::Signal(payload)
-            if claude_code::see(payload).prompt.is_some())
-            && !run.input_started()
-        {
+        if facts.starts_input(run) {
             self.save_input_started(id, run.attempt())?;
             run.start_input();
         }
-        // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
-        if matches!(&observation, Observation::Signal(payload)
-            if claude_code::see(payload).prompt.is_some())
-            && run
-                .steer()
-                .and_then(|steer| steer.slash_written.as_ref())
-                .is_none_or(|gate| *gate.lock().expect("slash-command write gate"))
-        {
-            // H12 permits a late submission after refusal. Keep that acknowledgement even
-            // after the Steer's timeout so a coordinator retry need not Resume again.
-            run.submit_steer();
-        } else if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
-            // The Agent is over: no Steer or Interrupt waits on it. A prompt no writer owns is
-            // refused; a released or queued writer must publish its own completion instead.
-            run.finish_waits();
-        }
-        // H13: the Interrupt's wait ends with the title (or the Dismissal of its dialog) that
-        // leaves the Agent idle, or with the Agent.
-        let acks = matches!(observation, Observation::Title(_) | Observation::Tick);
+        // The payload is borrowed here, before `decide` consumes it, so no Signal is copied.
         if let Observation::Signal(payload) = &observation {
-            // Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
-            let mut calls = self
-                .events
-                .tool_calls
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            let mut current = calls.remove(id);
-            if claude_code::toolcall::fold(&mut current, payload, run.cwd(), (self.clock)())
-                && let Some(tracked) = &current
-            {
-                self.bus.emit(
-                    actor.clone(),
-                    EventData::AgentToolCall(Box::new(contracts::agent::ToolCallEvent {
-                        id: id.to_owned(),
-                        call: tracked.call.clone(),
-                    })),
-                );
-            }
-            if let Some(tracked) = current {
-                calls.insert(id.to_owned(), tracked);
-            }
+            self.announce_tool_call(actor, id, run.cwd(), payload);
         }
-        let was = run.view().clone();
-        let was_kind = was.status.as_ref().map(|status| status.kind);
-        let signal = matches!(observation, Observation::Signal(_));
-        let (changed, completion_changed) = run.observe(observation);
-        let changed = changed.or_else(|| {
-            if !exited || run.ended() {
-                return None;
-            }
-            let mut status = run.view().status.clone()?;
-            status.since = (self.clock)();
-            Some(status)
-        });
-        if super::rail_view::visibility_protection(run.view().status.as_ref().map(|s| s.kind))
-            .is_some()
-            && let Some(rail) = rail.as_deref_mut()
-            && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
-        {
-            self.bus.emit(actor.clone(), EventData::RailChanged);
+        let now = (self.clock)();
+        for effect in fold::decide(run, id, observation, &facts, now, first_prompt) {
+            self.perform(rail.as_deref_mut(), run, id, actor, effect)?;
         }
-        if was.final_text != run.view().final_text || completion_changed {
-            self.bus.emit(actor.clone(), EventData::RailChanged);
-        }
-        if let Some(turn) = run.view().completed_turn.as_deref()
-            && was.completed_turn.as_deref() != Some(turn)
+        let prompt = run.release_prompt();
+        Ok((prompt, run.view().next_due))
+    }
+
+    /// Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
+    fn announce_tool_call(&self, actor: &Actor, id: &str, cwd: &str, payload: &serde_json::Value) {
+        let mut calls = self
+            .events
+            .tool_calls
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let mut current = calls.remove(id);
+        if claude_code::toolcall::fold(&mut current, payload, cwd, (self.clock)())
+            && let Some(tracked) = &current
         {
             self.bus.emit(
                 actor.clone(),
-                EventData::AgentCompleted(contracts::event::Completion {
-                    maker: id.to_owned(),
-                    attempt: run.attempt().to_string(),
-                    turn: turn.to_owned(),
-                }),
+                EventData::AgentToolCall(Box::new(contracts::agent::ToolCallEvent {
+                    id: id.to_owned(),
+                    call: tracked.call.clone(),
+                })),
             );
         }
-        if signal
-            && (session_start
-                || changed
-                    .as_ref()
-                    .is_some_and(|status| Some(status.kind) != was_kind))
-            && run
-                .steer()
-                .and_then(|steer| steer.slash_written.as_ref())
-                .is_some_and(|gate| *gate.lock().expect("slash-command write gate"))
-            && let Some(steer) = run.take_steer()
-        {
-            let _ = steer.submitted.send(());
+        if let Some(tracked) = current {
+            calls.insert(id.to_owned(), tracked);
         }
-        // H4702a: a Signal that takes a native question from `needs-you` to idle or working
-        // is an observed dismissal, though the title never changes.
-        let dismissed = signal
-            && was_kind == Some(Kind::NeedsYou)
-            && changed
-                .as_ref()
-                .is_some_and(|status| matches!(status.kind, Kind::Idle | Kind::Working));
-        if (dismissed
-            || acks
-                && changed
-                    .as_ref()
-                    .is_some_and(|status| status.kind == Kind::Idle))
-            && let Some(waiting) = run.take_interrupt()
-        {
-            let _ = waiting.send(());
-        }
-        if exited {
-            run.exit();
-            if let Some(rail) = rail.as_deref_mut() {
-                rail.detach_terminal(id)?;
+    }
+
+    /// Do one `Effect` of `fold::decide` under the locks `apply` holds.
+    fn perform(
+        &self,
+        rail: Option<&mut rail::Rail>,
+        run: &mut Run,
+        id: &str,
+        actor: &Actor,
+        effect: fold::Effect,
+    ) -> Result<(), RpcError> {
+        use fold::Effect;
+        match effect {
+            Effect::SubmitSteer => {
+                if run
+                    .steer()
+                    .and_then(|steer| steer.slash_written.as_ref())
+                    .is_none_or(|gate| *gate.lock().expect("slash-command write gate"))
+                {
+                    // H12 permits a late submission after refusal. Keep that acknowledgement even
+                    // after the Steer's timeout so a coordinator retry need not Resume again.
+                    run.submit_steer();
+                }
+            }
+            Effect::ShowOnRail => {
+                if let Some(rail) = rail
+                    && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
+                {
+                    self.bus.emit(actor.clone(), EventData::RailChanged);
+                }
+            }
+            Effect::RailChanged => self.bus.emit(actor.clone(), EventData::RailChanged),
+            Effect::Completed(completion) => self
+                .bus
+                .emit(actor.clone(), EventData::AgentCompleted(completion)),
+            Effect::SettleSteer => {
+                if run
+                    .steer()
+                    .and_then(|steer| steer.slash_written.as_ref())
+                    .is_some_and(|gate| *gate.lock().expect("slash-command write gate"))
+                    && let Some(steer) = run.take_steer()
+                {
+                    let _ = steer.submitted.send(());
+                }
+            }
+            Effect::AckInterrupt => {
+                if let Some(waiting) = run.take_interrupt() {
+                    let _ = waiting.send(());
+                }
+            }
+            Effect::Exit => {
+                run.exit();
+                if let Some(rail) = rail {
+                    rail.detach_terminal(id)?;
+                }
+            }
+            Effect::SaveBackground(background) => {
+                self.save_background(id, run.attempt(), background)?;
+            }
+            Effect::SaveFinished(finished) => {
+                if let Some(rail) = rail {
+                    rail.set_finished(id, finished)?;
+                }
+            }
+            Effect::Publish(status) => self.publish_status(run, id, actor, status),
+            Effect::Name(name) => {
+                if let Some(rail) = rail {
+                    self.name_from_prompt(rail, run, id, actor, name)?;
+                }
             }
         }
-        // DCL3c: background work is saved before its Status is published, so a reopen finds it.
-        let background = run.view().retained.clone();
-        if background != was.retained {
-            self.save_background(id, run.attempt(), background)?;
+        Ok(())
+    }
+
+    /// Announced while `runs` is parked, so announcements leave in the order the Status
+    /// changed; `emit` never blocks.
+    fn publish_status(&self, run: &mut Run, id: &str, actor: &Actor, status: Status) {
+        // U6248b: the raw Status moves the resume table before it is announced.
+        let resume_moved = resume_wait::fold(
+            &mut self.resumes.lock().expect("resumes lock"),
+            id,
+            &status,
+            (self.clock)(),
+        );
+        let status = waiting_on(&status, self.wait_of(id));
+        let status = resume_wait::resuming(&status, self.resume_of(id).as_ref());
+        run.publish(&self.bus, actor.clone(), id, status);
+        if resume_moved {
+            self.bus.emit(Actor::daemon(), EventData::RailChanged);
         }
-        // U3566c: a counted finish is saved before its Status is published.
-        if run.view().finished != was.finished
-            && let Some(rail) = rail.as_deref_mut()
-        {
-            rail.set_finished(id, run.view().finished)?;
-        }
-        // Announced while `runs` is parked, so announcements leave in the order the Status
-        // changed; `emit` never blocks.
-        if let Some(status) = changed {
-            // U6248b: the raw Status moves the resume table before it is announced.
-            let resume_moved = resume_wait::fold(
-                &mut self.resumes.lock().expect("resumes lock"),
-                id,
-                &status,
-                (self.clock)(),
-            );
-            let status = waiting_on(&status, self.wait_of(id));
-            let status = resume_wait::resuming(&status, self.resume_of(id).as_ref());
-            run.publish(&self.bus, actor.clone(), id, status);
-            if resume_moved {
-                self.bus.emit(Actor::daemon(), EventData::RailChanged);
-            }
-        }
-        if let (Some(rail), Some(name)) = (rail, first_prompt)
-            && run.claim_name()
+    }
+
+    /// The first prompt names the Agent, unless a name is settled or automatic naming is off.
+    fn name_from_prompt(
+        &self,
+        rail: &mut rail::Rail,
+        run: &mut Run,
+        id: &str,
+        actor: &Actor,
+        name: Option<String>,
+    ) -> Result<(), RpcError> {
+        if run.claim_name()
             && self
                 .automatic_renaming
                 .as_ref()
@@ -550,8 +545,7 @@ impl Shared {
             }
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.release_prompt();
-        Ok((prompt, run.view().next_due))
+        Ok(())
     }
 }
 
