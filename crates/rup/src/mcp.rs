@@ -123,11 +123,14 @@ fn with_key(arguments: &mut JsonObject) {
     if arguments.get("operation").is_none_or(Value::is_null) {
         let mut bytes = [0u8; 16];
         if getrandom::fill(&mut bytes).is_err() {
-            // Without a system random source the clock still makes a key no two calls share.
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_nanos());
-            bytes = now.to_le_bytes();
+            // Without getrandom, the standard library's per-process random hasher seeds a key.
+            use std::hash::{BuildHasher, Hasher};
+            let state = std::collections::hash_map::RandomState::new();
+            for (at, half) in bytes.chunks_mut(8).enumerate() {
+                let mut hasher = state.build_hasher();
+                hasher.write_usize(at);
+                half.copy_from_slice(&hasher.finish().to_le_bytes());
+            }
         }
         let key: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
         arguments.insert("operation".into(), key.into());
