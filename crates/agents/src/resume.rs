@@ -40,12 +40,14 @@ impl Agents {
             return Err(RpcError::conflict("a Group has no program to resume"));
         }
         models::check_permissions(&ctx.actor, permission_mode)?;
-        // A5335b: a child with no run in this Daemon finished before it opened (a restart ends
-        // every Attempt), so only the user starts it again; an Agent's resume would spend tokens.
+        // A5335b, DCR1: a child with no run in this Daemon finished before it opened (a restart
+        // ends every Attempt) unless the quit cut it off mid-turn, so only the user starts a
+        // finished one again; an Agent's resume would spend tokens.
         if ctx.actor.kind == contracts::ActorKind::Agent
             && mode.is_none()
             && self.shared.rail().node(id)?.kind == NodeKind::Agent
             && !self.shared.runs().contains_key(id)
+            && !self.shared.rail().is_cut_off(id)?
         {
             return Err(RpcError::conflict(format!(
                 "{id} finished before the Daemon restarted: only the user resumes it"
