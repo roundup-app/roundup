@@ -139,4 +139,4 @@ Per Observer line:
 | no forced layout started by roundup's scripts | NOT MEASURED in this trace |
 | a long Claude Code conversation scrolls as plain text does (U6283e) | NOT PROVEN: the scroll is Claude Code's redraw, not roundup's scrollback |
 
-Next: case C (four PNGs read in the same resumed session), then the same resumed session in macOS Terminal as a baseline. That baseline separates Claude Code's redraw cost from roundup's (U6283c).
+Next: case C (four pictures read in the same resumed session), then the same resumed session in macOS Terminal as a baseline. That baseline separates Claude Code's redraw cost from roundup's (U6283c).
