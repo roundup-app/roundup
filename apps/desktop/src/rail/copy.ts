@@ -120,7 +120,6 @@ export const copy = {
   retryDoor: sharedCopy.retryDoor,
   startDoor: sharedCopy.startDoor,
   rowActions: "Row actions",
-  addAgentLabel: "Add Agent",
   stop: sharedCopy.stop,
   openFolder: sharedCopy.openFolder,
   openInEditor: sharedCopy.openInEditor,
