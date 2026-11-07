@@ -94,6 +94,7 @@ fn build_with_feedback<R: Runtime>(
             app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(
                 alert::Plugin(app.handle().clone()),
             ))));
+            log::info!(target: "roundup::shell", "start App {}", env!("CARGO_PKG_VERSION"));
             show_fork(app, data_dir.as_deref());
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;

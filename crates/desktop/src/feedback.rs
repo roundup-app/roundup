@@ -77,6 +77,19 @@ fn log_tail(path: &Path) -> Vec<String> {
         .collect()
 }
 
+/// FB8: the newest `.log` file in `dir` written since `since`, the file this run writes; an
+/// older file is a past run's.
+fn this_runs_log(dir: &Path, since: std::time::SystemTime) -> Option<PathBuf> {
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
+        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
+        .filter(|(modified, _)| *modified >= since)
+        .max()
+        .map(|(_, path)| path)
+}
+
 pub(crate) fn facts(host: &dyn Host) -> AppFacts {
     AppFacts {
         version: env!("CARGO_PKG_VERSION").into(),
@@ -105,7 +118,7 @@ pub(crate) fn report(display: &dyn Display, host: &dyn Host) -> Report {
 }
 
 struct Machine {
-    log: Option<PathBuf>,
+    log_dir: Option<PathBuf>,
 }
 
 impl Host for Machine {
@@ -121,7 +134,7 @@ impl Host for Machine {
     }
 
     fn app_log(&self) -> Option<PathBuf> {
-        self.log.clone()
+        this_runs_log(self.log_dir.as_deref()?, *crate::diagnostics::RUN_START)
     }
 }
 
@@ -166,13 +179,8 @@ impl Display for Window {
 /// The shot of the main window as drawn now, with the App's facts. Sync, so Tauri runs it on the main thread.
 #[tauri::command]
 pub(crate) fn feedback_capture<R: Runtime>(window: WebviewWindow<R>) -> Result<Report, RpcError> {
-    let log = window
-        .app_handle()
-        .path()
-        .app_log_dir()
-        .ok()
-        .map(|dir| dir.join("shell.log"));
-    Ok(report(&Window, &Machine { log }))
+    let log_dir = window.app_handle().path().app_log_dir().ok();
+    Ok(report(&Window, &Machine { log_dir }))
 }
 
 #[cfg(test)]
@@ -230,6 +238,26 @@ mod tests {
             (log.len(), log[0].as_str(), log[199].as_str()),
             (200, "line 300", "line 499")
         );
+    }
+
+    #[test]
+    fn fb8_the_app_log_ends_with_this_runs_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("shell_old.log");
+        let current = dir.path().join("shell.log");
+        std::fs::write(&old, "2026-11-04 old line\n").unwrap();
+        let start = std::time::SystemTime::now();
+        std::fs::File::options()
+            .write(true)
+            .open(&old)
+            .unwrap()
+            .set_modified(start - std::time::Duration::from_secs(3600))
+            .unwrap();
+        std::fs::write(&current, "this run first\nthis run last\n").unwrap();
+        let path = this_runs_log(dir.path(), start - std::time::Duration::from_secs(60)).unwrap();
+        assert_eq!(path, current);
+        assert_eq!(log_tail(&path).last().unwrap(), "this run last");
+        assert!(this_runs_log(dir.path(), start + std::time::Duration::from_secs(60)).is_none());
     }
 
     #[test]
