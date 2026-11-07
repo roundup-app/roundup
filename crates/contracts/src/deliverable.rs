@@ -24,8 +24,8 @@ pub enum PublicationTarget {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PublishParams {
-    pub key: String,
-    pub title: String,
+    pub key: crate::Text<256, { crate::text::NONEMPTY }>,
+    pub title: crate::Text<4096>,
     pub target: PublicationTarget,
 }
 

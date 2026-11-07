@@ -56,7 +56,7 @@ async fn fixture() -> (Watched, Asks, Ctx, mpsc::UnboundedReceiver<Vec<u8>>) {
     let ctx = Ctx {
         actor: Actor::user(),
         bus: w.shared.bus.clone(),
-        touches: Arc::new(provenance::Touches::open(&w._dir.path().join("touches.db")).unwrap()),
+        touches: Arc::new(provenance::Touches::open(w._dir.path()).unwrap()),
     };
     (w, asks, ctx, rx)
 }
@@ -95,7 +95,13 @@ async fn a4899a_an_already_idle_door_takes_the_queued_part_without_another_event
         .await
         .unwrap_or_else(|_| panic!("no delivery for blocked={blocked}"));
         assert!(input.try_recv().is_err());
-        assert_eq!(w.shared.wait_of("7013"), blocked.then_some(4));
+        assert_eq!(
+            w.shared
+                .runs()
+                .get("7013")
+                .and_then(|agent| agent.facts.wait),
+            blocked.then_some(4)
+        );
         // Sent precedes acceptance; no later Signal made delivery possible.
     }
 }
@@ -105,7 +111,7 @@ async fn a4899a_readiness_at_the_wait_boundary_is_not_lost() {
     for first_pending in [false, true] {
         let (w, asks, ctx, mut input) = fixture().await;
         if first_pending {
-            if let Some(Slot::Running(run)) = w.shared.runs().get_mut("7013") {
+            if let Some(Slot::Running(run)) = w.shared.runs().slot_mut("7013") {
                 run.first_mut().set_pending(true);
             }
         } else {
@@ -130,7 +136,7 @@ async fn a4899a_readiness_at_the_wait_boundary_is_not_lost() {
         let shared = w.shared.clone();
         *asks.shared.before_wait.lock().unwrap() = Some(Box::new(move || {
             if first_pending {
-                if let Some(Slot::Running(run)) = shared.runs().get_mut("7013") {
+                if let Some(Slot::Running(run)) = shared.runs().slot_mut("7013") {
                     run.first_mut().set_pending(false);
                 }
                 // Same completion boundary as steer_first_prompt: no Kind or bus Event.

@@ -171,7 +171,7 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
         b"file",
     )
     .unwrap();
-    let opened = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let opened = Arc::new(parking_lot::Mutex::new(Vec::new()));
     let observed = opened.clone();
     use std::os::unix::fs::PermissionsExt;
     let program = root.path().join("claude");
@@ -190,7 +190,7 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
     );
     launcher.import_observer = Some(Arc::new(move |path, phase, _| {
         if phase == "open" || phase == "probe" {
-            observed.lock().unwrap().push(path.to_path_buf());
+            observed.lock().push(path.to_path_buf());
         }
     }));
     let daemon = import_daemon(&project, launcher);
@@ -204,7 +204,7 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
     );
     let selection = json!({"source":candidate["source"], "revision":candidate["revision"]});
     let before = import_files(&config);
-    opened.lock().unwrap().clear();
+    opened.lock().clear();
     let commit = import_rpc(
         &daemon,
         "project.importCommit",
@@ -214,11 +214,8 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
     let outcome = &commit["result"]["outcomes"][0];
     assert!(outcome["agent"].is_string(), "{commit}");
     assert_eq!(outcome["error"], Value::Null);
-    assert_eq!(
-        opened.lock().unwrap().as_slice(),
-        std::slice::from_ref(&selected)
-    );
-    assert!(!opened.lock().unwrap().contains(&unrelated));
+    assert_eq!(opened.lock().as_slice(), std::slice::from_ref(&selected));
+    assert!(!opened.lock().contains(&unrelated));
     let replay = import_rpc(
         &daemon,
         "project.importCommit",
@@ -374,7 +371,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
         .unwrap();
     let selected = import_source(&config, root.path(), 1, &at);
     let other = import_source(&config, root.path(), 2, &at);
-    let opened = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let opened = Arc::new(parking_lot::Mutex::new(Vec::new()));
     let journal = opened.clone();
     let mut launcher = agents::claude_code::Launcher::new(
         "must-not-launch",
@@ -384,7 +381,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
     );
     launcher.import_observer = Some(Arc::new(move |path, phase, _bytes| {
         if phase == "open" {
-            journal.lock().unwrap().push(path.to_path_buf());
+            journal.lock().push(path.to_path_buf());
         }
     }));
     let daemon = import_daemon(root.path(), launcher);
@@ -399,7 +396,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
     // Malformed unrelated history would make a rescan fail, but is never read.
     std::fs::write(&other, vec![b'x'; 1024 * 1024]).unwrap();
     let before = import_files(&config);
-    opened.lock().unwrap().clear();
+    opened.lock().clear();
     let committed = import_rpc(
         &daemon,
         "project.importCommit",
@@ -412,10 +409,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
         "{committed}"
     );
     assert!(committed["result"]["outcomes"][0]["agent"].is_string());
-    assert_eq!(
-        opened.lock().unwrap().as_slice(),
-        std::slice::from_ref(&selected)
-    );
+    assert_eq!(opened.lock().as_slice(), std::slice::from_ref(&selected));
     let source = std::fs::read(&selected).unwrap();
     let retained = import_added_files(&config, &before);
     assert_eq!(retained.len(), 1);
@@ -448,7 +442,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
         .unwrap()
         .write_all(b"{}\n")
         .unwrap();
-    opened.lock().unwrap().clear();
+    opened.lock().clear();
     let refused = import_rpc(
         &daemon,
         "project.importCommit",
@@ -461,10 +455,10 @@ async fn u3037b_commit_reads_only_selected_contents() {
             .unwrap()
             .contains("changed since preview")
     );
-    assert!(opened.lock().unwrap().is_empty());
+    assert!(opened.lock().is_empty());
     let duplicate = import_source(&config, &root.path().join("sub"), 3, &at);
     std::fs::write(duplicate, std::fs::read(&changed).unwrap()).unwrap();
-    opened.lock().unwrap().clear();
+    opened.lock().clear();
     let refused = import_rpc(
         &daemon,
         "project.importCommit",
@@ -475,7 +469,7 @@ async fn u3037b_commit_reads_only_selected_contents() {
         refused["result"]["outcomes"][0]["error"]["code"],
         rpc::code::CONFLICT
     );
-    assert!(opened.lock().unwrap().is_empty());
+    assert!(opened.lock().is_empty());
 }
 
 #[tokio::test]

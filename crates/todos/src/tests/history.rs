@@ -380,15 +380,14 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
 async fn t15_equal_time_reads_and_changes_keep_order() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
-    let touches_path = dir.path().join("touches.db");
     let mut h = h;
-    h.ctx.touches = Arc::new(Touches::open(&touches_path).unwrap());
+    h.ctx.touches = Arc::new(Touches::open(dir.path()).unwrap());
     h.call("todo.create", json!({"title": "a"})).await.unwrap();
     h.call("todo.get", json!({"id": 1})).await.unwrap();
     h.call_as(agent("a"), "todo.update", json!({"id": 1, "body": "new"}))
         .await
         .unwrap();
-    let db = rusqlite::Connection::open(&touches_path).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute("UPDATE touches SET at = 0", []).unwrap();
     let history = changes(&h, 1).await;
     assert_eq!(history["unread"], history["changes"][1]["seq"]);

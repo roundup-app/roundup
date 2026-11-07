@@ -92,6 +92,9 @@ pub enum RemoveScope {
     All,
 }
 
+/// A client's retry key for the deletion ledger (R30): 1 to 96 bytes.
+pub type OperationKey = crate::Text<96, { crate::text::NONEMPTY }>;
+
 /// A client key requests data-only removal; omission keeps irreversible removal's consent path.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RemoveParams {
@@ -101,7 +104,7 @@ pub struct RemoveParams {
     pub scope: Option<RemoveScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
-    pub operation: Option<String>,
+    pub operation: Option<OperationKey>,
 }
 
 /// Captured selection; every target uses its default removal scope. A key requests data-only retention.
@@ -110,7 +113,7 @@ pub struct RemoveSelectionParams {
     pub ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
-    pub operation: Option<String>,
+    pub operation: Option<OperationKey>,
 }
 
 /// Authority is retained by the Project, never supplied as a replacement graph.

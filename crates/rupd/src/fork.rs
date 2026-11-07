@@ -50,14 +50,26 @@ pub(crate) fn colour_of(project_dir: &Path) -> Option<contracts::data::ForkColou
         .map(|r| r.colour)
 }
 
-/// Copy the live `root` into `params.path`; on failure remove what this call wrote.
-pub(crate) fn fork(root: &Path, params: &ForkParams) -> Result<ForkResult, RpcError> {
-    let name = params.name.as_str();
-    if name.is_empty() || name.chars().count() > 40 || name.chars().any(char::is_control) {
-        return Err(invalid(
-            "A Fork name is 1 to 40 characters with no control character.",
-        ));
+/// `ForkParams` whose name was checked while parsing: 1 to 40 characters, no control character.
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(try_from = "ForkParams")]
+pub(crate) struct ForkRequest(ForkParams);
+
+impl TryFrom<ForkParams> for ForkRequest {
+    type Error = &'static str;
+
+    fn try_from(params: ForkParams) -> Result<Self, Self::Error> {
+        let name = params.name.as_str();
+        if name.is_empty() || name.chars().count() > 40 || name.chars().any(char::is_control) {
+            return Err("A Fork name is 1 to 40 characters with no control character.");
+        }
+        Ok(Self(params))
     }
+}
+
+/// Copy the live `root` into `params.path`; on failure remove what this call wrote.
+pub(crate) fn fork(root: &Path, params: &ForkRequest) -> Result<ForkResult, RpcError> {
+    let params = &params.0;
     let folder = Path::new(&params.path);
     if !folder.is_absolute() {
         return Err(invalid(format!("{} is not an absolute path", params.path)));

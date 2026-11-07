@@ -44,7 +44,7 @@ impl Daemon {
     ) -> Result<(Self, Watchers), OpenError> {
         let begun = std::time::Instant::now();
         std::fs::create_dir_all(dir)?;
-        let naming = Arc::new(std::sync::Mutex::new(data::open_naming(
+        let naming = Arc::new(parking_lot::Mutex::new(data::open_naming(
             &data::naming_path(dir),
         )?));
         let naming_reader = Arc::clone(&naming);
@@ -62,7 +62,7 @@ impl Daemon {
         let terminals = Arc::new(terminals);
         terminals.answer_status_query(true);
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
-        let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
+        let touches = Arc::new(Touches::open(dir)?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
         let context_todos = Arc::clone(&todos);
         let base_at = begun.elapsed();
@@ -74,12 +74,12 @@ impl Daemon {
                 Arc::clone(&terminals),
             )?)
             .with_automatic_renaming(move || {
-                data::read_naming(&naming_reader.lock().expect("naming preferences poisoned"))
+                data::read_naming(&naming_reader.lock())
                     .map(|settings| settings.automatic_renaming)
                     .map_err(RpcError::internal)
             })
             .with_naming_guide(move || {
-                data::read_naming(&guide_reader.lock().expect("naming preferences poisoned"))
+                data::read_naming(&guide_reader.lock())
                     .map(|settings| settings.naming_guide)
                     .map_err(RpcError::internal)
             })
@@ -139,7 +139,7 @@ impl Daemon {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
+            digests: Arc::new(messages::digest::Seen::open(dir)?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
             rail: agents.clone(),
@@ -268,15 +268,14 @@ impl Daemon {
 impl Daemon {
     /// Attach the Terminal owners that outlived the previous Daemon (A12a) and return the
     /// sockets their programs still call, for the caller to serve beside its own.
-    pub async fn reattach_owners(&self) -> Vec<std::path::PathBuf> {
+    pub async fn reattach_owners(&self) -> Result<Vec<std::path::PathBuf>, RpcError> {
         self.agents.reattach_owners().await;
         self.sender
             .get()
-            .expect("Messages opened")
+            .ok_or_else(|| RpcError::internal("Messages are not opened"))?
             .recover()
-            .await
-            .expect("recovered Message receivers");
-        self.agents.retained_sockets()
+            .await?;
+        Ok(self.agents.retained_sockets())
     }
 }
 
@@ -338,20 +337,26 @@ impl Watchers {
                 Arc::clone(&daemon.rail_told),
                 self.rail,
             ));
-            set.spawn(digest::push_changes(
-                daemon.reader(),
-                Arc::clone(sender),
-                Arc::clone(&daemon.digests),
-                Arc::new(
-                    settlement::Settlements::open(&daemon.data_dir.join("project.db"))
-                        .unwrap_or_else(|err| {
-                            eprintln!("settlement store not opened, kept in memory: {err}");
-                            settlement::Settlements::default()
-                        }),
-                ),
-                Some(Arc::clone(&daemon.rail_told)),
-                self.pushes,
-            ));
+            let settlements = settlement::Settlements::open(&daemon.data_dir.join("project.db"))
+                .or_else(|err| {
+                    eprintln!("settlement store not opened, kept in memory: {err}");
+                    settlement::Settlements::in_memory()
+                });
+            match settlements {
+                Ok(settlements) => {
+                    set.spawn(digest::push_changes(
+                        daemon.reader(),
+                        Arc::clone(sender),
+                        Arc::clone(&daemon.digests),
+                        Arc::new(settlements),
+                        Some(Arc::clone(&daemon.rail_told)),
+                        self.pushes,
+                    ));
+                }
+                Err(err) => {
+                    eprintln!("settlement store unavailable, Digest pushes not started: {err}")
+                }
+            }
         }
         #[cfg(test)]
         for task in self.extra {

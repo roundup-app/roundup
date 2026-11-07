@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::Slot;
+use crate::agent::Runs;
 use crate::tests::*;
 
 #[test]
@@ -25,7 +26,7 @@ fn a2681a_stopping_attempt_hides_parts() {
         .rail()
         .save_conversation(&id, conversation, &cwd.to_string_lossy())
         .unwrap();
-    if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
+    if let Some(Slot::Running(run)) = shared.runs().slot_mut(&id) {
         run.exit();
     }
     shared
@@ -36,7 +37,7 @@ fn a2681a_stopping_attempt_hides_parts() {
         shared.node(&id).unwrap().overview.is_some(),
         "fixture must have visible parts before stopping"
     );
-    if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
+    if let Some(Slot::Running(run)) = shared.runs().slot_mut(&id) {
         run.begin_closing();
     }
     assert!(shared.node(&id).unwrap().overview.is_none());

@@ -1,4 +1,4 @@
-//! App-stored Pads in the Project database, with standalone stores for current callers.
+//! App-stored Pads in the Project database.
 
 use std::path::Path;
 
@@ -82,24 +82,13 @@ const FILES_SETTING: &str = "files";
 
 pub struct Store {
     pub(crate) db: Connection,
-    settings: &'static str,
 }
 
 impl Store {
-    pub fn open(path: &Path) -> Result<Self, OpenError> {
-        let mut db = Connection::open(path)?;
-        // The Daemon initializes Project WAL; repeating the pragma eagerly loads its whole schema.
-        if path.file_name().is_none_or(|name| name != "project.db") {
-            db.pragma_update(None, "journal_mode", "WAL")?;
-        }
-        crate::schema::open(&mut db, path)?;
+    /// `dir` is the Project's data folder; the connection is `storage::connect`'s.
+    pub fn open(dir: &Path) -> Result<Self, OpenError> {
         Ok(Self {
-            db,
-            settings: if path.file_name().is_some_and(|name| name == "project.db") {
-                "pad_settings"
-            } else {
-                "settings"
-            },
+            db: storage::connect(dir)?,
         })
     }
 
@@ -188,12 +177,7 @@ impl Store {
             "UPDATE pads SET home = ?2 WHERE key = ?1",
             params![key(name), home],
         )?;
-        let retained: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
-            [],
-            |r| r.get(0),
-        )?;
-        if retained && changed == 1 {
+        if changed == 1 {
             tx.execute(
                 "DELETE FROM rail_removal_items WHERE kind='pad-home' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
                 [name],
@@ -229,7 +213,7 @@ impl Store {
         let value: Option<String> = self
             .db
             .query_row(
-                &format!("SELECT value FROM {} WHERE key = ?1", self.settings),
+                "SELECT value FROM pad_settings WHERE key = ?1",
                 [FILES_SETTING],
                 |row| row.get(0),
             )
@@ -239,11 +223,8 @@ impl Store {
 
     pub fn set_files(&self, files: bool) -> rusqlite::Result<()> {
         self.db.execute(
-            &format!(
-                "INSERT INTO {} (key, value) VALUES (?1, ?2)
+            "INSERT INTO pad_settings (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                self.settings
-            ),
             params![FILES_SETTING, files.to_string()],
         )?;
         Ok(())
@@ -276,8 +257,10 @@ mod tests {
     #[test]
     fn updates_to_a_pad_deleted_through_another_connection_report_no_change() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("pads.db");
-        let (one, other) = (Store::open(&path).unwrap(), Store::open(&path).unwrap());
+        let (one, other) = (
+            Store::open(dir.path()).unwrap(),
+            Store::open(dir.path()).unwrap(),
+        );
         let pad = Pad {
             incarnation: String::new(),
             name: "notes".into(),

@@ -86,8 +86,10 @@ impl Daemon {
                 .iter()
                 .any(|o| matches!(o, ResultObservation::Passed { .. }));
             let unavailable = matches!(result.availability, Resolution::Unavailable { .. });
-            let superseded = progress.results[index + 1..]
+            let superseded = progress
+                .results
                 .iter()
+                .skip(index + 1)
                 .any(|later| later.report.request.target.id == target.id);
             let confirmed = if let Some((_, evidence)) = resolved {
                 Some(format!("authoritative receipt {}", evidence.revision))
@@ -175,7 +177,7 @@ impl Daemon {
             target: report.request.target.clone(),
             output: report.request.output.id.clone(),
             instruction: report.instruction.revision.clone(),
-            next: report.request.next.clone(),
+            next: report.request.next.to_string(),
             decision: covered.map(|c| c.decision),
             id,
         })
@@ -195,12 +197,6 @@ impl Daemon {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
                 "only the user may choose to resume unfinished work",
-            ));
-        }
-        if p.request.trim().is_empty() || p.request.len() > 256 {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "request is empty or too long",
             ));
         }
         let messages = self
@@ -254,7 +250,7 @@ impl Daemon {
         let accepting = if open.is_empty() { &chosen } else { &open };
         let request = Continue {
             agent: p.id.clone(),
-            request: p.request.clone(),
+            request: p.request.to_string(),
             payload,
             actions: accepting.iter().map(|a| a.id.clone()).collect(),
             body: successor_body(accepting, &reconciliation),
