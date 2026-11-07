@@ -119,7 +119,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');if(g.dataset.state==='closed')g.querySelector('[data-part=branch-control]').click();return true;})()`);
     await lane.evaluate(`(() => { window.__assignCalls = []; const fetch = window.fetch.bind(window); window.fetch = (url, options) => { if (String(url).endsWith('/__daemon/rpc')) { const call = JSON.parse(options.body); if (call.method === 'todo.assign') window.__assignCalls.push(call); if (call.method === window.__failure?.method) { const failure = window.__failure; window.__failure = null; return Promise.resolve(new Response(JSON.stringify({error:{code:-32003,message:failure.message}}), {headers:{'Content-Type':'application/json'}})); } } return fetch(url, options); }; return true; })()`);
     await lane.browser("click", ".shelf-done-line button:first-child");
-    await lane.until("document.querySelector('.todo-done-fold')?.dataset.open === 'true'");
+    await lane.until("document.querySelector('.todo-done-fold') !== null");
     await capture("board");
 
     await lane.evaluate(`(() => {

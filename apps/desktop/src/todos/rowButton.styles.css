@@ -239,39 +239,9 @@
   transition-duration: var(--duration-instant);
 }
 
-/* U53: retain the done rows through a reversible 150 ms fold. The existing
-   Todo duration Token also times the row slide; hidden controls stop accepting input at once. */
-.todo-done-fold {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition-property: grid-template-rows;
-  transition-duration: var(--duration-todo);
-  transition-timing-function: var(--easing-out);
-}
-
-.todo-done-fold[data-open="true"] {
-  grid-template-rows: 1fr;
-}
-
-.todo-done-content {
-  min-height: 0;
-  overflow: hidden;
-}
-
-@starting-style {
- .todo-done-fold[data-open="true"] {
-    grid-template-rows: 0fr;
-  }
-}
-
-.todo-done-fold[data-reduced-motion="true"] {
-  transition-property: grid-template-rows;
-  transition-duration: var(--duration-instant);
-  transition-timing-function: var(--easing-out);
-}
-
-@media (prefers-reduced-motion: reduce) {
- .todo-done-fold { transition: none; }
+/* U53, U6398a: the done rows mount and unmount with the fold; ui/fold.ts projects the rows below. */
+.todo-done-toggle {
+  display: contents;
 }
 
 .todo-row-notice {
@@ -305,16 +275,7 @@
 /* U3809: Ark owns branch disclosure; each row already carries its absolute tree indent. */
 .todo-list .todo-dependency { cursor: auto; margin-block: 0; }
 .todo-dependency [data-part="branch-content"] { padding-inline-start: 0; }
-.todo-dependency [data-part="branch-content"] {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition-property: grid-template-rows;
-  transition-duration: var(--duration-instant);
-  transition-timing-function: var(--easing-out);
-}
-.todo-dependency[data-structural-motion="true"] [data-part="branch-content"] {
-  transition: grid-template-rows var(--duration-todo) var(--easing-out);
-}
+.todo-dependency [data-part="branch-content"] { display: grid; grid-template-rows: 1fr; }
 .todo-dependency [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
 .todo-group-content { min-height: 0; overflow: hidden; }
 

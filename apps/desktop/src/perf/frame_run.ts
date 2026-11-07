@@ -642,12 +642,12 @@ export const domTodos = (app: AppSeam, fixture: Fixture, journal: TodoAction[]):
     const fold = document.querySelector<HTMLElement>(".shelf-done-line button");
 
     if (!fold) return false;
-    const before = document.querySelector<HTMLElement>(".todo-done-fold")?.dataset.open === "true";
+    const before = document.querySelector(".todo-done-fold") !== null;
 
     fold.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
 
     return Promise.race([
-      appears(() => document.querySelector<HTMLElement>(".todo-done-fold")?.dataset.open === String(!before) ? true : null, "the changed done fold"),
+      appears(() => (document.querySelector(".todo-done-fold") !== null) === !before ? true : null, "the changed done fold"),
       sleep(SETTLE_MS).then(() => false),
     ]);
   },
