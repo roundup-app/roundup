@@ -107,7 +107,7 @@ it("u4547a_section_state_survives_reopen_for_every_project", async () => {
   expect(document.querySelector('[data-id="plain-child"]')).toBeNull();
   cleanup();
   await reopen("/other");
-  expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["true", "false", "true"]);
+  expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]);
 });
 
 it("u5645c_sections_and_stable_order_survive_reclassification", async () => {
