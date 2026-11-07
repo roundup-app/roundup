@@ -45,7 +45,10 @@ const createClosing = (props: { tabs: StripTab[]; onClose: (path: string) => voi
 
     if (tab.exitText !== null || tab.running.length === 0) props.onClose(tab.path);
     else {
-      setCloseOpener(document.activeElement instanceof HTMLElement ? document.activeElement : undefined);
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+
+      // The close X is outside the accessibility tree, so focus returns to its tab.
+      setCloseOpener(active?.classList.contains("tab-close") ? active.closest<HTMLElement>(".project-tab")?.querySelector<HTMLElement>(".tab-name-button") ?? active : active);
       setAsking(tab.path);
     }
   };
