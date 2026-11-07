@@ -112,3 +112,24 @@ async fn a3360a_the_cut_falls_on_a_character_boundary() {
         }
     }
 }
+
+#[tokio::test]
+async fn u3780a_a_tool_call_and_the_exit_status_carry_the_injected_clock() {
+    const NOW: i64 = 4_242_424;
+    let mut f = Fixture::running("sleep 0.5; exit 3");
+    f.agents = f.agents.with_clock(|| NOW);
+    let node = f.spawn(None, None).await.unwrap();
+    calls(&mut f);
+    signal(
+        &f,
+        &node.id,
+        json!({"hook_event_name": "PreToolUse", "tool_use_id": "t1", "tool_name": "Bash", "tool_input": {"command": "ls"}}),
+    )
+    .await;
+    assert_eq!(calls(&mut f)[0].call.started, NOW);
+
+    let tree = f
+        .until(|t| crate::common::status_of(t, &node.id).kind == contracts::Kind::Error)
+        .await;
+    assert_eq!(crate::common::status_of(&tree, &node.id).since, NOW);
+}

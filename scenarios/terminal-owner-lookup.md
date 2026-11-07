@@ -1,0 +1,7 @@
+# Terminal owner lookup reports a poisoned table
+
+Module: `crates/terminal` and `crates/agents`; tests in `crates/terminal/tests/` and `crates/agents/tests/`. Work order: #6570. Refines RB3798b and RB3798c (`scenarios/rust-boundaries.md`); X8 (`scenarios/terminal.md`) keeps its contract.
+
+**X6570a a poisoned remote table is an error, never "owned directly".** Given a client whose remote table lock is poisoned by a panic in another thread, when `Terminals::terminal_owner` looks up the owner record of a client Terminal id, then it returns an `RpcError` with code `internal` instead of `None`, so a remote Terminal's record is never read as "a Terminal this client owns directly". The function returns `Result<Option<TerminalOwner>, RpcError>`: `Ok(None)` for an id that is not a number or has no remote record, `Ok(Some(record))` for a remote Terminal. Test: `x6570a_a_poisoned_remote_table_is_an_error` (`crates/terminal/tests/`; a test-only hook poisons the table, then asserts the error code, and that a clean table still answers `Ok(None)` for a directly owned id and `Ok(Some(_))` for a remote one).
+
+**X6570b the caller saves nothing and fails when the lookup fails.** Given the poisoned table of X6570a, when `Agents::save_owner` runs for an Agent's Terminal, then it returns that error and writes no owner file, so reopening cannot report the Agent `done` as if its Terminal were owned directly (A8). With a clean table a directly owned Terminal still writes no file and returns `Ok`. Test: `x6570b_save_owner_fails_when_the_lookup_fails` (`crates/agents/tests/`).

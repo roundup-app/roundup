@@ -203,6 +203,7 @@ export const Todos = (props: {
     rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
+    focused: selection.focused,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
     done: () => done().map(target),
     context: () => connected.rail.selected() ?? "overview",
