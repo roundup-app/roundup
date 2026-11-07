@@ -564,11 +564,18 @@ async fn t6a_a_256_byte_key_is_accepted_and_257_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     made(&h, json!({"title":"one"})).await;
-    assert!(h
-        .call("todo.delete", json!({"operation":"a".repeat(257),"ids":[1]}))
+    assert!(
+        h.call(
+            "todo.delete",
+            json!({"operation":"a".repeat(257),"ids":[1]})
+        )
         .await
-        .is_err());
-    h.call("todo.delete", json!({"operation":"a".repeat(256),"ids":[1]}))
-        .await
-        .unwrap();
+        .is_err()
+    );
+    h.call(
+        "todo.delete",
+        json!({"operation":"a".repeat(256),"ids":[1]}),
+    )
+    .await
+    .unwrap();
 }
