@@ -54,7 +54,7 @@ impl Terminals {
         let _ = std::thread::scope(|scope| {
             scope
                 .spawn(|| {
-                    let _held = self.remotes.lock();
+                    let _guard = self.remotes.lock();
                     panic!("poison the remote table");
                 })
                 .join()
