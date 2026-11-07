@@ -114,7 +114,7 @@ export const copy = {
   markName: (name: string, state: string, needs: number, unread: boolean) => [name, state, ...(needs > 0 ? [sharedCopy.needYou(needs)] : []), ...(unread ? [sharedCopy.unreadResult] : [])].join(", "),
   expand: "Expand",
   hiddenAgents: (n: number) => `${n} hidden Agents`,
-  liftedChildren: (n: number) => `${n} moving Agents`,
+  liftedChildren: (n: number) => `${n} moving rows`,
   liftedCount: (n: number) => `+${n}`,
   retryDoor: sharedCopy.retryDoor,
   startDoor: sharedCopy.startDoor,

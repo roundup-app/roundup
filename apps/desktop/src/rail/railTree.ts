@@ -143,7 +143,14 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: topology().nodes[topology().parent[topology().index.get(row.node.id)!] ?? -1]?.id ?? null })));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
-  const placeNodes = createMemo(() => new Map(rail.nodes.map((node) => [node.id, { id: node.id, kind: node.kind, parent: node.parent }])));
+  // Built on the first drop asked about, so a Rail nobody drags reads no node twice.
+  let placed: { from: typeof rail.nodes; map: Map<string, { id: string; kind: ProjectNode["kind"]; parent: string | null }> } | undefined;
+
+  const placeNodes = () => {
+    if (placed?.from !== rail.nodes) placed = { from: rail.nodes, map: new Map(rail.nodes.map((node) => [node.id, { id: node.id, kind: node.kind, parent: node.parent }])) };
+
+    return placed.map;
+  };
 
   /** What a drag asks of the Rail: which rows nest a child, the Daemon's placement rule for the drops it may show (U6550c), and the fold of the row it holds. */
   const dropRules = {
