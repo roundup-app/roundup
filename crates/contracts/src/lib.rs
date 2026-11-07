@@ -39,8 +39,10 @@ pub mod pad;
 pub mod project;
 pub mod skill;
 pub mod terminal;
+pub mod text;
 pub mod todo;
 pub mod workstream;
 
 pub use common::*;
 pub use event::{Event, EventData};
+pub use text::Text;
