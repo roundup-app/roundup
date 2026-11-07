@@ -64,7 +64,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
   return () => { drawn = new Map(rows().map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
 };
 
-export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, container: Accessor<HTMLElement | undefined>) => {
+export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, container: Accessor<HTMLElement | undefined> = () => undefined) => {
   const { rail, now } = connected;
   /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
   const [lifted, setLifted] = createSignal<string | null>(null);
