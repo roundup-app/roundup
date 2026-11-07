@@ -44,27 +44,41 @@ pub fn open_in(dir: &Path, bus: &Bus, bin: &str) -> (Agents, Arc<Terminals>) {
 }
 
 pub fn open_in_with_git(dir: &Path, bus: &Bus, bin: &str, git: Git) -> (Agents, Arc<Terminals>) {
+    open_wired(dir, bus, bin, git, agents::Quiet::default())
+}
+
+/// `open_in_with_git` over `wiring`, whose inbox is the Fixture's log.
+pub fn open_wired(
+    dir: &Path,
+    bus: &Bus,
+    bin: &str,
+    git: Git,
+    wiring: agents::Quiet,
+) -> (Agents, Arc<Terminals>) {
     let terminals = Arc::new(Terminals::open(dir, bus.clone()).unwrap());
     let rup = dir.join("rup");
     std::fs::write(&rup, "").unwrap();
     let launcher = Launcher::new(bin, dir.join("claude.json"), rup, None);
     let log = dir.join(INBOX_LOG);
-    let agents = Agents::open_with(dir, bus.clone(), Arc::clone(&terminals), launcher, git)
-        .unwrap()
-        .with_coordination(move |_, id, text| {
-            let log = log.clone();
-            async move {
-                use std::io::Write;
-                let line = json!({"to": id, "body": text}).to_string();
-                let mut file = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(log)
-                    .unwrap();
-                writeln!(file, "{line}").unwrap();
-                Ok(())
-            }
-        });
+    let wiring = wiring.with_inbox(move |id, text| {
+        use std::io::Write;
+        let line = json!({"to": id, "body": text}).to_string();
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log)
+            .unwrap();
+        writeln!(file, "{line}").unwrap();
+    });
+    let agents = Agents::open_with(
+        dir,
+        bus.clone(),
+        Arc::clone(&terminals),
+        launcher,
+        git,
+        wiring.shared(),
+    )
+    .unwrap();
     (agents, terminals)
 }
 
@@ -106,6 +120,26 @@ impl Fixture {
     /// Like `running`, but `dir` is a real git repository (the Project folder) with `.roundup/`
     /// as its own subfolder, the way production lays it out; `running` collapses the two, which
     /// is fine for tests that never run `git`.
+    /// Like `running`, with the global automatic-renaming switch read from `renaming`.
+    pub fn running_switched(
+        script: &str,
+        renaming: impl Fn() -> bool + Send + Sync + 'static,
+    ) -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = fake_claude(dir.path(), script);
+        let bus = Bus::new();
+        let events = bus.subscribe();
+        let wiring = agents::Quiet::default().with_renaming(renaming);
+        let (agents, terminals) = open_wired(dir.path(), &bus, &bin, Git::from_env(), wiring);
+        Self {
+            dir,
+            bus,
+            events,
+            agents,
+            terminals,
+        }
+    }
+
     pub fn in_git_project(script: &str, git: Git) -> Self {
         let project = tempfile::tempdir().unwrap();
         init_repo(project.path());

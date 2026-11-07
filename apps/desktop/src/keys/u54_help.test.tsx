@@ -6,7 +6,7 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { CHORDS, LEADER, pressOf } from "./chords";
+import { CHORDS, LEADER, pressOf, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
@@ -165,11 +165,11 @@ describe("u54 keyboard help", () => {
     const shown = [...panel!.querySelectorAll(".key-chips")].map(chip => chip.textContent);
 
     // U5919c: Help keeps the full inventory, independently of Project membership.
-    for (const row of CHORDS.filter(row => !row.inFirstRun && row.name !== "terminal.find")) {
+    for (const row of CHORD_ROWS.filter(row => !row.inFirstRun && row.name !== "terminal.find")) {
       expect(shown, row.name).toContain(row.keys);
     }
 
-    for (const row of LEADER) expect(shown, row.name).toContain(`⌘K ${row.keys}`);
+    for (const row of LEADER_ROWS) expect(shown, row.name).toContain(`⌘K ${row.keys}`);
 
     expect(within(panel!).queryByText(/Choose folder/)).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(panel));
@@ -223,7 +223,7 @@ describe("u54 keyboard help", () => {
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector('.rail-actions [aria-label="Create"]')).not.toBeNull());
 
-    const listed = CHORDS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf && !chord.ownsEscape && !chord.inEditor).flatMap((chord) => chord.presses).sort();
+    const listed = CHORD_ROWS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf && !chord.ownsEscape && !chord.inEditor).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
     const outsideTerminal = document.querySelector<HTMLElement>(".rail-tree")!;
     outsideTerminal.focus();
@@ -272,7 +272,7 @@ describe("u54 keyboard help", () => {
     if (rename.defaultPrevented) railOnly.push(pressOf(rename));
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Name" }), { key: "Escape", code: "Escape" });
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
-    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf && !chord.ownsEscape && !chord.inEditor).flatMap((chord) => chord.presses).sort());
+    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORD_ROWS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf && !chord.ownsEscape && !chord.inEditor).flatMap((chord) => chord.presses).sort());
   });
 
 });

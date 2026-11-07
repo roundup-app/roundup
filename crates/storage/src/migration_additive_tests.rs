@@ -24,8 +24,20 @@ fn rejected(sql: &str, existing: &HashSet<String>) -> Vec<String> {
             .trim_matches(|c| c == '"' || c == '`' || c == '[' || c == ']')
             .to_lowercase()
     };
-    statements(sql)
-        .into_iter()
+    let all = statements(sql);
+    let added: Vec<String> = all
+        .iter()
+        .filter_map(|s| {
+            let upper = s.to_uppercase();
+            let rest = upper.strip_prefix("ALTER TABLE ")?;
+            let (_, tail) = rest.split_once(' ')?;
+            let column = tail
+                .strip_prefix("ADD COLUMN ")
+                .or_else(|| tail.strip_prefix("ADD "))?;
+            Some(column.split(' ').next()?.to_owned())
+        })
+        .collect();
+    all.into_iter()
         .filter(|statement| {
             let upper = statement.to_uppercase();
             let creates = [
@@ -50,7 +62,7 @@ fn rejected(sql: &str, existing: &HashSet<String>) -> Vec<String> {
                 return column.contains("NOT NULL") && !column.contains("DEFAULT");
             }
             if let Some(rest) = upper.strip_prefix("UPDATE ") {
-                return existing.contains(&table_of(rest));
+                return existing.contains(&table_of(rest)) && !fills_added_column(rest, &added);
             }
             if let Some(rest) = upper.strip_prefix("DELETE FROM ") {
                 return existing.contains(&table_of(rest));
@@ -58,6 +70,41 @@ fn rejected(sql: &str, existing: &HashSet<String>) -> Vec<String> {
             true
         })
         .collect()
+}
+
+/// Whether `update` (the text after `UPDATE `) assigns only a column this file adds: the old build
+/// does not read that column, so filling it changes nothing it reads.
+fn fills_added_column(update: &str, added: &[String]) -> bool {
+    let Some((_, set)) = update.split_once(" SET ") else {
+        return false;
+    };
+    if !added.iter().any(|c| set.starts_with(&format!("{c} = "))) {
+        return false;
+    }
+    let (mut depth, mut quoted) = (0, false);
+    for (at, c) in set.char_indices() {
+        match c {
+            '\'' => quoted = !quoted,
+            '(' if !quoted => depth += 1,
+            ')' if !quoted => depth -= 1,
+            ',' if !quoted && depth == 0 => return false,
+            _ if !quoted && depth == 0 && set[at..].starts_with(" WHERE ") => return true,
+            _ => {}
+        }
+    }
+    true
+}
+
+#[test]
+fn mg1_filling_the_column_the_file_adds_passes() {
+    let existing = HashSet::from(["messages".to_string()]);
+    let add = "ALTER TABLE messages ADD COLUMN payload TEXT NOT NULL DEFAULT 'x';";
+    let ok = format!("{add} UPDATE messages SET payload = json_object('a', 1) WHERE kind = 'note'");
+    assert_eq!(rejected(&ok, &existing), Vec::<String>::new());
+    let more = format!("{add} UPDATE messages SET payload = 'x', body = 'y'");
+    assert_eq!(rejected(&more, &existing).len(), 1);
+    let other = "UPDATE messages SET body = 'y' WHERE payload = 'x'";
+    assert_eq!(rejected(other, &existing).len(), 1);
 }
 
 #[test]

@@ -58,13 +58,18 @@ export const LABELS: Record<Kind, string> = { error: copy.error, "needs-you": co
 
 const SOLID = new Set(["cross", "check"]);
 
-const Mark = (props: { kind: Kind; frozen?: string; ref?: (svg: SVGSVGElement) => void; class?: string }) => (
-  <svg ref={props.ref} class={props.class ?? "kind-mark"} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill={SOLID.has(glyphOf(props.kind).drawing) ? "currentColor" : "none"} stroke="currentColor"
+const Mark = (props: { kind: Kind; frozen?: string; ref?: (svg: SVGSVGElement) => void; class?: string }) => {
+  // U3800d: a redraw hands the Glyph a fresh row; only a different drawing replaces the marks inside.
+  const drawing = createMemo(() => glyphOf(props.kind).drawing);
+
+  return (
+  <svg ref={props.ref} class={props.class ?? "kind-mark"} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill={SOLID.has(drawing()) ? "currentColor" : "none"} stroke="currentColor"
     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="8" cy="8" r="6" />
-    {DRAWINGS[glyphOf(props.kind).drawing](props.frozen)}
+    {DRAWINGS[drawing()](props.frozen)}
   </svg>
-);
+  );
+};
 
 /** M9: a Kind change on a mounted Glyph crossfades over the 150 ms fade preset; the latest Kind wins and the old mark is inert. */
 export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: string; class?: string }) => {
@@ -83,6 +88,9 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
 
   createComputed(on(changed, kind => {
     const previous = shown;
+
+    // A redraw re-reads the prop for every Glyph; only a different Kind is a change to fade.
+    if (kind === previous) return;
 
     shown = kind;
     // Read what is on screen before the running fade is cancelled, so an interrupted fade continues from it.

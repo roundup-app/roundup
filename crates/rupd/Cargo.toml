@@ -5,10 +5,10 @@ license.workspace = true
 version.workspace = true
 
 [features]
-test-support = ["agents/test-support", "dep:async-trait"]
+test-support = ["agents/test-support"]
 
 [dependencies]
-async-trait = { workspace = true, optional = true }
+async-trait.workspace = true
 agents = { path = "../agents" }
 base64.workspace = true
 contracts = { path = "../contracts" }
@@ -42,7 +42,6 @@ allocation-counter = "0.8.1"
 terminal = { path = "../terminal", features = ["test-support"] }
 tokio = { workspace = true, features = ["test-util"] }
 agents = { path = "../agents", features = ["test-support"] }
-async-trait.workspace = true
 jsonschema = { version = "0.60.2", default-features = false }
 tempfile.workspace = true
 proptest = { version = "1.12.0", default-features = false, features = ["std"] }

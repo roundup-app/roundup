@@ -16,7 +16,7 @@ import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { CHORDS, LEADER, SWITCHER_CLOSE, SWITCHER_KEYS, SWITCHER_RECORD, chordNamed, pressOf, recordable } from "../keys/chords";
+import { CHORDS, LEADER, SWITCHER_CLOSE, SWITCHER_KEYS, SWITCHER_RECORD, CHORD_ROWS, pressOf, recordable } from "../keys/chords";
 import { KeyChip } from "../keys/KeyChip";
 import { checkRecorded, isModifier, shortcutsWith } from "../settings/shortcutRules";
 import { saveAppSettings } from "../settings/preferences";
@@ -124,7 +124,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   /** U5240c: the highlighted row when it is a command that can take a new key (U5240d). */
   const highlightedCommand = createMemo(() => {
     const action = actions().find(candidate => candidate.value === highlighted());
-    const chord = action && !action.value.startsWith("action:leader") ? CHORDS.find(row => row.name === action.name) : undefined;
+    const chord = action && !action.value.startsWith("action:leader") ? CHORD_ROWS.find(row => row.name === action.name) : undefined;
 
     return action && chord && recordable(chord) && shown().some(entry => entry.value === action.value) ? action : undefined;
   });
@@ -140,7 +140,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   ];
 
   /** The key a command shows: its live row, so a key just saved shows at once. */
-  const keysOf = (action: { value: string; name: string; keys: KeyText }) => action.value.startsWith("action:leader") ? action.keys : chordNamed(action.name)?.keys ?? action.keys;
+  const keysOf = (action: { value: string; name: string; keys: KeyText }) => action.value.startsWith("action:leader") ? action.keys : CHORD_ROWS.find(row => row.name === action.name)?.keys ?? action.keys;
 
   createEffect(() => {
     const list = shown();
@@ -341,15 +341,15 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     setOpen(true);
   };
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: args => show(args?.query === undefined ? undefined : String(args.query)) }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.row"], searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: args => show(args?.query === undefined ? undefined : String(args.query)) }) }]);
   // U5240a: the direct chord opens from anywhere, a focused Terminal included; the open Switcher's layer closes it again.
-  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "switcher.open")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: () => show() }) }]);
+  registerKeys({ kind: "app" }, [{ action: CHORDS["switcher.open"], searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: () => show() }) }]);
 
   const switcherScope = { kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true } as const;
 
   registerKeys(switcherScope, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
-    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === chordNamed("switcher.open")?.presses[0], run: event => { if (!event.repeat) close(true); } },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === CHORDS["switcher.open"]?.presses[0], run: event => { if (!event.repeat) close(true); } },
     { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
   ]);
 

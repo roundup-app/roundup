@@ -15,6 +15,8 @@ pub(crate) struct Batch<'a> {
     pub pick: Pick,
     /// The Messages still `pending` after the waiting check, in id order.
     pub notes: Vec<Message>,
+    /// What each of `notes` is (B6506).
+    pub payloads: pushes::Payloads,
     /// The Attempt each of `notes` is bound to, in the same order.
     pub bounds: Vec<store::Binding>,
     /// Whether `at` still names the receiver's open Attempt and revision.
@@ -77,7 +79,7 @@ pub(crate) fn plan(batch: &Batch) -> Plan {
     let mut entries: Vec<Entry> = batch
         .notes
         .iter()
-        .zip(pushes::bodies_of(&batch.notes))
+        .zip(pushes::bodies_of(&batch.notes, &batch.payloads))
         .map(|(note, text)| Entry {
             id: note.id,
             kind: note.kind,
@@ -91,7 +93,7 @@ pub(crate) fn plan(batch: &Batch) -> Plan {
                 note.from.id.clone()
             },
             one_line: note.kind == MessageKind::Note
-                && (text.starts_with("[wake]") || text.starts_with("[digest]")),
+                && !matches!(batch.payloads.of(note), pushes::Payload::Note),
             text,
         })
         .collect();
@@ -186,6 +188,7 @@ mod tests {
             at: (1, 2),
             pick: Pick::Next,
             bounds: notes.iter().map(|_| (1, 1)).collect(),
+            payloads: pushes::Payloads::default(),
             notes,
             generation_ok: true,
             names: HashMap::new(),
@@ -220,6 +223,9 @@ mod tests {
     #[test]
     fn b5763c_write_splits_said_repeat_and_empty_and_snapshot_rides_the_last_note() {
         let mut b = batch(vec![note(1, "again"), note(2, "new"), note(3, "[wake]")]);
+        b.payloads
+            .0
+            .insert(3, pushes::Payload::Wake { ids: vec![] });
         b.previous = Some("again".into());
         b.snapshot = Some("[open jobs]\n- j".into());
         let Plan::Write {

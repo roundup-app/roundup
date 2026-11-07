@@ -251,7 +251,7 @@ async fn load<'a>(
         let pending = store.pending_all()?;
         pending.iter().all(|m| {
             m.to != agent
-                || pushes::is_digest(&m.from, &m.body)
+                || store.payload(m.id).is_ok_and(|payload| payload.is_digest())
                 || notes.iter().any(|n| n.id == m.id)
                 || store.in_flight(m.id).unwrap_or(false)
         })
@@ -282,14 +282,16 @@ async fn load<'a>(
             lock(&inner.store).record_inbox(agent, &session, content)?;
         }
     }
+    let payloads = lock(&inner.store).payloads(&notes)?;
     let quiet = {
         let store = lock(&inner.store);
-        let given = if notes.iter().any(|m| pushes::is_digest(&m.from, &m.body)) {
+        let given = if notes.iter().any(|m| payloads.of(m).is_digest()) {
             store.delivered_to(agent)?
         } else {
             Vec::new()
         };
-        receiver_view::are_quiet_digests(&given, &notes)
+        let history = store.payloads(&given)?;
+        receiver_view::are_quiet_digests((&given, &history), (&notes, &payloads))
     };
     let (generation_ok, bounds) = {
         let store = lock(&inner.store);
@@ -304,6 +306,7 @@ async fn load<'a>(
         at,
         pick,
         notes,
+        payloads,
         bounds,
         generation_ok,
         names,
@@ -745,6 +748,15 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn pending(messages: &Messages, from: &Actor, body: &str) -> Message {
+        pending_as(messages, from, body, &crate::pushes::Payload::Note)
+    }
+
+    pub(crate) fn pending_as(
+        messages: &Messages,
+        from: &Actor,
+        body: &str,
+        payload: &crate::pushes::Payload,
+    ) -> Message {
         let at = (messages.inner.clock)();
         lock(&messages.inner.store)
             .insert(
@@ -757,6 +769,7 @@ pub(crate) mod tests {
                 None,
                 at,
                 (1, 1),
+                payload,
             )
             .unwrap()
     }
@@ -799,6 +812,7 @@ pub(crate) mod tests {
                         None,
                         0,
                         (1, 1),
+                        &crate::pushes::Payload::Note,
                     )
                     .unwrap()
             })

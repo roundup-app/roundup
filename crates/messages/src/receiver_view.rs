@@ -48,36 +48,36 @@ pub(crate) fn user_drop_moves(pending: &[Message], id: u32) -> bool {
 /// B5168f: whether every pending Message is a Quiet Digest. `given` is delivered history in
 /// Message-id order. A new alarming Kind, changed `last` or fewer open Todos makes news;
 /// B5640b resolves requested names in one newest-first history pass for the entire batch.
-pub(crate) fn are_quiet_digests(given: &[Message], pending: &[Message]) -> bool {
-    use crate::pushes::{entries_of, is_digest};
+pub(crate) fn are_quiet_digests(
+    (given, history): (&[Message], &crate::pushes::Payloads),
+    (pending, payloads): (&[Message], &crate::pushes::Payloads),
+) -> bool {
     use contracts::Kind;
     use std::collections::HashMap;
 
     let mut entries = Vec::new();
     for message in pending {
-        if !is_digest(&message.from, &message.body) {
-            return false;
-        }
-        let parsed = entries_of(&message.body);
+        let parsed = payloads.of(message).entries();
         if parsed.is_empty() {
             return false;
         }
         entries.extend(parsed);
     }
     // B5640b: resolve overlapping pending names once, without retaining parsed history.
-    let mut before: HashMap<&str, Option<contracts::agent::DigestEntry>> =
+    let mut before: HashMap<&str, Option<&contracts::agent::DigestEntry>> =
         entries.iter().map(|e| (e.name.as_str(), None)).collect();
     let mut unresolved = before.len();
     for message in given.iter().rev() {
         if unresolved == 0 {
             break;
         }
-        if !is_digest(&message.from, &message.body) {
+        let seen = history.of(message).entries();
+        if seen.is_empty() {
             continue;
         }
         #[cfg(test)]
         HISTORY_PARSES.with_borrow_mut(|ids| ids.push(message.id));
-        for entry in entries_of(&message.body) {
+        for entry in seen {
             if let Some(prior) = before.get_mut(entry.name.as_str())
                 && prior.is_none()
             {
@@ -115,6 +115,26 @@ mod tests {
         }
     }
 
+    use crate::pushes::{Payload, Payloads};
+
+    /// `messages` with the payloads they were written with: each a Digest of its one entry.
+    fn typed(messages: &[(Message, Vec<DigestEntry>)]) -> (Vec<Message>, Payloads) {
+        let payloads = messages
+            .iter()
+            .map(|(m, entries)| {
+                let payload = Payload::Digest {
+                    entries: entries.clone(),
+                    stands_for: 1,
+                };
+                (m.id, payload)
+            })
+            .collect();
+        (
+            messages.iter().map(|(m, _)| m.clone()).collect(),
+            Payloads(payloads),
+        )
+    }
+
     fn digest(id: u32, status: MessageStatus, entry: &DigestEntry) -> Message {
         Message {
             id,
@@ -134,32 +154,24 @@ mod tests {
     fn b5640b_history_is_parsed_once_per_batch() {
         let old = entry(Kind::Working, "old", 4);
         let current = entry(Kind::Working, "current", 2);
-        let mut given = vec![
-            digest(1, MessageStatus::Delivered, &old),
-            digest(2, MessageStatus::Delivered, &current),
-        ];
-        given[0].at = 900;
-        given[1].at = 1;
-        // The first duplicate in the newest Message wins, including inside a merge.
-        given[1].body = format!(
-            "[digest] [2 earlier updates: #7 #8]\n{}\n{}",
-            crate::digest::entry_text(&current),
-            crate::digest::entry_text(&old)
-        );
         let mut other = entry(Kind::Error, "second", 3);
         other.name = "other".into();
-        let mut rollup = digest(3, MessageStatus::Delivered, &other);
-        rollup.body = format!(
-            "[digest] [5 updates kept back]\n{}",
-            crate::digest::entry_text(&other)
-        );
-        let mut empty = rollup.clone();
-        empty.id = 4;
-        empty.body = "[digest] no parsed entries".into();
-        given.extend([rollup, empty]);
+        // The first duplicate in the newest Message wins, including inside a merge.
+        let (given, history) = typed(&[
+            (digest(1, MessageStatus::Delivered, &old), vec![old.clone()]),
+            (
+                digest(2, MessageStatus::Delivered, &current),
+                vec![current.clone(), old.clone()],
+            ),
+            (
+                digest(3, MessageStatus::Delivered, &other),
+                vec![other.clone()],
+            ),
+            (digest(4, MessageStatus::Delivered, &other), vec![]),
+        ]);
         let mut absent = entry(Kind::Idle, "", 7);
         absent.name = "absent".into();
-        // Missing names force the complete pass; repeated names must still parse each body once.
+        // Missing names force the complete pass; repeated names must still read each Message once.
         for (extra, quiet) in [
             (absent.clone(), true),
             (other.clone(), true),
@@ -172,13 +184,25 @@ mod tests {
                 false,
             ),
         ] {
-            let pending = vec![
-                digest(10, MessageStatus::Pending, &current),
-                digest(11, MessageStatus::Pending, &current),
-                digest(12, MessageStatus::Pending, &extra),
-            ];
+            let (pending, payloads) = typed(&[
+                (
+                    digest(10, MessageStatus::Pending, &current),
+                    vec![current.clone()],
+                ),
+                (
+                    digest(11, MessageStatus::Pending, &current),
+                    vec![current.clone()],
+                ),
+                (
+                    digest(12, MessageStatus::Pending, &extra),
+                    vec![extra.clone()],
+                ),
+            ]);
             HISTORY_PARSES.with_borrow_mut(Vec::clear);
-            assert_eq!(are_quiet_digests(&given, &pending), quiet);
+            assert_eq!(
+                are_quiet_digests((&given, &history), (&pending, &payloads)),
+                quiet
+            );
             let parsed = HISTORY_PARSES.with_borrow(Clone::clone);
             for message in &given {
                 assert!(
@@ -187,28 +211,29 @@ mod tests {
                 );
             }
         }
-        let mut empty = digest(13, MessageStatus::Pending, &current);
-        empty.body = "[digest]".into();
-        assert!(!are_quiet_digests(&given, &[empty]));
+        let (empty, payloads) = typed(&[(digest(13, MessageStatus::Pending, &current), vec![])]);
+        assert!(!are_quiet_digests((&given, &history), (&empty, &payloads)));
     }
+
     #[test]
     fn a_digest_with_news_is_not_quiet() {
-        let given = [digest(
-            1,
-            MessageStatus::Delivered,
-            &entry(Kind::Working, "a", 2),
-        )];
+        let first = entry(Kind::Working, "a", 2);
+        let (given, history) = typed(&[(
+            digest(1, MessageStatus::Delivered, &first),
+            vec![first.clone()],
+        )]);
         for next in [
             entry(Kind::Working, "b", 2),
             entry(Kind::Working, "a", 1),
             entry(Kind::Error, "a", 2),
             entry(Kind::NeedsYou, "a", 2),
         ] {
-            let next = digest(2, MessageStatus::Pending, &next);
+            let (pending, payloads) =
+                typed(&[(digest(2, MessageStatus::Pending, &next), vec![next.clone()])]);
             assert!(
-                !are_quiet_digests(&given, std::slice::from_ref(&next)),
+                !are_quiet_digests((&given, &history), (&pending, &payloads)),
                 "{}",
-                next.body
+                pending[0].body
             );
         }
     }

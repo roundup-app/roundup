@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, on, type Accessor } from "solid-js";
+import { createDeferred, createEffect, createMemo, createSignal, on, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
@@ -112,9 +112,35 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   }, []);
 
   const signatures = new WeakMap<object, string>();
+  const shown = new WeakMap<object, ReadonlySet<string>>();
+  const lagging = createDeferred(topology);
+  const [keyed, setKeyed] = createSignal<object | null>(null);
 
-  /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
+  /** Builds the collection now when a redraw put it off, so a key pressed before that task walks the rows as they show. */
+  const settleCollection = () => { setKeyed(topology()); };
+
+  /** The values of the sections and rows the Rail shows now. */
+  const showing = (): ReadonlySet<string> => new Set([...presentSections().map(section => `section:${section.id}`), ...rows().map(row => row.kind === "node" ? row.node.id : row.key)]);
+
+  /** A redraw that shows the very rows `previous` was last drawn with, in any order, puts its rebuild off a task, unless a key press asked for it first. */
+  const putOff = <T extends object>(previous: T | undefined, live: ReadonlySet<string>): previous is T => {
+    const drawn = previous && shown.get(previous);
+
+    if (!drawn || lagging() === topology() || keyed() === topology()) return false;
+
+    return drawn.size === live.size && [...live].every(value => drawn.has(value));
+  };
+
+  /**
+   * Section branches share Ark's keyboard walk and add one semantic level above their rows.
+   * A move shows the same rows in a new order, so the collection is rebuilt a task after the redraw: Ark's item props for every row are the larger part of that redraw.
+   * A redraw that shows a row more or a row fewer, as an add, a removal or a fold that opens or closes does, is built at once, and so is the tree a key press finds (`settleCollection`).
+   */
   const collection = createMemo<ReturnType<typeof createTreeCollection<RailNode>>>(previous => {
+    const live = showing();
+
+    if (putOff(previous, live)) return previous;
+
     const allUnfolded = new Set([...topology().index.keys()].flatMap(id => [id, `internal:${id}`]));
     const selected = rail.selected();
     const chosen = selected === null ? undefined : topology().nodes[topology().index.get(selected) ?? -1];
@@ -132,7 +158,11 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     // U3800g: a move that leaves the tree's signature as it was keeps the collection, so Ark does not recompute every row's item props.
     const signature = JSON.stringify(children);
 
-    if (previous && signatures.get(previous) === signature) return previous;
+    if (previous && signatures.get(previous) === signature) {
+      shown.set(previous, live);
+
+      return previous;
+    }
 
     const next = createTreeCollection<RailNode>({
       nodeToValue: node => node.id, nodeToString: node => node.name,
@@ -141,6 +171,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     });
 
     signatures.set(next, signature);
+    shown.set(next, live);
 
     return next;
   });
@@ -207,5 +238,5 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     onLift: (id: string | null, keyboard = false) => { keepDrawn(keyboard); setLifted(id); },
   };
 
-  return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };
+  return { topology, sectionRows, rows, collection, settleCollection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };
 };

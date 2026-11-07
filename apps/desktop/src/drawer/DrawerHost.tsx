@@ -139,7 +139,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
     when: (press) => !surfaceOpen() && !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen, [role=menu], [role=menuitem]')),
     run: () => { captureFocus(true); props.drawer.close("key"); },
   }, {
-    action: CHORDS.find(row => row.name === "shelf.maximise")!,
+    action: CHORDS["shelf.maximise"],
     when: press => canMaximise(press.target instanceof Element ? press.target : null),
     capture: focus => ({
       available: () => canMaximise(focus),

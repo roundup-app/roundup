@@ -85,7 +85,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
     setReport({ id: crypto.randomUUID(), capture, cause });
   };
 
-  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "feedback.open")!, searchable: false, capture: () => ({ available: () => report() === null && !capturing() && !modalOpen(), invoke: () => void begin() }) }]);
+  registerKeys({ kind: "app" }, [{ action: CHORDS["feedback.open"], searchable: false, capture: () => ({ available: () => report() === null && !capturing() && !modalOpen(), invoke: () => void begin() }) }]);
 
   const send = () => {
     const current = report();
