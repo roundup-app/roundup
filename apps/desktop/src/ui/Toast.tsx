@@ -1,4 +1,5 @@
 import { activationSource } from "../keys/registry";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import type { ActivationSource } from "../keys/registry";
 import { createToaster, Toaster, Toast, type ToastStatusChangeDetails } from "@ark-ui/solid/toast";
 import { onCleanup, Show, type JSX } from "solid-js";
@@ -77,11 +78,8 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
     else if (!document.querySelector(".app-toasts:hover")) store.resume();
   };
 
-  document.addEventListener("visibilitychange", pageIdle);
-  onCleanup(() => {
-    document.removeEventListener("visibilitychange", pageIdle);
-    store.remove();
-  });
+  makeEventListener(document, "visibilitychange", pageIdle);
+  onCleanup(() => store.remove());
 
   return <Toaster toaster={store} label={props.label} aria-label={props.label} class="app-toasts" style={{ "z-index": "var(--layer-toast)" }} data-newest-first={props.toast.newestFirst}>
     {(card) => {
