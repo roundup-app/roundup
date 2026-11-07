@@ -174,12 +174,26 @@ export const trackScrollbars = (doc: Document): void => {
       root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
     }
 
-    const observer = new MutationObserver((records) => {
-      // One scan per mutated parent: a list that mounts 200 rows reports 200 records for the same parent,
-      // and each scan walks that parent's whole subtree.
-      const parents = new Set<Element | Document | ShadowRoot>();
-      let outside = false;
+    // U3800g: a drop's task only records what changed; the rescan runs at the next frame, once for every record that landed before it.
+    const parents = new Set<Element | Document | ShadowRoot>();
+    let outside = false;
+    let scanning = 0;
 
+    const scan = () => {
+      scanning = 0;
+      const mounted = [...parents];
+      const moved = outside;
+
+      parents.clear();
+      outside = false;
+
+      for (const parent of mounted) if (parent === root || parent.isConnected) discover(parent);
+
+      // U6283a: records from inside a Terminal move no tracked bar, so they place nothing.
+      if (moved) flush();
+    };
+
+    const observer = new MutationObserver((records) => {
       for (const record of records) {
         if (record.target instanceof Element && record.target.closest(".scrollbar-slot, .os-size-observer, .os-trinsic-observer, .xterm")) continue;
 
@@ -189,10 +203,7 @@ export const trackScrollbars = (doc: Document): void => {
         if (record.type === "childList" && (record.target instanceof Element || record.target instanceof Document || record.target instanceof ShadowRoot)) parents.add(record.target);
       }
 
-      for (const parent of parents) discover(parent);
-
-      // U6283a: records from inside a Terminal move no tracked bar, so they place nothing.
-      if (outside) flush();
+      if (outside) scanning ||= requestAnimationFrame(scan);
     });
 
     observer.observe(root, { childList: true, subtree: true });
