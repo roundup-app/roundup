@@ -179,8 +179,6 @@ const LEADER_TABLE = {
 
 export const LEADER = withKeyTexts(LEADER_TABLE);
 
-export type LeaderName = keyof typeof LEADER;
-
 /** The leader keys in table order. */
 export const LEADER_ROWS: readonly LeaderKey[] = Object.values(LEADER);
 
@@ -251,7 +249,7 @@ export const ariaChord = (chord: Chord | undefined): string | undefined => {
   const parts = press.split("+");
   const names = { ctrl: "Control", alt: "Alt", shift: "Shift", meta: "Meta" };
 
-  return [...Object.entries(names).filter(([part]) => parts.includes(part)).map(([, name]) => name), parts.at(-1)!.replace(/^Key/, "")].join("+");
+  return [...Object.entries(names).filter(([part]) => parts.includes(part)).map(([, name]) => name), (parts.at(-1) ?? "").replace(/^Key/, "")].join("+");
 };
 
 /** A leader sequence retains its two press boundaries. */
