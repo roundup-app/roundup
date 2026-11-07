@@ -22,14 +22,14 @@ type Leaving = { body: HTMLElement; parent: Element; next: Node | null; rect: DO
 
 /** The slice of `motion` the folds use; tests pass a counting double. */
 export type FoldEngine = {
-  animate: (element: Element, keyframes: Record<string, string[] | number[]>, options: { duration: number; ease?: Ease }) => void;
+  animate: (element: Element, keyframes: Record<string, string[] | number[]>, options: { duration: number; ease?: Ease }) => { cancel: () => void } | void;
   animateLayout: (scope: Element, update: () => Promise<void>, options: { duration: number; ease: Ease }) => Promise<{ finished: Promise<void> }>;
 };
 
 type Ease = [number, number, number, number];
 
 const motion: FoldEngine = {
-  animate: (element, keyframes, options) => { motionAnimate(element, keyframes, options); },
+  animate: (element, keyframes, options) => motionAnimate(element, keyframes, options),
   animateLayout: async (scope, update, options) => {
     const group = await motionLayout(scope, update, options);
 
@@ -98,9 +98,12 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
 
       if (unmounted) parent.insertBefore(body, next?.parentNode === parent ? next : null);
       else body.hidden = false;
-      animate(body, { opacity: [1, 0] }, { duration: seconds, ease });
+      const fading = animate(body, { opacity: [1, 0] }, { duration: seconds, ease });
 
       setTimeout(() => {
+        // Drop the animation first: its end would otherwise write opacity 0 after the styles below are cleared.
+        fading?.cancel();
+
         if (unmounted) return body.remove();
         Object.assign(body.style, Object.fromEntries([...Object.keys(placed), "opacity"].map(name => [name, ""])));
 
