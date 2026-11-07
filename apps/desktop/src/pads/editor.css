@@ -29,6 +29,11 @@
     height: var(--space-4);
     fill: currentcolor;
   }
+  .visual-mermaid svg {
+    width: 100%;
+    height: auto;
+    fill: revert-layer;
+  }
   .milkdown .ProseMirror {
     position: relative;
     white-space: break-spaces;

@@ -382,25 +382,24 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
         <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
-          // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
-          element.addEventListener("input", () => { restoring = false; setText(element.value); retain(); });
-          element.addEventListener("select", () => {
+        }} inputEvents={{ // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
+          input: () => { restoring = false; setText(input?.value ?? text()); retain(); },
+          select: ({ target: element }) => {
             // Native select follows Ark's focus selection and controlled-value caret update.
-            if (restoring && element.isConnected && document.activeElement === element) {
+            if (restoring && element instanceof HTMLInputElement && element.isConnected && document.activeElement === element) {
               restoring = false;
 
               if (savedSelection) element.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
             } else retain();
-          });
-          element.addEventListener("focus", () => setNameFocused(true));
-          element.addEventListener("keydown", event => {
+          },
+          focus: () => setNameFocused(true),
+          keydown: event => {
             if (event.key !== "Enter" || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || makeName() === "") return;
-            event.preventDefault();
-            void make();
-          });
-          element.addEventListener("keyup", retain);
-          element.addEventListener("pointerup", retain);
-          element.addEventListener("blur", (event) => {
+            event.preventDefault(); void make();
+          },
+          keyup: retain,
+          pointerup: retain,
+          blur: (event) => {
             setNameFocused(false);
 
             // Zag can retain its trap until the selecting Combobox batch ends.
@@ -410,7 +409,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             // A recovery action must run before blur can retry storage and remove its target.
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
-          });
+          },
         }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream} {copy.workstreamName(makeName())} <KeyChip keys={SWITCHER_KEYS.choose} /></>}
