@@ -36,6 +36,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_read`: read one Pad.
 - `link_read`: read what a roundup:// link names, as it is now.
 - `import_list`: list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing.
+- `machine_list`: list the Machines herdr-core knows, as it gives them.
 - `pad_list`: see which Pads exist.
 - `pad_write`: rewrite a Pad you own.
 - `pad_rename`: rename a Pad after reading its exact name and incarnation.
