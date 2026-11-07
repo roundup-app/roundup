@@ -116,25 +116,36 @@ impl Daemon {
     /// X14: select or release one Terminal's output for this connection.
     pub(crate) async fn terminal_output(
         &self,
-        conn: &Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let contracts::terminal::TerminalId { id } = rpc::params(params.clone())?;
+        conn: &mut Conn,
+        p: contracts::terminal::TerminalId,
+    ) -> Result<contracts::terminal::OutputStarted, RpcError> {
+        let id = &p.id;
         let port = conn
             .output
             .as_ref()
             .ok_or_else(|| RpcError::internal("this call cannot receive Terminal output"))?;
-        self.guard_terminal_read(&conn.actor, false, &params)
+        self.guard_terminal_read(&conn.actor, false, &serde_json::json!(p))
             .await?;
-        if crate::route::policy::policy(method).is_some_and(|row| row.releases) {
-            port.release(&id);
-            return rpc::reply(&());
-        }
-        let stream = self.terminals.subscribe_output(&id)?;
+        let stream = self.terminals.subscribe_output(id)?;
         let offset = stream.start();
-        port.select(&id, stream);
-        rpc::reply(&contracts::terminal::OutputStarted { offset })
+        port.select(id, stream);
+        Ok(contracts::terminal::OutputStarted { offset })
+    }
+
+    /// X14: release one Terminal's output from this connection.
+    pub(crate) async fn terminal_output_stop(
+        &self,
+        conn: &mut Conn,
+        p: contracts::terminal::TerminalId,
+    ) -> Result<(), RpcError> {
+        let port = conn
+            .output
+            .as_ref()
+            .ok_or_else(|| RpcError::internal("this call cannot receive Terminal output"))?;
+        self.guard_terminal_read(&conn.actor, false, &serde_json::json!(p))
+            .await?;
+        port.release(&p.id);
+        Ok(())
     }
 
     /// M14: an Agent opens a Terminal only in its own Workstream, one above it or one in its Reach.
@@ -182,14 +193,14 @@ impl Daemon {
                 .field("name")
                 .as_str()
                 .ok_or_else(|| RpcError::internal("a created Pad has no name"))?;
-            return rpc::reply(&self.pads.set_home(&ctx, name, home)?);
+            return rpc::reply(&self.pads.set_home(&ctx, name, home).await?);
         }
         let id = created
             .field("id")
             .as_u64()
             .and_then(|id| u32::try_from(id).ok())
             .ok_or_else(|| RpcError::internal("a created Todo has no id"))?;
-        rpc::reply(&self.todos.set_home(&ctx, id, home)?)
+        rpc::reply(&self.todos.set_home(&ctx, id, home).await?)
     }
 
     /// A5168a: only a Door uses the GitHub tools; a Door is the Agent whose id is a Workstream's.

@@ -1,4 +1,5 @@
 import "./Field.css";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { Field } from "./Field";
 import { createRowCollection } from "./RowCollection";
 import { focusActions } from "./focusActions";
@@ -30,6 +31,8 @@ const Root = (props: {
   inputValue: string;
   /** Native selection/caret access; changing the query goes through `inputValue`. Focus only on explicit opening. */
   inputRef?: (input: HTMLInputElement) => void;
+  /** Native listeners on the input, removed with the Combobox; `onInput` and `onSelect` here stay the query and choice callbacks. */
+  inputEvents?: { input?: (event: Event) => void; select?: (event: Event) => void; focus?: (event: FocusEvent) => void; keydown?: (event: KeyboardEvent) => void; keyup?: (event: KeyboardEvent) => void; pointerup?: (event: PointerEvent) => void; blur?: (event: FocusEvent) => void };
   initialFocus?: ReturnType<typeof captureFocus>;
   /** An enclosing Dialog owns focus when false. */
   autoFocus?: boolean;
@@ -137,10 +140,18 @@ const Root = (props: {
       input = element;
       const signal = focus.signal(target => contains(target, element));
       const cancel = () => dismiss?.();
+      // listener-owner: the focus signal outlives this input; the cleanup below removes it.
       signal.addEventListener("abort", cancel, { once: true });
       onCleanup(() => signal.removeEventListener("abort", cancel));
 
       if (signal.aborted) queueMicrotask(() => { if (element.isConnected) cancel(); });
+      makeEventListener(element, "input", event => props.inputEvents?.input?.(event));
+      makeEventListener(element, "select", event => props.inputEvents?.select?.(event));
+      makeEventListener(element, "focus", event => props.inputEvents?.focus?.(event));
+      makeEventListener(element, "keydown", event => props.inputEvents?.keydown?.(event));
+      makeEventListener(element, "keyup", event => props.inputEvents?.keyup?.(event));
+      makeEventListener(element, "pointerup", event => props.inputEvents?.pointerup?.(event));
+      makeEventListener(element, "blur", event => props.inputEvents?.blur?.(event));
       props.inputRef?.(element);
     }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list" on:click={{ handleEvent: content.click, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>

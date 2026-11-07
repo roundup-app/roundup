@@ -647,6 +647,8 @@ async fn invoke(
     };
     let value = result.map_err(Failure::Rpc)?;
     let value = if json {
+        let mut value = value;
+        mcp::link_pads_and_todos(&client, &mut value).await;
         value
     } else {
         mcp::display_data(&client, spec.offered.method, value)

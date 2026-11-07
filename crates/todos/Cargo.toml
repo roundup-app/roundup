@@ -8,14 +8,13 @@ version.workspace = true
 async-trait.workspace = true
 contracts = { path = "../contracts" }
 pads = { path = "../pads" }
+storage = { path = "../storage" }
 rpc = { path = "../rpc" }
-serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
 provenance = { path = "../provenance" }
 rusqlite.workspace = true
-storage = { path = "../storage" }
 
 [dev-dependencies]
 rusqlite = { workspace = true, features = ["trace"] }

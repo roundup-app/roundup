@@ -430,18 +430,6 @@
   gap: var(--space-1);
 }
 
-.rail-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--space-5);
-  height: var(--space-5);
-  font-size: var(--text-caption);
-  gap: var(--space-1);
-  white-space: nowrap;
-  --button-inline: 0;
-}
-
 /* Each content row owns its inset independently of the shared wash. */
 .rail-fold,
 .rail-leaf {

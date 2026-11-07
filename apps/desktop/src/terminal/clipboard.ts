@@ -1,3 +1,5 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { createRoot } from "solid-js";
 import { captureFocus } from "../keys/focus";
 import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
@@ -114,15 +116,14 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
       void copy(id);
     };
 
-    host.addEventListener("paste", onPaste, true);
-    host.addEventListener("copy", onCopy, true);
-    host.addEventListener("keydown", onKey, true);
+    // One root owns the host's listeners.
+    return createRoot(dispose => {
+      makeEventListener(host, "paste", onPaste, true);
+      makeEventListener(host, "copy", onCopy, true);
+      makeEventListener(host, "keydown", onKey, true);
 
-    return () => {
-      host.removeEventListener("paste", onPaste, true);
-      host.removeEventListener("copy", onCopy, true);
-      host.removeEventListener("keydown", onKey, true);
-    };
+      return dispose;
+    });
   };
 
   return { copy, paste, pastePaths, listen };

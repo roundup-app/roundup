@@ -10,27 +10,33 @@ use crate::pad::Pad;
 use crate::terminal::Screen;
 use crate::todo::Todo;
 
-/// LK1: the link to `node` of the Project whose key is `key`, `id` and `key` percent-encoded;
-/// `None` for a Group, which has none. `link.read` serves an Agent under `agent` and a Workstream
-/// under `workstream`.
+/// LK1: `roundup://<kind>/<id>?project=<key>`, `id` and `key` percent-encoded.
 #[must_use]
-pub fn node_link(key: &str, node: &RailNode) -> Option<String> {
+pub fn object_link(kind: &str, id: &str, key: &str) -> String {
     use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
     const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC
         .remove(b'-')
         .remove(b'_')
         .remove(b'.')
         .remove(b'~');
+    format!(
+        "roundup://{kind}/{}?project={}",
+        utf8_percent_encode(id, UNRESERVED),
+        utf8_percent_encode(key, UNRESERVED)
+    )
+}
+
+/// LK1: the link to `node` of the Project whose key is `key`, `id` and `key` percent-encoded;
+/// `None` for a Group, which has none. `link.read` serves an Agent under `agent` and a Workstream
+/// under `workstream`.
+#[must_use]
+pub fn node_link(key: &str, node: &RailNode) -> Option<String> {
     let kind = match node.kind {
         NodeKind::Agent => "agent",
         NodeKind::Workstream => "workstream",
         NodeKind::Group => return None,
     };
-    Some(format!(
-        "roundup://{kind}/{}?project={}",
-        utf8_percent_encode(&node.id, UNRESERVED),
-        utf8_percent_encode(key, UNRESERVED)
-    ))
+    Some(object_link(kind, &node.id, key))
 }
 
 /// `roundup://<kind>/<id>?project=<key>`, `<kind>` one of `pad`, `todo`, `agent`, `workstream`, `terminal`, `deliverable`.

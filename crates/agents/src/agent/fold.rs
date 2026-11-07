@@ -70,6 +70,8 @@ pub(crate) enum Effect {
     Publish(Status),
     /// The first prompt may name the Agent.
     Name(Option<String>),
+    /// A9: Claude Code's first session title may rename the row Automatic naming named.
+    Title,
 }
 
 /// Fold `observation` into `run` and say what is left to do, in order. Reads no clock and takes
@@ -147,7 +149,11 @@ pub(crate) fn decide(
         effects.push(Effect::SaveFinished(run.view().finished));
     }
     effects.extend(changed.map(Effect::Publish));
+    let titles = facts.signal && run.title_pending() && first_prompt.is_none();
     effects.extend(first_prompt.map(Effect::Name));
+    if titles {
+        effects.push(Effect::Title);
+    }
     effects
 }
 

@@ -27,26 +27,14 @@ describe("u9 actions", () => {
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
 
-  it("u9_plus_agent_spawns_under_the_selected_group", async () => {
+  it("u9_plus_agent_with_a_workstream_selected_spawns_at_the_top_level", async () => {
     const mounted = await mountRail([workstream("g")]);
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("g");
 
-    await chooseAction(mounted.app, "g", copy.addAgentMenu);
+    chord("n");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
-  });
-
-  it("u9_plus_agent_spawns_under_the_selected_door", async () => {
-    const mounted = await mountRail([door("lead", "idle", "i")]);
-    answerWith(mounted, "agent.spawn");
-    mounted.rail.select("lead");
-
-    await chooseAction(mounted.app, "lead", copy.addAgentMenu);
-
-    await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead", model: null, effort: null }]),
-    );
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
 
   it.each<[string, RailNode]>([
@@ -190,23 +178,6 @@ describe("u9 actions", () => {
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
-
-  it("u9_a_second_plus_agent_while_one_is_pending_is_not_refused", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    let finish: (node: RailNode) => void = () => {};
-
-    mounted.app.handlers["agent.spawn"] = () => new Promise<RailNode>((done) => (finish = done));
-    mounted.rail.select("g");
-    await chooseAction(mounted.app, "g", copy.addAgentMenu);
-    fireEvent.contextMenu(rowOf("g"));
-    expect(mounted.app.shownMenus.at(-1)!.items.find(item => item.id === "add")?.children?.map(item => item.id)).toContain("add-agent");
-    await mounted.app.closeMenu();
-    finish(SPAWNED);
-    await mounted.rail.settled();
-    // U6000d: a start fired while another is pending is never refused.
-    expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
-  });
-
 });
 
 it("u62_creates_one_root_workstream_selects_the_tree_row_and_starts_only_its_door", async () => {

@@ -1,97 +1,11 @@
 //! B50, B51, B3563c: every Message to an Agent uses the receiver's inbox, never Terminal input.
 //! A failed check leaves them `pending`; the next eligible event retries them in id order.
 
-use agents::claude_code::inbox::Entry;
 use contracts::agent::Inbox;
 
 use crate::plan::{self, Batch, Plan};
 
 use super::*;
-
-/// What the adapter exposes for an Agent's Claude inbox; the Daemon passes `Agents`.
-#[async_trait]
-pub trait NoteInbox: Send + Sync {
-    /// B51: check the inbox of `agent` and show the outcome on the Rail.
-    async fn check(&self, agent: &str) -> Inbox;
-    /// A5556: automatic entries wait for first input; authenticated user entries may start it.
-    fn admits(&self, _agent: &str, _from: &Actor) -> bool {
-        true
-    }
-    /// Account for the authenticated sender only after physical delivery.
-    fn submitted(&self, _agent: &str, _from: &Actor) {}
-    /// B5763b: the receiving session, preserved when the Daemon reopens.
-    fn session(&self, _agent: &str) -> Option<String> {
-        None
-    }
-    /// B5763b: exact Adapter-rendered peer content, including labels and question identity.
-    fn content(&self, _agent: &str, entry: &Entry) -> String {
-        entry.content("", "")
-    }
-    /// B5763c: last admitted entry in the current peer transcript, for history recovery.
-    fn previous(&self, _agent: &str) -> Result<Option<String>, Inbox> {
-        Ok(None)
-    }
-    /// DCL8: the Jobs of `reported`-less Attempts, as `id (name), attempt` lines, for the open-Job
-    /// snapshot a Door's batch carries. `reported` gives the Attempts an Agent has reported.
-    fn open_jobs(
-        &self,
-        _agent: &str,
-        _reported: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
-    ) -> Vec<(String, String, String)> {
-        Vec::new()
-    }
-    /// B50: write `notes` as entries; the answer names the failed state.
-    fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox>;
-}
-
-#[async_trait]
-impl NoteInbox for agents::Agents {
-    async fn check(&self, agent: &str) -> Inbox {
-        self.inbox_check(agent)
-    }
-
-    fn admits(&self, agent: &str, from: &Actor) -> bool {
-        from.kind == contracts::ActorKind::User || self.input_started(agent)
-    }
-
-    fn submitted(&self, agent: &str, from: &Actor) {
-        if from.kind == contracts::ActorKind::User {
-            self.admit_input(agent);
-        }
-    }
-
-    fn session(&self, agent: &str) -> Option<String> {
-        self.inbox_session(agent)
-    }
-
-    fn content(&self, agent: &str, entry: &Entry) -> String {
-        self.inbox_content(agent, entry)
-    }
-
-    fn previous(&self, agent: &str) -> Result<Option<String>, Inbox> {
-        self.inbox_previous(agent)
-    }
-
-    fn open_jobs(
-        &self,
-        agent: &str,
-        reported: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
-    ) -> Vec<(String, String, String)> {
-        // DCL8: only a Door's batch carries the snapshot.
-        if !self.is_door(agent) {
-            return Vec::new();
-        }
-        agents::Agents::open_jobs(self, reported)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|job| (job.id, job.name, job.attempt))
-            .collect()
-    }
-
-    fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
-        self.inbox_write(agent, notes)
-    }
-}
 
 /// B51(g): what the sender hears of a note Claude Code would drop for repeating the last one.
 pub(crate) const REPEAT: &str = "same text as your last Message; Claude Code drops repeats";
@@ -143,7 +57,11 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
     };
     // The seam to `agents` speaks `RpcError`.
     let reported = |id: &str| attempts(id).map_err(RpcError::from);
-    let jobs = inbox.open_jobs(agent, &reported);
+    let jobs: Vec<_> = inbox
+        .open_jobs(agent, &reported)
+        .into_iter()
+        .filter(|(id, ..)| inbox.in_reach(agent, id))
+        .collect();
     if jobs.is_empty() {
         return None;
     }
@@ -469,6 +387,7 @@ impl Drop for Typing<'_> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use agents::claude_code::inbox::Entry;
     use contracts::agent::NodeKind;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -582,6 +501,48 @@ pub(crate) mod tests {
             )
             .unwrap();
         (messages, rail, inbox)
+    }
+
+    struct TwoDoors;
+
+    #[async_trait]
+    impl NoteInbox for TwoDoors {
+        async fn check(&self, _: &str) -> Inbox {
+            Inbox::Ok
+        }
+        fn open_jobs(
+            &self,
+            _: &str,
+            _: &dyn Fn(&str) -> Result<Vec<String>, RpcError>,
+        ) -> Vec<(String, String, String)> {
+            ["a-job", "b-job"]
+                .map(|id| (id.to_owned(), id.to_uppercase(), "1".to_owned()))
+                .to_vec()
+        }
+        fn in_reach(&self, door: &str, job: &str) -> bool {
+            job.starts_with(&door[..1])
+        }
+        fn write(&self, _: &str, _: &[Entry]) -> Result<(), Inbox> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn dcr3_open_jobs_note_leaves_out_another_workstream() {
+        let dir = tempfile::tempdir().unwrap();
+        let env = Env {
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+            clock: Arc::new(|| 100_000),
+            fault: Arc::new(|_| Ok(())),
+        };
+        let messages =
+            Messages::open_with(dir.path(), Bus::new(), Arc::new(BatchRail::default()), env)
+                .unwrap();
+        messages.set_inbox(Arc::new(TwoDoors));
+        let note = open_job_snapshot(&messages.inner, "a-door", (1, 2)).unwrap();
+        assert!(note.contains("a-job"));
+        assert!(!note.contains("b-job") && !note.contains("B-JOB"));
+        assert_eq!(open_job_snapshot(&messages.inner, "c-door", (1, 2)), None);
     }
 
     #[tokio::test(start_paused = true)]

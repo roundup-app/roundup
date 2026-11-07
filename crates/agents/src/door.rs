@@ -64,10 +64,10 @@ impl Shared {
             let mut runs = self.runs();
             let mut changed = Vec::new();
             for (id, agent) in runs.iter_mut() {
-                let stray = now.remove(id).unwrap_or_default();
+                let stray = now.remove(&id.to_string()).unwrap_or_default();
                 if agent.facts.strays != stray {
                     agent.facts.strays = stray.clone();
-                    changed.push((id.clone(), stray));
+                    changed.push((id.to_string(), stray));
                 }
             }
             changed
@@ -311,7 +311,7 @@ impl Agents {
             let attempt = rail.allocate_attempt(id)?;
             self.shared.events.observed.notify_waiters();
             runs.put(
-                id.to_owned(),
+                id,
                 Slot::Starting {
                     attempt: attempt.clone(),
                     since: (self.shared.clock)(),
@@ -343,7 +343,7 @@ impl Agents {
             let mut rail = self.shared.rail();
             let mut runs = self.shared.runs();
             if runs.slot(id).is_some_and(|slot| slot.attempt() == attempt) {
-                runs.remove(id);
+                runs.forget(id);
                 rail.detach_terminal(id)?;
             }
             drop((rail, runs));

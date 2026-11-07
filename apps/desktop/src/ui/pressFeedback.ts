@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { animate } from "motion";
 import { createEffect, createRoot } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -125,9 +126,10 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
     };
 
     const view = doc.defaultView!;
-    doc.addEventListener("pointerdown", pointer, true);
-    doc.addEventListener("pointerout", leave, true);
-    doc.addEventListener("keydown", key, true);
+
+    makeEventListener(doc, "pointerdown", pointer, true);
+    makeEventListener(doc, "pointerout", leave, true);
+    makeEventListener(doc, "keydown", key, true);
 
     const blur = (event: Event) => {
       const target = event.composedPath()[0];
@@ -137,25 +139,14 @@ export function pressFeedback(doc: Document, reduced: Accessor<boolean> = () => 
 
     const drag = () => { pointerDown = false; clear(); stop(); };
 
-    view.addEventListener("dragstart", drag, true);
-    view.addEventListener("blur", blur, true);
+    makeEventListener(view, "dragstart", drag, true);
+    makeEventListener(view, "blur", blur, true);
     const keyup = () => { if (!pointerDown) clear(); };
 
-    view.addEventListener("keyup", keyup, true);
-    const endings = ["pointerup", "pointercancel", "lostpointercapture"] as const;
+    makeEventListener(view, "keyup", keyup, true);
 
-    for (const name of endings) view.addEventListener(name, clear, true);
+    for (const name of ["pointerup", "pointercancel", "lostpointercapture"] as const) makeEventListener(view, name, clear, true);
 
-    return () => {
-      pointerDown = false; clear(); stop(); dispose();
-      view.removeEventListener("keyup", keyup, true);
-      view.removeEventListener("dragstart", drag, true);
-      view.removeEventListener("blur", blur, true);
-      doc.removeEventListener("pointerdown", pointer, true);
-      doc.removeEventListener("pointerout", leave, true);
-      doc.removeEventListener("keydown", key, true);
-
-      for (const name of endings) view.removeEventListener(name, clear, true);
-    };
+    return () => { pointerDown = false; clear(); stop(); dispose(); };
   });
 }

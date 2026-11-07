@@ -782,3 +782,22 @@ async fn u4698c_mcp_sets_priority_as_the_authenticated_actor() {
         );
     }
 }
+
+#[test]
+fn p9a_rup_makes_a_key_when_none_is_given() {
+    let tool = |method| {
+        super::tools(false)
+            .into_iter()
+            .find(|offered| offered.method == method)
+            .expect("the method is offered")
+    };
+    for method in ["pad.delete", "todo.delete"] {
+        let params = |args: serde_json::Value| tool(method).params("me", args.as_object().cloned());
+        let made = params(serde_json::json!({}));
+        let key = made["operation"].as_str().expect("a key was made");
+        assert!(!key.is_empty() && key.len() <= 256);
+        assert_ne!(made, params(serde_json::json!({})));
+        let given = params(serde_json::json!({"operation": "mine"}));
+        assert_eq!(given["operation"], "mine");
+    }
+}

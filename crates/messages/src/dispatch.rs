@@ -3,14 +3,14 @@
 use super::*;
 
 impl Messages {
-    pub(super) fn get(&self, ctx: &Ctx, p: MessageId) -> Result<Value, Error> {
+    pub(super) async fn get(&self, ctx: &Ctx, p: MessageId) -> Result<Message, Error> {
         let message = self.get_or_not_found(p.id)?;
         require_readable(ctx, &message)?;
         ctx.touch(Verb::Read, &item(p.id))?;
-        reply(&failure::with_waiting(&self.inner, message))
+        Ok(failure::with_waiting(&self.inner, message))
     }
 
-    pub(super) fn list(&self, ctx: &Ctx, p: ListParams) -> Result<Value, Error> {
+    pub(super) async fn list(&self, ctx: &Ctx, p: ListParams) -> Result<Vec<Message>, Error> {
         let mut messages = match &p.id {
             Some(door) => self.store()?.thread(door)?,
             None => self.store()?.list()?,
@@ -30,7 +30,7 @@ impl Messages {
             .into_iter()
             .map(|m| failure::with_waiting(&self.inner, m))
             .collect();
-        reply(&messages)
+        Ok(messages)
     }
 }
 
@@ -71,27 +71,14 @@ pub(super) fn item(id: u32) -> String {
     format!("message:{id}")
 }
 
-/// B53: a send names its `kind`; a missing or unknown one says which values are allowed.
-/// `rpc::params` below the handler: its failure joins the crate's one error type.
-pub(super) fn params<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Error> {
-    Ok(rpc::params(value)?)
-}
-
-/// `rpc::reply` below the handler.
-pub(super) fn reply<T: serde::Serialize>(value: &T) -> Result<Value, Error> {
-    Ok(rpc::reply(value)?)
-}
-
-pub(super) fn send_params(value: Value) -> Result<SendParams, Error> {
-    if !matches!(
-        value.get("kind").and_then(Value::as_str),
-        Some("note" | "question")
-    ) {
-        return Err(Error::invalid_params(
+/// B53: a send names its `kind`; a missing one says which values are allowed.
+fn require_kind(value: &Value) -> Result<(), RpcError> {
+    if value.get("kind").is_none() {
+        return Err(RpcError::from(Error::invalid_params(
             "kind is required and must be `note` or `question`",
-        ));
+        )));
     }
-    params(value)
+    Ok(())
 }
 
 #[async_trait]
@@ -119,7 +106,10 @@ impl Module for Messages {
 impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         trip(&self.inner, method).map_err(RpcError::internal)?;
-        contracts::messages_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        if method == "message.send" {
+            require_kind(&value)?;
+        }
+        contracts::messages_methods!(rpc::dispatch_methods, Messages, self, ctx, method, value)
     }
 }
 

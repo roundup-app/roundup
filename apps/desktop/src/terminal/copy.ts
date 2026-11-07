@@ -30,7 +30,6 @@ export const copy = {
   askBarLabel: sharedCopy.askBarLabel,
   askBarShortcut: sharedCopy.askBarShortcut,
   selectCommand: "Select command",
-  addAgentMenu: sharedCopy.addAgentMenu,
   noOutputKeptFromAnEarlierRun: "No output kept from an earlier run.",
   /** The first line is the failure; the cause follows it for the tooltip. */
   terminalRestoreFailed: (cause: string) => `Could not restore Terminal output.\n${cause}`,

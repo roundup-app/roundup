@@ -1,4 +1,5 @@
 import "./Field.css";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { focusActions } from "./focusActions";
 import { captureFocus } from "../keys/focus";
 import * as select from "@zag-js/select";
@@ -10,7 +11,7 @@ import { useFieldContext } from "@ark-ui/solid/field";
 import "./Select.css";
 import { floatingControl } from "./Dialog";
 import { Select as ArkSelect, createListCollection } from "@ark-ui/solid/select";
-import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, type JSX } from "solid-js";
 import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
 import { Portal } from "solid-js/web";
@@ -70,16 +71,13 @@ export const Select = (props: {
   const api = createMemo(() => select.connect(service, normalizeProps));
 
   // An Escape in the open list closes only it: stopping it at the window's capture phase keeps every enclosing dismiss layer, whichever registered first, from seeing it.
-  const mark = (event: KeyboardEvent) => {
+  makeEventListener(window, "keydown", (event) => {
     const target = event.target;
 
     if (event.key !== "Escape" || !control.open() || !(target instanceof Node) || !(root()?.contains(target) || list()?.contains(target))) return;
     event.stopPropagation();
     api().setOpen(false);
-  };
-
-  window.addEventListener("keydown", mark, true);
-  onCleanup(() => window.removeEventListener("keydown", mark, true));
+  }, true);
 
   return <div class="app-select" ref={setRoot}>
     <ArkSelect.RootProvider value={api} lazyMount unmountOnExit>
@@ -89,9 +87,8 @@ export const Select = (props: {
           trigger = element;
           const key = (event: KeyboardEvent) => { if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) requestFocus(); };
 
-          element.addEventListener("click", requestFocus, true);
-          element.addEventListener("keydown", key, true);
-          onCleanup(() => { element.removeEventListener("click", requestFocus, true); element.removeEventListener("keydown", key, true); });
+          makeEventListener(element, "click", requestFocus, true);
+          makeEventListener(element, "keydown", key, true);
         }} class="app-select-trigger" aria-label={props.label} aria-describedby={props.description ? `${id}-hint` : undefined}>
           <ArkSelect.ValueText />
           <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
@@ -104,9 +101,8 @@ export const Select = (props: {
             setList(element);
             const returning = () => { returnFocus = captureFocus(); };
 
-            element.addEventListener("keydown", returning, true);
-            element.addEventListener("click", returning, true);
-            onCleanup(() => { element.removeEventListener("keydown", returning, true); element.removeEventListener("click", returning, true); });
+            makeEventListener(element, "keydown", returning, true);
+            makeEventListener(element, "click", returning, true);
           }}>
             <For each={props.choices}>{(choice) => <ArkSelect.Item item={choice} class="app-select-item">
               <ArkSelect.ItemText>{choice.label}</ArkSelect.ItemText>

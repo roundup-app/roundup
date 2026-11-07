@@ -86,7 +86,9 @@ impl Slot {
     /// The node's name is final: no prompt renames it.
     pub(crate) fn settle_name(&mut self) {
         match self {
-            Self::Running(run) => run.named = true,
+            Self::Running(run) => {
+                run.named = Naming::Settled;
+            }
             Self::Starting { named, .. } => *named = true,
             Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing | Self::Gone => {}
         }
@@ -269,6 +271,15 @@ impl Fold {
     }
 }
 
+/// Where an Agent's name stands: not yet settled, settled, or named by Automatic naming with
+/// Claude Code's first session title still free to rename it once (A9).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Naming {
+    Open,
+    TitlePending,
+    Settled,
+}
+
 /// An Agent's program and what is left to tell it.
 pub(crate) struct Run {
     launch: Launch,
@@ -288,7 +299,7 @@ pub(crate) struct Run {
     interrupt: Option<oneshot::Sender<()>>,
     /// The first prompt has been submitted, or a `rail.rename` came first: either way the name
     /// is settled and no prompt renames the node.
-    named: bool,
+    named: Naming,
     terminal_id: String,
     /// A21: the effective working directory this launch runs in, after Worktree mapping; saved
     /// to `agents.db` alongside the conversation id the first Signal to name one carries.
@@ -322,7 +333,7 @@ impl Run {
             starred: false,
             steer: None,
             interrupt: None,
-            named,
+            named: if named { Naming::Settled } else { Naming::Open },
             terminal_id,
             cwd,
         }
@@ -537,12 +548,26 @@ impl Run {
     }
 
     pub(crate) fn named(&self) -> bool {
-        self.named
+        self.named != Naming::Open
     }
 
     /// Settles the name; `true` when it was not yet settled.
     pub(crate) fn claim_name(&mut self) -> bool {
-        !std::mem::replace(&mut self.named, true)
+        let open = self.named == Naming::Open;
+        self.named = Naming::Settled;
+        open
+    }
+
+    pub(crate) fn title_pending(&self) -> bool {
+        self.named == Naming::TitlePending
+    }
+
+    pub(crate) fn set_title_pending(&mut self, pending: bool) {
+        self.named = if pending {
+            Naming::TitlePending
+        } else {
+            Naming::Settled
+        };
     }
 
     pub(crate) fn steer(&self) -> Option<&SteerWait> {
