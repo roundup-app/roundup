@@ -1,5 +1,6 @@
 //! A35: coordinator-owned, durable queue reservations. No lifecycle calls or consent policy.
 use super::*;
+use crate::delivery::{End, Receiver};
 use store::FirstPrompt;
 
 /// Durable progress fenced before every non-repeatable lifecycle or input effect.
@@ -280,9 +281,8 @@ impl Messages {
             agent,
             at,
             Ending {
-                closed: false,
-                permanent: false,
-                retained: false,
+                end: End::Live,
+                receiver: Receiver::Agent,
                 restart: false,
             },
         )?;
