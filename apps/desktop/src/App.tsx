@@ -289,7 +289,7 @@ export const App = (props: {
   const settingsOpen = settingsView.open;
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
-    action: CHORDS.find(row => row.name === (keys === "⌘Z" ? "edit.undo" : "edit.redo"))!,
+    action: CHORDS[keys === "⌘Z" ? "edit.undo" : "edit.redo"],
     when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
     capture: focus => {
       const path = projects.active();
@@ -511,7 +511,7 @@ export const App = (props: {
     show();
   });
   createEffect(() => registerKeys({ kind: "app" }, [{
-    action: CHORDS.find(row => row.what === copy.captureATodo)!,
+    action: CHORDS["todo.capture"],
     capture: () => ({
       available: () => !captureChoosing() && (projects.active() === null || connectionOf(projects.active()!)?.daemonExit() === null),
       invoke: () => void openCapture(),
@@ -563,7 +563,7 @@ export const App = (props: {
     if (focus) queueMicrotask(() => document.querySelector<HTMLElement>(collapsed ? ".rail-strip-expand" : ".rail-collapse")?.focus());
   };
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "R")!, capture: () => ({
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.rail"], capture: () => ({
     available: () => activeConnection() != null,
     invoke: () => setRailCollapsed(!widths.collapsed(), false),
   }) }]);
@@ -598,9 +598,9 @@ export const App = (props: {
         return { id: `action:chord:${keys}`, label: history ? (redo ? history.redoLabel(region) : history.undoLabel(region)) : redo ? copy.redo : copy.todoUndo, shortcut: keys, group: "edit" as const, enabled: available && !!history && !history.pending() && (redo ? history.redoAvailable(region) : history.available(region)) };
       }) : []),
       ...[
-        ...["agent.new", "agent.new-with-prompt", "workstream.new", "mode.new", "terminal.new", "todo.capture", "attention.jump"].map(name => CHORDS.find(row => row.name === name)!),
-        ...["leader.changes", "leader.project"].map(name => LEADER.find(row => row.name === name)!),
-        CHORDS.find(row => row.name === "project.choose-folder")!,
+        ...(["agent.new", "agent.new-with-prompt", "workstream.new", "mode.new", "terminal.new", "todo.capture", "attention.jump"] as const).map(name => CHORDS[name]),
+        ...[LEADER["leader.changes"], LEADER["leader.project"]],
+        CHORDS["project.choose-folder"],
       ].map((row, index): MenuItem => {
         const action = actions.find(action => action.name === row.name && action.available());
 
@@ -685,7 +685,7 @@ export const App = (props: {
   onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
 
   onCleanup(shelfFocus.stop);
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "B")!, capture: () => {
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.shelf"], capture: () => {
     const wasOpen = frame.open();
 
     return {
@@ -709,7 +709,7 @@ export const App = (props: {
   const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
 
   createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "P")!, capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { projectOpener = document.activeElement; setProjectQuery(""); setProjectPicker(true); } }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.project"], capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { projectOpener = document.activeElement; setProjectQuery(""); setProjectPicker(true); } }) }]);
   registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: dismissProjectPicker }]);
 
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();

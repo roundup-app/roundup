@@ -1,7 +1,7 @@
 import "./FirstRun.css";
 import { createResource, For, Show } from "solid-js";
 import { registerKeys } from "../keys/registry";
-import { chordNamed } from "../keys/chords";
+import { CHORDS } from "../keys/chords";
 import { EmptyState } from "../ink/EmptyState";
 import type { App } from "./seam";
 import { copy } from "./copy";
@@ -10,8 +10,8 @@ import { dismissable, ReservedLine } from "../ink/ReservedLine";
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
 export const EmptyRail = (props: { onNew?: () => void; onWorkstream?: () => void; available?: boolean }) => (
   <EmptyState art="plant" {...{ title: copy.emptyRailTitle }} line={copy.emptyRailLine} actions={props.onWorkstream ? [
-    { label: copy.newAgent, chord: chordNamed("agent.new")!, run: () => props.onNew?.() },
-    { label: copy.newWorkstreamTitle, chord: chordNamed("workstream.new")!, run: () => props.onWorkstream?.() },
+    { label: copy.newAgent, chord: CHORDS["agent.new"], run: () => props.onNew?.() },
+    { label: copy.newWorkstreamTitle, chord: CHORDS["workstream.new"], run: () => props.onWorkstream?.() },
   ] : undefined} available={props.available} />
 );
 
@@ -23,12 +23,12 @@ export const ChooseProject = (props: { app: App; failure: string | null; onOpen:
   const recentLine = dismissable(() => recent()?.failure);
   const binaryLine = dismissable(() => binary() && !binary()!.value ? binary()!.failure ?? copy.claudeNotFound : null);
 
-  registerKeys({ kind: "app" }, [{ action: chordNamed("project.choose-folder")!, capture: () => ({ available: () => true, invoke: () => props.onChoose() }) }]);
+  registerKeys({ kind: "app" }, [{ action: CHORDS["project.choose-folder"], capture: () => ({ available: () => true, invoke: () => props.onChoose() }) }]);
 
   return (
     <div class="choose-project">
       <ReservedLine message={failureLine.message()} dismiss={failureLine.dismiss} recover={props.onRetry ? { run: props.onRetry } : undefined} />
-      <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} actions={[{ label: copy.chooseFolder, chord: chordNamed("project.choose-folder")!, run: props.onChoose }]} /></Show>
+      <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} actions={[{ label: copy.chooseFolder, chord: CHORDS["project.choose-folder"], run: props.onChoose }]} /></Show>
       <Show when={props.failure}><button data-button="primary" type="button" onClick={() => props.onChoose()}>{copy.chooseFolder}</button></Show>
       <Show when={recent()?.failure}><ReservedLine message={recentLine.message()} dismiss={recentLine.dismiss} recover={{ run: () => void refetchRecent() }} /></Show>
       <Show when={recent()?.paths.length}>

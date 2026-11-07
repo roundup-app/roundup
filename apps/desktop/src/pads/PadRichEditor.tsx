@@ -8,7 +8,7 @@ import { Tip } from "../ui/Tip";
 import { Menu } from "../ui/Menu";
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
-import { CHORDS, chordsFor } from "../keys/chords";
+import { CHORDS, chordsOf } from "../keys/chords";
 import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -76,13 +76,13 @@ const topBarNames = new Map(Object.entries({
 const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link", "bullet-list", "ordered-list", "task-list", "quote", "code-block", "table"]);
 
 const toolbarCommands = [
-  { key: "bold", action: CHORDS.find(action => action.name === "terminal.switch")!, label: copy.bold, command: toggleStrongCommand },
-  { key: "italic", action: CHORDS.find(action => action.name === "editor.italic")!, label: copy.italic, command: toggleEmphasisCommand },
-  { key: "quote", action: CHORDS.find(action => action.name === "editor.quote")!, label: copy.quote, command: wrapInBlockquoteCommand },
-  { key: "bullet-list", action: CHORDS.find(action => action.name === "editor.bullet-list")!, label: copy.bulletList, command: wrapInBulletListCommand },
-  { key: "ordered-list", action: CHORDS.find(action => action.name === "editor.numbered-list")!, label: copy.numberedList, command: wrapInOrderedListCommand },
-  { key: "code-block", action: CHORDS.find(action => action.name === "editor.code-block")!, label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
-  { key: "code", action: CHORDS.find(action => action.name === "editor.inline-code")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
+  { key: "bold", action: CHORDS["terminal.switch"], label: copy.bold, command: toggleStrongCommand },
+  { key: "italic", action: CHORDS["editor.italic"], label: copy.italic, command: toggleEmphasisCommand },
+  { key: "quote", action: CHORDS["editor.quote"], label: copy.quote, command: wrapInBlockquoteCommand },
+  { key: "bullet-list", action: CHORDS["editor.bullet-list"], label: copy.bulletList, command: wrapInBulletListCommand },
+  { key: "ordered-list", action: CHORDS["editor.numbered-list"], label: copy.numberedList, command: wrapInOrderedListCommand },
+  { key: "code-block", action: CHORDS["editor.code-block"], label: copy.codeBlock, command: createCodeBlockCommand, clearTextInCurrentBlockCommand },
+  { key: "code", action: CHORDS["editor.inline-code"], label: copy.inlineCode, command: toggleInlineCodeCommand },
 ];
 
 const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
@@ -388,7 +388,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
 
     registerKeys({ kind: "region", element: () => host }, toolbarCommands.map(({ action, label, command }) => ({
       action,
-      chords: chordsFor(action.keys, action.keys.includes("⌥") ? "code" : "key"),
+      chords: chordsOf(action, action.keys.includes("⌥") ? "code" : "key"),
       capture: focus => {
         commandState();
 
