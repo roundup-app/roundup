@@ -60,7 +60,7 @@ impl Agents {
         if name.is_empty() {
             return Err(RpcError::new(code::INVALID_PARAMS, "a Mode needs a name"));
         }
-        let Some(lean) = Launcher::load_lean(&self.dir, &id) else {
+        let Some(lean) = Launcher::load_lean(&self.dir, &id)? else {
             return Err(RpcError::conflict(format!(
                 "{id} keeps the user's full setup: it was not started by an Agent"
             )));

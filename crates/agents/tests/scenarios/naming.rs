@@ -261,6 +261,23 @@ async fn a28_a_given_name_survives_the_first_prompt() {
 }
 
 #[tokio::test]
+async fn u6414a_an_app_named_agent_takes_its_first_prompt_name() {
+    let f = Fixture::running("sleep 30");
+    let cwd = f.dir.path().to_string_lossy().into_owned();
+    let node = f
+        .call(
+            "agent.spawn",
+            json!({"cwd": cwd, "prompt": "fix the build", "name": "Import", "appNamed": true}),
+        )
+        .await
+        .unwrap();
+    let node: RailNode = serde_json::from_value(node).unwrap();
+    assert_eq!(node.name, "Import");
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "fix-build");
+}
+
+#[tokio::test]
 async fn a28_a_taken_name_gets_a_suffix() {
     let f = Fixture::running("sleep 30");
     let first = f.spawn_named(Some("docs"), None).await.unwrap();

@@ -77,7 +77,7 @@ impl Agents {
     ) -> Result<RailNode, RpcError> {
         self.shared.guard_reach(&ctx.actor, &id, false)?;
         self.shared.rail().node(&id)?;
-        let Some(mut lean) = Launcher::load_lean(&self.dir, &id) else {
+        let Some(mut lean) = Launcher::load_lean(&self.dir, &id)? else {
             return Err(RpcError::conflict(format!(
                 "{id} keeps the user's full setup: it was not started by an Agent"
             )));
