@@ -19,7 +19,7 @@ use super::{Shim, actor, client_as, rail, socket};
 /// note to `to` and its Stop offer to carry the waiting ones out.
 pub async fn carry_quiet_notes(client: &rpc::Client, to: &str, polls: &mut u32) {
     *polls += 1;
-    if *polls % 8 != 0 {
+    if !(*polls).is_multiple_of(8) {
         return;
     }
     let note = json!({"to":to,"kind":"note","body":"carry the quiet notes"});
