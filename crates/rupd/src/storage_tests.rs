@@ -702,7 +702,8 @@ async fn u5740c_current_project_drops_only_retired_tables() {
             )
             .await
             .unwrap()
-            .into_value();
+            .into_value()
+            .unwrap();
         assert!(answer.get("error").is_none(), "{answer}");
         assert_eq!(answer["result"]["head"], 1028);
         let (saved, head) = daemon.bus.saved_after(0).unwrap();

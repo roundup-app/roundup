@@ -147,8 +147,9 @@ impl Daemon {
                         .iter()
                         .position(|r| r.revision == report.instruction.revision)
                         .is_some_and(|at| at >= substantive)
-                    && !reports[index + 1..]
+                    && !reports
                         .iter()
+                        .skip(index + 1)
                         .any(|later| later.request.target.id == report.request.target.id));
             results.push(ResultProgress {
                 report: report.clone(),
@@ -231,9 +232,15 @@ impl Daemon {
             .iter()
             .position(|r| r.revision == delivery.revision)
             .ok_or_else(|| RpcError::not_found("instruction revision is absent"))?;
-        let instruction = instructions.revisions[index].clone();
-        let order_revision = instructions.revisions[..=index]
+        let instruction = instructions
+            .revisions
+            .get(index)
+            .cloned()
+            .ok_or_else(|| RpcError::not_found("instruction revision is absent"))?;
+        let order_revision = instructions
+            .revisions
             .iter()
+            .take(index + 1)
             .rev()
             .find(|r| matches!(r.instruction, contracts::agent::Instruction::Order { .. }))
             .map(|r| r.revision.clone());
@@ -265,14 +272,15 @@ impl Daemon {
         messages: &Messages,
         progress: &ProgressParams,
         report: &str,
-    ) -> Result<(Vec<ResultReport>, usize), RpcError> {
+    ) -> Result<(Vec<ResultReport>, ResultReport), RpcError> {
         self.result_instructions(conn, progress).await?;
         let reports = messages.result_reports(&progress.id)?;
-        let at = reports
+        let named = reports
             .iter()
-            .position(|r| r.report == report)
+            .find(|r| r.report == report)
+            .cloned()
             .ok_or_else(|| RpcError::not_found("result report is absent"))?;
-        Ok((reports, at))
+        Ok((reports, named))
     }
 
     async fn result_accept(
@@ -285,7 +293,7 @@ impl Daemon {
             project: p.project,
             id: p.id,
         };
-        let (reports, at) = self
+        let (_, report) = self
             .named_report(conn, messages, &progress, &p.report)
             .await?;
         if conn.actor.kind != ActorKind::User {
@@ -301,7 +309,7 @@ impl Daemon {
             actor: conn.actor.clone(),
             evidence: p.evidence,
         };
-        messages.accept_result(&reports[at].report, &acceptance)?;
+        messages.accept_result(&report.report, &acceptance)?;
         rpc::reply(&acceptance)
     }
 
@@ -321,10 +329,10 @@ impl Daemon {
             project: p.project,
             id: p.id,
         };
-        let (reports, at) = self
+        let (_, named) = self
             .named_report(conn, messages, &progress, &p.report)
             .await?;
-        let report = &reports[at];
+        let report = &named;
         if report.request.state != ResultState::UnknownEffect {
             return Err(RpcError::conflict(
                 "external resolution requires an unknown-effect report",
@@ -345,10 +353,10 @@ impl Daemon {
             project: p.project,
             id: p.id,
         };
-        let (reports, at) = self
+        let (reports, named) = self
             .named_report(conn, messages, &progress, &p.report)
             .await?;
-        let report = &reports[at];
+        let report = &named;
         let unresolved = Self::unresolved_reports(messages, &reports)?;
         if let Some(resolved) = messages
             .result_observations(&report.report)?
@@ -556,7 +564,9 @@ async fn fetch_receipt(url: &str) -> Result<Vec<u8>, String> {
         .kill_on_drop(true)
         .spawn()
         .map_err(|_| "the authoritative source reader could not start".to_string())?;
-    let (mut out, mut err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+    let (Some(mut out), Some(mut err)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err("the authoritative source reader could not start".to_string());
+    };
     let mut body = Vec::new();
     let read = (&mut out)
         .take(LIMIT as u64 + 1)

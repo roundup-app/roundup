@@ -1,4 +1,5 @@
 use super::*;
+use crate::field::Field;
 
 pub(crate) struct Specialist {
     pub(crate) id: String,
@@ -32,7 +33,12 @@ impl Daemon {
                 .call(&self.ctx(actor.clone()), "agent.spawn", params)
                 .await;
         }
-        let name = typed.specialist.clone().expect("specialist spawn");
+        let Some(name) = typed.specialist.clone() else {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "specialist requires a name",
+            ));
+        };
         if name.trim().is_empty() {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -83,7 +89,7 @@ impl Daemon {
         specialists.insert(
             key,
             Specialist {
-                id: node["id"].as_str().expect("spawn id").to_owned(),
+                id: spawned_id(&node)?,
                 actor: actor.clone(),
                 params: typed,
                 handoff: None,
@@ -96,7 +102,7 @@ impl Daemon {
 impl Daemon {
     pub(crate) async fn specialist_stop(&self, params: &Value) -> Result<Option<Value>, RpcError> {
         let signal: contracts::agent::SignalParams = rpc::params(params.clone())?;
-        if signal.payload["hook_event_name"] != "Stop" {
+        if signal.payload.field("hook_event_name") != "Stop" {
             return Ok(None);
         }
         let id = signal.id.as_str();
@@ -127,7 +133,7 @@ impl Daemon {
         if size.is_none_or(|size| size < 160_000) {
             return Ok(None);
         }
-        let message = self.modules["message"].call(&self.ctx(specialist.actor.clone()), "message.send", json!({
+        let message = self.modules.get("message").ok_or_else(|| RpcError::internal("message module is not registered"))?.call(&self.ctx(specialist.actor.clone()), "message.send", json!({
             "to": id, "kind":"note", "body": "Your context reached 160k tokens. Send a handoff summary of at most 600 bytes to your parent with message_send, using replyTo to answer this Message. Retain findings and unfinished work; a replacement specialist will continue."
         })).await?;
         let message: contracts::message::Message =
@@ -200,7 +206,7 @@ impl Daemon {
                 serde_json::to_value(params).map_err(RpcError::internal)?,
             )
             .await?;
-        specialist.id = node["id"].as_str().expect("spawn id").to_owned();
+        specialist.id = spawned_id(&node)?;
         specialist.handoff = None;
         Ok(node)
     }
@@ -209,3 +215,11 @@ impl Daemon {
 #[cfg(test)]
 #[path = "specialist_tests.rs"]
 mod tests;
+
+/// The id of the Agent `agent.spawn` returned.
+fn spawned_id(node: &Value) -> Result<String, RpcError> {
+    node.field("id")
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| RpcError::internal("agent.spawn returned no id"))
+}

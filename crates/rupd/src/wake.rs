@@ -182,7 +182,15 @@ impl Waker {
             }
             return None;
         }
-        let entries: Vec<DigestEntry> = wake.ids.iter().map(|id| self.entry(id, world)).collect();
+        let entries: Result<Vec<DigestEntry>, _> =
+            wake.ids.iter().map(|id| self.entry(id, world)).collect();
+        let entries = match entries {
+            Ok(entries) => entries,
+            Err(err) => {
+                eprintln!("rupd: wake: not fired: {err}");
+                return None;
+            }
+        };
         let body = messages::wake::note_body(&entries);
         match self.messages.fire_wake(wake.id, &wake.waiter, body).await {
             Ok(true) => Some(Fired {
@@ -197,17 +205,18 @@ impl Waker {
         }
     }
 
-    fn entry(&self, id: &str, world: &World) -> DigestEntry {
-        self.digests
-            .entry_of(id, &world.sources(), false)
-            .unwrap_or_else(|| DigestEntry {
-                name: self.agents.rail_name(id).expect("read wake Agent name"),
-                kind: Kind::Done,
-                last: String::new(),
-                todos: 0,
-                link: None,
-                pads: Vec::new(),
-            })
+    fn entry(&self, id: &str, world: &World) -> Result<DigestEntry, RpcError> {
+        if let Some(entry) = self.digests.entry_of(id, &world.sources(), false) {
+            return Ok(entry);
+        }
+        Ok(DigestEntry {
+            name: self.agents.rail_name(id)?,
+            kind: Kind::Done,
+            last: String::new(),
+            todos: 0,
+            link: None,
+            pads: Vec::new(),
+        })
     }
 
     /// B44: decides every open request again, from the log and the present Kinds.
@@ -321,7 +330,7 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
         let EventData::RailRenamed { id, name } = event.data else {
             continue;
         };
-        let nodes: Vec<RailNode> = reader
+        let nodes: Vec<RailNode> = match reader
             .call(
                 "rail",
                 "rail.tree",
@@ -329,7 +338,13 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
                 Actor::daemon(),
             )
             .await
-            .expect("read renamed Agent");
+        {
+            Ok(nodes) => nodes,
+            Err(err) => {
+                eprintln!("rupd: Rail rename note for {name} not sent, Rail unreadable: {err}");
+                return;
+            }
+        };
         if !nodes.iter().any(|node| {
             node.id == id
                 && is_agent(node)
@@ -353,7 +368,10 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
                 rpc::code::NOT_FOUND | rpc::code::CONFLICT | rpc::code::INVALID_PARAMS => {
                     eprintln!("rupd: Rail rename note for {name} refused: {err}");
                 }
-                _ => panic!("queue Rail rename note: {err}"),
+                _ => {
+                    eprintln!("rupd: Rail rename note for {name} failed: {err}");
+                    return;
+                }
             }
         }
     }

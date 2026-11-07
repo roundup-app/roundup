@@ -211,14 +211,17 @@ impl Told {
         }
         let lines: Vec<String> = order
             .iter()
-            .map(|id| {
+            .filter_map(|id| {
                 let words: Vec<String> = changes
                     .iter()
                     .filter(|(changed, _)| changed == id)
                     .map(|(_, change)| change.words())
                     .collect();
-                let title = &self.todos[id].title;
-                format!("- {title}: {} (rup todo get {id})", words.join(", "))
+                let title = &self.todos.get(id)?.title;
+                Some(format!(
+                    "- {title}: {} (rup todo get {id})",
+                    words.join(", ")
+                ))
             })
             .collect();
         if lines.is_empty() {
@@ -372,7 +375,8 @@ pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
+    use parking_lot::Mutex;
+    use std::sync::Arc;
 
     use async_trait::async_trait;
     use contracts::todo::TodoId;
@@ -558,7 +562,7 @@ mod tests {
         }
 
         async fn call(&self, _: &Ctx, method: &str, params: Value) -> Result<Value, RpcError> {
-            self.calls.lock().unwrap().push(if method == "todo.hand" {
+            self.calls.lock().push(if method == "todo.hand" {
                 format!("todo.hand:{}", params["agent"].as_str().unwrap())
             } else {
                 method.into()
@@ -567,14 +571,14 @@ mod tests {
                 "rail.tree" if self.rail_fails.load(std::sync::atomic::Ordering::Relaxed) => {
                     Err(RpcError::internal("Rail unavailable"))
                 }
-                "rail.tree" => Ok(Value::Array(self.nodes.lock().unwrap().clone())),
+                "rail.tree" => Ok(Value::Array(self.nodes.lock().clone())),
                 "todo.list" | "pad.list" | "message.list" => {
                     Err(RpcError::internal("unrelated read"))
                 }
                 "todo.hand" => rpc::reply(&Some(todo(7, "Next task", None, vec![]))),
-                "todo.comments" => Ok(self.thread.lock().unwrap().clone()),
+                "todo.comments" => Ok(self.thread.lock().clone()),
                 "message.send" => {
-                    self.sent.lock().unwrap().push(params.clone());
+                    self.sent.lock().push(params.clone());
                     Ok(
                         json!({"id":1,"from":Actor::daemon(),"to":params["to"],"kind":"note","body":params["body"],"replyTo":null,"status":"pending","reason":null,"at":0}),
                     )
@@ -631,7 +635,7 @@ mod tests {
         let (stub, reader) = rig(vec![node("a", "idle", true)]);
         let mut told = assigned();
         flush(&mut told, &reader).await;
-        let sent = stub.sent.lock().unwrap().clone();
+        let sent = stub.sent.lock().clone();
         assert_eq!(
             sent,
             vec![json!({
@@ -640,7 +644,7 @@ mod tests {
             })]
         );
         flush(&mut told, &reader).await;
-        assert_eq!(stub.sent.lock().unwrap().len(), 1);
+        assert_eq!(stub.sent.lock().len(), 1);
     }
 
     #[tokio::test]
@@ -649,19 +653,19 @@ mod tests {
         let (stub, reader) = rig(vec![node("a", "working", true)]);
         let mut told = assigned();
         flush(&mut told, &reader).await;
-        assert!(stub.sent.lock().unwrap().is_empty());
-        *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+        assert!(stub.sent.lock().is_empty());
+        *stub.nodes.lock() = vec![node("a", "idle", true)];
         flush(&mut told, &reader).await;
-        assert_eq!(stub.sent.lock().unwrap().len(), 1);
+        assert_eq!(stub.sent.lock().len(), 1);
         // A removed Agent, and one with no Terminal program, are dropped and never retried.
         for nodes in [vec![], vec![node("a", "idle", false)]] {
-            *stub.nodes.lock().unwrap() = nodes;
+            *stub.nodes.lock() = nodes;
             let mut told = assigned();
             flush(&mut told, &reader).await;
             assert!(told.waiting().is_empty());
-            *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+            *stub.nodes.lock() = vec![node("a", "idle", true)];
             flush(&mut told, &reader).await;
-            assert_eq!(stub.sent.lock().unwrap().len(), 1);
+            assert_eq!(stub.sent.lock().len(), 1);
         }
     }
 
@@ -811,7 +815,7 @@ mod tests {
     async fn t22_a_comment_waits_until_the_agent_is_idle() {
         let (stub, reader) = rig(vec![node("a", "working", true)]);
         let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
-        *stub.thread.lock().unwrap() = serde_json::to_value(vec![
+        *stub.thread.lock() = serde_json::to_value(vec![
             comment(1, agent_actor("a"), "question"),
             comment(2, Actor::user(), "go"),
         ])
@@ -823,27 +827,27 @@ mod tests {
         };
         read(&mut told, &reader, &event).await;
         flush(&mut told, &reader).await;
-        assert!(stub.sent.lock().unwrap().is_empty());
-        *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+        assert!(stub.sent.lock().is_empty());
+        *stub.nodes.lock() = vec![node("a", "idle", true)];
         flush(&mut told, &reader).await;
         assert_eq!(
-            stub.sent.lock().unwrap().clone(),
+            stub.sent.lock().clone(),
             vec![json!({
                 "to": "a", "kind": "note",
                 "body": "[todos]\n- Ship: new comment from you: go (rup todo get 1)",
             })]
         );
         for nodes in [vec![], vec![node("a", "idle", false)]] {
-            *stub.nodes.lock().unwrap() = nodes;
+            *stub.nodes.lock() = nodes;
             let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
             told.started = 0;
             read(&mut told, &reader, &event).await;
             assert!(!told.waiting().is_empty());
             flush(&mut told, &reader).await;
             assert!(told.waiting().is_empty());
-            *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+            *stub.nodes.lock() = vec![node("a", "idle", true)];
             flush(&mut told, &reader).await;
-            assert_eq!(stub.sent.lock().unwrap().len(), 1);
+            assert_eq!(stub.sent.lock().len(), 1);
         }
     }
 }

@@ -2,9 +2,9 @@
 //! note, so it reconciles its Todos and Pads and summarizes. The note, the Door's reply and the
 //! note's own delivery are never a child change, so none of them arms another.
 
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::Mutex;
 
 use contracts::agent::{NodeKind, RailNode};
 use contracts::message::{Message, MessageStatus};
@@ -28,18 +28,14 @@ const QUIET_MS: i64 = 2_000;
 /// The markers `door_settlement` stores in `project.db`; in memory when none is given.
 pub struct Settlements(Mutex<Connection>, i64);
 
-impl Default for Settlements {
-    fn default() -> Self {
-        let store = Self(
-            Mutex::new(Connection::open_in_memory().expect("in-memory settlement store")),
-            QUIET_MS,
-        );
-        store.migrate().expect("settlement schema");
-        store
-    }
-}
-
 impl Settlements {
+    /// The store when `project.db` cannot be opened: markers last until the Daemon stops.
+    pub fn in_memory() -> rusqlite::Result<Self> {
+        let store = Self(Mutex::new(Connection::open_in_memory()?), QUIET_MS);
+        store.migrate()?;
+        Ok(store)
+    }
+
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
         Ok(Self(Mutex::new(Connection::open(path)?), QUIET_MS))
     }
@@ -52,14 +48,14 @@ impl Settlements {
     }
 
     fn migrate(&self) -> rusqlite::Result<()> {
-        let db = self.0.lock().unwrap_or_else(|p| p.into_inner());
+        let db = self.0.lock();
         db.execute_batch(include_str!(
             "../migrations/project/0050-door-settlement.sql"
         ))
     }
 
     fn row(&self, door: &str) -> rusqlite::Result<(Option<String>, Option<String>)> {
-        let db = self.0.lock().unwrap_or_else(|p| p.into_inner());
+        let db = self.0.lock();
         Ok(db
             .query_row(
                 "SELECT settled, publishing FROM door_settlement WHERE door = ?1",
@@ -76,7 +72,7 @@ impl Settlements {
         settled: Option<&str>,
         publishing: Option<&str>,
     ) -> rusqlite::Result<()> {
-        let db = self.0.lock().unwrap_or_else(|p| p.into_inner());
+        let db = self.0.lock();
         db.execute(
             "INSERT INTO door_settlement (door, settled, publishing) VALUES (?1, ?2, ?3)
              ON CONFLICT(door) DO UPDATE SET settled = ?2, publishing = ?3",
@@ -116,7 +112,7 @@ fn marker(children: &[&RailNode]) -> String {
         .collect();
     parts.sort();
     let sum = Sha256::digest(parts.join("\n"));
-    sum[..8].iter().map(|b| format!("{b:02x}")).collect()
+    sum.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// A child is at work, waiting on something or asking the user.

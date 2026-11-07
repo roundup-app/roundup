@@ -475,7 +475,8 @@ async fn a3308_an_agent_cannot_enable_auto_by_claiming_user() {
         )
         .await
         .unwrap()
-        .into_value();
+        .into_value()
+        .unwrap();
     assert_eq!(response["error"]["code"], code::FORBIDDEN);
     assert_eq!(
         call(&daemon, "rail.tree", Value::Null).await[0]["auto"],
@@ -510,8 +511,8 @@ async fn u3523c_import_agent_receives_prompt_and_tools() {
 // In-memory Module fixtures keep the cost observer on the production Reader seam.
 struct AutoFixture {
     todos: Vec<Value>,
-    history: std::sync::Mutex<Vec<Value>>,
-    sent: std::sync::Mutex<Vec<Value>>,
+    history: parking_lot::Mutex<Vec<Value>>,
+    sent: parking_lot::Mutex<Vec<Value>>,
     changes: Value,
     fail: Option<&'static str>,
 }
@@ -530,11 +531,11 @@ impl Module for AutoFixture {
             }
             "todo.list" => json!(self.todos),
             "todo.getHistory" => self.changes.clone(),
-            "message.list" => json!(*self.history.lock().unwrap()),
+            "message.list" => json!(*self.history.lock()),
             "message.send" => {
-                self.sent.lock().unwrap().push(params.clone());
+                self.sent.lock().push(params.clone());
                 let message = auto_message(Actor::daemon(), params["body"].as_str().unwrap());
-                self.history.lock().unwrap().push(message.clone());
+                self.history.lock().push(message.clone());
                 message
             }
             _ => return Err(RpcError::method_not_found(method)),
@@ -551,7 +552,7 @@ fn auto_fixture(
 ) -> (Arc<AutoFixture>, digest::Reader) {
     let fixture = Arc::new(AutoFixture {
         todos: (1..=count).map(|id| json!({"id":id,"title":format!("Task {id}"),"body":"","done":false,"blocked":false,"blockers":[],"created_at":0,"updated_at":0,"creator":Actor::user(),"home":"door","owner":null,"refs":[],"priority":null})).collect(),
-        history: std::sync::Mutex::new(history), sent: Default::default(), changes: json!({"changes":changes,"unread":null}), fail: None,
+        history: parking_lot::Mutex::new(history), sent: Default::default(), changes: json!({"changes":changes,"unread":null}), fail: None,
     });
     let modules = ["rail", "todo", "message"]
         .into_iter()
@@ -582,12 +583,12 @@ async fn ec5637d_auto_many_candidates_index_history_once() {
         })
         .collect();
     let (fixture, reader) = auto_fixture(128, history, vec![]);
-    fixture.history.lock().unwrap().push(auto_message(
+    fixture.history.lock().push(auto_message(
         Actor::user(),
         "[auto todo:1 unassigned:0]\nother author",
     ));
     // Half already told; the other half have a different retained firing identity.
-    for row in fixture.history.lock().unwrap().iter_mut().take(64) {
+    for row in fixture.history.lock().iter_mut().take(64) {
         row["body"] = json!("[auto todo:999 unassigned:0]\nold");
     }
     let counts = auto::counts::measure(|| async { auto::tell(&reader).await.unwrap() }).await;
@@ -596,7 +597,7 @@ async fn ec5637d_auto_many_candidates_index_history_once() {
     let expected: Vec<_> = (1..=64)
         .map(|id| json!({"to":"door","kind":"note","body":auto_body(id,0)}))
         .collect();
-    assert_eq!(*fixture.sent.lock().unwrap(), expected);
+    assert_eq!(*fixture.sent.lock(), expected);
 }
 #[tokio::test]
 async fn ec5637d_auto_zero_and_one_candidate_avoid_sorting() {
@@ -617,7 +618,7 @@ async fn ec5637d_auto_zero_and_one_candidate_avoid_sorting() {
         } else {
             vec![]
         };
-        assert_eq!(*fixture.sent.lock().unwrap(), expected);
+        assert_eq!(*fixture.sent.lock(), expected);
     }
 }
 #[tokio::test]
@@ -673,9 +674,9 @@ async fn ec5637d_auto_identity_preserves_actor_and_history_predicates() {
             if count == 2 {
                 expected.push(json!({"to":"door","kind":"note","body":auto_body(2,7)}));
             }
-            assert_eq!(*fixture.sent.lock().unwrap(), expected, "{text}");
+            assert_eq!(*fixture.sent.lock(), expected, "{text}");
             auto::tell(&reader).await.unwrap();
-            assert_eq!(*fixture.sent.lock().unwrap(), expected, "repeat {text}");
+            assert_eq!(*fixture.sent.lock(), expected, "repeat {text}");
         }
     }
 }
@@ -703,6 +704,6 @@ async fn ec5637d_auto_required_reads_propagate() {
             String::new(),
         );
         assert!(auto::tell(&reader).await.is_err(), "{method}");
-        assert!(fixture.sent.lock().unwrap().is_empty(), "{method}");
+        assert!(fixture.sent.lock().is_empty(), "{method}");
     }
 }

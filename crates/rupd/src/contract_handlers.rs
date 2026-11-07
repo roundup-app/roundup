@@ -23,7 +23,7 @@ impl Daemon {
     }
 
     fn get_naming(&self) -> Result<Value, RpcError> {
-        let db = self.naming.lock().expect("naming preferences poisoned");
+        let db = self.naming.lock();
         rpc::reply(&crate::data::read_naming(&db).map_err(RpcError::internal)?)
     }
 
@@ -34,7 +34,7 @@ impl Daemon {
                 "Enter a naming guide before saving.",
             ));
         }
-        let db = self.naming.lock().expect("naming preferences poisoned");
+        let db = self.naming.lock();
         crate::data::write_naming(&db, &settings).map_err(RpcError::internal)?;
         rpc::reply(&())
     }
@@ -82,7 +82,7 @@ impl Daemon {
             method,
             &params,
         )
-        .expect("declared built-in method")
+        .unwrap_or_else(|| Err(RpcError::method_not_found(method)))
     }
 
     pub(super) async fn github_call(

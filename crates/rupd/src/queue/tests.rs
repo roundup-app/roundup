@@ -368,7 +368,7 @@ async fn pass(
             if fail {
                 return Err(RpcError::conflict("no claude"));
             }
-            log.lock().unwrap().push(id);
+            log.lock().push(id);
             Ok(())
         })
     };
@@ -377,7 +377,7 @@ async fn pass(
         .pass(nodes, &todos.iter().copied().collect(), &mut fake)
         .await
         .unwrap();
-    started.lock().unwrap().clone()
+    started.lock().clone()
 }
 
 /// Queue `n` Workstreams (Rail ids), each from its own Todo; `after[i]` is the Todo it waits for.
@@ -412,7 +412,7 @@ async fn a3196_a_freed_slot_starts_the_head_in_order() {
     // The started one counts as launching, so one count change never starts two over the cap.
     let launched = [busy[0].clone(), node(&ids[0], "workstream", None, None)];
     assert!(pass(&daemon, &launched, &[], &[]).await.is_empty());
-    daemon.queue.launching.lock().unwrap().clear();
+    daemon.queue.launching.lock().clear();
     let idle = [node("90", "workstream", None, Some("idle"))];
     assert_eq!(
         pass(&daemon, &idle, &[], &[]).await,

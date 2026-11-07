@@ -1,6 +1,7 @@
 //! A3308: ordinary Messages ask the Door to assign unassigned Todos. The retained Message
 //! and Todo owner history together identify a firing, including after a Daemon restart.
 use super::*;
+use crate::field::Field;
 use crate::rail_index::RailIndex;
 use crate::route::policy::{Serial, policy};
 use contracts::agent::{NodeKind, RailNode};
@@ -36,9 +37,9 @@ impl Auto {
                     Err(RecvError::Closed) => return,
                 }
                 let _guard = gate.lock().await;
-                tell(&reader)
-                    .await
-                    .expect("retain Auto notices for the Door");
+                if let Err(err) = tell(&reader).await {
+                    eprintln!("rupd: Auto notices for the Door were not retained: {err}");
+                }
             }
         }
     }
@@ -60,7 +61,7 @@ impl Daemon {
         let serializes = match row.serial {
             Serial::No => false,
             Serial::Yes => true,
-            Serial::Operation => params["operation"].is_string(),
+            Serial::Operation => params.field("operation").is_string(),
         };
         let _guard = if serializes {
             Some(self.auto.gate.lock().await)
@@ -94,10 +95,7 @@ impl Daemon {
             return Ok(());
         };
         if door.auto == Some(true) {
-            let running = queue::running(
-                &nodes,
-                &self.queue.launching.lock().expect("Queue launching lock"),
-            );
+            let running = queue::running(&nodes, &self.queue.launching.lock());
             if !running.contains(&door.id)
                 && self
                     .agents

@@ -475,7 +475,7 @@ async fn ua5_only_the_user_runs_a_user_action() {
         .call("action.run", json!({"name":"user.deploy"}))
         .await;
     assert_eq!(reply["error"]["code"], code::FORBIDDEN);
-    assert_eq!(fx.daemon.extensions.store.lock().unwrap().get("d"), None);
+    assert_eq!(fx.daemon.extensions.store.lock().get("d"), None);
 }
 
 #[tokio::test]

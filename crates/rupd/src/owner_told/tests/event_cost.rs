@@ -6,9 +6,9 @@ async fn ec5637a_owner_flush_reads_only_rail() {
     let mut told = assigned();
     told.commented(1, &[comment(1, Actor::user(), "go")]);
     flush(&mut told, &reader).await;
-    assert_eq!(*stub.calls.lock().unwrap(), ["rail.tree", "message.send"]);
+    assert_eq!(*stub.calls.lock(), ["rail.tree", "message.send"]);
     assert_eq!(
-        *stub.sent.lock().unwrap(),
+        *stub.sent.lock(),
         vec![
             json!({"to":"a","kind":"note","body":"[todos]\n- Ship: assigned to you, new comment from you: go (rup todo get 1)"})
         ]
@@ -30,7 +30,7 @@ async fn ec5637a_owner_handoff_reads_only_rail() {
     }
     hand_off(&mut told, &reader).await;
     assert_eq!(
-        *stub.calls.lock().unwrap(),
+        *stub.calls.lock(),
         [
             "rail.tree",
             "todo.hand:b",
@@ -40,7 +40,7 @@ async fn ec5637a_owner_handoff_reads_only_rail() {
         ]
     );
     assert_eq!(
-        *stub.sent.lock().unwrap(),
+        *stub.sent.lock(),
         vec![
             json!({"to":"b","kind":"note","body":"Next: #7 Next task"}),
             json!({"to":"a","kind":"note","body":"Next: #7 Next task"})
@@ -57,13 +57,13 @@ async fn ec5637a_owner_required_rail_failure_sends_nothing() {
     told.idled.push("a".into());
     flush(&mut told, &reader).await;
     hand_off(&mut told, &reader).await;
-    assert_eq!(*stub.calls.lock().unwrap(), ["rail.tree", "rail.tree"]);
-    assert!(stub.sent.lock().unwrap().is_empty());
+    assert_eq!(*stub.calls.lock(), ["rail.tree", "rail.tree"]);
+    assert!(stub.sent.lock().is_empty());
     stub.rail_fails
         .store(false, std::sync::atomic::Ordering::Relaxed);
     flush(&mut told, &reader).await;
     assert_eq!(
-        stub.sent.lock().unwrap()[0]["body"],
+        stub.sent.lock()[0]["body"],
         "[todos]\n- Ship: assigned to you (rup todo get 1)"
     );
 }

@@ -7,3 +7,4 @@
 cc 696f728af8fbc087a621322d3773f4f3231fd9d50520b4d4fe4aca1263ac40f1 # shrinks to steps = [Hook(0, "SessionEnd"), Hook(1, "Stop"), Clock]
 cc b2e2ff4e019a3b6db6dce9c54aa1fef43d0a715f5603d2490f7d5816150c0ec5 # shrinks to steps = [Hook(1, "Stop"), Hook(0, "SessionEnd")]
 cc ffe5da121d947fb88fb75a0a3bd8596936ff919920b89633c100cc658c88ab2e # shrinks to steps = [Hook(0, "PostToolUse"), DeliveryFails, Background(true), Clock, DeliveryFails, Clock, Background(true), Background(false), Dequeue]
+cc 9b36ce4d9d7329dd25291da7f498bf7a3a69ca920875576e355d503c26922c9d # shrinks to steps = [Dequeue, Background(false), Hook(2, "Stop"), Dequeue, Enqueue]

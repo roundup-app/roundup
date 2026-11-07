@@ -57,13 +57,15 @@ fn reidentified() -> std::io::Result<Vec<(usize, [u8; 32])>> {
     getrandom::fill(&mut random).map_err(|e| std::io::Error::other(e.to_string()))?;
     let mut patches = Vec::new();
     for (placeholder, bytes) in IDENTITIES.iter().zip(random.chunks(16)) {
-        let mut id = [0u8; 32];
-        for (pair, byte) in id.chunks_mut(2).zip(bytes) {
-            pair.copy_from_slice(&[HEX[(byte >> 4) as usize], HEX[(byte & 15) as usize]]);
-        }
+        let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        let id: [u8; 32] = hex
+            .as_bytes()
+            .try_into()
+            .map_err(|_| std::io::Error::other("a new id is not 32 hex digits"))?;
         let before = patches.len();
         for &(start, end) in added::ID_REGIONS {
-            for offset in memchr::memmem::find_iter(&FRESH[start..end], &placeholder[..]) {
+            let region = image(start..end)?;
+            for offset in memchr::memmem::find_iter(region, &placeholder[..]) {
                 patches.push((start + offset, id));
             }
         }
@@ -75,18 +77,25 @@ fn reidentified() -> std::io::Result<Vec<(usize, [u8; 32])>> {
     Ok(patches)
 }
 
-const HEX: &[u8; 16] = b"0123456789abcdef";
+/// A part of the fresh image; a range outside it is an error, not a panic.
+fn image(
+    range: impl std::slice::SliceIndex<[u8], Output = [u8]>,
+) -> std::io::Result<&'static [u8]> {
+    FRESH
+        .get(range)
+        .ok_or_else(|| std::io::Error::other("the fresh image is shorter than its patches"))
+}
 
 /// The image with each id in `patches` written over its placeholder.
 fn write_image(file: &mut std::fs::File, patches: &[(usize, [u8; 32])]) -> std::io::Result<()> {
     use std::io::Write;
     let mut done = 0;
     for (at, id) in patches {
-        file.write_all(&FRESH[done..*at])?;
+        file.write_all(image(done..*at)?)?;
         file.write_all(id)?;
         done = at + id.len();
     }
-    file.write_all(&FRESH[done..])
+    file.write_all(image(done..)?)
 }
 
 /// A Project without `project.db` starts from the migrated image: a first start skips replaying every migration.
@@ -140,10 +149,10 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
 /// N5420a: current-version input compares against the unchanged fresh image.
 fn reference() -> rusqlite::Result<Connection> {
     let mut db = Connection::open_in_memory()?;
-    let image = std::io::Read::chain(
-        std::io::Read::chain(&FRESH[..18], &[1u8, 1][..]),
-        &FRESH[20..],
-    );
+    let (Some(head), Some(tail)) = (FRESH.get(..18), FRESH.get(20..)) else {
+        return Err(error("the fresh image is shorter than its header"));
+    };
+    let image = std::io::Read::chain(std::io::Read::chain(head, &[1u8, 1][..]), tail);
     db.deserialize_read_exact(rusqlite::MAIN_DB, image, FRESH.len(), true)?;
     Ok(db)
 }
@@ -179,7 +188,11 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
         reference()?
     } else {
         let mut reference = Connection::open_in_memory()?;
-        apply(&mut reference, migrations()[..stored as usize].to_vec())?;
+        let applied = migrations()
+            .get(..stored as usize)
+            .ok_or_else(|| error("database version is beyond this build's migrations"))?
+            .to_vec();
+        apply(&mut reference, applied)?;
         reference
     };
     if let Some(difference) = provenance::migration::difference(db, &reference)? {
