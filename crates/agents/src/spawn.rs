@@ -163,7 +163,10 @@ impl Agents {
             }
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
-            if given.is_some() && ctx.actor.kind == ActorKind::User {
+            if given.is_some()
+                && ctx.actor.kind == ActorKind::User
+                && params.app_named != Some(true)
+            {
                 rail.set_user_named(&node.id)?;
             }
             if given.is_some()
