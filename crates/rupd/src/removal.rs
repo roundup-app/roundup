@@ -27,25 +27,25 @@ impl Daemon {
                 "empty Rail selection",
             ));
         }
-        if let Some(operation) = &p.operation {
-            if let Some(receipt) = self.agents.rail_deletion(actor, operation)? {
-                let ids = if receipt.selection.is_empty() {
-                    vec![
-                        receipt
-                            .deletion
-                            .as_ref()
-                            .expect("retained operation")
-                            .id
-                            .clone(),
-                    ]
-                } else {
-                    receipt.selection.clone()
-                };
-                if ids != p.ids {
-                    return Err(RpcError::conflict("removal key names another selection"));
-                }
-                return rpc::reply(&receipt);
+        if let Some(operation) = &p.operation
+            && let Some(receipt) = self.agents.rail_deletion(actor, operation)?
+        {
+            let ids = if receipt.selection.is_empty() {
+                vec![
+                    receipt
+                        .deletion
+                        .as_ref()
+                        .expect("retained operation")
+                        .id
+                        .clone(),
+                ]
+            } else {
+                receipt.selection.clone()
+            };
+            if ids != p.ids {
+                return Err(RpcError::conflict("removal key names another selection"));
             }
+            return rpc::reply(&receipt);
         }
         let tree = self.rail().await?;
         for id in &p.ids {
