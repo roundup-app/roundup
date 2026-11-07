@@ -514,6 +514,5 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     db.execute_batch("BEGIN EXCLUSIVE").unwrap();
     let path = dir.path().join("project.db");
     let _touches = provenance::Touches::open(&path).expect("Touches must not read the schema yet");
-    let _todos =
-        todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
+    let _todos = todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
 }
