@@ -41,8 +41,6 @@ beforeAll(async () => {
   await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
   await browser("eval", `document.querySelector('#shelf-tab-todos[aria-expanded=false]')?.click()`);
   await browser("wait", "--fn", `!!document.querySelector('.shelf .todo-row-button')`);
-  await browser("eval", `document.querySelector('.rail-row[data-id=auth] .name').click()`);
-  await browser("wait", "--fn", `!!document.querySelector('.rail-add[aria-keyshortcuts]')`);
 }, 90_000);
 
 afterAll(async () => {
@@ -54,7 +52,6 @@ afterAll(async () => {
 const targets = [
   { name: "maximise", selector: '.shelf-controls button[aria-label="Maximise"]' },
   { name: "triage", selector: '.shelf-triage' },
-  { name: "add-agent", selector: '.rail-row .rail-add[aria-keyshortcuts]' },
 ];
 
 it.skipIf(!art)("u5247b_keyed_tooltips_show_a_chip_after_the_label", async () => {

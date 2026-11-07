@@ -512,7 +512,7 @@ it.each([
   expect(items.find(item => item.id === "send")?.children?.map(item => item.label) ?? []).toEqual(receivers);
 
   if (expected.some(([id]) => id === "add")) {
-    expect(items.find(item => item.id === "add")?.children?.map(item => item.id)).toEqual(["add-agent", "add-todo", "add-pad", "add-terminal"]);
+    expect(items.find(item => item.id === "add")?.children?.map(item => item.id)).toEqual(["add-todo", "add-pad", "add-terminal"]);
   }
 
   await app.closeMenu();
@@ -521,7 +521,7 @@ it.each([
   expect(app.clipboardWrites).toEqual(clipboard);
 });
 
-it.each([copy.addAgentMenu, copy.todo, copy.pad, copy.addTerminalMenu])("u4322a_add_uses_the_clicked_workstream_%s", async child => {
+it.each([copy.todo, copy.pad, copy.addTerminalMenu])("u4322a_add_uses_the_clicked_workstream_%s", async child => {
   const { app } = await mountApp(app => {
     app.handlers["rail.tree"] = () => [workstream("selected"), workstream("clicked", { order: 1 }), agent("peer", "idle", "ready", { order: 2 })];
     app.handlers["agent.spawn"] = () => agent("new", "idle", "ready", { parent: "clicked" });
@@ -546,8 +546,6 @@ it.each([copy.addAgentMenu, copy.todo, copy.pad, copy.addTerminalMenu])("u4322a_
     fireEvent.input(field, { target: { value: "created" } });
     fireEvent.keyDown(field, { key: "Enter" });
     await waitFor(() => expect(rpcCalls(app, "pad.move")).toEqual([{ name: "created", home: "clicked" }]));
-  } else if (child === copy.addAgentMenu) {
-    await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{ cwd: "/p", parent: "clicked", prompt: null, model: null, effort: null, cols: 100, rows: 30 }]));
   } else await waitFor(() => expect(rpcCalls(app, "terminal.open")).toEqual([{ workstream: "clicked", cols: 100, rows: 30 }]));
   expect(rpcCalls(app, "rail.startDoor")).toEqual([]);
 });

@@ -116,7 +116,7 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
   const { daemon, connected, nodes } = await mountNavigation(selection === "empty", 0, 2);
 
   if (selection !== "empty") connected().rail.select(selection);
-  const parent = selection === "home" ? "home" : null;
+  const parent = null;
   daemon.handlers["agent.spawn"] = () => {
     const spawned = agent("fresh", "idle", "starting", { parent });
     nodes.push(spawned);

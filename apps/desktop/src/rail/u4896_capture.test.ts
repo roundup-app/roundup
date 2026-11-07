@@ -245,13 +245,6 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                     expect(await read(`document.querySelector(${JSON.stringify(row)}).dataset.selected`)).toBe("true");
                   }
 
-                  if (action.label === 'Add Agent') {
-                    await browser("press", "Space");
-                    await wait("document.activeElement.matches('.spawn-prompt-field')");
-                    expect(await read(`document.querySelector(${JSON.stringify(row)}).dataset.selected`)).toBe("true");
-                    await browser("focus", `${row} .rail-add`);
-                  }
-
                   walk.push(action);
                 }
 

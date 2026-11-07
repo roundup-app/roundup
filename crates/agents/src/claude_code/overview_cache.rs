@@ -25,6 +25,8 @@ const HEAD: usize = 64;
 #[derive(Default)]
 struct Fold {
     name: Option<String>,
+    /// The first non-empty `ai-title`; later ones never replace it.
+    first_title: Option<String>,
     custom_name: Option<String>,
     used: Option<u64>,
     limit: Option<u64>,
@@ -75,6 +77,7 @@ impl Fold {
             && let Some(title) = record["aiTitle"].as_str().filter(|s| !s.trim().is_empty())
         {
             self.name = Some(title.to_owned());
+            self.first_title.get_or_insert_with(|| title.to_owned());
         }
     }
 
@@ -228,6 +231,15 @@ impl Launcher {
             }
         }
         entry.overview != before
+    }
+
+    /// A9: the first `ai-title` Claude Code wrote to `id`'s transcript, read through the
+    /// incremental reader.
+    pub fn first_title(&self, cwd: &Path, id: &str) -> Option<String> {
+        self.refresh_overview(cwd, id);
+        let entry = self.overviews.entry(id);
+        let entry = entry.lock().unwrap_or_else(|e| e.into_inner());
+        entry.fold.first_title.clone()
     }
 
     /// RO2: keep `id`'s overview current from a task of its own, calling `changed` whenever it
