@@ -74,7 +74,7 @@ fn spawn_status_listener(
                     data: EventData::AgentChannel(channel),
                     ..
                 }) => {
-                    // E6: a Door held its Messages while its Channel was `pending`.
+                    // E6: a Door kept its Messages back while its Channel was `pending`.
                     if channel.channel != contracts::agent::Channel::Pending {
                         deliver_pending(&inner, &channel.id).await;
                     }
