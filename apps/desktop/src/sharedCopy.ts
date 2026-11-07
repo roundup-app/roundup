@@ -38,7 +38,6 @@ export const labels = new Map([
  ]);
 
 export const copy = {
-  workstream: word.workstream,
   feedback: "Feedback",
   defaultChoice: "Default",
   padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,
