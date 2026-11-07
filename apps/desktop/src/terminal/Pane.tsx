@@ -14,7 +14,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { CHORDS, chordNamed } from "../keys/chords";
+import { CHORDS } from "../keys/chords";
 import { captureActions } from "../keys/registry";
 import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
@@ -236,12 +236,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   createEffect(on(terminalId, () => setFinding(false), { defer: true }));
 
   registerKeys({ kind: "region", element: screen }, [
-    { chord: "terminal.text-larger", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
-    { chord: "terminal.text-smaller", chords: ["Meta+-"], run: resize("shrink") },
-    { chord: "terminal.text-reset", chords: ["Meta+0"], run: resize("reset") },
-    { chord: "terminal.find", chords: undefined, run: () => setFinding(true) },
-  ].map(({ chord, chords, run }) => ({
-    action: CHORDS.find(action => action.name === chord)!,
+    { action: CHORDS["terminal.text-larger"], chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
+    { action: CHORDS["terminal.text-smaller"], chords: ["Meta+-"], run: resize("shrink") },
+    { action: CHORDS["terminal.text-reset"], chords: ["Meta+0"], run: resize("reset") },
+    { action: CHORDS["terminal.find"], chords: undefined, run: () => setFinding(true) },
+  ].map(({ action, chords, run }) => ({
+    action,
     ...chords && { chords },
     repeat: true as const,
     when: (event: KeyboardEvent) => terminalId() !== null && inScreen(event.target instanceof Element ? event.target : null) && connected.daemonExit() === null,
@@ -333,8 +333,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
         <Show when={selected() === null && !["attention", "workstreams", "made"].some(connected.hasView)}>
           <EmptyState art="strolling" {...{ title: copy.noSelectionTitle }} line={copy.noSelectionLine} actions={[
-            { label: copy.newAgent, chord: chordNamed("agent.new")!, run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run() },
-            { label: copy.ask, chord: chordNamed("ask.open")!, run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run() },
+            { label: copy.newAgent, chord: CHORDS["agent.new"], run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run() },
+            { label: copy.ask, chord: CHORDS["ask.open"], run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run() },
           ]} />
         </Show>
         <Show when={selected()?.kind === "group"}>

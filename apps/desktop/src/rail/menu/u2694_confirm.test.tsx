@@ -5,7 +5,7 @@ import { stubDialogLayout } from "../../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
-import { CHORDS, LEADER, RAIL_KEYS } from "../../keys/chords";
+import { RAIL_KEYS, CHORD_ROWS, LEADER_ROWS } from "../../keys/chords";
 import { agent, door, info, terminal, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
@@ -44,7 +44,7 @@ describe("u2694 the Rail's menu actions", () => {
 
   it("u2694a_a_shown_chord_is_the_one_the_webview_binds", async () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
-    const bound = new Set([...CHORDS.map((chord) => chord.keys), ...RAIL_KEYS, ...LEADER.map((key) => `⌘K ${key.keys}`)]);
+    const bound = new Set([...CHORD_ROWS.map((chord) => chord.keys), ...RAIL_KEYS, ...LEADER_ROWS.map((key) => `⌘K ${key.keys}`)]);
 
     open("w");
     const shown = app.shownMenus.at(-1)!.items.flatMap((item) => (item.shortcut === undefined ? [] : [item.shortcut]));

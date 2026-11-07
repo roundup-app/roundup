@@ -10,7 +10,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { endLeader } from "./registry";
-import { CHORDS, hintsFor, pressOf } from "./chords";
+import { CHORDS, hintsFor, pressOf, CHORD_ROWS } from "./chords";
 import type { HintPlace } from "./chords";
 
 afterEach(() => { batch(cleanup); endLeader(); });
@@ -154,7 +154,7 @@ describe("u2230 shortcut hints", () => {
 
     await go();
 
-    const chord = CHORDS.find((row) => row.keys === hint.keys);
+    const chord = CHORD_ROWS.find((row) => row.keys === hint.keys);
 
     expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
 
@@ -175,7 +175,7 @@ describe("u2230 shortcut hints", () => {
 
     await go();
 
-    const chord = CHORDS.find((row) => row.keys === hint.keys);
+    const chord = CHORD_ROWS.find((row) => row.keys === hint.keys);
 
     const button = document.querySelector<HTMLButtonElement>(`.hint-line [data-hint="${chord!.keys}"]`)!;
     expect(button.disabled).toBe(false);

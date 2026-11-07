@@ -3,7 +3,7 @@ import { batch, createRoot } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
-import { ACTION_ROWS, CHORDS, HELP_ROWS } from "./chords";
+import { ACTION_ROWS, CHORDS, HELP_ROWS, CHORD_ROWS } from "./chords";
 import { listActions, runAction } from "./actions";
 import { captureActions, registerKeys } from "./registry";
 
@@ -43,7 +43,7 @@ const mountTerminal = async () => {
 
 it("na1_every_entry_has_a_unique_stable_name", () => {
   const names = ACTION_ROWS.map(row => row.name);
-  expect(names).toHaveLength(CHORDS.length + 12);
+  expect(names).toHaveLength(CHORD_ROWS.length + 12);
   expect(new Set(names).size).toBe(names.length);
   expect(names.every(name => /^[a-z]+(-[a-z]+)*\.[a-z]+(-[a-z]+)*$/.test(name))).toBe(true);
   expect(ACTION_ROWS.flatMap(row => row.args ?? []).every(arg => ["string", "integer", "boolean", "choice"].includes(arg.type))).toBe(true);
@@ -113,6 +113,6 @@ it("na5_list_rows_carry_name_label_keys_arguments_and_availability", async () =>
   expect(new Set(rows.map(row => row.name)).size).toBe(rows.length);
   expect(rows.find(row => row.name === "leader.attention")).toMatchObject({ keys: "⌘K J", label: expect.any(String), args: [] });
   expect(rows.find(row => row.name === "todo.assign-slot")?.args).toMatchObject([{ key: "slot", type: "integer", min: 1, max: 9, required: true }]);
-  expect(rows.find(row => row.name === "todo.capture")?.keys).toBe(CHORDS.find(row => row.name === "todo.capture")!.keys);
+  expect(rows.find(row => row.name === "todo.capture")?.keys).toBe(CHORDS["todo.capture"].keys);
   expect(rows.every(row => row.available || row.cause !== undefined)).toBe(true);
 });

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
-import { CHORDS, SWITCHER_KEYS } from "../keys/chords";
+import { CHORDS, type ChordName, SWITCHER_KEYS } from "../keys/chords";
 import { registerOpener } from "../shelf/openItem";
 import { saveAppSettings, appSettings } from "../settings/preferences";
 import { agent, info, USER, workstream } from "../testing/nodes";
@@ -11,7 +11,7 @@ import { field, mountSwitcher, openSwitcher, switcherKey } from "./switcherFixtu
 afterEach(async () => { cleanup(); await saveAppSettings({ shortcuts: {}, quickAdd: "meta+shift+KeyT" }); localStorage.clear(); sessionStorage.clear(); });
 
 // SAFETY: every name passed is one of the table's own rows.
-const chord = (name: string) => CHORDS.find(row => row.name === name)!;
+const chord = (name: ChordName) => CHORDS[name];
 
 const todo = (id: number, title: string, home: string | null = null): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner: null, refs: [], priority: null });
 
