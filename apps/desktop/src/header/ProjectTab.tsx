@@ -226,14 +226,9 @@ export const ProjectTab = (props: {
       }}>
       <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={async (saved, refocus) => {
         setEditing(null);
-
         if (refocus) button?.focus();
 
-        if (saved !== null && base === undefined) {
-          recover(true);
-
-          return;
-        }
+        if (saved !== null && base === undefined) return recover(true);
 
         if (saved !== null) {
           const submitted = revision;
