@@ -56,7 +56,7 @@ type Row = {
 /** The scoped Rail Switcher actions that reach `rpc`, with the opening Project's object and the arguments its activation captures. */
 const ROWS: Row[] = [
   { owner: "Rail", label: "New Agent", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
-    params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
+    params: { cwd: "/p", prompt: null, parent: null, model: null, effort: null },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
@@ -65,7 +65,7 @@ const ROWS: Row[] = [
       return gate;
     } },
   { owner: "Rail", label: "Agent with prompt", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
-    params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: "ops", model: null, effort: null },
+    params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: null, model: null, effort: null },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle"));
       app.handlers["agent.spawn"] = handler;
@@ -95,7 +95,7 @@ const activate = (row: HTMLElement, how: "enter" | "pointer"): void => {
 };
 
 // App owns the surviving notice; the real Rail captures each original spawn contract.
-const APP_ROWS: Row[] = ROWS.flatMap(row => row.method === "agent.spawn" ? [{ ...row, owner: "App", params: { cwd: path("first"), prompt: row.label === "New Agent" ? null : "A\ne\u0301 🧭", parent: "ops", model: null, effort: null } }] : []);
+const APP_ROWS: Row[] = ROWS.flatMap(row => row.method === "agent.spawn" ? [{ ...row, owner: "App", params: { cwd: path("first"), prompt: row.label === "New Agent" ? null : "A\ne\u0301 🧭", parent: null, model: null, effort: null } }] : []);
 
 const BUBBLE_ROWS: Row[] = [
   { owner: "Bubble", label: "New Terminal", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.open", params: { workstream: "ops" }, confirms: false, removes: "7",
@@ -169,7 +169,7 @@ const WORKSTREAM_ROW: Row = {
 };
 
 const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS, CAPTURE_ROW, WORKSTREAM_ROW].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row === CAPTURE_ROW ? ["dismiss", "resolve", "reject"] as const : row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing", "stale-selection", "removed-target", "unavailable"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
+  (row === CAPTURE_ROW ? ["dismiss", "resolve", "reject"] as const : row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "stale-selection", "removed-target", "unavailable"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
   const trace: string[] = [];
