@@ -142,7 +142,6 @@ export const copy = {
   sendToAgentMenu: sharedCopy.sendToAgentMenu,
   renameChord: sharedCopy.renameChord,
   addMenu: "Add",
-  addAgentMenu: sharedCopy.addAgentMenu,
   addTerminalMenu: sharedCopy.terminal,
   copyLink: sharedCopy.copyLink,
   restart: "Restart",

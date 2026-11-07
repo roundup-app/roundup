@@ -199,15 +199,6 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     fireEvent.keyDown(document, { code: "KeyT", key: "t", metaKey: true });
     await waitFor(() => expect(calls(daemon, "terminal.open")).toMatchObject([{ workstream: "r" }]));
   });
-
-  it("u143_agent_still_spawns_inside_the_selected_stopped_workstream", async () => {
-    const { app, connected } = await mountRailAndPane([workstream("r")]);
-
-    connected.rail.select("r");
-    await chooseAction(app, "r", copy.addAgentMenu);
-
-    await waitFor(() => expect(calls(app, "agent.spawn")).toMatchObject([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
-  });
 });
 
 
