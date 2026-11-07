@@ -1,7 +1,7 @@
 import { storageCopy } from "./copy";
 import { createSignal } from "solid-js";
 import { createDraftsStore } from "./drafts";
-import { createSerialQueue } from "./serialQueue";
+import PQueue from "p-queue";
 import * as v from "valibot";
 import { webviewDataPath } from "../app/tauri";
 import { load } from "@tauri-apps/plugin-store";
@@ -105,7 +105,7 @@ type Restore<T> =
 /** onRetained runs after a successful write or retry, so views observe only acknowledged values. */
 export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>, onRetained?: () => void) => {
   // One queue per holder keeps its writes in order; a slow write here never delays another holder.
-  const queue = createSerialQueue();
+  const queue = new PQueue({ concurrency: 1 });
 
   const restore = (): Restore<T> => {
     if (!initialized) return { status: "failed", cause: "unreadable" };
@@ -232,7 +232,6 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>,
         } catch (error) { return (error instanceof Error ? error.message : String(error)); }
       });
     },
-    idle: () => queue.idle(),
   };
 };
 
@@ -285,7 +284,7 @@ const sameDestination = (a: Destination, b: Destination) =>
  * Reading/copying never submits, changes the current draft, or resumes autosave.
  * Credential drafts remain memory-only; vendor Terminal buffers must never enter this holder.
  * Values contain named scalar fields/string selections; editor documents remain exact source strings.
- * list()/problem() are reactive; list() returns read-only records the holder replaces and never mutates, oldest first; the last draft for a destination is current.
+ * list()/problem() are reactive; list() returns copies, oldest first; the last draft for a destination is current.
  * submit() marks a snapshot before the owner sends; settle() requires that revision's actual outcome.
  * Unknown acceptance requires reconciliation by the owner, never another submit() here.
  * edit returns recoverable memory and a retained promise; submit awaits its retention result.
@@ -300,7 +299,7 @@ export const draftStorage = (project: string) => {
   const schemas = new Map<string, v.GenericSchema>();
   let incompatible = false;
   const removed = new Set<string>();
-  const retaining = createSerialQueue();
+  const retaining = new PQueue({ concurrency: 1 });
 
   const validateSaved = (saved: Draft[]): boolean => {
     const invalid = saved.find((draft) => {
@@ -408,7 +407,7 @@ export const draftStorage = (project: string) => {
   };
 
   const retry = async (): Promise<DraftProblem | null> => {
-      await retaining.idle();
+      await retaining.onIdle();
       const failure = await storage.refresh();
 
       if (failure !== null) {

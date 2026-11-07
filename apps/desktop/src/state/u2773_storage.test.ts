@@ -283,6 +283,8 @@ it("u2773a_storage_restoration_writes_nothing", async () => {
   const a = (await edit(first, "not authorized to save or send"));
   const write = vi.spyOn(Storage.prototype, "setItem");
   const reopened = draftStorage("/project/a");
+  const copy = reopened.list();
+  copy[0]!.value.text = "caller mutation";
   expect(reopened.list()).toEqual([a]);
   expect(write).not.toHaveBeenCalled();
 });
