@@ -9,10 +9,12 @@ mod lookup;
 mod placement;
 mod queue;
 mod removal;
+mod row;
 mod settings;
 mod view;
 use error::StoreError;
 pub use lookup::{home_in, is_home_in, maker_in, registered_in};
+pub(crate) use row::NewAgent;
 use view::load_nodes;
 
 use std::path::Path;
@@ -114,16 +116,6 @@ impl Rail {
         self.node(&id)
     }
 
-    /// O13: record that Agent `spawner` started node `id`.
-    pub fn set_spawner(&mut self, id: &str, spawner: &str) -> Result<(), StoreError> {
-        self.node(id)?;
-        self.db.execute(
-            "UPDATE nodes SET spawner = ? WHERE id = ?",
-            params![spawner, id],
-        )?;
-        Ok(())
-    }
-
     /// O13: whether an Agent's `agent.spawn` started `id` and `door` is above it: the `parent`
     /// chain of `id` reaches `door`.
     pub fn spawned_under(&self, id: &str, door: &str) -> Result<bool, StoreError> {
@@ -146,44 +138,14 @@ impl Rail {
         Ok(false)
     }
 
-    /// DCL9: record the role an Agent's spawn gave node `id`.
-    pub fn set_role(
-        &mut self,
-        id: &str,
-        role: contracts::agent::SpawnRole,
-    ) -> Result<(), StoreError> {
-        self.node(id)?;
-        self.db.execute(
-            "UPDATE nodes SET role = ? WHERE id = ?",
-            params![role.as_str(), id],
-        )?;
-        Ok(())
-    }
-
     /// DCL9: the role stored for `id`; `None` for the user's own Agents. `NOT_FOUND` for an unknown id.
     pub fn role(&self, id: &str) -> Result<Option<contracts::agent::SpawnRole>, StoreError> {
-        use contracts::agent::SpawnRole;
         self.node(id)?;
-        let stored: Option<String> =
-            self.db
-                .query_row("SELECT role FROM nodes WHERE id = ?", params![id], |row| {
-                    row.get(0)
-                })?;
-        Ok(stored.and_then(|role| match role.as_str() {
-            "job" => Some(SpawnRole::Job),
-            "consult" => Some(SpawnRole::Consult),
-            _ => None,
-        }))
-    }
-
-    /// O8: keep the prompt an Agent's spawn gave beside its order.
-    pub fn set_spawn_prompt(&mut self, id: &str, prompt: &str) -> Result<(), StoreError> {
-        self.node(id)?;
-        self.db.execute(
-            "UPDATE nodes SET spawn_prompt = ? WHERE id = ?",
-            params![prompt, id],
-        )?;
-        Ok(())
+        Ok(self
+            .db
+            .query_row("SELECT role FROM nodes WHERE id = ?", params![id], |row| {
+                Ok(row.get::<_, Option<row::Word<_>>>(0)?.map(|role| role.0))
+            })?)
     }
 
     /// O8: the prompt kept for `id`, `None` when it has none; `NOT_FOUND` for an unknown id.
