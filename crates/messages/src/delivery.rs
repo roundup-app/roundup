@@ -289,6 +289,7 @@ async fn on_idle(
     at: store::Binding,
     pick: Pick,
 ) -> Result<(), Error> {
+    crate::pushes::release_quiet(inner, agent).await;
     // Preserve physical write order through comparison, inbox write and durable history.
     let _delivery = inner.delivery.write().await;
     let state = match inner.inbox.get() {

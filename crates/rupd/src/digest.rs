@@ -219,7 +219,7 @@ pub async fn push_changes(
     for intent in seen.intents() {
         for _ in 0..intent.weight {
             messages
-                .push_digest(&intent.door, &intent.child, &intent.entry)
+                .push_digest(&intent.door, &intent.child, &intent.entry, false)
                 .await;
         }
     }
@@ -276,7 +276,7 @@ async fn push_once(
         // Messages owns waiting and retry weights; releasing Seen here would count a refusal
         // again as a new change when the next comparison runs.
         messages
-            .push_digest(&push.meta, push.subagent(), &push.entry)
+            .push_digest(&push.meta, push.subagent(), &push.entry, push.waking)
             .await;
     }
     let waiting = messages.waiting_counts().await.unwrap_or_default();
@@ -500,19 +500,37 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            listed
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter(|m| m["status"] != "dropped")
-                .filter_map(|m| m["body"].as_str()?.strip_prefix("[digest] "))
-                .map(|body| {
-                    // A rollup or merge states its count first; a plain push stands for one.
+            // A rollup or merge states its count first; a plain push stands for one; `None`: no digest.
+            let weight = |m: &Value| -> Option<u32> {
+                let body = m["body"].as_str()?.strip_prefix("[digest] ")?;
+                Some(
                     body.strip_prefix('[')
                         .and_then(|head| head.split(' ').next()?.parse().ok())
-                        .unwrap_or(1)
-                })
-                .sum()
+                        .unwrap_or(1),
+                )
+            };
+            let digests = listed.as_array().unwrap();
+            let live: u32 = digests
+                .iter()
+                .filter(|m| m["status"] != "dropped")
+                .filter_map(weight)
+                .sum();
+            // `waiting_counts` weighs a pending Message that is no digest as one.
+            let pending: u32 = digests
+                .iter()
+                .filter(|m| m["status"] == "pending")
+                .map(|m| weight(m).unwrap_or(1))
+                .sum();
+            // DTC2: a quiet change waits in the ledger for the Door's next turn; it is accounted for.
+            let waiting = self
+                .messages
+                .waiting_counts()
+                .await
+                .unwrap()
+                .get("1")
+                .copied()
+                .unwrap_or(0);
+            live + waiting.saturating_sub(pending)
         }
     }
 
@@ -539,15 +557,32 @@ mod tests {
             let second = Life::open(dir.path(), &clock, kill_at, 1);
             second.add_children(1, FACTS + 1);
             second.rt.block_on(async {
+                // DTC2: the changes are quiet, so a Message the Door takes carries them out.
+                if kill_at != Some("push.queue") {
+                    second
+                        .messages
+                        .call(
+                            &second.daemon.ctx(Actor::user()),
+                            "message.send",
+                            json!({"to":"1","kind":"note","body":"wake"}),
+                        )
+                        .await
+                        .unwrap();
+                }
                 let reached = tokio::time::timeout(Duration::from_secs(5), async {
                     match kill_at {
-                        Some(_) => second.killed.notified().await,
+                        Some("push.queue") => second.killed.notified().await,
                         // The Door's next idle takes the pending digests to its inbox.
-                        None => loop {
+                        _ => loop {
                             second.state.status("1", contracts::Kind::Working);
                             second.state.status("1", contracts::Kind::Idle);
-                            let written = second.state.written.notified();
-                            if tokio::time::timeout(Duration::from_millis(50), written)
+                            let reached = async {
+                                match kill_at {
+                                    Some(_) => second.killed.notified().await,
+                                    None => second.state.written.notified().await,
+                                }
+                            };
+                            if tokio::time::timeout(Duration::from_millis(50), reached)
                                 .await
                                 .is_ok()
                             {

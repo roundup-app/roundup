@@ -516,6 +516,7 @@ async fn a5556b_automatic_delivery_waits_for_first_user_input() {
                     link: None,
                     pads: vec![],
                 },
+                true,
             )
             .await;
         pending.push(produced(&mut observed, "[digest]").await);

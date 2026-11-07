@@ -94,7 +94,9 @@ impl Pushes {
     }
 
     async fn push(&self, entry: &DigestEntry) {
-        self.messages.push_digest("top", &entry.name, entry).await;
+        self.messages
+            .push_digest("top", &entry.name, entry, true)
+            .await;
     }
 
     /// The Daemon's clock reads `ms`, and the window's end is acted on.
@@ -554,7 +556,12 @@ async fn b21_stopped_changes_compact_by_subagent_and_keep_weight_after_failed_st
     door_terminal(&h, None);
     for n in 1..=100 {
         h.messages
-            .push_digest("top", "stable-child", &entry(&format!("renamed-{n}"), n))
+            .push_digest(
+                "top",
+                "stable-child",
+                &entry(&format!("renamed-{n}"), n),
+                true,
+            )
             .await;
         h.at(i64::from(n) * 60_000).await;
     }
@@ -619,7 +626,12 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].entry.todos, id);
         h.messages
-            .push_digest(&changes[0].meta, changes[0].subagent(), &changes[0].entry)
+            .push_digest(
+                &changes[0].meta,
+                changes[0].subagent(),
+                &changes[0].entry,
+                true,
+            )
             .await;
     }
     h.at(60_000).await;
@@ -713,10 +725,10 @@ async fn b21_same_named_subagents_keep_separate_waiting_entries() {
     let h = Pushes::new(dir.path());
     door_terminal(&h, None);
     h.messages
-        .push_digest("top", "first-id", &entry("same-name", 1))
+        .push_digest("top", "first-id", &entry("same-name", 1), true)
         .await;
     h.messages
-        .push_digest("top", "second-id", &entry("same-name", 2))
+        .push_digest("top", "second-id", &entry("same-name", 2), true)
         .await;
     door_terminal(&h, Some("started"));
     h.at(1).await;
@@ -868,4 +880,103 @@ async fn b6506_a_user_note_that_starts_with_digest_is_a_note() {
             .iter()
             .all(|m| m.status != MessageStatus::Dropped)
     );
+}
+
+impl Pushes {
+    async fn quiet(&self, entry: &DigestEntry) {
+        self.messages
+            .push_digest("top", &entry.name, entry, false)
+            .await;
+    }
+
+    async fn send_to_door(&self, body: &str) {
+        for node in self.rail.0.lock().unwrap().iter_mut() {
+            if node.id == "top" {
+                node.status.as_mut().unwrap().kind = Kind::Idle;
+            }
+        }
+        self.call_as(
+            Actor::user(),
+            "message.send",
+            json!({"to":"top","kind":"note","body":body}),
+        )
+        .await
+        .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn dtc2_a_status_flip_of_a_child_starts_no_door_turn() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    for n in 0..12 {
+        h.quiet(&entry("d", n)).await;
+    }
+    // Not even the window's end writes a quiet note.
+    h.at(120_000).await;
+    assert!(h.all().await.is_empty());
+}
+
+#[tokio::test]
+async fn dtc2_quiet_notes_ride_in_the_next_waking_batch() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    h.quiet(&entry("d", 1)).await;
+    h.quiet(&entry("d", 2)).await;
+    h.quiet(&entry("mid", 3)).await;
+    assert!(h.all().await.is_empty());
+    let mut ended = entry("c", 0);
+    ended.kind = Kind::Done;
+    h.push(&ended).await;
+    let sent = h.standing().await;
+    assert_eq!(
+        sent.len(),
+        1,
+        "one write holds the waking note and the quiet ones"
+    );
+    assert_eq!(h.pl(&sent[0]).weight(), 4);
+    let names: Vec<_> = h
+        .pl(&sent[0])
+        .entries()
+        .iter()
+        .map(|e| e.name.clone())
+        .collect();
+    assert_eq!(names.len(), 3);
+    for name in ["d", "mid", "c"] {
+        assert!(names.contains(&name.to_owned()), "{names:?}");
+    }
+    let d = h
+        .pl(&sent[0])
+        .entries()
+        .iter()
+        .find(|e| e.name == "d")
+        .unwrap()
+        .todos;
+    assert_eq!(d, 2, "each child's entry is folded to its newest");
+}
+
+#[tokio::test]
+async fn dtc2_a_quiet_note_rides_in_a_turn_the_users_message_starts() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    h.quiet(&entry("d", 5)).await;
+    assert!(h.all().await.is_empty());
+    h.send_to_door("hello").await;
+    let sent = h.standing().await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(h.pl(&sent[0]).entries()[0].todos, 5);
+}
+
+#[tokio::test]
+async fn dtc2_a_restart_keeps_the_waiting_quiet_notes() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    h.quiet(&entry("d", 7)).await;
+    let h = h.restarted();
+    h.at(120_000).await;
+    assert!(h.all().await.is_empty(), "still quiet after the restart");
+    h.send_to_door("wake").await;
+    let sent = h.standing().await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(h.pl(&sent[0]).entries()[0].todos, 7);
 }
