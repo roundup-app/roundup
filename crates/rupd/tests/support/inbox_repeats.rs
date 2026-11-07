@@ -437,11 +437,16 @@ async fn b5763d_committed_rename_and_todo_handoff_share_the_repeat_rule() {
                 )
                 .await
                 .unwrap();
+            // DTC1: the Door's own Todo is no hand-off, so the user creates it and the Door takes it.
             let todo = run
-                .sender
+                .user
+                .request("todo.create", json!({"title":"Review changes"}))
+                .await
+                .unwrap();
+            run.sender
                 .request(
-                    "todo.create",
-                    json!({"title":"Review changes","owner":{"kind":"agent","id":run.child}}),
+                    "todo.assign",
+                    json!({"id":todo["id"],"owner":{"kind":"agent","id":run.child}}),
                 )
                 .await
                 .unwrap();
