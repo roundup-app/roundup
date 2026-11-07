@@ -52,3 +52,21 @@ Numbered Checks on main, all preserved except the explicitly superseded form no-
 4. D9: Token and style enforcement; `scenarios/ui-visual.md`, heading “U130 Token ownership and lint extension (D9)”; `apps/desktop/src/testing/checks.ts`, function `d9`. No raw look literals outside Tokens, `!important`, synthetic events or DOM clones are introduced.
 
 Policy: no other Check passing on main regresses. Specification validation runs `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`; record each failing command on #4382 in a separate row with its exit code and failure, and record passing results there too. Implementation runs `just ready` and the tests reached by changed files, with CI judging the push.
+
+## Every text field wears the frame
+
+Acceptance for #6545. Specification only; the implementation is built from the Issue once these scenarios are on `main`. Progress and engineering questions belong on the Issue. Extends U4382a: its text field row now holds for every text field in the App, not only the settings pages.
+
+**U6545a Every text field wears the shared frame.** Given the App at 1512×950, when the user presses Cmd+Shift+N (`agent.new-with-prompt`) on a Rail with rows and on an empty Rail, and opens the Rail row's rename field, then the Task field and the rename field show the same border, ground, radius, padding and type, those of `ui/Field.css`. A text field that edits in place (a tab, row or title rename) wears the frame's inline form, one shared class in `ui/Field.css`, not CSS of its own. Typing, Enter, Escape and focus return act as before. The implementation first re-runs the audit with a grep over `apps/desktop/src` and fixes every text field it finds without the frame.
+
+Observer: the design critic judges the rendered fields against D2, D5 and D6 (policy); no test checks looks (rule 10). Existing behaviour tests for the Task field and the renames stay unchanged and pass (policy).
+
+**U6545c A check fails CI on a text field without the frame.** Given a source file under `apps/desktop/src`, when `pnpm lint` runs, then an `<input>`, a `<textarea>` or a `contenteditable` element that is neither `Field.Input`, `Field.Textarea` nor carries the shared field class fails with the file and line. Fixtures, test harnesses and non-text inputs (checkbox, radio, switch, number) are outside it. Any other exception sits in the check's source with its reason, and the check reports zero bare fields on `main`.
+
+Observer: `u6545c_a_bare_text_field_fails_the_check` in `tools/oxlint/` runs the check on its own fixture: a bare `<textarea>` fails and a `Field.Input` passes (the check is static, so this test starts no browser).
+
+**U6545b A new Workstream is named `Workstream`, numbered.** Given the Rail's root rows, when the user creates a Workstream, then it is named `Workstream`, and with `Workstream` taken `Workstream 2`, then `Workstream 3`: the first free name among the Rail's root rows (U167). It keeps that name until its task names it (U6380b). A Workstream named `New Workstream` or `New Workstream 2`, stored before this change, still counts as a placeholder and takes the Door's task name; no existing Workstream is renamed, and a task names a Workstream as U6380b says.
+
+Observer: `u6545b_workstream_default_name_is_numbered` in `apps/desktop/src/rail/` (an empty Rail, then `Workstream` taken, then `Workstream` and `Workstream 2` taken, give the next name) and `u6380b_a_door_names_its_workstream` in `crates/agents/tests/scenarios/naming.rs`, extended so a Workstream named `New Workstream` still takes the Door's task name. Update the `u167_` tests in `apps/desktop/src/rail/u167_default_name.test.tsx` and `WORKSTREAM_STEM` in `crates/agents/src/name.rs`, and cut any test these make redundant (rule 10).
+
+Regression checks on main: `scenarios/ui-form-controls.md`, heading U4382a, and `apps/desktop/src/ui/Field.css` hold the frame; `docs/design-system.md`, heading “The checks”, and `apps/desktop/src/testing/checks.ts`, functions `d2`, `d5` and `d6`, hold the Checks U6545a moves. Scope (policy): `apps/desktop/src/`, `tools/oxlint/`.
