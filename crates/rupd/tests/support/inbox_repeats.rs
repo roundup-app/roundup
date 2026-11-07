@@ -2,9 +2,10 @@
 use super::*;
 use agents::claude_code::inbox::Entry;
 use contracts::{Actor, agent::Inbox};
+use parking_lot::Mutex;
 use rpc::Module;
+use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
-use std::sync::{Arc, Mutex};
 
 struct Rail(Mutex<Value>);
 #[async_trait::async_trait]
@@ -17,7 +18,7 @@ impl Module for Rail {
             method, "rail.tree",
             "Messages never type a prompt or Terminal bytes"
         );
-        Ok(self.0.lock().unwrap().clone())
+        Ok(self.0.lock().clone())
     }
 }
 
@@ -30,10 +31,10 @@ struct Peer {
 #[async_trait::async_trait]
 impl messages::NoteInbox for Peer {
     async fn check(&self, _: &str) -> Inbox {
-        *self.state.lock().unwrap()
+        *self.state.lock()
     }
     fn session(&self, _: &str) -> Option<String> {
-        Some(self.session.lock().unwrap().clone())
+        Some(self.session.lock().clone())
     }
     fn content(&self, _: &str, entry: &Entry) -> String {
         entry.content("uds:/probe/service", "default")
@@ -41,7 +42,7 @@ impl messages::NoteInbox for Peer {
     fn previous(&self, _: &str) -> Result<Option<String>, Inbox> {
         agents::claude_code::inbox::previous(
             &self.transcript,
-            &self.session.lock().unwrap(),
+            &self.session.lock(),
             "uds:/probe/service",
         )
         .map_err(|_| Inbox::Missing)
@@ -49,7 +50,6 @@ impl messages::NoteInbox for Peer {
     fn write(&self, _: &str, entries: &[Entry]) -> Result<(), Inbox> {
         self.writes
             .lock()
-            .unwrap()
             .extend(entries.iter().map(|entry| entry.id));
         Ok(())
     }
@@ -164,7 +164,7 @@ impl Delivery {
     }
     async fn edge(&self) {
         let event = {
-            let mut rail = self.rail.0.lock().unwrap();
+            let mut rail = self.rail.0.lock();
             let revision = rail[0]["status_revision"]
                 .as_str()
                 .unwrap()
@@ -181,7 +181,7 @@ impl Delivery {
         tokio::task::yield_now().await;
     }
     fn writes(&self) -> Vec<u32> {
-        self.peer.writes.lock().unwrap().clone()
+        self.peer.writes.lock().clone()
     }
     fn flight(&self, id: u32) -> bool {
         rusqlite::Connection::open(self.dir.path().join("messages.db"))
@@ -213,7 +213,7 @@ async fn b5763b_identical_daemon_digests_write_once() {
         let batch = case > 0;
         let h = Delivery::new();
         if batch {
-            h.rail.0.lock().unwrap()[0]["status"]["kind"] = json!("working");
+            h.rail.0.lock()[0]["status"]["kind"] = json!("working");
         }
         let entry = digest("done: ready");
         h.messages.note_attention("receiver", &entry).await.unwrap();
@@ -260,7 +260,7 @@ async fn b5763b_a_different_inbox_entry_breaks_the_repeat() {
     }
     let repeat = h.send("note", "A").await;
     assert_eq!(h.get(repeat).await["reason"], "repeat of last inbox entry");
-    *h.peer.session.lock().unwrap() = "new-session".into();
+    *h.peer.session.lock() = "new-session".into();
     let new = h.send("note", "A").await;
     assert_eq!(h.writes(), [a, b, c, new]);
     assert_eq!(h.get(new).await["status"], "pending");
@@ -403,12 +403,12 @@ async fn b5763d_all_inbox_producers_share_the_repeat_rule() {
 async fn b5763b_unavailable_repeats_wait_for_a_passing_check() {
     let h = Delivery::new();
     let first = h.send("note", "A").await;
-    *h.peer.state.lock().unwrap() = Inbox::Missing;
+    *h.peer.state.lock() = Inbox::Missing;
     let repeat = h.send("note", "A").await;
     assert_eq!(h.get(repeat).await["status"], "pending");
     assert!(!h.flight(repeat));
     assert_eq!(h.writes(), [first]);
-    *h.peer.state.lock().unwrap() = Inbox::Ok;
+    *h.peer.state.lock() = Inbox::Ok;
     h.edge().await;
     until("available repeat closes", async || {
         (h.get(repeat).await["reason"] == "repeat of last inbox entry").then_some(())
@@ -525,7 +525,7 @@ async fn b5763b_rendered_labels_and_the_one_line_cut_decide_equality() {
 #[tokio::test(start_paused = true)]
 async fn b5763c_an_unwritten_note_still_requires_its_own_receipt() {
     let mut h = Delivery::new();
-    h.rail.0.lock().unwrap()[0]["status"]["kind"] = json!("working");
+    h.rail.0.lock()[0]["status"]["kind"] = json!("working");
     let id = h.send("note", "unwritten").await;
     assert!(!h.flight(id));
     h.reopen();
