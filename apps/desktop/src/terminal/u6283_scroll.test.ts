@@ -185,7 +185,16 @@ const frameCalls = async (turns: number) => {
     if (!marker) return marker;
 
     // A marker whose `line` reads are counted.
-    return Object.create(marker, { line: { get: () => { reads += 1; return marker.line; } } });
+    let value = marker.line;
+
+    Object.defineProperty(marker, "line", { get: () => {
+      reads += 1;
+
+      return value;
+    },
+    set: (next: number) => { value = next; }, configurable: true });
+
+    return marker;
   });
   const input = longTurn().repeat(turns);
 
