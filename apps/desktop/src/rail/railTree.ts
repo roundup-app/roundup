@@ -38,6 +38,15 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
+/** The animations on a row that run its translate. */
+const cancelTranslates = (row: HTMLElement) => {
+  for (const animation of row.getAnimations()) {
+    const translating = animation instanceof CSSTransition ? animation.transitionProperty === "translate" : animation.effect instanceof KeyframeEffect && animation.effect.getKeyframes().some(frame => "translate" in frame);
+
+    if (translating) animation.cancel();
+  }
+};
+
 /** U6550a, M5: a lift or cancel by key is immediate (M1); a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn (once the sortable has cleared its own shifts) and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
 const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: Accessor<string | null>) => {
   let drawn = new Map<string, number>();
@@ -55,7 +64,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
     const moving = rows().filter(row => "animate" in row && !row.matches("[data-dnd-dragging], [data-dnd-dropping]"));
 
     // A row slides once, by its real displacement: a translate still running on it would be read into the distance and added to it.
-    for (const row of moving) if (!row.style.translate) for (const animation of row.getAnimations()) if (animation instanceof CSSTransition ? animation.transitionProperty === "translate" : animation.effect instanceof KeyframeEffect && animation.effect.getKeyframes().some(frame => "translate" in frame)) animation.cancel();
+    for (const row of moving) if (!row.style.translate) cancelTranslates(row);
 
     const tops = moving.map(row => row.getBoundingClientRect().top);
 
