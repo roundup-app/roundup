@@ -10,6 +10,7 @@ pub mod extras;
 pub mod inbox;
 mod launch;
 mod launch_files;
+mod launch_lean;
 mod memory;
 mod models;
 pub use memory::memory_guard;
