@@ -472,10 +472,7 @@ async fn a4688a_a_parked_prompt_while_off_consumes_its_naming_opportunity() {
     };
     let enabled = Arc::new(AtomicBool::new(false));
     let switch = Arc::clone(&enabled);
-    let mut fixture = Fixture::running("sleep 30");
-    fixture.agents = fixture
-        .agents
-        .with_automatic_renaming(move || Ok(switch.load(Ordering::SeqCst)));
+    let fixture = Fixture::running_switched("sleep 30", move || switch.load(Ordering::SeqCst));
     let f = Arc::new(fixture);
     let config = hold_starts(&f);
     let spawning = {

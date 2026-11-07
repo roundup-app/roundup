@@ -5674,7 +5674,6 @@ dependencies = [
  "provenance",
  "rpc",
  "rusqlite",
- "rusqlite_migration",
  "serde",
  "serde_json",
  "storage",

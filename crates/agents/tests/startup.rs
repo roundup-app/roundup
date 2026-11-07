@@ -20,6 +20,7 @@ fn r3696c_opening_agents_starts_no_owner_worker() {
         terminals,
         launcher,
         agents::worktree::Git::from_env(),
+        agents::Quiet::default().shared(),
     )
     .unwrap();
     let after = threads();

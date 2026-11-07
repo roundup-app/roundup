@@ -152,7 +152,7 @@ fn t5642a_list_executes_three_reads() {
     use std::cell::Cell;
     thread_local! { static READS: Cell<usize> = const { Cell::new(0) }; }
     for size in [0, 1, 1000] {
-        let store = store::Store::open(Path::new(":memory:")).unwrap();
+        let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
         store.db.execute(
             "WITH RECURSIVE n(id) AS (SELECT 1 WHERE ?1 > 0 UNION ALL SELECT id+1 FROM n WHERE id < ?1)
              INSERT INTO todos(id, title, body, created_at, pos) SELECT id, 'title', 'body', 1, id FROM n",
@@ -180,7 +180,7 @@ fn t5642a_list_executes_three_reads() {
 
 #[test]
 fn t5642a_batched_list_matches_individual_reads() {
-    let store = store::Store::open(Path::new(":memory:")).unwrap();
+    let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
     for id in 1..=5 {
         store
             .insert(
@@ -258,7 +258,7 @@ fn t5642a_batched_list_matches_individual_reads() {
 
 #[test]
 fn t5642a_list_preserves_the_callers_transaction() {
-    let store = store::Store::open(Path::new(":memory:")).unwrap();
+    let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
     for title in ["one", "two"] {
         store
             .insert(title, "body", &[], &Actor::user(), None, None, 0)

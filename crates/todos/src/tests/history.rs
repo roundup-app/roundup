@@ -162,7 +162,7 @@ async fn t19_failed_history_preserves_done_state() {
     let before = changes(&h, 1).await;
     let touches = h.touches(1);
     h.events();
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
     assert!(h.call("todo.reopen", json!({"id":1})).await.is_err());
     assert_eq!(
@@ -341,7 +341,7 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
     let h = Harness::new(dir.path());
     h.call("todo.create", json!({"title": "a"})).await.unwrap();
     let before = changes(&h, 1).await;
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
     for (method, params) in [
         ("todo.update", json!({"id": 1, "title": "lost"})),
@@ -434,7 +434,7 @@ async fn t15_list_does_not_load_history() {
             .await
             .unwrap();
     }
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute("UPDATE changes SET after_values = 'unreadable'", [])
         .unwrap();
     let list = h.call("todo.list", json!({})).await.unwrap();
@@ -445,7 +445,7 @@ async fn t15_list_does_not_load_history() {
 
 // Valid current-schema payloads; setup is separate from execution/row observation.
 fn hand_fixture() -> store::Store {
-    let store = store::Store::open(Path::new(":memory:")).unwrap();
+    let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
     store.db.execute_batch(
         "WITH RECURSIVE n(id) AS (SELECT 1 UNION ALL SELECT id+1 FROM n WHERE id<1000)
          INSERT INTO todos(id,title,body,created_at,updated_at,pos,owner)
@@ -694,7 +694,7 @@ fn t5642b_narrow_history_matches_actor_semantics() {
         ),
     ];
     for (name, events, eligible) in cases {
-        let store = store::Store::open(Path::new(":memory:")).unwrap();
+        let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
         store
             .insert(
                 "todo",

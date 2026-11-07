@@ -53,6 +53,7 @@ fn open(dir: &Path, bus: &Bus) -> (Agents, Arc<Terminals>) {
         Arc::clone(&terminals),
         launcher,
         Git::from_env(),
+        agents::Quiet::default().shared(),
     )
     .unwrap();
     (agents, terminals)

@@ -150,14 +150,7 @@ impl Todos {
             return Ok((result, Vec::new()));
         }
         coordinate(&tx)?;
-        let has_nodes: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
-            [],
-            |r| r.get(0),
-        )?;
-        if has_nodes {
-            Self::validate_rail_targets_in(&tx, operation)?;
-        }
+        Self::validate_rail_targets_in(&tx, operation)?;
         let before = store.list()?;
         let occupied: Option<(String,String)> = tx.query_row("SELECT CAST(t.id AS TEXT),t.title FROM todos t JOIN deleted_todos d ON d.id=t.id WHERE d.operation=? LIMIT 1", [operation], |r| Ok((r.get(0)?,r.get(1)?))).optional()?;
         if let Some((id, title)) = occupied {
@@ -332,19 +325,13 @@ fn retain(
         )?;
     }
     let mut record = serde_json::to_value(&result)?;
-    let has_nodes: bool = db.query_row(
-        "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
-        [],
-        |r| r.get(0),
-    )?;
-    if has_nodes {
+    {
         let names: String = db
             .query_row(
                 "SELECT json_group_object(CAST(id AS TEXT),name) FROM nodes WHERE CAST(id AS TEXT) IN (SELECT home FROM deleted_todos WHERE operation=?1 UNION SELECT json_extract(owner,'$.id') FROM deleted_todos WHERE operation=?1)",
                 [p.operation.as_str()],
                 |r| r.get(0),
-            )
-            ?;
+            )?;
         record
             .as_object_mut()
             .ok_or_else(|| Error::internal("a deletion record is not an object"))?
