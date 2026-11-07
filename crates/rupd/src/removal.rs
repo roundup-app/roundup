@@ -69,7 +69,7 @@ impl Daemon {
             let todos = Arc::clone(&self.todos);
             let pads = Arc::clone(&self.pads);
             let caller = actor.clone();
-            let retention = operation.clone();
+            let retention = operation.to_string();
             let selected = p.ids.clone();
             let (removal, (files, events, owners)) = self.agents.remove_reversible_with(actor.clone(), p.ids, &operation, move |db, removal| {
                 todos::Todos::retain_workstream_in(db, &caller, &retention, &homes)?;

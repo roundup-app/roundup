@@ -13,6 +13,9 @@ pub(crate) enum SpecialistHandoff {
     Ready(String),
 }
 
+/// The longest reply that becomes a specialist's summary.
+const SUMMARY_MAX: usize = 600;
+
 impl Daemon {
     pub(crate) async fn spawn_specialist(
         &self,
@@ -164,7 +167,7 @@ impl Daemon {
         {
             return Ok(None);
         }
-        if sent.body.is_empty() || sent.body.len() > 600 {
+        if sent.body.is_empty() || sent.body.len() > SUMMARY_MAX {
             return Ok(None);
         }
         specialist.handoff = Some(SpecialistHandoff::Ready(sent.body));

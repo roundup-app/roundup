@@ -119,8 +119,8 @@ pub struct ProgressParams {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResultTarget {
-    pub id: String,
-    pub revision: String,
+    pub id: crate::Text<1024>,
+    pub revision: crate::Text<1024>,
 }
 
 /// Only the declared condition is checked; no observation verifies all work.
@@ -155,12 +155,12 @@ pub enum ResultState {
 pub struct ReportParams {
     pub project: String,
     pub id: String,
-    pub key: String,
+    pub key: crate::Text<256>,
     pub delivery: String,
     pub target: ResultTarget,
     pub output: crate::deliverable::DeliverableId,
-    pub result: String,
-    pub next: String,
+    pub result: crate::Text<8192>,
+    pub next: crate::Text<8192, { crate::text::BLANK }>,
     pub state: ResultState,
     pub check: ResultCheck,
 }
@@ -179,7 +179,7 @@ pub struct AcceptResultParams {
     pub project: String,
     pub id: String,
     pub report: String,
-    pub evidence: String,
+    pub evidence: crate::Text<8192>,
 }
 
 /// Only the user can authorize reading this authoritative, read-only receipt endpoint.
@@ -190,7 +190,7 @@ pub struct ResolveResultParams {
     pub project: String,
     pub id: String,
     pub report: String,
-    pub source: String,
+    pub source: crate::Text<4096, { crate::text::BLANK }>,
 }
 
 /// Response of a user-selected authoritative receipt endpoint. The Daemon reads these bytes;
@@ -199,7 +199,7 @@ pub struct ResolveResultParams {
 #[serde(deny_unknown_fields)]
 pub struct ResultResolution {
     pub target: ResultTarget,
-    pub revision: String,
+    pub revision: crate::Text<1024>,
     /// Source observation time, Unix seconds; accepted only within the preceding 60 seconds.
     #[specta(type = specta_typescript::Number)]
     pub observed_at: i64,
@@ -278,7 +278,7 @@ pub struct Progress {
 pub struct ResumeWorkParams {
     pub project: String,
     pub id: String,
-    pub request: String,
+    pub request: crate::Text<256>,
     #[serde(default)]
     #[specta(optional, type = String)]
     pub action: Option<String>,

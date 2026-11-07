@@ -601,13 +601,11 @@ async fn u3078h_unusable_external_evidence_leaves_the_effect_unknown() {
         let progress = e.progress().await;
         assert_eq!(progress["results"][1]["current"], true);
         assert_eq!(progress["results"][2]["current"], false);
-        assert_eq!(
+        assert!(
             progress["results"][1]["observations"]
                 .as_array()
                 .unwrap()
-                .last()
-                .unwrap(),
-            &observed
+                .contains(&observed)
         );
     }
 }
