@@ -83,7 +83,9 @@ fn lc1_each_role_launches_as_its_row() {
                 (Role::Door, true) => {
                     Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
                 }
-                (Role::Door, false) => Some("Read,Grep,Glob,Bash,Write,Edit,Agent,Skill,AskUserQuestion"),
+                (Role::Door, false) => {
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,Skill,AskUserQuestion")
+                }
                 (Role::Scout, true) => {
                     Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion")
                 }
@@ -198,7 +200,9 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
             assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
             let tools = match row {
-                Role::Door => Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion"),
+                Role::Door => {
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
+                }
                 Role::Scout => Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion"),
                 Role::Agent => None,
             };
