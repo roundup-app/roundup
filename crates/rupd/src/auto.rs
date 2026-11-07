@@ -1,6 +1,7 @@
 //! A3308: ordinary Messages ask the Door to assign unassigned Todos. The retained Message
 //! and Todo owner history together identify a firing, including after a Daemon restart.
 use super::*;
+use crate::route::policy::{Serial, policy};
 use contracts::agent::{NodeKind, RailNode};
 use contracts::message::Message;
 use contracts::todo::{History, Todo};
@@ -63,25 +64,18 @@ impl Daemon {
             .resolve_agent_inputs(&conn.actor, method, params)
             .await?;
         self.auto.start(|| self.reader());
-        let observes = (method.starts_with("todo.")
-            && !matches!(method, "todo.restore" | "todo.deletion" | "todo.redo"))
-            || method.starts_with("workstream.")
-            || matches!(
-                method,
-                "rail.startDoor" | "rail.remove" | "agent.resume" | "agent.spawn"
-            );
-        let serializes = method.starts_with("pad.")
-            || (method.starts_with("todo.") && method != "todo.startWorkstream")
-            || method == "workstream.setAuto"
-            || method == "rail.restore"
-            || method == "rail.redo"
-            || (method == "rail.remove" && params["operation"].is_string());
+        let row = policy(method).ok_or_else(|| RpcError::method_not_found(method))?;
+        let serializes = match row.serial {
+            Serial::No => false,
+            Serial::Yes => true,
+            Serial::Operation => params["operation"].is_string(),
+        };
         let _guard = if serializes {
             Some(self.auto.gate.lock().await)
         } else {
             None
         };
-        let _cap = if method == "agent.spawn" && conn.actor.kind == ActorKind::Agent {
+        let _cap = if row.capped && conn.actor.kind == ActorKind::Agent {
             let guard = self.queue.pass.lock().await;
             self.require_auto_slot(&conn.actor).await?;
             Some(guard)
@@ -89,7 +83,7 @@ impl Daemon {
             None
         };
         let result = self.route_inner(conn, method, params).await;
-        if observes && result.is_ok() {
+        if row.observes && result.is_ok() {
             // Terminal starts and stops may await an external program. They must leave
             // unrelated Todo edits free; only their subsequent notice pass needs this lock.
             let _notice = if _guard.is_none() {

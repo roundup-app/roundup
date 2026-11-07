@@ -1,5 +1,10 @@
 use super::*;
 
+mod gates;
+pub(crate) mod policy;
+
+use policy::{Actor as Caller, After, Entry, Gate, policy};
+
 /// The `owner` of a `todo.create` or `todo.assign`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OwnerOnly {
@@ -45,32 +50,43 @@ impl Daemon {
             .map(Value::take)
             .unwrap_or(Value::Null);
         let method = request["method"].as_str().unwrap_or_default();
-        if method == "terminal.write" {
-            // A child may not turn its Terminal keystrokes into a user's answer by claiming
-            // `user`; H21's caller identity applies here. The wire reader already resolved it.
-            let actor = actor.unwrap_or_else(|| self.terminal_writer(conn));
-            if actor.kind == ActorKind::Agent {
-                conn.actor = actor;
+        let outcome = match policy(method) {
+            None => Err(RpcError::method_not_found(method)),
+            Some(row) => {
+                match row.actor {
+                    // A child may not turn its Terminal keystrokes into a user's answer by claiming
+                    // `user`; H21's caller identity applies here. The wire reader already resolved it.
+                    Caller::TerminalWriter => {
+                        let actor = actor.unwrap_or_else(|| self.terminal_writer(conn));
+                        if actor.kind == ActorKind::Agent {
+                            conn.actor = actor;
+                        }
+                    }
+                    Caller::Caller => {
+                        conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
+                    }
+                    Caller::Connection => {}
+                }
+                match row.entry {
+                    Entry::Rail => self.rail_reply(conn).await,
+                    Entry::Ping => {
+                        // Every guard in `route_inner` passes a ping, so only its entry steps remain.
+                        self.auto.start(|| self.reader());
+                        self.start_pushes();
+                        self.start_queue();
+                        Ok(rpc::Reply::Json(builtin::ping_json(self)))
+                    }
+                    Entry::Routed => {
+                        let routed = self.route(conn, method, params).await;
+                        if row.after == After::AgentSignal
+                            && let Some(tell) = self.rail_told.get()
+                        {
+                            tell.recheck.notify_one();
+                        }
+                        routed.map(rpc::Reply::Value)
+                    }
+                }
             }
-        } else if takes_caller_identity(method) {
-            conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
-        }
-        let outcome = if method == "rail.tree" {
-            self.rail_reply(conn).await
-        } else if method == "daemon.ping" {
-            // Every guard in `route_inner` passes a ping, so only its entry steps remain.
-            self.auto.start(|| self.reader());
-            self.start_pushes();
-            self.start_queue();
-            Ok(rpc::Reply::Json(builtin::ping_json(self)))
-        } else {
-            let routed = self.route(conn, method, params).await;
-            if method == "agent.signal"
-                && let Some(tell) = self.rail_told.get()
-            {
-                tell.recheck.notify_one();
-            }
-            routed.map(rpc::Reply::Value)
         };
         let id = id?;
         Some(match outcome {
@@ -145,69 +161,45 @@ impl Daemon {
     ) -> Result<Value, RpcError> {
         self.start_pushes();
         self.start_queue();
+        let row = policy(method).ok_or_else(|| RpcError::method_not_found(method))?;
         let namespace = method.split('.').next().unwrap_or_default();
-        // These transport/awareness calls already preceded prompt effects; preserve that policy.
-        if !matches!(
-            method,
-            "daemon.identify"
-                | "events.subscribe"
-                | "terminal.output"
-                | "terminal.outputStop"
-                | "agent.context"
-                | "agent.brief"
-        ) {
+        if row.observed {
             self.before_prompt_effect(&conn.actor, method).await?;
         }
-        if matches!(method, "todo.restore" | "todo.redo") && conn.actor.kind != ActorKind::User {
+        if row.gate == Gate::UserOnly && conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user restores deleted Todos"));
         }
-        if method == "rail.tree" {
+        if row.entry == Entry::Rail {
             return rpc::reply(&self.presented_rail(conn).await?);
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
         if owner == "daemon" {
             return contracts::daemon_methods!(rpc::dispatch_methods, self, conn, method, params);
         }
-        if method == "todo.addRef" {
+        if row.gate == Gate::RefTarget {
             self.require_ref_target(&params)?;
         }
         let module = self
             .modules
             .get(owner)
             .ok_or_else(|| RpcError::method_not_found(method))?;
-        if matches!(method, "todo.move" | "pad.move") {
-            self.require_workstream(&params).await?;
-        }
-        if matches!(method, "todo.create" | "todo.assign") {
-            self.require_owner(&params).await?;
-        }
-        if matches!(
-            method,
-            "terminal.snapshot"
-                | "terminal.screen"
-                | "terminal.read"
-                | "terminal.search"
-                | "terminal.write"
-                | "terminal.resize"
-                | "terminal.kill"
-                | "terminal.close"
-        ) {
-            self.guard_terminal_read(&conn.actor, method, &params)
-                .await?;
-        }
-        if method == "terminal.show" {
-            self.guard_terminal(&conn.actor, method, &params, true)
-                .await?;
-        }
-        if method == "terminal.open" {
-            self.guard_terminal_open(&conn.actor, &params)?;
-        }
-        if method == "route.set" {
-            self.guard_route_set(&conn.actor, &params)?;
-        }
-        if method == "terminal.write" {
-            let write: contracts::terminal::WriteParams = rpc::params(params)?;
-            {
+        match row.gate {
+            Gate::Workstream => self.require_workstream(&params).await?,
+            Gate::Owner => self.require_owner(&params).await?,
+            Gate::Terminal | Gate::ChildRead => {
+                self.guard_terminal_read(&conn.actor, row.gate == Gate::ChildRead, &params)
+                    .await?;
+            }
+            Gate::Show => {
+                self.guard_terminal(&conn.actor, false, &params, true)
+                    .await?;
+            }
+            Gate::Open => self.guard_terminal_open(&conn.actor, &params)?,
+            Gate::RouteSet => self.guard_route_set(&conn.actor, &params)?,
+            Gate::TerminalWrite => {
+                self.guard_terminal_read(&conn.actor, false, &params)
+                    .await?;
+                let write: contracts::terminal::WriteParams = rpc::params(params)?;
                 use base64::Engine;
                 let bytes = base64::engine::general_purpose::STANDARD
                     .decode(&write.data)
@@ -219,140 +211,104 @@ impl Daemon {
                     .await?;
                 return rpc::reply(&());
             }
-        }
-        if method == "rail.removeSelection" {
-            return self
-                .remove_selection(&conn.actor, rpc::params(params)?)
-                .await;
-        }
-        if method == "rail.remove" {
-            let removal: contracts::agent::RemoveParams = rpc::params(params.clone())?;
-            if removal.operation.is_some() {
-                return self.remove_reversible(&conn.actor, removal).await;
-            }
-            let NodeId { id } = rpc::params(params.clone())?;
-            if self
-                .rail()
-                .await?
-                .iter()
-                .any(|n| n.id == id && n.kind == contracts::agent::NodeKind::Workstream)
-            {
+            Gate::RemoveSelection => {
                 return self
-                    .remove_workstream(&conn.actor, &id, removal.scope.unwrap_or_default())
+                    .remove_selection(&conn.actor, rpc::params(params)?)
                     .await;
             }
-        }
-        if method == "agent.setVisibility" {
-            let p: contracts::agent::SetVisibilityParams = rpc::params(params.clone())?;
-            // Run target and actor guards before looking at Message evidence.
-            let nodes = self.rail().await?;
-            let node = nodes
-                .iter()
-                .find(|n| n.id == p.id)
-                .ok_or_else(|| RpcError::new(code::NOT_FOUND, "Agent not found"))?;
-            if node.kind != contracts::agent::NodeKind::Agent
-                || (conn.actor.kind == ActorKind::Agent
-                    && (node.parent.as_deref() != Some(&conn.actor.id)
-                        || !nodes.iter().any(|n| {
-                            n.id == conn.actor.id
-                                && n.kind == contracts::agent::NodeKind::Workstream
-                        })))
-            {
-                return Err(RpcError::forbidden(
-                    "only a Door may choose visibility for its direct Agent children",
-                ));
+            Gate::RailRemove => {
+                let removal: contracts::agent::RemoveParams = rpc::params(params.clone())?;
+                if removal.operation.is_some() {
+                    return self.remove_reversible(&conn.actor, removal).await;
+                }
+                let NodeId { id } = rpc::params(params.clone())?;
+                if self
+                    .rail()
+                    .await?
+                    .iter()
+                    .any(|n| n.id == id && n.kind == contracts::agent::NodeKind::Workstream)
+                {
+                    return self
+                        .remove_workstream(&conn.actor, &id, removal.scope.unwrap_or_default())
+                        .await;
+                }
             }
+            Gate::SetVisibility => {
+                let p: contracts::agent::SetVisibilityParams = rpc::params(params.clone())?;
+                // Run target and actor guards before looking at Message evidence.
+                let nodes = self.rail().await?;
+                let node = nodes
+                    .iter()
+                    .find(|n| n.id == p.id)
+                    .ok_or_else(|| RpcError::new(code::NOT_FOUND, "Agent not found"))?;
+                if node.kind != contracts::agent::NodeKind::Agent
+                    || (conn.actor.kind == ActorKind::Agent
+                        && (node.parent.as_deref() != Some(&conn.actor.id)
+                            || !nodes.iter().any(|n| {
+                                n.id == conn.actor.id
+                                    && n.kind == contracts::agent::NodeKind::Workstream
+                            })))
+                {
+                    return Err(RpcError::forbidden(
+                        "only a Door may choose visibility for its direct Agent children",
+                    ));
+                }
+            }
+            Gate::None | Gate::UserOnly | Gate::RefTarget | Gate::Spawn => {}
         }
-        let outcome = if method == "agent.spawn" && params["specialist"].is_string() {
+        let outcome = if row.gate == Gate::Spawn && params["specialist"].is_string() {
             self.spawn_specialist(&conn.actor, params.clone()).await
         } else {
             module
                 .call(&self.ctx(conn.actor.clone()), method, params.clone())
                 .await
         };
-        if outcome.is_ok()
-            && (method == "message.send"
-                || (method == "agent.signal" && params["payload"]["hook_event_name"] == "Stop"))
-        {
-            let id = if method == "message.send" {
-                conn.actor.id.as_str()
-            } else {
-                params["id"].as_str().unwrap_or_default()
-            };
-            let is_specialist = self
-                .specialists
-                .lock()
-                .await
-                .values()
-                .any(|specialist| specialist.id == id);
-            if is_specialist {
-                let repair = if method == "message.send" {
-                    self.specialist_summary(&conn.actor, &params).await
+        match row.after {
+            After::MessageSend | After::AgentSignal if outcome.is_ok() => {
+                let id = if row.after == After::MessageSend {
+                    Some(conn.actor.id.as_str())
+                } else if params["payload"]["hook_event_name"] == "Stop" {
+                    Some(params["id"].as_str().unwrap_or_default())
                 } else {
-                    self.specialist_stop(&params).await
+                    None
                 };
-                if let Err(err) = repair {
-                    eprintln!("rupd: specialist handoff: {}", err.message);
+                if let Some(id) = id {
+                    let is_specialist = self
+                        .specialists
+                        .lock()
+                        .await
+                        .values()
+                        .any(|specialist| specialist.id == id);
+                    if is_specialist {
+                        let repair = if row.after == After::MessageSend {
+                            self.specialist_summary(&conn.actor, &params).await
+                        } else {
+                            self.specialist_stop(&params).await
+                        };
+                        if let Err(err) = repair {
+                            eprintln!("rupd: specialist handoff: {}", err.message);
+                        }
+                    }
                 }
             }
-        }
-        if matches!(method, "todo.create" | "pad.create") && conn.actor.kind == ActorKind::Agent {
-            return self.home_in_workstream(method, &conn.actor, outcome?).await;
-        }
-        if method == "rail.remove" && outcome.is_ok() {
-            self.reset_orphaned_homes().await?;
-            self.reset_orphaned_owners().await?;
-            self.reset_orphaned_pad_homes().await?;
-            return outcome;
-        }
-        if matches!(method, "pad.delete" | "pad.redoDelete") && outcome.is_ok() {
-            self.publications.invalidate_revoked()?;
+            After::TodoCreate | After::PadCreate if conn.actor.kind == ActorKind::Agent => {
+                return self
+                    .home_in_workstream(row.after == After::PadCreate, &conn.actor, outcome?)
+                    .await;
+            }
+            After::RailRemove if outcome.is_ok() => {
+                self.reset_orphaned_homes().await?;
+                self.reset_orphaned_owners().await?;
+                self.reset_orphaned_pad_homes().await?;
+                return outcome;
+            }
+            After::PadDelete if outcome.is_ok() => {
+                self.publications.invalidate_revoked()?;
+            }
+            _ => {}
         }
         outcome
     }
-}
-
-/// The one table of methods that take the caller's identity (`action_actor`)
-/// instead of the connection's. The wire reader and the router both read it (Z6395a).
-pub(crate) fn takes_caller_identity(method: &str) -> bool {
-    method.starts_with("deliverable.")
-        || crate::actions::is_action(method)
-        || matches!(
-            method,
-            "project.open"
-                | "project.start"
-                | "terminal.catchUp"
-                | "todo.delete"
-                | "todo.deletion"
-                | "todo.restore"
-                | "todo.redo"
-                | "rail.remove"
-                | "rail.deletion"
-                | "rail.restore"
-                | "rail.redo"
-                | "message.progress"
-                | "message.report"
-                | "message.acceptResult"
-                | "message.verifyResult"
-                | "message.resolveResult"
-                | "message.reconcileWork"
-                | "message.resumeWork"
-                | "daemon.getNaming"
-                | "daemon.setNaming"
-                | "rail.group"
-                | "rail.removeSelection"
-                | "rail.rename"
-                | "rail.setAlertLevel"
-                | "workstream.setAuto"
-                | "agent.spawn"
-                | "agent.stop"
-                | "agent.interrupt"
-                | "agent.prompt"
-                | "agent.setOrder"
-                | "agent.setVisibility"
-                | "agent.resume"
-                | "agent.instructions"
-        )
 }
 
 #[cfg(test)]
@@ -366,13 +322,13 @@ mod tests {
         for method in [
             "terminal.catchUp",
             "todo.delete",
-            "deliverable.read",
+            "deliverable.get",
             "agent.spawn",
         ] {
-            assert!(takes_caller_identity(method), "{method}");
+            assert_eq!(policy(method).unwrap().actor, Caller::Caller, "{method}");
         }
         for method in ["daemon.ping", "rail.tree", "terminal.write"] {
-            assert!(!takes_caller_identity(method), "{method}");
+            assert_ne!(policy(method).unwrap().actor, Caller::Caller, "{method}");
         }
     }
 

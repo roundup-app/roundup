@@ -11,6 +11,13 @@ import tempfile
 
 HERE = Path(__file__).resolve().parent
 DEBT = 'tools/lint/debt.json'
+# Function-size rules measured per production function; a row's ceiling is the measured value (T3797a).
+FUNCTION_RULES = {
+    'eslint(complexity)': r'complexity of (\d+)',
+    'sonarjs(cognitive-complexity)': r'from (\d+) to',
+    'eslint(max-lines-per-function)': r'\((\d+)\)',
+}
+TESTS = re.compile(r'\.test\.tsx?$|/testing/|/perf/')
 SECTIONS = {'web': ['size', 'ast', 'typos', 'ruff'], 'rust': ['dependencies']}
 
 
@@ -57,10 +64,10 @@ def attributes(root, paths):
 def occurrences(rows):
     seen = Counter()
     result = []
-    for rule, path, source, detail, location in rows:
+    for rule, path, source, detail, location, *ceiling in rows:
         key = (rule, path, source, detail)
         seen[key] += 1
-        result.append({'rule': rule, 'path': path, 'source': source, 'detail': detail, 'occurrence': seen[key], 'location': location})
+        result.append({'rule': rule, 'path': path, 'source': source, 'detail': detail, 'occurrence': seen[key], 'location': location, **({'ceiling': ceiling[0]} if ceiling else {})})
     return sorted(result, key=lambda row: json.dumps(row, sort_keys=True))
 
 
@@ -135,7 +142,18 @@ def inventory(section, root):
             data = (root / match['filename']).read_bytes()
             source = data[span['offset']:span['offset'] + span['length']].decode(errors='replace')
             rows.append((match['code'], match['filename'], source, match['message'], f'{span["line"]}:{span["column"]}'))
-        return occurrences(rows)
+        result = occurrences(rows)
+        output = run([HERE.parent.parent / 'node_modules/.bin/oxlint', '-c', HERE / 'complexity.oxlintrc.json', '-f', 'json', 'apps/desktop/src'], root, (0, 1))
+        rows = []
+        lines = {}
+        for match in json.loads(output.stdout)['diagnostics']:
+            if match['code'] not in FUNCTION_RULES or TESTS.search(match['filename']):
+                continue
+            span = match['labels'][0]['span']
+            lines.setdefault(match['filename'], (root / match['filename']).read_text().split('\n'))
+            rows.append((match['code'], match['filename'], lines[match['filename']][span['line'] - 1].strip(), '', f'{span["line"]}:{span["column"]}', int(re.search(FUNCTION_RULES[match['code']], match['message'])[1])))
+        # The measured value is the ceiling, never part of the identity.
+        return result + occurrences(rows)
     if section == 'dependencies':
         from dependencies import inventory as dependencies
         return dependencies(root, run, binary('cargo-deny'))
@@ -154,7 +172,7 @@ def compare(actual, allowed, label, subset=False):
         raise ValueError(f'{label}: duplicate exception identity')
     for key, row in observed.items():
         if key not in permitted:
-            errors.append(f'{label}: new exception/match {key}' + (f' measured {row["ceiling"]} newlines, ceiling 1000' if 'ceiling' in row else f' at {row.get("location", "graph")}'))
+            errors.append(f'{label}: new exception/match {key}' + ((f' measured {row["ceiling"]}, above the threshold' if 'rule' in row else f' measured {row["ceiling"]} newlines, ceiling 1000') if 'ceiling' in row else f' at {row.get("location", "graph")}'))
         elif row.get('ceiling', 0) > permitted[key].get('ceiling', 0):
             errors.append(f'{label}: raised size ceiling {row["path"]}: {row["ceiling"]} > {permitted[key]["ceiling"]}')
         elif not subset and row.get('ceiling') != permitted[key].get('ceiling'):
@@ -205,9 +223,11 @@ def main():
                 old = {section: inventory(section, checkout) for section in sections if section not in unrecorded}
             finally:
                 run(['git', 'worktree', 'remove', '--force', checkout], root)
+    # Likewise a function-size rule the merge base holds no row of: its first PR records it.
+    first = {rule for rule in FUNCTION_RULES if not any(row.get('rule') == rule for row in old.get('oxlint', []))}
     for section in sections:
         if section not in unrecorded:
-            errors.extend(compare(debt[section], old[section], f'{section} merge-base', subset=True))
+            errors.extend(compare([row for row in debt[section] if row.get('rule') not in first], old[section], f'{section} merge-base', subset=True))
         errors.extend(compare(actual[section], debt[section], section))
         for row in debt[section]:
             print(f'baseline debt: {section} {json.dumps(row, ensure_ascii=False)}')

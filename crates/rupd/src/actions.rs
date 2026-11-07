@@ -348,7 +348,3 @@ impl Daemon {
         }
     }
 }
-
-pub(crate) fn is_action(method: &str) -> bool {
-    method.starts_with("action.")
-}

@@ -111,8 +111,8 @@ impl Faulty {
             EventData::AgentStatus(Box::new(StatusEvent {
                 ended: false,
                 id: "a".into(),
-                attempt: "1".into(),
-                status_revision: revision.into(),
+                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                status_revision: contracts::agent::Ordinal::parse(revision).unwrap(),
                 status,
             })),
         );
@@ -234,8 +234,8 @@ async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
             EventData::AgentStatus(Box::new(StatusEvent {
                 ended: false,
                 id: "a".into(),
-                attempt: "1".into(),
-                status_revision: "2".into(),
+                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                status_revision: contracts::agent::Ordinal::parse("2").unwrap(),
                 status: Status {
                     kind: Kind::Idle,
                     label: "x".into(),

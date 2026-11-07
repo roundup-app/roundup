@@ -7,7 +7,7 @@ use terminal::TerminalOwner as OwnerRecord;
 /// One Agent's record: the Attempt it belongs to, and the owner verified at attachment.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Stored {
-    attempt: String,
+    attempt: Ordinal,
     #[serde(default)]
     input_started: bool,
     #[serde(default)]
@@ -25,10 +25,12 @@ impl Agents {
     /// Save the owner behind client Terminal `terminal_id` for Agent `id`'s current Attempt.
     /// A Terminal the client owns directly has no record, and reopening reports its Agent `done`.
     pub(super) fn save_owner(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
-        let Some(owner) = self.shared.terminals.terminal_owner(terminal_id) else {
+        let Some(owner) = self.shared.terminals.terminal_owner(terminal_id)? else {
             return Ok(());
         };
-        let attempt = self.shared.rail().node(id)?.attempt.unwrap_or_default();
+        let Some(attempt) = self.shared.rail().node(id)?.attempt else {
+            return Ok(());
+        };
         let file = self.shared.owner_file(id);
         let body = serde_json::to_vec(&Stored {
             attempt,
@@ -128,7 +130,7 @@ impl Agents {
             startup_context: false,
             input_started: stored.input_started,
             attempt: stored.attempt.clone(),
-            status_revision: 1,
+            status_revision: Ordinal::first(),
             closing: false,
             ended: false,
             adapter,

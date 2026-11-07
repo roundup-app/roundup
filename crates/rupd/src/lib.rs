@@ -29,7 +29,6 @@ mod fork_tests;
 mod github;
 #[cfg(test)]
 mod group_tests;
-mod guards;
 mod link;
 #[cfg(test)]
 mod naming_tests;
@@ -66,7 +65,6 @@ use observers::{
     messages_env, overview_read_observer, resume_effect_observer, steer_effect_observer,
     terminal_exit_observer, terminal_input_observer,
 };
-use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
 use std::collections::HashMap;
 use std::io;
@@ -526,16 +524,7 @@ pub mod test_support {
                 since: 0,
                 finished: "0".into(),
             });
-            node.status_revision = Some(
-                (node
-                    .status_revision
-                    .as_ref()
-                    .unwrap()
-                    .parse::<u64>()
-                    .unwrap()
-                    + 1)
-                .to_string(),
-            );
+            node.status_revision = node.status_revision.as_ref().unwrap().next();
             let event = contracts::agent::StatusEvent {
                 ended: false,
                 id: id.into(),

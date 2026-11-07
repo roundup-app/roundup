@@ -70,7 +70,8 @@ impl Daemon {
             state = SessionRestart::Started {
                 attempt: fresh
                     .attempt
-                    .ok_or_else(|| RpcError::internal("fresh Door has no Attempt"))?,
+                    .ok_or_else(|| RpcError::internal("fresh Door has no Attempt"))?
+                    .to_string(),
             };
             messages.set_session_restart(&p.id, &key, state.clone())?;
         }

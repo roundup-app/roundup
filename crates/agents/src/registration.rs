@@ -5,7 +5,7 @@ impl Slot {
         match self {
             Self::Starting { attempt, .. }
             | Self::Resuming { attempt, .. }
-            | Self::ResumeCleanup { attempt, .. } => attempt,
+            | Self::ResumeCleanup { attempt, .. } => attempt.as_str(),
             Self::Running(run) => &run.attempt,
             Self::Closing => "",
         }
@@ -41,7 +41,7 @@ impl Shared {
     ) -> Result<Vec<String>, RpcError> {
         let mut rail = self.rail();
         let mut runs = self.runs();
-        if !matches!(runs.get(id), Some(Slot::Starting { attempt: active, .. }) if active == attempt)
+        if !matches!(runs.get(id), Some(Slot::Starting { attempt: active, .. }) if active.as_str() == attempt)
         {
             return Err(RpcError::conflict(format!(
                 "{}: stale start completion",
@@ -244,7 +244,7 @@ impl Shared {
         rail: &mut rail::Rail,
         runs: &mut HashMap<String, Slot>,
         id: &str,
-        attempt: String,
+        attempt: Ordinal,
         old: Option<Box<Run>>,
         mode: contracts::agent::ResumeMode,
         cwd: String,
@@ -281,7 +281,7 @@ impl Shared {
             startup_context: true,
             input_started: prompt.is_some() || continued,
             attempt: attempt.clone(),
-            status_revision: 1,
+            status_revision: Ordinal::first(),
             closing: false,
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),

@@ -373,17 +373,18 @@ impl Rail {
         )?)
     }
 
-    pub fn allocate_attempt(&mut self, id: &str) -> Result<String, StoreError> {
-        let node = self.node(id)?;
-        let previous = node.attempt.as_deref().unwrap_or("0").parse::<i64>()?;
-        let next = previous
-            .checked_add(1)
-            .ok_or_else(|| StoreError::internal("Attempt exhausted"))?;
+    pub fn allocate_attempt(&mut self, id: &str) -> Result<contracts::agent::Ordinal, StoreError> {
+        let next = match self.node(id)?.attempt {
+            Some(previous) => previous
+                .next()
+                .ok_or_else(|| StoreError::internal("Attempt exhausted"))?,
+            None => contracts::agent::Ordinal::first(),
+        };
         self.db.execute(
             "UPDATE nodes SET attempt = ? WHERE id = ?",
-            params![next, id],
+            params![next.get(), id],
         )?;
-        Ok(next.to_string())
+        Ok(next)
     }
 
     pub fn detach_terminal(&mut self, id: &str) -> Result<(), StoreError> {

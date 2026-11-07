@@ -75,6 +75,10 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.until(`!!document.querySelector('.shelf [data-todo="${first}"]') && !!document.querySelector('.shelf [data-todo="${second}"]')`);
     await read(lane, "undo");
     await lane.resetCalls();
+    // U6455a left the row after the deleted ones selected; toggling it off leaves the next delete only the two rows picked below.
+    await lane.browser("focus", `.shelf [data-todo="${initial[2]}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
+    await lane.until(`document.querySelector('.shelf [data-todo="${initial[2]}"] .todo-row-button').getAttribute('aria-pressed') !== 'true'`);
 
     await lane.browser("focus", `.shelf [data-todo="${first}"] .todo-row-button`);
     await lane.browser("press", "Meta+Enter");

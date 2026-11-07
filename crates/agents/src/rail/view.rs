@@ -1,5 +1,6 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
+use contracts::agent::Ordinal;
 
 // R3696c: adding visibility made the compound empty-history read cost 915 VM steps.
 // Test the preparation gate once, then read the ordinary rows without per-node predicates.
@@ -97,10 +98,7 @@ fn load_with<T>(
             status: None,
             status_revision: None,
             final_text: None,
-            attempt: match row.get::<_, i64>(5)? {
-                0 => None,
-                n => Some(n.to_string()),
-            },
+            attempt: Ordinal::new(row.get::<_, i64>(5)?),
             terminal_id: row.get(6)?,
             worktree,
             // R3696c: SQL null predicates cost 280 extra VM steps per forty nodes.
