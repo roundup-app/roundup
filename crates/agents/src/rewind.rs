@@ -54,7 +54,7 @@ impl Agents {
         let saved = match self.shared.rail().conversation(id) {
             Ok(Some(saved)) => saved,
             Ok(None) => return Outcome::Failed("it has no saved conversation yet".into()),
-            Err(RpcError { message, .. }) => return Outcome::Failed(message),
+            Err(error) => return Outcome::Failed(RpcError::from(error).message),
         };
         match self
             .launcher
