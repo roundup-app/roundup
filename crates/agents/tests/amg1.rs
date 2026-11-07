@@ -31,5 +31,10 @@ fn amg1_reparented_child_is_marked_by_its_environment() {
     let found = found.expect("the reparented sleep is read");
     assert_eq!(found.agent.as_deref(), Some("amg1-agent"));
     let sample = live.sample();
-    assert!(sample.readings.iter().all(|r| r.agent.as_deref() == Some("amg1-agent")));
+    assert!(
+        sample
+            .readings
+            .iter()
+            .all(|r| r.agent.as_deref() == Some("amg1-agent"))
+    );
 }

@@ -48,6 +48,7 @@ mod github;
 #[cfg(test)]
 mod group_tests;
 mod link;
+mod memory_guard;
 #[cfg(test)]
 mod naming_tests;
 mod observers;

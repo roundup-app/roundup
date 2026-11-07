@@ -305,7 +305,11 @@ pub fn spawn(
                             agent: r.agent.clone().unwrap_or_default(),
                             name: r.name.clone(),
                             memory: r.memory,
-                            reason: if over { Reason::Budget } else { Reason::Critical },
+                            reason: if over {
+                                Reason::Budget
+                            } else {
+                                Reason::Critical
+                            },
                         });
                     }
                 }
@@ -359,7 +363,10 @@ mod tests {
             };
             assert!(sum(&[]) > budget, "{n} processes pass the budget");
             let ends = decide(&readings, budget, 1);
-            assert!(!ends.contains(&1) && !ends.contains(&2), "claude or unmarked ended");
+            assert!(
+                !ends.contains(&1) && !ends.contains(&2),
+                "claude or unmarked ended"
+            );
             let sizes: Vec<u64> = ends
                 .iter()
                 .map(|pid| readings.iter().find(|r| r.pid == *pid).unwrap().memory)
@@ -394,7 +401,12 @@ mod tests {
 
     #[test]
     fn amg1_environment_is_read_once_per_pid_and_start_time() {
-        let env = |agent: &str| vec![OsString::from("A=b"), OsString::from(format!("{MARK}{agent}"))];
+        let env = |agent: &str| {
+            vec![
+                OsString::from("A=b"),
+                OsString::from(format!("{MARK}{agent}")),
+            ]
+        };
         let mut marks = Marks::default();
         let mut reads = 0;
         for _ in 0..3 {
@@ -405,7 +417,15 @@ mod tests {
             assert_eq!(got.as_deref(), Some("45"));
         }
         assert_eq!(reads, 1);
-        assert_eq!(marks.agent(7, 200, || { reads += 1; env("46") }).as_deref(), Some("46"));
+        assert_eq!(
+            marks
+                .agent(7, 200, || {
+                    reads += 1;
+                    env("46")
+                })
+                .as_deref(),
+            Some("46")
+        );
         assert_eq!(reads, 2);
         assert_eq!(marker(&[OsString::from("ROUNDUP_AGENT_ID=3")]), None);
     }
@@ -417,7 +437,11 @@ mod tests {
             let mut seen = self.0.lock().unwrap();
             seen.0 += 1;
             seen.1.push(std::thread::current().id());
-            Sample { readings: vec![], ram: 64 * GB, level: 1 }
+            Sample {
+                readings: vec![],
+                ram: 64 * GB,
+                level: 1,
+            }
         }
         fn end(&mut self, _: u32) {}
     }
