@@ -1,6 +1,6 @@
 //! U3078: authenticated public reports and passive exact-version source observation.
 use contracts::ActorKind;
-use contracts::agent::{Instructions, RailNode};
+use contracts::agent::{InstructionDelivery, Instructions, RailNode};
 use contracts::deliverable::{Deliverable, PublishedTarget, Resolution, UnavailableCause};
 use contracts::message::*;
 use messages::Messages;
@@ -164,19 +164,8 @@ impl Daemon {
         })
     }
 
-    async fn result_report(
-        &self,
-        conn: &Conn,
-        messages: &Messages,
-        p: ReportParams,
-    ) -> Result<Value, RpcError> {
-        let progress = ProgressParams {
-            project: p.project.clone(),
-            id: p.id.clone(),
-        };
-        let instructions = self.result_instructions(conn, &progress).await?;
-        let reports = messages.result_reports(&p.id)?;
-        // Identity flags are not authority: only the live vendor process tree can report.
+    /// Identity flags are not authority: only the live vendor process tree can report.
+    fn check_reporter(&self, conn: &Conn, p: &ReportParams) -> Result<(), RpcError> {
         let peer = conn.peer.and_then(|pid| self.agents.agent_of_peer(pid));
         if conn.actor.kind != ActorKind::Agent
             || peer.as_deref() != Some(&p.id)
@@ -186,7 +175,15 @@ impl Daemon {
                 "only the authenticated Agent may report its own Attempt",
             ));
         }
-        check_report_bounds(&p)?;
+        check_report_bounds(p)
+    }
+
+    /// The submitted delivery a report names, in the reporting Agent's current Attempt.
+    async fn submitted_delivery(
+        &self,
+        instructions: &Instructions,
+        p: &ReportParams,
+    ) -> Result<InstructionDelivery, RpcError> {
         let delivery = instructions
             .deliveries
             .iter()
@@ -205,6 +202,23 @@ impl Daemon {
                 "report does not name a submitted instruction in this Attempt",
             ));
         }
+        Ok(delivery.clone())
+    }
+
+    async fn result_report(
+        &self,
+        conn: &Conn,
+        messages: &Messages,
+        p: ReportParams,
+    ) -> Result<Value, RpcError> {
+        let progress = ProgressParams {
+            project: p.project.clone(),
+            id: p.id.clone(),
+        };
+        let instructions = self.result_instructions(conn, &progress).await?;
+        let reports = messages.result_reports(&p.id)?;
+        self.check_reporter(conn, &p)?;
+        let delivery = self.submitted_delivery(&instructions, &p).await?;
         if let Some(previous) = reports.iter().find(|r| r.request.key == p.key) {
             let mut replay = previous.clone();
             replay.request = p;

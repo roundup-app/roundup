@@ -119,14 +119,13 @@ impl Daemon {
         method: &str,
         params: Value,
     ) -> Result<Value, RpcError> {
+        let contracts::terminal::TerminalId { id } = rpc::params(params.clone())?;
         let port = conn
             .output
             .as_ref()
             .ok_or_else(|| RpcError::internal("this call cannot receive Terminal output"))?;
-        // The guard reads the id from the raw params and leaves a malformed one to the parse below.
         self.guard_terminal_read(&conn.actor, false, &params)
             .await?;
-        let contracts::terminal::TerminalId { id } = rpc::params(params)?;
         if crate::route::policy::policy(method).is_some_and(|row| row.releases) {
             port.release(&id);
             return rpc::reply(&());
