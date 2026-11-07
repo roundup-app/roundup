@@ -156,6 +156,7 @@ Main-thread task: a run of consecutive 1 ms profiler samples of the WebContent m
 | B2, same, down | 4 ms | 0 | 20 of 40 | 50 ms |
 | C1, four images, up (attached to the App, so no WebContent samples) | not measured | not measured | 20 of 53 | 50 ms |
 | C2, same, down | 6 ms | 0 | 20 of 52 | 50 ms |
+| macOS Terminal, same resumed session, up and down (attached to Terminal) | 5 ms up, 3 ms down | 0, 0 | not captured | not captured |
 | Earlier plain traces: before #6302, after #6302, after #6332 (two runs) | 9, 9, 9, 9 ms | 0, 0, 0, 0 | 8, 5, 5, 0 | 8.33 ms (16.67 ms in one noisy run) |
 | Earlier resumed Claude Code (trace 4, bundle 9438f670c) | not measured | not measured | 20 of 44 up, 31 of 107 down | 50 and 75 ms |
 
@@ -163,6 +164,7 @@ What was seen:
 - No main-thread task over 16.7 ms in any new run. The longest is 6 ms in a Claude Code case and 4 ms in plain output.
 - No hitch appeared in any new run. Earlier traces showed 3 to 13, and an idle bundle showed 90 in 12 s, so hitch counts are noisy here.
 - In B and C the wheel goes to Claude Code, which redraws in the alternate screen, and roundup's scrollback stays still. The displayed frames arrive about every 41 to 50 ms, which is the redraw pace of that scroll. These runs do not show whether that pace is Claude Code's or roundup's (U6283c).
+- macOS Terminal ran the same resumed session at 213 by 64 cells. Its main thread shows no hitch and no task over 16.7 ms. An attached trace of Terminal records only 2 presented frames, so its frame gaps are not captured; the comparison that would show whether the 50 ms gaps are Claude Code's pace needs a recording of all processes, which this Mac does not finish in time.
 - Plain output (A) presents a frame every refresh, with 6 gaps over 16.7 ms in 16 s and a longest gap of 33.3 ms.
 
 Per Observer line:
