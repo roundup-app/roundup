@@ -20,16 +20,19 @@ pub(super) fn print(described: &Value) {
     if fields.is_empty() {
         println!("  none");
     }
-    let result = &described["result"];
-    let shape = result["title"]
-        .as_str()
-        .or_else(|| result["type"].as_str())
+    let result = described.get("result");
+    let shape = ["title", "type"]
+        .iter()
+        .find_map(|key| result?.get(key)?.as_str())
         .unwrap_or("JSON");
     println!("\nresult: {shape}\n");
     println!(
         "example call: {} {}",
         text("name"),
-        described["example"]["params"]
+        described.pointer("/example/params").unwrap_or(&Value::Null)
     );
-    println!("example result: {}", described["example"]["result"]);
+    println!(
+        "example result: {}",
+        described.pointer("/example/result").unwrap_or(&Value::Null)
+    );
 }

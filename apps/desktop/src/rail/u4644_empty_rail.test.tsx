@@ -22,7 +22,7 @@ it.each([
   if (keyboard) fireEvent.keyDown(document, { key: "n", code: "KeyN", metaKey: true, shiftKey: method === "rail.createWorkstream" });
   else fireEvent.click(within(empty).getByRole("button", { name: method === "rail.createWorkstream" ? "New Workstream" : "New Agent" }));
 
-  await waitFor(() => expect(railCallsTo(app, method)).toEqual(method === "rail.createWorkstream" ? [{ name: "New Workstream", parent: null }] : [{ cwd: "/Users/you/harness", prompt: null, parent: null, model: null, effort: null, cols: 100, rows: 30 }]));
+  await waitFor(() => expect(railCallsTo(app, method)).toEqual(method === "rail.createWorkstream" ? [{ name: "Workstream", parent: null }] : [{ cwd: "/Users/you/harness", prompt: null, parent: null, model: null, effort: null, cols: 100, rows: 30 }]));
 
   if (method === "rail.createWorkstream") await waitFor(() => expect(railCallsTo(app, "rail.startDoor")).toHaveLength(1));
   expect(railCallsTo(app, method === "rail.createWorkstream" ? "agent.spawn" : "rail.createWorkstream")).toEqual([]);

@@ -2,9 +2,9 @@ import type { RailNode } from "@contracts/agent/RailNode";
 
 import { copy } from "./copy";
 
-const STEM = copy.newWorkstreamTitle;
+const STEM = copy.workstreamName;
 
-/** U167: the first free name of `New Workstream`, `New Workstream 2`… among the Rail's root rows. */
+/** U167: the first free name of `Workstream`, `Workstream 2`… (U6545b) among the Rail's root rows. */
 export const defaultWorkstreamName = (nodes: readonly RailNode[]): string => {
   const taken = new Set(nodes.flatMap((node) => (node.parent === null ? [node.name] : [])));
 

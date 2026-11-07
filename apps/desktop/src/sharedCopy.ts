@@ -8,7 +8,7 @@ const running = "Running";
 
 const failed = "Failed";
 
-const word = { project: "Project", name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads" } as const;
+const word = { project: "Project", name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
 
 export const staleSuffix = ", stale";
 
@@ -25,7 +25,7 @@ const rpcFailures = new Map<number, string>([
   [-32011, "The roundup App is not open. Open it and try again."],
 ]);
 
-export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": word.newMode, "opening-prompt": word.firstPrompt, "row-name": word.name, rail: "Project item", agent: word.agent, workstream: "Workstream", terminal: word.terminal, orders: "Order", pads: word.pad, todos: word.todo, thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: word.ask, header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" }));
+export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": word.newMode, "opening-prompt": word.firstPrompt, "row-name": word.name, rail: "Project item", agent: word.agent, workstream: word.workstream, terminal: word.terminal, orders: "Order", pads: word.pad, todos: word.todo, thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: word.ask, header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" }));
 
 export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Another window has changed stored unfinished work." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
@@ -38,6 +38,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  workstream: word.workstream,
   feedback: "Feedback",
   defaultChoice: "Default",
   padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,

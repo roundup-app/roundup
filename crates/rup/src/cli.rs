@@ -12,58 +12,40 @@ use rmcp::model::JsonObject;
 use rpc::RpcError;
 use serde_json::{Map, Value};
 
-use crate::mcp::{self, CALL_TIMEOUT, Offered};
+use crate::mcp::{self, Audience, CALL_TIMEOUT, Delivery, Offered};
 
 mod actions;
 mod data;
 mod describe;
 mod help;
+mod schema;
 pub use help::help_text;
 use help::{example, first_sentence, help, usage_error};
-
-/// What a field of a tool's input schema holds.
-#[derive(Clone, Debug, PartialEq)]
-enum Kind {
-    Text(Vec<String>),
-    Int,
-    Number,
-    Bool,
-    Array(Box<Kind>),
-    /// An object, or anything the schema leaves open: the value is JSON.
-    Json,
-}
-
-#[derive(Clone, Debug)]
-struct Field {
-    /// The schema's name, which the Daemon's params use.
-    name: String,
-    kind: Kind,
-    required: bool,
-    /// A positional argument; any other field is `--<name>` in kebab-case.
-    positional: bool,
-    doc: String,
-}
-
-impl Field {
-    fn flag(&self) -> String {
-        kebab(&self.name)
-    }
-}
+use schema::{Field, Kind, fields_of, kebab};
 
 /// One command of the tree.
 struct Spec {
     noun: String,
     verb: String,
-    method: &'static str,
+    offered: Offered,
     description: String,
     fields: Vec<Field>,
-    door_only: bool,
-    waits_for_user: bool,
-    /// I9: a top-level command with no verb (`rup events`) that prints what the Daemon pushes.
-    stream: bool,
 }
 
 impl Spec {
+    /// I9: a top-level command with no verb (`rup events`) that prints what the Daemon pushes.
+    fn is_stream(&self) -> bool {
+        self.offered.delivery == Delivery::Stream
+    }
+
+    fn is_door_only(&self) -> bool {
+        self.offered.audience == Audience::DoorOnly
+    }
+
+    fn waits_for_user(&self) -> bool {
+        self.offered.delivery == Delivery::WaitsForUser
+    }
+
     /// The last word of the verb: `add` of `ref add`.
     fn leaf(&self) -> &str {
         self.verb.rsplit(' ').next().unwrap_or_default()
@@ -73,141 +55,6 @@ impl Spec {
     fn group(&self) -> Option<&str> {
         self.verb.split_once(' ').map(|(group, _)| group)
     }
-}
-
-fn kebab(name: &str) -> String {
-    let mut out = String::new();
-    for ch in name.chars() {
-        if ch.is_ascii_uppercase() {
-            out.push('-');
-            out.push(ch.to_ascii_lowercase());
-        } else if ch == '_' {
-            out.push('-');
-        } else {
-            out.push(ch);
-        }
-    }
-    out
-}
-
-fn resolve<'a>(node: &'a Value, root: &'a Value) -> &'a Value {
-    let target = node
-        .get("$ref")
-        .and_then(Value::as_str)
-        .and_then(|reference| reference.strip_prefix('#'))
-        .and_then(|pointer| root.pointer(pointer))
-        .or_else(|| {
-            node.get("allOf")
-                .and_then(Value::as_array)
-                .filter(|all| all.len() == 1)
-                .map(|all| &all[0])
-        });
-    target.map_or(node, |target| resolve(target, root))
-}
-
-/// The kind of a schema node, and whether `null` is one of its values.
-fn kind_of(node: &Value, root: &Value) -> (Kind, bool) {
-    let node = resolve(node, root);
-    let mut nullable = false;
-    for key in ["anyOf", "oneOf"] {
-        let Some(branches) = node.get(key).and_then(Value::as_array) else {
-            continue;
-        };
-        let (nulls, rest): (Vec<_>, Vec<_>) = branches
-            .iter()
-            .partition(|branch| branch.get("type").and_then(Value::as_str) == Some("null"));
-        nullable |= !nulls.is_empty();
-        if let [only] = rest[..] {
-            return (kind_of(only, root).0, nullable);
-        }
-        let choices: Option<Vec<String>> = rest
-            .iter()
-            .map(|branch| {
-                branch
-                    .get("const")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned)
-            })
-            .collect();
-        return match choices {
-            Some(choices) if !choices.is_empty() => (Kind::Text(choices), nullable),
-            _ => (Kind::Json, nullable),
-        };
-    }
-    if let Some(choices) = node.get("enum").and_then(Value::as_array) {
-        let names: Vec<String> = choices
-            .iter()
-            .filter_map(Value::as_str)
-            .map(str::to_owned)
-            .collect();
-        nullable |= choices.iter().any(Value::is_null);
-        if !names.is_empty() {
-            return (Kind::Text(names), nullable);
-        }
-    }
-    let types: Vec<&str> = match node.get("type") {
-        Some(Value::String(one)) => vec![one],
-        Some(Value::Array(many)) => many.iter().filter_map(Value::as_str).collect(),
-        _ => Vec::new(),
-    };
-    nullable |= types.contains(&"null");
-    let types: Vec<&str> = types.into_iter().filter(|t| *t != "null").collect();
-    let kind = match types[..] {
-        ["string"] => Kind::Text(Vec::new()),
-        ["integer"] => Kind::Int,
-        ["number"] => Kind::Number,
-        ["boolean"] => Kind::Bool,
-        ["array"] => Kind::Array(Box::new(
-            node.get("items")
-                .map_or(Kind::Json, |items| kind_of(items, root).0),
-        )),
-        _ => Kind::Json,
-    };
-    (kind, nullable)
-}
-
-/// I1: a required string or integer is a positional argument in schema order; every other field is a flag.
-fn fields_of(schema: &JsonObject) -> Vec<Field> {
-    let root = Value::Object(schema.clone());
-    let required: Vec<&str> = schema
-        .get("required")
-        .and_then(Value::as_array)
-        .map(|names| names.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
-    let Some(Value::Object(properties)) = schema.get("properties") else {
-        return Vec::new();
-    };
-    let mut fields: Vec<Field> = properties
-        .iter()
-        .map(|(name, node)| {
-            let (kind, nullable) = kind_of(node, &root);
-            let required = required.contains(&name.as_str()) && !nullable;
-            let positional = required && matches!(kind, Kind::Text(_) | Kind::Int | Kind::Number);
-            let doc = resolve(node, &root)
-                .get("description")
-                .or_else(|| node.get("description"))
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_owned();
-            Field {
-                name: name.clone(),
-                kind,
-                required,
-                positional,
-                doc,
-            }
-        })
-        .collect();
-    // Positionals first, in the order `required` lists them.
-    fields.sort_by_key(|field| {
-        if field.positional {
-            required.iter().position(|name| *name == field.name)
-        } else {
-            None
-        }
-        .map_or((1, 0), |at| (0, at))
-    });
-    fields
 }
 
 /// I6: `terminal write <id> "text"` types text and Enter; `--base64` sends raw bytes.
@@ -252,9 +99,10 @@ fn specs(door: bool) -> Vec<Spec> {
         .into_iter()
         .map(|offer| {
             let (noun, verb) = offer.method.split_once('.').unwrap_or((offer.method, ""));
-            let verb = if offer.stream { "" } else { verb };
+            let stream = offer.delivery == Delivery::Stream;
+            let verb = if stream { "" } else { verb };
             let mut fields = fields_of(&offer.tool.input_schema);
-            if offer.stream {
+            if stream {
                 fields.push(Field {
                     name: "follow".into(),
                     kind: Kind::Bool,
@@ -306,7 +154,6 @@ fn specs(door: bool) -> Vec<Spec> {
             Spec {
                 noun: noun.to_owned(),
                 verb,
-                method: offer.method,
                 description: if offer.method == "terminal.write" {
                     "Type text into a Terminal you or your Reach own, then press Enter. `--no-enter` leaves Enter out; `--base64 <data>` sends raw bytes."
                         .to_owned()
@@ -314,9 +161,7 @@ fn specs(door: bool) -> Vec<Spec> {
                     offer.tool.description.as_deref().unwrap_or_default().to_owned()
                 },
                 fields,
-                door_only: offer.door_only,
-                waits_for_user: offer.waits_for_user,
-                stream: offer.stream,
+                offered: offer,
             }
         })
         .collect()
@@ -385,7 +230,7 @@ fn arg_for(field: &Field) -> Arg {
 
 fn verb_command(spec: &Spec) -> Command {
     let mut description = spec.description.clone();
-    if spec.door_only {
+    if spec.is_door_only() {
         description.push_str(" Only a Door has this command.");
     }
     let mut command = Command::new(spec.leaf().to_owned())
@@ -446,12 +291,12 @@ fn tree(specs: &[Spec]) -> Command {
                 .help("Print the method's result as JSON on stdout"),
         );
     let mut nouns: Vec<&str> = Vec::new();
-    for spec in specs.iter().filter(|spec| !spec.stream) {
+    for spec in specs.iter().filter(|spec| !spec.is_stream()) {
         if !nouns.contains(&spec.noun.as_str()) {
             nouns.push(&spec.noun);
         }
     }
-    for spec in specs.iter().filter(|spec| spec.stream) {
+    for spec in specs.iter().filter(|spec| spec.is_stream()) {
         root = root.subcommand(verb_command(spec).name(spec.noun.clone()));
     }
     for noun in nouns {
@@ -503,8 +348,10 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     }
     let tree_specs = specs(true);
     let mut root = tree(&tree_specs);
-    if matches!(args.first().map(String::as_str), Some("help")) {
-        return help(&mut root, &args[1..]);
+    if let Some((first, rest)) = args.split_first()
+        && first == "help"
+    {
+        return help(&mut root, rest);
     }
     let matches = match root
         .try_get_matches_from_mut(std::iter::once("rup".to_owned()).chain(args.clone()))
@@ -517,7 +364,7 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     };
     if let Some(spec) = tree_specs
         .iter()
-        .find(|spec| spec.stream && spec.noun == noun)
+        .find(|spec| spec.is_stream() && spec.noun == noun)
     {
         return events(spec, group).await;
     }
@@ -528,10 +375,12 @@ pub async fn run(args: Vec<String>) -> ExitCode {
         Some((inner, leaf)) => (format!("{verb} {inner}"), leaf),
         None => (verb.to_owned(), leaf),
     };
-    let spec = tree_specs
+    let Some(spec) = tree_specs
         .iter()
         .find(|spec| spec.noun == noun && spec.verb == verb)
-        .expect("clap matched a command of the tree");
+    else {
+        return bad_usage(&format!("no command {noun} {verb}"));
+    };
     call(spec, leaf, &matches).await
 }
 
@@ -621,7 +470,7 @@ fn value_of(
 fn arguments(spec: &Spec, leaf: &ArgMatches) -> Result<JsonObject, Usage> {
     let mut input = Input { read: false };
     let mut out = Map::new();
-    if spec.method == "terminal.write" {
+    if spec.offered.method == "terminal.write" {
         let enter = !leaf.get_flag("no-enter");
         let data = match (
             leaf.get_one::<String>("base64"),
@@ -648,12 +497,12 @@ fn arguments(spec: &Spec, leaf: &ArgMatches) -> Result<JsonObject, Usage> {
         out.insert("data".into(), Value::String(data));
     }
     for field in &spec.fields {
-        if spec.method == "terminal.write"
+        if spec.offered.method == "terminal.write"
             && matches!(field.name.as_str(), "text" | "no-enter" | "base64")
         {
             continue;
         }
-        if spec.method == "api.list" && field.name == "quiet" {
+        if spec.offered.method == "api.list" && field.name == "quiet" {
             continue;
         }
         if let Some(value) = value_of(&field.kind, &field.name, leaf, &mut input)? {
@@ -703,7 +552,7 @@ fn fail(spec: &Spec, failure: &Failure) -> ExitCode {
                     rpc::code::FORBIDDEN => "this Agent may not act on that node".to_owned(),
                     rpc::code::EVENTS_EXPIRED => return ExitCode::from(FAILED),
                     rpc::code::NOT_FOUND => format!("list them with `rup {} list`", spec.noun),
-                    rpc::code::METHOD_NOT_FOUND if spec.method == "api.describe" => {
+                    rpc::code::METHOD_NOT_FOUND if spec.offered.method == "api.describe" => {
                         "list them with \"rup api list\"".to_owned()
                     }
                     rpc::code::UNKNOWN_OUTCOME => format!(
@@ -757,14 +606,13 @@ async fn connect(actor: &Actor) -> Result<rpc::Client, Failure> {
 
 async fn invoke(
     spec: &Spec,
-    offer: &Offered,
     actor: &Actor,
     arguments: JsonObject,
     json: bool,
 ) -> Result<(Value, Value), Failure> {
     let client = connect(actor).await?;
     let agent = &actor.id;
-    if spec.door_only {
+    if spec.is_door_only() {
         match mcp::is_door(&client, agent).await {
             Ok(true) => {}
             Ok(false) => {
@@ -776,16 +624,16 @@ async fn invoke(
             Err(why) => return Err(Failure::Gone(why)),
         }
     }
-    let params = offer.params(agent, Some(arguments));
+    let params = spec.offered.params(agent, Some(arguments));
     let display = if json {
         params.clone()
     } else {
-        mcp::display_params(&client, spec.method, &params)
+        mcp::display_params(&client, spec.offered.method, &params)
             .await
             .map_err(Failure::Rpc)?
     };
-    let call = client.request(spec.method, &params);
-    let result = if spec.waits_for_user {
+    let call = client.request(spec.offered.method, &params);
+    let result = if spec.waits_for_user() {
         call.await
     } else {
         tokio::time::timeout(CALL_TIMEOUT, call)
@@ -801,7 +649,7 @@ async fn invoke(
     let value = if json {
         value
     } else {
-        mcp::display_data(&client, spec.method, value)
+        mcp::display_data(&client, spec.offered.method, value)
             .await
             .map_err(Failure::Rpc)?
     };
@@ -822,7 +670,7 @@ async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode 
                 .ok()
                 .filter(|id| !id.is_empty())
         });
-    let actor = match (spec.method, agent) {
+    let actor = match (spec.offered.method, agent) {
         ("message.resolveResult" | "message.resumeWork", _) => Actor::user(),
         (_, Some(id)) => Actor {
             kind: ActorKind::Agent,
@@ -836,19 +684,15 @@ async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode 
         }
     };
     let json = leaf.get_flag("json");
-    let offer = mcp::tools(true)
-        .into_iter()
-        .find(|offer| offer.method == spec.method)
-        .expect("the tree is built from the tool list");
-    match invoke(spec, &offer, &actor, arguments, json).await {
+    match invoke(spec, &actor, arguments, json).await {
         Ok((params, result)) => {
             // I11: `-q` shapes the printing, so it is not a param.
-            let params = if spec.method == "api.list" && leaf.get_flag("quiet") {
+            let params = if spec.offered.method == "api.list" && leaf.get_flag("quiet") {
                 serde_json::json!({ "quiet": true })
             } else {
                 params
             };
-            print_result(spec.method, &params, &result, json);
+            print_result(spec.offered.method, &params, &result, json);
             ExitCode::from(DONE)
         }
         Err(failure) => fail(spec, &failure),
@@ -950,7 +794,10 @@ async fn events(spec: &Spec, leaf: &ArgMatches) -> ExitCode {
             .await
             .map_err(|err| gone(&shown, err))?;
         let answer = client
-            .request(spec.method, contracts::SubscribeParams { after, kept })
+            .request(
+                spec.offered.method,
+                contracts::SubscribeParams { after, kept },
+            )
             .await
             .map_err(Failure::Rpc)?;
         Ok::<_, Failure>((client, answer))
@@ -967,7 +814,10 @@ async fn events(spec: &Spec, leaf: &ArgMatches) -> ExitCode {
         Ok(subscribed) => subscribed,
         Err(failure) => return fail(spec, &failure),
     };
-    let head = answer["head"].as_u64().unwrap_or_default();
+    let head = answer
+        .get("head")
+        .and_then(Value::as_u64)
+        .unwrap_or_default();
     let mut last = after.or(kept.then_some(0));
     if !follow && last.is_none_or(|last| last >= head) {
         return ExitCode::from(DONE);

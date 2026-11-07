@@ -159,7 +159,7 @@ const CAPTURE_ROW: Row = {
 
 const WORKSTREAM_ROW: Row = {
   owner: "App", label: "New Workstream", selected: "", origin: ".rail-actions", method: "rail.createWorkstream",
-  params: { name: "New Workstream", parent: null }, confirms: false, removes: "",
+  params: { name: "Workstream", parent: null }, confirms: false, removes: "",
   hold: (app, entered) => {
     const reply = pending(entered, workstream("created"));
     app.handlers["rail.createWorkstream"] = reply.handler;
@@ -356,7 +356,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       // New facts must not change the name captured by the empty-Rail activation.
-      app.handlers["rail.tree"] = () => [workstream("elsewhere", { name: "New Workstream" })];
+      app.handlers["rail.tree"] = () => [workstream("elsewhere", { name: "Workstream" })];
       await connected.rail.refresh();
       connected.rail.select("elsewhere");
       complete();
