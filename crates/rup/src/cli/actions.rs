@@ -65,11 +65,13 @@ fn parse(args: &[String]) -> Result<Parsed, String> {
 
 /// The command word after the options that may precede it, when it is one of ours.
 pub(super) fn command(args: &[String]) -> Option<(&'static str, Vec<String>)> {
-    let mut at = 0;
-    while at < args.len() {
-        match args[at].as_str() {
-            "--json" => at += 1,
-            "--agent" => at += 2,
+    let mut words = args.iter().enumerate();
+    while let Some((at, word)) = words.next() {
+        match word.as_str() {
+            "--json" => {}
+            "--agent" => {
+                words.next();
+            }
             "actions" => return Some(("actions", with_leading(args, at))),
             "do" => return Some(("do", with_leading(args, at))),
             _ => return None,
@@ -79,7 +81,11 @@ pub(super) fn command(args: &[String]) -> Option<(&'static str, Vec<String>)> {
 }
 
 fn with_leading(args: &[String], at: usize) -> Vec<String> {
-    args[..at].iter().chain(&args[at + 1..]).cloned().collect()
+    args.iter()
+        .enumerate()
+        .filter(|(i, _)| *i != at)
+        .map(|(_, arg)| arg.clone())
+        .collect()
 }
 
 pub(super) fn run_command(which: &str, args: &[String]) -> impl Future<Output = ExitCode> {

@@ -56,8 +56,10 @@ pub(super) fn resolve<'a>(node: &'a Value, root: &'a Value) -> &'a Value {
         .or_else(|| {
             node.get("allOf")
                 .and_then(Value::as_array)
-                .filter(|all| all.len() == 1)
-                .map(|all| &all[0])
+                .and_then(|all| match all.as_slice() {
+                    [only] => Some(only),
+                    _ => None,
+                })
         });
     target.map_or(node, |target| resolve(target, root))
 }
