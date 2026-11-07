@@ -67,7 +67,8 @@ mod selectors;
 mod settlement;
 pub mod skill;
 mod specialist;
-mod storage;
+#[cfg(test)]
+mod storage_tests;
 #[cfg(test)]
 mod u6243_tests;
 

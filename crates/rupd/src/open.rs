@@ -49,7 +49,7 @@ impl Daemon {
         )?));
         let naming_reader = Arc::clone(&naming);
         let guide_reader = Arc::clone(&naming);
-        let db = storage::open(dir)?;
+        let db = storage::connect(dir)?;
         let storage_at = begun.elapsed();
         let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
         let mut terminals =

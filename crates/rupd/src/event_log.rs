@@ -108,8 +108,8 @@ mod tests {
 
     #[test]
     fn r3696c_migration_keeps_the_wal_open_for_the_event_log() {
-        let dir = tempfile::tempdir().unwrap();
-        let _opened = crate::storage::open(dir.path()).unwrap();
+        let dir = storage::fixture().unwrap();
+        let _opened = storage::connect(dir.path()).unwrap();
         assert!(dir.path().join("project.db-wal").exists());
     }
 
@@ -118,9 +118,7 @@ mod tests {
     }
 
     fn project() -> tempfile::TempDir {
-        let dir = tempfile::tempdir().unwrap();
-        crate::storage::open(dir.path()).unwrap();
-        dir
+        storage::fixture().unwrap()
     }
 
     #[tokio::test]

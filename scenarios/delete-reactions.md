@@ -40,7 +40,7 @@ Existing anchors on `origin/main` at `65fa93b10`:
 
 1. `crates/rup/tests/e2e/wake.rs`, `b41_no_timer_is_set`, `b41_a_removed_agent_counts_as_done`, `b42_the_note_and_the_removal_are_one_write`, `b42_the_note_goes_through_the_inbox_at_the_next_idle`: preserve event-only wakes and Message acceptance/delivery.
 2. `crates/rup/tests/e2e/notes.rs`, `b46_thirty_idle_edges_deliver_a_pending_note_once`, `b46_a_restart_with_a_note_pending_delivers_it_once`, `b46_every_note_has_its_own_id`: preserve batching, restart and Message identity.
-3. `crates/rupd/tests/store_migrations.rs`, `n20_current_store_opens`; `crates/rupd/src/storage_tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: preserve fresh/current store behavior and remaining unique identities.
+3. `crates/rupd/tests/store_migrations.rs`, `n20_current_store_opens`; `crates/storage/src/tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: preserve fresh/current store behavior and remaining unique identities.
 4. `scenarios/local-data-retirement.md`, N5467a–d; `scenarios/storage-migrations.md`, N5088a/N5420a: retain all refusal boundaries except the exact deletion-only predecessor above.
 5. `docs/design-system.md`, “The checks”; `scenarios/proofs.md`, M1–M10: preserve visible Checks and Message laws.
 

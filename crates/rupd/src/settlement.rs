@@ -50,7 +50,7 @@ impl Settlements {
     fn migrate(&self) -> rusqlite::Result<()> {
         let db = self.0.lock();
         db.execute_batch(include_str!(
-            "../migrations/project/0050-door-settlement.sql"
+            "../../storage/migrations/project/0050-door-settlement.sql"
         ))
     }
 

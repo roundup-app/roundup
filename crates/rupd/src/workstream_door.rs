@@ -37,7 +37,7 @@ for line in sys.stdin:
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.path().join("rup");
     std::fs::write(&rup, "").unwrap();
-    crate::storage::open(&dir).unwrap();
+    storage::connect(&dir).unwrap();
     let bus = Bus::new();
     let terminals = Arc::new(terminal::Terminals::open(&dir, bus.clone()).unwrap());
     let agents = Arc::new(

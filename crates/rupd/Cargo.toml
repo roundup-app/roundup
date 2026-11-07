@@ -12,7 +12,6 @@ async-trait = { workspace = true, optional = true }
 agents = { path = "../agents" }
 base64.workspace = true
 contracts = { path = "../contracts" }
-getrandom = "0.3"
 memchr = "2"
 parking_lot = "0.12"
 notify = "8"
@@ -20,8 +19,8 @@ messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
+storage = { path = "../storage" }
 rusqlite = { workspace = true, features = ["hooks", "serialize"] }
-rusqlite_migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
@@ -36,11 +35,8 @@ thiserror.workspace = true
 rustix = { version = "1", features = ["fs"] }
 reflink-copy = "0.1.32"
 
-[build-dependencies]
-rusqlite.workspace = true
-rusqlite_migration.workspace = true
-
 [dev-dependencies]
+rusqlite_migration.workspace = true
 rupd = { path = ".", features = ["test-support"] }
 allocation-counter = "0.8.1"
 terminal = { path = "../terminal", features = ["test-support"] }

@@ -1,5 +1,9 @@
-//! N16–N17: one Project migration sequence in `project.db`; older per-store databases are never read.
+//! N16–N17, N22: the one Project schema, its migration sequence and fresh image in `project.db`;
+//! older per-store databases are never read.
 use std::path::Path;
+
+mod codec;
+pub use codec::{Json, Word};
 
 use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
@@ -24,7 +28,7 @@ mod added {
 }
 
 /// The frozen head (1 to 10), then every `migrations/project/*.sql` that `build.rs` found.
-fn migrations() -> Vec<M<'static>> {
+pub fn migrations() -> Vec<M<'static>> {
     let head = [
         SCHEMA,
         ANSWERS,
@@ -121,7 +125,8 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
     }
 }
 
-pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
+/// A store's own connection to the Project database in `dir`, created and migrated as needed.
+pub fn connect(dir: &Path) -> rusqlite::Result<Connection> {
     let path = dir.join("project.db");
     // A failed seed only costs the replay: the migrations below build the same database.
     let _ = seed_fresh(&path);
@@ -144,6 +149,13 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
                 .display()
         ))
     })
+}
+
+/// N22: an empty directory holding the real Project schema, for a store's tests; open it with `connect`.
+pub fn fixture() -> rusqlite::Result<tempfile::TempDir> {
+    let dir = tempfile::tempdir().map_err(|e| error(e.to_string()))?;
+    connect(dir.path())?;
+    Ok(dir)
 }
 
 /// N5420a: current-version input compares against the unchanged fresh image.
@@ -234,7 +246,6 @@ fn error(message: impl Into<String>) -> rusqlite::Error {
 }
 
 #[cfg(test)]
-#[path = "storage_tests.rs"]
 mod tests;
 
 #[cfg(test)]
@@ -251,7 +262,7 @@ mod newer_tests {
         db.pragma_update(None, "user_version", stored).unwrap();
         drop(db);
 
-        let message = open(dir.path()).unwrap_err().to_string();
+        let message = connect(dir.path()).unwrap_err().to_string();
         assert!(message.contains(&path.display().to_string()), "{message}");
         assert!(
             message.contains(&format!("database version {stored}")),
@@ -304,7 +315,7 @@ mod newer_tests {
         };
         let before = schema();
 
-        let message = open(dir.path()).unwrap_err().to_string();
+        let message = connect(dir.path()).unwrap_err().to_string();
         assert!(message.contains(&path.display().to_string()), "{message}");
         assert!(message.contains("lacks column `priority`"), "{message}");
         assert!(
@@ -350,7 +361,7 @@ mod retirement_tests {
         drop(db);
         for _ in 0..2 {
             let db = Connection::open(&path).unwrap();
-            let message = open(dir.path()).unwrap_err().to_string();
+            let message = connect(dir.path()).unwrap_err().to_string();
             assert!(
                 message.contains("incompatible with this build"),
                 "{message}"
@@ -378,5 +389,4 @@ mod retirement_tests {
 }
 
 #[cfg(test)]
-#[path = "migration_additive_tests.rs"]
 mod migration_additive_tests;
