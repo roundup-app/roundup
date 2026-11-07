@@ -161,9 +161,8 @@ export const ProjectTab = (props: {
 
   let base: string | undefined;
   let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
-  let initialName = "";
+  let initialName = "", revision: string | undefined;
   let restored: "none" | "current" | "selected" = "none";
-  let revision: string | undefined;
 
   const capture = (field: HTMLInputElement) => {
     const previous = records().find(draft => draft.revision === revision);
