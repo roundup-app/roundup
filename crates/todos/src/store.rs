@@ -373,7 +373,7 @@ impl Store {
         let tx = self.db.unchecked_transaction()?;
         let id = {
             let mut stmt = tx.prepare(&format!(
-                "SELECT t.id, t.owner, c.handed FROM todos t
+                "SELECT t.id, t.owner, c.handed, t.creator, c.actor FROM todos t
                  LEFT JOIN changes c ON c.seq = ({LAST_OWNER_CHANGE})
                  WHERE t.done = 0 AND json_extract(t.owner, '$.kind') = 'agent'
                     AND json_extract(t.owner, '$.id') = ?1
@@ -388,6 +388,17 @@ impl Store {
                 let owner = parse_creator(&owner)?;
                 let handed: Option<String> = row.get(2)?;
                 let handed = handed.map(|text| parse_creator(&text)).transpose()?;
+                // DTC1: a Todo the agent created for itself, its owner unchanged by anyone else since, is no hand-off.
+                let creator: String = row.get(3)?;
+                let by: Option<String> = row.get(4)?;
+                let own = parse_creator(&creator)? == owner
+                    && by
+                        .map(|text| parse_creator(&text))
+                        .transpose()?
+                        .is_none_or(|actor| actor == owner);
+                if own {
+                    continue;
+                }
                 if handed.as_ref() != Some(&owner) {
                     selected = Some(row.get::<_, u32>(0)?);
                     break;
