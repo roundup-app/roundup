@@ -90,12 +90,14 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     return null;
   };
 
-  const problemToast = (event: Extract<typeof events extends { subscribe(f: (e: infer E) => void): unknown } ? E : never, { name: "config.problem" | "extension.problem" }>) => {
-    const [kind, name] = event.name === "config.problem" ? ["config", event.data.file] : ["extension", event.data.extension];
-    const item = `${kind}:${name}:${event.data.cause}`;
+  // MC40, MC41: a refused Config file is one Toast; the last good state stays.
+  const stopConfig = events.subscribe((event) => {
+    if (event.name !== "config.problem") return;
 
-    return { key: item, item, kind: "error" as const, name, line: event.data.cause, selected: false, open: () => null };
-  };
+    const item = `config:${event.data.file}:${event.data.cause}`;
+
+    push({ key: item, item, kind: "error", name: event.data.file, line: event.data.cause, selected: false, open: () => null });
+  });
 
   const stopEvents = events.subscribe((event) => {
     if (event.name === "agent.status") {
@@ -134,9 +136,11 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
         silent: raised !== undefined && !raised.chime,
         open: openAgent(id),
       });
-    } else if (event.name === "config.problem" || event.name === "extension.problem") {
-      // UA11, MC40, MC41: one Toast per problem, whatever the Switcher shows; a refused file leaves the last good state.
-      push(problemToast(event));
+    } else if (event.name === "extension.problem") {
+      // UA11: one Toast per problem, whatever the Switcher shows.
+      const item = `extension:${event.data.extension}:${event.data.cause}`;
+
+      push({ key: item, item, kind: "error", name: event.data.extension, line: event.data.cause, selected: false, open: () => null });
     } else if (event.name === "todo.deleted") {
       settle(todoItem(event.data.id));
     } else if (event.name === "pad.deleted") {
@@ -152,5 +156,5 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     }
   });
 
-  return () => { stopEvents(); stopFiltering(); };
+  return () => { stopConfig(); stopEvents(); stopFiltering(); };
 };
