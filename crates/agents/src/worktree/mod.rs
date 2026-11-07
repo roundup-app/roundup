@@ -968,19 +968,15 @@ pub fn map_cwd(project: &Path, cwd: &Path, worktree_path: &Path) -> Option<PathB
     Some(worktree_path.join(relative))
 }
 
-#[path = "worktree_exclude.rs"]
 mod exclude;
 use exclude::exclude_worktrees;
 
-#[path = "worktree_command.rs"]
 mod command;
 
-#[path = "worktree_prepared.rs"]
 mod prepared;
 
 #[cfg(test)]
-#[path = "../tests/scenarios/g9.rs"]
+#[path = "../../tests/scenarios/g9.rs"]
 mod g9;
 
-#[path = "worktree_comparison.rs"]
 mod comparison;
