@@ -408,13 +408,11 @@ mod tests {
             .await
             .unwrap();
         core.await.unwrap();
-        for _ in 0..200 {
-            if conn.pending.lock().unwrap().closed {
-                return conn;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
+        // A waiter fails once the reader has cleared `pending`, so `closed` is set after it.
+        if let Ok(rx) = conn.register(0) {
+            assert!(rx.await.is_err());
         }
-        panic!("reader did not end");
+        conn
     }
 
     #[tokio::test]
