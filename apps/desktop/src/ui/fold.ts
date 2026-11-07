@@ -152,7 +152,11 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
 
       let changed = false;
 
-      void animateLayout(scope, () => settled(scope).then(did => { changed = did; if (did) hold(); }), { duration: seconds, ease }).then(group => {
+      void animateLayout(scope, () => settled(scope).then(did => {
+        changed = did;
+
+        if (did) hold();
+      }), { duration: seconds, ease }).then(group => {
         if (!changed) {
           if (running === session) { running = null; clear(scope); }
 

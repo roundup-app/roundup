@@ -799,7 +799,7 @@
 .rail-fold [data-state="open"] {
   transform: rotate(90deg);
 }
-.rail-fold:where([data-fold-motion] *) [data-part="branch-indicator"] { transition: transform var(--duration-layout) var(--easing-out); }
+.rail-fold [data-part="branch-indicator"] { transition: transform var(--fold-turn, var(--duration-instant)) var(--easing-out); }
 .held-row { display: flex; align-items: baseline; gap: var(--space-2); width: 100%; text-align: left; }
 .held-content { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .held-content span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

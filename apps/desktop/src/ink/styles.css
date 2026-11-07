@@ -390,4 +390,5 @@ p.ink[role="alert"] {
 .todo-open:focus-visible { color: var(--text); }
 
 /* U6398a: the chevron turns only during a pointer fold's projection, so a key fold snaps (M1). */
-.section-head:where([data-fold-motion] *) [data-part="branch-indicator"] { transition: transform var(--duration-layout) var(--easing-out); }
+[data-fold-motion] { --fold-turn: var(--duration-layout); }
+.section-head [data-part="branch-indicator"] { transition: transform var(--fold-turn, var(--duration-instant)) var(--easing-out); }

@@ -2,4 +2,4 @@
 
 .disclosure-trigger[data-state="open"] .icon { transform: rotate(90deg); }
 
-.disclosure-trigger:where([data-fold-motion] *) .icon { transition: transform var(--duration-layout) var(--easing-out); }
+.disclosure-trigger .icon { transition: transform var(--fold-turn, var(--duration-instant)) var(--easing-out); }
