@@ -10,7 +10,7 @@ import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
+import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Select } from "../ui/Select";
@@ -238,7 +238,7 @@ export const AskBar = (props: {
   });
 
   registerKeys({ kind: "app" }, [{
-    action: CHORDS.find((row) => row.name === "ask.open")!,
+    action: CHORDS["ask.open"],
     when: () => daemonExit() === null && !over(),
     capture: () => ({ available: () => daemonExit() === null && !over(),
     invoke: open }),
@@ -246,7 +246,7 @@ export const AskBar = (props: {
   const scope: KeyScope = { kind: "layer", element: () => panel, active: over, modal: true };
 
   registerKeys(scope, [
-    { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
+    { chords: chordsOf(CHORDS["ask.open"]), run: (press) => { if (!press.repeat) close(true); } },
     { chords: ASK_CLOSE, when: event => !(event.target instanceof Element && event.target.closest(".app-select-list, [aria-expanded=true]")), run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 

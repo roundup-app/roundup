@@ -15,7 +15,7 @@ export const createRailPeek = (collapsed: Accessor<boolean>, region: () => Eleme
   createEdgePeek({ edge: "leading", region, sensor: () => document.querySelector(STRIP), state: { peeking, peek, unpeek } });
 
   // Escape closes a peek from anywhere, the Terminal included, unless a Drawer, dialog or menu owns the key.
-  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "rail.close-peek")!, searchable: false,
+  registerKeys({ kind: "app" }, [{ action: CHORDS["rail.close-peek"], searchable: false,
     when: press => !press.defaultPrevented && press.key === "Escape" && peeking() && document.querySelector(OPEN_LAYER) === null,
     capture: () => ({ available: peeking, invoke: unpeek }) }]);
 

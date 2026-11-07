@@ -99,7 +99,7 @@ export const createOwnerKeys = (source: {
   const can = (event: KeyboardEvent) => source.active() && !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event.target instanceof Element ? event.target : null) !== undefined
     && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-state=open]');
 
-  const action = CHORDS.find(row => row.name === "todo.assign-slot")!;
+  const action = CHORDS["todo.assign-slot"];
 
   registerKeys(shelfKeyScope, action.presses.map((press, at) => ({
     action, press, searchable: false as const, when: can,
@@ -126,7 +126,7 @@ export const createOwnerPicker = (source: {
   pick: (id: number, anchor: HTMLElement) => void;
 }) => {
   registerKeys(shelfKeyScope, [{
-    action: CHORDS.find(row => row.name === "todo.assign")!,
+    action: CHORDS["todo.assign"],
     when: source.when,
     capture: (focus) => {
       const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;

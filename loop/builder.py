@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import deadline  # noqa: E402
+import event_line  # noqa: E402
 import image_tools  # noqa: E402
 import orders  # noqa: E402
 import push  # noqa: E402
@@ -309,7 +310,7 @@ def app_token(rights=RIGHTS):
 def stream(command, prompt, events, env, account, rights=RUN_RIGHTS):
     """Run `command` on `prompt` as `account`, `git` and `gh` holding a fresh App token with `rights` (a run's, unless
     None: then they keep the job's own `GH_TOKEN`), writing its stdout lines to `events`, which the public step log shows
-    only as each event's kind; revokes the App token after. Returns the exit code."""
+    only as each event's kinds and `event_line.label`s; revokes the App token after. Returns the exit code."""
     if rights is not None:
         name, email = account
         env = {**env, 'GH_TOKEN': app_token(rights), 'GIT_AUTHOR_NAME': name, 'GIT_AUTHOR_EMAIL': email,
@@ -332,9 +333,8 @@ def stream(command, prompt, events, env, account, rights=RUN_RIGHTS):
                     event = {}
                 message, item = event.get('message', {}), event.get('item', {})
                 content = message.get('content', []) if isinstance(message, dict) else []
-                kinds = [part.get('type', '') for part in content] if isinstance(content, list) else []
-                print(event.get('type', 'not an event'), item.get('type', '') if isinstance(item, dict) else '', *kinds,
-                      flush=True)
+                print(event.get('type', 'not an event'), item.get('type', '') if isinstance(item, dict) else '',
+                      *event_line.parts(content), flush=True)
                 if event.get('type') == 'error' and isinstance(message, str):  # why Codex failed; no tool output
                     print(f'::error::{message}', flush=True)
     finally:

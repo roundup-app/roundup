@@ -4,9 +4,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { appSettings } from "../settings/preferences";
 import { copy } from "./copy";
-import { shelfSliding } from "../shelf/sliding";
-import { drawerSliding } from "../drawer/sliding";
-import { resizeDragging } from "../resize/dragging";
+import { layoutMoving } from "../resize/motion";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Recovery } from "../ink/ReservedLine";
@@ -14,7 +12,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { CHORDS, chordNamed } from "../keys/chords";
+import { CHORDS } from "../keys/chords";
 import { captureActions } from "../keys/registry";
 import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
@@ -108,7 +106,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
     try {
       if (!host) throw new Error(copy.terminalDestinationUnavailable);
-      const prepared = await screens.prepare(host, () => !resizeDragging() && !drawerSliding() && !shelfSliding(), controller.signal);
+      const prepared = await screens.prepare(host, () => !layoutMoving(), controller.signal);
 
       return { ...prepared, dispose: () => {
         prepared.dispose();
@@ -142,7 +140,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
     const id = terminalId();
 
-    if (resizeDragging() || drawerSliding() || shelfSliding()) return;
+    if (layoutMoving()) return;
 
     if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), true);
   };
@@ -151,13 +149,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     pendingFrame ??= requestAnimationFrame(refit);
   };
 
-  // U389, U371: a Resize edge drag changes the pane's width every frame; the Terminal is fitted once when it ends.
-  createEffect(on(resizeDragging, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
-
-  // U430: a Drawer's slide narrows or widens the pane over its duration; the Terminal is fitted once when it ends.
-  createEffect(on(drawerSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
-
-  createEffect(on(shelfSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+  // U389, U430, U371: an edge drag or a Drawer or Shelf slide changes the pane's width every frame; the Terminal is fitted once when it ends.
+  createEffect(on(layoutMoving, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
   // X14: the Terminal the selection leaves stops receiving output; only its subscription is released.
   createEffect(on(terminalId, (_id, previous) => { if (previous != null) screens.hide(previous); }, { defer: true }));
@@ -236,12 +229,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   createEffect(on(terminalId, () => setFinding(false), { defer: true }));
 
   registerKeys({ kind: "region", element: screen }, [
-    { chord: "terminal.text-larger", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
-    { chord: "terminal.text-smaller", chords: ["Meta+-"], run: resize("shrink") },
-    { chord: "terminal.text-reset", chords: ["Meta+0"], run: resize("reset") },
-    { chord: "terminal.find", chords: undefined, run: () => setFinding(true) },
-  ].map(({ chord, chords, run }) => ({
-    action: CHORDS.find(action => action.name === chord)!,
+    { action: CHORDS["terminal.text-larger"], chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
+    { action: CHORDS["terminal.text-smaller"], chords: ["Meta+-"], run: resize("shrink") },
+    { action: CHORDS["terminal.text-reset"], chords: ["Meta+0"], run: resize("reset") },
+    { action: CHORDS["terminal.find"], chords: undefined, run: () => setFinding(true) },
+  ].map(({ action, chords, run }) => ({
+    action,
     ...chords && { chords },
     repeat: true as const,
     when: (event: KeyboardEvent) => terminalId() !== null && inScreen(event.target instanceof Element ? event.target : null) && connected.daemonExit() === null,
@@ -333,8 +326,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
         <Show when={selected() === null && !["attention", "workstreams", "made"].some(connected.hasView)}>
           <EmptyState art="strolling" {...{ title: copy.noSelectionTitle }} line={copy.noSelectionLine} actions={[
-            { label: copy.newAgent, chord: chordNamed("agent.new")!, run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run() },
-            { label: copy.ask, chord: chordNamed("ask.open")!, run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run() },
+            { label: copy.newAgent, chord: CHORDS["agent.new"], run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run() },
+            { label: copy.ask, chord: CHORDS["ask.open"], run: () => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run() },
           ]} />
         </Show>
         <Show when={selected()?.kind === "group"}>

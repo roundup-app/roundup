@@ -56,6 +56,7 @@ fn open(project: &Path) -> (Daemon, crate::Watchers) {
             terminals,
             launcher(project),
             agents::worktree::Git::from_env(),
+            agents::Quiet::default().shared(),
         )
         .unwrap()
     })

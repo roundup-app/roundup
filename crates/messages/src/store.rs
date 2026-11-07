@@ -7,11 +7,13 @@ use contracts::Actor;
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
 use rpc::OpenError;
 
+use crate::pushes::{Payload, Payloads};
 use crate::wake::Wake;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use storage::Json;
 
 pub(crate) type Binding = (i64, i64);
 
@@ -313,12 +315,13 @@ impl Store {
         reason: Option<Reason>,
         at: i64,
         binding: Binding,
+        payload: &Payload,
     ) -> Result<Message, Error> {
         let from_json = actor_json(from)?;
         self.db
             .execute(
-                "INSERT INTO messages (from_actor, to_id, kind, body, reply_to, status, reason, at, receiver_attempt, receiver_revision, rank)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+                "INSERT INTO messages (from_actor, to_id, kind, body, reply_to, status, reason, at, receiver_attempt, receiver_revision, payload, rank)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
                      CASE WHEN ?6 = 'pending' THEN (SELECT COALESCE(MAX(rank), 0) + 1 FROM messages) ELSE 0 END)",
                 params![
                     from_json,
@@ -330,7 +333,8 @@ impl Store {
                     reason.map(text_of),
                     at,
                     binding.0,
-                    binding.1
+                    binding.1,
+                    Json(payload)
                 ],
             )
             .map_err(Error::internal)?;
@@ -352,18 +356,32 @@ impl Store {
             .prepare(
                 "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
                  FROM messages WHERE to_id = ?1 AND status = 'delivered'
-                   AND json_extract(from_actor, '$.kind') = ?2
-                   AND json_extract(from_actor, '$.id') = ?3
-                   AND json_extract(from_actor, '$.parent') IS NULL
-                   AND substr(body, 1, 8) = '[digest]'
+                   AND json_extract(payload, '$.Digest') IS NOT NULL
                  ORDER BY id",
             )
+            .and_then(|mut stmt| stmt.query_map(params![to], row_to_message)?.collect())
+            .map_err(Error::internal)
+    }
+
+    /// B6506: what the Message `id` is, by the payload written with it.
+    pub(crate) fn payload(&self, id: u32) -> Result<Payload, Error> {
+        self.db
+            .prepare_cached("SELECT payload FROM messages WHERE id = ?1")
             .and_then(|mut stmt| {
-                let daemon = Actor::daemon();
-                stmt.query_map(params![to, text_of(daemon.kind), daemon.id], row_to_message)?
-                    .collect()
+                stmt.query_row([id], |row| {
+                    row.get::<_, Json<Payload>>(0).map(|json| json.0)
+                })
             })
             .map_err(Error::internal)
+    }
+
+    /// B6506: what each of `messages` is.
+    pub(crate) fn payloads(&self, messages: &[Message]) -> Result<Payloads, Error> {
+        messages
+            .iter()
+            .map(|m| self.payload(m.id).map(|payload| (m.id, payload)))
+            .collect::<Result<_, _>>()
+            .map(Payloads)
     }
 
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, Error> {
@@ -710,18 +728,12 @@ impl Store {
     /// B1: the Messages to `to` that are `pending`, pushed digests (B22) and Wake notes
     /// (B42) left out.
     pub(crate) fn count_open(&self, to: &str) -> Result<u32, Error> {
-        let daemon = actor_json(&Actor::daemon())?;
         self.db
             .query_row(
-                &format!(
-                    "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status = 'pending' AND NOT ({DIGEST}) AND NOT (kind = 'note' AND from_actor = ?2 AND substr(body, 1, length(?4)) = ?4)"
-                ),
-                params![
-                    to,
-                    daemon,
-                    crate::pushes::PREFIX,
-                    crate::wake::PREFIX
-                ],
+                "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status = 'pending'
+                   AND json_extract(payload, '$.Digest') IS NULL
+                   AND json_extract(payload, '$.Wake') IS NULL",
+                params![to],
                 |row| row.get(0),
             )
             .map_err(Error::internal)
@@ -766,20 +778,21 @@ impl Store {
             .is_some_and(|last| last.from == *from && last.body == body))
     }
 
-    /// B22: the pushed digests to `to` that are `pending`, oldest first.
-    pub(crate) fn open_digests(&self, to: &str) -> Result<Vec<Message>, Error> {
-        let daemon = actor_json(&Actor::daemon())?;
-        self.db
-            .prepare(&format!(
+    /// B22: the pushed digests to `to` that are `pending`, oldest first, with their payloads.
+    pub(crate) fn open_digests(&self, to: &str) -> Result<Vec<(Message, Payload)>, Error> {
+        let open: Vec<Message> = self
+            .db
+            .prepare(
                 "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
-                 FROM messages WHERE to_id = ?1 AND status = 'pending' AND ({DIGEST})
-                 ORDER BY id"
-            ))
-            .and_then(|mut stmt| {
-                stmt.query_map(params![to, daemon, crate::pushes::PREFIX], row_to_message)?
-                    .collect()
-            })
-            .map_err(Error::internal)
+                 FROM messages WHERE to_id = ?1 AND status = 'pending'
+                   AND json_extract(payload, '$.Digest') IS NOT NULL
+                 ORDER BY id",
+            )
+            .and_then(|mut stmt| stmt.query_map(params![to], row_to_message)?.collect())
+            .map_err(Error::internal)?;
+        open.into_iter()
+            .map(|m| self.payload(m.id).map(|payload| (m, payload)))
+            .collect()
     }
 
     /// B22: `id` folded into a newer digest: `dropped` with the reason `merged`, only while it is
@@ -854,10 +867,6 @@ impl Store {
             .map_err(Error::internal)
     }
 }
-
-/// The SQL that picks a pushed digest (B22) out of `messages`, taking the Daemon as `?2` and the
-/// body prefix as `?3`.
-const DIGEST: &str = "kind = 'note' AND from_actor = ?2 AND substr(body, 1, length(?3)) = ?3";
 
 fn list_text(list: &[String]) -> String {
     serde_json::to_string(list).unwrap_or_else(|_| "[]".to_owned())

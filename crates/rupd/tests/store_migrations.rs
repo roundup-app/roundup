@@ -24,6 +24,7 @@ fn agents(dir: &Path, bus: Bus) -> Arc<agents::Agents> {
                 None,
             ),
             agents::worktree::Git::from_env(),
+            agents::Quiet::default().shared(),
         )
         .unwrap(),
     )
