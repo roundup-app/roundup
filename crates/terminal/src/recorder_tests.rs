@@ -272,7 +272,7 @@ async fn rb3798b_a_poisoned_lock_answers_internal() {
     let terminals = Terminals::open(dir.path(), bus.clone()).unwrap();
     let shared = Arc::clone(&terminals.shared);
     let _ = std::thread::spawn(move || {
-        let _held = shared.table.lock().unwrap();
+        let _guard = shared.table.lock().unwrap();
         std::panic::resume_unwind(Box::new("poison the table"));
     })
     .join();

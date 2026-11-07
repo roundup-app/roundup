@@ -7,7 +7,7 @@ pub enum Error {
     /// `INTERNAL`: the Daemon's fault, never the caller's.
     #[error("{0}")]
     Internal(String),
-    /// `INTERNAL`: a lock a panicking thread held, so its state cannot be trusted.
+    /// `INTERNAL`: a lock a panicking thread kept, so its state cannot be trusted.
     #[error("{0} poisoned")]
     Poisoned(&'static str),
     #[error("not found: {0}")]
