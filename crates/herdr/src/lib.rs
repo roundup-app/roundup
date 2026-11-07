@@ -118,7 +118,17 @@ pub struct Hello {
     pub methods: Vec<Value>,
 }
 
-type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>;
+/// Waiting calls by id; `closed` is set, under the same lock, once the reader has cleared them.
+#[derive(Default)]
+struct Waiting {
+    closed: bool,
+    calls: HashMap<u64, oneshot::Sender<Value>>,
+}
+
+type Pending = Arc<Mutex<Waiting>>;
+
+/// The longest frame payload read; a longer header is a corrupt or hostile stream.
+const MAX_FRAME: usize = 16 << 20;
 
 /// One framed connection to a herdr-core. Requests match by id; events go to [`Conn::events`].
 pub struct Conn {
@@ -253,7 +263,7 @@ impl Conn {
                     continue;
                 };
                 if let Some(id) = msg.get("id").and_then(Value::as_u64) {
-                    if let Some(tx) = waiting.lock().unwrap().remove(&id) {
+                    if let Some(tx) = waiting.lock().unwrap().calls.remove(&id) {
                         let _ = tx.send(msg);
                     }
                 } else if let Some(method) = msg["method"].as_str() {
@@ -264,7 +274,9 @@ impl Conn {
                 }
             }
             // Pipe gone: dropping the senders fails every waiter with `Closed`.
-            waiting.lock().unwrap().clear();
+            let mut w = waiting.lock().unwrap();
+            w.closed = true;
+            w.calls.clear();
         });
         Ok(Conn {
             out,
@@ -282,21 +294,31 @@ impl Conn {
         self.events.take()
     }
 
+    /// Wait for the answer to `id`; `Closed` once the reader has cleared `pending`.
+    fn register(&self, id: u64) -> Result<oneshot::Receiver<Value>> {
+        let (tx, rx) = oneshot::channel();
+        let mut w = self.pending.lock().unwrap();
+        if w.closed {
+            return Err(Error::Closed);
+        }
+        w.calls.insert(id, tx);
+        Ok(rx)
+    }
+
     /// Send a request and return its `result`; the core's error object becomes [`Error::Rpc`].
     pub async fn call(&self, method: &str, params: Value) -> Result<Value> {
         let id = self.next.fetch_add(1, Ordering::SeqCst);
-        let (tx, rx) = oneshot::channel();
-        self.pending.lock().unwrap().insert(id, tx);
+        let rx = self.register(id)?;
         let body =
             serde_json::to_vec(&json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))
                 .map_err(|e| Error::Protocol(e.to_string()))?;
         if self.out.send(frame(0, DATA, &body)).is_err() {
-            self.pending.lock().unwrap().remove(&id);
+            self.pending.lock().unwrap().calls.remove(&id);
             return Err(Error::Closed);
         }
         let msg = match tokio::time::timeout(self.timeout, rx).await {
             Err(_) => {
-                self.pending.lock().unwrap().remove(&id);
+                self.pending.lock().unwrap().calls.remove(&id);
                 return Err(Error::TimedOut);
             }
             Ok(Err(_)) => return Err(Error::Closed),
@@ -324,12 +346,89 @@ impl Conn {
     }
 }
 
-async fn read_frame<R: AsyncRead + Unpin>(r: &mut R) -> std::io::Result<(u32, u8, Vec<u8>)> {
+async fn read_frame<R: AsyncRead + Unpin>(r: &mut R) -> Result<(u32, u8, Vec<u8>)> {
     let mut h = [0u8; 9];
     r.read_exact(&mut h).await?;
     let channel = u32::from_le_bytes([h[0], h[1], h[2], h[3]]);
     let len = u32::from_le_bytes([h[5], h[6], h[7], h[8]]) as usize;
+    if len > MAX_FRAME {
+        return Err(Error::Protocol(format!(
+            "frame of {len} bytes exceeds the {MAX_FRAME} byte cap"
+        )));
+    }
     let mut payload = vec![0u8; len];
     r.read_exact(&mut payload).await?;
     Ok((channel, h[4], payload))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncBufReadExt, duplex};
+
+    fn header(len: u32) -> Vec<u8> {
+        let mut h = vec![0u8; 5];
+        h.extend_from_slice(&len.to_le_bytes());
+        h
+    }
+
+    #[tokio::test]
+    async fn mc47_an_oversized_frame_is_a_protocol_error() {
+        let mut r = &header(u32::MAX)[..];
+        match read_frame(&mut r).await {
+            Err(Error::Protocol(m)) => assert!(m.contains(&u32::MAX.to_string())),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn mc47_a_frame_at_the_cap_is_read() {
+        let mut bytes = header(MAX_FRAME as u32);
+        bytes.extend((0..MAX_FRAME).map(|i| (i % 251) as u8));
+        let mut r = &bytes[..];
+        let (_, _, p) = read_frame(&mut r).await.unwrap();
+        assert!(p.iter().enumerate().all(|(i, b)| *b == (i % 251) as u8) && p.len() == MAX_FRAME);
+    }
+
+    async fn closed_conn() -> Conn {
+        let (mac_r, mut core_w) = duplex(1 << 16);
+        let (core_r, mac_w) = duplex(1 << 16);
+        let core = tokio::spawn(async move {
+            let mut r = tokio::io::BufReader::new(core_r);
+            let mut line = String::new();
+            r.read_line(&mut line).await.unwrap();
+            let hello =
+                r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+            core_w
+                .write_all(format!("{hello}\n").as_bytes())
+                .await
+                .unwrap();
+        });
+        let conn = Conn::over(mac_r, mac_w, Duration::from_secs(5))
+            .await
+            .unwrap();
+        core.await.unwrap();
+        // A waiter fails once the reader has cleared `pending`, so `closed` is set after it.
+        if let Ok(rx) = conn.register(0) {
+            assert!(rx.await.is_err());
+        }
+        conn
+    }
+
+    #[tokio::test]
+    async fn mc48_a_call_after_the_pipe_closed_is_closed_not_timed_out() {
+        let conn = closed_conn().await;
+        let t = std::time::Instant::now();
+        assert!(matches!(
+            conn.call("machine.list", json!({})).await,
+            Err(Error::Closed)
+        ));
+        assert!(t.elapsed() < Duration::from_secs(1));
+    }
+
+    #[tokio::test]
+    async fn mc48_a_call_registered_after_the_clear_is_closed() {
+        let conn = closed_conn().await;
+        assert!(matches!(conn.register(99), Err(Error::Closed)));
+    }
 }

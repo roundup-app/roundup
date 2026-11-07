@@ -385,6 +385,19 @@ impl Daemon {
     /// Terminal spawned while this runs is caught by the next round, up to [`STOP_ROUNDS`]; past
     /// that the caller gets an error rather than a loop that never ends.
     pub async fn stop_terminals(&self) -> Result<(), RpcError> {
+        // DCR1: record the Jobs this quit cuts off before any program ends.
+        if let Some(messages) = self.sender.get() {
+            let marked = self.agents.mark_cut_off(|id| {
+                Ok(messages
+                    .result_reports(id)?
+                    .into_iter()
+                    .map(|report| report.attempt)
+                    .collect())
+            });
+            if let Err(err) = marked {
+                eprintln!("rupd: could not record cut-off Jobs: {}", err.message);
+            }
+        }
         if let Err(err) = self.agents.exit_running().await {
             eprintln!(
                 "rupd: could not end Agents through their own exit: {}",

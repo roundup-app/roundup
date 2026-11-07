@@ -1,0 +1,5 @@
+Installer: puts the app on the Mac
+Updater: fetches new versions
+Crash report: sends a log after a failure
+because nothing else runs without it
+Saying "go" starts one build agent for the installer

@@ -497,3 +497,131 @@ async fn a4688a_a_parked_prompt_while_off_consumes_its_naming_opportunity() {
     }
     f.call("agent.stop", json!({"id":id})).await.unwrap();
 }
+
+const TITLED: &str = "Printing public MakerWorld models";
+
+impl Fixture {
+    /// Claude Code's `ai-title` for conversation `session`, appended to its transcript.
+    fn write_title(&self, session: &str, title: &str) {
+        use std::io::Write;
+        let cwd = self.dir.path().canonicalize().unwrap();
+        let project: String = cwd
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let path = self
+            .dir
+            .path()
+            .join("projects")
+            .join(project)
+            .join(format!("{session}.jsonl"));
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
+        writeln!(file, "{}", json!({"type":"ai-title","aiTitle":title})).unwrap();
+    }
+
+    /// The Agent's conversation starts, so its Signals can reach the transcript.
+    async fn start_conversation(&self, id: &str, session: &str) {
+        let payload = json!({"hook_event_name": "SessionStart", "session_id": session});
+        let attempt = self.attempt(id).await;
+        self.call(
+            "agent.signal",
+            json!({"id": id, "attempt": attempt, "payload": payload}),
+        )
+        .await
+        .unwrap();
+    }
+
+    async fn signal_on(&self, id: &str) {
+        let payload = json!({"hook_event_name": "Stop"});
+        let attempt = self.attempt(id).await;
+        self.call(
+            "agent.signal",
+            json!({"id": id, "attempt": attempt, "payload": payload}),
+        )
+        .await
+        .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn a9_the_first_session_title_renames_a_row_automatic_naming_named() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let enabled = Arc::new(AtomicBool::new(true));
+    let switch = Arc::clone(&enabled);
+    let f = Fixture::running_switched("sleep 30", move || switch.load(Ordering::SeqCst));
+    let session = |n: u8| format!("{n}1111111-1111-4111-8111-111111111111");
+
+    // The first title renames; a second never does.
+    let auto = f.spawn(None, None).await.unwrap().id;
+    f.start_conversation(&auto, &session(1)).await;
+    f.submit(
+        &auto,
+        "/compose /intent I would like to get the printer working",
+    )
+    .await;
+    assert_eq!(f.name_of(&auto).await, "Would Like Get");
+    f.signal_on(&auto).await;
+    assert_eq!(f.name_of(&auto).await, "Would Like Get");
+    f.write_title(&session(1), TITLED);
+    f.signal_on(&auto).await;
+    assert_eq!(f.name_of(&auto).await, "Printing Public MakerWorld Models");
+    f.write_title(&session(1), "Something else entirely");
+    f.signal_on(&auto).await;
+    assert_eq!(f.name_of(&auto).await, "Printing Public MakerWorld Models");
+
+    // A row the user named keeps its name.
+    let user = f.spawn(None, None).await.unwrap().id;
+    f.start_conversation(&user, &session(2)).await;
+    f.submit(&user, "fix the build").await;
+    f.call("rail.rename", json!({"id": user, "name": "Mine"}))
+        .await
+        .unwrap();
+    f.write_title(&session(2), TITLED);
+    f.signal_on(&user).await;
+    assert_eq!(f.name_of(&user).await, "Mine");
+
+    // A row the Agent renamed itself keeps its name.
+    let own = f.spawn(None, None).await.unwrap().id;
+    f.start_conversation(&own, &session(3)).await;
+    f.submit(&own, "fix the build").await;
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: own.clone(),
+        parent: None,
+    };
+    f.agents
+        .call(&ctx, "rail.rename", json!({"id": own, "name": "Own"}))
+        .await
+        .unwrap();
+    f.write_title(&session(3), TITLED);
+    f.signal_on(&own).await;
+    assert_eq!(f.name_of(&own).await, "Own");
+
+    // A row spawned with a name keeps it.
+    let given = f.spawn_named(Some("Given"), None).await.unwrap().id;
+    f.start_conversation(&given, &session(4)).await;
+    f.submit(&given, "fix the build").await;
+    f.write_title(&session(4), TITLED);
+    f.signal_on(&given).await;
+    assert_eq!(f.name_of(&given).await, "Given");
+
+    // Automatic renaming off at the first prompt: turning it on later replays no title.
+    enabled.store(false, Ordering::SeqCst);
+    let off = f.spawn(None, None).await.unwrap().id;
+    f.start_conversation(&off, &session(5)).await;
+    f.submit(&off, "fix the build").await;
+    enabled.store(true, Ordering::SeqCst);
+    f.write_title(&session(5), TITLED);
+    f.signal_on(&off).await;
+    assert_eq!(f.name_of(&off).await, "New Agent");
+}

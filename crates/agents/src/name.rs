@@ -9,8 +9,8 @@ use crate::claude_code::{CONTEXT_START, LEAD_IN};
 /// the stem stored Workstreams still carry.
 const WORKSTREAM_STEMS: [&str; 2] = ["Workstream", "New Workstream"];
 
-const FILLER: [&str; 10] = [
-    "a", "an", "the", "to", "of", "in", "on", "for", "and", "please",
+const FILLER: [&str; 11] = [
+    "a", "an", "the", "to", "of", "in", "on", "for", "and", "please", "i",
 ];
 
 /// U6380a: the longest a Rail name may be.
@@ -24,7 +24,7 @@ pub fn from_prompt(prompt: &str) -> Option<String> {
     let prompt = prompt
         .split_once(CONTEXT_START)
         .map_or(prompt, |(work, _)| work);
-    let lower = strip_tags(prompt).to_lowercase();
+    let lower = task_text(&strip_tags(prompt)).to_lowercase();
     let words: Vec<String> = lower
         .split(|c: char| !c.is_alphanumeric())
         .filter(|word| !word.is_empty() && !FILLER.contains(word))
@@ -32,6 +32,46 @@ pub fn from_prompt(prompt: &str) -> Option<String> {
         .map(capitalise)
         .collect();
     let joined: String = words.join(" ").chars().take(MAX_CHARS).collect();
+    let name = joined.trim_end();
+    (!name.is_empty()).then(|| name.to_owned())
+}
+
+/// U6380a: `text` without the tokens that are not task words: one starting with `/` or `@`, one
+/// holding `://`, and an `[Image #N]` placeholder.
+fn task_text(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find("[Image #") {
+        let after = &rest[at + "[Image #".len()..];
+        let digits = after.chars().take_while(char::is_ascii_digit).count();
+        if digits > 0 && after[digits..].starts_with(']') {
+            plain.push_str(&rest[..at]);
+            plain.push(' ');
+            rest = &after[digits + 1..];
+        } else {
+            plain.push_str(&rest[..at + 1]);
+            rest = &rest[at + 1..];
+        }
+    }
+    plain.push_str(rest);
+    plain
+        .split_whitespace()
+        .filter(|token| !token.starts_with(['/', '@']) && !token.contains("://"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// A9: the Rail name Claude Code's own session title gives: each word's first letter upper-cased
+/// and the rest kept, cut to 42 characters. `None` when the title holds no word.
+pub fn from_title(title: &str) -> Option<String> {
+    let joined: String = title
+        .split_whitespace()
+        .map(capitalise)
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(MAX_CHARS)
+        .collect();
     let name = joined.trim_end();
     (!name.is_empty()).then(|| name.to_owned())
 }
@@ -110,8 +150,31 @@ pub fn unique<'a>(name: &str, taken: impl IntoIterator<Item = &'a str>) -> Strin
 
 #[cfg(test)]
 mod tests {
-    use super::{from_prompt, given, unique};
+    use super::{from_prompt, from_title, given, unique};
     use crate::claude_code::LEAD_IN;
+
+    #[test]
+    fn a9_commands_mentions_links_and_image_placeholders_are_not_words() {
+        assert_eq!(
+            from_prompt("/compose /intent I would like to get the printer working").as_deref(),
+            Some("Would Like Get")
+        );
+        assert_eq!(
+            from_prompt("[Image #1] @src/a.ts https://x.y/z fix the race").as_deref(),
+            Some("Fix Race")
+        );
+    }
+
+    #[test]
+    fn a9_a_title_keeps_its_letters_and_is_cut_to_42() {
+        assert_eq!(
+            from_title("Printing public MakerWorld models").as_deref(),
+            Some("Printing Public MakerWorld Models")
+        );
+        let cut = from_title(&format!("{} b", "a".repeat(41))).unwrap();
+        assert_eq!(cut.chars().count(), 41);
+        assert_eq!(from_title("  "), None);
+    }
 
     #[test]
     fn a27_a_tag_and_its_attribute_are_not_words() {
