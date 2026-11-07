@@ -22,6 +22,7 @@ pub const NO_TOOL: &[&str] = &[
     "claude_binary",
     "open_target",
     "open_in_editor",
+    "list_editors",
     "save_pasted_image",
     // U3787f: only the user opens and controls the native Capture presentation.
     "plugin:capture-panel|control",

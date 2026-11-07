@@ -32,3 +32,21 @@ fn touched_lists_everything_one_actor_did() {
 
     assert_eq!(log.touched("a").unwrap().len(), 2);
 }
+
+#[test]
+fn b11_an_unknown_stored_kind_or_verb_fails_the_read() {
+    for (kind, verb) in [("robot", "wrote"), ("user", "deleted")] {
+        let touches = Touches::in_memory().unwrap();
+        touches
+            .db
+            .lock()
+            .unwrap()
+            .execute(
+                "INSERT INTO touches (actor_kind, actor_id, actor_parent, verb, item, at) VALUES (?1, 'a', NULL, ?2, 'i', 1)",
+                [kind, verb],
+            )
+            .unwrap();
+        assert!(touches.history("i").is_err());
+        assert!(touches.touched("a").is_err());
+    }
+}
