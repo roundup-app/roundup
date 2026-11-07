@@ -38,15 +38,15 @@ pub fn rerun_paths(dir: &Path) -> Vec<PathBuf> {
     if paths.is_empty() {
         return paths;
     }
-    if let Some(head_ref) = git(dir, &["symbolic-ref", "-q", "HEAD"]) {
-        if let Some(loose) = git_path(dir, &head_ref) {
-            paths.extend(
-                loose
-                    .ancestors()
-                    .find(|path| path.exists())
-                    .map(Path::to_path_buf),
-            );
-        }
+    if let Some(head_ref) = git(dir, &["symbolic-ref", "-q", "HEAD"])
+        && let Some(loose) = git_path(dir, &head_ref)
+    {
+        paths.extend(
+            loose
+                .ancestors()
+                .find(|path| path.exists())
+                .map(Path::to_path_buf),
+        );
     }
     paths.extend(git_path(dir, "packed-refs").filter(|path| path.exists()));
     paths
