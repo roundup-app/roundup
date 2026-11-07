@@ -154,6 +154,7 @@ async fn u177_a_message_waits_for_the_channel_event_then_is_written() {
     let bus = Bus::new();
     let (messages, inbox, _) = open_on(dir.path(), bus.clone());
     let mut completed = messages.inner.completed.subscribe();
+    messages.listen();
     while completed.recv().await.unwrap() != "initial" {}
     let note = pending(&messages, &Actor::daemon(), "from daemon");
     for channel in [
