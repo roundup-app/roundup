@@ -7,6 +7,7 @@ import { dropLine } from "./dropLine";
 import { pointerSensor } from "./pointerSensor";
 import { scrollerOf } from "./scrollerOf";
 import { depthsAt, depthSteps, dropAt, gapAt, isInPlace, legalDepths, legalGaps, legalSlot, nearestDepth, remainingRows, stepLevel, withDepth, type DepthStep, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
+import { easingOut, glide, reorderMs, translateOf } from "./reorderMotion";
 import "./sortable.css";
 import { Accessibility, AutoScroller, Cursor, Feedback, PointerSensor, type DragDropManager, type Draggable, type DropAnimationFunction, type Droppable } from "@dnd-kit/dom";
 import { CollisionPriority, CollisionType, type CollisionDetector, type UniqueIdentifier } from "@dnd-kit/abstract";
@@ -17,9 +18,6 @@ import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
 import { createContext, createEffect, createMemo, mergeProps, on, onCleanup, splitProps, useContext, type JSX } from "solid-js";
-
-/** The reorder Token in milliseconds: how long rows slide aside and the dragged row settles. */
-const reorderMs = (element: Element) => Number.parseFloat(getComputedStyle(element).getPropertyValue("--duration-reorder"));
 
 /** Past this many pixels outside the list the preview shows no move; back inside the lower gap it follows again. */
 const FAR_OUT_PX = 56;
@@ -245,32 +243,6 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
       };
     },
   };
-};
-
-const easingOut = (element: Element = document.documentElement) => getComputedStyle(element).getPropertyValue("--easing-out").trim();
-
-const translateOf = (element: Element) => {
-  const [x = "0", y = "0"] = getComputedStyle(element).translate.split(" ");
-
-  return { x: Number.parseFloat(x) || 0, y: Number.parseFloat(y) || 0 };
-};
-
-/** Moves the floating row so its box starts at `to`; resolves once it has arrived. */
-const glide = (element: HTMLElement, to: { x: number; y: number }, duration: number, easing: string) => {
-  const rect = element.getBoundingClientRect();
-  const from = translateOf(element);
-  const target = `${from.x + to.x - rect.x}px ${from.y + to.y - rect.y}px`;
-
-  // Reduced motion lands at once.
-  if (!duration) {
-    element.style.translate = target;
-
-    return Promise.resolve();
-  }
-
-  const animation = element.animate({ translate: [`${from.x}px ${from.y}px`, target] }, { duration, easing, fill: "forwards" });
-
-  return new Promise<void>(resolve => { animation.onfinish = () => resolve(); animation.oncancel = () => resolve(); });
 };
 
 /** Longest the dragged row waits at its new place for the Daemon's answer to show in the list. */
@@ -1002,11 +974,8 @@ export type SortableParts = ReturnType<typeof useSortable>;
 const Item = (props: ItemProps) => {
   const slots = useContext(SlotsContext);
   // A keyboard drag's next target skips the rows whose index the owner refuses: the library then moves the row to the next index it takes.
-  let index = () => props.index;
-  const accept = slots ? { accept: (): boolean => slots.takes(index()) } : {};
+  const accept = slots ? { accept: (): boolean => slots.takes(sortable.sortable.index) } : {};
   const sortable = useSortable(mergeProps(props, { transition: { duration: 0 } }, slots ? { collisionDetector: slots.detect } : {}, accept, props.pressable ? { sensors: [pointerSensor()] } : {}));
-
-  index = () => sortable.sortable.index;
 
   return props.children(sortable);
 };
