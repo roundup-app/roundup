@@ -19,6 +19,29 @@ const STDERR_LINES_KEPT: usize = 20;
 /// A grandchild that inherited the Daemon's stderr can hold the pipe open after the Daemon is gone.
 const STDERR_DRAIN_BOUND: Duration = Duration::from_secs(1);
 
+/// FB9: where the Daemon's stderr lines go in the App's data folder; the Daemon's Feedback report
+/// reads its tail from here.
+const DAEMON_LOG: &str = "rupd.log";
+/// The first Daemon of a run empties the file, so it holds this run's lines only.
+static LOG_STARTED: std::sync::Once = std::sync::Once::new();
+
+fn remember(dir: Option<&Path>, line: &str) {
+    use std::io::Write;
+    let Some(dir) = dir else { return };
+    let path = dir.join(DAEMON_LOG);
+    LOG_STARTED.call_once(|| {
+        let _ = std::fs::write(&path, "");
+    });
+    let written = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&path)
+        .and_then(|mut file| writeln!(file, "{line}"));
+    if let Err(err) = written {
+        log::warn!(target: "roundup::shell", "write Daemon log: IO {:?}", err.kind());
+    }
+}
+
 pub struct Started {
     pub client: Client,
     /// Kept open and never written: its closing is how the Daemon learns the App is gone (D1).
@@ -102,7 +125,8 @@ pub async fn start(
     let stderr = child.stderr.take().expect("stderr was requested piped");
     let owned_socket = OwnedSocket(socket.to_path_buf());
     let tail = StderrTail::default();
-    let drain = tauri::async_runtime::spawn(drain(stderr, tail.clone()));
+    let drain =
+        tauri::async_runtime::spawn(drain(stderr, tail.clone(), data_dir.map(Path::to_path_buf)));
 
     let failure = tokio::select! {
         status = child.wait() => match status {
@@ -194,7 +218,7 @@ async fn connect_after_bound(mut stdout: ChildStdout, socket: &Path) -> Result<C
     Ok(client)
 }
 
-async fn drain(stderr: ChildStderr, tail: StderrTail) {
+async fn drain(stderr: ChildStderr, tail: StderrTail, log_dir: Option<PathBuf>) {
     let mut reader = BufReader::new(stderr);
     let mut bytes = Vec::new();
     loop {
@@ -203,6 +227,7 @@ async fn drain(stderr: ChildStderr, tail: StderrTail) {
             Ok(0) => return,
             Ok(_) => {
                 let line = String::from_utf8_lossy(&bytes).trim_end().to_owned();
+                remember(log_dir.as_deref(), &line);
                 tail.push(line);
             }
             Err(err) => {
@@ -216,6 +241,27 @@ async fn drain(stderr: ChildStderr, tail: StderrTail) {
 #[cfg(test)]
 pub(crate) mod tests {
     use std::path::Path;
+
+    #[test]
+    fn fb9_the_daemon_log_holds_its_recent_stderr_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        tauri::async_runtime::block_on(async {
+            let mut child = tokio::process::Command::new("sh")
+                .args(["-c", "echo fb9-marker-1 >&2; echo fb9-marker-2 >&2"])
+                .stderr(std::process::Stdio::piped())
+                .spawn()
+                .unwrap();
+            let stderr = child.stderr.take().unwrap();
+            super::drain(
+                stderr,
+                super::StderrTail::default(),
+                Some(dir.path().to_path_buf()),
+            )
+            .await;
+        });
+        let text = std::fs::read_to_string(dir.path().join(super::DAEMON_LOG)).unwrap();
+        assert_eq!(text, "fb9-marker-1\nfb9-marker-2\n");
+    }
 
     #[test]
     fn s6123a_first_line_leads_with_the_last_stderr_line() {

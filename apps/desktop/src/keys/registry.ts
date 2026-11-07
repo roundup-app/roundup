@@ -1,8 +1,8 @@
-import { leaderKeys } from "./chords";
+import { leaderKeys, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { rowKey } from "../ui/RowCollection";
 import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
-import { CHORDS, LEADER, chordsOf, defaultKeys, leaderChord, TEXT_FIELDS } from "./chords";
+import { CHORDS, LEADER, chordsOf, defaultKeys, TEXT_FIELDS } from "./chords";
 import type { ActionValues, Chord, LeaderKey } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
 
@@ -210,7 +210,7 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
     if (!("action" in binding)) return binding;
 
     const key: Binding = {
-      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsOf(binding.action, binding.match) : leaderChord(binding.action.keys)),
+      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsOf(binding.action, binding.match) : [binding.action.press]),
       run: (event) => {
         const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
 
@@ -244,7 +244,7 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
 
 /** U2572: capture the registered owners before a modal moves focus. Each invocation rechecks that same owner and target; no DOM key event is manufactured or dispatched. `all` also keeps the rows not available now (NA4). */
 const captureAll = (focus: Element | null) => {
-  const rows = [...CHORDS, ...LEADER];
+  const rows = [...CHORD_ROWS, ...LEADER_ROWS];
 
   const eligible = [...eligibleAt(focus), ...[...registrations].filter(({ scope }) => scope.kind === "leader")];
   const region = eligible.find(({ scope }) => scope.kind === "region")?.scope;
