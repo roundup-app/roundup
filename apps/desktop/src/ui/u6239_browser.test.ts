@@ -144,12 +144,19 @@ run("u6239 Project tab drag", () => {
     expect(await saved()).not.toEqual(savedBefore);
   }, 60_000);
 
-  /** Hold the element `selector` names, move it over the next one and read what paints the held element: its ground's alpha and whether it sits in the top layer, above every row. */
+  /** The centre of the first grip `selector` names that a press there would hit, or null while none shows. */
+  const grip = (selector: string) => `() => {
+    for (const handle of document.querySelectorAll(${JSON.stringify(selector)})) {
+      const b = handle.getBoundingClientRect();
+      const at = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+      if (b.width > 0 && document.elementFromPoint(at.x, at.y)?.closest('.sortable-handle') === handle) return at;
+    }
+    return null;
+  }`;
+
+  /** Press that grip (a row drags only from its grip), move it over the next row and read what paints the held element: its ground's alpha and whether it sits in the top layer, above every row. */
   const held = async (selector: string) => {
-    const from = await page.call<{ x: number; y: number }>(`selector => {
-      const b = document.querySelector(selector).getBoundingClientRect();
-      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
-    }`, selector);
+    const from = await page.call<{ x: number; y: number }>(grip(selector));
 
     await page.pointer("down", from.x, from.y);
     await page.pointer("move", from.x + 6, from.y + 6);
@@ -190,16 +197,37 @@ run("u6239 Project tab drag", () => {
     await page.pointer("up", (from.x + next.x) / 2 + 6, from.y);
   }, 60_000);
 
-  for (const [surface, url, selector] of [
-    ["rail", "/harness.html?seed=tree-40", ".rail .rail-row"],
-    ["todo", "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", ".todo-row"],
-    ["pad", "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", ".pad-row-head"],
-    ["shelf", "/harness.html?seed=tree-40", ".shelf .shelf-row"],
+  /** Opens the Shelf tab `tab` names. */
+  const shelfTab = async (tab: string) => {
+    await page.until(`() => Boolean(document.querySelector('#shelf-tab-${tab}'))`);
+    await page.call(`() => {
+      const control = document.querySelector('#shelf-tab-${tab}');
+      if (control.getAttribute('aria-expanded') !== 'true') control.click();
+      return null;
+    }`);
+  };
+
+  /** Opens the Todos tab and unfolds its closed groups, so its rows show. */
+  const todos = async () => {
+    await shelfTab("todos");
+    await page.until(`() => Boolean(document.querySelector('.shelf [data-part="branch-control"]'))`);
+    await page.call(`() => {
+      for (const branch of document.querySelectorAll('.shelf [data-part="branch-control"][data-state="closed"]')) branch.click();
+      return null;
+    }`);
+  };
+
+  // The Shelf's rows are its Todos and its Pads.
+  for (const [surface, url, open, selector] of [
+    ["rail", "/harness.html?seed=tree-40", async () => {}, ".rail .rail-row .sortable-handle"],
+    ["todo", "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", todos, ".shelf .todo-row .sortable-handle"],
+    ["pad", "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", () => shelfTab("pads"), ".shelf .pad-row-head .sortable-handle"],
   ] as const) {
     it(`u6554b_every_held_row_is_opaque_and_on_top_${surface}`, async () => {
       await page.scheme("dark");
       await page.load(url, 1512, 950);
-      await page.until(`() => Boolean(document.querySelector(${JSON.stringify(selector)}))`);
+      await open();
+      await page.until(grip(selector));
       // U6554b explicitly commissions this one painting guard (#6554).
       // oxlint-disable-next-line anti-slop/no-new-web-assertions
       expect(await held(selector)).toEqual({ opaque: true, top: true });
