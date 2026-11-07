@@ -106,14 +106,11 @@
   border-color: var(--disabled);
 }
 
-/* U6545a: a field that edits text in place (a tab, row or title rename) is the frame at the text's own size. */
-.field-inline:is(input, textarea) {
-  /* The frame sits outside the text: entering the edit moves no glyph. */
-  --inline-bleed: calc(var(--hairline-width) + var(--space-2));
-  width: calc(100% + 2 * var(--inline-bleed));
-  min-height: 0;
-  margin: 0 calc(-1 * var(--inline-bleed));
-  padding: 0 var(--space-2);
+/* U6545a: a field that edits text in place (a tab, row or title rename) is the frame at the text's own size, inside the row's text column. */
+.field-inline.field-inline:is(input, textarea) {
+  min-height: var(--space-6);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
   line-height: inherit;
   letter-spacing: inherit;
 }

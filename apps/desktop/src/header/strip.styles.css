@@ -108,7 +108,6 @@
 .field-inline.tab-rename {
   width: calc(100% - 2 * var(--space-1));
   margin: var(--space-1);
-  padding-inline: 0;
 }
 
 .strip-add {
