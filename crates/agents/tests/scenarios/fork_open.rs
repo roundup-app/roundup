@@ -268,6 +268,7 @@ fn folder_in_project(folder: &Folder, project: &Path) -> Fixture {
         std::sync::Arc::clone(&terminals),
         launcher,
         agents::worktree::Git::from_env(),
+        agents::Quiet::default().shared(),
     )
     .unwrap();
     Fixture {

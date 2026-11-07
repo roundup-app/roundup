@@ -36,6 +36,7 @@ pub(super) fn daemon_with_launcher(
             terminals,
             launcher,
             agents::worktree::Git::from_env(),
+            agents::Quiet::default().shared(),
         )
         .unwrap()
     })

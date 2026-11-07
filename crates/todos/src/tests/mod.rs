@@ -36,6 +36,15 @@ impl Harness {
             bus: bus.clone(),
             touches: Arc::new(Touches::in_memory().unwrap()),
         };
+        // The real Project schema checks that a Home or owner exists on the Rail (N22).
+        storage::connect(dir)
+            .unwrap()
+            .execute_batch(
+                "WITH RECURSIVE n(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM n WHERE id < 9) \
+                 INSERT OR IGNORE INTO nodes(id, kind, name, ord) \
+                 SELECT id, 'workstream', 'w' || id, id FROM n",
+            )
+            .unwrap();
         Self {
             todos: Todos::open(dir, bus).unwrap(),
             ctx,
