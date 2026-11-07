@@ -189,6 +189,9 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>,
     };
 
     const pending = queue.add(async () => {
+      // PQueue starts an idle job synchronously; callers rely on the commit settling a tick later, as the promise chain did.
+      await Promise.resolve();
+
       if (revision !== adapterRevision) return storageCopy.replaced;
       let base: T | null = expected ?? null;
       let failure: string | null = null;
