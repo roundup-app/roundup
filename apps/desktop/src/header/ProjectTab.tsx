@@ -229,7 +229,11 @@ export const ProjectTab = (props: {
 
         if (refocus) button?.focus();
 
-        if (saved !== null && base === undefined) return recover(true);
+        if (saved !== null && base === undefined) {
+          recover(true);
+
+          return;
+        }
 
         if (saved !== null) {
           const submitted = revision;
