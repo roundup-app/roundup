@@ -100,6 +100,12 @@ export const createBulkDelete = <Id,>(props: {
       ?? document.querySelector<HTMLElement>('.shelf-tabs [role="tab"][aria-selected="true"]');
   };
 
+  const selectFocused = () => {
+    const next = untrack(() => props.focused?.());
+
+    if (next !== undefined) props.replace([next]);
+  };
+
   const confirm = async () => {
     const kept = question();
 
@@ -134,9 +140,8 @@ export const createBulkDelete = <Id,>(props: {
       readback = undefined;
       queueMicrotask(() => focus(() => {
         focusAfter()?.focus();
-        const next = remaining.length === 0 ? untrack(() => props.focused?.()) : undefined;
 
-        if (next !== undefined) props.replace([next]);
+        if (remaining.length === 0) selectFocused();
       }));
     };
 
