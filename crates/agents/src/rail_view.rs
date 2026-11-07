@@ -72,7 +72,7 @@ impl Shared {
         let mut waits = self.waits.lock().expect("waits lock");
         for (id, slot) in runs.iter_mut() {
             let Slot::Running(run) = slot else { continue };
-            let Some(status) = run.adapter().status() else {
+            let Some(status) = run.view().status.as_ref() else {
                 continue;
             };
             let before = waiting_on(status, waits.get(id).copied());
@@ -118,13 +118,14 @@ impl Shared {
         }
         node.final_text = match runs.get(&node.id) {
             Some(Slot::Running(run)) => {
-                run.adapter()
-                    .turn()
+                run.view()
+                    .turn
+                    .as_deref()
                     .map(|turn| contracts::agent::FinalText {
                         turn: turn.to_owned(),
                         attempt: run.attempt().to_string(),
-                        finished: run.adapter().finished().to_string(),
-                        kind: run.adapter().final_text(),
+                        finished: run.view().finished.to_string(),
+                        kind: run.view().final_text,
                     })
             }
             _ => None,
@@ -137,8 +138,9 @@ impl Shared {
         };
         let live = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run
-                .adapter()
-                .status()
+                .view()
+                .status
+                .as_ref()
                 .map(|status| waiting_on(status, self.wait_of(&node.id))),
             Some(Slot::Starting { since, .. } | Slot::Resuming { since, .. }) => Some(Status {
                 kind: Kind::Working,

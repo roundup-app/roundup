@@ -360,7 +360,7 @@ impl Agents {
                 .save_input_started(id, run.attempt())
                 .expect("persist explicit inbox input");
             run.start_input();
-            let Some(status) = run.adapter().status().cloned() else {
+            let Some(status) = run.view().status.as_ref().cloned() else {
                 return;
             };
             run.publish(&self.shared.bus, Actor::daemon(), id, status);

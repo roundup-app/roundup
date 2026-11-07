@@ -11,7 +11,6 @@ use serde_json::{Value, json};
 
 use tokio::time::Instant;
 
-use crate::claude_code::ClaudeCode;
 use crate::{Observation, Run, Slot};
 
 use crate::tests::*;
@@ -228,7 +227,7 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         panic!("put back as Running for the caller's cleanup to find")
     };
     // The Stop parked after the SessionStart was never drained: the abort is immediate.
-    assert_eq!(run.adapter().status().unwrap().kind, Kind::Working);
+    assert_eq!(run.view().status.as_ref().unwrap().kind, Kind::Working);
 }
 
 /// The build rendezvous makes the late Signal contend for both locks,
@@ -334,7 +333,7 @@ async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
     assert_eq!(run.attempt(), "2");
     assert_eq!(run.terminal_id(), "new-terminal");
     assert!(!run.ended());
-    assert_eq!(run.adapter().status().unwrap().kind, Kind::Working);
+    assert_eq!(run.view().status.as_ref().unwrap().kind, Kind::Working);
 }
 #[tokio::test]
 async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
@@ -633,7 +632,7 @@ async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
             .runs()
             .get(&id)
             .and_then(|slot| match slot {
-                Slot::Running(run) => run.adapter().completed_text().cloned(),
+                Slot::Running(run) => run.view().completed.as_deref().cloned(),
                 _ => None,
             })
             .unwrap();
@@ -656,7 +655,7 @@ async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
         let Some(Slot::Running(run)) = runs.get(&id) else {
             panic!("running")
         };
-        assert_eq!(run.adapter().completed_text(), Some(&before));
+        assert_eq!(run.view().completed.as_deref(), Some(&before));
     }
     assert!(
         costs[1] <= costs[0] + 64 * 1024,
@@ -676,7 +675,9 @@ async fn b5635c_completion_changes_are_reported_once() {
     let id = running_agent(&shared, None);
     let clock = Arc::clone(&now);
     if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
-        *run.adapter_mut() = ClaudeCode::starting(move || clock.load(Ordering::SeqCst));
+        run.replace_fold(crate::claude_code::starting(move || {
+            clock.load(Ordering::SeqCst)
+        }));
     }
     shared
         .observe(
@@ -707,7 +708,7 @@ async fn b5635c_completion_changes_are_reported_once() {
             panic!("running")
         };
         assert_eq!(
-            run.adapter().completed_text(),
+            run.view().completed.as_deref(),
             Some(&(
                 "1".into(),
                 10,

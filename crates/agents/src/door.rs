@@ -112,8 +112,9 @@ impl Agents {
                             if run.session_started().is_some()
                                 && !run.first().pending()
                                 && run
-                                    .adapter()
-                                    .status()
+                                    .view()
+                                    .status
+                                    .as_ref()
                                     .is_some_and(|s| s.kind == contracts::Kind::Idle)
                             {
                                 break;

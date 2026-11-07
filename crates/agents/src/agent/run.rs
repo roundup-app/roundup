@@ -8,7 +8,8 @@ use rpc::{Bus, RpcError};
 use serde_json::Value;
 use tokio::sync::{oneshot, watch};
 
-use crate::claude_code::ClaudeCode;
+use crate::claude_code;
+use crate::{AgentAdapter, Observation, View};
 use crate::{Clock, FirstSteerCompletion, SteerWait};
 
 /// A node's place in `Shared::runs`.
@@ -248,6 +249,24 @@ struct Launch {
     yolo: bool,
 }
 
+/// An Adapter and the state its last fold left.
+pub(crate) struct Fold {
+    adapter: Box<dyn AgentAdapter + Send>,
+    view: View,
+}
+
+impl Fold {
+    pub(crate) fn new((adapter, view): (Box<dyn AgentAdapter + Send>, View)) -> Self {
+        Self { adapter, view }
+    }
+
+    pub(crate) fn observe(&mut self, observation: Observation) -> (Option<Status>, bool) {
+        let folded = self.adapter.observe(observation);
+        self.view = folded.view;
+        (folded.changed, folded.completion_changed)
+    }
+}
+
 /// An Agent's program and what is left to tell it.
 pub(crate) struct Run {
     launch: Launch,
@@ -255,7 +274,7 @@ pub(crate) struct Run {
     attempt: Ordinal,
     status_revision: Ordinal,
     life: Life,
-    adapter: ClaudeCode,
+    fold: Fold,
     first: FirstSteer,
     /// H19: when the first `SessionStart` arrived; repeats cannot extend the Ask wait.
     session_started: Option<tokio::time::Instant>,
@@ -277,7 +296,7 @@ pub(crate) struct Run {
 impl Run {
     #[allow(clippy::too_many_arguments)]
     fn new(
-        adapter: ClaudeCode,
+        fold: Fold,
         attempt: Ordinal,
         terminal_id: String,
         cwd: String,
@@ -295,7 +314,7 @@ impl Run {
             attempt,
             status_revision: Ordinal::first(),
             life: Life::Live,
-            adapter,
+            fold,
             first,
             session_started: None,
             starred: false,
@@ -319,7 +338,7 @@ impl Run {
     ) -> Self {
         let input_started = prompt.is_some();
         Self::new(
-            ClaudeCode::starting(move || clock()),
+            Fold::new(claude_code::starting(move || clock())),
             attempt,
             terminal_id,
             cwd,
@@ -343,7 +362,7 @@ impl Run {
     ) -> Self {
         let input_started = prompt.is_some() || continued;
         let mut run = Self::new(
-            ClaudeCode::starting(move || clock()),
+            Fold::new(claude_code::starting(move || clock())),
             attempt,
             terminal_id,
             cwd,
@@ -358,14 +377,14 @@ impl Run {
 
     /// A Run reattached to its still-running Terminal after a Daemon restart.
     pub(crate) fn reattached(
-        adapter: ClaudeCode,
+        fold: Fold,
         attempt: Ordinal,
         terminal_id: String,
         cwd: String,
         input_started: bool,
     ) -> Self {
         Self::new(
-            adapter,
+            fold,
             attempt,
             terminal_id,
             cwd,
@@ -380,7 +399,7 @@ impl Run {
     #[cfg(test)]
     pub(crate) fn fixture(clock: Clock, named: bool) -> Self {
         Self::new(
-            ClaudeCode::starting(move || clock()),
+            Fold::new(claude_code::starting(move || clock())),
             Ordinal::parse("1").unwrap(),
             "1".into(),
             "/".into(),
@@ -428,12 +447,20 @@ impl Run {
         self.launch.startup_context
     }
 
-    pub(crate) fn adapter(&self) -> &ClaudeCode {
-        &self.adapter
+    /// The Agent's state as the last fold left it.
+    pub(crate) fn view(&self) -> &View {
+        &self.fold.view
     }
 
-    pub(crate) fn adapter_mut(&mut self) -> &mut ClaudeCode {
-        &mut self.adapter
+    /// Fold `observation` into the Agent's Status; the second is whether its completion moved.
+    pub(crate) fn observe(&mut self, observation: Observation) -> (Option<Status>, bool) {
+        self.fold.observe(observation)
+    }
+
+    /// The Agent's program was replaced by one the spawn seam made.
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) fn replace_fold(&mut self, spawned: (Box<dyn AgentAdapter + Send>, View)) {
+        self.fold = Fold::new(spawned);
     }
 
     pub(crate) fn first(&self) -> &FirstSteer {
