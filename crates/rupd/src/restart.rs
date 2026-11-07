@@ -15,12 +15,6 @@ impl Daemon {
                 "only the user may restart a Door session",
             ));
         }
-        if p.request.is_empty() || p.request.len() > 128 {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "restart request must contain 1 to 128 bytes",
-            ));
-        }
         let _gate = self.restarting.lock().await;
         let node = self
             .rail()

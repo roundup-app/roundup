@@ -175,7 +175,7 @@ impl Daemon {
                 "only the authenticated Agent may report its own Attempt",
             ));
         }
-        check_report_bounds(p)
+        Ok(())
     }
 
     /// The submitted delivery a report names, in the reporting Agent's current Attempt.
@@ -291,15 +291,9 @@ impl Daemon {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user may accept a result"));
         }
-        if p.evidence.trim().is_empty() || p.evidence.len() > 8192 {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "acceptance evidence is empty or too long",
-            ));
-        }
         let acceptance = ResultAcceptance {
             actor: conn.actor.clone(),
-            evidence: p.evidence,
+            evidence: p.evidence.into(),
         };
         messages.accept_result(&reports[at].report, &acceptance)?;
         rpc::reply(&acceptance)
@@ -450,30 +444,6 @@ impl Daemon {
     }
 }
 
-/// A report names non-empty, bounded text: key, result, target and next action.
-fn check_report_bounds(p: &ReportParams) -> Result<(), RpcError> {
-    for (name, value, bound) in [
-        ("key", p.key.as_str(), 256),
-        ("result", p.result.as_str(), 8192),
-        ("target", p.target.id.as_str(), 1024),
-        ("target revision", p.target.revision.as_str(), 1024),
-    ] {
-        if value.trim().is_empty() || value.len() > bound {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                format!("{name} is empty or too long"),
-            ));
-        }
-    }
-    if p.next.len() > 8192 {
-        return Err(RpcError::new(
-            rpc::code::INVALID_PARAMS,
-            "next action is too long",
-        ));
-    }
-    Ok(())
-}
-
 /// GET only: checking an uncertain effect must never issue it again or follow a redirect to one.
 async fn read_resolution(
     source: &str,
@@ -489,8 +459,7 @@ async fn read_resolution(
         Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
         _ => false,
     };
-    if source.len() > 4096
-        || !url.username().is_empty()
+    if !url.username().is_empty()
         || url.password().is_some()
         || url.fragment().is_some()
         || !(url.scheme() == "https" || (url.scheme() == "http" && loopback))
@@ -508,9 +477,6 @@ async fn read_resolution(
     };
     if evidence.target != report.request.target {
         return unknown("the authoritative receipt names another target or version");
-    }
-    if evidence.revision.trim().is_empty() || evidence.revision.len() > 1024 {
-        return unknown("the authoritative receipt has no usable source revision");
     }
     if evidence.observed_at < now.saturating_sub(60) || evidence.observed_at > now.saturating_add(5)
     {
