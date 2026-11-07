@@ -3,6 +3,8 @@ import { IconButton } from "./IconButton";
 import { ReducedMotionContext } from "../app/reducedMotion";
 import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
+import { dropLine } from "./dropLine";
+import { depthsAt, depthSteps, dropAt, gapAt, isInPlace, legalDepths, legalSlot, nearestDepth, remainingRows, stepLevel, withDepth, type DepthStep, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
 import "./sortable.css";
 import { Accessibility, AutoScroller, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type DragDropManager, type Draggable, type DropAnimationFunction, type Droppable } from "@dnd-kit/dom";
 import { CollisionPriority, CollisionType, type CollisionDetector, type UniqueIdentifier } from "@dnd-kit/abstract";
@@ -12,7 +14,6 @@ import { effect } from "@dnd-kit/state";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { dropAt, legalDepths, legalSlot, nearestDepth, remainingRows, withDepth, type DepthRow, type DropRules, type SortableDrop, type TreeRow } from "./sortableDrops";
 import { createContext, createEffect, createMemo, mergeProps, on, onCleanup, splitProps, useContext, type JSX } from "solid-js";
 
 /** The reorder Token in milliseconds: how long rows slide aside and the dragged row settles. */
@@ -62,6 +63,9 @@ const FAR_IN_PX = 40;
 /** A drop slot changes hands only once the pointer is this share of a row nearer the other slot. */
 const STICKY_ROW_SHARE = 0.25;
 
+/** How a pointer drag reads a tree drop's depth: one indent in pixels, the levels each gap allows from the dragged row's own depth, and the box the pointer picks depths in. */
+type DepthReading = { indent: number; levels: (slot: number) => { lo: number; hi: number }; box: { left: number; right: number } };
+
 /** The nearest ancestor that scrolls along `axis`, else null. */
 const scrollerOf = (element: Element): Element | null => {
   for (let node = element.parentElement; node; node = node.parentElement) {
@@ -93,6 +97,11 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
   let pointer: { x: number; y: number } | null = null;
   /** Whether a drop at index `to` is one the caller takes; the pointer picks only among those. */
   let allowed = (_to: number): boolean => true;
+  // A tree drag's depth below or above the dragged row's own, read from the pointer's x against the steps of the slot it picks.
+  let level = 0;
+  let grabX = 0;
+  let reading: DepthReading | undefined;
+  let steps: { slot: number; lo: number; steps: DepthStep[] } | null = null;
 
   const rowsOf = (): Row[] => [...dragged?.manager.registry.droppables ?? []].filter((row): row is Droppable & Row => isSortable(row)).filter(row => row.element && list()?.contains(row.element));
 
@@ -146,6 +155,7 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     // A row that joined the list mid-drag makes new slots. One that leaves keeps its slot, and a row unregistered for a moment changes nothing.
     if (!lift || rows.some(row => !lift!.ids.has(row.id))) {
       lift = measure(rows);
+      steps = null;
 
       if (!lift) return;
     }
@@ -157,18 +167,27 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
 
     far = far ? gap > FAR_IN_PX : gap > FAR_OUT_PX;
 
-    if (far) { slot = dragged.from;
+    if (far) slot = dragged.from;
+    else {
+      // The pick reads the lifted row's middle against its own middle at each slot, the places `pose` draws, so a tall row and the rows agree.
+      const middle = liftedMiddle();
+      const distance = (index: number) => Math.abs(startOf(dragged!.from, index) + lift!.sizes[dragged!.from]! / 2 - middle);
+      let nearest = -1;
 
- return; }
+      lift.starts.forEach((_, index) => { if (allowed(index) && (nearest < 0 || distance(index) < distance(nearest))) nearest = index; });
 
-    // The pick reads the lifted row's middle against its own middle at each slot, the places `pose` draws, so a tall row and the rows agree.
-    const middle = liftedMiddle();
-    const distance = (index: number) => Math.abs(startOf(dragged!.from, index) + lift!.sizes[dragged!.from]! / 2 - middle);
-    let nearest = -1;
+      if (nearest >= 0 && nearest !== slot && (!allowed(slot) || distance(slot) - distance(nearest) > STICKY_ROW_SHARE * lift.size)) slot = nearest;
+    }
 
-    lift.starts.forEach((_, index) => { if (allowed(index) && (nearest < 0 || distance(index) < distance(nearest))) nearest = index; });
+    if (!reading) return;
 
-    if (nearest >= 0 && nearest !== slot && (!allowed(slot) || distance(slot) - distance(nearest) > STICKY_ROW_SHARE * lift.size)) slot = nearest;
+    if (steps?.slot !== slot) {
+      const { lo, hi } = reading.levels(slot);
+
+      steps = { slot, lo, steps: depthSteps(grabX, reading.indent, lo, hi, reading.box) };
+    }
+
+    level = stepLevel(steps.steps, steps.lo, level, x);
   };
 
   /**
@@ -229,6 +248,10 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     isFar: () => far,
     /** The slot a pointer release takes now. */
     slot: () => slot,
+    /** Levels a tree drop sits deeper than the dragged row's own depth, negative for shallower. */
+    level: () => level,
+    /** Where the depth steps in the slot the pointer picks now. */
+    steps: (): readonly DepthStep[] => steps?.steps ?? [],
     /** Where the dragged row's start edge shows once it sits at index `to`: the rows' places at lift, in view coordinates now. */
     startAt: (from: number, to: number): number | null => {
       if (!lift || from < 0 || to < 0 || to >= lift.starts.length || from >= lift.starts.length) return null;
@@ -239,9 +262,9 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
     shifts,
     /** The rows in their order at lift. */
     rowsAtLift: (): readonly Element[] => lift?.elements ?? [],
-    /** Starts reading the pointer for one drag of `source`, grabbed at `grab`; `onPose` gets every row's offset as the pointer moves. Returns what stops it. */
-    begin: (source: Draggable | null, grab: { x: number; y: number }, current: { x: number; y: number }, onPose: (pose: number[]) => void) => {
-      lift = null; far = false; pointer = null; dragged = null; slot = -1; posed = onPose;
+    /** Starts reading the pointer for one drag of `source`, grabbed at `grab`; `onPose` gets every row's offset as the pointer moves. With `depth` it also reads the drop's depth. Returns what stops it. */
+    begin: (source: Draggable | null, grab: { x: number; y: number }, current: { x: number; y: number }, onPose: (pose: number[]) => void, depth?: DepthReading) => {
+      lift = null; far = false; pointer = null; dragged = null; slot = -1; posed = onPose; level = 0; grabX = grab.x; reading = depth; steps = null;
 
       if (!isSortable(source) || !source.manager) return () => undefined;
       dragged = { id: source.id, from: source.initialIndex, at: axis === "x" ? grab.x : grab.y, manager: source.manager };
@@ -305,16 +328,16 @@ type External<T extends ExternalTarget> = {
 /** What a move gives back: a promise of the Daemon's refusal text, or nothing to wait for. */
 type MoveAnswer = Promise<string | null | void> | void;
 
-export type { TreeRow };
-
 /** A committed drop: `index` counts the parent's children without the dragged row. */
 export type SortableMove = { id: string; parent: string | null; index: number };
 
 /** Rows with a parent: a drop reports `onMove` instead of the flat order. */
 type SortableTree = DropRules & {
   rows: readonly TreeRow[];
-  /** One level of indentation in pixels: how far right of where the drag began picks the next deeper parent. */
+  /** One level of indentation in pixels: how far right of where the drag began picks the next deeper parent, or less where the room to `bounds` is short. */
   indent: number;
+  /** The box a pointer drag picks depths in, in view coordinates; the window when absent. The deepest depth a gap allows steps in just inside its right edge. */
+  bounds?: () => { left: number; right: number } | undefined;
   /** The row content's inset from its border box, in pixels, at its current depth. */
   inset: (element: HTMLElement) => number;
   /** Called with the dragged row's id as its drag starts, before the rows are measured, and with null once the drop is shown or the drag is cancelled: a caller may fold the row's children in between. */
@@ -323,6 +346,8 @@ type SortableTree = DropRules & {
   onMove: (move: SortableMove) => MoveAnswer;
   /** The drop a release would commit, or null once the drag ends. */
   onPreview: (drop: SortableDrop | null) => void;
+  /** False when a pointer release would not land `move` as the line shows it (the Rail ignores a release outside it; Todos refuse a nest that makes a cycle): the drop then shows no line and commits nothing. */
+  accepts?: (move: SortableMove) => boolean;
 };
 
 type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElement>, "onDrag"> & {
@@ -339,15 +364,6 @@ type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElemen
   ref?: ((element: HTMLDivElement) => void) | undefined;
   /** Called with true when a drag of one of this list's rows starts and false when it ends. */
   onDrag?: ((active: boolean) => void) | undefined;
-};
-
-/** Releasing the row where it already sits changes nothing. */
-const isInPlace = (rows: readonly DepthRow[], dragged: string, drop: SortableDrop): boolean => {
-  const row = rows.find((each) => each.id === dragged);
-
-  if (!row) throw new Error(`no row ${dragged}`);
-
-  return row.parent === drop.parent && rows.filter((each) => each.parent === row.parent).findIndex((each) => each.id === dragged) === drop.index;
 };
 
 /** The click the browser sends after a pointer release would reach whatever lies under the pointer; this drops the next one. */
@@ -575,25 +591,51 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   let stopListening: (() => void) | undefined;
 
-  // The dragged row follows the pointer; its gap in the list shifts right of where it began by the depth the drop would have.
+  // A keyboard drag shifts the dragged row's gap right of where it began by the drop's depth; a pointer drag's line shows the depth, and the dragged row stays at the pointer.
   const preview = (drop: SortableDrop | null) => {
     if (drop?.parent === previewed?.parent && drop?.index === previewed?.index && drop?.depth === previewed?.depth) return;
 
     previewed = drop;
 
-    if (local.tree) list?.style.setProperty("--sortable-shift", `${((drop?.depth ?? ownDepth) - ownDepth) * local.tree.indent}px`);
+    if (local.tree && keyboard) list?.style.setProperty("--sortable-shift", `${((drop?.depth ?? ownDepth) - ownDepth) * local.tree.indent}px`);
     local.tree?.onPreview(drop);
   };
 
-  /** The drop the drag would commit now, from the library's index for the dragged row and the pointer's offset. */
-  const resolve = (tree: SortableTree, dragged: string, index: number, pointer: { initial: number; current: number }) => {
-    const rows = withDepth(tree.rows);
-    const remaining = remainingRows(rows, dragged);
-    const remainingIds = new Set(remaining.map((row) => row.id));
-    const slot = rows.filter((row) => row.id !== dragged).slice(0, index).filter((row) => remainingIds.has(row.id)).length;
-    const own = rows.find((row) => row.id === dragged);
+  /**
+   * How a pointer drag of `dragged` reads its drop's depth: the levels each gap allows from the row's own depth, in the tree's box, else the window.
+   * A depth the tree refuses at either end of a gap's range would show no line, so the room goes to the depths between; a gap where it refuses every depth keeps them all.
+   */
+  const depthReading = (tree: SortableTree, dragged: string): DepthReading => ({
+    indent: tree.indent,
+    levels: (index) => {
+      const { rows, remaining, slot, own } = gapAt(tree.rows, dragged, index);
+      const legal = legalDepths(remaining, tree, dragged, slot);
+      const all = depthsAt(remaining, tree.nests, slot);
+      const min = legal[0] ?? all.min;
+      const max = legal.at(-1) ?? all.max;
 
-    if (!own) throw new Error(`no row ${dragged}`);
+      const takes = (depth: number) => {
+        const drop = dropAt(remaining, tree.nests, slot, depth);
+
+        return isInPlace(rows, dragged, drop) || tree.accepts?.({ id: dragged, parent: drop.parent, index: drop.index }) !== false;
+      };
+
+      let lo = min, hi = max;
+
+      while (hi >= lo && !takes(hi)) hi--;
+
+      if (hi < lo) return { lo: min - own.depth, hi: max - own.depth };
+
+      while (!takes(lo)) lo++;
+
+      return { lo: lo - own.depth, hi: hi - own.depth };
+    },
+    box: tree.bounds?.() ?? { left: 0, right: window.innerWidth },
+  });
+
+  /** The drop for the gap before index `index` of the dragged row: a keyboard drag at its own depth, else `level` levels from the row's own depth. */
+  const resolve = (tree: SortableTree, dragged: string, index: number, level: number) => {
+    const { rows, remaining, slot, own } = gapAt(tree.rows, dragged, index);
 
     // A gap the owner refuses snaps to the nearest one it takes; a key goes on past it the way it was going.
     const gap = legalSlot(remaining, tree, dragged, slot, keyboard ? Math.sign(slot - legalAt) : 0);
@@ -602,7 +644,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     if (keyboard && keyboard.slot !== gap) keyboard = { slot: gap, depth: legalDepths(remaining, tree, dragged, gap)[0]! };
 
-    const depth = keyboard ? keyboard.depth : own.depth + Math.round((pointer.current - pointer.initial) / tree.indent);
+    const depth = keyboard ? keyboard.depth : own.depth + level;
 
     return { rows, drop: dropAt(remaining, tree.nests, gap, nearestDepth(legalDepths(remaining, tree, dragged, gap), depth)) };
   };
@@ -614,7 +656,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let legalIndices: { rows: readonly TreeRow[]; dragged: string; ok: boolean[] } | null = null;
 
   const legalIndex = (tree: SortableTree, dragged: string, index: number): boolean => {
-    if (!tree.accepts) return true;
+    if (!tree.takes) return true;
 
     if (legalIndices?.rows !== tree.rows || legalIndices.dragged !== dragged) {
       const rows = withDepth(tree.rows);
@@ -639,12 +681,64 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   /** The index a drop gives the dragged row: the library's for a keyboard drag, the slot under the pointer otherwise. */
   const indexOf = (source: Draggable & { index: number }) => source.manager?.dragOperation.activatorEvent instanceof KeyboardEvent ? source.index : slots.slot();
 
-  const track = (source: Draggable | null, position: { initial: { x: number }; current: { x: number; y: number } }) => {
+  // A keyboard drag's drop follows its keys; a pointer drag's is its pick (`showPick`).
+  const track = (source: Draggable | null) => {
     const tree = local.tree;
 
-    if (!tree || !isSortable(source)) return;
-    const atLift = !keyboard && source.manager?.dragOperation.shape?.initial.containsPoint({ x: position.initial.x, y: position.current.y });
-    preview(resolve(tree, String(source.id), atLift ? source.initialIndex : indexOf(source), { initial: position.initial.x, current: position.current.x }).drop);
+    if (!tree || !isSortable(source) || !keyboard) return;
+    preview(resolve(tree, String(source.id), source.index, 0).drop);
+  };
+
+  // A pointer drag in a tree picks its drop as the pointer moves: the gap at the drop slot, at the depth the pointer's band gives, clamped to what the gap allows.
+  // One line draws the pick, and a release commits the pick the last painted frame showed, so a drop never lands where no frame showed it.
+  type Pick = { index: number; drop: SortableDrop };
+
+  let picking = false;
+  let picked: Pick | null = null;
+  let painted: Pick | null = null;
+  let latch = 0;
+  const samePick = (a: Pick | null, b: Pick | null) => a === b || (!!a && !!b && a.index === b.index && a.drop.parent === b.drop.parent && a.drop.index === b.drop.index && a.drop.depth === b.drop.depth);
+
+  const line = dropLine(offsetTo, () => ({ duration: reduced() ? 0 : reorderMs(document.documentElement), easing: easingOut() }));
+  // Where the line starts at the dragged row's own depth, in view coordinates.
+  let lineStart = 0;
+  // The dragged row's top at lift, in view coordinates.
+  let lineTop = 0;
+
+  /** Draws `pick` with the line, starting at the inset a row at its depth has; with no pick it fades out where it is. */
+  const drawPick = (pick: Pick | null) => {
+    const x = pick && local.tree ? lineStart + (pick.drop.depth - ownDepth) * local.tree.indent : null;
+
+    line.place(x, pick ? `${pick.index} ${pick.drop.depth} ${pick.drop.parent ?? ""}` : "");
+  };
+
+  /** Picks the drop for the pointer now and draws it when it changes. */
+  const showPick = (source: Draggable | null) => {
+    const tree = local.tree;
+
+    if (!picking || !tree || !isSortable(source)) return;
+    const id = String(source.id), index = slots.slot();
+    const { rows, drop } = resolve(tree, id, index, slots.level());
+    const next = slots.isFar() || over || (!isInPlace(rows, id, drop) && tree.accepts?.({ id, parent: drop.parent, index: drop.index }) === false) ? null : { index, drop };
+
+    line.steps(slots.steps());
+
+    if (samePick(next, picked)) return;
+    picked = next;
+    drawPick(next);
+
+    if (next) preview(next.drop);
+  };
+
+  /** Opens the line for one pointer drag of `row` along the row's top edge, as wide as the row at lift, so it ends at the row's right edge. */
+  const openLine = (row: HTMLElement) => {
+    if (!local.tree) return;
+    const box = row.getBoundingClientRect();
+
+    lineStart = box.left + local.tree.inset(row);
+    lineTop = box.top;
+    line.open(box);
+    line.ride(box.top);
   };
 
   const mark = (next: T | null) => {
@@ -681,7 +775,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     list?.style.removeProperty("--sortable-shift");
   };
 
-  onCleanup(() => { clearPreview(); stopPointer?.(); stopRestoringFocus?.(); stopListening?.(); mark(null); reclip(); });
+  onCleanup(() => { clearPreview(); stopPointer?.(); stopRestoringFocus?.(); stopListening?.(); mark(null); reclip(); cancelAnimationFrame(latch); line.remove(); });
 
   return <SlotsContext.Provider value={slots.detect}><DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor)} modifiers={local.horizontal ? [RestrictToHorizontalAxis] : []} onDragStart={(event) => {
     const tree = local.tree;
@@ -709,14 +803,22 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     lifted = source?.element?.parentNode ? { element: source.element, parent: source.element.parentNode, before: source.element.previousSibling } : null;
     let wasFar = false;
 
-    // The other rows follow the pointer; they slide only when the far zone flips.
+    const pointerLift = !(event.operation.activatorEvent instanceof KeyboardEvent);
+
+    picking = false;
+    picked = null;
+    painted = null;
+    cancelAnimationFrame(latch);
+
+    // The other rows follow the pointer; they slide only when the far zone flips. In a tree the pointer also picks the drop's depth.
     stopPointer = slots.begin(source, event.operation.position.initial, event.operation.position.current, pose => {
       const far = slots.isFar();
 
       place(others(source).map(({ element, index }) => ({ element, shift: pose[index] ?? 0 })), far !== wasFar);
       wasFar = far;
       list?.setAttribute("data-sortable-index", String(slots.slot()));
-    });
+      showPick(source);
+    }, tree && pointerLift && isSortable(source) ? depthReading(tree, String(source.id)) : undefined);
 
     if (!(event.operation.activatorEvent instanceof KeyboardEvent)) unclip(slots.rowsAtLift());
 
@@ -732,14 +834,28 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
       ownDepth = tree ? withDepth(tree.rows).find(row => row.id === String(source.id))?.depth ?? 0 : 0;
 
+      if (tree && pointerLift) {
+        const frame = () => { painted = picked; latch = requestAnimationFrame(frame); };
+
+        picking = true;
+        openLine(source.element);
+        showPick(source);
+        latch = requestAnimationFrame(frame);
+      }
+
       stopTracking = effect(() => {
+        const position = source.manager?.dragOperation.position;
+
         if (!isSortable(source)) return;
         const index = indexOf(source);
 
         // A pointer drag moves no row in the library: the slot the pointer takes is the index.
         list?.setAttribute("data-sortable-index", String(event.operation.activatorEvent instanceof KeyboardEvent ? index : slots.slot()));
 
-        track(source, event.operation.position);
+        track(source);
+
+        // The line rides the dragged row's top edge: the library moves the row in this same update, so both show on one frame.
+        if (picking && position) line.ride(lineTop + position.current.y - position.initial.y);
       });
     }
 
@@ -784,15 +900,25 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const y = event.to?.y ?? position.current.y + (event.by?.y ?? 0);
 
     if (!(event.operation.activatorEvent instanceof KeyboardEvent)) slots.moved(x, y);
-    track(source, { initial: position.initial, current: { x, y } });
+    track(source);
 
     if (!local.external || !source) return;
     mark(local.external.target(String(source.id), x, y));
+    showPick(source);
   }} onDragEnd={(event) => {
     const source = event.operation.source;
     const outside = over;
     const pointerDrag = !(event.operation.activatorEvent instanceof KeyboardEvent);
     const far = pointerDrag && slots.isFar();
+    // A tree's pointer drop is the pick the last painted frame showed, unless the release itself falls where nothing drops (far, outside or refused).
+    const shown = picked && (painted ?? picked);
+
+    cancelAnimationFrame(latch);
+
+    if (picking) line.close();
+    picking = false;
+    picked = null;
+    painted = null;
 
     unmoveLifted();
     lifted = null;
@@ -827,14 +953,14 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const point = event.operation.position.current;
 
     // The preview shows what a release commits: far from the list it shows no move, and nothing commits.
-    const index = isSortable(source) ? pointerDrag && event.operation.shape?.initial.containsPoint(tree ? { x: event.operation.position.initial.x, y: point.y } : point) ? source.initialIndex : pointerDrag ? slots.slot() : source.index : null;
+    const index = isSortable(source) ? tree && pointerDrag ? shown?.index ?? source.initialIndex : pointerDrag && event.operation.shape?.initial.containsPoint(point) ? source.initialIndex : pointerDrag ? slots.slot() : source.index : null;
 
     // A pointer release that commits nothing sends the other rows back.
     const relax = () => { tree?.onLift?.(null); if (pointerDrag) { place(others(source).map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(); } };
 
-    const final = tree && !far && !event.canceled && isSortable(source)
-      ? resolve(tree, String(source.id), index ?? source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
-      : null;
+    const final = !tree || event.canceled || !isSortable(source) ? null
+      : pointerDrag ? shown && { rows: withDepth(tree.rows), drop: shown.drop }
+      : resolve(tree, String(source.id), index ?? source.index, 0);
 
     keyboard = null;
     previewed = null;
@@ -892,7 +1018,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const run = () => local.onOrderChange?.(order, String(source.id));
 
     hold({ start: slots.startAt(source.initialIndex, index ?? source.initialIndex), run, key: shownOrder(), ...showDrop(source, index ?? source.initialIndex, pointerDrag) });
-  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div></DragDropProvider></SlotsContext.Provider>;
+  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div>{local.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</DragDropProvider></SlotsContext.Provider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {

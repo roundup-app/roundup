@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { expect, it } from "vitest";
-import { dropAt, legalDepths, legalSlot, nearestDepth, remainingRows, withDepth } from "../ui/sortableDrops";
+import { dropAt, legalDepths, legalSlot, nearestDepth, remainingRows, withDepth } from "../ui/treeDrop";
 import { placeable, type PlaceNode } from "./placement";
 
 type Kind = PlaceNode["kind"];
@@ -49,20 +49,20 @@ it("u6550c_every_shown_drop_is_accepted", () => {
   fc.assert(fc.property(shown, fc.integer({ min: -2, max: 6 }), (tree, wanted) => {
     const { nodes, rows } = tree;
     const withDepths = withDepth(rows);
-    const rules = { nests: (id: string) => nodes.get(id)?.kind === "workstream", accepts: (id: string, parent: string | null) => placeable(nodes, id, parent) };
+    const rules = { nests: (id: string) => nodes.get(id)?.kind === "workstream", takes: (id: string, parent: string | null) => placeable(nodes, id, parent) };
 
     for (const { id } of rows) {
       const remaining = remainingRows(withDepths, id);
 
       // Every slot and depth the line can show is accepted, and a pointer over any slot, at any depth, resolves to one.
       for (let slot = 0; slot <= remaining.length; slot++) {
-        for (const depth of legalDepths(remaining, rules, id, slot)) expect(rules.accepts(id, dropAt(remaining, rules.nests, slot, depth).parent)).toBe(true);
+        for (const depth of legalDepths(remaining, rules, id, slot)) expect(rules.takes(id, dropAt(remaining, rules.nests, slot, depth).parent)).toBe(true);
 
         const snapped = legalSlot(remaining, rules, id, slot, 0);
         const depths = legalDepths(remaining, rules, id, snapped);
 
         expect(depths.length).toBeGreaterThan(0);
-        expect(rules.accepts(id, dropAt(remaining, rules.nests, snapped, nearestDepth(depths, wanted)).parent)).toBe(true);
+        expect(rules.takes(id, dropAt(remaining, rules.nests, snapped, nearestDepth(depths, wanted)).parent)).toBe(true);
 
         if (legalDepths(remaining, rules, id, slot).length > 0) expect(snapped).toBe(slot);
       }
@@ -78,7 +78,7 @@ it("u6550b_workstream_has_no_slot_in_a_workstream", () => {
     { kind: "group", below: [{ kind: "workstream", below: [] }] },
   ]);
 
-  const rules = { nests: (id: string) => nodes.get(id)?.kind === "workstream", accepts: (id: string, parent: string | null) => placeable(nodes, id, parent) };
+  const rules = { nests: (id: string) => nodes.get(id)?.kind === "workstream", takes: (id: string, parent: string | null) => placeable(nodes, id, parent) };
   const held = [...nodes.values()].filter((node) => node.kind === "workstream");
 
   for (const { id } of held) {
