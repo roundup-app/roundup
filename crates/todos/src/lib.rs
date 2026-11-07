@@ -19,7 +19,6 @@ mod history;
 mod placement;
 mod references;
 #[doc(hidden)]
-pub mod schema;
 mod store;
 mod values;
 

@@ -8,18 +8,18 @@ async fn u3787a_undo_restores_original_graph() {
     h.call_as(
         agent("maker"),
         "todo.create",
-        json!({"title":"first", "body":"retained", "owner":agent("worker"), "priority":"high"}),
+        json!({"title":"first", "body":"retained", "owner":agent("7"), "priority":"high"}),
     )
     .await
     .unwrap();
-    h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"worker"}))
+    h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"7"}))
         .await
         .unwrap();
     made(&h, json!({"title":"dependent", "blockers":[1]})).await;
-    h.call("todo.move", json!({"id":1,"home":"a"}))
+    h.call("todo.move", json!({"id":1,"home":"1"}))
         .await
         .unwrap();
-    h.call("todo.move", json!({"id":2,"home":"b"}))
+    h.call("todo.move", json!({"id":2,"home":"2"}))
         .await
         .unwrap();
     h.call("todo.comment", json!({"id":1,"body":"keep me"}))
@@ -40,10 +40,10 @@ async fn u3787a_undo_restores_original_graph() {
     h.call("todo.restore", json!({"operation":"chosen"}))
         .await
         .unwrap();
-    h.call("todo.move", json!({"id":2,"home":"newer"}))
+    h.call("todo.move", json!({"id":2,"home":"3"}))
         .await
         .unwrap();
-    before[1]["home"] = json!("newer");
+    before[1]["home"] = json!("3");
     for (source, operation) in [("chosen", "redo-1"), ("redo-1", "redo-2")] {
         let restoration = h
             .call("todo.deletion", json!({"operation":source}))
@@ -72,7 +72,7 @@ async fn u3787a_undo_restores_original_graph() {
     assert_eq!(restored, before);
     assert_eq!(changes(&h, 1).await, history);
     assert!(
-        h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"worker"}))
+        h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"7"}))
             .await
             .unwrap()
             .is_null()
@@ -186,7 +186,7 @@ async fn u3787a_transaction_refusal_retains_nothing_and_deletes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     made(&h, json!({"title":"chosen"})).await;
-    let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let mut db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.pragma_update(None, "foreign_keys", true).unwrap();
     let tx = db.transaction().unwrap();
     Todos::delete_in(
@@ -221,7 +221,7 @@ async fn u3787a_restore_collision_keeps_the_operation_retryable() {
         .await
         .unwrap();
     // An external identity collision is the input this acceptance clause explicitly names.
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute(
         "INSERT INTO todos(id,title,body,created_at) VALUES(1,'collision','',0)",
         [],
@@ -310,13 +310,13 @@ async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
         made(&h, json!({"title":title})).await;
     }
     made(&h, json!({"title":"dependent","blockers":[1,2]})).await;
-    for (id, home) in [(1, "selected"), (2, "selected"), (3, "elsewhere")] {
+    for (id, home) in [(1, "5"), (2, "5"), (3, "6")] {
         h.call("todo.move", json!({"id":id,"home":home}))
             .await
             .unwrap();
     }
     let before = h.call("todo.list", Value::Null).await.unwrap();
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("CREATE TRIGGER refuse_delete BEFORE DELETE ON todos WHEN OLD.id=2 BEGIN SELECT RAISE(ABORT,'refused'); END;").unwrap();
     assert!(
         h.call("todo.delete", json!({"operation":"refused", "ids":[1,2]}))
@@ -367,7 +367,7 @@ async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
     let rows = h.call("todo.list", Value::Null).await.unwrap();
     assert_eq!(rows.as_array().unwrap().len(), 1);
     assert_eq!(rows[0]["id"], 3);
-    assert_eq!(rows[0]["home"], "elsewhere");
+    assert_eq!(rows[0]["home"], "6");
     assert_eq!(rows[0]["blockers"], json!([]));
     assert_eq!(rows[0]["blocked"], false);
 }
@@ -426,7 +426,7 @@ async fn u3787a_redo_refusal_preserves_newer_placement_and_allows_repair() {
     for title in ["first", "second"] {
         made(&h, json!({"title":title})).await;
     }
-    h.call("todo.move", json!({"id":1,"home":"original"}))
+    h.call("todo.move", json!({"id":1,"home":"4"}))
         .await
         .unwrap();
     h.call("todo.delete", json!({"operation":"move","ids":[1,2]}))
@@ -444,8 +444,8 @@ async fn u3787a_redo_refusal_preserves_newer_placement_and_allows_repair() {
     for (method, changed, repaired) in [
         (
             "todo.move",
-            json!({"id":1,"home":"newer"}),
-            json!({"id":1,"home":"original"}),
+            json!({"id":1,"home":"3"}),
+            json!({"id":1,"home":"4"}),
         ),
         (
             "todo.assign",
@@ -482,7 +482,7 @@ async fn u3787a_redo_refusal_preserves_newer_placement_and_allows_repair() {
     h.call("todo.restore", json!({"operation":"move-redo"}))
         .await
         .unwrap();
-    assert_eq!(get_home(&h, 1).await, "original");
+    assert_eq!(get_home(&h, 1).await, "4");
     assert_eq!(
         h.call("todo.get", json!({"id":1})).await.unwrap()["owner"],
         Value::Null
@@ -506,7 +506,7 @@ async fn u3787a_redo_refuses_replaced_creation_and_retries_after_authoritative_r
         .unwrap();
     // An external replacement copies all visible fields and timestamps, but cannot
     // acquire the retained creation Change. This is the named incarnation probe.
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute("INSERT INTO todos SELECT id,title,body,done,created_at,creator,home,pos,owner,updated_at,priority FROM deleted_todos WHERE operation='later'", []).unwrap();
     let restoration = h
         .call("todo.deletion", json!({"operation":"first"}))

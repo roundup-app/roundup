@@ -15,7 +15,7 @@ thiserror.workspace = true
 
 provenance = { path = "../provenance" }
 rusqlite.workspace = true
-rusqlite_migration.workspace = true
+storage = { path = "../storage" }
 
 [dev-dependencies]
 rusqlite = { workspace = true, features = ["trace"] }

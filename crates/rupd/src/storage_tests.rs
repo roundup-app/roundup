@@ -78,7 +78,7 @@ async fn n16_all_stores_share_one_project_database() {
         let mut current = Connection::open_in_memory().unwrap();
         let initialize = match name {
             "agents" => agents::schema::open,
-            "todos" => todos::schema::open,
+            "todos" => todos_schema,
             "pads" => pads::schema::open,
             "provenance" => provenance::schema::open,
             "messages" => messages::schema::open,
@@ -501,4 +501,23 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let _todos =
         todos::Todos::open(dir.path(), bus.clone()).expect("Todos must not read the schema yet");
     let _pads = pads::Pads::open(dir.path(), bus).expect("Pads must not read the schema yet");
+}
+
+/// The Todos migrations as the pre-N22 standalone store ran them.
+fn todos_schema(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
+    for sql in [
+        include_str!("../../todos/migrations/001/up.sql"),
+        include_str!("../../todos/migrations/002/up.sql"),
+        include_str!("../../todos/migrations/003/up.sql"),
+        include_str!("../../todos/migrations/004/up.sql"),
+        include_str!("../../todos/migrations/005/up.sql"),
+        include_str!("../../todos/migrations/006/up.sql"),
+        include_str!("../../todos/migrations/007/up.sql"),
+        include_str!("../../todos/migrations/009/up.sql"),
+        include_str!("../../todos/migrations/010/up.sql"),
+        include_str!("../../todos/migrations/011/up.sql"),
+    ] {
+        db.execute_batch(sql)?;
+    }
+    Ok(())
 }
