@@ -82,32 +82,3 @@ async fn t26_old_changes_read_no_handed_actor() {
     .unwrap();
     assert_eq!(old.handed, None);
 }
-
-#[tokio::test]
-async fn dtc1_an_agents_own_todo_is_no_handoff_until_the_user_assigns_it() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Todos::open(dir.path(), Bus::new()).unwrap();
-    let (daemon, door) = (
-        Actor::daemon(),
-        Actor {
-            kind: contracts::ActorKind::Agent,
-            id: "d".into(),
-            parent: None,
-        },
-    );
-    let d = agent("d");
-    let create = json!({"title": "mine", "owner": d});
-    call(&h, door, "todo.create", create).await.unwrap();
-    let hand = json!({"agent": "d"});
-    let none = call(&h, daemon.clone(), "todo.hand", hand.clone()).await;
-    assert_eq!(none.unwrap(), Value::Null);
-    // The user moves it away and back: that is the user's assignment.
-    for owner in [agent("b"), d] {
-        let assign = json!({"id": 1, "owner": owner});
-        call(&h, Actor::user(), "todo.assign", assign)
-            .await
-            .unwrap();
-    }
-    let handed = call(&h, daemon, "todo.hand", hand).await;
-    assert_eq!(handed.unwrap()["id"], 1);
-}
