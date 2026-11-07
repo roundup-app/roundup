@@ -288,3 +288,19 @@ async fn u6144c_a_terminal_carries_the_force_images_variable() {
     let printed = drain(&mut spawned.output).await;
     assert!(printed.contains("images=1"), "{printed:?}");
 }
+
+#[tokio::test]
+async fn u6418a_a_terminal_carries_the_force_sync_variable() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let mut params = sh(
+        dir.path(),
+        r#"echo "sync=${CLAUDE_CODE_FORCE_SYNC_OUTPUT-none}""#,
+    );
+    params
+        .env
+        .insert("CLAUDE_CODE_FORCE_SYNC_OUTPUT".into(), "0".into());
+    let mut spawned = terminals.spawn(params).await.unwrap();
+    let printed = drain(&mut spawned.output).await;
+    assert!(printed.contains("sync=1"), "{printed:?}");
+}
