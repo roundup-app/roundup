@@ -153,10 +153,11 @@ impl Background {
         }
     }
 
-    /// DCL3e: the Status label of a Stop that stays working: what it waits on, else "working" while only an
-    /// unavailable observation holds.
+    /// DCL3e: the Status label of a Stop that stays working: what it waits on, else the process table
+    /// while only an unavailable observation holds (U6461a).
     pub(super) fn label(&self) -> String {
-        self.waiting_on().unwrap_or_else(|| "working".into())
+        self.waiting_on()
+            .unwrap_or_else(|| "waiting on the process table".into())
     }
 
     fn waiting_on(&self) -> Option<String> {
@@ -397,6 +398,18 @@ mod tests {
             .observe_processes(100, Ok(&mcp_table()))
             .expect("released");
         assert_eq!(done.kind, Kind::Idle);
+    }
+
+    #[test]
+    fn u6461a_a_stop_held_only_by_an_unreadable_process_table_is_labelled_waiting() {
+        let mut a = ClaudeCode::new(|| 1_900);
+        hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
+        hook(&mut a, json!({"hook_event_name":"Stop"}));
+        let retained = Retained::new(a.background(), 1_900).expect("a Stop is retained");
+        let mut reopened = retained.reopen();
+        assert_eq!(reopened.label(), "waiting on the process table");
+        reopened.observe(100, Ok(&[tool_shell(110, 100, 1_950, "sleep 30")]));
+        assert_eq!(reopened.label(), "waiting on `sleep 30`");
     }
 
     #[test]
