@@ -239,9 +239,11 @@ impl Shared {
                 runs,
                 id,
                 attempt,
-                old,
-                Some(terminal_id),
-                done,
+                Abandoned {
+                    old,
+                    terminal_id: Some(terminal_id),
+                    done,
+                },
                 RpcError::conflict(format!("cannot resume: {err}")),
             );
             return Err(err);
@@ -267,9 +269,11 @@ impl Shared {
                 runs,
                 id,
                 attempt,
-                old,
-                Some(terminal_id),
-                done,
+                Abandoned {
+                    old,
+                    terminal_id: Some(terminal_id),
+                    done,
+                },
                 error.clone(),
             );
             return Err(error);
@@ -310,9 +314,11 @@ impl Shared {
                 runs,
                 id,
                 attempt,
-                old,
-                Some(terminal_id),
-                done,
+                Abandoned {
+                    old,
+                    terminal_id: Some(terminal_id),
+                    done,
+                },
                 RpcError::conflict(format!("cannot resume: {err}")),
             );
             return Err(err);

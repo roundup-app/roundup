@@ -222,12 +222,20 @@ fn a5482a_each_brief_routes_user_questions_by_coordinator() {
     for role in [Role::Agent, Role::Door, Role::Scout] {
         for mcp in [true, false] {
             let s = setup();
-            let pair = agents::claude_code::Pair {
+            let pair = agents::claude_code::LaunchFacts {
                 mcp_off: !mcp,
                 ..Default::default()
             };
             s.launcher()
-                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .prepare_on(&agents::claude_code::Request {
+                    folders: folders(&s.dir),
+                    id: "7",
+                    attempt: "1",
+                    cwd: &s.cwd,
+                    resume: None,
+                    role,
+                    facts: &pair,
+                })
                 .unwrap();
             let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
             let send = if mcp {
@@ -263,12 +271,20 @@ fn q5561_pad_guidance_reaches_each_writer() {
     for role in [Role::Agent, Role::Door] {
         for mcp in [true, false] {
             let s = setup();
-            let pair = agents::claude_code::Pair {
+            let pair = agents::claude_code::LaunchFacts {
                 mcp_off: !mcp,
                 ..Default::default()
             };
             s.launcher()
-                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .prepare_on(&agents::claude_code::Request {
+                    folders: folders(&s.dir),
+                    id: "7",
+                    attempt: "1",
+                    cwd: &s.cwd,
+                    resume: None,
+                    role,
+                    facts: &pair,
+                })
                 .unwrap();
             let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
             for instruction in [

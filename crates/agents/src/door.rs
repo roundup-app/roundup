@@ -335,13 +335,17 @@ impl Agents {
         let project = self.project_dir().to_owned();
         if let Err(err) = self
             .run_agent(
-                id,
-                &attempt,
-                &project,
+                Launch {
+                    id,
+                    attempt: &attempt,
+                    cwd: &project,
+                    origin: Origin::Fresh,
+                    attach: Attach::Now,
+                    permission: permission_mode.into(),
+                    size: (size.cols, size.rows),
+                },
                 first,
                 startup_context,
-                permission_mode,
-                (size.cols, size.rows),
             )
             .await
         {

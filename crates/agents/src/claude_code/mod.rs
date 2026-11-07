@@ -33,8 +33,8 @@ use crate::{AgentAdapter, Observation};
 
 pub use brief::{Role, WORKSTREAM_GUIDANCE};
 pub(crate) use discovery::ImportCandidate;
-pub use launch::{Folders, INTENT_MISSING, Launcher, STATE_EVENTS, settings_marker};
-pub use models::{Lean, Pair, efforts, engines, models};
+pub use launch::{Folders, INTENT_MISSING, Launcher, Request, STATE_EVENTS, settings_marker};
+pub use models::{LaunchFacts, Lean, Permission, efforts, engines, models};
 pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
