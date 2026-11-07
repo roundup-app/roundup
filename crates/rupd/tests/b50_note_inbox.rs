@@ -1,6 +1,7 @@
 //! B50, B51, B52: a `note` goes through Claude Code's messaging socket and never to the Terminal.
 //! A real Daemon and fake `claude` with a live messaging socket, session listing, recorded
 //! Terminal input and a transcript the test appends to. Saved identities need no SDK storage.
+#![allow(clippy::disallowed_methods)] // a test reads its own harness environment
 #[path = "support/rename_delivery.rs"]
 mod rename_delivery;
 #[path = "support/rupd_harness.rs"]

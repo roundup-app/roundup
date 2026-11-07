@@ -44,6 +44,10 @@ pub fn skill_call(install: &Install, method: &str) -> Result<Value, RpcError> {
 }
 
 impl Daemon {
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the skill installer resolves the user's own Claude Code folder from the live environment"
+    )]
     pub(super) fn skill(&self, conn: &Conn, method: &str) -> Result<Value, RpcError> {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(

@@ -1,6 +1,8 @@
 //! The Daemon: every other part of roundup is a client of it.
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
+
 mod actions;
 mod auto;
 #[cfg(test)]

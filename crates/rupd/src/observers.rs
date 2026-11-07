@@ -25,6 +25,10 @@ pub struct Observers {
 
 impl Observers {
     /// The one place the Daemon reads its environment.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the one place the Daemon reads its environment"
+    )]
     pub fn from_env() -> Self {
         let path = |name: &str| std::env::var_os(name).map(PathBuf::from);
         Self {
