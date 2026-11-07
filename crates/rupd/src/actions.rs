@@ -140,33 +140,16 @@ fn invalid(message: String) -> RpcError {
 }
 
 impl Daemon {
-    pub(super) async fn rpc_project_request(
+    /// Validate the folder, relay `method` to the App and answer what the App answered, with the
+    /// folder as resolved here.
+    async fn project_relay(
         &self,
-        conn: &mut Conn,
+        conn: &Conn,
         method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let start = if method == "project.start" {
-            let mut start: contracts::project::StartParams = rpc::params(params.clone())?;
-            start.name =
-                agents::agent_name(&start.name).map_err(|reason| invalid(reason.into()))?;
-            if start.prompt.trim().is_empty() {
-                return Err(invalid("start requires a nonblank prompt".into()));
-            }
-            if start.kind == contracts::project::StartKind::Mode
-                && start.prompt.chars().count() > contracts::workstream::OPENING_PROMPT_MAX
-            {
-                return Err(invalid("the opening prompt is too long".into()));
-            }
-            Some(start)
-        } else {
-            None
-        };
-        let path = match &start {
-            Some(start) => start.path.clone(),
-            None => rpc::params::<contracts::project::OpenParams>(params)?.path,
-        };
-        let folder = std::path::Path::new(&path);
+        path: &str,
+        start: Option<&contracts::project::StartParams>,
+    ) -> Result<(String, Value), RpcError> {
+        let folder = std::path::Path::new(path);
         if !folder.is_absolute() {
             return Err(invalid(format!("path {path} is not absolute")));
         }
@@ -224,80 +207,106 @@ impl Daemon {
                     "the App connection was lost while opening {path}; inspect open Projects before retrying"
                 ),
             )),
-            Relay::Answer(answer) => {
-                let value = answer?;
-                if let Some(start) = start {
-                    let started: contracts::project::StartedRow =
-                        serde_json::from_value(value).map_err(RpcError::internal)?;
-                    if started.path != path || started.kind != start.kind || started.id.is_empty() {
-                        return Err(RpcError::unknown_outcome(
-                            "the App answered with a different Project or start kind; inspect the target before retrying",
-                        ));
-                    }
-                    self.ctx(conn.actor.clone())
-                        .touch(Verb::Wrote, &format!("project:{}", started.path))?;
-                    return rpc::reply(&started);
-                }
-                let opened: contracts::project::Opened =
-                    serde_json::from_value(value).map_err(RpcError::internal)?;
-                if opened.path != path {
-                    return Err(RpcError::new(
-                        code::UNKNOWN_OUTCOME,
-                        "the App answered with a different Project; inspect open Projects before retrying",
-                    ));
-                }
-                self.ctx(conn.actor.clone())
-                    .touch(Verb::Wrote, &format!("project:{}", opened.path))?;
-                rpc::reply(&opened)
-            }
+            Relay::Answer(answer) => Ok((path, answer?)),
         }
     }
 
-    pub(super) async fn rpc_action(
+    pub(super) async fn project_open(
         &self,
         conn: &mut Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::OpenParams,
+    ) -> Result<contracts::project::Opened, RpcError> {
+        let (path, value) = self
+            .project_relay(conn, "project.open", &p.path, None)
+            .await?;
+        let opened: contracts::project::Opened =
+            serde_json::from_value(value).map_err(RpcError::internal)?;
+        if opened.path != path {
+            return Err(RpcError::new(
+                code::UNKNOWN_OUTCOME,
+                "the App answered with a different Project; inspect open Projects before retrying",
+            ));
+        }
+        self.ctx(conn.actor.clone())
+            .touch(Verb::Wrote, &format!("project:{}", opened.path))?;
+        Ok(opened)
+    }
+
+    pub(super) async fn project_start(
+        &self,
+        conn: &mut Conn,
+        mut start: contracts::project::StartParams,
+    ) -> Result<contracts::project::StartedRow, RpcError> {
+        start.name = agents::agent_name(&start.name).map_err(|reason| invalid(reason.into()))?;
+        if start.prompt.trim().is_empty() {
+            return Err(invalid("start requires a nonblank prompt".into()));
+        }
+        if start.kind == contracts::project::StartKind::Mode
+            && start.prompt.chars().count() > contracts::workstream::OPENING_PROMPT_MAX
+        {
+            return Err(invalid("the opening prompt is too long".into()));
+        }
+        let (path, value) = self
+            .project_relay(conn, "project.start", &start.path, Some(&start))
+            .await?;
+        let started: contracts::project::StartedRow =
+            serde_json::from_value(value).map_err(RpcError::internal)?;
+        if started.path != path || started.kind != start.kind || started.id.is_empty() {
+            return Err(RpcError::unknown_outcome(
+                "the App answered with a different Project or start kind; inspect the target before retrying",
+            ));
+        }
+        self.ctx(conn.actor.clone())
+            .touch(Verb::Wrote, &format!("project:{}", started.path))?;
+        Ok(started)
+    }
+
+    pub(super) async fn action_serve(&self, conn: &mut Conn) -> Result<(), RpcError> {
+        if conn.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user's App answers actions"));
+        }
+        self.actions.register(conn.events.clone());
+        // UA3: the names the App now holds are checked against the User actions.
+        self.extensions.app_registered();
+        Ok(())
+    }
+
+    pub(super) async fn action_user_list(
+        &self,
+        conn: &mut Conn,
+    ) -> Result<Vec<ActionRow>, RpcError> {
+        self.ctx(conn.actor.clone())
+            .touch(Verb::Read, "action:userList")?;
+        Ok(self.extensions.rows())
+    }
+
+    pub(super) async fn action_list(&self, conn: &mut Conn) -> Result<Vec<ActionRow>, RpcError> {
+        let mut rows = self.app_rows().await?;
+        self.ctx(conn.actor.clone())
+            .touch(Verb::Read, "action:list")?;
+        // UA1: the User actions follow the App's rows.
+        self.extensions
+            .built_in(self, rows.iter().map(|row| row.name.clone()).collect());
+        rows.extend(self.extensions.rows());
+        Ok(rows)
+    }
+
+    pub(super) async fn action_run(
+        &self,
+        conn: &mut Conn,
+        run: RunParams,
+    ) -> Result<contracts::action::RunResult, RpcError> {
         let ctx = self.ctx(conn.actor.clone());
-        if method == "action.serve" {
-            if conn.actor.kind != ActorKind::User {
-                return Err(RpcError::forbidden("only the user's App answers actions"));
-            }
-            self.actions.register(conn.events.clone());
-            // UA3: the names the App now holds are checked against the User actions.
-            self.extensions.app_registered();
-            return Ok(Value::Null);
-        }
-        if method == "action.userList" {
-            ctx.touch(Verb::Read, "action:userList")?;
-            return rpc::reply(&self.extensions.rows());
-        }
-        if method == "action.list" {
-            let mut rows = self.app_list().await?;
-            ctx.touch(Verb::Read, "action:list")?;
-            // UA1: the User actions follow the App's rows.
-            if let Some(app) = rows.as_array_mut() {
-                let names = app
-                    .iter()
-                    .filter_map(|row| row["name"].as_str().map(str::to_owned));
-                self.extensions.built_in(self, names.collect());
-                app.extend(self.extensions.rows().iter().map(|row| json!(row)));
-            }
-            return Ok(rows);
-        }
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
                 "only the user runs an action; typing and keys stay the user's",
             ));
         }
-        let run: RunParams = rpc::params(params)?;
         // UA5: a User action runs in the host and does not need the App.
         if let Some(result) = self.extensions.run(self, &run).await {
-            return result;
+            return serde_json::from_value(result?).map_err(RpcError::internal);
         }
-        let rows: Vec<ActionRow> =
-            serde_json::from_value(self.app_list().await?).map_err(RpcError::internal)?;
+        let rows = self.app_rows().await?;
         let row = rows
             .iter()
             .find(|row| row.name == run.name)
@@ -334,15 +343,15 @@ impl Daemon {
                 code::UNKNOWN_OUTCOME,
                 format!("the App did not answer; \"{}\" may have run", run.name),
             )),
-            Relay::Answer(answer) => answer,
+            Relay::Answer(answer) => serde_json::from_value(answer?).map_err(RpcError::internal),
         }
     }
 
     /// The App's own list, as it answered.
-    pub(crate) async fn app_list(&self) -> Result<Value, RpcError> {
+    pub(crate) async fn app_rows(&self) -> Result<Vec<ActionRow>, RpcError> {
         match self.actions.relay("action.list", Value::Null).await {
             Relay::NoApp | Relay::Lost => Err(app_closed()),
-            Relay::Answer(answer) => answer,
+            Relay::Answer(answer) => serde_json::from_value(answer?).map_err(RpcError::internal),
         }
     }
 }

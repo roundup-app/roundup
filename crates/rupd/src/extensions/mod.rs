@@ -520,9 +520,7 @@ impl Host {
             return;
         };
         tokio::spawn(async move {
-            if let Ok(rows) = daemon.app_list().await
-                && let Ok(rows) = serde_json::from_value::<Vec<ActionRow>>(rows)
-            {
+            if let Ok(rows) = daemon.app_rows().await {
                 daemon
                     .extensions
                     .built_in(&daemon, rows.into_iter().map(|row| row.name).collect());

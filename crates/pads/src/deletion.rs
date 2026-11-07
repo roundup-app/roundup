@@ -1,6 +1,6 @@
 //! Transactional retention and restoration through the existing SQLite owner.
 use super::*;
-use crate::{Error, reply};
+use crate::Error;
 use contracts::pad::{DeleteParams, Deletion, DeletionId, GetDeletionParams, RedoDeleteParams};
 use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
@@ -179,7 +179,8 @@ pub fn restore(db: &Connection, actor: &Actor, id: &DeletionId) -> Result<(Delet
 
 impl Pads {
     /// Delete within the Pad transaction, retaining the trusted deletion cause.
-    pub fn delete(&self, ctx: &Ctx, p: DeleteParams, cause: PadDeletion) -> Result<Value, Error> {
+    pub(super) async fn delete(&self, ctx: &Ctx, p: DeleteParams) -> Result<Deletion, Error> {
+        let cause = cause(&ctx.actor);
         let store = self.store()?;
         let mut files = RemovalFiles::default();
         let (receipt, changed) = store.atomically(|| {
@@ -208,10 +209,14 @@ impl Pads {
         if changed {
             wrote(ctx, &receipt.pad.name)?;
         }
-        reply(&receipt)
+        Ok(receipt)
     }
 
-    pub(super) fn redo_delete(&self, ctx: &Ctx, p: RedoDeleteParams) -> Result<Value, Error> {
+    pub(super) async fn redo_delete(
+        &self,
+        ctx: &Ctx,
+        p: RedoDeleteParams,
+    ) -> Result<Deletion, Error> {
         let store = self.store()?;
         let mut files = RemovalFiles::default();
         let (receipt, changed) = store.atomically(|| {
@@ -295,19 +300,23 @@ impl Pads {
         if changed {
             wrote(ctx, &receipt.pad.name)?;
         }
-        reply(&receipt)
+        Ok(receipt)
     }
 
-    pub(super) fn get_deletion(&self, ctx: &Ctx, id: GetDeletionParams) -> Result<Value, Error> {
+    pub(super) async fn get_deletion(
+        &self,
+        ctx: &Ctx,
+        id: GetDeletionParams,
+    ) -> Result<Deletion, Error> {
         let store = self.store()?;
         let receipt = operation(&store.db, &id.operation, &ctx.actor)?
             .map(|(receipt, _)| receipt)
             .ok_or_else(|| Error::not_found("Pad deletion operation"))?;
-        reply(&receipt)
+        Ok(receipt)
     }
 
     /// The Daemon validates the retained Home before calling this method.
-    pub(super) fn restore(&self, ctx: &Ctx, id: DeletionId) -> Result<Value, Error> {
+    pub(super) async fn restore(&self, ctx: &Ctx, id: DeletionId) -> Result<Deletion, Error> {
         let store = self.store()?;
         let mut mirror = None;
         let (receipt, changed) = store.atomically(|| {
@@ -327,7 +336,7 @@ impl Pads {
         if changed {
             wrote(ctx, &receipt.pad.name)?;
         }
-        reply(&receipt)
+        Ok(receipt)
     }
 }
 

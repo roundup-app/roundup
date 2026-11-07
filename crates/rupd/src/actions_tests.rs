@@ -56,7 +56,7 @@ impl Wire {
 fn rows() -> Value {
     json!([
         {"name":"agent.new","label":"New agent","keys":"⌘N","args":[],"available":true},
-        {"name":"leader.row","label":"Switch to a row","keys":"⌘K K","args":[{"key":"query","type":"string"}],"available":true},
+        {"name":"leader.row","label":"Switch to a row","keys":"⌘K K","args":[{"key":"query","type":"string","required":false}],"available":true},
         {"name":"rail.remove","label":"Remove","keys":"⌫","args":[],"available":false,"cause":"needs a Rail row"}
     ])
 }

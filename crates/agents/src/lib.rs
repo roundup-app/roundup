@@ -23,7 +23,7 @@ use contracts::agent::{
 use contracts::project::{Mcp, PrepareParams, ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
-use rpc::{Bus, Ctx, Module, OpenError, Reply, RpcError, code, params, reply};
+use rpc::{Bus, Ctx, Module, OpenError, Reply, RpcError, code};
 use serde_json::Value;
 use terminal::Terminals;
 use tokio::sync::broadcast::Receiver;

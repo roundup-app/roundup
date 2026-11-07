@@ -222,13 +222,13 @@ impl Daemon {
         for orphan in orphans(&rail, &todos, &pads) {
             match orphan {
                 Orphan::TodoHome(id) => {
-                    self.todos.set_home(&ctx, id, None)?;
+                    self.todos.set_home(&ctx, id, None).await?;
                 }
                 Orphan::TodoOwner(id) => {
-                    self.todos.set_owner(&ctx, id, None)?;
+                    self.todos.set_owner(&ctx, id, None).await?;
                 }
                 Orphan::PadHome(name) => {
-                    self.pads.set_home(&ctx, &name, None)?;
+                    self.pads.set_home(&ctx, &name, None).await?;
                 }
             }
         }
@@ -237,7 +237,10 @@ impl Daemon {
 
     /// D8: the Resource use of every running Agent and the Project's total. The Rail is read as
     /// the Daemon, so the call changes nothing and logs no Touch.
-    async fn project_resources(&self) -> Result<Value, RpcError> {
+    async fn project_resources(
+        &self,
+        _conn: &mut Conn,
+    ) -> Result<contracts::project::Resources, RpcError> {
         let worktrees = self
             .rail()
             .await?
@@ -245,7 +248,7 @@ impl Daemon {
             .filter_map(|node| Some((node.id, std::path::PathBuf::from(node.worktree?.path))))
             .collect();
         let running = self.agents.running_programs();
-        rpc::reply(&self.resources.sample(&running, &worktrees).await)
+        Ok(self.resources.sample(&running, &worktrees).await)
     }
 
     async fn rail(&self) -> Result<Vec<contracts::agent::RailNode>, RpcError> {
@@ -254,8 +257,11 @@ impl Daemon {
 
     /// E2, E3: the Context of an Agent, or its Brief. The Rail and the Todos are read as the
     /// Daemon, so the call changes nothing and logs no Touch.
-    async fn awareness(&self, conn: &Conn, method: &str, params: Value) -> Result<Value, RpcError> {
-        let NodeId { id } = rpc::params(params)?;
+    async fn awareness(
+        &self,
+        conn: &Conn,
+        NodeId { id }: NodeId,
+    ) -> Result<(contracts::agent::Context, Vec<contracts::agent::RailNode>), RpcError> {
         let nodes = self.rail().await?;
         let todos = self.todos.list_all()?;
         let context = context::compose(&nodes, &todos, &id)?;
@@ -275,31 +281,47 @@ impl Daemon {
                 self.agents.rail_name(&id)?
             )));
         }
-        match method {
-            "agent.context" => rpc::reply(&context),
-            _ => {
-                let settings =
-                    data::read_naming(&self.naming.lock()).map_err(RpcError::internal)?;
-                let text = context::naming(
-                    context::text(&nodes, &context),
-                    &settings,
-                    self.agents.naming_settled(&id),
-                    self.agents.user_named(&id),
-                    nodes.iter().any(|node| {
-                        node.id == id && node.kind == contracts::agent::NodeKind::Workstream
-                    }),
-                );
-                rpc::reply(&contracts::agent::Brief {
-                    stdout: agents::claude_code::session_start_context(&text),
-                })
-            }
-        }
+        Ok((context, nodes))
+    }
+
+    async fn agent_context(
+        &self,
+        conn: &mut Conn,
+        id: NodeId,
+    ) -> Result<contracts::agent::Context, RpcError> {
+        Ok(self.awareness(conn, id).await?.0)
+    }
+
+    async fn agent_brief(
+        &self,
+        conn: &mut Conn,
+        id: NodeId,
+    ) -> Result<contracts::agent::Brief, RpcError> {
+        let NodeId { id } = id;
+        let (context, nodes) = self.awareness(conn, NodeId { id: id.clone() }).await?;
+        let settings = data::read_naming(&self.naming.lock())
+            .map_err(RpcError::internal)?;
+        let text = context::naming(
+            context::text(&nodes, &context),
+            &settings,
+            self.agents.naming_settled(&id),
+            self.agents.user_named(&id),
+            nodes
+                .iter()
+                .any(|node| node.id == id && node.kind == contracts::agent::NodeKind::Workstream),
+        );
+        Ok(contracts::agent::Brief {
+            stdout: agents::claude_code::session_start_context(&text),
+        })
     }
 
     /// A31: the Skills of an Agent, or of a Workstream's Door, read from the vendor's folders at
     /// each call. The Rail is read as the Daemon, so the call changes nothing and logs no Touch.
-    async fn skills(&self, params: Value) -> Result<Value, RpcError> {
-        let NodeId { id } = rpc::params(params)?;
+    async fn agent_skills(
+        &self,
+        _conn: &mut Conn,
+        NodeId { id }: NodeId,
+    ) -> Result<contracts::agent::Skills, RpcError> {
         let node = self
             .rail()
             .await?
@@ -311,15 +333,18 @@ impl Daemon {
             .map_or_else(|| self.project.clone(), |tree| tree.path.into());
         let home = self.observers.home.clone().unwrap_or_default();
         let skills = agents::claude_code::skills(&home, &cwd, &self.project);
-        rpc::reply(&contracts::agent::Skills { skills })
+        Ok(contracts::agent::Skills { skills })
     }
 
     /// B19, B20: the digest of a Door's children. Everything is read as the user or the
     /// Daemon, so the call changes nothing and logs no Touch.
-    async fn digest(&self, conn: &Conn, params: Value) -> Result<Value, RpcError> {
-        let NodeId { id } = rpc::params(params)?;
+    async fn agent_digest(
+        &self,
+        conn: &mut Conn,
+        NodeId { id }: NodeId,
+    ) -> Result<contracts::agent::Digest, RpcError> {
         let world = self.reader().world().await?;
-        rpc::reply(&self.digests.ask(&conn.actor, &id, &world.sources())?)
+        Ok(self.digests.ask(&conn.actor, &id, &world.sources())?)
     }
 
     fn ctx(&self, actor: Actor) -> Ctx {
