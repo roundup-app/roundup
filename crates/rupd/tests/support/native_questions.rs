@@ -548,17 +548,16 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
             .await
             .unwrap();
         signal(&run, &child, json!({"hook_event_name":"Stop"})).await;
-        // DTC2: the child's Digest is quiet; a Message the lead takes carries it out.
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        run.user
-            .request(
-                "message.send",
-                json!({"to":lead.id,"kind":"note","body":"release the Digest"}),
-            )
-            .await
-            .unwrap();
-        signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
         let digest = until("final text Digest", async || {
+            // DTC2: the child's Digest is quiet; each Message the lead takes offers to carry it out.
+            run.user
+                .request(
+                    "message.send",
+                    json!({"to":lead.id,"kind":"note","body":"release the Digest"}),
+                )
+                .await
+                .unwrap();
+            signal(&run, &lead, json!({"hook_event_name":"Stop"})).await;
             let messages = run
                 .user
                 .request("message.list", json!({"to":lead.id}))

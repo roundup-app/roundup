@@ -15,6 +15,18 @@ use super::wake::{
 };
 use super::{Shim, actor, client_as, rail, socket};
 
+/// DTC2: a quiet note about a child waits for a Message the Door takes, so every eighth poll a
+/// note to `to` and its Stop offer to carry the waiting ones out.
+pub async fn carry_quiet_notes(client: &rpc::Client, to: &str, polls: &mut u32) {
+    *polls += 1;
+    if *polls % 8 != 0 {
+        return;
+    }
+    let note = json!({"to":to,"kind":"note","body":"carry the quiet notes"});
+    client.request("message.send", note).await.unwrap();
+    super::signal(client, to, json!({"hook_event_name": "Stop"})).await;
+}
+
 fn env(prompts: &Path) -> [(&str, &str); 1] {
     [("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap())]
 }

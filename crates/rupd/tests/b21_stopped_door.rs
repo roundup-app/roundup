@@ -496,6 +496,11 @@ fn weight(message: &Value) -> u32 {
 }
 
 async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
+    accounted_when(run, after, |kept| kept == expected).await
+}
+
+/// The Digests after `after` once the changes they keep satisfy `enough`.
+async fn accounted_when(run: &Run, after: u64, enough: impl Fn(u32) -> bool) -> Vec<Value> {
     tokio::time::timeout(BOUND, async {
         loop {
             let messages: Vec<_> = run
@@ -509,7 +514,7 @@ async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
                 .filter(|m| m["status"] != "dropped")
                 .map(weight)
                 .sum();
-            if kept == expected {
+            if enough(kept) {
                 return messages;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -598,8 +603,8 @@ async fn changed_children_under_caps() {
     eprintln!("B21/B22: setup changes compared");
     // DTC2: the changes are quiet; the Message the Door takes carries them out as one rollup.
     release(&run, &mut events).await;
-    let base = 0;
-    accounted(&run, base, 20).await;
+    // The setup's own spawns are changes too, so the rollup keeps at least the twenty Todos.
+    accounted_when(&run, 0, |kept| kept >= 20).await;
     let base = run
         .digests()
         .await

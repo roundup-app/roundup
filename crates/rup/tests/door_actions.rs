@@ -206,7 +206,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             |data| match data {
                 EventData::MessageSent(m)
                     if m.to == door
-                        && m.body.contains("[digest] B37 child is idle")
+                        && m.body.contains("B37 child is idle")
                         && m.body.contains("open todos: 1") =>
                 {
                     Some(m)
