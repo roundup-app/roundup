@@ -157,44 +157,55 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     }
   };
 
+  /** Fetches the screen into the emulator; false when the subscription closed meanwhile. */
+  const load = async (id: string, holder: H, stream: Stream): Promise<boolean> => {
+    const retained = await restoreScrollback(
+      connected, id, holder.incarnation, holder.emulator, holder.complete, shownTo.get(id),
+      () => isOpen(stream) && stream.after === null && !stream.lost,
+      cause => console.warn(appCopy.terminalOutputNotKept(cause)),
+    );
+
+    if (!isOpen(stream)) return false;
+
+    if (retained !== null) {
+      stream.after = retained;
+      requestAnimationFrame(() => reflow(id, holder));
+
+      return true;
+    }
+
+    const snapshot = await app.rpc("terminal.snapshot", { id });
+
+    if (!isOpen(stream)) return false;
+
+    if (holder.complete) holder.emulator.reset();
+
+    holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
+    holder.emulator.write(fromBase64(snapshot.data), () => requestAnimationFrame(() => reflow(id, holder)));
+
+    stream.after = snapshot.after;
+
+    return true;
+  };
+
+  const acknowledgeSelected = (id: string): void => {
+    const agent = rail.nodes.find(node => node.terminal_id === id);
+
+    if (agent && rail.shouldAcknowledgeAlerts() && rail.selected() === agent.id) acknowledge(agent.id);
+  };
+
   const restore = async (id: string, holder: H, stream: Stream): Promise<void> => {
     if (stream.restoring || !isOpen(stream)) return;
 
     stream.restoring = true;
 
     try {
-      const retained = await restoreScrollback(
-        connected, id, holder.incarnation, holder.emulator, holder.complete, shownTo.get(id),
-        () => isOpen(stream) && stream.after === null && !stream.lost,
-        cause => console.warn(appCopy.terminalOutputNotKept(cause)),
-      );
-
-      if (!isOpen(stream)) return;
-
-      if (retained !== null) {
-        stream.after = retained;
-        requestAnimationFrame(() => reflow(id, holder));
-      }
-
-      if (retained === null) {
-        const snapshot = await app.rpc("terminal.snapshot", { id });
-
-        if (!isOpen(stream)) return;
-
-        if (holder.complete) holder.emulator.reset();
-
-        holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
-        holder.emulator.write(fromBase64(snapshot.data), () => requestAnimationFrame(() => reflow(id, holder)));
-
-        stream.after = snapshot.after;
-      }
+      if (!(await load(id, holder, stream))) return;
 
       holder.complete = true;
       holder.retain();
       failures.set(id, "snapshot", null);
-      const agent = rail.nodes.find(node => node.terminal_id === id);
-
-      if (agent && rail.shouldAcknowledgeAlerts() && rail.selected() === agent.id) acknowledge(agent.id);
+      acknowledgeSelected(id);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
