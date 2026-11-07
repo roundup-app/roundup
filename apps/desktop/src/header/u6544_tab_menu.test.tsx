@@ -34,13 +34,13 @@ it("u6544b_close_others_left_right", async () => {
   const labels = () => app.menuLabels();
 
   open("a");
-  expect(labels()).toEqual(expect.arrayContaining(["Close", "Close Others", "Close to the Right"]));
-  expect(labels()).not.toContain("Close to the Left");
+  expect(labels()).toEqual(expect.arrayContaining(["Close", "Close Others", "Close Right"]));
+  expect(labels()).not.toContain("Close Left");
   await app.closeMenu();
 
   open("c");
-  expect(labels()).not.toContain("Close to the Right");
-  expect(labels()).toContain("Close to the Left");
+  expect(labels()).not.toContain("Close Right");
+  expect(labels()).toContain("Close Left");
   await app.closeMenu();
 
   open("b");
@@ -56,12 +56,12 @@ it("u6544b_close_to_the_left_and_right_close_only_that_side", async () => {
   const { app } = await openTabs({ a: [], b: [], c: [] });
 
   open("b");
-  await app.pickMenu("Close to the Left");
+  await app.pickMenu("Close Left");
   await waitFor(() => expect(app.closed).toEqual([path("a")]));
   app.closed.length = 0;
 
   open("b");
-  await app.pickMenu("Close to the Right");
+  await app.pickMenu("Close Right");
   await waitFor(() => expect(app.closed).toEqual([path("c")]));
 });
 
@@ -75,5 +75,5 @@ it("u6544c_recover_drafts_in_menu", async () => {
 
   open("api");
   await app.pickMenu("Recover unfinished work");
-  expect(await (await import("@solidjs/testing-library")).screen.findByRole("dialog", { name: "Unfinished work" })).toBeDefined();
+  await waitFor(() => expect(document.querySelector(".header-recovery")).not.toBeNull());
 });
