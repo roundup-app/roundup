@@ -20,7 +20,7 @@ impl Agents {
 
     pub(super) fn project_models(&self) -> Result<ProjectModels, RpcError> {
         let roles: Vec<&str> = Role::ALL.iter().map(|role| role.id()).collect();
-        self.shared.rail().get_models(&roles)
+        Ok(self.shared.rail().get_models(&roles)?)
     }
 
     /// A37: change the Model and Effort of node `id`. A live Agent is stopped and resumed once on

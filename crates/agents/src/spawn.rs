@@ -525,7 +525,9 @@ impl Agents {
             .await?;
         if attach {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
-            let attached = attached.and_then(|()| self.save_owner(id, &spawned.id));
+            let attached = attached
+                .map_err(RpcError::from)
+                .and_then(|()| self.save_owner(id, &spawned.id));
             if let Err(err) = attached {
                 report_undo(
                     "kill the Agent's Terminal",

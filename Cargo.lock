@@ -45,6 +45,7 @@ dependencies = [
  "stats_alloc",
  "tempfile",
  "terminal",
+ "thiserror 2.0.21",
  "time",
  "tokio",
  "unicode-normalization",
