@@ -22,7 +22,7 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
-  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"]);
+  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
@@ -259,12 +259,12 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   const visiblePanel = () => view.querySelector('[role="tabpanel"]:not([hidden])');
   const tabs = new Map(within(view).getAllByRole("tab").map(tab => [tab.getAttribute("data-value"), tab]));
 
-  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"]) {
+  for (const name of ["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"]) {
     fireEvent.click(tabs.get(name)!);
     await waitFor(() => expect(visiblePanel()?.getAttribute("aria-labelledby")).toBe(tabs.get(name)!.id));
   }
 
-  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts", "Pads"];
+  const pages = ["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"];
   tabs.get("Agents")!.focus();
   await Promise.resolve();
 

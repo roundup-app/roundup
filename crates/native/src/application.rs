@@ -5,10 +5,11 @@ use objc2::{
     rc::Retained,
     runtime::{AnyClass, AnyObject, ProtocolObject},
 };
+use objc2_app_kit::NSApplication;
 use objc2_foundation::{
     NSNotification, NSNotificationCenter, NSObjectProtocol, NSOperationQueue, NSString,
 };
-use std::{cell::RefCell, ptr::NonNull};
+use std::{cell::RefCell, ptr::NonNull, sync::PoisonError};
 use tauri::{Runtime, WebviewWindow};
 
 type Token = Retained<ProtocolObject<dyn NSObjectProtocol>>;
@@ -43,14 +44,14 @@ fn watch_on_main<R: Runtime>(
     window: WebviewWindow<R>,
     observed: impl Fn(&WebviewWindow<R>, &str, bool) + Send + Sync + 'static,
 ) {
-    let _main = MainThreadMarker::new().expect("Tauri dispatches observers on the main thread");
+    let Some(main) = MainThreadMarker::new() else {
+        log::warn!(target: "roundup::shell", "application visibility observer needs the main thread");
+        return;
+    };
     let observed = std::sync::Arc::new(observed);
     let center = NSNotificationCenter::defaultCenter();
-    let application = AnyClass::get(c"NSApplication").expect("AppKit owns this webview");
-    // SAFETY: NSApplication.sharedApplication is process-owned and queried on the main thread.
-    let application: Retained<AnyObject> = unsafe { msg_send![application, sharedApplication] };
-    let hidden: bool = unsafe { msg_send![&*application, isHidden] };
-    observed(&window, "initial", hidden);
+    let application = NSApplication::sharedApplication(main);
+    observed(&window, "initial", application.isHidden());
     for (index, (name, hidden)) in [
         ("NSApplicationDidHideNotification", true),
         ("NSApplicationDidUnhideNotification", false),
@@ -67,13 +68,18 @@ fn watch_on_main<R: Runtime>(
         let token = unsafe {
             center.addObserverForName_object_queue_usingBlock(
                 Some(&NSString::from_str(name)),
-                Some(&application),
+                Some(application.as_ref()),
                 None,
                 &block,
             )
         };
         OBSERVERS.with(|observers| {
-            if let Some(previous) = observers.borrow_mut().0[index].replace(token) {
+            if let Some(previous) = observers
+                .borrow_mut()
+                .0
+                .get_mut(index)
+                .and_then(|slot| slot.replace(token))
+            {
                 // SAFETY: replacement removes exactly the token this center previously returned.
                 unsafe {
                     center.removeObserver((*previous).as_ref());
@@ -93,10 +99,17 @@ pub fn watch_fullscreen<R: Runtime>(
 ) -> tauri::Result<()> {
     let dispatch = window.clone();
     dispatch.run_on_main_thread(move || {
-        let _main = MainThreadMarker::new().expect("Tauri dispatches observers on the main thread");
-        let pointer = window
-            .ns_window()
-            .expect("the observed native window exists");
+        if MainThreadMarker::new().is_none() {
+            log::warn!(target: "roundup::shell", "fullscreen observer needs the main thread");
+            return;
+        }
+        let pointer = match window.ns_window() {
+            Ok(pointer) => pointer,
+            Err(error) => {
+                crate::diagnostic("observe fullscreen", &error);
+                return;
+            }
+        };
         // SAFETY: Tauri supplies this live NSWindow; it is borrowed only on its main thread.
         let object = unsafe { &*pointer.cast::<AnyObject>() };
         let observed = std::sync::Arc::new(observed);
@@ -116,15 +129,20 @@ pub fn watch_fullscreen<R: Runtime>(
             let block = RcBlock::new(move |_notification: NonNull<NSNotification>| {
                 match fullscreen {
                     None => {
-                        *normal_position.lock().unwrap() = if window.is_maximized().unwrap_or(false)
-                        {
-                            None
-                        } else {
-                            window.outer_position().ok()
-                        };
+                        *normal_position
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner) =
+                            if window.is_maximized().unwrap_or(false) {
+                                None
+                            } else {
+                                window.outer_position().ok()
+                            };
                     }
                     Some(false) => {
-                        let position = normal_position.lock().unwrap().take();
+                        let position = normal_position
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .take();
                         let window = window.clone();
                         let observed = observed.clone();
                         // Notification/delegate order is unspecified. Defer past both before
@@ -155,7 +173,12 @@ pub fn watch_fullscreen<R: Runtime>(
                 )
             };
             FULLSCREEN_OBSERVERS.with(|observers| {
-                if let Some(previous) = observers.borrow_mut().0[index].replace(token) {
+                if let Some(previous) = observers
+                    .borrow_mut()
+                    .0
+                    .get_mut(index)
+                    .and_then(|slot| slot.replace(token))
+                {
                     // SAFETY: this is the exact token this center returned.
                     unsafe {
                         center.removeObserver((*previous).as_ref());

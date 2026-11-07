@@ -33,7 +33,14 @@ fn ms(elapsed: Duration) -> f64 {
 fn percentile(mut values: Vec<f64>, p: f64) -> f64 {
     values.sort_by(f64::total_cmp);
 
-    values[((p * values.len() as f64).ceil() as usize).max(1) - 1]
+    let rank = ((p * values.len() as f64).ceil() as usize).max(1) - 1;
+    values.get(rank).copied().unwrap_or(f64::NAN)
+}
+
+/// The Value's member, or `Null` as serde_json's index gives for a missing one.
+pub fn field<'a>(value: &'a Value, key: &str) -> &'a Value {
+    const NULL: &Value = &Value::Null;
+    value.get(key).unwrap_or(NULL)
 }
 
 fn resident_mb(system: &mut System, pid: u32) -> io::Result<f64> {
@@ -102,17 +109,17 @@ async fn select_when_ready(
     terminal: &str,
 ) -> io::Result<()> {
     let started = ask(events, "terminal.output", json!({ "id": terminal })).await?;
-    let mut seen = started["offset"]
+    let mut seen = field(&started, "offset")
         .as_u64()
         .ok_or_else(|| io::Error::other("terminal.output returned no offset"))?;
     let printed = loop {
         let screen = ask(client, "terminal.screen", json!({ "id": terminal })).await?;
 
-        if screen["lines"]
+        if field(&screen, "lines")
             .as_array()
             .is_some_and(|lines| lines.iter().any(|line| line == "ready"))
         {
-            break screen["offset"]
+            break field(&screen, "offset")
                 .as_u64()
                 .ok_or_else(|| io::Error::other("terminal.screen returned no offset"))?;
         }
@@ -224,7 +231,11 @@ pub async fn hook_calls(
     let started = Instant::now();
 
     for call in 0..calls {
-        let payload = payloads[call % payloads.len()];
+        let payload = payloads
+            .iter()
+            .cycle()
+            .nth(call)
+            .ok_or_else(|| io::Error::other("no hook payloads"))?;
         let status = Command::new(rup)
             .args(["signal", id])
             .env("ROUNDUP_ATTEMPT", attempt)
@@ -289,7 +300,7 @@ async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
             json!({ "cwd": project.to_string_lossy(), "prompt": null, "parent": null }),
         )
         .await?;
-        let id = agent["id"]
+        let id = field(&agent, "id")
             .as_str()
             .ok_or_else(|| io::Error::other("agent.spawn returned no id"))?;
 
@@ -297,7 +308,7 @@ async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
             rup,
             &socket,
             id,
-            agent["attempt"]
+            field(&agent, "attempt")
                 .as_str()
                 .ok_or_else(|| io::Error::other("agent.spawn returned no Attempt"))?,
             &[&pre, &post],
@@ -424,7 +435,7 @@ pub async fn one_run(
         json!({ "cwd": cwd, "command": ["/bin/sh", "-c", "stty raw -echo; echo ready; exec cat"], "env": {}, "cols": 80, "rows": 24 }),
     )
     .await?;
-    let terminal = echo["id"]
+    let terminal = field(&echo, "id")
         .as_str()
         .ok_or_else(|| io::Error::other("terminal.spawn returned no id"))?;
 
@@ -570,7 +581,7 @@ pub mod flood {
                     "cwd":project, "command":["/bin/sh","-c","stty -echo; read -r start; exec yes"],
                     "env":{},"cols":80,"rows":24
                 })).await?;
-                let id = terminal["id"]
+                let id = crate::measure::field(&terminal, "id")
                     .as_str()
                     .ok_or("missing Terminal id")?
                     .to_owned();
@@ -585,7 +596,7 @@ pub mod flood {
                 call(&selected, "terminal.output", json!({"id":id})).await?;
                 counted
                     .lock()
-                    .expect("counters")
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .insert(id.clone(), (0, 0, 0));
                 let (id, counted) = (id.clone(), Arc::clone(&counted));
                 collectors.spawn(async move {
@@ -593,9 +604,10 @@ pub mod flood {
                     let _selected = selected;
                     loop {
                         let frame = frames.recv().await;
-                        let mut counters = counted.lock().expect("counters");
-                        let (chunks, gaps, lagged) =
-                            counters.get_mut(&id).expect("counted Terminal");
+                        let mut counters = counted
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                        let (chunks, gaps, lagged) = counters.entry(id.clone()).or_default();
                         match frame {
                             Ok(OutputFrame::Bytes(bytes)) if bytes.id == id => *chunks += 1,
                             Ok(OutputFrame::Bytes(_)) => {}
@@ -621,7 +633,7 @@ pub mod flood {
                 call(
                     &client,
                     "rail.rename",
-                    json!({"id":rail["id"],"name":identity}),
+                    json!({"id":crate::measure::field(&rail, "id"),"name":identity}),
                 )
                 .await?;
                 report.markers_emitted.push(identity.into());
@@ -632,7 +644,9 @@ pub mod flood {
             }
             loop {
                 {
-                    let counters = counted.lock().expect("counters");
+                    let counters = counted
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
                     for (id, (chunks, _, _)) in counters.iter() {
                         report.chunks.insert(id.clone(), *chunks);
                     }

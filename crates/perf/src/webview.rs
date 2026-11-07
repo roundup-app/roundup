@@ -3,6 +3,7 @@ use std::io;
 use serde_json::Value;
 
 use crate::budget::{Budgets, Miss, Report, judge_all, median};
+use crate::measure::field;
 
 /// Frames slower than this mean the window was not drawn at full rate (behind other windows, occluded): the run says nothing about rendering.
 const FRAME_LIMIT_MS: f64 = 25.0;
@@ -79,7 +80,7 @@ pub fn checked(report: &Value) -> io::Result<()> {
 
     // R20: a report without every hop's p50/p95 cannot choose a repair.
     for hop in HOPS {
-        let measured = &report["hops"][hop];
+        let measured = field(field(report, "hops"), hop);
         if measured["n"].as_u64() != Some(samples)
             || !measured["p50"]
                 .as_f64()
@@ -123,8 +124,14 @@ pub fn judge_runs(reports: &[Value], limit_ms: f64) -> (u8, Vec<String>) {
             continue;
         }
         // `checked` validated these fields at the report boundary.
-        let p95 = report["p95"].as_f64().expect("checked p95");
-        let dropped = report["dropped"].as_u64().expect("checked drops");
+        let (Some(p95), Some(dropped)) = (
+            field(report, "p95").as_f64(),
+            field(report, "dropped").as_u64(),
+        ) else {
+            exit = 2;
+            failures.push(format!("run {run}: invalid observation: no p95 or drops"));
+            continue;
+        };
         if p95 >= limit_ms {
             exit = exit.max(1);
             failures.push(format!("run {run}: p95 {p95} ms, budget < {limit_ms} ms"));
@@ -208,9 +215,10 @@ pub fn checked_switch(report: &Value) -> io::Result<()> {
             Some(value) if value.is_finite() && value >= 0.0 => {}
             _ => return Err(failure(format!("the report has no valid {metric}"))),
         }
-        let (Some(n), Some(dropped)) =
-            (report[kind]["n"].as_u64(), report[kind]["dropped"].as_u64())
-        else {
+        let (Some(n), Some(dropped)) = (
+            field(field(report, kind), "n").as_u64(),
+            field(field(report, kind), "dropped").as_u64(),
+        ) else {
             return Err(failure(format!("the report has no {kind} sample counts")));
         };
         let total = n.saturating_add(dropped);
@@ -251,13 +259,14 @@ pub fn judge_switch(
 
     let mut per_run = std::collections::BTreeMap::new();
     for (metric, _) in SWITCH_METRICS {
-        per_run.insert(
-            metric.to_string(),
-            reports
-                .iter()
-                .map(|report| report[metric].as_f64().expect("checked metric"))
-                .collect::<Vec<f64>>(),
-        );
+        let Some(values) = reports
+            .iter()
+            .map(|report| field(report, metric).as_f64())
+            .collect::<Option<Vec<f64>>>()
+        else {
+            return (2, vec![format!("the report has no valid {metric}")]);
+        };
+        per_run.insert(metric.to_string(), values);
     }
     let metrics = per_run
         .iter()
@@ -297,7 +306,7 @@ pub fn judge_switch(
         .misses
         .iter()
         .map(|(name, miss)| {
-            let value = result.metrics[name];
+            let value = result.metrics.get(name).copied().unwrap_or(f64::NAN);
             match miss {
                 Miss::OverLimit { limit } => format!("{name} {value} ms, over its limit {limit} ms"),
                 Miss::Regressed { baseline, ceiling } => format!(
