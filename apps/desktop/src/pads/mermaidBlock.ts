@@ -1,4 +1,4 @@
-import { tokenColour } from "../ui/tokenColour";
+import { tokenColour, tokenValue } from "../ui/tokenColour";
 import { copy } from "./copy";
 import type { VisualMount } from "./visualBlocks";
 
@@ -28,7 +28,7 @@ const render = async (mermaid: MermaidApi, text: string) => {
       secondaryColor: tokenColour("--sunken"),
       tertiaryColor: tokenColour("--ground"),
       textColor: tokenColour("--text"),
-      fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--font-ui").trim(),
+      fontFamily: tokenValue("--font-ui"),
     },
   });
   // `parse` first: a failed `render` leaves its error diagram in the document.

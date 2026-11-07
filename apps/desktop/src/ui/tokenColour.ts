@@ -10,8 +10,10 @@ const canvas = () => {
  * A Token's computed colour in a form colour parsers outside the browser read (hex, `rgb()`).
  * `color(display-p3 …)` goes through a 1×1 sRGB canvas, which maps it to the nearest sRGB colour.
  */
+export const tokenValue = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
 export const tokenColour = (name: string) => {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const value = tokenValue(name);
 
   if (!value.startsWith("color(")) return value;
   const context = canvas();
