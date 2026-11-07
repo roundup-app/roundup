@@ -1,3 +1,4 @@
+import { foldLayout } from "./foldLayout";
 import { createMemo, createSignal, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
@@ -37,10 +38,12 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
-export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
+export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, scope: () => HTMLElement | undefined = () => undefined) => {
   const { rail, now } = connected;
   /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
-  const [lifted, onLift] = createSignal<string | null>(null);
+  const [lifted, setLifted] = createSignal<string | null>(null);
+  /** The fold and its return ease the rows (M5); a rail not yet mounted has none to ease. */
+  const onLift = (id: string | null) => foldLayout(scope(), connected.reducedMotion(), () => setLifted(id));
   const collapsed = rail.collapsed;
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
@@ -143,11 +146,11 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: topology().nodes[topology().parent[topology().index.get(row.node.id)!] ?? -1]?.id ?? null })));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
-  // Built on the first drop asked about, so a Rail nobody drags reads no node twice.
-  let placed: { from: typeof rail.nodes; map: Map<string, { id: string; kind: ProjectNode["kind"]; parent: string | null }> } | undefined;
+  // Built on the first drop asked about after a move landed: the topology is a new object whenever a node's parent changes.
+  let placed: { from: ReturnType<typeof topology>; map: Map<string, { id: string; kind: ProjectNode["kind"]; parent: string | null }> } | undefined;
 
   const placeNodes = () => {
-    if (placed?.from !== rail.nodes) placed = { from: rail.nodes, map: new Map(rail.nodes.map((node) => [node.id, { id: node.id, kind: node.kind, parent: node.parent }])) };
+    if (placed?.from !== topology()) placed = { from: topology(), map: new Map(rail.nodes.map((node) => [node.id, { id: node.id, kind: node.kind, parent: node.parent }])) };
 
     return placed.map;
   };
