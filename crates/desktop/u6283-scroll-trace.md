@@ -140,3 +140,37 @@ Per Observer line:
 | a long Claude Code conversation scrolls as plain text does (U6283e) | NOT PROVEN: the scroll is Claude Code's redraw, not roundup's scrollback |
 
 Next: case C (four pictures read in the same resumed session), then the same resumed session in macOS Terminal as a baseline. That baseline separates Claude Code's redraw cost from roundup's (U6283c).
+
+## Trace 5, main after #6626
+
+Date: 2026-11-07, one Mac (Apple silicon, 120 Hz display), screen unlocked, no one using the Mac during a run.
+Commit measured: 2e39c9386 (origin/main with #6626, U6283a to U6283e). Debug `.app` with its own identifier, `dev.roundup.app6283m`.
+Method: `xcrun xctrace record --template 'Animation Hitches' --time-limit 16s`, attached to one process under test, never all processes. A run takes about 110 s to finish saving and writes several GB of raw trace; each trace was exported and deleted. Scroll: wheel input, 20 batches of 15 ticks at one point, started about 3 s after the recorder. Cases B and C scroll up (B2 and C2 scroll down).
+Content: A is one Agent's Terminal holding 10,000 lines of real Claude Code transcript text. B is a live `claude --resume --model haiku` of a real 30 MB conversation, images folded. C is the same session after four images were read, two of them opened and one folded again; Claude Code drew them as labelled frames, and no picture raster showed in the screenshots.
+Main-thread task: a run of consecutive 1 ms profiler samples of the WebContent main thread. Only running time is sampled, so a task that blocks is split in two. The earlier traces were re-read the same way.
+
+| case | longest main-thread task | tasks over 16.7 ms | displayed-frame gaps over 16.7 ms | p95 gap |
+|---|---|---|---|---|
+| A, plain 10,000 lines, main | 4 ms | 0 | 6 of 1,849 (longest 33.3 ms) | 8.33 ms |
+| B1, resumed Claude Code, up | 6 ms | 0 | 19 of 49 | 50 ms |
+| B2, same, down | 4 ms | 0 | 20 of 40 | 50 ms |
+| C1, four images, up (attached to the App, so no WebContent samples) | not measured | not measured | 20 of 53 | 50 ms |
+| C2, same, down | 6 ms | 0 | 20 of 52 | 50 ms |
+| macOS Terminal, same resumed session, up and down (attached to Terminal) | 5 ms up, 3 ms down | 0, 0 | not captured | not captured |
+| Earlier plain traces: before #6302, after #6302, after #6332 (two runs) | 9, 9, 9, 9 ms | 0, 0, 0, 0 | 8, 5, 5, 0 | 8.33 ms (16.67 ms in one noisy run) |
+| Earlier resumed Claude Code (trace 4, bundle 9438f670c) | not measured | not measured | 20 of 44 up, 31 of 107 down | 50 and 75 ms |
+
+What was seen:
+- No main-thread task over 16.7 ms in any new run. The longest is 6 ms in a Claude Code case and 4 ms in plain output.
+- No hitch appeared in any new run. Earlier traces showed 3 to 13, and an idle bundle showed 90 in 12 s, so hitch counts are noisy here.
+- In B and C the wheel goes to Claude Code, which redraws in the alternate screen, and roundup's scrollback stays still. The displayed frames arrive about every 41 to 50 ms, which is the redraw pace of that scroll. These runs do not show whether that pace is Claude Code's or roundup's (U6283c).
+- macOS Terminal ran the same resumed session at 213 by 64 cells. Its main thread shows no hitch and no task over 16.7 ms. An attached trace of Terminal records only 2 presented frames, so its frame gaps are not captured; the comparison that would show whether the 50 ms gaps are Claude Code's pace needs a recording of all processes, which this Mac does not finish in time.
+- Plain output (A) presents a frame every refresh, with 6 gaps over 16.7 ms in 16 s and a longest gap of 33.3 ms.
+
+Per Observer line:
+
+| line | result |
+|---|---|
+| no frame over 16.7 ms | NOT PROVEN: A has 6 gaps over 16.7 ms, B and C have about 20 |
+| no long task started by roundup's scripts | PROVEN for these runs: no main-thread task over 16.7 ms, longest 6 ms |
+| a long conversation with pictures scrolls as plain text does (U6283e) | NOT PROVEN: the scroll is Claude Code's redraw, not roundup's scrollback |
