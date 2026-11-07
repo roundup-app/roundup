@@ -745,21 +745,26 @@ impl Messages {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::inbox::tests::{pending, setup};
+    use crate::inbox::tests::{pending, pending_as, setup};
     use contracts::agent::DigestEntry;
 
     #[tokio::test(start_paused = true)]
     async fn b5640e_quiet_work_rides_one_idle_batch() {
         let dir = tempfile::tempdir().unwrap();
         let (messages, _, inbox) = setup(dir.path());
-        let body = crate::digest::push_body(&DigestEntry {
+        let entry = DigestEntry {
             name: "child".into(),
             kind: Kind::Working,
             last: "unchanged".into(),
             todos: 2,
             link: None,
             pads: vec![],
-        });
+        };
+        let body = crate::digest::push_body(&entry);
+        let payload = crate::pushes::Payload::Digest {
+            entries: vec![entry],
+            stands_for: 1,
+        };
         let history = lock(&messages.inner.store)
             .insert(
                 &Actor::daemon(),
@@ -771,10 +776,10 @@ mod tests {
                 None,
                 0,
                 (1, 1),
-                &crate::pushes::Payload::Note,
+                &payload,
             )
             .unwrap();
-        let quiet = pending(&messages, &Actor::daemon(), &body);
+        let quiet = pending_as(&messages, &Actor::daemon(), &body, &payload);
         on_idle(&messages.inner, "m", (1, 2), Pick::Next)
             .await
             .unwrap();

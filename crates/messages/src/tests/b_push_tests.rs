@@ -103,6 +103,11 @@ impl Pushes {
         pushes::flush(&self.messages.inner).await;
     }
 
+    /// B6506: what the stored Message `m` is.
+    fn pl(&self, m: &Message) -> pushes::Payload {
+        lock(&self.messages.inner.store).payload(m.id).unwrap()
+    }
+
     async fn all(&self) -> Vec<Message> {
         let all = self
             .call_as(Actor::user(), "message.list", json!({}))
@@ -116,7 +121,7 @@ impl Pushes {
         self.all()
             .await
             .into_iter()
-            .filter(|m| pushes::is_digest(&m.from, &m.body) && m.status != MessageStatus::Dropped)
+            .filter(|m| self.pl(m).is_digest() && m.status != MessageStatus::Dropped)
             .collect()
     }
 }
@@ -147,7 +152,7 @@ async fn b22_the_ninth_push_in_a_window_waits_and_leaves_at_its_end_as_one_rollu
         rollup.body
     );
     // The newest change first: c10, then c9, then c8.
-    let lines = pushes::entries_of(&rollup.body);
+    let lines = h.pl(rollup).entries().to_vec();
     assert_eq!(
         lines
             .iter()
@@ -171,11 +176,12 @@ async fn b22_a_rollup_names_eight_children_and_the_rest_in_one_line_cut_at_512_b
             .await;
     }
     h.at(60_000).await;
-    let rollup = h.standing().await.pop().unwrap().body;
+    let sent = h.standing().await.pop().unwrap();
+    let rollup = sent.body.clone();
     assert!(rollup.starts_with("[digest] [30 updates kept back]\n"));
     assert!(rollup.len() <= 4096, "{}", rollup.len());
     let lines: Vec<&str> = rollup.lines().collect();
-    let kept = pushes::entries_of(&rollup);
+    let kept = h.pl(&sent).entries().to_vec();
     assert_eq!(kept.len(), 8);
     // Newest change first: the last child pushed leads.
     assert!(kept[0].name.starts_with("child-29-"));
@@ -210,14 +216,14 @@ async fn b22_the_twenty_first_open_digest_merges_the_oldest_two() {
         last.body
     );
     // The newest entry of each child the two named: #2 changed c1, #1 changed c0.
-    assert_eq!(pushes::names_in(&last.body), ["c1", "c0"]);
+    assert_eq!(h.pl(&last).names(), ["c1", "c0"]);
     // `m` reads a Message that was merged away (P7).
     let got = h
         .call_as(agent("top"), "message.get", json!({"id": 1}))
         .await
         .unwrap();
     assert_eq!(got["reason"], "merged");
-    assert_eq!(pushes::weight(&last.body), 2);
+    assert_eq!(h.pl(&last).weight(), 2);
 }
 
 #[tokio::test]
@@ -233,12 +239,12 @@ async fn b22_a_merge_counts_the_changes_a_merged_digest_already_counted() {
     assert_eq!(
         standing
             .iter()
-            .map(|m| pushes::weight(&m.body))
+            .map(|m| h.pl(&m).weight())
             .sum::<u32>(),
         60
     );
     // A merge that is itself merged later weighs its own N.
-    assert!(standing.iter().any(|m| pushes::weight(&m.body) >= 3));
+    assert!(standing.iter().any(|m| h.pl(&m).weight() >= 3));
 }
 
 #[tokio::test]
@@ -259,7 +265,7 @@ async fn b22_after_a_burst_of_100_changes_every_change_is_counted_once() {
     let all = h.all().await;
     let digests: Vec<&Message> = all
         .iter()
-        .filter(|m| pushes::is_digest(&m.from, &m.body))
+        .filter(|m| h.pl(m).is_digest())
         .collect();
     let standing: Vec<&&Message> = digests
         .iter()
@@ -269,7 +275,7 @@ async fn b22_after_a_burst_of_100_changes_every_change_is_counted_once() {
     assert_eq!(
         standing
             .iter()
-            .map(|m| pushes::weight(&m.body))
+            .map(|m| h.pl(&m).weight())
             .sum::<u32>(),
         100
     );
@@ -362,7 +368,7 @@ async fn b23_pending_pushes_and_a_rollup_survive_a_restart_and_the_window_starts
             .map(|m| (m.id, m.body.clone(), m.status))
             .collect::<Vec<_>>()
     );
-    assert_eq!(pushes::weight(&after[8].body), 3);
+    assert_eq!(h.pl(&after[8]).weight(), 3);
 
     // The same instant: the window is empty again, so eight pushes go out at once.
     for n in 0..8 {
@@ -428,17 +434,27 @@ async fn b33_a_push_a_rollup_and_a_merge_have_no_json() {
 
 #[tokio::test]
 async fn b33_the_text_round_trips_through_weight_and_entries_of() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
     let mut entry = entry("a name with is in it", 7);
     entry.kind = Kind::NeedsYou;
     entry.last = "I filed #1077: https://x (Mode: specify)".into();
     entry.pads = vec!["one".into(), "[cut]".into()];
-    let body = digest::push_body(&entry);
-    assert_eq!(pushes::weight(&body), 1);
-    assert_eq!(pushes::entries_of(&body), [entry.clone()]);
-    let counted = pushes::counted(&body, 4);
-    assert!(counted.ends_with("(4 changes)"));
-    assert_eq!(pushes::weight(&counted), 4);
-    assert_eq!(pushes::entries_of(&counted), [entry]);
+    h.push(&entry).await;
+    let sent = h.standing().await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].body, digest::push_body(&entry));
+    assert_eq!(h.pl(&sent[0]).weight(), 1);
+    assert_eq!(h.pl(&sent[0]).entries(), [entry.clone()]);
+    // The fold of B34 keeps the entry and counts the older push with it.
+    let mut newer = entry.clone();
+    newer.todos = 8;
+    h.push(&newer).await;
+    let folded = h.standing().await;
+    let newest = folded.last().unwrap();
+    assert!(newest.body.ends_with("(2 changes)"), "{}", newest.body);
+    assert_eq!(h.pl(newest).weight(), 2);
+    assert_eq!(h.pl(newest).entries(), [newer]);
 }
 
 async fn burst_of_100(same_children: bool) {
@@ -459,7 +475,7 @@ async fn burst_of_100(same_children: bool) {
     assert_eq!(
         standing
             .iter()
-            .map(|m| pushes::weight(&m.body))
+            .map(|m| h.pl(&m).weight())
             .sum::<u32>(),
         100
     );
@@ -531,14 +547,14 @@ async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
     let standing = h.standing().await;
     let ninth: Vec<_> = standing
         .iter()
-        .filter(|m| pushes::names_in(&m.body).contains(&"c8".into()))
+        .filter(|m| h.pl(&m).names().contains(&"c8".into()))
         .collect();
     assert_eq!(
         ninth.len(),
         1,
         "the ninth entry was silently lost while its Door was stopped"
     );
-    assert_eq!(pushes::weight(&ninth[0].body), 1);
+    assert_eq!(h.pl(&ninth[0]).weight(), 1);
 }
 
 fn door_terminal(h: &Pushes, terminal: Option<&str>) {
@@ -575,9 +591,9 @@ async fn b21_stopped_changes_compact_by_subagent_and_keep_weight_after_failed_st
     h.at(7_000_001).await;
     let sent = h.standing().await;
     assert_eq!(sent.len(), 1);
-    assert_eq!(pushes::weight(&sent[0].body), 100);
+    assert_eq!(h.pl(&sent[0]).weight(), 100);
     assert_eq!(
-        pushes::entries_of(&sent[0].body),
+        h.pl(&sent[0]).entries(),
         [entry("renamed-100", 100)]
     );
 }
@@ -637,10 +653,10 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     h.at(60_001).await;
     let sent = h.standing().await;
     assert_eq!(sent.len(), 1);
-    assert_eq!(pushes::weight(&sent[0].body), 2);
+    assert_eq!(h.pl(&sent[0]).weight(), 2);
     let mut newest = entry("d", 2);
     newest.last = "status".into();
-    assert_eq!(pushes::entries_of(&sent[0].body), [newest]);
+    assert_eq!(h.pl(&sent[0]).entries(), [newest]);
 }
 
 #[tokio::test]
@@ -670,8 +686,8 @@ async fn b21_live_door_refusal_keeps_entries_eligible_for_retry() {
     h.push(&entry("c", 2)).await;
     let sent = h.standing().await;
     assert_eq!(sent.len(), 1);
-    assert_eq!(pushes::weight(&sent[0].body), 2);
-    assert_eq!(pushes::entries_of(&sent[0].body), [entry("c", 2)]);
+    assert_eq!(h.pl(&sent[0]).weight(), 2);
+    assert_eq!(h.pl(&sent[0]).entries(), [entry("c", 2)]);
 }
 
 #[test]
@@ -730,9 +746,9 @@ async fn b21_same_named_subagents_keep_separate_waiting_entries() {
     h.at(1).await;
     let sent = h.standing().await;
     assert_eq!(sent.len(), 1);
-    assert_eq!(pushes::weight(&sent[0].body), 2);
+    assert_eq!(h.pl(&sent[0]).weight(), 2);
     assert_eq!(
-        pushes::entries_of(&sent[0].body),
+        h.pl(&sent[0]).entries(),
         [entry("same-name", 2), entry("same-name", 1)]
     );
 }
@@ -754,19 +770,20 @@ async fn b49_an_end_note_in_a_rollup_keeps_the_512_byte_entry() {
     let h = Pushes::new(dir.path());
     // A lone end note is the plain push, with its 600-byte `last`.
     h.push(&end_entry("alone")).await;
-    let plain = h.standing().await.pop().unwrap().body;
-    assert_eq!(pushes::entries_of(&plain)[0].last.len(), 600);
+    let plain = h.standing().await.pop().unwrap();
+    assert_eq!(h.pl(&plain).entries()[0].last.len(), 600);
     for n in 0..7 {
         h.push(&entry("early", n)).await;
     }
     h.push(&end_entry("ended")).await;
     h.at(60_000).await;
-    let rollup = h.standing().await.pop().unwrap().body;
+    let sent = h.standing().await.pop().unwrap();
+    let rollup = sent.body.clone();
     assert!(
         rollup.starts_with("[digest] [1 updates kept back]\n"),
         "{rollup}"
     );
-    let kept = pushes::entries_of(&rollup);
+    let kept = h.pl(&sent).entries().to_vec();
     assert_eq!(kept[0].name, "ended");
     assert!(kept[0].last.len() <= 120 && kept[0].last.ends_with("[cut]"));
     assert!(digest::entry_text(&kept[0]).len() <= 512);
@@ -799,48 +816,84 @@ async fn dcl10a_a_refused_ledger_write_keeps_the_entry_waiting() {
     assert_eq!(pushes::Ledger::load(&other).waiting_count("top"), 1);
 }
 
-/// B6506: the push, the fold, the Rollup and the merge each write their payload with their body.
+/// B6506: the push, the fold, the Rollup and the merge each write their payload with their body,
+/// and the body is the renderer's output for the payload.
 #[tokio::test]
-async fn b6506_a_pending_digest_is_never_stored_as_note() {
+async fn b6506_the_body_is_the_rendering_of_the_payload() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
-    for n in 0..30 {
-        h.at(n).await;
-        h.push(&entry(&format!("c{}", n % 12), n as u32)).await;
+    // A plain push and a fold of it, then a burst that rolls up and merges.
+    h.push(&entry("f", 0)).await;
+    h.push(&entry("f", 1)).await;
+    for n in 0..60_u32 {
+        h.at(i64::from(n / 8) * 60_000).await;
+        h.push(&entry(&format!("c{n}"), n)).await;
     }
-    h.at(60_000).await;
     let stored = h.all().await;
-    let digests: Vec<&Message> = stored
-        .iter()
-        .filter(|m| m.from == Actor::daemon() && m.body.starts_with("[digest]"))
-        .collect();
+    let digests: Vec<&Message> = stored.iter().filter(|m| h.pl(m).is_digest()).collect();
     assert!(!digests.is_empty(), "{} digests", digests.len());
     let mut shapes = std::collections::HashSet::new();
     for message in digests {
-        let payload = lock(&h.messages.inner.store).payload(message.id).unwrap();
+        let payload = h.pl(message);
         let pushes::Payload::Digest {
             entries,
             stands_for,
-        } = payload
+        } = &payload
         else {
-            panic!("{} is stored as {payload:?}: {}", message.id, message.body);
+            unreachable!("{payload:?}")
         };
-        assert_eq!(
-            stands_for,
-            pushes::weight(&message.body),
-            "{}",
-            message.body
-        );
-        assert_eq!(
-            entries,
-            pushes::entries_of(&message.body),
-            "{}",
-            message.body
-        );
-        shapes.insert(
-            message.body.lines().next().unwrap().contains('[') as u8 + 2 * (stands_for > 1) as u8,
-        );
+        if payload.is_plain_push(&message.body) {
+            let [entry] = entries.as_slice() else {
+                panic!("{} holds {} entries", message.id, entries.len());
+            };
+            assert_eq!(
+                message.body,
+                pushes::counted(&digest::push_body(entry), *stands_for)
+            );
+            shapes.insert(u8::from(*stands_for > 1));
+        } else {
+            let rendered: String = entries
+                .iter()
+                .map(digest::entry_text)
+                .collect::<Vec<_>>()
+                .join("\n");
+            let body = message.body.split_once('\n').map_or("", |(_, rest)| rest);
+            assert!(body.starts_with(&rendered), "{}", message.body);
+            assert!(message.body.contains(&stands_for.to_string()));
+            shapes.insert(2 + u8::from(message.body.contains("earlier updates")));
+        }
     }
-    // A plain push and a folded or counted one were both stored.
-    assert!(shapes.len() >= 2, "{shapes:?}");
+    // A plain push, a fold, a Rollup and a merge were all stored.
+    assert_eq!(shapes.len(), 4, "{shapes:?}");
+}
+
+/// B6506: a Message from anyone but `rupd` is a `Note`, whatever its body starts with.
+#[tokio::test]
+async fn b6506_a_user_note_that_starts_with_digest_is_a_note() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    for body in [
+        digest::push_body(&entry("c", 1)),
+        "[wake]\nc is idle".to_owned(),
+    ] {
+        let sent = h
+            .call_as(
+                Actor::user(),
+                "message.send",
+                json!({"to": "top", "kind": "note", "body": body}),
+            )
+            .await
+            .unwrap();
+        let sent: Message = serde_json::from_value(sent).unwrap();
+        assert_eq!(h.pl(&sent), pushes::Payload::Note);
+    }
+    // B1 counts both against the 32, and a push of `c` folds neither.
+    assert_eq!(lock(&h.messages.inner.store).count_open("top").unwrap(), 2);
+    h.push(&entry("c", 2)).await;
+    assert!(
+        h.all()
+            .await
+            .iter()
+            .all(|m| m.status != MessageStatus::Dropped)
+    );
 }

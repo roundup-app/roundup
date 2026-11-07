@@ -147,6 +147,12 @@ async fn n16_all_stores_share_one_project_database() {
     expected.extend(standalone::schema(&resize_schema));
     let rail = include_str!("../../storage/migrations/project/0027-rail-deletions.sql");
     resize_schema.execute_batch(rail).unwrap();
+    // B6506: the Messages' payload column is the one Project migration.
+    resize_schema
+        .execute_batch(include_str!(
+            "../../storage/migrations/project/0052-message-payload.sql"
+        ))
+        .unwrap();
     expected.extend(standalone::schema(&resize_schema));
     let mut retention = Connection::open_in_memory().unwrap();
     agents::schema::open(&mut retention, Path::new("agents")).unwrap();

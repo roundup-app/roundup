@@ -143,6 +143,15 @@ fn b5640a_history_materializes_only_matching_rows() {
         )
         .unwrap();
     let expected = [1, 2, 3, 4, 14];
+    // B6506: the payload alone says which of them are digests.
+    store
+        .db
+        .execute(
+            "UPDATE messages SET payload = '{\"Digest\":{\"entries\":[],\"stands_for\":1}}'
+             WHERE id IN (1, 2, 3, 4, 14)",
+            [],
+        )
+        .unwrap();
     for unrelated in [false, true] {
         if unrelated {
             store

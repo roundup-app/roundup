@@ -554,45 +554,6 @@ pub(crate) fn kind_word(kind: Kind) -> String {
         .unwrap_or_default()
 }
 
-/// B33, AL1: the entry whose first line is `head` (`<name> is <kind>`, then ` (<link>)` when the
-/// entry has one), with the indented `rest` lines.
-pub(crate) fn parse_head(head: &str) -> Option<(String, Kind, Option<String>)> {
-    if head.starts_with([' ', '[']) {
-        return None;
-    }
-    let (head, link) = head
-        .strip_suffix(')')
-        .and_then(|head| head.rsplit_once(" ("))
-        .filter(|(_, link)| link.starts_with("roundup://"))
-        .map_or((head, None), |(head, link)| (head, Some(link.to_owned())));
-    let (name, kind) = head.rsplit_once(" is ")?;
-    let kind = serde_json::from_value(serde_json::Value::String(kind.to_owned())).ok()?;
-    Some((name.to_owned(), kind, link))
-}
-
-/// B33: the entry that `head` and its indented `rest` lines spell, the inverse of `entry_text`.
-pub(crate) fn parse_entry(head: &str, rest: &[&str]) -> Option<DigestEntry> {
-    let (name, kind, link) = parse_head(head)?;
-    let mut entry = DigestEntry {
-        name,
-        kind,
-        link,
-        last: String::new(),
-        todos: 0,
-        pads: Vec::new(),
-    };
-    for line in rest {
-        if let Some(last) = line.strip_prefix("  last: ") {
-            last.clone_into(&mut entry.last);
-        } else if let Some(todos) = line.strip_prefix("  open todos: ") {
-            entry.todos = todos.parse().ok()?;
-        } else if let Some(pads) = line.strip_prefix("  pads: ") {
-            entry.pads = pads.split(", ").map(str::to_owned).collect();
-        }
-    }
-    Some(entry)
-}
-
 /// B35: whether `now` differs from `was` only by an `idle` and `working` flip, its last line
 /// the same.
 fn is_flip(was: &Told, now: &Told) -> bool {

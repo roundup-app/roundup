@@ -130,29 +130,31 @@ impl Messages {
                 let mut body = p.body.clone();
                 if merge {
                     let oldest = store.open_digests(&p.to)?;
-                    let [first, second, ..] = oldest.as_slice() else {
+                    let [(first, first_payload), (second, second_payload), ..] = oldest.as_slice()
+                    else {
                         return Err(Error::conflict("fewer than two pushed digests to merge"));
                     };
-                    (body, payload) = pushes::merged(first, second);
+                    (body, payload) =
+                        pushes::merged((first, first_payload), (second, second_payload));
                     folded = vec![first.id, second.id];
-                } else if digest && pushes::is_plain_push(&p.body) {
+                } else if payload.is_plain_push(&p.body) {
                     // B34: a plain push of a child stands for the older ones it waits with.
-                    let names = pushes::names_in(&p.body);
-                    let older: Vec<Message> = store
+                    let names = payload.names();
+                    let older: Vec<(Message, Payload)> = store
                         .open_digests(&p.to)?
                         .into_iter()
-                        .filter(|m| {
-                            pushes::is_plain_push(&m.body)
-                                && pushes::names_in(&m.body) == names
+                        .filter(|(m, other)| {
+                            other.is_plain_push(&m.body)
+                                && other.names() == names
                                 && m.body != p.body
                         })
                         .collect();
-                    let weight = 1 + older.iter().map(|m| pushes::weight(&m.body)).sum::<u32>();
+                    let weight = 1 + older.iter().map(|(_, other)| other.weight()).sum::<u32>();
                     body = pushes::counted(&p.body, weight);
                     if let Payload::Digest { stands_for, .. } = &mut payload {
                         *stands_for = weight;
                     }
-                    folded = older.iter().map(|m| m.id).collect();
+                    folded = older.iter().map(|(m, _)| m.id).collect();
                 }
                 let message = store.insert(
                     &ctx.actor,

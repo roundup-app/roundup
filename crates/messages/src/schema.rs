@@ -58,7 +58,10 @@ fn migrations() -> Vec<M<'static>> {
         M::up(include_str!("../migrations/009/up.sql")),
         M::up(include_str!("../migrations/010/up.sql")),
         M::up(include_str!("../migrations/012/up.sql")),
-        M::up(include_str!("../migrations/013/up.sql")),
+        // B6506: the one migration is the Project one; the standalone store reads the same file.
+        M::up(include_str!(
+            "../../storage/migrations/project/0052-message-payload.sql"
+        )),
     ]
 }
 
@@ -115,11 +118,22 @@ mod tests {
         let b = entry("b", "", false, &[]);
         let plain = push_body(&a);
         let folded = pushes::counted(&push_body(&b), 4);
-        let rollup =
-            pushes::rollup_body(&[("a".into(), a.clone(), 3), ("b".into(), b.clone(), 2)]).0;
+        let (rollup, rollup_payload) =
+            pushes::rollup_body(&[("a".into(), a.clone(), 3), ("b".into(), b.clone(), 2)]);
         let older = message(7, &plain);
         let newer = message(8, &folded);
-        let merged = pushes::merged(&older, &newer).0;
+        let plain_payload = Payload::Digest {
+            entries: vec![a.clone()],
+            stands_for: 1,
+        };
+        let folded_payload = Payload::Digest {
+            entries: vec![b.clone()],
+            stands_for: 4,
+        };
+        let (merged, merged_payload) = pushes::merged(
+            (&older, &plain_payload),
+            (&newer, &folded_payload),
+        );
         let wake = "[wake]\nworker is idle\n  last: done".to_owned();
 
         let mut db = Connection::open_in_memory().unwrap();
@@ -154,23 +168,10 @@ mod tests {
                 .unwrap();
             serde_json::from_str(&text).unwrap()
         };
-        for (id, body) in ids.iter().zip(digests) {
-            assert_eq!(
-                payload(*id),
-                Payload::Digest {
-                    entries: pushes::entries_of(body),
-                    stands_for: pushes::weight(body)
-                },
-                "{body}"
-            );
+        let expected = [plain_payload, folded_payload, rollup_payload, merged_payload];
+        for ((id, body), expected) in ids.iter().zip(digests).zip(expected) {
+            assert_eq!(payload(*id), expected, "{body}");
         }
-        assert_eq!(
-            payload(ids[1]),
-            Payload::Digest {
-                entries: vec![b.clone()],
-                stands_for: 4
-            }
-        );
         assert_eq!(payload(wake_id), Payload::Wake { ids: vec![] });
         assert_eq!(payload(user_id), Payload::Note);
         assert_eq!(payload(note_id), Payload::Note);
@@ -182,6 +183,37 @@ mod tests {
             .map(Result::unwrap)
             .collect();
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn b6506_a_pending_digest_is_never_stored_as_note() {
+        let mut db = Connection::open_in_memory().unwrap();
+        let all = migrations();
+        Migrations::new(all[..all.len() - 1].to_vec())
+            .to_latest(&mut db)
+            .unwrap();
+        let body = crate::digest::push_body(&contracts::agent::DigestEntry {
+            name: "c".into(),
+            kind: contracts::Kind::Error,
+            last: "failed".into(),
+            todos: 1,
+            link: None,
+            pads: vec![],
+        });
+        old_row(&db, &contracts::Actor::daemon(), &body);
+        old_row(&db, &contracts::Actor::user(), "a note");
+        Migrations::new(all).to_latest(&mut db).unwrap();
+        let count = |filter: &str| -> i64 {
+            db.query_row(
+                &format!("SELECT COUNT(*) FROM messages WHERE status = 'pending' AND {filter}"),
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(count("json_extract(payload, '$.Digest') IS NOT NULL"), 1);
+        // B1 counts only the Messages that are neither a Digest nor a Wake.
+        assert_eq!(count("json_extract(payload, '$.Digest') IS NULL"), 1);
     }
 
     #[test]

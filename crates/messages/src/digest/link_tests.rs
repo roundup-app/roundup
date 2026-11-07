@@ -21,6 +21,4 @@ fn al1_a_digest_entry_carries_the_agents_link() {
         head.starts_with("a-name is ") && head.ends_with(&format!("({link})")),
         "{head}"
     );
-    let rest: Vec<&str> = text.lines().skip(1).collect();
-    assert_eq!(super::parse_entry(head, &rest).as_ref(), Some(entry));
 }
