@@ -1,9 +1,10 @@
 import "./Field.css";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import "./Checkbox.css";
 import { Checkbox as ArkCheckbox } from "@ark-ui/solid/checkbox";
 import Check from "lucide-solid/icons/check";
 import Minus from "lucide-solid/icons/minus";
-import { createEffect, onCleanup, type JSX } from "solid-js";
+import { createEffect, type JSX } from "solid-js";
 
 /** A labelled on/off choice over Ark's Checkbox; Space toggles it and the caller owns the value. */
 export const Checkbox = (props: { class?: string; inputRef?: (element: HTMLInputElement) => void; onKeyDown?: JSX.EventHandlerUnion<HTMLInputElement, KeyboardEvent>; onClickCapture?: (event: MouseEvent) => void; checked: boolean | "indeterminate"; invalid?: boolean; disabled?: boolean; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => (
@@ -15,8 +16,7 @@ export const Checkbox = (props: { class?: string; inputRef?: (element: HTMLInput
       const click = props.onClickCapture;
 
       if (click) {
-        element.addEventListener("click", click, true);
-        onCleanup(() => element.removeEventListener("click", click, true));
+        makeEventListener(element, "click", click, true);
       }
 
       createEffect(() => { element.indeterminate = props.checked === "indeterminate"; }); }} style="" />} />

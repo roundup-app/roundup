@@ -237,29 +237,48 @@ impl Daemon {
         .await
     }
 
-    pub(super) async fn rail_deletion_call(
+    /// `rail.deletion`: the retained removal of an operation, or nothing.
+    pub(super) async fn rail_deletion(
         &self,
         conn: &mut crate::Conn,
-        method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::DeletionParams,
+    ) -> Result<Option<contracts::agent::Removal>, RpcError> {
+        self.rail_removal(conn, p, false).await
+    }
+
+    /// `rail.restore`: undo a retained removal.
+    pub(super) async fn rail_restore(
+        &self,
+        conn: &mut crate::Conn,
+        p: contracts::agent::DeletionParams,
+    ) -> Result<contracts::agent::Removal, RpcError> {
+        self.rail_removal(conn, p, true)
+            .await?
+            .ok_or_else(|| RpcError::not_found("Rail removal"))
+    }
+
+    async fn rail_removal(
+        &self,
+        conn: &mut crate::Conn,
+        p: contracts::agent::DeletionParams,
+        restore: bool,
+    ) -> Result<Option<contracts::agent::Removal>, RpcError> {
         use contracts::ActorKind;
-        let p: contracts::agent::DeletionParams = rpc::params(value)?;
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user restores a Rail removal"));
         }
         let Some(receipt) = self.agents.rail_deletion(&conn.actor, &p.operation)? else {
-            return if method == "rail.deletion" {
-                rpc::reply(&Option::<contracts::agent::Removal>::None)
-            } else {
+            return if restore {
                 Err(RpcError::not_found("Rail removal"))
+            } else {
+                Ok(None)
             };
         };
         if retained(&receipt)?.project != p.project {
             return Err(RpcError::forbidden("removal belongs to another Project"));
         }
-        if method == "rail.deletion" || retained(&receipt)?.restored {
-            return rpc::reply(&receipt);
+        if !restore || retained(&receipt)?.restored {
+            return Ok(Some(receipt));
         }
         let actor = conn.actor.clone();
         let after_touch = self.touches.sequence().map_err(RpcError::internal)?;
@@ -321,7 +340,7 @@ impl Daemon {
             file.keep().map_err(RpcError::internal)?;
         }
         self.publish_removal(events, moved)?;
-        rpc::reply(&result)
+        Ok(Some(result))
     }
 
     fn publish_removal(
@@ -410,16 +429,14 @@ fn removal_touch(
 }
 
 impl Daemon {
-    pub(super) async fn rail_redo_call(
+    pub(super) async fn rail_redo(
         &self,
         conn: &mut crate::Conn,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::RedoParams,
+    ) -> Result<contracts::agent::Removal, RpcError> {
         if conn.actor.kind != contracts::ActorKind::User {
             return Err(RpcError::forbidden("only the user redoes a Rail removal"));
         }
-        let p: contracts::agent::RedoParams = rpc::params(value)?;
         let actor = conn.actor.clone();
         let caller = actor.clone();
         let source = p.source.clone();
@@ -456,7 +473,7 @@ impl Daemon {
             files.commit();
             self.publish_removal(events, moved)?;
         }
-        rpc::reply(&result)
+        Ok(result)
     }
 }
 

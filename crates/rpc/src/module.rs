@@ -336,13 +336,71 @@ pub fn reply<T: Serialize>(value: &T) -> Result<Value, RpcError> {
     serde_json::to_value(value).map_err(RpcError::internal)
 }
 
-/// Expand an owning module's declarations into its existing async dispatcher.
+/// Marks a handler that takes the decoded params.
+pub struct WithParams;
+/// Marks a handler of a method with no params: it takes the context only.
+pub struct CtxOnly;
+
+/// A type a handler may return for the declared result `R`: `R` itself, or a type its owner
+/// implements this for when the wire bytes must stay as the answerer sent them.
+pub trait Declared<R> {}
+
+impl<R> Declared<R> for R {}
+
+/// A typed handler, called by `dispatch_methods!`: `P` and `R` are the declared params and result,
+/// `C` the context the owner passes (`&Ctx`, or the Daemon's connection).
+#[allow(async_fn_in_trait)]
+pub trait Handler<S, C, P, R, M> {
+    /// Decode `value` into `P`, call the handler, encode the `R` it returns.
+    async fn run(self, this: &S, ctx: C, value: Value) -> Result<Value, RpcError>;
+}
+
+impl<F, S, C, P, R, Q, E> Handler<S, C, P, R, WithParams> for F
+where
+    F: AsyncFn(&S, C, P) -> Result<Q, E>,
+    P: DeserializeOwned,
+    Q: Serialize + Declared<R>,
+    E: Into<RpcError>,
+{
+    async fn run(self, this: &S, ctx: C, value: Value) -> Result<Value, RpcError> {
+        let params = params::<P>(value)?;
+        reply(&self(this, ctx, params).await.map_err(Into::into)?)
+    }
+}
+
+impl<F, S, C, R, Q, E> Handler<S, C, (), R, CtxOnly> for F
+where
+    F: AsyncFn(&S, C) -> Result<Q, E>,
+    Q: Serialize + Declared<R>,
+    E: Into<RpcError>,
+{
+    async fn run(self, this: &S, ctx: C, _value: Value) -> Result<Value, RpcError> {
+        reply(&self(this, ctx).await.map_err(Into::into)?)
+    }
+}
+
+/// Expand an owning module's declarations into its async dispatcher: each arm decodes the request
+/// into the declared params, calls the typed handler `Self::<handler>(&self, ctx, params)` and
+/// encodes the declared result. A handler returning anything else does not compile:
+///
+/// ```compile_fail
+/// use rpc::{Ctx, RpcError};
+/// struct Owner;
+/// impl Owner {
+///     async fn create(&self, _ctx: &Ctx, _p: u8) -> Result<serde_json::Value, RpcError> {
+///         Ok(serde_json::Value::Null)
+///     }
+///     async fn dispatch(&self, ctx: &Ctx, method: &str, value: serde_json::Value) -> Result<serde_json::Value, RpcError> {
+///         rpc::dispatch_methods!([Self, self, ctx, method, value] "todo.create": u8 => String, create, all();)
+///     }
+/// }
+/// ```
 #[macro_export]
 macro_rules! dispatch_methods {
-    ([$this:ident, $ctx:ident, $method:ident, $value:ident]
+    ([$owner:ty, $this:ident, $ctx:ident, $method:ident, $value:ident]
      $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)*) => {
         match $method {
-            $($wire => $this.$handler($ctx, $method, $value).await,)*
+            $($wire => $crate::Handler::<$owner, _, $params, $result, _>::run(<$owner>::$handler, $this, $ctx, $value).await,)*
             _ => Err($crate::RpcError::method_not_found($method)),
         }
     };
