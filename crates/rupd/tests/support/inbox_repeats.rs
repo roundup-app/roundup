@@ -52,7 +52,7 @@ impl messages::NoteInbox for Peer {
         self.writes
             .lock()
             .extend(entries.iter().map(|entry| entry.id));
-        self.lines.lock().unwrap().extend(
+        self.lines.lock().extend(
             entries
                 .iter()
                 .map(|entry| entry.content("uds:/probe/service", "default")),
@@ -633,13 +633,13 @@ async fn b50_a_long_note_shows_as_one_line() {
             .unwrap()
     );
     let id = newest(&h).await;
-    let content = h.peer.lines.lock().unwrap()[0].clone();
+    let content = h.peer.lines.lock()[0].clone();
     let text = content.split('\n').nth(1).unwrap();
     assert!(text.len() <= 200 && text.ends_with("[cut]"), "{text}");
     assert_eq!(h.get(id).await["body"], body.as_str());
     let plain = h.send("note", &body).await;
     assert!(
-        h.peer.lines.lock().unwrap()[1].contains(&body),
+        h.peer.lines.lock()[1].contains(&body),
         "note {plain} is whole"
     );
 }
