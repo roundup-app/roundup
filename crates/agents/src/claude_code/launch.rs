@@ -14,7 +14,6 @@ use std::sync::{Arc, Mutex, PoisonError};
 use super::vendor_list::Sidecar;
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
-use shlex::try_quote;
 use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
@@ -30,9 +29,6 @@ use super::profiles::profile;
 /// LC14: the one line a Door shows when its bundle lacks the `intent` skill.
 pub const INTENT_MISSING: &str =
     "roundup: hope's intent skill is missing; this Door runs without it.";
-
-/// F4: what the shim for a vendor program prints on stderr before it exits 1.
-const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
 
 /// The hook events that carry state. Notification and SubagentStop are left out on purpose: the
 /// first arrives about 6 s late, the second fires spuriously (ADR 0006). H15's replay rule would
@@ -293,7 +289,7 @@ impl Launcher {
             Err(err) if err.kind() != ErrorKind::NotFound => return Err(err),
             _ => {}
         }
-        remove_shims(dir, id)
+        Ok(())
     }
 
     /// The names LC7 resolves against, for a Project at `project`.

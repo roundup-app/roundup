@@ -70,49 +70,45 @@ fn a3507b_settings_extend_the_user_setup() {
                     .map(|arg| arg.to_str().unwrap().to_owned())
                     .collect();
                 let env: std::collections::BTreeMap<_, _> = command.get_envs().collect();
-                assert_eq!(
-                    env.get(std::ffi::OsStr::new("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")),
-                    Some(&Some(std::ffi::OsStr::new("user-hooks")))
-                );
-                assert_eq!(
-                    env.get(std::ffi::OsStr::new("CLAUDE_CODE_PLUGIN_DIR_WATCH")),
-                    Some(&Some(std::ffi::OsStr::new("user-watch")))
-                );
+                // A user default is Claude Code's to load: neither the process environment nor
+                // the settings file names it.
+                for key in [
+                    "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS",
+                    "CLAUDE_CODE_PLUGIN_DIR_WATCH",
+                ] {
+                    assert_eq!(env.get(std::ffi::OsStr::new(key)), None, "{key}");
+                }
                 let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                for key in ["unknownFuture", "model", "apiKeyHelper"] {
+                    assert!(settings.get(key).is_none(), "{key} copied");
+                }
+                let own_env = settings["env"].as_object().unwrap();
+                for key in ["LAYER", "USER_ONLY", "ENABLE_TOOL_SEARCH"] {
+                    assert!(!own_env.contains_key(key), "{key} copied");
+                }
                 assert_eq!(
-                    settings["unknownFuture"],
-                    json!({"nested":{"user":true,"project":true,"local":true}})
-                );
-                assert_eq!(settings["model"], "local-model");
-                assert_eq!(settings["env"]["LAYER"], "local");
-                assert_eq!(settings["env"]["USER_ONLY"], "yes");
-                assert_eq!(settings["env"]["ENABLE_TOOL_SEARCH"], "user-choice");
-                assert_eq!(settings["permissions"]["ask"], json!(["Bash(*)"]));
-                assert_eq!(settings["permissions"]["deny"], json!(["Read(secret)"]));
-                assert_eq!(settings["permissions"]["defaultMode"], "plan");
-                assert_eq!(settings["permissions"]["future"], json!({"kept":true}));
-                let allow = settings["permissions"]["allow"].as_array().unwrap();
-                assert!(allow.contains(&json!("Read(user)")));
-                assert_eq!(
-                    allow
-                        .iter()
-                        .filter(|v| **v == json!("mcp__roundup__*"))
+                    settings["permissions"]
+                        .as_object()
+                        .unwrap()
+                        .keys()
+                        .filter(|key| *key != "allow")
                         .count(),
-                    1
+                    0
+                );
+                assert!(
+                    !settings["permissions"]["allow"]
+                        .to_string()
+                        .contains("Read(user)")
                 );
                 let stop = settings["hooks"]["Stop"].as_array().unwrap();
-                assert!(stop.contains(&hook));
-                assert_eq!(stop.len(), 2);
-                assert!(stop.iter().any(|group| {
-                    group["hooks"][0]["command"]
+                assert_eq!(stop.len(), 1);
+                assert!(
+                    stop[0]["hooks"][0]["command"]
                         .as_str()
                         .unwrap()
                         .contains("signal")
-                }));
-                assert_eq!(
-                    settings["hooks"]["FutureEvent"][0]["hooks"][0]["command"],
-                    "future-hook"
                 );
+                assert!(settings["hooks"].get("FutureEvent").is_none());
             }
         }
     }
@@ -161,26 +157,18 @@ fn a3564b_native_questions_preserve_each_roles_setup() {
                     assert!(!has(&argv, flag), "{label}: {flag}");
                 }
                 let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                // Claude Code loads the user's rules and hook itself; the file adds none.
                 let rules = &settings["permissions"];
-                assert_eq!(rules["defaultMode"], "auto", "{label}");
-                assert_eq!(rules["ask"], user["permissions"]["ask"], "{label}");
-                assert_eq!(rules["deny"], user["permissions"]["deny"], "{label}");
-                for rule in rules["allow"].as_array().unwrap() {
-                    let rule = rule.as_str().unwrap();
-                    assert!(
-                        user["permissions"]["allow"]
-                            .as_array()
-                            .unwrap()
-                            .contains(&json!(rule))
-                            || rule.starts_with("mcp__roundup__"),
-                        "{label}: added {rule}"
-                    );
+                for key in ["defaultMode", "ask", "deny"] {
+                    assert!(rules.get(key).is_none(), "{label}: {key} copied");
                 }
-                // Routine state hooks observe the request; the user's hook stays and no
-                // other hook is a roundup command that answers.
+                for rule in rules["allow"].as_array().into_iter().flatten() {
+                    let rule = rule.as_str().unwrap();
+                    assert!(rule.starts_with("mcp__roundup__"), "{label}: added {rule}");
+                }
+                // Routine state hooks observe the request and no roundup command answers.
                 let groups = settings["hooks"]["PermissionRequest"].as_array().unwrap();
-                assert_eq!(groups[0], user["hooks"]["PermissionRequest"][0], "{label}");
-                for group in &groups[1..] {
+                for group in groups {
                     let command = group["hooks"][0]["command"].as_str().unwrap();
                     assert!(command.contains("signal"), "{label}: {command}");
                     assert!(!command.contains("permission"), "{label}: {command}");
@@ -233,12 +221,22 @@ fn a3507a_every_launch_keeps_the_users_gateway() {
         } else {
             read(Path::new(selected))
         };
-        assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{argv:?}");
-        assert_eq!(
-            settings["env"]["ANTHROPIC_BASE_URL"],
-            "https://gateway.invalid"
-        );
-        assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers);
+        // An Agent's Claude Code loads the gateway from the user's file; only the placement
+        // call, which reads no user file, carries it in its settings.
+        let carried = argv.contains(&"--no-session-persistence");
+        if carried {
+            assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{argv:?}");
+            assert_eq!(
+                settings["env"]["ANTHROPIC_BASE_URL"],
+                "https://gateway.invalid"
+            );
+            assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers);
+        } else {
+            assert!(settings.get("apiKeyHelper").is_none(), "{argv:?}");
+            for key in ["ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS"] {
+                assert!(settings["env"].get(key).is_none(), "{argv:?}");
+            }
+        }
         // Apply the actual command's additions/removals to the inherited shell fixture.
         let mut effective: std::collections::BTreeMap<_, _> =
             inherited.clone().into_iter().collect();
@@ -350,12 +348,12 @@ fn a3516c_all_profiles_keep_the_renderer_choice() {
                         .map(|arg| arg.to_str().unwrap().to_owned())
                         .collect();
                     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-                    assert_eq!(settings.get("tui"), source.get("tui"));
+                    assert!(settings.get("tui").is_none());
                     for name in [
                         "CLAUDE_CODE_NO_FLICKER",
                         "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN",
                     ] {
-                        assert_eq!(settings["env"].get(name), source["env"].get(name));
+                        assert!(settings["env"].get(name).is_none());
                         // Neither a shell override nor its inherited configuration directory is removed or overwritten.
                         assert!(
                             !command
