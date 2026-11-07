@@ -1,3 +1,4 @@
+import { tokenColour } from "../ui/tokenColour";
 import { copy } from "./copy";
 import type { VisualMount } from "./visualBlocks";
 
@@ -10,8 +11,6 @@ export type MermaidApi = {
 
 let counter = 0;
 
-const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
 /** The error's first line: Mermaid's own message continues with a code frame. */
 const firstLine = (error: Error) => error.message.split("\n")[0]?.trim() || copy.invalidDiagram;
 
@@ -21,15 +20,15 @@ const render = async (mermaid: MermaidApi, text: string) => {
     securityLevel: "strict",
     theme: "base",
     themeVariables: {
-      background: token("--ground"),
-      primaryColor: token("--sunken"),
-      primaryTextColor: token("--text"),
-      primaryBorderColor: token("--grey"),
-      lineColor: token("--grey"),
-      secondaryColor: token("--sunken"),
-      tertiaryColor: token("--ground"),
-      textColor: token("--text"),
-      fontFamily: token("--font-ui"),
+      background: tokenColour("--ground"),
+      primaryColor: tokenColour("--sunken"),
+      primaryTextColor: tokenColour("--text"),
+      primaryBorderColor: tokenColour("--grey"),
+      lineColor: tokenColour("--grey"),
+      secondaryColor: tokenColour("--sunken"),
+      tertiaryColor: tokenColour("--ground"),
+      textColor: tokenColour("--text"),
+      fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--font-ui").trim(),
     },
   });
   // `parse` first: a failed `render` leaves its error diagram in the document.
