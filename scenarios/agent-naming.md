@@ -56,6 +56,10 @@ Acceptance for #6414. Specification only; the implementation is built from the I
 
 Observer: `u6414a_an_app_named_agent_takes_its_first_prompt_name` in `crates/rupd/tests/` (real Daemon: an app-named spawn is renamed by its first prompt, then its `rail_rename` succeeds; a user-typed name stays and `rail_rename` is refused with U6380c's code and message) and a new `apps/desktop/src/rail/importState.test.ts` (the import flow's `agent.spawn` call carries the app-supplied marker; a name typed in the New Agent dialog does not). Extend the U6380c observer's fixture rather than adding another (policy).
 
+**U6463a U6414a's observers hold both sides of the mark.** Given the U6414a fixture, when an app-named Agent has taken its first-prompt name, then its own `rail_rename` succeeds; given an Agent spawned with a name the user typed, then its own `rail_rename` is refused with U6380c's `FORBIDDEN` code and message "the user named this row; keep its name". Given the New Agent dialog submitting a name, then its `agent.spawn` call carries no `appNamed`, while the import flow's call does.
+
+Observer: `u6414a_an_app_named_agent_takes_its_first_prompt_name` (extends the U6380c fixture in `crates/agents/tests/scenarios/naming.rs`) asserts the self `rail_rename` after the rename and the refused `rail_rename` on the user-typed name; `apps/desktop/src/rail/importState.test.ts` asserts the New Agent dialog's spawn has no `appNamed` (policy: no new fixture, no new test file).
+
 ## Regression checks on main
 
 1. `scenarios/agents.md`, headings A9 and A28, and `crates/agents/tests/scenarios/naming.rs`, tests `a9_later_prompts_never_rename_the_agent`, `a9_a_rename_before_the_first_prompt_wins`, `a9_a_rename_while_the_agent_is_still_starting_wins_over_the_first_prompt` and `a28_a_given_name_survives_the_first_prompt`, hold first-prompt finality and explicit-name precedence.
