@@ -79,7 +79,8 @@ impl Conn {
     fn open(socket: &Path) -> Res<Conn> {
         let mut s = UnixStream::connect(socket).map_err(|e| e.to_string())?;
         let mut r = BufReader::new(s.try_clone().map_err(|e| e.to_string())?);
-        let hello = r#"{"jsonrpc":"2.0","id":0,"method":"hello","params":{"generation":1,"framed":true}}"#;
+        let hello =
+            r#"{"jsonrpc":"2.0","id":0,"method":"hello","params":{"generation":1,"framed":true}}"#;
         writeln!(s, "{hello}").map_err(|e| e.to_string())?;
         r.read_line(&mut String::new()).map_err(|e| e.to_string())?;
         Ok(Conn { s, r, id: 0 })
@@ -115,8 +116,14 @@ impl Conn {
 
     /// Attach and return the data channel.
     fn attach(&mut self, name: &str) -> Res<u32> {
-        let r = self.call("terminal.attach", json!({"terminal":name,"cols":100,"rows":30}))?;
-        let ch = r.get("channel").and_then(Value::as_u64).ok_or("attach: no channel")?;
+        let r = self.call(
+            "terminal.attach",
+            json!({"terminal":name,"cols":100,"rows":30}),
+        )?;
+        let ch = r
+            .get("channel")
+            .and_then(Value::as_u64)
+            .ok_or("attach: no channel")?;
         u32::try_from(ch).map_err(|e| e.to_string())
     }
 
@@ -170,7 +177,9 @@ impl Core {
             let _ = tx.send(());
         })
         .map_err(|e| e.to_string())?;
-        watcher.watch(dir, notify::RecursiveMode::NonRecursive).map_err(|e| e.to_string())?;
+        watcher
+            .watch(dir, notify::RecursiveMode::NonRecursive)
+            .map_err(|e| e.to_string())?;
         let end = Instant::now() + Duration::from_secs(10);
         loop {
             match Conn::open(socket) {
@@ -197,11 +206,20 @@ fn rss_mb(sys: &mut System, root: u32) -> f64 {
     let mut tree = vec![Pid::from_u32(root)];
     let mut i = 0;
     while let Some(&p) = tree.get(i) {
-        tree.extend(sys.processes().values().filter(|q| q.parent() == Some(p)).map(|q| q.pid()));
+        tree.extend(
+            sys.processes()
+                .values()
+                .filter(|q| q.parent() == Some(p))
+                .map(|q| q.pid()),
+        );
         i += 1;
     }
     tree.push(Pid::from_u32(std::process::id()));
-    let bytes: u64 = tree.iter().filter_map(|p| sys.process(*p)).map(|p| p.memory()).sum();
+    let bytes: u64 = tree
+        .iter()
+        .filter_map(|p| sys.process(*p))
+        .map(|p| p.memory())
+        .sum();
     bytes as f64 / 1_048_576.0
 }
 
@@ -217,7 +235,8 @@ fn one_run(a: &Args) -> Res<Sample> {
     let mut c = core.dial(&a.socket)?;
     c.run("cold", &a.agent)?;
     let ch = c.attach("cold")?;
-    c.s.write_all(&frame(ch, 0, b"x")).map_err(|e| e.to_string())?;
+    c.s.write_all(&frame(ch, 0, b"x"))
+        .map_err(|e| e.to_string())?;
     c.until(ch, b'x')?;
     let cold_start_ms = t.elapsed().as_secs_f64() * 1e3;
 
@@ -225,7 +244,8 @@ fn one_run(a: &Args) -> Res<Sample> {
     let mut ms = Vec::new();
     for _ in 0..a.keys {
         let t = Instant::now();
-        c.s.write_all(&frame(ch, 0, b"x")).map_err(|e| e.to_string())?;
+        c.s.write_all(&frame(ch, 0, b"x"))
+            .map_err(|e| e.to_string())?;
         c.until(ch, b'x')?;
         ms.push(t.elapsed().as_secs_f64() * 1e3);
     }
@@ -242,7 +262,11 @@ fn one_run(a: &Args) -> Res<Sample> {
         open.push(c);
     }
     let rss_extra_mb = rss_mb(&mut sys, core.0.id()) - before;
-    Ok(Sample { cold_start_ms, keystroke_p95_ms: percentile(&mut ms, 95), rss_extra_mb })
+    Ok(Sample {
+        cold_start_ms,
+        keystroke_p95_ms: percentile(&mut ms, 95),
+        rss_extra_mb,
+    })
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -262,7 +286,11 @@ fn main() -> ExitCode {
         }
     }
     let pick = |f: fn(&Sample) -> f64| median(samples.iter().map(f).collect());
-    let (cold, key, rss) = (pick(|s| s.cold_start_ms), pick(|s| s.keystroke_p95_ms), pick(|s| s.rss_extra_mb));
+    let (cold, key, rss) = (
+        pick(|s| s.cold_start_ms),
+        pick(|s| s.keystroke_p95_ms),
+        pick(|s| s.rss_extra_mb),
+    );
     let report = json!({
         "runs": a.runs,
         "cold_start_ms": cold,
