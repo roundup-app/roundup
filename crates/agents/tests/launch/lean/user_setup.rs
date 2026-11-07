@@ -51,11 +51,19 @@ fn a3507b_settings_extend_the_user_setup() {
         for (_, role, pair) in
             lean_children()
                 .into_iter()
-                .chain([(Role::Agent, Role::Agent, Pair::default())])
+                .chain([(Role::Agent, Role::Agent, LaunchFacts::default())])
         {
             for resume in [None, Some("saved")] {
                 let command = launcher
-                    .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .command_on(&agents::claude_code::Request {
+                        folders: folders(&s.dir),
+                        id: "7",
+                        attempt: "1",
+                        cwd: &s.cwd,
+                        resume,
+                        role,
+                        facts: &pair,
+                    })
                     .unwrap();
                 let argv: Vec<_> = std::iter::once(command.get_program())
                     .chain(command.get_args())
@@ -132,11 +140,11 @@ fn a3564b_native_questions_preserve_each_roles_setup() {
     let roles = lean_children()
         .into_iter()
         .map(|(row, role, pair)| (Some(row), role, pair))
-        .chain([(None, Role::Agent, Pair::default())]);
+        .chain([(None, Role::Agent, LaunchFacts::default())]);
     for (row, role, pair) in roles {
         for mcp in [true, false] {
             for resume in [None, Some("saved")] {
-                let pair = Pair {
+                let pair = LaunchFacts {
                     mcp_off: !mcp,
                     ..pair.clone()
                 };
@@ -192,7 +200,7 @@ fn a3564b_native_questions_preserve_each_roles_setup() {
 
 #[test]
 fn a3507a_every_launch_keeps_the_users_gateway() {
-    use agents::claude_code::{Lean, PROFILES, Pair};
+    use agents::claude_code::{LaunchFacts, Lean, PROFILES};
     let s = setup();
     let headers = "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test";
     std::fs::write(s.root.path().join("settings.json"), json!({
@@ -250,11 +258,11 @@ fn a3507a_every_launch_keeps_the_users_gateway() {
         }
     };
     let launcher = s.launcher();
-    let rows =
-        std::iter::once((Role::Agent, Pair::default())).chain(PROFILES.iter().map(|(role, _)| {
+    let rows = std::iter::once((Role::Agent, LaunchFacts::default())).chain(PROFILES.iter().map(
+        |(role, _)| {
             (
                 *role,
-                Pair {
+                LaunchFacts {
                     lean: Some(Lean {
                         scout: *role == Role::Scout,
                         ..Default::default()
@@ -262,12 +270,21 @@ fn a3507a_every_launch_keeps_the_users_gateway() {
                     ..Default::default()
                 },
             )
-        }));
+        },
+    ));
     for (role, pair) in rows {
         for resume in [None, Some("saved")] {
             inspect(
                 &launcher
-                    .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .command_on(&agents::claude_code::Request {
+                        folders: folders(&s.dir),
+                        id: "7",
+                        attempt: "1",
+                        cwd: &s.cwd,
+                        resume,
+                        role,
+                        facts: &pair,
+                    })
                     .unwrap(),
             );
         }
@@ -313,11 +330,20 @@ fn a3516c_all_profiles_keep_the_renderer_choice() {
             }
             std::fs::write(config.join("settings.json"), source.to_string()).unwrap();
             for (_, role, pair) in
-                std::iter::once((Role::Agent, Role::Agent, Pair::default())).chain(lean_children())
+                std::iter::once((Role::Agent, Role::Agent, LaunchFacts::default()))
+                    .chain(lean_children())
             {
                 for resume in [None, Some("saved-conversation")] {
                     let command = launcher
-                        .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                        .command_on(&agents::claude_code::Request {
+                            folders: folders(&s.dir),
+                            id: "7",
+                            attempt: "1",
+                            cwd: &s.cwd,
+                            resume,
+                            role,
+                            facts: &pair,
+                        })
                         .unwrap();
                     let argv: Vec<String> = std::iter::once(command.get_program())
                         .chain(command.get_args())

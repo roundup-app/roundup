@@ -38,14 +38,31 @@ pub fn efforts() -> &'static [(&'static str, &'static str)] {
 pub const MODEL_VARIABLE: &str = "ANTHROPIC_MODEL";
 pub const EFFORT_VARIABLE: &str = "CLAUDE_CODE_EFFORT_LEVEL";
 
-/// A36: the Model and Effort an Agent is started on; `None` is passed to nothing, so the user's
-/// own Claude Code default applies.
+/// The permission mode one launch runs in. Bypass wins over any set mode (U3801).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Permission {
+    /// No mode was chosen: Claude Code runs in the mode its own settings name.
+    #[default]
+    Inherit,
+    /// U3801: the user's choice for this launch.
+    Selected(contracts::agent::PermissionMode),
+    /// YOLO: bypass every permission prompt.
+    Bypass,
+}
+
+impl From<Option<contracts::agent::PermissionMode>> for Permission {
+    fn from(mode: Option<contracts::agent::PermissionMode>) -> Self {
+        mode.map_or(Self::Inherit, Self::Selected)
+    }
+}
+
+/// What one launch of an Agent is started with: A36's Model and Effort (`None` is passed to
+/// nothing, so the user's own Claude Code default applies), its permission, MCP and lean choices.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Pair {
+pub struct LaunchFacts {
     /// P9: fixed when this vendor session launches, never reread by its MCP server.
     pub naming_guide: Option<String>,
-    pub permission_mode: Option<contracts::agent::PermissionMode>,
-    pub yolo: bool,
+    pub permission: Permission,
     pub model: Option<String>,
     pub effort: Option<String>,
     /// M2219: launch with no roundup MCP server; false (the default) keeps it.
@@ -70,7 +87,7 @@ pub struct Lean {
     pub fresh_brief: bool,
 }
 
-impl Pair {
+impl LaunchFacts {
     /// A36: the variables that pin a set value above whatever the Daemon's environment holds,
     /// since Claude Code reads them before the flag and before the settings `model`.
     pub fn env(&self) -> BTreeMap<String, String> {
@@ -100,6 +117,7 @@ pub(super) fn permission_mode(mode: contracts::agent::PermissionMode) -> &'stati
 }
 
 /// The selected launch choice is retained only for internal restarts of this Agent.
+#[derive(Clone)]
 pub(super) struct LaunchMode {
     pub effective: String,
     pub selected: Option<contracts::agent::PermissionMode>,

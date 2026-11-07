@@ -164,13 +164,15 @@ impl Agents {
             self.resume_conversation(
                 ctx,
                 &ids.1,
-                RESUME_ACK_BOUND,
-                Some((source, &effective.to_string_lossy())),
-                None,
-                RailPublication::Immediate,
-                None,
-                None,
-                (80, 24),
+                Resumption {
+                    ack_bound: RESUME_ACK_BOUND,
+                    conversation: Some((source, &effective.to_string_lossy())),
+                    prompt: None,
+                    publication: RailPublication::Immediate,
+                    mode: None,
+                    permission_mode: None,
+                    size: (80, 24),
+                },
             )
             .await?;
         }

@@ -29,13 +29,15 @@ impl Agents {
                 .resume_conversation(
                     ctx,
                     id,
-                    RESUME_ACK_BOUND,
-                    None,
-                    None,
-                    RailPublication::Immediate,
-                    Some(ResumeMode::Normal),
-                    self.launcher.selected_permission_mode(id),
-                    (80, 24),
+                    Resumption {
+                        ack_bound: RESUME_ACK_BOUND,
+                        conversation: None,
+                        prompt: None,
+                        publication: RailPublication::Immediate,
+                        mode: Some(ResumeMode::Normal),
+                        permission_mode: self.launcher.selected_permission_mode(id),
+                        size: (80, 24),
+                    },
                 )
                 .await
         {

@@ -1,4 +1,35 @@
+#![deny(clippy::fn_params_excessive_bools)]
+
 use super::*;
+use claude_code::Permission;
+
+/// Where a launch's conversation comes from.
+#[derive(Clone, Copy)]
+pub(super) enum Origin<'a> {
+    Fresh,
+    /// A22: the saved conversation id, added to argv as `--resume <id>`.
+    Resume(&'a str),
+}
+
+/// When a launch's Terminal is recorded in the Rail.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Attach {
+    Now,
+    /// A22's pending resume must not record a `terminal_id` until its launch is acknowledged.
+    AfterAck,
+}
+
+/// One start of Claude Code for node `id`.
+#[derive(Clone, Copy)]
+pub(super) struct Launch<'a> {
+    pub id: &'a str,
+    pub attempt: &'a Ordinal,
+    pub cwd: &'a Path,
+    pub origin: Origin<'a>,
+    pub attach: Attach,
+    pub permission: Permission,
+    pub size: (u16, u16),
+}
 
 impl Agents {
     /// The Project folder: `.roundup/`'s parent, where its git repository (if any) lives.
@@ -181,13 +212,17 @@ impl Agents {
         ctx.emit(EventData::RailChanged);
         match self
             .run_agent(
-                &id,
-                &attempt,
-                cwd,
+                Launch {
+                    id: &id,
+                    attempt: &attempt,
+                    cwd,
+                    origin: Origin::Fresh,
+                    attach: Attach::Now,
+                    permission: params.permission_mode.into(),
+                    size: (size.cols, size.rows),
+                },
                 None,
                 true,
-                params.permission_mode,
-                (size.cols, size.rows),
             )
             .await
             .map(drop)
@@ -324,18 +359,15 @@ impl Agents {
     /// Start Claude Code for node `id`, marked as starting, in a Terminal recorded in the Rail,
     /// then register and watch it; returns the Terminal's id. Failed cleanup keeps its Worktree
     /// ownership record so reopening can recover it without deleting unrelated work.
-    // Each argument carries an existing launch constraint; size must reach PTY creation.
-    #[allow(clippy::too_many_arguments)]
     pub(super) async fn run_agent(
         &self,
-        id: &str,
-        attempt: &Ordinal,
-        cwd: &Path,
+        launch: Launch<'_>,
         first: Option<String>,
         startup_context: bool,
-        permission_mode: Option<contracts::agent::PermissionMode>,
-        size: (u16, u16),
     ) -> Result<String, RpcError> {
+        let Launch {
+            id, attempt, cwd, ..
+        } = launch;
         let (node, prompt) = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
@@ -374,16 +406,10 @@ impl Agents {
             |(cwd, _)| cwd.clone(),
         );
         let spawned = match self
-            .start(
-                id,
-                attempt,
-                &effective_cwd,
-                None,
-                true,
-                false,
-                permission_mode,
-                size,
-            )
+            .start(Launch {
+                cwd: &effective_cwd,
+                ..launch
+            })
             .await
         {
             Ok(spawned) => spawned,
@@ -431,35 +457,35 @@ impl Agents {
         Ok(spawned.id)
     }
 
-    /// `resume` is A22's saved conversation id, added to argv as `--resume <id>`; `None` starts
-    /// fresh. `attach` is false only for A22's pending resume, which must not record a
-    /// `terminal_id` in the Rail until its launch is acknowledged.
-    #[allow(clippy::too_many_arguments)]
-    pub(super) async fn start(
-        &self,
-        id: &str,
-        attempt: &Ordinal,
-        cwd: &Path,
-        resume: Option<&str>,
-        attach: bool,
-        yolo: bool,
-        permission_mode: Option<contracts::agent::PermissionMode>,
-        size: (u16, u16),
-    ) -> Result<terminal::Spawned, RpcError> {
+    /// Start Claude Code as `launch` says: its Origin, when its Terminal is recorded and how it asks
+    /// for permission.
+    pub(super) async fn start(&self, launch: Launch<'_>) -> Result<terminal::Spawned, RpcError> {
+        let Launch {
+            id,
+            attempt,
+            cwd,
+            origin,
+            attach,
+            permission,
+            size,
+        } = launch;
+        let resume = match origin {
+            Origin::Fresh => None,
+            Origin::Resume(conversation) => Some(conversation),
+        };
         let node = self.shared.rail().node(id)?;
         let role = match node.kind {
             NodeKind::Workstream => Role::Door,
             _ => Role::Agent,
         };
-        let pair = Pair {
+        let pair = LaunchFacts {
             naming_guide: self
                 .shared
                 .naming_guide
                 .as_ref()
                 .map(|read| read())
                 .transpose()?,
-            yolo,
-            permission_mode,
+            permission,
             model: node.model,
             effort: node.effort,
             mcp_off: !models::mcp_on(
@@ -471,8 +497,8 @@ impl Agents {
         let started = attempt.to_owned();
         let (argv, env) = self
             .launcher
-            .launch_on(
-                claude_code::Folders {
+            .launch_on(&claude_code::Request {
+                folders: claude_code::Folders {
                     project: self.project_dir(),
                     data: &self.dir,
                 },
@@ -481,8 +507,8 @@ impl Agents {
                 cwd,
                 resume,
                 role,
-                &pair,
-            )
+                facts: &pair,
+            })
             .await?;
         self.retain_worktree(id).await?;
         let spawned = match self
@@ -502,15 +528,15 @@ impl Agents {
         Ok(spawned)
     }
 
-    /// Start `command` (the login shell when `None`) in a Terminal and, when `attach`, record it
-    /// as the one behind node `id`.
+    /// Start `command` (the login shell when `None`) in a Terminal and, when `attach` is `Now`,
+    /// record it as the one behind node `id`.
     pub(super) async fn spawn_behind(
         &self,
         id: &str,
         cwd: &Path,
         command: Option<Vec<String>>,
         env: BTreeMap<String, String>,
-        attach: bool,
+        attach: Attach,
         size: (u16, u16),
     ) -> Result<terminal::Spawned, RpcError> {
         let spawned = self
@@ -524,7 +550,7 @@ impl Agents {
                 rows: size.1,
             })
             .await?;
-        if attach {
+        if attach == Attach::Now {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
             let attached = attached
                 .map_err(RpcError::from)
