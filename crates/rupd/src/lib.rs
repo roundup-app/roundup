@@ -29,7 +29,6 @@ mod fork_tests;
 mod github;
 #[cfg(test)]
 mod group_tests;
-mod guards;
 mod link;
 #[cfg(test)]
 mod naming_tests;
@@ -66,7 +65,6 @@ use observers::{
     messages_env, overview_read_observer, resume_effect_observer, steer_effect_observer,
     terminal_exit_observer, terminal_input_observer,
 };
-use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
 use std::collections::HashMap;
 use std::io;
