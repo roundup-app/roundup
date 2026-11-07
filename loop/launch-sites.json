@@ -322,11 +322,6 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/pads/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/perf/src/keystroke.rs": {
     "cleanup": "launch::finish pauses the App, kills and observes owned descendants gone, reaps App before deleting owned data; unresolved cleanup retains data.",
     "data": "Merged #1564 sets run-owned absolute data after inherited overrides for indirect App launches.",
