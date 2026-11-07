@@ -62,7 +62,9 @@ pub fn membership(inventory: &[Member], app: u32, daemon: u32) -> Result<Vec<Mem
                 .ok_or_else(|| format!("PID {} unresolved WebKit ownership", p.pid))?;
             if owner == app || p.parent == Some(app) {
                 let mut member = p.clone();
-                member.role = role(&p.name).expect("classified helper").into();
+                member.role = role(&p.name)
+                    .ok_or_else(|| format!("PID {} unclassified helper", p.pid))?
+                    .into();
                 included.push(member);
             }
         } else if p.name.starts_with("com.apple.WebKit.")

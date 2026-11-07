@@ -36,6 +36,8 @@ const schema = storageSchema("roundup:app-settings", v.object({
   interfaceScale: v.fallback(v.picklist(["small", "default", "large"]), "default"),
   padWidth: v.fallback(v.picklist(["narrow", "wide", "full"]), "wide"),
   focusMarkers: v.fallback(v.boolean(), false),
+  // U6372a: the bundle id of the code editor; "" is Automatic.
+  codeEditor: v.fallback(v.string(), ""),
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),
   // Mac-wide quick add: "" is none, and none registers no global shortcut.
@@ -162,9 +164,14 @@ export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number)
     return app.rpc(method, params);
   };
 
+  // U6372b: every open call carries the chosen code editor.
+  const editor = () => untrack(appSettings).codeEditor || undefined;
+
   return {
     ...app,
     rpc,
+    openTarget: (target, chosen) => app.openTarget(target, chosen ?? editor()),
+    openInEditor: (path, line, chosen) => app.openInEditor(path, line, chosen ?? editor()),
     // The native menu responder can change after connecting a Project; read it when invoked.
     get showContextMenu() { return app.showContextMenu; },
   };

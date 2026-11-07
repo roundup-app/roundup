@@ -399,10 +399,10 @@ impl Native {
                 })
                 .map(|(pid, _)| pid.as_u32())
                 .collect();
-            if pids.len() != 1 {
+            let [pid] = pids[..] else {
                 return Err(failure("missing/ambiguous owned rupd PID"));
-            }
-            pids[0]
+            };
+            pid
         };
         for phase in phases.iter_mut() {
             if phase.count == 1 && baseline.len() == 10 {
@@ -413,7 +413,7 @@ impl Native {
                     }
                 }
                 baseline = request(&client, "rail.tree", Value::Null).await?;
-                if baseline.len() != 1 || baseline[0].id != selected {
+                if !matches!(baseline.as_slice(), [only] if only.id == selected) {
                     return Err(failure("one-Agent Rail does not retain selected Agent"));
                 }
             }

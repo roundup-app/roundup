@@ -40,10 +40,16 @@ async fn b2704a_rename_updates_context_and_queues_one_note() {
                 .await
                 .unwrap();
         }
-        caller
+        let renamed = caller
             .request("rail.rename", json!({"id":run.child,"name":"sad-2"}))
-            .await
-            .unwrap();
+            .await;
+        if agent_caller {
+            // U6380c: the child was spawned with a name the user typed, so its own rename is refused.
+            let refused = renamed.unwrap_err();
+            assert_eq!(refused.message, "the user named this row; keep its name");
+            continue;
+        }
+        renamed.unwrap();
         let id = until("rename note queued", async || {
             let messages = run
                 .user
@@ -164,12 +170,12 @@ async fn b2704a_first_prompt_rename_notifies() {
             .as_array()
             .unwrap()
             .iter()
-            .find(|m| m["body"] == "you are now called \"sad\" on the Rail")
+            .find(|m| m["body"] == "you are now called \"Sad\" on the Rail")
             .map(|m| m["id"].as_u64().unwrap() as u32)
     })
     .await;
     run.signal(json!({"hook_event_name":"Stop"})).await;
-    run.assert_rename_delivery(&[id], &["sad"]).await;
+    run.assert_rename_delivery(&[id], &["Sad"]).await;
     run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"later name"}))
         .await;
     let context = run
@@ -177,7 +183,7 @@ async fn b2704a_first_prompt_rename_notifies() {
         .request("agent.context", json!({"id":run.child}))
         .await
         .unwrap();
-    assert_eq!(context["self"]["name"], "sad");
+    assert_eq!(context["self"]["name"], "Sad");
     let messages = run
         .user
         .request("message.list", json!({"to":run.child}))

@@ -266,6 +266,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |
 | open_in_editor | none | — |
+| Code editor (`codeEditor`, `list_editors`, `EditorChoice`) | Code editor | — |
 | Extension | same | — |
 | Hook | same | — |
 | User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |

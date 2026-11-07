@@ -55,11 +55,17 @@ pub struct SpawnParams {
     #[serde(default)]
     #[specta(optional, type = Order)]
     pub order: Option<Order>,
-    /// A28: the child's Rail name, at most 32 characters; A9 never renames it. Name the child after
+    /// A28: the child's Rail name, at most 42 characters; A9 never renames it. Name the child after
     /// its task. Without one, A9 names it from its first prompt.
     #[serde(default)]
     #[specta(optional, type = String)]
     pub name: Option<String>,
+    /// U6414a: the App sends `true` when `name` is one it supplied, not one the user typed; the
+    /// row is then not marked as named by the user. Only the user's spawn may say so.
+    #[serde(default, rename = "appNamed", skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = bool)]
+    #[schemars(skip)]
+    pub app_named: Option<bool>,
     /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
     /// `models.list` offers is accepted.
     #[serde(default)]

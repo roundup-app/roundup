@@ -346,11 +346,19 @@ pub struct NamingSettings {
     pub naming_guide: String,
 }
 
+impl NamingSettings {
+    /// U6380a: the guide a fresh Daemon holds.
+    pub const DEFAULT_GUIDE: &'static str =
+        "Use distinguishable meaningful name in title-case; at most 42 characters.";
+    /// The guide before U6380a; a saved copy of it reads as `DEFAULT_GUIDE`.
+    pub const OLD_DEFAULT_GUIDE: &'static str = "Use three hyphen-separated words in role-verb-object order, for example reviewer-checks-tests; at most 32 characters.";
+}
+
 impl Default for NamingSettings {
     fn default() -> Self {
         Self {
             automatic_renaming: true,
-            naming_guide: "Use three hyphen-separated words in role-verb-object order, for example reviewer-checks-tests; at most 32 characters.".into(),
+            naming_guide: NamingSettings::DEFAULT_GUIDE.into(),
         }
     }
 }

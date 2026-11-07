@@ -146,12 +146,13 @@ export const createTauriApp = (): App => {
     dragWindow: () => command<void>("plugin:window-bar|drag_window", {}),
     zoomWindow: () => command<void>("plugin:window-bar|zoom_window", {}),
     feedbackCapture: () => parsedCommand(feedbackReportSchema, "feedback_capture", {}),
-    openTarget: async (target) => {
-      await command("open_target", { target });
+    openTarget: async (target, editor) => {
+      await command("open_target", { target, editor: editor || undefined });
     },
+    listEditors: () => parsedCommand(v.array(v.object({ id: v.string(), name: v.string() })), "list_editors", {}),
     showContextMenu: (items, x, y) => parsedCommand(v.nullable(v.string()), "show_context_menu", { items, x, y }),
-    openInEditor: async (path, line) => {
-      await command("open_in_editor", line === undefined ? { path } : { path, line });
+    openInEditor: async (path, line, editor) => {
+      await command("open_in_editor", { path, line, editor: editor || undefined });
     },
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),

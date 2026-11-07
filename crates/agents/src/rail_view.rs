@@ -198,8 +198,11 @@ impl Shared {
         let agent = node.kind == NodeKind::Agent;
         node.can_make_workstream =
             agent && node.parent.is_none() && rail.has_conversation(&node.id)?;
-        node.can_save_as_mode =
-            agent && Launcher::load_lean(&self.rail_view.data_dir, &node.id).is_some();
+        node.can_save_as_mode = agent
+            && matches!(
+                Launcher::load_lean(&self.rail_view.data_dir, &node.id),
+                Ok(Some(_))
+            );
         node.yolo = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.yolo,
             Some(
@@ -273,6 +276,11 @@ impl Agents {
             Some(Slot::Starting { named, .. }) => *named,
             _ => true,
         }
+    }
+
+    /// U6380c: whether the user named `id`; a row that is gone reads false.
+    pub fn user_named(&self, id: &str) -> bool {
+        self.shared.rail().user_named(id).unwrap_or(false)
     }
 
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
