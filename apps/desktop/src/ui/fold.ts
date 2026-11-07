@@ -15,6 +15,8 @@ const tag = "data-layout";
 
 type Session = { scope: Element };
 
+type Leaving = { body: HTMLElement; parent: Element; next: Node | null; rect: DOMRect };
+
 /** The slice of `motion` the folds use; tests pass a counting double. */
 export type FoldEngine = {
   animate: (element: Element, keyframes: Record<string, string[] | number[]>, options: { duration: number; ease?: Ease }) => void;
@@ -50,7 +52,7 @@ const scrollRegion = (from: Element): Element => {
 };
 
 /**
- * One fold helper (U6398a-d): a pointer press on any fold control commits the final layout once and Motion projects the rows below from where they were drawn (M5, M11); arriving rows fade in. A key press (`detail` 0) folds at once (M1); reduced motion fades the arriving rows only (M10). A press while a projection runs retargets that projection from where the rows are drawn (U6398b).
+ * One fold helper (U6398a-d): a pointer press on any fold control commits the final layout once and Motion projects the rows below from where they were drawn (M5, M11); arriving rows fade in and unmounted ones fade out. A key press (`detail` 0) folds at once (M1); reduced motion fades the arriving rows only (M10). A press while a projection runs retargets that projection from where the rows are drawn (U6398b).
  */
 export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate, animateLayout }: FoldEngine = motion): () => void {
   return createRoot(dispose => {
@@ -82,6 +84,17 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
       setTimeout(() => { watch.disconnect(); resolve(); }, 50);
     });
 
+    /** A body the fold unmounted is put back where it was, out of flow and inert, and fades out through opacity; the rows below have already been projected past it. */
+    const leave = (body: HTMLElement, parent: Element, next: Node | null, rect: DOMRect) => {
+      if (body.isConnected || !parent.isConnected) return;
+      body.setAttribute("inert", "");
+      body.setAttribute("aria-hidden", "true");
+      Object.assign(body.style, { position: "fixed", top: `${rect.top}px`, left: `${rect.left}px`, width: `${rect.width}px`, height: `${rect.height}px`, margin: "0", pointerEvents: "none" });
+      parent.insertBefore(body, next?.parentNode === parent ? next : null);
+      animate(body, { opacity: [1, 0] }, { duration: seconds, ease });
+      setTimeout(() => body.remove(), seconds * 1000);
+    };
+
     const press = (event: MouseEvent) => {
       if (event.detail === 0 || event.button !== 0) return;
 
@@ -107,7 +120,8 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
       for (const row of rows) row.setAttribute(tag, "position");
       const session: Session = { scope };
       running = session;
-      const known = new Set(scope.querySelectorAll(bodies));
+      const known = new Set(scope.querySelectorAll<HTMLElement>(bodies));
+      const before: Leaving[] = [...known].flatMap(body => body.parentElement ? [{ body, parent: body.parentElement, next: body.nextSibling, rect: body.getBoundingClientRect() }] : []);
       const pressed = control.getBoundingClientRect().top;
 
       /** The scroll offset follows the pressed row, so the browser's clamp never moves it under the pointer. */
@@ -120,6 +134,8 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
 
       void animateLayout(scope, () => settled(scope).then(() => { hold(); turn(animate, control, seconds, ease); }), { duration: seconds, ease }).then(group => {
         if (!retargeting) for (const body of scope.querySelectorAll<HTMLElement>(bodies)) if (!known.has(body)) animate(body, { opacity: [0, 1] }, { duration: seconds, ease });
+
+        for (const { body, parent, next, rect } of before) leave(body, parent, next, rect);
         void group.finished.finally(() => {
           if (running !== session) return;
           running = null;

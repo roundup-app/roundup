@@ -38,6 +38,17 @@ it("u6398a_a_pointer_press_on_the_todos_done_fold_starts_one_projection", async 
   expect(screen.getByText(/old one/)).toBeTruthy();
 });
 
+it("u6398a_the_todos_done_fold_fades_its_leaving_rows_out_through_opacity", async () => {
+  await mountTodos([todo(1, { done: true, title: "old one" }), todo(2)]);
+  const toggle = await screen.findByRole("button", { name: "1 done" });
+  fireEvent.click(toggle, { detail: 1 });
+  engine.animate.mockClear();
+  fireEvent.click(toggle, { detail: 1 });
+  await waitFor(() => expect(engine.animate).toHaveBeenCalledWith(expect.any(Element), { opacity: [1, 0] }, expect.anything()));
+  const leaving = engine.animate.mock.calls.map(call => call[0]).find(element => element.hasAttribute("inert"));
+  expect(leaving?.isConnected).toBe(true);
+});
+
 it("u6398a_a_pointer_press_on_the_idle_fold_starts_one_projection", async () => {
   await mountRail([workstream("stream"), agent("parent", "done", "done", { parent: "stream", final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } })]);
   await waitFor(() => expect(document.querySelector(".rail-fold")).not.toBeNull());
