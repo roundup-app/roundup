@@ -47,8 +47,6 @@ impl Daemon {
         let naming = Arc::new(parking_lot::Mutex::new(data::open_naming(
             &data::naming_path(dir),
         )?));
-        let naming_reader = Arc::clone(&naming);
-        let guide_reader = Arc::clone(&naming);
         let db = storage::connect(dir)?;
         let storage_at = begun.elapsed();
         let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
@@ -64,7 +62,13 @@ impl Daemon {
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let touches = Arc::new(Touches::open(dir)?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
-        let context_todos = Arc::clone(&todos);
+        let wiring = Arc::new(DaemonWiring {
+            naming: Arc::clone(&naming),
+            todos: Arc::clone(&todos),
+            messages: Arc::clone(&messages),
+            bus: bus.clone(),
+            touches: Arc::clone(&touches),
+        });
         let base_at = begun.elapsed();
         let agents = Arc::new(
             configure(agents::Agents::open(
@@ -72,51 +76,9 @@ impl Daemon {
                 dir,
                 bus.clone(),
                 Arc::clone(&terminals),
+                Arc::clone(&wiring) as Arc<dyn agents::Wiring>,
             )?)
-            .with_automatic_renaming(move || {
-                data::read_naming(&naming_reader.lock())
-                    .map(|settings| settings.automatic_renaming)
-                    .map_err(RpcError::internal)
-            })
-            .with_naming_guide(move || {
-                data::read_naming(&guide_reader.lock())
-                    .map(|settings| settings.naming_guide)
-                    .map_err(RpcError::internal)
-            })
-            .with_context(move |nodes, id| {
-                let todos = Arc::clone(&context_todos);
-                async move {
-                    let todos = todos.list_all()?;
-                    let context = context::compose(&nodes, &todos, &id)?;
-                    Ok(context::text(&nodes, &context))
-                }
-            })
-            .with_coordination({
-                let messages = Arc::clone(&messages);
-                let ctx_bus = bus.clone();
-                let ctx_touches = Arc::clone(&touches);
-                move |from, id, text| {
-                    let messages = Arc::clone(&messages);
-                    let ctx = Ctx {
-                        actor: from,
-                        bus: ctx_bus.clone(),
-                        touches: Arc::clone(&ctx_touches),
-                    };
-                    async move {
-                        let Some(messages) = messages.get() else {
-                            return Err(RpcError::internal("Messages are not open yet"));
-                        };
-                        messages
-                            .call(
-                                &ctx,
-                                "message.send",
-                                serde_json::json!({"to": id, "kind": "note", "body": text}),
-                            )
-                            .await
-                            .map(|_| ())
-                    }
-                }
-            })
+            .with_wiring(wiring)
             .with_steer_effect(steer_effect_observer(&observers))
             .with_resume_effect(resume_effect_observer(&observers))
             .with_overview_hold(overview_read_observer(&observers)),
@@ -386,5 +348,59 @@ impl Daemon {
     /// Run the watchers on the current runtime for as long as it lives.
     pub(crate) fn watch(&self, watchers: Watchers) {
         watchers.spawn(self).detach_all();
+    }
+}
+
+/// What Agents take from the Daemon: Naming settings, Context text and Messages (A4452a).
+struct DaemonWiring {
+    naming: Arc<parking_lot::Mutex<rusqlite::Connection>>,
+    todos: Arc<todos::Todos>,
+    messages: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
+    bus: Bus,
+    touches: Arc<Touches>,
+}
+
+#[async_trait::async_trait]
+impl agents::Wiring for DaemonWiring {
+    fn naming(&self) -> Result<agents::Naming, RpcError> {
+        let settings = data::read_naming(&self.naming.lock()).map_err(RpcError::internal)?;
+        Ok(agents::Naming {
+            automatic_renaming: settings.automatic_renaming,
+            guide: Some(settings.naming_guide),
+        })
+    }
+
+    async fn context(
+        &self,
+        nodes: Vec<contracts::agent::RailNode>,
+        id: String,
+    ) -> Result<Option<String>, RpcError> {
+        let todos = self.todos.list_all()?;
+        let context = context::compose(&nodes, &todos, &id)?;
+        Ok(Some(context::text(&nodes, &context)))
+    }
+
+    async fn coordinate(
+        &self,
+        from: Actor,
+        id: String,
+        text: String,
+    ) -> Result<agents::Delivery, RpcError> {
+        let Some(messages) = self.messages.get() else {
+            return Err(RpcError::internal("Messages are not open yet"));
+        };
+        let ctx = Ctx {
+            actor: from,
+            bus: self.bus.clone(),
+            touches: Arc::clone(&self.touches),
+        };
+        messages
+            .call(
+                &ctx,
+                "message.send",
+                serde_json::json!({"to": id, "kind": "note", "body": text}),
+            )
+            .await
+            .map(|_| agents::Delivery::Sent)
     }
 }

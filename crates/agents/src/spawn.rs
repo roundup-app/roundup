@@ -542,12 +542,7 @@ impl Agents {
             _ => Role::Agent,
         };
         let pair = LaunchFacts {
-            naming_guide: self
-                .shared
-                .naming_guide
-                .as_ref()
-                .map(|read| read())
-                .transpose()?,
+            naming_guide: self.shared.wiring.naming()?.guide,
             permission,
             model: node.model,
             effort: node.effort,

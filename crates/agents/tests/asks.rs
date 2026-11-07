@@ -71,6 +71,7 @@ impl Harness {
                     None,
                 ),
                 agents::worktree::Git::from_env(),
+                agents::Quiet::default().shared(),
             )
             .unwrap(),
         );
@@ -218,10 +219,12 @@ impl DoorHarness {
                     None,
                 ),
                 agents::worktree::Git::from_env(),
+                agents::Quiet::default()
+                    .with_context(|| "Context must not enter a new Ask's Steer".into())
+                    .with_inbox(|_, _| {})
+                    .shared(),
             )
             .unwrap()
-            .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
-            .with_coordination(|_, _, _| async { Ok(()) })
             .with_steer_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {
