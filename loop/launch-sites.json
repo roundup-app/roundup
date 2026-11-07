@@ -771,6 +771,11 @@
     "data": "Greps committed rupd sources for method-name comparisons; no Daemon launch.",
     "kind": "reference"
   },
+  "tools/contracts/test_addition.py": {
+    "cleanup": "Temporary checkout is removed on success and failure; no Daemon launch.",
+    "data": "Edits copied sources in a temporary directory; names rupd files only.",
+    "kind": "reference"
+  },
   "crates/rupd/src/fork_tests.rs": {
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
