@@ -83,7 +83,7 @@ impl Harness {
         let ctx = Ctx {
             actor: Actor::user(),
             bus,
-            touches: Arc::new(provenance::Touches::open(&dir.join("touches.db")).unwrap()),
+            touches: Arc::new(provenance::Touches::open(dir).unwrap()),
         };
         Self {
             asks,
@@ -239,7 +239,7 @@ impl DoorHarness {
         let ctx = Ctx {
             actor: Actor::user(),
             bus,
-            touches: Arc::new(provenance::Touches::open(&dir.join("touches.db")).unwrap()),
+            touches: Arc::new(provenance::Touches::open(dir).unwrap()),
         };
         Self {
             h: Harness {

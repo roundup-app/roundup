@@ -379,11 +379,6 @@
     "kind": "indirect",
     "sha256": "d07144397b72f02e818b25fd6eef0db60530f26ef12714934eeb5763f3808e62"
   },
-  "crates/provenance/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/rpc/examples/r16_client.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",

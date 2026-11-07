@@ -7,7 +7,7 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
     if path.file_name().is_some_and(|name| name == "project.db") {
         return Ok(());
     }
-    provenance::migration::migrate(db, path, migrations())
+    storage::migration::migrate(db, path, migrations())
 }
 
 fn migrations() -> Vec<M<'static>> {

@@ -62,7 +62,7 @@ impl Daemon {
         let terminals = Arc::new(terminals);
         terminals.answer_status_query(true);
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
-        let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
+        let touches = Arc::new(Touches::open(dir)?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
         let context_todos = Arc::clone(&todos);
         let base_at = begun.elapsed();

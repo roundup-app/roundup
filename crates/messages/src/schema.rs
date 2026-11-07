@@ -20,9 +20,9 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
             )
             .to_latest(&mut reference)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            if let Some(difference) = provenance::migration::difference(db, &reference)? {
+            if let Some(difference) = storage::migration::difference(db, &reference)? {
                 return Err(rusqlite::Error::InvalidParameterName(
-                    provenance::migration::divergence(&difference, stored, sequence.len()),
+                    storage::migration::divergence(&difference, stored, sequence.len()),
                 ));
             }
             Migrations::new(sequence)
@@ -37,7 +37,7 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
             ))
         });
     }
-    provenance::migration::migrate(db, path, sequence)
+    storage::migration::migrate(db, path, sequence)
 }
 
 fn migrations() -> Vec<M<'static>> {
@@ -249,7 +249,7 @@ mod deletion_tests {
             // `open` upgrades only a store one version behind; this one is two behind.
             Migrations::new(migrations()).to_latest(&mut db).unwrap();
             assert_eq!(
-                provenance::migration::difference(&db, &reference).unwrap(),
+                storage::migration::difference(&db, &reference).unwrap(),
                 None
             );
             assert_eq!(
