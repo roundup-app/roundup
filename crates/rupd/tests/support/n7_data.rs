@@ -1,3 +1,4 @@
+#![allow(clippy::disallowed_methods)] // a test reads its own harness environment
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 

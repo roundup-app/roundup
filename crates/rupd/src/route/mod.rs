@@ -70,18 +70,13 @@ impl Daemon {
                 match row.entry {
                     Entry::Rail => self.rail_reply(conn).await,
                     Entry::Ping => {
-                        // Every guard in `route_inner` passes a ping, so only its entry steps remain.
-                        self.auto.start(|| self.reader());
-                        self.start_pushes();
-                        self.start_queue();
+                        // Every guard in `route_inner` passes a ping.
                         Ok(rpc::Reply::Json(builtin::ping_json(self)))
                     }
                     Entry::Routed => {
                         let routed = self.route(conn, method, params).await;
-                        if row.after == After::AgentSignal
-                            && let Some(tell) = self.rail_told.get()
-                        {
-                            tell.recheck.notify_one();
+                        if row.after == After::AgentSignal {
+                            self.rail_told.recheck.notify_one();
                         }
                         routed.map(rpc::Reply::Value)
                     }
@@ -107,9 +102,6 @@ impl Daemon {
     /// `rail.tree`, written without a `Value` tree. No guard in `route_inner`
     /// applies to it (it names no child and no Terminal), so this keeps only its entry steps.
     async fn rail_reply(&self, conn: &Conn) -> Result<rpc::Reply, RpcError> {
-        self.auto.start(|| self.reader());
-        self.start_pushes();
-        self.start_queue();
         let rail = self
             .modules
             .get("rail")
@@ -159,8 +151,6 @@ impl Daemon {
         method: &str,
         params: Value,
     ) -> Result<Value, RpcError> {
-        self.start_pushes();
-        self.start_queue();
         let row = policy(method).ok_or_else(|| RpcError::method_not_found(method))?;
         let namespace = method.split('.').next().unwrap_or_default();
         if row.observed {
@@ -297,9 +287,7 @@ impl Daemon {
                     .await;
             }
             After::RailRemove if outcome.is_ok() => {
-                self.reset_orphaned_homes().await?;
-                self.reset_orphaned_owners().await?;
-                self.reset_orphaned_pad_homes().await?;
+                self.reset_orphans().await?;
                 return outcome;
             }
             After::PadDelete if outcome.is_ok() => {

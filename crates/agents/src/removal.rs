@@ -148,7 +148,7 @@ impl Shared {
                     || current_door.attempt != door.attempt
                     || runs
                         .get(&id_owned)
-                        .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended))
+                        .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended()))
                 {
                     return Err(RpcError::conflict("Door changed during removal judgement"));
                 }
@@ -163,7 +163,7 @@ impl Shared {
                         || (reason.is_none()
                             && runs
                                 .get(&node.id)
-                                .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended)))
+                                .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended())))
                     {
                         return Err(RpcError::conflict("Agent changed during removal judgement"));
                     }
@@ -393,7 +393,7 @@ impl Agents {
             let selected = |n: &&RailNode| n.id == id || removal.removed.iter().any(|i| i.kind==RemovalKind::Agent && i.id==n.id);
             for node in tree.iter().filter(selected) {
                 if node.worktree.is_some()
-                    || runs.get(&node.id).is_some_and(|slot| !matches!(slot, Slot::Running(run) if run.ended && !run.closing))
+                    || runs.get(&node.id).is_some_and(|slot| !matches!(slot, Slot::Running(run) if run.ended() && !run.closing()))
                     || listed.iter().any(|t| t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
                     return Err(RpcError::conflict("Removing this item would stop a running process or discard its Worktree. Confirm removal to continue."));
                 }
@@ -458,7 +458,7 @@ impl Agents {
                 let tree=rail.tree()?;
                 let runs=shared.runs();
                 for node in tree.iter().filter(|n|n.id==*id || source.removed.iter().any(|i|i.kind==RemovalKind::Agent && i.id==n.id)) {
-                    if node.worktree.is_some() || runs.get(&node.id).is_some_and(|s|!matches!(s,Slot::Running(r) if r.ended && !r.closing)) || listed.iter().any(|t|t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
+                    if node.worktree.is_some() || runs.get(&node.id).is_some_and(|s|!matches!(s,Slot::Running(r) if r.ended() && !r.closing())) || listed.iter().any(|t|t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
                         return Err(RpcError::conflict("Redo would stop a program or discard a Worktree; confirm removal instead."));
                     }
                 }
@@ -490,7 +490,6 @@ mod tests {
     use contracts::terminal::ExitedEvent;
     use contracts::{Actor, EventData, Kind};
 
-    use crate::claude_code::ClaudeCode;
     use crate::{KillsTerminals, Observation, Run, Slot};
 
     use crate::tests::*;
@@ -586,27 +585,7 @@ mod tests {
         shared.rail().allocate_attempt(&ws).unwrap();
         shared.runs().insert(
             ws.clone(),
-            Slot::Running(Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-                status_revision: contracts::agent::Ordinal::first(),
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(|| 0),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: true,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            }),
+            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
         );
         let finished = running_agent(&shared, Some(&ws));
         let living = running_agent(&shared, Some(&ws));
@@ -663,27 +642,7 @@ mod tests {
         shared.rail().allocate_attempt(&group).unwrap();
         shared.runs().insert(
             group.clone(),
-            Slot::Running(Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-                status_revision: contracts::agent::Ordinal::first(),
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(|| 0),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: true,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            }),
+            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
         );
         let child = shared
             .rail()
@@ -740,7 +699,7 @@ mod tests {
             let Slot::Running(run) = runs.get_mut(&id).unwrap() else {
                 unreachable!()
             };
-            run.adapter.observe(Observation::Signal(
+            run.adapter_mut().observe(Observation::Signal(
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
@@ -802,8 +761,8 @@ mod tests {
             let Slot::Running(run) = runs.get_mut(id).unwrap() else {
                 unreachable!()
             };
-            run.terminal_id = terminal.into();
-            run.adapter.observe(Observation::Signal(
+            run.set_terminal_id(terminal.into());
+            run.adapter_mut().observe(Observation::Signal(
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
@@ -846,7 +805,7 @@ mod tests {
             let Slot::Running(run) = runs.get(id).unwrap() else {
                 unreachable!()
             };
-            assert!(!run.closing);
+            assert!(!run.closing());
         }
     }
     /// The Status a failed stop leaves (`done`, from `agent.stop`'s own Stopped observation, set

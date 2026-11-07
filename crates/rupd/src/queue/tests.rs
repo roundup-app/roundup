@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::{Value, json};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
@@ -33,17 +34,19 @@ fn launcher(project: &Path) -> agents::claude_code::Launcher {
 
 /// A Daemon whose Queue watcher is off, so a test drives each pass itself.
 fn daemon(project: &Path) -> Daemon {
-    let daemon = watched(project);
-    daemon
-        .queue
-        .watching
-        .store(true, std::sync::atomic::Ordering::SeqCst);
+    open(project).0
+}
+
+/// A Daemon whose watchers run.
+fn watched(project: &Path) -> Daemon {
+    let (daemon, watchers) = open(project);
+    daemon.watch(watchers);
     daemon
 }
 
-fn watched(project: &Path) -> Daemon {
+fn open(project: &Path) -> (Daemon, crate::Watchers) {
     let data = project.join(".roundup");
-    Daemon::open_stores(project, &data, |_| {
+    Daemon::open_stores(project, &data, crate::Observers::from_env(), |_| {
         let bus = Bus::new();
         let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
         Agents::open_in(

@@ -187,7 +187,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
               let cancelling = false;
               onMount(() => api().edit());
 
-              return <Editable.Area><Editable.Preview /><Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.terminalName}
+              return <Editable.Area><Editable.Preview /><Editable.Input class="field-inline" spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.terminalName}
               on:keydown={event => {
                 if (event.key !== "Escape" || event.isComposing) return;
 

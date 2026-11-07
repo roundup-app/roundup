@@ -34,14 +34,12 @@ impl Shared {
         let mut runs = self.runs();
         self.events.observed.notify_waiters();
         if let Some(Slot::Running(run)) = runs.get_mut(id) {
-            run.closing = false;
-            run.ended |= ended;
+            run.release_closing(ended);
         } else if let Some(Slot::ResumeCleanup {
             old: Some(mut old), ..
         }) = runs.remove(id)
         {
-            old.closing = false;
-            old.ended |= ended;
+            old.release_closing(ended);
             runs.insert(id.to_owned(), Slot::Running(*old));
         }
     }
@@ -122,7 +120,7 @@ impl Shared {
                 && node.terminal_id.is_none()
                 && runs
                     .get(id)
-                    .is_none_or(|s| matches!(s, Slot::Running(r) if r.ended))
+                    .is_none_or(|s| matches!(s, Slot::Running(r) if r.ended()))
             {
                 return Ok(());
             }
@@ -135,11 +133,10 @@ impl Shared {
                     return Err(RpcError::conflict(format!("{id} is resuming")));
                 }
                 Some(Slot::Running(run)) => {
-                    if run.closing {
+                    if !run.begin_closing() {
                         return Err(RpcError::conflict(format!("{id} is stopping")));
                     }
-                    run.closing = true;
-                    node.terminal_id = Some(run.terminal_id.clone());
+                    node.terminal_id = Some(run.terminal_id().to_owned());
                 }
                 None => {
                     runs.insert(id.to_owned(), Slot::Closing);
@@ -215,7 +212,7 @@ impl Shared {
             self.events.observed.notify_waiters();
             if let Err(err) = killed {
                 if let Some(Slot::Running(run)) = runs.get_mut(id) {
-                    run.closing = false;
+                    run.release_closing(false);
                 } else if let Some(Slot::ResumeCleanup { pending, .. }) = runs.get_mut(id) {
                     *pending = false;
                 } else {
@@ -238,14 +235,12 @@ impl Shared {
                         .remove(id);
                 }
             } else if let Some(Slot::Running(run)) = runs.get_mut(id) {
-                run.closing = false;
-                run.ended = true;
+                run.finish_closing();
             } else if let Some(Slot::ResumeCleanup {
                 old: Some(mut old), ..
             }) = runs.remove(id)
             {
-                old.closing = false;
-                old.ended = true;
+                old.finish_closing();
                 runs.insert(id.to_owned(), Slot::Running(*old));
             }
             result

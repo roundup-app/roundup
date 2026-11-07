@@ -87,7 +87,7 @@ pub(crate) fn are_quiet_digests(given: &[Message], pending: &[Message]) -> bool 
         }
     }
     entries.iter().all(|entry| {
-        let prior = before[entry.name.as_str()].as_ref();
+        let prior = before.get(entry.name.as_str()).and_then(Option::as_ref);
         let alarming = matches!(entry.kind, Kind::Error | Kind::NeedsYou)
             && prior.map(|e| e.kind) != Some(entry.kind);
         let new_last = prior.map_or(!entry.last.is_empty(), |e| e.last != entry.last);

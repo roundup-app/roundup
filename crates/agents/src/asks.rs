@@ -276,9 +276,9 @@ impl Intake {
             let observed = self.agents.shared.events.observed.notified();
             let deadline = match self.agents.shared.runs().get(workstream) {
                 Some(Slot::Running(run))
-                    if run.attempt == attempt && !run.ended && !run.closing =>
+                    if run.attempt() == attempt && !run.ended() && !run.closing() =>
                 {
-                    run.session_started
+                    run.session_started()
                         .map(|started| started + START_DOOR_ACK_BOUND)
                 }
                 _ => return Err(RpcError::not_accepted("prompt not accepted")),

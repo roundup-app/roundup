@@ -17,8 +17,13 @@ impl Drop for World {
 async fn world() -> World {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let daemon = Arc::new(rupd::Daemon::open(dir.path()).unwrap());
-    let server = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let (daemon, watchers) = rupd::Daemon::open(dir.path()).unwrap();
+    let daemon = Arc::new(daemon);
+    let server = tokio::spawn(rupd::serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
     let client = Client::connect(&socket).await.unwrap();
     World {
         _dir: dir,
@@ -103,8 +108,13 @@ async fn u3787a_restore_keeps_agent_created_pad_home_revision_after_reopen() {
     .await;
     w.server.abort();
     let socket = w._dir.path().join("reopen.sock");
-    let daemon = Arc::new(rupd::Daemon::open(w._dir.path()).unwrap());
-    w.server = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let (daemon, watchers) = rupd::Daemon::open(w._dir.path()).unwrap();
+    let daemon = Arc::new(daemon);
+    w.server = tokio::spawn(rupd::serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
     w.client = Client::connect(&socket).await.unwrap();
     let restored = call(&w, "pad.restore", deletion_id(&receipt)).await;
     assert_eq!(restored["pad"], original);
@@ -600,8 +610,13 @@ async fn u3787a_redo_retains_the_acknowledged_creation_for_another_undo() {
     // the committed redo, without relying on a client-authored snapshot.
     w.server.abort();
     let socket = w._dir.path().join("redo-reopen.sock");
-    let daemon = Arc::new(rupd::Daemon::open(w._dir.path()).unwrap());
-    w.server = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let (daemon, watchers) = rupd::Daemon::open(w._dir.path()).unwrap();
+    let daemon = Arc::new(daemon);
+    w.server = tokio::spawn(rupd::serve(
+        UnixListener::bind(&socket).unwrap(),
+        daemon,
+        watchers,
+    ));
     w.client = Client::connect(&socket).await.unwrap();
     assert_eq!(call(&w, "pad.list", Value::Null).await, json!([]));
     assert_eq!(

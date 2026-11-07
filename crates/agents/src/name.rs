@@ -5,8 +5,9 @@ pub const UNNAMED: &str = "New Agent";
 
 use crate::claude_code::{CONTEXT_START, LEAD_IN};
 
-/// What a Workstream is called until its Door's first prompt names it (U167).
-const WORKSTREAM_STEM: &str = "New Workstream";
+/// What a Workstream is called until its Door's first prompt names it (U6545b); `New Workstream` is
+/// the stem stored Workstreams still carry.
+const WORKSTREAM_STEMS: [&str; 2] = ["Workstream", "New Workstream"];
 
 const FILLER: [&str; 10] = [
     "a", "an", "the", "to", "of", "in", "on", "for", "and", "please",
@@ -35,13 +36,16 @@ pub fn from_prompt(prompt: &str) -> Option<String> {
     (!name.is_empty()).then(|| name.to_owned())
 }
 
-/// U6380b: whether `name` is a Workstream's placeholder, `New Workstream` or `New Workstream 2`…
+/// U6380b: whether `name` is a Workstream's placeholder, `Workstream` or `Workstream 2`…, or the
+/// older `New Workstream` or `New Workstream 2`…
 pub fn is_workstream_placeholder(name: &str) -> bool {
-    name.strip_prefix(WORKSTREAM_STEM).is_some_and(|rest| {
-        rest.is_empty()
-            || rest
-                .strip_prefix(' ')
-                .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+    WORKSTREAM_STEMS.iter().any(|stem| {
+        name.strip_prefix(stem).is_some_and(|rest| {
+            rest.is_empty()
+                || rest
+                    .strip_prefix(' ')
+                    .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+        })
     })
 }
 

@@ -412,29 +412,23 @@ export const EditableText = (props: {
       {(started) => (<>
         <ReservedLine status={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />
         <Show when={props.multiline} fallback={<textarea spellcheck={false} autocorrect="off" autocapitalize="off"
+          class="field-inline"
           ref={field(started)}
           aria-label={props.name === "title" ? copy.title : copy.body}
           rows={1}
           onKeyDown={event => key?.(event)}
           style={{
             display: "block",
-            font: "inherit",
             "letter-spacing": "inherit",
             "line-height": "inherit",
-            color: "inherit",
             "text-align": "inherit",
             "white-space": "pre-wrap",
             "overflow-wrap": "anywhere",
-            padding: "0",
-            margin: "0",
-            border: "0",
-            "box-sizing": "content-box",
             width: started.width > 0 ? `${started.width}px` : "100%",
             "flex-shrink": "0",
             "min-height": "1.4em",
             resize: "none",
             overflow: "hidden",
-            background: "var(--hover)",
             "caret-color": "var(--accent)",
           }}
         />}><RichBody started={started} /></Show>

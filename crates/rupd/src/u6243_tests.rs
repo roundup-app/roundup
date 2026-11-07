@@ -58,14 +58,7 @@ async fn fresh(run: &Run) -> Told {
 }
 
 fn told(run: &Run) -> Told {
-    run.daemon
-        .rail_told
-        .get()
-        .expect("the watcher started with the first request")
-        .told
-        .lock()
-        .unwrap()
-        .clone()
+    run.daemon.rail_told.told.lock().unwrap().clone()
 }
 
 /// Lets the watcher judge what the step sent.

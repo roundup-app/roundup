@@ -1,0 +1,3 @@
+import { Field } from "../ui/Field";
+
+export const Framed = () => <Field.Input aria-label="Task" />;

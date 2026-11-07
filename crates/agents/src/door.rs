@@ -27,7 +27,7 @@ impl Shared {
             let runs = self.runs();
             let mut doors = self.scan.doors.lock().expect("scan doors lock");
             doors.retain(|id, _| {
-                matches!(runs.get(id), Some(Slot::Running(run)) if !run.ended && !run.closing)
+                matches!(runs.get(id), Some(Slot::Running(run)) if !run.ended() && !run.closing())
             });
             doors
                 .iter()
@@ -107,12 +107,12 @@ impl Agents {
                     let runs = self.shared.runs();
                     match runs.get(id) {
                         Some(Slot::Running(run))
-                            if *run.attempt == *attempt && !run.ended && !run.closing =>
+                            if run.attempt() == attempt && !run.ended() && !run.closing() =>
                         {
-                            if run.session_started.is_some()
-                                && !run.first_pending
+                            if run.session_started().is_some()
+                                && !run.first().pending()
                                 && run
-                                    .adapter
+                                    .adapter()
                                     .status()
                                     .is_some_and(|s| s.kind == contracts::Kind::Idle)
                             {
@@ -193,7 +193,7 @@ impl Agents {
                 let observed = self.shared.events.observed.notified();
                 let seen = matches!(
                     self.shared.runs().get(id),
-                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started.is_some()
+                    Some(Slot::Running(run)) if run.attempt() == attempt && run.session_started().is_some()
                 );
                 if seen {
                     return;
@@ -305,7 +305,10 @@ impl Agents {
             if let Some(slot) = runs.get(id) {
                 let live = match slot {
                     Slot::Running(run) => {
-                        run.closing || listed.iter().any(|t| t.id == run.terminal_id && t.running)
+                        run.closing()
+                            || listed
+                                .iter()
+                                .any(|t| t.id == run.terminal_id() && t.running)
                     }
                     _ => true,
                 };

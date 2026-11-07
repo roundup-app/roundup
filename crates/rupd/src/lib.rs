@@ -1,6 +1,8 @@
 //! The Daemon: every other part of roundup is a client of it.
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
+
 mod actions;
 mod auto;
 #[cfg(test)]
@@ -39,6 +41,7 @@ mod owner_told;
 mod pr_checks;
 mod program_status;
 mod queue;
+mod rail_index;
 mod removal;
 mod resources;
 mod restart;
@@ -59,12 +62,14 @@ mod waits;
 mod wake;
 mod workstream_state;
 
-pub use connection::serve;
 use connection::{Frame, failure};
+pub use connection::{accept, serve};
+pub use observers::Observers;
 use observers::{
     messages_env, overview_read_observer, resume_effect_observer, steer_effect_observer,
     terminal_exit_observer, terminal_input_observer,
 };
+pub use open::Watchers;
 use specialist::Specialist;
 use std::collections::HashMap;
 use std::io;
@@ -109,30 +114,19 @@ pub struct Daemon {
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
     auto: auto::Auto,
-    /// U6243a: the derived Rail values last told; the watcher starts once, with the others.
-    rail_told: std::sync::OnceLock<Arc<workstream_state::Tell>>,
-    /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
-    /// a Tokio runtime is there to run it.
-    pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
-    /// U6368a: subscribed at `open`, taken once by the resume watcher.
-    resumes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
-    /// B2704a: retain committed names even when the live event ring lags.
-    renames: std::sync::Mutex<Option<rpc::Subscription>>,
-    owner_events: std::sync::Mutex<Option<rpc::Subscription>>,
-    /// B41: subscribed at `open`, taken once with `pushes`.
-    wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// U6243a: the derived Rail values last told, shared with the watcher that tells them.
+    rail_told: Arc<workstream_state::Tell>,
+    observers: Observers,
     /// B41: serialises the decisions on Wake requests.
     wake_gate: Arc<tokio::sync::Mutex<wake::Gate>>,
     /// H21: knows the Agent behind a calling process.
     agents: Arc<agents::Agents>,
+    /// Where the Daemon reads the Rail; the Agents, except in the Messages reply tests.
+    rail: Arc<dyn agents::RailRead>,
     /// X14: where a connection's selected output streams come from.
     terminals: Arc<terminal::Terminals>,
-    /// PS8: each Terminal's program status; the changes are subscribed at `open`, taken once.
+    /// PS8: each Terminal's program status.
     program_statuses: Arc<program_status::Statuses>,
-    program_changes:
-        std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<Arc<terminal::Change>>>>,
-    /// A33: like `pushes`, with what keeps the Agents' waits current.
-    waits: std::sync::Mutex<Option<Waiter>>,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
@@ -144,11 +138,50 @@ pub struct Daemon {
     extensions: extensions::Host,
 }
 
-type Waiter = (
-    tokio::sync::broadcast::Receiver<contracts::Event>,
-    Arc<agents::Agents>,
-    Arc<todos::Todos>,
-);
+/// What `rail.remove` left dangling.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Orphan {
+    /// T13: a Todo whose Home left the Rail.
+    TodoHome(u32),
+    /// T17: a Todo whose owner Agent left the Rail.
+    TodoOwner(u32),
+    /// P12: a Pad whose Home left the Rail.
+    PadHome(String),
+}
+
+/// Every Todo Home, then every Todo owner in id order, then every Pad Home that names a node
+/// not on the Rail.
+pub(crate) fn orphans(
+    rail: &[contracts::agent::RailNode],
+    todos: &[contracts::todo::Todo],
+    pads: &[contracts::pad::Pad],
+) -> Vec<Orphan> {
+    let on_rail: std::collections::HashSet<&str> =
+        rail.iter().map(|node| node.id.as_str()).collect();
+    let gone = |id: &String| !on_rail.contains(id.as_str());
+    let mut out: Vec<Orphan> = todos
+        .iter()
+        .filter(|todo| todo.home.as_ref().is_some_and(gone))
+        .map(|todo| Orphan::TodoHome(todo.id))
+        .collect();
+    let mut owners: Vec<u32> = todos
+        .iter()
+        .filter(|todo| {
+            todo.owner
+                .as_ref()
+                .is_some_and(|owner| owner.kind == ActorKind::Agent && gone(&owner.id))
+        })
+        .map(|todo| todo.id)
+        .collect();
+    owners.sort_unstable();
+    out.extend(owners.into_iter().map(Orphan::TodoOwner));
+    out.extend(
+        pads.iter()
+            .filter(|pad| pad.home.as_ref().is_some_and(gone))
+            .map(|pad| Orphan::PadHome(pad.name.clone())),
+    );
+    out
+}
 
 /// Per-connection state.
 #[derive(Clone)]
@@ -162,32 +195,25 @@ pub struct Conn {
 }
 
 impl Daemon {
-    /// T17: after `rail.remove`, each Todo whose owner Agent left the Rail is Unassigned, in id order.
-    async fn reset_orphaned_owners(&self) -> Result<(), RpcError> {
-        let rail: std::collections::HashSet<String> =
-            self.rail().await?.into_iter().map(|node| node.id).collect();
-        let todos = self
-            .modules
-            .get("todo")
-            .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
+    /// T13, T17, P12: after `rail.remove`, the Todos and Pads it orphaned are put right, in the
+    /// order `orphans` lists them.
+    async fn reset_orphans(&self) -> Result<(), RpcError> {
+        let rail = self.rail().await?;
+        let todos = self.todos.list_all()?;
+        let pads = self.pads.list_all()?;
         let ctx = self.ctx(Actor::daemon());
-        let listed: Vec<contracts::todo::Todo> =
-            serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
-                .map_err(RpcError::internal)?;
-        let mut orphaned: Vec<u32> = listed
-            .into_iter()
-            .filter(|todo| {
-                todo.owner.as_ref().is_some_and(|owner| {
-                    owner.kind == ActorKind::Agent && !rail.contains(&owner.id)
-                })
-            })
-            .map(|todo| todo.id)
-            .collect();
-        orphaned.sort_unstable();
-        for id in orphaned {
-            todos
-                .call(&ctx, "todo.assign", json!({ "id": id, "owner": null }))
-                .await?;
+        for orphan in orphans(&rail, &todos, &pads) {
+            match orphan {
+                Orphan::TodoHome(id) => {
+                    self.todos.set_home(&ctx, id, None)?;
+                }
+                Orphan::TodoOwner(id) => {
+                    self.todos.set_owner(&ctx, id, None)?;
+                }
+                Orphan::PadHome(name) => {
+                    self.pads.set_home(&ctx, &name, None)?;
+                }
+            }
         }
         Ok(())
     }
@@ -205,76 +231,16 @@ impl Daemon {
         rpc::reply(&self.resources.sample(&running, &worktrees).await)
     }
 
-    /// T13: after `rail.remove`, each Todo whose Home left the Rail goes to the Project root, in id order.
-    async fn reset_orphaned_homes(&self) -> Result<(), RpcError> {
-        let rail: std::collections::HashSet<String> =
-            self.rail().await?.into_iter().map(|node| node.id).collect();
-        let todos = self
-            .modules
-            .get("todo")
-            .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
-        let ctx = self.ctx(Actor::daemon());
-        let listed: Vec<contracts::todo::Todo> =
-            serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
-                .map_err(RpcError::internal)?;
-        for todo in listed {
-            if todo.home.is_some_and(|home| !rail.contains(&home)) {
-                todos
-                    .call(&ctx, "todo.move", json!({ "id": todo.id, "home": null }))
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-
-    /// P12: after `rail.remove`, each Pad whose Home left the Rail goes to the Project root, in name order.
-    async fn reset_orphaned_pad_homes(&self) -> Result<(), RpcError> {
-        let rail: std::collections::HashSet<String> =
-            self.rail().await?.into_iter().map(|node| node.id).collect();
-        let pads = self
-            .modules
-            .get("pad")
-            .ok_or_else(|| RpcError::internal("pad module is not registered"))?;
-        let ctx = self.ctx(Actor::daemon());
-        let listed: Vec<contracts::pad::Pad> =
-            serde_json::from_value(pads.call(&ctx, "pad.list", Value::Null).await?)
-                .map_err(RpcError::internal)?;
-        for pad in listed {
-            if pad.home.is_some_and(|home| !rail.contains(&home)) {
-                pads.call(&ctx, "pad.move", json!({ "name": pad.name, "home": null }))
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-
     async fn rail(&self) -> Result<Vec<contracts::agent::RailNode>, RpcError> {
-        let rail = self
-            .modules
-            .get("rail")
-            .ok_or_else(|| RpcError::internal("rail module is not registered"))?;
-        let tree = rail
-            .call(&self.ctx(Actor::daemon()), "rail.tree", Value::Null)
-            .await?;
-        serde_json::from_value(tree).map_err(RpcError::internal)
+        self.rail.tree()
     }
 
     /// E2, E3: the Context of an Agent, or its Brief. The Rail and the Todos are read as the
     /// Daemon, so the call changes nothing and logs no Touch.
     async fn awareness(&self, conn: &Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         let NodeId { id } = rpc::params(params)?;
-        let read = |namespace: &'static str, method: &'static str| {
-            let module = self
-                .modules
-                .get(namespace)
-                .ok_or_else(|| RpcError::internal(format!("{namespace} module is not registered")));
-            let ctx = self.ctx(Actor::daemon());
-            async move { module?.call(&ctx, method, Value::Null).await }
-        };
-        let nodes: Vec<contracts::agent::RailNode> =
-            serde_json::from_value(read("rail", "rail.tree").await?).map_err(RpcError::internal)?;
-        let todos: Vec<contracts::todo::Todo> =
-            serde_json::from_value(read("todo", "todo.list").await?).map_err(RpcError::internal)?;
+        let nodes = self.rail().await?;
+        let todos = self.todos.list_all()?;
         let context = context::compose(&nodes, &todos, &id)?;
         let allowed = match conn.actor.kind {
             ActorKind::User => true,
@@ -327,9 +293,7 @@ impl Daemon {
         let cwd = node
             .worktree
             .map_or_else(|| self.project.clone(), |tree| tree.path.into());
-        let home = std::env::var_os("HOME")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_default();
+        let home = self.observers.home.clone().unwrap_or_default();
         let skills = agents::claude_code::skills(&home, &cwd, &self.project);
         rpc::reply(&contracts::agent::Skills { skills })
     }
@@ -447,7 +411,7 @@ mod todo_deletion_tests;
 #[cfg(test)]
 fn test_daemon(dir: &Path) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
-    Daemon::open(dir)
+    Daemon::open(dir).map(|(daemon, _)| daemon)
 }
 
 #[cfg(test)]
@@ -456,7 +420,7 @@ fn test_daemon_with_agents(
     configure: impl FnOnce(agents::Agents) -> agents::Agents,
 ) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
-    Daemon::open_stores(dir, dir, configure)
+    Daemon::open_stores_idle(dir, dir, configure)
 }
 
 /// Process-free domain fixture, using the existing lifecycle and inbox traits.
@@ -493,6 +457,12 @@ pub mod test_support {
                 }
                 _ => Err(RpcError::method_not_found(method)),
             }
+        }
+    }
+    #[async_trait]
+    impl agents::RailRead for ReplyState {
+        fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
+            Ok(self.nodes.lock().unwrap().clone())
         }
     }
     #[async_trait]
@@ -546,9 +516,9 @@ pub mod test_support {
         data: &Path,
         launcher: agents::claude_code::Launcher,
         clock: impl Fn() -> i64 + Send + Sync + 'static,
-    ) -> Daemon {
+    ) -> (Daemon, Watchers) {
         assert!(data.is_absolute(), "test data directory must be absolute");
-        Daemon::open_stores(project, data, |_| {
+        Daemon::open_stores(project, data, Observers::default(), |_| {
             let bus = Bus::new();
             let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
             agents::Agents::open_in(
@@ -566,26 +536,26 @@ pub mod test_support {
     }
 
     /// Open stores before entering Tokio so background readers see the configured modules.
-    pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Arc<ReplyState>) {
-        let (daemon, state, _) =
+    pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Watchers, Arc<ReplyState>) {
+        let (daemon, watchers, state, _) =
             reply_daemon_with(dir, door, Arc::new(|| 1000), Arc::new(|_| Ok(())));
-        daemon.start_pushes();
-        (daemon, state)
+        (daemon, watchers, state)
     }
 
     /// `reply_daemon` on a chosen Messages clock and fault hook, returning its Messages and
-    /// starting no watcher, so a test runs `push_changes` on them itself. A Project reopened on
+    /// starting no watcher (the caller holds them), so a test runs `push_changes` on them itself. A Project reopened on
     /// the same `dir` keeps its stored accounting.
     pub fn reply_daemon_with(
         dir: &Path,
         door: bool,
         clock: messages::Clock,
         fault: messages::Fault,
-    ) -> (Daemon, Arc<ReplyState>, Arc<messages::Messages>) {
+    ) -> (Daemon, Watchers, Arc<ReplyState>, Arc<messages::Messages>) {
         let dir = dir.to_path_buf();
-        let mut daemon = std::thread::spawn(move || Daemon::open_in(&dir, &dir).unwrap())
-            .join()
-            .unwrap();
+        let (mut daemon, watchers) =
+            std::thread::spawn(move || Daemon::open_in(&dir, &dir).unwrap())
+                .join()
+                .unwrap();
         let state = Arc::new(ReplyState {
             bus: daemon.bus.clone(),
             ..Default::default()
@@ -631,6 +601,7 @@ pub mod test_support {
         messages.listen();
         daemon.register(messages.clone());
         daemon.register(state.clone());
-        (daemon, state, messages)
+        daemon.rail = state.clone();
+        (daemon, watchers, state, messages)
     }
 }

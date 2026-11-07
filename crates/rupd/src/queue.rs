@@ -6,15 +6,16 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
 use agents::Agents;
-use contracts::agent::{NodeKind, Order, RailNode};
+use contracts::agent::{CreateWorkstreamParams, Order, RailNode, RemoveParams, StartDoorParams};
 use contracts::workstream::{
     CapParams, QueueMoveParams, QueueState, QueuedWorkstream, StartChoice, StartWorkstreamParams,
 };
 use contracts::{Actor, ActorKind, EventData, Kind};
-use rpc::{Bus, Ctx, Module, RpcError, code};
-use serde_json::{Value, json};
+use rpc::{Bus, Ctx, RpcError, code};
+use serde_json::Value;
 
 use super::Daemon;
+use crate::rail_index::RailIndex;
 
 type Starting<'a> = Pin<Box<dyn Future<Output = Result<(), RpcError>> + Send + 'a>>;
 
@@ -24,30 +25,24 @@ type Starting<'a> = Pin<Box<dyn Future<Output = Result<(), RpcError>> + Send + '
 pub(crate) struct Memory {
     pub(super) launching: Mutex<HashSet<String>>,
     running: Mutex<HashSet<String>>,
-    watching: std::sync::atomic::AtomicBool,
     pub(super) pass: tokio::sync::Mutex<()>,
 }
 
 /// A3196: the Workstreams running now. A Workstream runs while its Door or any Agent under it is
 /// `working`; one the Queue just started runs until its Door reports a Status.
 pub(super) fn running(nodes: &[RailNode], launching: &HashSet<String>) -> HashSet<String> {
-    let by_id: HashMap<&str, &RailNode> = nodes.iter().map(|n| (n.id.as_str(), n)).collect();
+    let index = RailIndex::new(nodes);
     let mut out: HashSet<String> = launching
         .iter()
-        .filter(|id| by_id.contains_key(id.as_str()))
+        .filter(|id| index.contains(id))
         .cloned()
         .collect();
     for node in nodes {
         if node.status.as_ref().map(|s| s.kind) != Some(Kind::Working) {
             continue;
         }
-        let mut at = Some(node);
-        while let Some(found) = at {
-            if found.kind == NodeKind::Workstream {
-                out.insert(found.id.clone());
-                break;
-            }
-            at = found.parent.as_deref().and_then(|p| by_id.get(p).copied());
+        if let Some(door) = index.workstream_of(&node.id) {
+            out.insert(door.id.clone());
         }
     }
     out
@@ -98,22 +93,17 @@ impl Queuer {
     }
 
     async fn nodes(&self) -> Result<Vec<RailNode>, RpcError> {
-        let tree = self
-            .agents
-            .call(&self.ctx(Actor::daemon()), "rail.tree", Value::Null)
-            .await?;
-        serde_json::from_value(tree).map_err(RpcError::internal)
+        self.agents.tree()
     }
 
     /// Every Todo's id with whether it is done.
     async fn todo_states(&self) -> Result<HashMap<u32, bool>, RpcError> {
-        let list = self
+        Ok(self
             .todos
-            .call(&self.ctx(Actor::daemon()), "todo.list", Value::Null)
-            .await?;
-        let list: Vec<contracts::todo::Todo> =
-            serde_json::from_value(list).map_err(RpcError::internal)?;
-        Ok(list.into_iter().map(|t| (t.id, t.done)).collect())
+            .list_all()?
+            .into_iter()
+            .map(|t| (t.id, t.done))
+            .collect())
     }
 
     fn changed(&self) {
@@ -122,15 +112,19 @@ impl Queuer {
     }
 
     async fn start_door(&self, actor: &Actor, id: &str) -> Result<RailNode, RpcError> {
-        let node = self
-            .agents
-            .call(
-                &self.ctx(actor.clone()),
-                "rail.startDoor",
-                json!({ "id": id }),
-            )
-            .await?;
-        serde_json::from_value(node).map_err(RpcError::internal)
+        let start = StartDoorParams {
+            prompt: None,
+            cols: None,
+            rows: None,
+            permission_mode: None,
+            engine: None,
+            id: id.to_owned(),
+            model: None,
+            effort: None,
+        };
+        self.agents
+            .start_door_node(&self.ctx(actor.clone()), start)
+            .await
     }
 
     /// A3194: one call makes the Workstream, gives it the Todo and applies the Start choice.
@@ -141,12 +135,7 @@ impl Queuer {
             return Err(refuse("name must not be empty"));
         }
         let ctx = self.ctx(actor.clone());
-        let todo: contracts::todo::Todo = serde_json::from_value(
-            self.todos
-                .call(&ctx, "todo.get", json!({ "id": id }))
-                .await?,
-        )
-        .map_err(RpcError::internal)?;
+        let todo = self.todos.read(&ctx, id)?;
         if todo.done {
             return Err(refuse(format!("todo {id} is done")));
         }
@@ -159,35 +148,32 @@ impl Queuer {
             }
         }
         let order = seeded_order(&todo.title, &todo.body);
-        let node: RailNode = serde_json::from_value(
-            self.agents
-                .call(
-                    &ctx,
-                    "rail.createWorkstream",
-                    json!({ "name": name, "parent": null, "order": order }),
-                )
-                .await?,
-        )
-        .map_err(RpcError::internal)?;
+        let node = self.agents.create_workstream(
+            &ctx,
+            CreateWorkstreamParams {
+                start_attribution: None,
+                name,
+                parent: None,
+                order: Some(order),
+            },
+        )?;
         let owned = async {
-            self.todos
-                .call(&ctx, "todo.move", json!({ "id": id, "home": node.id }))
-                .await?;
+            self.todos.set_home(&ctx, id, Some(node.id.clone()))?;
             let door = Actor {
                 kind: ActorKind::Agent,
                 id: node.id.clone(),
                 parent: None,
             };
-            self.todos
-                .call(&ctx, "todo.assign", json!({ "id": id, "owner": door }))
-                .await
+            self.todos.set_owner(&ctx, id, Some(door)).map(|_| ())
         }
         .await;
         if let Err(err) = owned {
-            let _ = self
-                .agents
-                .call(&ctx, "rail.remove", json!({ "id": node.id }))
-                .await;
+            let remove = RemoveParams {
+                id: node.id.clone(),
+                scope: None,
+                operation: None,
+            };
+            let _ = self.agents.remove_node(&ctx, remove).await;
             return Err(err);
         }
         match start {
@@ -406,19 +392,6 @@ impl Daemon {
             touches: Arc::clone(&self.touches),
             memory: Arc::clone(&self.queue),
         }
-    }
-
-    /// Start watching the Bus for the Queue, once, at the first request.
-    pub(crate) fn start_queue(&self) {
-        if tokio::runtime::Handle::try_current().is_err()
-            || self
-                .queue
-                .watching
-                .swap(true, std::sync::atomic::Ordering::SeqCst)
-        {
-            return;
-        }
-        tokio::spawn(self.queuer().watch(self.bus.subscribe()));
     }
 }
 

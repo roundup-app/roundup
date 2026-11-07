@@ -1,4 +1,5 @@
 use super::*;
+use crate::rail_index::RailIndex;
 
 impl Daemon {
     /// A known Agent process cannot gain the user's control or receipt access by identifying
@@ -169,41 +170,28 @@ impl Daemon {
         actor: &Actor,
         created: Value,
     ) -> Result<Value, RpcError> {
-        let (namespace, move_method, key) = if pad {
-            ("pad", "pad.move", "name")
-        } else {
-            ("todo", "todo.move", "id")
-        };
         let nodes = self.rail().await?;
-        let mut at = nodes.iter().find(|node| node.id == actor.id);
-        while let Some(node) = at {
-            if node.kind == contracts::agent::NodeKind::Workstream {
-                let module = self.modules.get(namespace).ok_or_else(|| {
-                    RpcError::internal(format!("{namespace} module is not registered"))
-                })?;
-                let ctx = self.ctx(Actor::daemon());
-                return module
-                    .call(
-                        &ctx,
-                        move_method,
-                        json!({ key: created[key].clone(), "home": node.id }),
-                    )
-                    .await;
-            }
-            at = node
-                .parent
-                .as_ref()
-                .and_then(|parent| nodes.iter().find(|n| &n.id == parent));
+        let Some(door) = RailIndex::new(&nodes).workstream_of(&actor.id) else {
+            return Ok(created);
+        };
+        let ctx = self.ctx(Actor::daemon());
+        let home = Some(door.id.clone());
+        if pad {
+            let name = created["name"]
+                .as_str()
+                .ok_or_else(|| RpcError::internal("a created Pad has no name"))?;
+            return rpc::reply(&self.pads.set_home(&ctx, name, home)?);
         }
-        Ok(created)
+        let id = created["id"]
+            .as_u64()
+            .and_then(|id| u32::try_from(id).ok())
+            .ok_or_else(|| RpcError::internal("a created Todo has no id"))?;
+        rpc::reply(&self.todos.set_home(&ctx, id, home)?)
     }
 
     /// A5168a: only a Door uses the GitHub tools; a Door is the Agent whose id is a Workstream's.
     pub(crate) async fn require_door(&self, actor: &Actor) -> Result<(), RpcError> {
-        let is_door = actor.kind == ActorKind::Agent
-            && self.rail().await?.iter().any(|node| {
-                node.id == actor.id && node.kind == contracts::agent::NodeKind::Workstream
-            });
+        let is_door = actor.kind == ActorKind::Agent && self.agents.is_door(&actor.id);
         if is_door {
             return Ok(());
         }

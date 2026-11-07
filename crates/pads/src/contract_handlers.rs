@@ -25,7 +25,7 @@ impl Pads {
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        self.list().map_err(RpcError::from)
+        Ok(crate::reply(&self.list()?)?)
     }
 
     pub(super) async fn rpc_pad_rename(
@@ -80,7 +80,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.move_to(ctx, params(value)?).map_err(RpcError::from)
+        Ok(crate::reply(&self.move_to(ctx, params(value)?)?)?)
     }
 
     pub(super) async fn rpc_pad_delete(

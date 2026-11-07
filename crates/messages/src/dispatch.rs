@@ -3,14 +3,14 @@
 use super::*;
 
 impl Messages {
-    pub(super) fn get(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
+    pub(super) fn get(&self, ctx: &Ctx, p: MessageId) -> Result<Value, Error> {
         let message = self.get_or_not_found(p.id)?;
         require_readable(ctx, &message)?;
         ctx.touch(Verb::Read, &item(p.id))?;
         reply(&failure::with_waiting(&self.inner, message))
     }
 
-    pub(super) fn list(&self, ctx: &Ctx, p: ListParams) -> Result<Value, RpcError> {
+    pub(super) fn list(&self, ctx: &Ctx, p: ListParams) -> Result<Value, Error> {
         let mut messages = match &p.id {
             Some(door) => self.store()?.thread(door)?,
             None => self.store()?.list()?,
@@ -34,22 +34,22 @@ impl Messages {
     }
 }
 
-pub(super) fn require_user(ctx: &Ctx, action: &str) -> Result<(), RpcError> {
+pub(super) fn require_user(ctx: &Ctx, action: &str) -> Result<(), Error> {
     if ctx.actor.kind == ActorKind::User {
         return Ok(());
     }
-    Err(RpcError::forbidden(format!("only the user may {action}")))
+    Err(Error::forbidden(format!("only the user may {action}")))
 }
 
 /// B11: the user may read any Message; anyone else only one they sent or received.
-fn require_readable(ctx: &Ctx, message: &Message) -> Result<(), RpcError> {
+fn require_readable(ctx: &Ctx, message: &Message) -> Result<(), Error> {
     if ctx.actor.kind == ActorKind::User
         || is_sender(message, &ctx.actor)
         || is_receiver(&ctx.actor, &message.to)
     {
         return Ok(());
     }
-    Err(RpcError::forbidden(format!(
+    Err(Error::forbidden(format!(
         "{} may not read message {}",
         ctx.actor.id, message.id
     )))
@@ -72,13 +72,22 @@ pub(super) fn item(id: u32) -> String {
 }
 
 /// B53: a send names its `kind`; a missing or unknown one says which values are allowed.
-pub(super) fn send_params(value: Value) -> Result<SendParams, RpcError> {
+/// `rpc::params` below the handler: its failure joins the crate's one error type.
+pub(super) fn params<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Error> {
+    Ok(rpc::params(value)?)
+}
+
+/// `rpc::reply` below the handler.
+pub(super) fn reply<T: serde::Serialize>(value: &T) -> Result<Value, Error> {
+    Ok(rpc::reply(value)?)
+}
+
+pub(super) fn send_params(value: Value) -> Result<SendParams, Error> {
     if !matches!(
         value.get("kind").and_then(Value::as_str),
         Some("note" | "question")
     ) {
-        return Err(RpcError::new(
-            code::INVALID_PARAMS,
+        return Err(Error::invalid_params(
             "kind is required and must be `note` or `question`",
         ));
     }
@@ -116,15 +125,15 @@ impl Messages {
 
 impl Messages {
     /// Every Message sent to or by `door`, in order.
-    pub fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
+    pub fn thread(&self, door: &str) -> Result<Vec<Message>, Error> {
         self.store()?.thread(door)
     }
 }
 
 impl Messages {
-    pub(super) fn get_or_not_found(&self, id: u32) -> Result<Message, RpcError> {
+    pub(super) fn get_or_not_found(&self, id: u32) -> Result<Message, Error> {
         self.store()?
             .get(id)?
-            .ok_or_else(|| RpcError::not_found(format!("message {id}")))
+            .ok_or_else(|| Error::not_found(format!("message {id}")))
     }
 }

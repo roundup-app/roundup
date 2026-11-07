@@ -35,10 +35,10 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
         .map_or_else(std::env::current_dir, |dir| Ok(PathBuf::from(dir)))?;
     // N1: the Project's data lives in the App's data folder, never in the Project folder.
     let data = rupd::data::data_dir()?;
-    let opened = rupd::Daemon::open_project(&project, &data);
+    let opened = rupd::Daemon::open_observed(&project, &data, rupd::Observers::from_env());
     let opened_at = begun.elapsed();
-    let daemon = match opened {
-        Ok(daemon) => daemon,
+    let (daemon, watchers) = match opened {
+        Ok(opened) => opened,
         Err(err) => {
             let _ = writeln!(io::stderr(), "rupd: refusing to start: {err}");
             std::process::exit(1)
@@ -73,11 +73,11 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
             let _ = std::fs::remove_file(&old);
         }
         if let Ok(extra) = UnixListener::bind(&old) {
-            tokio::spawn(rupd::serve(extra, Arc::clone(&daemon)));
+            tokio::spawn(rupd::accept(extra, Arc::clone(&daemon)));
         }
     }
     if !attached {
-        return rupd::serve(listener, daemon).await;
+        return rupd::serve(listener, daemon, watchers).await;
     }
     let ended = async {
         if notify_bound {
@@ -96,7 +96,7 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
         let stdin_closed =
             tokio::task::spawn_blocking(|| io::copy(&mut io::stdin().lock(), &mut io::sink()));
         tokio::select! {
-            served = rupd::serve(listener, Arc::clone(&daemon)) => served,
+            served = rupd::serve(listener, Arc::clone(&daemon), watchers) => served,
             closed = stdin_closed => closed.map_err(io::Error::other)?.map(drop),
         }
     }

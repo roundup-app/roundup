@@ -57,6 +57,41 @@ impl Todos {
             .remove_workstream(db, id, actor, removal, scope)
     }
 
+    /// Every Todo in id order, as `todo.list` replies. It logs no Touch.
+    pub fn list_all(&self) -> Result<Vec<contracts::todo::Todo>, RpcError> {
+        Ok(self.store()?.list()?)
+    }
+
+    /// `todo.get`: the Todo, and `ctx.actor` has read its History to here.
+    pub fn read(&self, ctx: &Ctx, id: u32) -> Result<contracts::todo::Todo, RpcError> {
+        Ok(self.get(ctx, contracts::todo::TodoId { id })?)
+    }
+
+    /// `todo.move`: the Daemon has checked `home` against the Rail (T13).
+    pub fn set_home(
+        &self,
+        ctx: &Ctx,
+        id: u32,
+        home: Option<String>,
+    ) -> Result<contracts::todo::Todo, RpcError> {
+        Ok(self.move_to(ctx, contracts::todo::MoveParams { id, home })?)
+    }
+
+    /// `todo.assign`, unconditionally: the Daemon has checked the owner against the Rail (T17).
+    pub fn set_owner(
+        &self,
+        ctx: &Ctx,
+        id: u32,
+        owner: Option<contracts::Actor>,
+    ) -> Result<contracts::todo::Todo, RpcError> {
+        let assign = contracts::todo::AssignParams {
+            id,
+            owner: owner.map(contracts::common::Owner::Actor),
+            expected_change: None,
+        };
+        Ok(self.assign(ctx, assign)?)
+    }
+
     /// T27: the links of a Todo as added, for the Daemon to read their state. It logs no Touch.
     pub fn refs(&self, id: u32) -> Result<Vec<String>, Error> {
         self.read_refs(id)

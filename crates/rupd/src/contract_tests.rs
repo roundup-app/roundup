@@ -93,7 +93,8 @@ async fn b2_a_user_set_non_agent_auto_route_reaches_the_inbox() {
     let daemon_sender = Actor::daemon().id;
     for from in ["ext:audit", daemon_sender.as_str()] {
         let dir = tempfile::tempdir().unwrap();
-        let (daemon, state) = test_support::reply_daemon(dir.path(), false);
+        let (daemon, watchers, state) = test_support::reply_daemon(dir.path(), false);
+        daemon.watch(watchers);
         let route = tests::ask(
             &daemon,
             &json!({"id":1,"method":"route.set","params":{"from":from,"to":"2","delivery":"auto"}})
@@ -146,7 +147,8 @@ async fn b4_a_user_set_non_agent_drop_route_drops_the_message() {
     let daemon_sender = Actor::daemon().id;
     for from in ["ext:audit", daemon_sender.as_str()] {
         let dir = tempfile::tempdir().unwrap();
-        let (daemon, state) = test_support::reply_daemon(dir.path(), false);
+        let (daemon, watchers, state) = test_support::reply_daemon(dir.path(), false);
+        daemon.watch(watchers);
         state.status("2", contracts::Kind::Idle);
         let route = tests::ask(
             &daemon,
@@ -176,7 +178,8 @@ async fn b5_a_non_agent_route_change_preserves_the_pending_message() {
     let daemon_sender = Actor::daemon().id;
     for from in ["ext:audit", daemon_sender.as_str()] {
         let dir = tempfile::tempdir().unwrap();
-        let (daemon, state) = test_support::reply_daemon(dir.path(), false);
+        let (daemon, watchers, state) = test_support::reply_daemon(dir.path(), false);
+        daemon.watch(watchers);
         let route = tests::ask(
             &daemon,
             &json!({"id":1,"method":"route.set","params":{"from":from,"to":"2","delivery":"auto"}})

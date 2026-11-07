@@ -999,6 +999,7 @@ dependencies = [
  "dirs",
  "getrandom 0.3.4",
  "icns",
+ "indexmap 2.14.2",
  "log",
  "mac-notification-sys",
  "native",
@@ -3009,6 +3010,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
 ]
 

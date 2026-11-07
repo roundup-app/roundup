@@ -9,28 +9,26 @@ impl Messages {
     /// an empty key, missing receiver or stale Attempt is refused. An already stopped Agent
     /// reconciles its ordinary B9 ending first; no final record revives. No rollback releases
     /// this protection: a failed removal must resume with the same key.
-    pub async fn reserve_retirement(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+    pub async fn reserve_retirement(&self, agent: &str, key: &str) -> Result<(), Error> {
         if key.is_empty() {
-            return Err(RpcError::new(code::INVALID_PARAMS, "empty retirement key"));
+            return Err(Error::invalid_params("empty retirement key"));
         }
         let _delivery = self.inner.delivery.write().await;
         if let Some((previous, _)) = self.store()?.retirement(agent)? {
             return if previous == key {
                 Ok(())
             } else {
-                Err(RpcError::conflict(
-                    "another retirement reserved this receiver",
-                ))
+                Err(Error::conflict("another retirement reserved this receiver"))
             };
         }
         let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .iter()
             .find(|n| n.id == agent)
-            .ok_or_else(|| RpcError::not_found(agent))?;
+            .ok_or_else(|| Error::not_found(agent))?;
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;
-        (self.inner.fault)("reserve_retirement").map_err(RpcError::internal)?;
+        (self.inner.fault)("reserve_retirement").map_err(Error::internal)?;
         store.atomically(|s| s.reserve_retirement(agent, key))
     }
 
@@ -38,16 +36,14 @@ impl Messages {
     /// Refuses a missing/different key or an Agent still on the Rail. Failure retains protection;
     /// retry/reopen uses the same key. Repeated completed calls succeed without lifecycle work,
     /// and completed protection never expires or makes preserved pending records deliverable.
-    pub async fn complete_retirement(&self, agent: &str, key: &str) -> Result<(), RpcError> {
+    pub async fn complete_retirement(&self, agent: &str, key: &str) -> Result<(), Error> {
         let _delivery = self.inner.delivery.write().await;
         let (previous, completed) = self
             .store()?
             .retirement(agent)?
-            .ok_or_else(|| RpcError::conflict("retirement not reserved"))?;
+            .ok_or_else(|| Error::conflict("retirement not reserved"))?;
         if previous != key {
-            return Err(RpcError::conflict(
-                "another retirement reserved this receiver",
-            ));
+            return Err(Error::conflict("another retirement reserved this receiver"));
         }
         if completed {
             return Ok(());
@@ -57,9 +53,9 @@ impl Messages {
             .iter()
             .any(|n| n.id == agent)
         {
-            return Err(RpcError::conflict("retiring Agent still on the Rail"));
+            return Err(Error::conflict("retiring Agent still on the Rail"));
         }
-        (self.inner.fault)("complete_retirement").map_err(RpcError::internal)?;
+        (self.inner.fault)("complete_retirement").map_err(Error::internal)?;
         self.store()?.complete_retirement(agent, key)
     }
 }

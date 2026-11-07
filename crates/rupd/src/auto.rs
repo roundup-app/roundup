@@ -1,33 +1,26 @@
 //! A3308: ordinary Messages ask the Door to assign unassigned Todos. The retained Message
 //! and Todo owner history together identify a firing, including after a Daemon restart.
 use super::*;
+use crate::rail_index::RailIndex;
 use crate::route::policy::{Serial, policy};
 use contracts::agent::{NodeKind, RailNode};
 use contracts::message::Message;
 use contracts::todo::{History, Todo};
 
+#[derive(Default)]
 pub(crate) struct Auto {
     gate: Arc<tokio::sync::Mutex<()>>,
-    events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
 }
 
 impl Auto {
-    pub(crate) fn new(bus: &Bus) -> Self {
-        Self {
-            gate: Default::default(),
-            events: std::sync::Mutex::new(Some(bus.subscribe())),
-        }
-    }
-
-    /// `reader` runs only on the first call: it copies the module map, which every request
-    /// would otherwise pay for.
-    pub(crate) fn start(&self, reader: impl FnOnce() -> digest::Reader) {
-        let Some(mut events) = self.events.lock().expect("Auto events lock").take() else {
-            return;
-        };
-        let reader = reader();
+    /// Tell the Door of each change that may leave a Todo unassigned, until the Bus closes.
+    pub(crate) fn watch(
+        &self,
+        mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
+        reader: digest::Reader,
+    ) -> impl std::future::Future<Output = ()> + use<> {
         let gate = Arc::clone(&self.gate);
-        tokio::spawn(async move {
+        async move {
             use tokio::sync::broadcast::error::RecvError;
             loop {
                 match events.recv().await {
@@ -47,7 +40,7 @@ impl Auto {
                     .await
                     .expect("retain Auto notices for the Door");
             }
-        });
+        }
     }
 }
 
@@ -63,7 +56,6 @@ impl Daemon {
         let params = self
             .resolve_agent_inputs(&conn.actor, method, params)
             .await?;
-        self.auto.start(|| self.reader());
         let row = policy(method).ok_or_else(|| RpcError::method_not_found(method))?;
         let serializes = match row.serial {
             Serial::No => false,
@@ -98,31 +90,24 @@ impl Daemon {
 
     async fn require_auto_slot(&self, actor: &Actor) -> Result<(), RpcError> {
         let nodes = self.rail().await?;
-        let mut at = nodes.iter().find(|node| node.id == actor.id);
-        while let Some(node) = at {
-            if node.kind == NodeKind::Workstream {
-                if node.auto == Some(true) {
-                    let running = queue::running(
-                        &nodes,
-                        &self.queue.launching.lock().expect("Queue launching lock"),
-                    );
-                    if !running.contains(&node.id)
-                        && self
-                            .agents
-                            .workstream_cap()?
-                            .is_some_and(|cap| running.len() >= cap as usize)
-                    {
-                        return Err(RpcError::conflict(
-                            "Workstream cap reached; wait for a running Workstream to finish",
-                        ));
-                    }
-                }
-                break;
+        let Some(door) = RailIndex::new(&nodes).workstream_of(&actor.id) else {
+            return Ok(());
+        };
+        if door.auto == Some(true) {
+            let running = queue::running(
+                &nodes,
+                &self.queue.launching.lock().expect("Queue launching lock"),
+            );
+            if !running.contains(&door.id)
+                && self
+                    .agents
+                    .workstream_cap()?
+                    .is_some_and(|cap| running.len() >= cap as usize)
+            {
+                return Err(RpcError::conflict(
+                    "Workstream cap reached; wait for a running Workstream to finish",
+                ));
             }
-            at = node
-                .parent
-                .as_ref()
-                .and_then(|parent| nodes.iter().find(|node| &node.id == parent));
         }
         Ok(())
     }

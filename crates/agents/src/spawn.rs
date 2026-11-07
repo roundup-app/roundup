@@ -247,7 +247,7 @@ impl Agents {
             let rail = self.shared.rail();
             let node = rail.node(&id)?;
             let saved_cwd = match self.shared.runs().get(&id) {
-                Some(Slot::Running(run)) => Some(run.cwd.clone()),
+                Some(Slot::Running(run)) => Some(run.cwd().to_owned()),
                 _ => None,
             };
             (node, saved_cwd)
@@ -541,40 +541,6 @@ impl Agents {
     }
 }
 
-impl Run {
-    fn starting(
-        clock: Clock,
-        attempt: Ordinal,
-        terminal_id: String,
-        cwd: String,
-        prompt: Option<String>,
-        startup_context: bool,
-        named: bool,
-    ) -> Self {
-        Self {
-            yolo: false,
-            startup_context,
-            input_started: prompt.is_some(),
-            attempt,
-            status_revision: Ordinal::first(),
-            closing: false,
-            ended: false,
-            adapter: ClaudeCode::starting(move || clock()),
-            first_pending: prompt.is_some(),
-            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
-            first_prompt: None,
-            prompt,
-            steer: None,
-            session_started: None,
-            starred: false,
-            interrupt: None,
-            named,
-            terminal_id,
-            cwd,
-        }
-    }
-}
-
 #[cfg(feature = "test-support")]
 impl Agents {
     /// Controlled launch completion at the production lifecycle seam, without a vendor or PTY.
@@ -658,7 +624,7 @@ mod idle_tests {
                 );
                 shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
                     Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
-                assert!(earlier.input_started);
+                assert!(earlier.input_started());
                 shared
                     .runs()
                     .insert(node.id.clone(), Slot::Running(earlier));
@@ -697,12 +663,12 @@ mod idle_tests {
                     )
                     .unwrap();
                 assert!(input.is_none(), "automatic startup input: {input:?}");
-                assert!(!run.input_started);
-                assert!(run.steer.is_none());
+                assert!(!run.input_started());
+                assert!(run.steer().is_none());
             }
             shared.apply(Some(&mut rail), &mut run, &node.id, &Actor::user(),
                 Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"my request"})), None).unwrap();
-            assert!(run.input_started);
+            assert!(run.input_started());
         }
         // Resume uses its actual promotion seam: a retained order is not fresh input.
         let (_dir, _bus, shared) = tests::shared_over_temp_dir(Arc::new(|| 0));
@@ -728,7 +694,7 @@ mod idle_tests {
         );
         shared.apply(Some(&mut rail), &mut earlier, &node.id, &Actor::user(),
             Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit","prompt":"earlier request"})), None).unwrap();
-        assert!(earlier.input_started);
+        assert!(earlier.input_started());
         shared
             .runs()
             .insert(node.id.clone(), Slot::Running(earlier));
@@ -756,7 +722,7 @@ mod idle_tests {
         let Some(Slot::Running(run)) = runs.get_mut(&node.id) else {
             panic!("resume was not promoted")
         };
-        assert!(!run.input_started);
+        assert!(!run.input_started());
         shared
             .apply(
                 Some(&mut rail),
@@ -769,7 +735,7 @@ mod idle_tests {
                 None,
             )
             .unwrap();
-        assert!(run.input_started);
+        assert!(run.input_started());
         let work = Order::work("build");
         assert_eq!(
             order::first_input(None, Some(&work), Some("details"), true, "1"),

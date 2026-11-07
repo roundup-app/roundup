@@ -1,3 +1,4 @@
+#![allow(clippy::disallowed_methods)] // a build script reads cargo's variables, not the Daemon's
 //! N21: every `migrations/project/<NNNN>-<name>.sql` is a Project migration after the frozen head.
 use std::{env, fs, path::Path, path::PathBuf};
 

@@ -57,6 +57,7 @@
     "mermaid": "^12.1.0",
     "motion": "14.6.0",
     "overlayscrollbars": "2.17.0",
+    "p-queue": "9.3.5",
     "p-retry": "8.0.1",
     "prosemirror-highlight": "0.16.0",
     "react": "^19.3.0",

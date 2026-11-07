@@ -18,8 +18,7 @@ use contracts::agent::{
     ChangedFiles, Channel, ChannelEvent, CreateWorkstreamParams, ExtrasAddParams, KeptItem,
     KeptReason, Landed, MoveParams, NodeId, NodeKind, Order, PromptParams, RailNode, Removal,
     RemovalKind, RemoveScope, RemovedItem, RenameParams, RunParams, SetModelParams, SetOrderParams,
-    SignalOutcome, SignalParams, SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent,
-    WorktreeState,
+    SignalOutcome, SignalParams, SpawnParams, StartDoorParams, Stray, StrayEvent, WorktreeState,
 };
 use contracts::project::{Mcp, PrepareParams, ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
@@ -32,6 +31,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::oneshot;
 use tokio::time::{Instant, sleep_until};
 
+mod agent;
 mod asks;
 mod auto;
 pub mod claude_code;
@@ -55,6 +55,7 @@ pub mod rewind;
 mod scan;
 pub mod worktree;
 
+use agent::{Run, Slot};
 use claude_code::{ClaudeCode, Launcher, Pair, Role};
 
 /// One input an adapter reads about its Agent.
@@ -265,59 +266,6 @@ impl From<PromptError> for RpcError {
 /// F5: how long between two reads of the process table. `ROUNDUP_SCAN_MS` shortens it for a test.
 pub const SCAN_INTERVAL: Duration = Duration::from_millis(2000);
 
-/// A node's place in `Shared::runs`.
-// Slots live in one map and are matched in place; boxing `Run` would add an indirection at every site.
-#[allow(clippy::large_enum_variant)]
-enum Slot {
-    /// Its Terminal is starting; `since` is when, on `clock`, it was marked.
-    Starting {
-        attempt: Ordinal,
-        since: i64,
-        /// A `rail.rename` came while it started; its first prompt must not undo it.
-        named: bool,
-        /// Signals that reached `agent.signal` in this window, in arrival order, applied once
-        /// the Agent is registered (A14).
-        parked: VecDeque<(Actor, Value)>,
-    },
-    /// A22: a resume's launch is pending acknowledgement; `since` is when, on `clock`, it began.
-    Resuming {
-        mode: contracts::agent::ResumeMode,
-        attempt: Ordinal,
-        since: i64,
-        /// The stashed exited Run, presented and restored on rollback; `None` when there was
-        /// nothing to restore (a reopened Agent with no live Run, A12).
-        old: Option<Box<Run>>,
-        /// The saved conversation id the ack must name.
-        conversation_id: String,
-        /// The directory the new Attempt runs in, saved alongside the conversation id (A21)
-        /// once the ack confirms it.
-        cwd: String,
-        /// A35 reserves this prompt before the acknowledging Status can admit Messages.
-        prompt: Option<String>,
-        /// H19: retain a ready title arriving before the ack, so the first prompt can enter.
-        starred: bool,
-        /// The Terminal this launch started, once `agent.resume` has spawned it; `None` until
-        /// then, so a Signal cannot arrive for it any earlier.
-        terminal_id: Option<String>,
-        /// Signals parked exactly as `Starting`'s, awaiting the ack among them (A14).
-        parked: VecDeque<(Actor, Value)>,
-        /// Promotion or timeout claims this sender under the runs lock. Failure sends only
-        /// after cleanup finishes; a timer that loses the claim still awaits this sender.
-        done: tokio::sync::oneshot::Sender<Result<(), RpcError>>,
-    },
-    Running(Run),
-    /// A failed Resume retains its Terminal until cleanup is confirmed or explicitly stopped.
-    ResumeCleanup {
-        /// Keep the last acknowledged Run until cleanup or explicit Stop restores it.
-        old: Option<Box<Run>>,
-        attempt: Ordinal,
-        terminal_id: String,
-        pending: bool,
-        error: RpcError,
-    },
-    Closing,
-}
-
 /// B6: an accounted first Steer. None of these outcomes authorizes another initial prompt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FirstSteerCompletion {
@@ -327,48 +275,6 @@ pub enum FirstSteerCompletion {
     Refused,
     /// The physical effect ended, but submission (or a partial write) is unknown.
     Uncertain,
-}
-
-/// An Agent's program and what is left to tell it.
-enum FirstPrompt {
-    Reserved,
-    Written,
-    Acknowledged,
-}
-
-struct Run {
-    yolo: bool,
-    /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
-    startup_context: bool,
-    input_started: bool,
-    attempt: Ordinal,
-    status_revision: Ordinal,
-    closing: bool,
-    ended: bool,
-    adapter: ClaudeCode,
-    /// H12: sent as a Steer at the first `SessionStart`, then gone.
-    prompt: Option<String>,
-    /// H12: no Message overtakes the first Steer before its completion or refusal.
-    first_pending: bool,
-    /// B6: retained first Steer result; only its physical writer may settle an active effect.
-    first_completion: Option<tokio::sync::watch::Sender<Option<FirstSteerCompletion>>>,
-    /// Retained after the first Steer acknowledgement so a dropped coordinator can retry.
-    first_prompt: Option<FirstPrompt>,
-    /// H19: when the first `SessionStart` arrived; repeats cannot extend the Ask wait.
-    session_started: Option<tokio::time::Instant>,
-    /// H19: the first title with the star glyph has arrived.
-    starred: bool,
-    /// H11: the Steer awaiting submission or local-command acceptance.
-    steer: Option<SteerWait>,
-    /// H13: the Interrupt written and awaiting the title that acknowledges it.
-    interrupt: Option<tokio::sync::oneshot::Sender<()>>,
-    /// The first prompt has been submitted, or a `rail.rename` came first: either way the name
-    /// is settled and no prompt renames the node.
-    named: bool,
-    terminal_id: String,
-    /// A21: the effective working directory this launch runs in, after Worktree mapping; saved
-    /// to `agents.db` alongside the conversation id the first Signal to name one carries.
-    cwd: String,
 }
 
 /// `spawn` registers an Agent before its watcher starts, so the watcher always finds it.
@@ -394,6 +300,8 @@ pub struct Agents {
 
 mod dispatch;
 mod door;
+mod typed;
+pub use typed::RailRead;
 mod ending;
 mod events;
 mod import_work;
@@ -460,7 +368,7 @@ impl Agents {
     pub fn drop_hooks_for_test(&self, id: &str) {
         if let Some(Slot::Running(run)) = self.shared.runs().get_mut(id) {
             let clock = Arc::clone(&self.shared.clock);
-            run.adapter = ClaudeCode::starting(move || clock()).without_hooks();
+            *run.adapter_mut() = ClaudeCode::starting(move || clock()).without_hooks();
         }
     }
 

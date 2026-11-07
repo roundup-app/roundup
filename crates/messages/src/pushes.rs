@@ -3,13 +3,14 @@
 //! oldest two merging into one when a twenty-first arrives. No cap loses a count: each digest has
 //! a weight, read from its body, and a rollup or a merge weighs what it holds.
 
+use crate::Error;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use contracts::Actor;
 use contracts::agent::DigestEntry;
 use contracts::message::{Message, MessageKind, SendParams};
-use rpc::{Ctx, RpcError};
+use rpc::Ctx;
 
 use crate::digest::{self, cut, entry_text, push_body};
 use crate::{Inner, Messages, lock, pushes};
@@ -155,7 +156,7 @@ fn pieces(body: &str) -> Vec<Piece<'_>> {
         while lines.peek().is_some_and(|next| next.starts_with("  ")) {
             block.extend(lines.next());
         }
-        match digest::parse_entry(head, &block[1..]) {
+        match digest::parse_entry(head, block.get(1..).unwrap_or_default()) {
             Some(entry) => out.push(Piece::Block(entry, block)),
             None => out.extend(block.into_iter().map(Piece::Line)),
         }
@@ -224,10 +225,14 @@ pub(crate) fn bodies_of(found: &[Message]) -> Vec<String> {
             let body = without(&message.body, &later);
             // Equal adjacent digests reach the shared rendered comparison together (B5763b).
             // Different updates still replace the older child's content under B34.
-            if index == 0
-                || found[index - 1].kind != MessageKind::Note
-                || found[index - 1].from != message.from
-                || found[index - 1].body != message.body
+            if index
+                .checked_sub(1)
+                .and_then(|previous| found.get(previous))
+                .is_none_or(|previous| {
+                    previous.kind != MessageKind::Note
+                        || previous.from != message.from
+                        || previous.body != message.body
+                })
             {
                 later.extend(names_in(&message.body));
             }
@@ -272,13 +277,14 @@ fn compose(header: &str, entries: &[DigestEntry]) -> String {
         taken = fit(1 + MORE_BYTES);
     }
     let mut body = header.to_owned();
-    for line in &lines[..taken] {
+    for line in lines.iter().take(taken) {
         body.push('\n');
         body.push_str(line);
     }
     if taken < lines.len() {
-        let names: Vec<&str> = entries[taken..]
+        let names: Vec<&str> = entries
             .iter()
+            .skip(taken)
             .map(|entry| entry.name.as_str())
             .collect();
         let more = format!("[+{} more: {}]", names.len(), names.join(", "));
@@ -347,7 +353,7 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
     match crate::load_rail_nodes(inner).await {
         Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
-        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
+        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err)),
     }
     ledger.persist(inner, Some((meta, subagent)));
 }
@@ -368,7 +374,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
                     }
                 }
             }
-            Err(err) => crate::log_failure("push", &err.message),
+            Err(err) => crate::log_failure("push", &err.to_string()),
         }
     }
     ledger
@@ -397,22 +403,21 @@ async fn roll_up(
     {
         return;
     }
-    let body = if plain && slot.waiting.len() == 1 && slot.waiting[0].2 == 1 {
-        push_body(&slot.waiting[0].1)
-    } else {
-        rollup_body(&slot.waiting)
+    let body = match slot.waiting.as_slice() {
+        [(_, entry, 1)] if plain => push_body(entry),
+        waiting => rollup_body(waiting),
     };
     match send_digest(inner, meta, body).await {
         Ok(()) => {
             slot.sent.push_back(now);
             slot.waiting.clear();
         }
-        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err.message)),
+        Err(err) => crate::log_failure("push", &format!("{meta}: {}", err)),
     }
 }
 
 /// Sends one pushed digest, then merges the oldest two while more than 20 are open.
-async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(), RpcError> {
+async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(), Error> {
     let messages = Messages {
         inner: Arc::clone(inner),
     };
@@ -427,14 +432,14 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
         body,
         reply_to: None,
     };
-    crate::trip(inner, "push").map_err(RpcError::internal)?;
+    crate::trip(inner, "push").map_err(Error::internal)?;
     messages.send_message(&ctx, params(body), false).await?;
     while lock(&inner.store).open_digests(meta)?.len() > OPEN_DIGESTS {
         if let Err(err) = messages
             .send_message(&ctx, params(PREFIX.to_owned()), true)
             .await
         {
-            crate::log_failure("push", &err.message);
+            crate::log_failure("push", &err.to_string());
             break;
         }
     }
@@ -444,7 +449,7 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
 /// DCL10: per Door, the changes it has not received, read from storage: pending Messages
 /// (a pushed digest standing for its weight) plus the ledger's waiting entries, a change counted
 /// once when a pending digest already holds its entry.
-pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, RpcError> {
+pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, Error> {
     let ledger = inner.pushes.lock().await;
     let pending = lock(&inner.store).pending_all()?;
     let mut counts: HashMap<String, u32> = HashMap::new();
@@ -487,7 +492,7 @@ impl Messages {
     }
 
     /// DCL10: per Door, how many changes it has not received, read from the stored backlog.
-    pub async fn waiting_counts(&self) -> Result<HashMap<String, u32>, RpcError> {
+    pub async fn waiting_counts(&self) -> Result<HashMap<String, u32>, Error> {
         waiting_counts(&self.inner).await
     }
 }
