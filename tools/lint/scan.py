@@ -17,6 +17,8 @@ FUNCTION_RULES = {
     'sonarjs(cognitive-complexity)': r'from (\d+) to',
     'eslint(max-lines-per-function)': r'\((\d+)\)',
 }
+# State-holder lints (U6416): existing sites are exact debt; later Issues move them to a store or a queue.
+HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)')
 TESTS = re.compile(r'\.test\.tsx?$|/testing/|/perf/')
 SECTIONS = {'web': ['size', 'ast', 'typos', 'ruff'], 'rust': ['dependencies']}
 
@@ -136,7 +138,7 @@ def inventory(section, root):
         output = run([HERE.parent.parent / 'node_modules/.bin/oxlint', '--type-aware', '-A', 'correctness', '-f', 'json', 'apps/desktop/src'], root, (0, 1))
         rows = []
         for match in json.loads(output.stdout)['diagnostics']:
-            if not re.match(r'solid\(|typescript\(switch-exhaustiveness-check\)$', match['code']):
+            if not re.match(r'solid\(|typescript\(switch-exhaustiveness-check\)$', match['code']) and match['code'] not in HOLDER_RULES:
                 continue
             span = match['labels'][0]['span']
             data = (root / match['filename']).read_bytes()
@@ -224,7 +226,7 @@ def main():
             finally:
                 run(['git', 'worktree', 'remove', '--force', checkout], root)
     # Likewise a function-size rule the merge base holds no row of: its first PR records it.
-    first = {rule for rule in FUNCTION_RULES if not any(row.get('rule') == rule for row in old.get('oxlint', []))}
+    first = {rule for rule in (*FUNCTION_RULES, *HOLDER_RULES) if not any(row.get('rule') == rule for row in old.get('oxlint', []))}
     for section in sections:
         if section not in unrecorded:
             errors.extend(compare([row for row in debt[section] if row.get('rule') not in first], old[section], f'{section} merge-base', subset=True))

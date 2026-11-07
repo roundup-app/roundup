@@ -10,15 +10,15 @@ const args = process.argv.slice(2);
 const root = process.cwd();
 // The ordinary gate runs the fixtures; a targeted lint invocation runs only its requested lint.
 if (!args.length) {
-  const fixtures = spawnSync(process.execPath, ["--test", resolve(directory, "assertions.test.mjs"), resolve(directory, "../../pre-commit.test.mjs"), resolve(directory, "../rules/u3791c-swallowed-catch.test.mjs"), resolve(directory, "../web-timeout/timeout.test.mjs")], { stdio: "inherit" });
+  const fixtures = spawnSync(process.execPath, ["--test", resolve(directory, "assertions.test.mjs"), resolve(directory, "../../pre-commit.test.mjs"), resolve(directory, "../rules/u3791c-swallowed-catch.test.mjs"), resolve(directory, "../rules/u6416-state-holders.test.mjs"), resolve(directory, "../web-timeout/timeout.test.mjs")], { stdio: "inherit" });
   if (fixtures.status !== 0) process.exit(fixtures.status ?? 1);
 }
 const json = args.includes("json");
-const ratcheted = code => /^solid\(|^typescript\(switch-exhaustiveness-check\)$/.test(code);
+const ratcheted = code => /^solid\(|^typescript\(switch-exhaustiveness-check\)$|^anti-slop\((no-signal-poke|no-promise-chain-queue)\)$/.test(code);
 const lint = spawnSync(resolve(repo, "node_modules/.bin/oxlint"), args.length ? args : ["-f", "json"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 if (lint.error) throw lint.error;
 if (!args.length && [0, 1].includes(lint.status)) {
-  // `tools/lint/scan.py oxlint` holds the Solid and exhaustiveness findings as exact debt; they never reach this status.
+  // `tools/lint/scan.py oxlint` holds the Solid and exhaustiveness findings as exact debt; they never reach this status; so do the state-holder lints.
   const report = JSON.parse(lint.stdout);
   report.diagnostics = report.diagnostics.filter(item => !ratcheted(item.code));
   report.number_of_errors = report.diagnostics.filter(item => item.severity === "error").length;

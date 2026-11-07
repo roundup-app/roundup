@@ -1,3 +1,4 @@
+import { createStore } from "solid-js/store";
 import { createHeld } from "./held";
 import { createTodoUndo } from "../todos/deleteTodos";
 import type { RpcMethodName } from "@contracts/methods";
@@ -68,54 +69,29 @@ export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { pat
     if (existing) return existing;
 
     const storage = draftStorage(path);
-    const [revision, changed] = createSignal(0);
-
-    const refresh = <T,>(result: T): T => {
-      changed((value) => value + 1);
-
-      return result;
-    };
-
-    const recovery = new Map<string, Recovery>();
+    const [recovery, setRecovery] = createStore<Record<string, Recovery | undefined>>({});
 
     const holder: ProjectDrafts = {
       todoUndo: createTodoUndo(),
       importing: null,
       settingsView: createSettingsView(),
       editor: storage.editor,
-      recoverable: () => {
-        revision();
-
-        return storage.recoverable();
-      },
-      registerRecovery: (surface, resolve) => {
-        recovery.set(surface, resolve);
-        refresh(undefined);
-      },
+      recoverable: storage.recoverable,
+      registerRecovery: (surface, resolve) => setRecovery(surface, () => resolve),
       availability: (draft, facts) => {
-        revision();
-
         if (draft.destination.surface === "terminal_selection") return "unavailable";
 
-        return recovery.get(draft.destination.surface)?.(draft, facts) ?? "unverified";
+        return recovery[draft.destination.surface]?.(draft, facts) ?? "unverified";
       },
-      list: () => {
-        revision();
-
-        return storage.list();
-      },
-      problem: () => {
-        revision();
-
-        return storage.problem();
-      },
-      validate: (...args) => refresh(storage.validate(...args)),
-      edit: (...args) => refresh(storage.edit(...args)),
-      setSelection: (...args) => refresh(storage.setSelection(...args)),
-      submit: (...args) => refresh(storage.submit(...args)),
-      settle: (...args) => refresh(storage.settle(...args)),
-      discard: (...args) => refresh(storage.discard(...args)),
-      retry: () => refresh(storage.retry()),
+      list: storage.list,
+      problem: storage.problem,
+      validate: storage.validate,
+      edit: storage.edit,
+      setSelection: storage.setSelection,
+      submit: storage.submit,
+      settle: storage.settle,
+      discard: storage.discard,
+      retry: storage.retry,
     };
 
     projects.set(path, holder);
