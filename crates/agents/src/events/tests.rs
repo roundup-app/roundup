@@ -37,7 +37,7 @@ async fn a2703a_errors_use_rail_names() {
             }
             "resuming" => {
                 shared.runs().put(
-                    "7013".into(),
+                    "7013",
                     Slot::Resuming {
                         mode: Default::default(),
                         attempt: contracts::agent::Ordinal::parse("1").unwrap(),
@@ -55,7 +55,7 @@ async fn a2703a_errors_use_rail_names() {
             }
             "cleanup" => {
                 shared.runs().put(
-                    "7013".into(),
+                    "7013",
                     Slot::ResumeCleanup {
                         old: None,
                         attempt: contracts::agent::Ordinal::parse("1").unwrap(),
@@ -152,7 +152,7 @@ async fn a2_an_exit_ends_the_watch_without_waiting_out_a_parked_star() {
 fn a14_a_non_signal_observation_for_a_starting_id_is_still_not_found() {
     let (_dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
     shared.runs().put(
-        "1".into(),
+        "1",
         Slot::Starting {
             attempt: contracts::agent::Ordinal::parse("1").unwrap(),
             since: 0,

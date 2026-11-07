@@ -192,7 +192,7 @@ impl crate::Agents {
                             .as_ref()
                             .is_some_and(|status| status.kind == Kind::NeedsYou) =>
                 {
-                    Some(agent)
+                    Some(*agent)
                 }
                 _ => None,
             })
