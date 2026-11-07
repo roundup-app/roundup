@@ -85,7 +85,13 @@ impl Offered {
         match self.input {
             Input::None => Value::Null,
             Input::OwnId => serde_json::json!({ "id": agent }),
-            Input::Arguments => Value::Object(arguments.unwrap_or_default()),
+            Input::Arguments => {
+                let mut arguments = arguments.unwrap_or_default();
+                if matches!(self.method, "pad.delete" | "todo.delete") {
+                    with_key(&mut arguments);
+                }
+                Value::Object(arguments)
+            }
             Input::ArgumentsWithOwnId => own("id", arguments.unwrap_or_default()),
             Input::ArgumentsWithOwnReader => match arguments {
                 Some(arguments) => own("reader", arguments),
@@ -107,6 +113,26 @@ impl std::fmt::Display for Gone {
         match self {
             Gone::Unreachable(why) => f.write_str(why),
         }
+    }
+}
+
+/// P9a, T6a: a deletion's retry key is the caller's; one the caller gave none is made here, so a
+/// replay after an unknown reply is possible. The Daemon makes none.
+fn with_key(arguments: &mut JsonObject) {
+    if arguments.get("operation").is_none_or(Value::is_null) {
+        let mut bytes = [0u8; 16];
+        if getrandom::fill(&mut bytes).is_err() {
+            // Without getrandom, the standard library's per-process random hasher seeds a key.
+            use std::hash::{BuildHasher, Hasher};
+            let state = std::collections::hash_map::RandomState::new();
+            for (at, half) in bytes.chunks_mut(8).enumerate() {
+                let mut hasher = state.build_hasher();
+                hasher.write_usize(at);
+                half.copy_from_slice(&hasher.finish().to_le_bytes());
+            }
+        }
+        let key: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        arguments.insert("operation".into(), key.into());
     }
 }
 
@@ -382,6 +408,7 @@ pub(crate) async fn display_data(
         _ => {}
     }
     link_nodes(client, &mut result).await;
+    link_pads_and_todos(client, &mut result).await;
     Ok(result)
 }
 
@@ -422,6 +449,50 @@ fn add_links(value: &mut Value, key: &str, nodes: &[agent::RailNode]) {
     }
 }
 
+/// AL7: the kind and id of a Pad (`incarnation` and `name`) or a Todo (numeric `id` and `title`).
+fn pad_or_todo(map: &serde_json::Map<String, Value>) -> Option<(&'static str, String)> {
+    if map.get("incarnation").is_some_and(Value::is_string)
+        && let Some(name) = map.get("name").and_then(Value::as_str)
+    {
+        return Some(("pad", name.to_owned()));
+    }
+    if map.get("title").is_some_and(Value::is_string)
+        && let Some(id) = map.get("id").and_then(Value::as_u64)
+    {
+        return Some(("todo", id.to_string()));
+    }
+    None
+}
+
+/// AL7: whether `value` holds a Pad or a Todo object.
+fn holds_pad_or_todo(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => pad_or_todo(map).is_some() || map.values().any(holds_pad_or_todo),
+        Value::Array(items) => items.iter().any(holds_pad_or_todo),
+        _ => false,
+    }
+}
+
+/// AL7: gives each Pad and Todo object of `value` its LK1 `link`.
+fn add_object_links(value: &mut Value, key: &str) {
+    match value {
+        Value::Object(map) => {
+            let link =
+                pad_or_todo(map).map(|(kind, id)| contracts::link::object_link(kind, &id, key));
+            for child in map.values_mut() {
+                add_object_links(child, key);
+            }
+            if let Some(link) = link {
+                map.insert("link".into(), link.into());
+            }
+        }
+        Value::Array(items) => items
+            .iter_mut()
+            .for_each(|item| add_object_links(item, key)),
+        _ => {}
+    }
+}
+
 /// AL1: a Door's tool reply names an Agent with its link, so the Door can give the user a link to act in it.
 /// AL6: the reply already succeeded, so a failed read of the Rail or the Project key leaves it without links.
 async fn link_nodes(client: &rpc::Client, result: &mut Value) {
@@ -431,12 +502,25 @@ async fn link_nodes(client: &rpc::Client, result: &mut Value) {
     let Ok(nodes) = rail_nodes(client).await else {
         return;
     };
-    let ping = tokio::time::timeout(CALL_TIMEOUT, client.request("daemon.ping", Value::Null)).await;
-    if let Ok(Ok(ping)) = ping
-        && let Some(key) = field(&ping, "projectKey").as_str()
-    {
-        add_links(result, key, &nodes);
+    if let Some(key) = project_key(client).await {
+        add_links(result, &key, &nodes);
     }
+}
+
+/// AL7: a Pad or Todo in a reply carries its link; AL6 holds for a failed read of the Project key.
+pub(crate) async fn link_pads_and_todos(client: &rpc::Client, result: &mut Value) {
+    if !holds_pad_or_todo(result) {
+        return;
+    }
+    if let Some(key) = project_key(client).await {
+        add_object_links(result, &key);
+    }
+}
+
+async fn project_key(client: &rpc::Client) -> Option<String> {
+    let ping = tokio::time::timeout(CALL_TIMEOUT, client.request("daemon.ping", Value::Null)).await;
+    let Ok(Ok(ping)) = ping else { return None };
+    field(&ping, "projectKey").as_str().map(str::to_owned)
 }
 
 /// M17: only declared unit replies become acknowledgements; nullable data stays JSON.

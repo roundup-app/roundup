@@ -15,21 +15,20 @@ impl Module for Agents {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        contracts::agents_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        contracts::agents_methods!(rpc::dispatch_methods, Agents, self, ctx, method, value)
     }
 }
 
 impl Agents {
-    async fn rpc_rail_set_alert_level(
+    async fn rail_set_alert_level(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::SetAlertLevelParams,
+    ) -> Result<(), RpcError> {
         if ctx.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user sets alert levels"));
         }
-        let choice: contracts::agent::SetAlertLevelParams = params(value)?;
+        let choice: contracts::agent::SetAlertLevelParams = p;
         if Path::new(&choice.project) != self.project_dir() {
             return Err(RpcError::forbidden(
                 "alert level target belongs to another Project",
@@ -39,71 +38,45 @@ impl Agents {
             .rail()
             .set_alert_level(&choice.id, choice.level)?;
         ctx.emit(EventData::RailChanged);
-        reply(&())
+        Ok(())
     }
 
-    async fn rpc_agent_spawn(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.spawn(ctx, params(value)?).await?)
-    }
-
-    async fn rpc_agent_extras(
-        &self,
-        _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&claude_code::extras::available(
+    async fn agent_extras(&self, _ctx: &Ctx) -> Result<contracts::agent::Extras, RpcError> {
+        Ok(claude_code::extras::available(
             &self.launcher.extras_sources(self.project_dir()),
         ))
     }
 
-    async fn rpc_agent_extras_add(
+    async fn agent_extras_add(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::ExtrasAddParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
         {
-            let params: ExtrasAddParams = params(value)?;
+            let params: ExtrasAddParams = p;
             let id = params.id.clone();
             let node = self.add_extras(ctx, params).await?;
             Self::touch_rail(ctx, &id)?;
-            reply(&node)
+            Ok(node)
         }
     }
 
-    async fn rpc_agent_make_workstream(
+    async fn agent_make_workstream(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        let NodeId { id } = params(value)?;
-        reply(&self.make_workstream(ctx, &id).await?)
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        let NodeId { id } = p;
+        self.make_workstream(ctx, &id).await
     }
 
-    async fn rpc_agent_save_as_mode(
+    async fn agent_prompt(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.save_as_mode(ctx, params(value)?)?)
-    }
-
-    async fn rpc_agent_prompt(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::PromptParams,
+    ) -> Result<(), RpcError> {
         {
-            let PromptParams { id, text } = params(value)?;
+            let PromptParams { id, text } = p;
             self.may_steer(&ctx.actor, &id, "Steer")?;
             let steer = if ctx.actor.kind == ActorKind::User && text.starts_with('/') {
                 Steer::User(&text)
@@ -121,167 +94,140 @@ impl Agents {
                 self.prompt(&id, steer).await?;
             }
             Self::touch_rail(ctx, &id)?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_agent_interrupt(
+    async fn agent_interrupt(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::NodeId,
+    ) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             self.may_steer(&ctx.actor, &id, "Interrupt")?;
             shared.interrupt(&id).await?;
             Self::touch_rail(ctx, &id)?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_agent_stop(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+    async fn agent_stop(&self, ctx: &Ctx, p: contracts::agent::NodeId) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, false)?;
             shared.stop(ctx.actor.clone(), &id).await?;
             Self::touch_rail(ctx, &id)?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_agent_worktree_state(
+    async fn agent_worktree_state(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::WorktreeState, RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            reply(&self.worktree_state(&id).await?)
+            self.worktree_state(&id).await
         }
     }
 
-    async fn rpc_agent_changed_files(
+    async fn agent_changed_files(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::ChangedFiles, RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            reply(&self.changed_files(&id).await?)
+            self.changed_files(&id).await
         }
     }
 
-    async fn rpc_agent_compare_file(
+    async fn agent_compare_file(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::CompareFileParams,
+    ) -> Result<contracts::agent::FileComparison, RpcError> {
         let shared = &self.shared;
         {
-            let contracts::agent::CompareFileParams { id, path } = params(value)?;
+            let contracts::agent::CompareFileParams { id, path } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            reply(&self.compare_file(&id, &path).await?)
+            self.compare_file(&id, &path).await
         }
     }
 
-    async fn rpc_agent_land(
+    async fn agent_land(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::Landed, RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, false)?;
             let landed = self.land(&id).await?;
             Self::touch_rail(ctx, &id)?;
-            reply(&landed)
+            Ok(landed)
         }
     }
 
-    async fn rpc_agent_discard(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+    async fn agent_discard(&self, ctx: &Ctx, p: contracts::agent::NodeId) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, false)?;
             shared.discard(ctx.actor.clone(), &id).await?;
             Self::touch_rail(ctx, &id)?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_rail_start_door(
+    async fn agent_resume(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.start_door_node(ctx, params(value)?).await?)
-    }
-
-    async fn rpc_agent_resume(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::ResumeParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
         let shared = &self.shared;
         {
             let contracts::agent::ResumeParams {
                 id,
                 mode,
                 permission_mode,
-            } = params(value)?;
+            } = p;
             shared.guard_reach(&ctx.actor, &id, false)?;
             let node = self.resume(ctx, &id, mode, permission_mode).await?;
             Self::touch_rail(ctx, &id)?;
-            reply(&node)
+            Ok(node)
         }
     }
 
-    async fn rpc_agent_set_model(
+    async fn agent_set_model(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::SetModelParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
         {
-            let set: SetModelParams = params(value)?;
+            let set: SetModelParams = p;
             let id = set.id.clone();
             let node = self.set_model(ctx, set).await?;
             Self::touch_rail(ctx, &id)?;
-            reply(&node)
+            Ok(node)
         }
     }
 
-    async fn rpc_agent_set_visibility(
+    async fn agent_set_visibility(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        let p: contracts::agent::SetVisibilityParams = params(value)?;
+        p: contracts::agent::SetVisibilityParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        let p: contracts::agent::SetVisibilityParams = p;
         let rail = self.shared.rail();
         let node = rail.node(&p.id)?;
         if node.kind != NodeKind::Agent
@@ -307,45 +253,34 @@ impl Agents {
             ctx.touch(contracts::Verb::Wrote, &format!("agent:{}", p.id))?;
             ctx.emit(EventData::RailChanged);
         }
-        reply(&self.shared.node(&p.id)?)
+        self.shared.node(&p.id)
     }
 
-    async fn rpc_agent_set_order(
+    async fn agent_channel_up(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.set_order(ctx, params(value)?).await?)
-    }
-
-    async fn rpc_agent_channel_up(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::NodeId,
+    ) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             shared.channel_up(&ctx.actor, &id)?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_agent_signal(
+    async fn agent_signal(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::SignalParams,
+    ) -> Result<Option<contracts::agent::SignalOutcome>, RpcError> {
         let shared = &self.shared;
         {
             let SignalParams {
                 id,
                 attempt,
                 payload,
-            } = params(value)?;
+            } = p;
             shared.events.inbox.scan(&id, &payload);
             shared.observe(
                 ctx.actor.clone(),
@@ -353,99 +288,86 @@ impl Agents {
                 &attempt,
                 Observation::Signal(payload),
             )?;
-            reply(&None::<SignalOutcome>)
+            Ok(None::<SignalOutcome>)
         }
     }
 
-    async fn rpc_rail_tree(
-        &self,
-        _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.tree()?)
+    async fn rail_tree(&self, _ctx: &Ctx) -> Result<Vec<contracts::agent::RailNode>, RpcError> {
+        self.tree()
     }
 
-    async fn rpc_workstream_set_auto(
+    async fn workstream_set_auto(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::workstream::AutoParams,
+    ) -> Result<(), RpcError> {
         {
-            let choice = params(value)?;
+            let choice = p;
             self.set_auto(ctx, choice)?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_workstream_set_opening_prompt(
+    async fn workstream_set_opening_prompt(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        self.set_opening_prompt(ctx, params(value)?)?;
-        reply(&())
+        p: contracts::workstream::OpeningPromptParams,
+    ) -> Result<(), RpcError> {
+        self.set_opening_prompt(ctx, p)?;
+        Ok(())
     }
 
-    async fn rpc_agent_instructions(
+    async fn agent_instructions(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::Instructions, RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             if ctx.actor.kind != ActorKind::User {
                 shared.guard_reach(&ctx.actor, &id, true)?;
             }
-            reply(
-                &shared
-                    .rail()
-                    .instructions(&id, &shared.project_dir.to_string_lossy())?,
-            )
+            Ok(shared
+                .rail()
+                .instructions(&id, &shared.project_dir.to_string_lossy())?)
         }
     }
 
-    async fn rpc_agent_spawn_prompt(
+    async fn agent_spawn_prompt(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::SpawnPrompt, RpcError> {
         let shared = &self.shared;
         {
-            let NodeId { id } = params(value)?;
+            let NodeId { id } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
             let rail = shared.rail();
-            reply(&contracts::agent::SpawnPrompt {
+            Ok(contracts::agent::SpawnPrompt {
                 prompt: rail.spawn_prompt(&id)?,
                 role: rail.role(&id)?,
             })
         }
     }
 
-    async fn rpc_rail_create_workstream(
+    async fn rail_create_workstream(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.create_workstream(ctx, params(value)?)?)
+        p: contracts::agent::CreateWorkstreamParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.create_workstream(ctx, p)
     }
 
-    async fn rpc_rail_group(
+    async fn rail_group(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::GroupParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
         if ctx.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user groups Rail selections"));
         }
-        let selection: contracts::agent::GroupParams = params(value)?;
+        let selection: contracts::agent::GroupParams = p;
         let node = self.shared.rail().group(&selection.ids)?;
         Self::touch_rail(ctx, &node.id)?;
         for id in selection
@@ -456,18 +378,17 @@ impl Agents {
             Self::touch_rail(ctx, id)?;
         }
         ctx.emit(EventData::RailChanged);
-        reply(&node)
+        Ok(node)
     }
 
-    async fn rpc_rail_rename(
+    async fn rail_rename(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::agent::RenameParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
         let shared = &self.shared;
         {
-            let RenameParams { id, name } = params(value)?;
+            let RenameParams { id, name } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
             if name.chars().count() > name::MAX_CHARS {
                 return Err(RpcError::new(
@@ -506,37 +427,26 @@ impl Agents {
             };
             Self::touch_rail(ctx, &id)?;
             ctx.emit(EventData::RailChanged);
-            reply(&shared.node(&node.id)?)
+            shared.node(&node.id)
         }
     }
 
-    async fn rpc_agent_run(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.run(ctx, params(value)?).await?)
-    }
-
-    async fn rpc_terminal_open(
+    async fn terminal_open(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.open_terminal(params(value)?).await?)
+        p: contracts::terminal::OpenParams,
+    ) -> Result<contracts::terminal::Opened, RpcError> {
+        self.open_terminal(p).await
     }
 
-    async fn rpc_project_set_worktrees(
+    async fn project_set_worktrees(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::Worktrees,
+    ) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let Worktrees { on, check } = params(value)?;
+            let Worktrees { on, check } = p;
             if check.as_deref() == Some("") {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
@@ -544,123 +454,98 @@ impl Agents {
                 ));
             }
             shared.rail().set_worktrees(&Worktrees { on, check })?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_project_set_mcp(
+    async fn project_set_mcp(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::Mcp,
+    ) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let mcp: Mcp = params(value)?;
+            let mcp: Mcp = p;
             shared.rail().set_mcp(&mcp)?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_project_set_prepared(
+    async fn project_set_prepared(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::Prepared,
+    ) -> Result<(), RpcError> {
         {
-            self.set_prepared(params(value)?).await?;
-            reply(&())
+            self.set_prepared(p).await?;
+            Ok(())
         }
     }
 
-    async fn rpc_import_list(
+    async fn project_import_discover(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::ImportDiscoverParams,
+    ) -> Result<contracts::project::ImportDiscovery, RpcError> {
         {
-            let params: contracts::project::ImportListParams = params(value)?;
-            reply(&self.import_list(ctx, params).await?)
+            let params: contracts::project::ImportDiscoverParams = p;
+            self.import_discover(ctx, params).await
         }
     }
 
-    async fn rpc_project_import_discover(
+    async fn project_import_commit(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::ImportCommitParams,
+    ) -> Result<contracts::project::ImportResult, RpcError> {
         {
-            let params: contracts::project::ImportDiscoverParams = params(value)?;
-            reply(&self.import_discover(ctx, params).await?)
+            let params: contracts::project::ImportCommitParams = p;
+            self.import_commit(ctx, params).await
         }
     }
 
-    async fn rpc_project_import_commit(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        {
-            let params: contracts::project::ImportCommitParams = params(value)?;
-            reply(&self.import_commit(ctx, params).await?)
-        }
-    }
-
-    async fn rpc_project_prepare_directory(
+    async fn project_prepare_directory(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::PrepareParams,
+    ) -> Result<(), RpcError> {
         {
-            let PrepareParams { path } = params(value)?;
+            let PrepareParams { path } = p;
             self.prepare_directory(&path).await?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_project_set_models(
+    async fn project_set_models(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::ProjectModels,
+    ) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let settings: ProjectModels = params(value)?;
+            let settings: ProjectModels = p;
             models::check_settings(&settings)?;
             shared.rail().set_models(&settings)?;
             ctx.touch(contracts::Verb::Wrote, "project:models")?;
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_models_list(
-        &self,
-        _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
+    async fn models_list(&self, _ctx: &Ctx) -> Result<contracts::project::ModelList, RpcError> {
         // The Adapter's static table: no Project item is read, so no Touch is written to `project.db`.
-        reply(&models::list())
+        Ok(models::list())
     }
 
-    async fn rpc_project_get(
+    async fn project_get(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
+    ) -> Result<contracts::project::ProjectSettings, RpcError> {
         let shared = &self.shared;
         {
             let worktrees = shared.rail().get_worktrees()?;
             let models = self.project_models()?;
             let mcp = shared.rail().get_mcp()?;
-            reply(&ProjectSettings {
+            Ok(ProjectSettings {
                 worktrees,
                 models,
                 mcp,
@@ -669,15 +554,14 @@ impl Agents {
         }
     }
 
-    async fn rpc_project_rename(
+    async fn project_rename(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::project::RenameParams,
+    ) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let contracts::project::RenameParams { name } = params(value)?;
+            let contracts::project::RenameParams { name } = p;
             let name = name.trim();
             if name.is_empty() || name.chars().count() > 40 || name.contains(['\n', '\r']) {
                 return Err(RpcError::new(
@@ -693,44 +577,29 @@ impl Agents {
                     name: name.to_owned(),
                 },
             ));
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_rail_move(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+    async fn rail_move(&self, ctx: &Ctx, p: contracts::agent::MoveParams) -> Result<(), RpcError> {
         let shared = &self.shared;
         {
-            let MoveParams { id, parent, index } = params(value)?;
+            let MoveParams { id, parent, index } = p;
             shared.guard_reach(&ctx.actor, &id, false)?;
             shared.rail().move_node(&id, parent.as_deref(), index)?;
             Self::touch_rail(ctx, &id)?;
             ctx.emit(EventData::RailChanged);
-            reply(&())
+            Ok(())
         }
     }
 
-    async fn rpc_rail_remove_selection(
+    async fn rail_remove_selection(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
+        _p: contracts::agent::RemoveSelectionParams,
+    ) -> Result<contracts::agent::Removal, RpcError> {
         Err(RpcError::forbidden(
             "selection removal requires the Project Daemon",
         ))
-    }
-
-    async fn rpc_rail_remove(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        reply(&self.remove_node(ctx, params(value)?).await?)
     }
 }

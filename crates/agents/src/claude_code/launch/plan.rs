@@ -3,6 +3,7 @@
 //! then writes the plan.
 #![deny(clippy::fn_params_excessive_bools, clippy::too_many_lines)]
 
+use crate::id::AgentId;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
@@ -39,7 +40,7 @@ pub(super) struct Facts {
 /// Who is launched, where and how.
 pub(super) struct Spec<'a> {
     pub launcher: &'a Launcher,
-    pub id: u64,
+    pub id: AgentId,
     pub attempt: &'a str,
     pub role: Role,
     pub lean: Option<Lean>,

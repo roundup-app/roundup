@@ -11,7 +11,7 @@ use receiver_view::send_status;
 const OPEN_BOUND: u32 = 32;
 
 impl Messages {
-    pub(super) async fn send(&self, ctx: &Ctx, p: SendParams) -> Result<Value, Error> {
+    pub(super) async fn send(&self, ctx: &Ctx, p: SendParams) -> Result<Message, Error> {
         // B51(f): the authenticated sender hears when the inbox format is unavailable.
         let uses_inbox = inbox::is_inbox_send(&p);
         if uses_inbox {
@@ -21,7 +21,7 @@ impl Messages {
         if uses_inbox {
             inbox::refuse_mismatch(&self.inner, &message).await?;
         }
-        reply(&message)
+        Ok(message)
     }
 
     /// B51(g): a new send is refused before allocating a Message or question chain.

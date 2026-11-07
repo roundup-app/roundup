@@ -238,7 +238,7 @@ fn b6506_the_backfill_keeps_every_digests_weight_and_fold() {
 
     let mut db = rusqlite::Connection::open_in_memory().unwrap();
     let all = storage::migrations();
-    rusqlite_migration::Migrations::new(all[..all.len() - 1].to_vec())
+    rusqlite_migration::Migrations::new(all[..all.len() - 3].to_vec())
         .to_latest(&mut db)
         .unwrap();
     let daemon = contracts::Actor::daemon();
@@ -296,7 +296,7 @@ fn b6506_the_backfill_keeps_every_digests_weight_and_fold() {
 fn b6506_a_pending_digest_is_never_stored_as_note() {
     let mut db = rusqlite::Connection::open_in_memory().unwrap();
     let all = storage::migrations();
-    rusqlite_migration::Migrations::new(all[..all.len() - 1].to_vec())
+    rusqlite_migration::Migrations::new(all[..all.len() - 3].to_vec())
         .to_latest(&mut db)
         .unwrap();
     let body = crate::digest::push_body(&contracts::agent::DigestEntry {

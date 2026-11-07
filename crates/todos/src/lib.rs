@@ -62,22 +62,24 @@ impl Todos {
     }
 
     /// `todo.get`: the Todo, and `ctx.actor` has read its History to here.
-    pub fn read(&self, ctx: &Ctx, id: u32) -> Result<contracts::todo::Todo, RpcError> {
-        Ok(self.get(ctx, contracts::todo::TodoId { id })?)
+    pub async fn read(&self, ctx: &Ctx, id: u32) -> Result<contracts::todo::Todo, RpcError> {
+        Ok(self.get(ctx, contracts::todo::TodoId { id }).await?)
     }
 
     /// `todo.move`: the Daemon has checked `home` against the Rail (T13).
-    pub fn set_home(
+    pub async fn set_home(
         &self,
         ctx: &Ctx,
         id: u32,
         home: Option<String>,
     ) -> Result<contracts::todo::Todo, RpcError> {
-        Ok(self.move_to(ctx, contracts::todo::MoveParams { id, home })?)
+        Ok(self
+            .move_to(ctx, contracts::todo::MoveParams { id, home })
+            .await?)
     }
 
     /// `todo.assign`, unconditionally: the Daemon has checked the owner against the Rail (T17).
-    pub fn set_owner(
+    pub async fn set_owner(
         &self,
         ctx: &Ctx,
         id: u32,
@@ -88,7 +90,7 @@ impl Todos {
             owner: owner.map(contracts::common::Owner::Actor),
             expected_change: None,
         };
-        Ok(self.assign(ctx, assign)?)
+        Ok(self.assign(ctx, assign).await?)
     }
 
     /// T27: the links of a Todo as added, for the Daemon to read their state. It logs no Touch.

@@ -9,7 +9,7 @@ const description = {
   rail: [
     { name: "payments", parent: null, kind: "workstream" },
     { name: "backend", parent: null, kind: "workstream" },
-    { name: "auth-refactor", parent: "backend", kind: "workstream" },
+    { name: "auth-refactor", parent: null, kind: "workstream" },
     { name: "migrate-db", parent: "backend", kind: "agent" },
     { name: "token-rotation", parent: "auth-refactor", kind: "agent" },
     { name: "login-store", parent: "auth-refactor", kind: "agent" },

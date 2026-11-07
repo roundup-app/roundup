@@ -47,7 +47,6 @@ const rawIconOwners = new Map([
   ["rail/RailRow.tsx:{copy.collapse}", "#1607 collapse Workstream"],
   ["rail/RailRow.tsx:{props.doorFailure ? copy.retryDoor : copy.startDoor}", "#1607 start/retry Door (label hidden in compact rows)"],
   ["rail/RowIcons.tsx:{props.label}", "#1607 clear/stop/open folder/open editor via RowIcon"],
-  ["rail/RowIcons.tsx:{copy.addAgentLabel}", "#1607 add Agent (label hidden in compact rows)"],
   ["pads/PadDrawer.tsx:{copy.makeYours}", "#1988 cancelled: make yours"],
   ["pads/PadDrawer.tsx:{copy.openOwner}", "#1988 cancelled: open owner"],
   ["pads/PadDrawer.tsx:{copy.exportMd}", "#1988 cancelled: export"],
@@ -195,7 +194,6 @@ const owners: [string, ChordName, () => Promise<HTMLElement>, (app: Awaited<Retu
   ["Layout shelf.close", "shelf.close", () => shelfButton("Close the Bench"), () => String(document.querySelector<HTMLElement>(".window")!.dataset["shelf"])],
   ["Todos todo.triage-enter", "todo.triage-enter", () => shelfButton("Triage"), () => String(screen.getByLabelText("Triage", { selector: "button" }).getAttribute("aria-pressed"))],
   ["DrawerHost shelf.maximise", "shelf.maximise", openDrawerButton, () => String(document.querySelector<HTMLElement>(".drawer")?.dataset["maximised"])],
-  ["RowIcons agent.new", "agent.new", async () => await within(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!).findByLabelText("Add Agent", { selector: "button" }), app => String(app.calls.filter(call => call.method === "agent.spawn").length)],
 ];
 
 it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async (_owner, name, find, observe) => {

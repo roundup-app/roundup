@@ -1,11 +1,17 @@
 import { copy as appCopy } from "./copy";
 import { showScrollbars } from "../scrollHover";
 import { layoutMoving } from "../resize/motion";
-import tokens from "../tokens.css?inline";
-import { createRoot, createEffect, on } from "solid-js";
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { createRoot, createEffect, on, getOwner, onCleanup, runWithOwner } from "solid-js";
+import type { Owner } from "solid-js";
 import { terminalType, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { attachLinkGestures } from "./linkGestures";
+import { terminalTokens, loadDefaultFaces, loadEffectiveFont, remeasure } from "./fonts";
+import { attachNativeMenu } from "./nativeMenu";
+import { arabicRuns, loadWebgl } from "./renderer";
+import type { Renderer, RendererAddon } from "./renderer";
+import { keepSelection } from "./reflowSelection";
 import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
@@ -20,7 +26,7 @@ import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
-import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
+import type { IMarker, ITerminalOptions } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 
 export type Size = { cols: number; rows: number };
@@ -89,34 +95,12 @@ type InputOrigin = Terminal & { _core: { coreService: {
 /** xterm's render service: its public `refresh` waits an animation frame, its `sync` flag does not. */
 type RenderRows = Terminal & { _core: { _renderService?: { refreshRows(start: number, end: number, sync: boolean): void } } };
 
-export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
+export { attachRenderer, arabicRuns } from "./renderer";
+
+export type { RendererAddon } from "./renderer";
 
 /** OSC 52 copies use the originating Terminal's clipboard failure owner. */
 export type EmulatorFactory = (id: string, copy?: (text: string) => Promise<void>) => Emulator;
-
-/** Loads the WebGL renderer, or leaves the DOM renderer and says so once through `warn`. Returns whether WebGL is in use. */
-export const attachRenderer = (
-  terminal: Pick<Terminal, "loadAddon">,
-  createWebgl: () => RendererAddon,
-  warn: (message: string) => void,
-  lost?: () => void,
-): boolean => {
-  try {
-    const webgl = createWebgl();
-
-    terminal.loadAddon(webgl);
-    // Past the webview's context limit the oldest context is lost; its Terminal falls back to the DOM renderer.
-    webgl.onContextLoss(() => { webgl.dispose(); lost?.(); });
-
-    return true;
-  } catch (failure) {
-    if (!(failure instanceof Error)) throw failure;
-
-    warn(`WebGL renderer unavailable, using the DOM renderer: ${failure.message}`);
-
-    return false;
-  }
-};
 
 const encoder = new TextEncoder();
 
@@ -154,11 +138,11 @@ export const xtermOptions: ITerminalOptions = {
     return document;
   },
   // xterm needs resolved values rather than CSS var references.
-  fontFamily: /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim(),
+  fontFamily: terminalTokens.family,
   fontSize: DEFAULT_FONT_SIZE,
-  fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
-  lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
-  letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  fontWeight: terminalTokens.weight,
+  lineHeight: terminalTokens.lineHeight,
+  letterSpacing: terminalTokens.letterSpacing,
   macOptionClickForcesSelection: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
@@ -199,21 +183,12 @@ export const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]
   }
 };
 
-const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";
-
-const ARABIC_RUN = new RegExp(`[${ARABIC}]+(?:[ \\-.,!?:;'"()0-9]+[${ARABIC}]+)*[.,!?:]?`, "g");
-
-/** Each Arabic string needing shaping, spaces between words included. */
-export const arabicRuns = (text: string): [number, number][] =>
-  // WebGL gives joined cells a fake codepoint but rasterizes one-character strings as ordinary glyphs.
-  // Leaving single characters unjoined avoids a missing glyph and the joined-cell redraw cache leak.
-  [...text.matchAll(ARABIC_RUN)].flatMap<[number, number]>(match => match[0].length > 1 ? [[match.index, match.index + match[0].length]] : []);
-
 /** The real emulators (xterm.js). WebGL is tried until the webview first refuses it, then every later Terminal goes straight to the DOM renderer. */
 export const createXtermEmulators = (
   probe?: EchoProbe,
   createWebgl: () => RendererAddon = () => new WebglAddon(),
 ): EmulatorFactory => {
+  // Shared by every emulator of this factory: the webview would retry WebGL after refusing it.
   let webglDenied = false;
 
   return (id, copy) => {
@@ -251,26 +226,22 @@ export const createXtermEmulators = (
     let disposed = false;
     let focusOnShow = true;
     let fontsReady = !document.fonts;
-    const family = xtermOptions.fontFamily!;
 
-    const loadEffectiveFont = async () => {
-      if (!document.fonts) return;
+    // Every listener and observer this emulator adds belongs to one root.
 
-      let fontSize: number | undefined;
-      let fontFamily: string | undefined;
+    let owner: Owner | null = null;
 
-      do {
-        fontSize = terminal.options.fontSize;
-        fontFamily = terminal.options.fontFamily;
-        await Promise.all([`normal ${terminal.options.fontWeight}`, `normal ${terminal.options.fontWeightBold}`, `italic ${terminal.options.fontWeight}`, `italic ${terminal.options.fontWeightBold}`].map(style => document.fonts.load(`${style} ${fontSize}px ${fontFamily}`)));
-        await document.fonts.ready;
-      } while (!disposed && (fontSize !== terminal.options.fontSize || fontFamily !== terminal.options.fontFamily));
-    };
+    const stopListeners = createRoot(dispose => {
+      owner = getOwner();
 
-    // Load the default styles even with a custom preference, so clearing it never fits a fallback face.
-    const ready = document.fonts ? Promise.all(
-      ["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
-    ).then(loadEffectiveFont).catch((failure: Error) => {
+      return dispose;
+    });
+
+    const within = (attach: () => void) => { runWithOwner(owner, attach); };
+
+    const effectiveFont = () => loadEffectiveFont(terminal, () => disposed);
+
+    const ready = document.fonts ? loadDefaultFaces().then(effectiveFont).catch((failure: Error) => {
       // A damaged/missing local asset still leaves the existing fallback stack usable.
       console.warn("Terminal font unavailable; using the fallback face", failure);
     }).then(() => {
@@ -278,11 +249,7 @@ export const createXtermEmulators = (
 
       if (element.parentElement && !disposed) {
         prepareFontChange();
-        const family = terminal.options.fontFamily!;
-
-        // xterm caches cell metrics at open. Changing its public font option remeasures the loaded face.
-        terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
-        terminal.options.fontFamily = family;
+        remeasure(terminal);
         size();
       }
     }) : undefined;
@@ -290,8 +257,7 @@ export const createXtermEmulators = (
     let fontChanged = false;
     let fontViewport: IMarker | null = null;
     let fontFrame: number | null = null;
-    let loadedWebgl: RendererAddon | null = null;
-    let joinedArabic = false;
+    let renderer: Renderer = { kind: "dom" };
     const disposers: (() => void)[] = [];
 
     element.style.height = "100%";
@@ -315,7 +281,7 @@ export const createXtermEmulators = (
       probe?.rendered(id);
 
       const { fontSize, fontFamily, fontWeight, lineHeight, letterSpacing } = terminal.options;
-      const key = [window.devicePixelRatio, fontSize, fontFamily, fontWeight, lineHeight, letterSpacing, loadedWebgl !== null].join("|");
+      const key = [window.devicePixelRatio, fontSize, fontFamily, fontWeight, lineHeight, letterSpacing, renderer.kind === "webgl"].join("|");
 
       if (key !== fitKey && refit()) fitKey = key;
     });
@@ -358,7 +324,7 @@ export const createXtermEmulators = (
       terminal.clearSelection();
     };
 
-    window.addEventListener("pointerdown", clearOldSelection, true);
+    within(() => makeEventListener(window, "pointerdown", clearOldSelection, true));
     // U365b: an OSC 8 hyperlink opens through the same handler when http or https, never xterm's confirm/window.open.
     terminal.options.linkHandler = {
       allowNonHttpProtocols: false,
@@ -366,7 +332,7 @@ export const createXtermEmulators = (
         if (event.button === 0 && /^https?:\/\/\S/i.test(uri)) linkListener({ kind: "url", url: uri });
       },
     };
-    const stopLinks = attachLinkGestures(terminal, element, printed => linkListener(printed));
+    within(() => onCleanup(attachLinkGestures(terminal, element, printed => linkListener(printed))));
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
 
@@ -377,9 +343,11 @@ export const createXtermEmulators = (
     const contrast = window.matchMedia?.("(prefers-contrast: more)");
     const forced = window.matchMedia?.("(forced-colors: active)");
 
-    for (const query of [contrast, forced]) query?.addEventListener("change", followScheme);
+    within(() => {
+      for (const query of [contrast, forced]) if (query) makeEventListener(query, "change", followScheme);
 
-    const stopScheme = followAppAppearance(followScheme);
+      onCleanup(followAppAppearance(followScheme));
+    });
 
     const restoreFontViewport = () => {
       fontFrame = null;
@@ -396,15 +364,6 @@ export const createXtermEmulators = (
       fontViewport = null;
     };
 
-    const rowWidth = (row: number, cols: number): number => {
-      const buffer = terminal.buffer.active;
-      const last = buffer.getLine(row)?.getCell(cols - 1);
-      const next = buffer.getLine(row + 1);
-
-      // xterm pads the last cell when a wide glyph wraps; that padding is not a selected character.
-      return next?.isWrapped && next.getCell(0)?.getWidth() === 2 && last?.getCode() === 0 ? cols - 1 : cols;
-    };
-
     const size = (): Size => {
       if (!fontsReady || disposed || element.closest("[hidden]")) return { cols: terminal.cols, rows: terminal.rows };
 
@@ -414,26 +373,7 @@ export const createXtermEmulators = (
 
       if (changing) prepareFontChange();
 
-      // xterm clears selection on resize. Its markers follow reflow, so retain endpoints in their
-      // logical lines rather than anchoring them to physical rows that a new column count replaces.
-      const endpoint = (x: number, y: number) => {
-        const buffer = terminal.buffer.active;
-        let first = y;
-
-        while (first > 0 && buffer.getLine(first)?.isWrapped) first -= 1;
-
-        const marker = terminal.registerMarker(first - buffer.baseY - buffer.cursorY);
-
-        let offset = x;
-
-        for (let row = first; row < y; row += 1) offset += rowWidth(row, previous.cols);
-
-        return { marker, offset };
-      };
-
-      const selection = changing ? terminal.getSelectionPosition() : undefined;
-      const start = selection ? endpoint(selection.start.x, selection.start.y) : null;
-      const end = selection ? endpoint(selection.end.x, selection.end.y) : null;
+      const restoreSelection = changing ? keepSelection(terminal, previous.cols) : undefined;
       const reflowCursorLine = terminal.options.reflowCursorLine ?? false;
 
       // Fitting changed metrics must rewrap unfinished output instead of truncating the cursor line.
@@ -451,24 +391,7 @@ export const createXtermEmulators = (
         terminal.options.reflowCursorLine = reflowCursorLine;
         fontChanged = false;
 
-        if (start?.marker && end?.marker && !start.marker.isDisposed && !end.marker.isDisposed) {
-          const position = (line: number, offset: number) => {
-            while (terminal.buffer.active.getLine(line + 1)?.isWrapped && offset >= rowWidth(line, terminal.cols)) {
-              offset -= rowWidth(line, terminal.cols);
-              line += 1;
-            }
-
-            return { line, col: offset };
-          };
-
-          const from = position(start.marker.line, start.offset);
-          const to = position(end.marker.line, end.offset);
-
-          terminal.select(from.col, from.line, (to.line - from.line) * terminal.cols + to.col - from.col);
-        }
-
-        start?.marker?.dispose();
-        end?.marker?.dispose();
+        restoreSelection?.();
       }
 
       if (fontViewport !== null) {
@@ -517,7 +440,7 @@ export const createXtermEmulators = (
       fontChanged = true;
     };
 
-    const stopFont = createRoot(dispose => {
+    within(() => {
       createEffect(on(() => {
         const { fontSize: _size, ...type } = terminalType();
 
@@ -533,30 +456,26 @@ export const createXtermEmulators = (
         if (!opened) return;
 
         fontsReady = false;
-        void loadEffectiveFont().catch((failure: Error) => {
+        void effectiveFont().catch((failure: Error) => {
           console.warn("Terminal font unavailable; using the fallback face", failure);
         }).then(() => {
           if (disposed || terminal.options.fontFamily !== next) return;
 
           fontsReady = true;
           prepareFontChange();
-          terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
-          terminal.options.fontFamily = next;
+          remeasure(terminal, next);
           size();
         });
       }));
-
-      return dispose;
     });
 
     const loadRenderer = () => {
-      if (joinedArabic) return;
+      if (renderer.kind === "arabic") return;
 
-      if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
-        loadedWebgl = createWebgl();
-
-        return loadedWebgl;
-      }, console.warn, () => probe?.renderer(false, id));
+      if (!webglDenied) {
+        renderer = loadWebgl(terminal, createWebgl, console.warn, () => probe?.renderer(false, id));
+        webglDenied = renderer.kind !== "webgl";
+      }
 
       probe?.renderer(!webglDenied, id);
     };
@@ -564,49 +483,9 @@ export const createXtermEmulators = (
     const open = () => {
       if (!opened) {
         terminal.open(element);
-        // xterm's native-menu handler selects its editable input. WebKit needs a DOM
-        // range in non-editable text to offer Look Up and Services without Cut/Font.
-        const menuText = document.createElement("span");
-        menuText.className = "terminal-menu-text";
-        menuText.setAttribute("aria-hidden", "true");
-        terminal.element!.append(menuText);
+        const { element: terminalElement } = terminal;
 
-        const nativeTextMenu = (event: MouseEvent) => {
-          event.stopPropagation();
-          menuText.textContent = terminal.getSelection();
-          menuText.style.left = `${event.clientX}px`;
-          menuText.style.top = `${event.clientY}px`;
-          const range = document.createRange();
-          range.selectNodeContents(menuText);
-          const selection = window.getSelection();
-          selection?.removeAllRanges();
-          selection?.addRange(range);
-        };
-
-        // xterm's reporting handler sends a right press even when its selection service
-        // preserves the selection. Stop that press before it can reach the program.
-        const selectedTextPress = (event: MouseEvent) => {
-          if (event.button !== 2 || terminal.modes.mouseTrackingMode === "none") return;
-
-          const selection = terminal.getSelectionPosition();
-
-          if (!selection) return;
-
-          const screen = terminal.element!.querySelector<HTMLElement>(".xterm-screen")!;
-          const box = screen.getBoundingClientRect();
-          const col = Math.floor((event.clientX - box.left) * terminal.cols / box.width);
-          const row = Math.floor((event.clientY - box.top) * terminal.rows / box.height);
-          const line = row + terminal.buffer.active.viewportY;
-          const afterStart = line > selection.start.y || (line === selection.start.y && col >= selection.start.x);
-          const beforeEnd = line < selection.end.y || (line === selection.end.y && col < selection.end.x);
-
-          if (col >= 0 && col < terminal.cols && row >= 0 && row < terminal.rows && afterStart && beforeEnd) event.stopImmediatePropagation();
-        };
-
-        terminal.element!.addEventListener("mousedown", selectedTextPress, true);
-        disposers.push(() => terminal.element?.removeEventListener("mousedown", selectedTextPress, true));
-        terminal.element!.addEventListener("contextmenu", nativeTextMenu, true);
-        disposers.push(() => terminal.element?.removeEventListener("contextmenu", nativeTextMenu, true));
+        if (terminalElement) within(() => attachNativeMenu(terminal, terminalElement));
         const ligatures = new LigaturesAddon();
         terminal.loadAddon(ligatures);
         // Deregister while the renderer is alive: addon disposal requests a final refresh.
@@ -615,15 +494,16 @@ export const createXtermEmulators = (
         terminal.registerCharacterJoiner(text => {
           const runs = arabicRuns(text);
 
-          if (runs.length && !joinedArabic) {
-            joinedArabic = true;
+          if (runs.length && renderer.kind !== "arabic") {
+            const drawing = renderer;
+
+            renderer = { kind: "arabic" };
             // WebGL clips long shaped Arabic runs. Dispose outside its render stack so xterm
             // can redraw the unchanged buffer with its supported DOM renderer.
             queueMicrotask(() => {
-              if (disposed || !loadedWebgl) return;
+              if (disposed || drawing.kind !== "webgl") return;
 
-              loadedWebgl.dispose();
-              loadedWebgl = null;
+              drawing.addon.dispose();
               probe?.renderer(false, id);
             });
           }
@@ -634,8 +514,7 @@ export const createXtermEmulators = (
         // textarea later; clearing its transient buffer prevents a late commit.
         const discardComposition = () => { if (terminal.textarea) terminal.textarea.value = ""; };
 
-        terminal.textarea?.addEventListener("blur", discardComposition);
-        disposers.push(() => terminal.textarea?.removeEventListener("blur", discardComposition));
+        if (terminal.textarea) within(() => makeEventListener(terminal.textarea!, "blur", discardComposition));
         dropInlineGround(element, disposers);
 
         loadRenderer();
@@ -664,13 +543,11 @@ export const createXtermEmulators = (
 
       // The selected face may have changed while the bundled faces were loading.
       if (document.fonts) {
-        await loadEffectiveFont();
+        await effectiveFont();
 
         if (!disposed) {
           prepareFontChange();
-          const family = terminal.options.fontFamily!;
-          terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
-          terminal.options.fontFamily = family;
+          remeasure(terminal);
         }
       }
 
@@ -717,15 +594,15 @@ export const createXtermEmulators = (
         });
       },
       setSize: ({ cols, rows }) => {
-        if (opened && loadedWebgl && (terminal.cols !== cols || terminal.rows !== rows)) {
-          loadedWebgl.dispose();
-          loadedWebgl = null;
+        if (opened && renderer.kind === "webgl" && (terminal.cols !== cols || terminal.rows !== rows)) {
+          renderer.addon.dispose();
+          renderer = { kind: "dom" };
         }
 
         terminal.resize(cols, rows);
 
         // Recreate after the snapshot resize so the old renderer never reads the reflowing buffer.
-        if (opened && !loadedWebgl) loadRenderer();
+        if (opened && renderer.kind === "dom") loadRenderer();
       },
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;
@@ -784,12 +661,7 @@ export const createXtermEmulators = (
 
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
-        for (const query of [contrast, forced]) query?.removeEventListener("change", followScheme);
-
-        stopScheme();
-        stopFont();
-        window.removeEventListener("pointerdown", clearOldSelection, true);
-        stopLinks();
+        stopListeners();
         disposers.forEach((dispose) => dispose());
         shellTurns.dispose();
         fontViewport?.dispose();

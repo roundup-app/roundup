@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountRailAndPane } from "../terminal/paneHarness";
 import { agent, event, workstream } from "../testing/nodes";
-import { chooseAction, chooseFooter, mountRail, pinnedAdd, railCallsTo } from "./railFixture";
+import { chooseFooter, mountRail, railCallsTo } from "./railFixture";
 import { copy } from "./copy";
 
 afterEach(cleanup);
@@ -68,7 +68,7 @@ describe("u33 spawn with a prompt", () => {
     );
   });
 
-  it("u33_enter_spawns_with_the_typed_prompt_and_the_selected_groups_parent", async () => {
+  it("u33_enter_spawns_with_the_typed_prompt_as_a_top_level_agent", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => SPAWNED;
     mounted.rail.select("g");
@@ -78,7 +78,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.keyDown(field(), { key: "Enter" });
 
     await waitFor(() =>
-      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix the thing", parent: "g", model: null, effort: null }]),
+      expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "fix the thing", parent: null, model: null, effort: null }]),
     );
   });
 
@@ -269,21 +269,6 @@ describe("u33 spawn with a prompt", () => {
       expect(screen.queryByLabelText(copy.task)).not.toBeNull();
     },
   );
-
-  it("u33_plus_agent_moves_focus_to_the_field_and_calls_nothing", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.rail.select("g");
-
-    chord("n");
-    fireEvent.input(field(), { target: { value: "keep me" } });
-    pinnedAdd().focus();
-
-    await chooseAction(mounted.app, "g", "Agent");
-
-    expect(document.activeElement).toBe(field());
-    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-    expect(field().value).toBe("keep me");
-  });
 
   it("u33_plus_group_creates_a_group_and_leaves_the_field_open_with_its_text", async () => {
     const mounted = await mountRail([workstream("g")]);

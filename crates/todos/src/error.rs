@@ -1,6 +1,5 @@
 //! The one error type below the handler (RB3798c). Only `From<Error> for RpcError` picks a code.
 use rpc::RpcError;
-use serde_json::Value;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -63,8 +62,4 @@ impl From<Error> for RpcError {
             error @ (Error::Sql(_) | Error::Codec(_) | Error::Internal(_)) => Self::internal(error),
         }
     }
-}
-
-pub(crate) fn reply<T: serde::Serialize>(value: &T) -> Result<Value, Error> {
-    Ok(serde_json::to_value(value)?)
 }

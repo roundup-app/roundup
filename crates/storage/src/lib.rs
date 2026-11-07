@@ -3,6 +3,7 @@
 use std::path::Path;
 
 mod codec;
+pub mod ledger;
 pub mod migration;
 pub use codec::{Json, Word};
 
@@ -387,3 +388,42 @@ mod retirement_tests {
 
 #[cfg(test)]
 mod migration_additive_tests;
+
+#[cfg(test)]
+mod client_deletion_key_tests {
+    use rusqlite::Connection;
+
+    /// P9b: a receipt stored under a bare client key moves to `client:`; Daemon-named keys stay.
+    #[test]
+    fn p9b_stored_client_receipts_move_under_the_client_prefix() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE pad_deletions (operation TEXT PRIMARY KEY NOT NULL);
+             CREATE TABLE rail_removal_items (operation TEXT, participant TEXT);
+             INSERT INTO rail_removal_items VALUES ('rail-op', 'participant-key');
+             INSERT INTO pad_deletions VALUES ('undo-1'), ('participant-key'),
+               ('0123456789abcdef0123456789abcdef'), ('client:done');",
+        )
+        .unwrap();
+        db.execute_batch(include_str!(
+            "../migrations/project/0054-client-deletion-keys.sql"
+        ))
+        .unwrap();
+        let keys: Vec<String> = db
+            .prepare("SELECT operation FROM pad_deletions ORDER BY operation")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            keys,
+            [
+                "0123456789abcdef0123456789abcdef",
+                "client:done",
+                "client:undo-1",
+                "participant-key"
+            ]
+        );
+    }
+}

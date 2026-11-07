@@ -30,14 +30,14 @@ async fn a2703a_errors_use_rail_names() {
                 }
             }
             "closing" => {
-                shared.runs().put("7013".into(), Slot::Closing);
+                shared.runs().put("7013", Slot::Closing);
             }
             "starting" => {
                 shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap());
             }
             "resuming" => {
                 shared.runs().put(
-                    "7013".into(),
+                    "7013",
                     Slot::Resuming {
                         mode: Default::default(),
                         attempt: contracts::agent::Ordinal::parse("1").unwrap(),
@@ -55,7 +55,7 @@ async fn a2703a_errors_use_rail_names() {
             }
             "cleanup" => {
                 shared.runs().put(
-                    "7013".into(),
+                    "7013",
                     Slot::ResumeCleanup {
                         old: None,
                         attempt: contracts::agent::Ordinal::parse("1").unwrap(),
@@ -66,7 +66,7 @@ async fn a2703a_errors_use_rail_names() {
                 );
             }
             "missing" => {
-                shared.runs().remove("7013");
+                shared.runs().forget("7013");
             }
             _ => {}
         }
@@ -152,7 +152,7 @@ async fn a2_an_exit_ends_the_watch_without_waiting_out_a_parked_star() {
 fn a14_a_non_signal_observation_for_a_starting_id_is_still_not_found() {
     let (_dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
     shared.runs().put(
-        "1".into(),
+        "1",
         Slot::Starting {
             attempt: contracts::agent::Ordinal::parse("1").unwrap(),
             since: 0,
@@ -268,7 +268,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
         });
         let id = "1".to_owned();
         shared.runs().put(
-            id.clone(),
+            &id,
             Slot::Starting {
                 attempt: contracts::agent::Ordinal::parse("1").unwrap(),
                 since: 0,
@@ -296,7 +296,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_o
             }
         }
         assert_eq!(kinds, [Kind::Working, Kind::Idle]);
-        shared.runs().remove(&id);
+        shared.runs().forget(&id);
         drop(observe);
     });
 }
