@@ -565,15 +565,14 @@ pub mod flood {
             let dir = tempfile::tempdir()?;
             let project = dir.path().join("project");
             std::fs::create_dir(&project)?;
-            let owner = Arc::new(rupd::Daemon::open_project(
-                &project,
-                &dir.path().join("data"),
-            )?);
+            let (owner, watchers) =
+                rupd::Daemon::open_project(&project, &dir.path().join("data"))?;
+            let owner = Arc::new(owner);
             daemon = Some(Arc::clone(&owner));
             let socket = dir.path().join("daemon.sock");
             let listener = UnixListener::bind(&socket)?;
             directory = Some(dir);
-            server = Some(tokio::spawn(rupd::serve(listener, Arc::clone(&owner))));
+            server = Some(tokio::spawn(rupd::serve(listener, Arc::clone(&owner), watchers)));
             let client = Client::connect(&socket).await?;
             let rail = call(&client, "rail.createWorkstream", json!({"name":"flood"})).await?;
             for _ in 0..10 {

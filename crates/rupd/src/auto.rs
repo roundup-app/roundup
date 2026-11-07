@@ -6,28 +6,20 @@ use contracts::agent::{NodeKind, RailNode};
 use contracts::message::Message;
 use contracts::todo::{History, Todo};
 
+#[derive(Default)]
 pub(crate) struct Auto {
     gate: Arc<tokio::sync::Mutex<()>>,
-    events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
 }
 
 impl Auto {
-    pub(crate) fn new(bus: &Bus) -> Self {
-        Self {
-            gate: Default::default(),
-            events: std::sync::Mutex::new(Some(bus.subscribe())),
-        }
-    }
-
-    /// `reader` runs only on the first call: it copies the module map, which every request
-    /// would otherwise pay for.
-    pub(crate) fn start(&self, reader: impl FnOnce() -> digest::Reader) {
-        let Some(mut events) = self.events.lock().expect("Auto events lock").take() else {
-            return;
-        };
-        let reader = reader();
+    /// Tell the Door of each change that may leave a Todo unassigned, until the Bus closes.
+    pub(crate) fn watch(
+        &self,
+        mut events: tokio::sync::broadcast::Receiver<contracts::Event>,
+        reader: digest::Reader,
+    ) -> impl std::future::Future<Output = ()> + use<> {
         let gate = Arc::clone(&self.gate);
-        tokio::spawn(async move {
+        async move {
             use tokio::sync::broadcast::error::RecvError;
             loop {
                 match events.recv().await {
@@ -47,7 +39,7 @@ impl Auto {
                     .await
                     .expect("retain Auto notices for the Door");
             }
-        });
+        }
     }
 }
 
@@ -63,7 +55,6 @@ impl Daemon {
         let params = self
             .resolve_agent_inputs(&conn.actor, method, params)
             .await?;
-        self.auto.start(|| self.reader());
         let row = policy(method).ok_or_else(|| RpcError::method_not_found(method))?;
         let serializes = match row.serial {
             Serial::No => false,

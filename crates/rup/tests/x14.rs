@@ -25,13 +25,12 @@ impl Fixture {
         let dir = tempfile::tempdir().unwrap();
         let project = dir.path().join("project");
         std::fs::create_dir(&project).unwrap();
-        let daemon =
-            Arc::new(rupd::Daemon::open_project(&project, &dir.path().join("data")).unwrap());
+        let (daemon, watchers) = rupd::Daemon::open_project(&project, &dir.path().join("data")).unwrap();
+    let daemon = Arc::new(daemon);
         let socket = dir.path().join("daemon.sock");
         let server = tokio::spawn(rupd::serve(
             UnixListener::bind(&socket).unwrap(),
-            Arc::clone(&daemon),
-        ));
+            Arc::clone(&daemon), watchers,));
         let client = Client::connect(&socket).await.unwrap();
         Self {
             dir,

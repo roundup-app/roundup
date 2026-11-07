@@ -77,7 +77,7 @@ fn live() -> Live {
     for tag in ["alpha", "beta"] {
         let project = tmp.path().join(tag);
         std::fs::create_dir_all(&project).unwrap();
-        let opened = Daemon::open_project(&project, &data).unwrap();
+        let opened = Daemon::open_project(&project, &data).unwrap().0;
         let dir = data::project_data(&data, &project).unwrap();
         seed(&dir, tag);
         keys.push(dir.file_name().unwrap().to_string_lossy().into_owned());
@@ -168,7 +168,9 @@ async fn fk5977a_the_full_copy_reads_back_through_a_second_daemon() {
         assert_eq!(std::fs::read_dir(to.join("agents")).unwrap().count(), 2);
     }
     // The same Project folder opens its copy.
-    let second = Daemon::open(&folder.join("projects").join(&live.keys[0])).unwrap();
+    let second = Daemon::open(&folder.join("projects").join(&live.keys[0]))
+        .unwrap()
+        .0;
     let todos = ask(
         &second,
         &json!({"id":1,"method":"todo.list","params":null}).to_string(),
@@ -474,7 +476,9 @@ async fn fk5977e_the_live_folder_is_unchanged_by_a_fork_and_by_a_write_in_it() {
         crate::fork::fork(&data, &params(name, projects)).unwrap();
         same(&checksums(&data), &before, name);
     }
-    let copy = Daemon::open(&_tmp.path().join("forks/full/projects").join(&keys[0])).unwrap();
+    let copy = Daemon::open(&_tmp.path().join("forks/full/projects").join(&keys[0]))
+        .unwrap()
+        .0;
     let added = ask(
         &copy,
         &json!({"id":1,"method":"todo.create","params":{"title":"in the fork"}}).to_string(),
@@ -552,7 +556,9 @@ async fn u6044a_ping_reports_the_fork_colour() {
     let folder = live.fork_dir("blue");
     let made = fork(&live, &folder, json!({"colour":"blue"})).await;
     assert!(made.get("error").is_none(), "{made}");
-    let copy = Daemon::open(&folder.join("projects").join(&live.keys[0])).unwrap();
+    let copy = Daemon::open(&folder.join("projects").join(&live.keys[0]))
+        .unwrap()
+        .0;
     let reply = ask(&copy, &ping).await;
     assert_eq!(reply["result"]["forkColour"], "blue", "{reply}");
 }

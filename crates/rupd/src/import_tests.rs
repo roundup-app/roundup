@@ -9,7 +9,7 @@ pub(super) use fixtures::{
 
 fn import_daemon_with_clock(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
     let data = project.join(".roundup");
-    Daemon::open_stores(project, &data, |_| {
+    Daemon::open_stores_idle(project, &data, |_| {
         let bus = Bus::new();
         let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
         agents::Agents::open_in(
@@ -598,10 +598,12 @@ async fn large_storage_discovery(owner_storage: bool) {
             observed.fetch_add(count, std::sync::atomic::Ordering::Relaxed);
         }
     }));
-    let daemon = Arc::new(import_daemon(&project, launcher));
+    let daemon = import_daemon(&project, launcher);
+    let watchers = daemon.watchers().unwrap();
+    let daemon = Arc::new(daemon);
     let socket = root.path().join("observer.sock");
     let listener = UnixListener::bind(&socket).unwrap();
-    let service = tokio::spawn(serve(listener, daemon));
+    let service = tokio::spawn(serve(listener, daemon, watchers));
     let client = rpc::Client::connect(&socket).await.unwrap();
     for (period, expected) in [("day", 5), ("week", 8), ("month", 11)] {
         if owner_storage && period == "day" {

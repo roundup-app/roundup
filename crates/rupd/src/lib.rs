@@ -59,12 +59,14 @@ mod waits;
 mod wake;
 mod workstream_state;
 
-pub use connection::serve;
 use connection::{Frame, failure};
+pub use connection::{accept, serve};
+pub use observers::Observers;
 use observers::{
     messages_env, overview_read_observer, resume_effect_observer, steer_effect_observer,
     terminal_exit_observer, terminal_input_observer,
 };
+pub use open::Watchers;
 use specialist::Specialist;
 use std::collections::HashMap;
 use std::io;
@@ -109,30 +111,17 @@ pub struct Daemon {
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
     auto: auto::Auto,
-    /// U6243a: the derived Rail values last told; the watcher starts once, with the others.
-    rail_told: std::sync::OnceLock<Arc<workstream_state::Tell>>,
-    /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
-    /// a Tokio runtime is there to run it.
-    pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
-    /// U6368a: subscribed at `open`, taken once by the resume watcher.
-    resumes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
-    /// B2704a: retain committed names even when the live event ring lags.
-    renames: std::sync::Mutex<Option<rpc::Subscription>>,
-    owner_events: std::sync::Mutex<Option<rpc::Subscription>>,
-    /// B41: subscribed at `open`, taken once with `pushes`.
-    wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// U6243a: the derived Rail values last told, shared with the watcher that tells them.
+    rail_told: Arc<workstream_state::Tell>,
+    observers: Observers,
     /// B41: serialises the decisions on Wake requests.
     wake_gate: Arc<tokio::sync::Mutex<wake::Gate>>,
     /// H21: knows the Agent behind a calling process.
     agents: Arc<agents::Agents>,
     /// X14: where a connection's selected output streams come from.
     terminals: Arc<terminal::Terminals>,
-    /// PS8: each Terminal's program status; the changes are subscribed at `open`, taken once.
+    /// PS8: each Terminal's program status.
     program_statuses: Arc<program_status::Statuses>,
-    program_changes:
-        std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<Arc<terminal::Change>>>>,
-    /// A33: like `pushes`, with what keeps the Agents' waits current.
-    waits: std::sync::Mutex<Option<Waiter>>,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
@@ -143,12 +132,6 @@ pub struct Daemon {
     /// UA1: the owner's Extensions, started once the socket is served.
     extensions: extensions::Host,
 }
-
-type Waiter = (
-    tokio::sync::broadcast::Receiver<contracts::Event>,
-    Arc<agents::Agents>,
-    Arc<todos::Todos>,
-);
 
 /// Per-connection state.
 #[derive(Clone)]
@@ -327,9 +310,7 @@ impl Daemon {
         let cwd = node
             .worktree
             .map_or_else(|| self.project.clone(), |tree| tree.path.into());
-        let home = std::env::var_os("HOME")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_default();
+        let home = self.observers.home.clone().unwrap_or_default();
         let skills = agents::claude_code::skills(&home, &cwd, &self.project);
         rpc::reply(&contracts::agent::Skills { skills })
     }
@@ -447,7 +428,7 @@ mod todo_deletion_tests;
 #[cfg(test)]
 fn test_daemon(dir: &Path) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
-    Daemon::open(dir)
+    Daemon::open(dir).map(|(daemon, _)| daemon)
 }
 
 #[cfg(test)]
@@ -456,7 +437,7 @@ fn test_daemon_with_agents(
     configure: impl FnOnce(agents::Agents) -> agents::Agents,
 ) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
-    Daemon::open_stores(dir, dir, configure)
+    Daemon::open_stores_idle(dir, dir, configure)
 }
 
 /// Process-free domain fixture, using the existing lifecycle and inbox traits.
@@ -555,9 +536,9 @@ pub mod test_support {
         data: &Path,
         launcher: agents::claude_code::Launcher,
         clock: impl Fn() -> i64 + Send + Sync + 'static,
-    ) -> Daemon {
+    ) -> (Daemon, Watchers) {
         assert!(data.is_absolute(), "test data directory must be absolute");
-        Daemon::open_stores(project, data, |_| {
+        Daemon::open_stores(project, data, Observers::default(), |_| {
             let bus = Bus::new();
             let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
             agents::Agents::open_in(
@@ -575,26 +556,26 @@ pub mod test_support {
     }
 
     /// Open stores before entering Tokio so background readers see the configured modules.
-    pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Arc<ReplyState>) {
-        let (daemon, state, _) =
+    pub fn reply_daemon(dir: &Path, door: bool) -> (Daemon, Watchers, Arc<ReplyState>) {
+        let (daemon, watchers, state, _) =
             reply_daemon_with(dir, door, Arc::new(|| 1000), Arc::new(|_| Ok(())));
-        daemon.start_pushes();
-        (daemon, state)
+        (daemon, watchers, state)
     }
 
     /// `reply_daemon` on a chosen Messages clock and fault hook, returning its Messages and
-    /// starting no watcher, so a test runs `push_changes` on them itself. A Project reopened on
+    /// starting no watcher (the caller holds them), so a test runs `push_changes` on them itself. A Project reopened on
     /// the same `dir` keeps its stored accounting.
     pub fn reply_daemon_with(
         dir: &Path,
         door: bool,
         clock: messages::Clock,
         fault: messages::Fault,
-    ) -> (Daemon, Arc<ReplyState>, Arc<messages::Messages>) {
+    ) -> (Daemon, Watchers, Arc<ReplyState>, Arc<messages::Messages>) {
         let dir = dir.to_path_buf();
-        let mut daemon = std::thread::spawn(move || Daemon::open_in(&dir, &dir).unwrap())
-            .join()
-            .unwrap();
+        let (mut daemon, watchers) =
+            std::thread::spawn(move || Daemon::open_in(&dir, &dir).unwrap())
+                .join()
+                .unwrap();
         let state = Arc::new(ReplyState {
             bus: daemon.bus.clone(),
             ..Default::default()
@@ -640,6 +621,6 @@ pub mod test_support {
         messages.listen();
         daemon.register(messages.clone());
         daemon.register(state.clone());
-        (daemon, state, messages)
+        (daemon, watchers, state, messages)
     }
 }

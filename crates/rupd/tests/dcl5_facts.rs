@@ -105,16 +105,18 @@ async fn dcl5_end_and_stall_facts_reach_the_door_through_the_daemon() {
     );
     let now = Arc::new(AtomicI64::new(1));
     let clock = Arc::clone(&now);
-    let daemon = Arc::new(rupd::test_support::daemon_with_clock(
+    let (daemon, watchers) = rupd::test_support::daemon_with_clock(
         project,
         &project.join("data"),
         launcher,
         move || clock.load(Ordering::SeqCst),
-    ));
+    );
+    let daemon = Arc::new(daemon);
     let socket = project.join("rupd.sock");
     let server = tokio::spawn(rupd::serve(
         UnixListener::bind(&socket).unwrap(),
         Arc::clone(&daemon),
+        watchers,
     ));
     let client = Client::connect(&socket).await.unwrap();
     let mut run = Run {

@@ -33,10 +33,11 @@ impl Daemon {
     fn restart(&mut self) {
         self.stop();
         let _ = std::fs::remove_file(&self.socket);
-        let daemon = Arc::new(rupd::Daemon::open(&self.data).unwrap());
+        let (daemon, watchers) = rupd::Daemon::open(&self.data).unwrap();
+    let daemon = Arc::new(daemon);
         let listener = tokio::net::UnixListener::bind(&self.socket).unwrap();
         self.task = Some(tokio::spawn(async move {
-            let _ = rupd::serve(listener, daemon).await;
+            let _ = rupd::serve(listener, daemon, watchers).await;
         }));
     }
 

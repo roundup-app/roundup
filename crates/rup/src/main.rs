@@ -311,18 +311,20 @@ async fn deliver(agent_id: &str, attempt: String, payload: Value) -> Result<bool
 
 // N7: in-process MCP observers compose production stores only with owned test data here.
 #[cfg(test)]
-fn test_daemon(data: &std::path::Path) -> std::sync::Arc<rupd::Daemon> {
+fn test_daemon(data: &std::path::Path) -> (std::sync::Arc<rupd::Daemon>, rupd::Watchers) {
     assert!(data.is_absolute());
-    std::sync::Arc::new(rupd::Daemon::open(data).unwrap())
+    let (daemon, watchers) = rupd::Daemon::open(data).unwrap();
+    (std::sync::Arc::new(daemon), watchers)
 }
 
 #[cfg(test)]
 fn serve_test_daemon(
     socket: &std::path::Path,
     daemon: std::sync::Arc<rupd::Daemon>,
+    watchers: rupd::Watchers,
 ) -> tokio::task::JoinHandle<std::io::Result<()>> {
     let listener = tokio::net::UnixListener::bind(socket).unwrap();
-    tokio::spawn(rupd::serve(listener, daemon))
+    tokio::spawn(rupd::serve(listener, daemon, watchers))
 }
 
 // Daemon setup belongs to the composition root; MCP tests use its isolated socket.
@@ -339,10 +341,10 @@ async fn reply_project(
     std::sync::Arc<ReplyState>,
 ) {
     let dir = tempfile::tempdir().unwrap();
-    let (daemon, state) = rupd::test_support::reply_daemon(dir.path(), door);
+    let (daemon, watchers, state) = rupd::test_support::reply_daemon(dir.path(), door);
     let socket = dir.path().join("rpc.sock");
     let listener = tokio::net::UnixListener::bind(&socket).unwrap();
-    tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon)));
+    tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon), watchers));
     let user = rpc::Client::connect(&socket).await.unwrap();
     (dir, socket, user, state)
 }

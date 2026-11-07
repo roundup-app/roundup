@@ -45,21 +45,23 @@ impl Run {
         let now = Arc::new(AtomicI64::new(1));
         let clock = Arc::clone(&now);
         let data = project.join("data");
-        let daemon = Daemon::open_stores(project, &data, |_| {
-            let bus = Bus::new();
-            let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
-            agents::Agents::open_in(
-                project,
-                &data,
-                bus,
-                terminals,
-                launcher,
-                agents::worktree::Git::from_env(),
-            )
-            .unwrap()
-            .with_clock(move || clock.load(Ordering::SeqCst))
-        })
-        .unwrap();
+        let (daemon, watchers) =
+            Daemon::open_stores(project, &data, crate::Observers::from_env(), |_| {
+                let bus = Bus::new();
+                let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
+                agents::Agents::open_in(
+                    project,
+                    &data,
+                    bus,
+                    terminals,
+                    launcher,
+                    agents::worktree::Git::from_env(),
+                )
+                .unwrap()
+                .with_clock(move || clock.load(Ordering::SeqCst))
+            })
+            .unwrap();
+        daemon.watch(watchers);
         let door = call(&daemon, "rail.createWorkstream", json!({"name":"Ship"})).await["id"]
             .as_str()
             .unwrap()

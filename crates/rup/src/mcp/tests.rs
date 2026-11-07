@@ -305,7 +305,7 @@ async fn u4593_mcp_assignment_connects_context_owner_and_comment() {
         ("agent", Some("agent"), false),
     ] {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = crate::test_daemon(dir.path());
+        let (daemon, watchers) = crate::test_daemon(dir.path());
         let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
         db.execute_batch("INSERT INTO nodes(id,kind,name,ord,attempt,terminal_id) VALUES(3,'workstream','Home',0,0,null),(2,'agent','Peer',1,1,'peer-terminal');").unwrap();
         let parent = parent_kind.map(|_| 3);
@@ -321,7 +321,7 @@ async fn u4593_mcp_assignment_connects_context_owner_and_comment() {
         .unwrap();
         daemon.set_agent_status_for_test("1", contracts::Kind::Working);
         let socket = dir.path().join("daemon.sock");
-        let serving = crate::serve_test_daemon(&socket, daemon.clone());
+        let serving = crate::serve_test_daemon(&socket, daemon.clone(), watchers);
         let shim = TestShim {
             client: ().serve(transport_as(&socket, "1", door)).await.unwrap(),
         };
@@ -424,12 +424,12 @@ fn tool_value(reply: CallToolResult) -> Value {
 #[tokio::test(start_paused = true)]
 async fn u4593_auto_prompt_supplies_the_self_assignment_call() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = crate::test_daemon(dir.path());
+    let (daemon, watchers) = crate::test_daemon(dir.path());
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("INSERT INTO nodes(id,kind,name,ord,attempt,terminal_id) VALUES(1,'workstream','Door',0,1,'terminal');").unwrap();
     daemon.set_agent_status_for_test("1", contracts::Kind::Working);
     let socket = dir.path().join("daemon.sock");
-    let serving = crate::serve_test_daemon(&socket, daemon.clone());
+    let serving = crate::serve_test_daemon(&socket, daemon.clone(), watchers);
     let user = rpc::Client::connect(&socket).await.unwrap();
     user.request("workstream.setAuto", json!({"id":"1","auto":true}))
         .await

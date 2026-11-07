@@ -6,8 +6,9 @@ use tokio::net::UnixListener;
 async fn ping_round_trips_through_the_daemon() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let daemon = Arc::new(rupd::Daemon::open(&dir.path().join(".roundup")).unwrap());
-    tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let (daemon, watchers) = rupd::Daemon::open(&dir.path().join(".roundup")).unwrap();
+    let daemon = Arc::new(daemon);
+    tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon, watchers));
 
     let client = rpc::Client::connect(&socket).await.unwrap();
     let reply = client
