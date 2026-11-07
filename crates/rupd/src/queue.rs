@@ -204,63 +204,73 @@ impl Queuer {
         match method {
             "todo.startWorkstream" => self.start_workstream(actor, params).await,
             "workstream.queue" => rpc::reply(&self.state().await?),
-            "workstream.dequeue" => {
-                let QueuedWorkstream { workstream } = rpc::params(params)?;
-                if !self.agents.queue_remove(&workstream)? {
-                    return Err(RpcError::not_found(format!(
-                        "queued workstream {workstream}"
-                    )));
-                }
-                self.changed();
-                rpc::reply(&())
-            }
-            "workstream.queueMove" => {
-                let QueueMoveParams { workstream, index } = rpc::params(params)?;
-                if !self.agents.queue_place(&workstream, index as usize)? {
-                    return Err(RpcError::not_found(format!(
-                        "queued workstream {workstream}"
-                    )));
-                }
-                self.changed();
-                rpc::reply(&())
-            }
-            "workstream.startNow" => {
-                let QueuedWorkstream { workstream } = rpc::params(params)?;
-                if !self
-                    .agents
-                    .queue_entries()?
-                    .iter()
-                    .any(|entry| entry.workstream == workstream)
-                {
-                    return Err(RpcError::not_found(format!(
-                        "queued workstream {workstream}"
-                    )));
-                }
-                let node = self.start_door(actor, &workstream).await?;
-                self.agents.queue_remove(&workstream)?;
-                self.changed();
-                rpc::reply(&node)
-            }
-            "project.setWorkstreamCap" => {
-                let CapParams { cap } = rpc::params(params)?;
-                let cap = match cap {
-                    None | Some(Value::Null) => None,
-                    Some(Value::Number(n)) => match n.as_u64() {
-                        Some(n) if (1..=u64::from(u32::MAX)).contains(&n) => Some(n as u32),
-                        _ => {
-                            return Err(refuse("cap must be a whole number of 1 or more, or null"));
-                        }
-                    },
-                    Some(_) => {
-                        return Err(refuse("cap must be a whole number of 1 or more, or null"));
-                    }
-                };
-                self.agents.set_workstream_cap(cap)?;
-                self.changed();
-                rpc::reply(&())
-            }
+            "workstream.dequeue" => self.dequeue(rpc::params(params)?),
+            "workstream.queueMove" => self.queue_move(rpc::params(params)?),
+            "workstream.startNow" => self.start_now(actor, rpc::params(params)?).await,
+            "project.setWorkstreamCap" => self.set_cap(rpc::params(params)?),
             _ => Err(RpcError::method_not_found(method)),
         }
+    }
+
+    fn dequeue(
+        &self,
+        QueuedWorkstream { workstream }: QueuedWorkstream,
+    ) -> Result<Value, RpcError> {
+        if !self.agents.queue_remove(&workstream)? {
+            return Err(RpcError::not_found(format!(
+                "queued workstream {workstream}"
+            )));
+        }
+        self.changed();
+        rpc::reply(&())
+    }
+
+    fn queue_move(
+        &self,
+        QueueMoveParams { workstream, index }: QueueMoveParams,
+    ) -> Result<Value, RpcError> {
+        if !self.agents.queue_place(&workstream, index as usize)? {
+            return Err(RpcError::not_found(format!(
+                "queued workstream {workstream}"
+            )));
+        }
+        self.changed();
+        rpc::reply(&())
+    }
+
+    async fn start_now(
+        &self,
+        actor: &Actor,
+        QueuedWorkstream { workstream }: QueuedWorkstream,
+    ) -> Result<Value, RpcError> {
+        if !self
+            .agents
+            .queue_entries()?
+            .iter()
+            .any(|entry| entry.workstream == workstream)
+        {
+            return Err(RpcError::not_found(format!(
+                "queued workstream {workstream}"
+            )));
+        }
+        let node = self.start_door(actor, &workstream).await?;
+        self.agents.queue_remove(&workstream)?;
+        self.changed();
+        rpc::reply(&node)
+    }
+
+    fn set_cap(&self, CapParams { cap }: CapParams) -> Result<Value, RpcError> {
+        let cap = match cap {
+            None | Some(Value::Null) => None,
+            Some(Value::Number(n)) => match n.as_u64() {
+                Some(n) if (1..=u64::from(u32::MAX)).contains(&n) => Some(n as u32),
+                _ => return Err(refuse("cap must be a whole number of 1 or more, or null")),
+            },
+            Some(_) => return Err(refuse("cap must be a whole number of 1 or more, or null")),
+        };
+        self.agents.set_workstream_cap(cap)?;
+        self.changed();
+        rpc::reply(&())
     }
 
     /// A3196: start Doors from the head of the Queue until `cap` Workstreams run. `start` is
