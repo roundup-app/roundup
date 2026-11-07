@@ -1,18 +1,15 @@
-import { writeText } from "../app/clipboard";
-import { createCopyFeedback } from "../ui/CopyButton";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
 import { ProjectDraftsContext } from "../state/connectedProject";
-import { Portal } from "solid-js/web";
-import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, For, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
-import { Dialog } from "../ui/Dialog";
+import { NameDraftRecovery } from "../drawer/NameDraftRecovery";
 import type { SortableParts } from "../ui/sortable";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import type { App } from "../app/seam";
@@ -119,14 +116,12 @@ export const ProjectTab = (props: {
   const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path && draft.destination.recipient === null) ?? []);
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);
-  const [inspected, inspect] = createSignal<string>();
   const [copyFailure, failCopy] = createSignal<{ project: string; revision: string | null; message: string } | null>(null);
   createEffect(() => {
     const failure = copyFailure();
 
     if (failure && (failure.project !== props.tab.path || (failure.revision !== null && !records().some(draft => draft.revision === failure.revision)))) failCopy(null);
   });
-  const shown = () => records().find(draft => draft.revision === inspected()) ?? current() ?? records().at(-1);
 
   const problem = createMemo(() => {
     const failure = drafts?.problem();
@@ -142,22 +137,6 @@ export const ProjectTab = (props: {
 
   let panel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: recovering, modal: true }, []);
-
-  const nameCopy = createCopyFeedback();
-  createEffect(on(createMemo(() => shown()?.revision), nameCopy.reset));
-
-  const copyName = async () => {
-    const draft = shown();
-
-    if (!draft) return;
-    const parsed = v.safeParse(schema, draft.value);
-
-    if (!parsed.success) return;
-
-    await nameCopy.run(() => writeText(props.app!, parsed.output.name), () => failCopy(null), error => {
-      failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error.message) });
-    });
-  };
 
   let base: string | undefined;
   let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
@@ -270,23 +249,18 @@ export const ProjectTab = (props: {
         </div>
       </Show>
     </FlatTab>
-    <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)} finalFocusEl={() => button ?? null}>
-      <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
-        <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
-        <Dialog.Description class="draft-identity">{props.tab.name}</Dialog.Description>
+    <NameDraftRecovery class="header-recovery" open={recovering()} onOpenChange={recover} finalFocusEl={() => button ?? null} panel={element => { panel = element; }}
+      identity={props.tab.name} records={records()} current={current()} app={props.app!}
+      lines={<>
         <ReservedLine message={copyFailure()?.message} dismiss={() => failCopy(null)} />
         <Show when={retention.message()}>{message => <ReservedLine message={message()} dismiss={retention.dismiss} recover={{ run: () => drafts?.retry(), label: copy.storageRetry }} />}</Show>
-        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{(draft, index) => <Show when={records().length > 1} fallback={<ReservedLine aria-label={copy.draftStatus[draft.status]} status={draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]} data-state={draft.status} />}><button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], String(index() + 1))}</button></Show>}</For>
-        <Show when={shown()}>{draft => <>
-          <ReservedLine status={draft().value.base !== props.tab.base ? copy.railDraftConflict : null} />
-          <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
-        </>}</Show>
-        <div class="draft-actions">
-        <Show when={shown()}>{draft => <><button type="button" data-button="quiet" onClick={() => void copyName()}>{nameCopy.copied() ? copy.copied : copy.copyProjectName}</button>
-          <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button>
-        </>}</Show>
-        <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
-      </Dialog.Content></Dialog.Positioner></Portal>
-    </Dialog.Root>
+      </>}
+      label={(draft, index, isCurrent) => copy.draftIdentity(isCurrent ? copy.currentDraft : copy.draftStatus[draft.status], String(index + 1))}
+      solo={(draft, isCurrent) => <ReservedLine aria-label={copy.draftStatus[draft.status]} status={isCurrent ? copy.currentDraft : copy.draftStatus[draft.status]} data-state={draft.status} />}
+      notice={draft => <ReservedLine status={draft.value.base !== props.tab.base ? copy.railDraftConflict : null} />}
+      value={draft => String(draft.value.name ?? "")}
+      onCopySuccess={() => failCopy(null)}
+      onCopyFailure={(draft, error) => failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error.message) })}
+      onDiscard={draft => { drafts?.discard(draft.revision); setEditing(null); }} />
   </>;
 };
