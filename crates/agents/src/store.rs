@@ -9,6 +9,7 @@ impl Agents {
         dir: &Path,
         bus: Bus,
         terminals: Arc<Terminals>,
+        wiring: Arc<dyn Wiring>,
     ) -> Result<Self, OpenError> {
         Self::open_in(
             project,
@@ -17,6 +18,7 @@ impl Agents {
             terminals,
             Launcher::from_env()?,
             worktree::Git::from_env(),
+            wiring,
         )
     }
 
@@ -27,9 +29,10 @@ impl Agents {
         terminals: Arc<Terminals>,
         launcher: Launcher,
         git: worktree::Git,
+        wiring: Arc<dyn Wiring>,
     ) -> Result<Self, OpenError> {
         let project = dir.parent().unwrap_or(dir);
-        Self::open_in(project, dir, bus, terminals, launcher, git)
+        Self::open_in(project, dir, bus, terminals, launcher, git, wiring)
     }
 
     pub fn open_in(
@@ -39,6 +42,7 @@ impl Agents {
         terminals: Arc<Terminals>,
         launcher: Launcher,
         git: worktree::Git,
+        wiring: Arc<dyn Wiring>,
     ) -> Result<Self, OpenError> {
         // FOP5978: `<fork>/fork.json` marks `<fork>/projects/<key>` as a Fork's data folder.
         let forked = dir
@@ -152,10 +156,7 @@ impl Agents {
                     inbox: Default::default(),
                 },
                 scan: Scan::new(scan_interval_from_env()),
-                context: None,
-                automatic_renaming: None,
-                naming_guide: None,
-                coordination: None,
+                wiring,
             }),
             dir: dir.to_owned(),
             launcher,
@@ -214,52 +215,6 @@ impl Agents {
             shared
         });
         self
-    }
-
-    /// Read the global switch at the first submitted prompt, including parked startup Signals.
-    #[must_use]
-    pub fn with_automatic_renaming(
-        self,
-        read: impl Fn() -> Result<bool, RpcError> + Send + Sync + 'static,
-    ) -> Self {
-        self.configure(|shared| shared.automatic_renaming = Some(Arc::new(read)))
-    }
-
-    /// Capture the global naming guide for each new vendor launch, including resumes.
-    #[must_use]
-    pub fn with_naming_guide(
-        self,
-        read: impl Fn() -> Result<String, RpcError> + Send + Sync + 'static,
-    ) -> Self {
-        self.configure(|shared| shared.naming_guide = Some(Arc::new(read)))
-    }
-
-    /// E3: supply the Context text kept by the Daemon, without giving Agents a Todos dependency.
-    /// Read once for the first Steer; a failed or timed-out read leaves that Steer unchanged.
-    #[must_use]
-    pub fn with_context<F, Fut>(self, read: F) -> Self
-    where
-        F: Fn(Vec<RailNode>, String) -> Fut + Send + Sync + 'static,
-        Fut: std::future::Future<Output = Result<String, RpcError>> + Send + 'static,
-    {
-        self.configure(|shared| {
-            shared.context = Some(Arc::new(move |nodes, id| Box::pin(read(nodes, id))))
-        })
-    }
-
-    /// A4452a, A4452d: send `send(sender, agent id, text)` as a Message to the Agent's Claude inbox
-    /// for every text roundup authors; none of it is typed. Call it before the first call is made.
-    #[must_use]
-    pub fn with_coordination<F, Fut>(self, send: F) -> Self
-    where
-        F: Fn(Actor, String, String) -> Fut + Send + Sync + 'static,
-        Fut: std::future::Future<Output = Result<(), RpcError>> + Send + 'static,
-    {
-        self.configure(|shared| {
-            shared.coordination = Some(Arc::new(move |from, id, text| {
-                Box::pin(send(from, id, text))
-            }))
-        })
     }
 
     /// Stamp Statuses and time Ticks by `clock`, milliseconds since the Unix epoch, instead of
@@ -591,10 +546,7 @@ pub(super) mod tests {
                 inbox: Default::default(),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            context: None,
-            automatic_renaming: None,
-            naming_guide: None,
-            coordination: None,
+            wiring: crate::Quiet::default().shared(),
         });
         (dir, bus, shared)
     }
@@ -650,10 +602,7 @@ pub(super) mod tests {
                 inbox: Default::default(),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            context: None,
-            automatic_renaming: None,
-            naming_guide: None,
-            coordination: None,
+            wiring: crate::Quiet::default().shared(),
         })
     }
 
@@ -726,10 +675,7 @@ pub(super) mod tests {
                 inbox: Default::default(),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            context: None,
-            automatic_renaming: None,
-            naming_guide: None,
-            coordination: None,
+            wiring: crate::Quiet::default().shared(),
         });
         (dir, shared)
     }

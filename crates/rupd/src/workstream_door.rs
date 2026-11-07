@@ -52,6 +52,7 @@ for line in sys.stdin:
                 None,
             ),
             agents::worktree::Git::from_env(),
+            agents::Quiet::default().shared(),
         )
         .unwrap(),
     );

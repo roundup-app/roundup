@@ -724,6 +724,7 @@ mod tests {
             terminals,
             launcher,
             worktree::Git::from_env(),
+            crate::Quiet::default().shared(),
         )
         .unwrap()
     }
