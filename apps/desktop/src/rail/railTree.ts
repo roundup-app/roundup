@@ -38,9 +38,10 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
-/** U6550a, M5: a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
+/** U6550a, M5: a lift or cancel by key is immediate (M1); a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
 const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: Accessor<string | null>) => {
   let drawn = new Map<string, number>();
+  let keyed = false;
   const rows = () => [...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []];
 
   createEffect(on(lifted, () => {
@@ -49,7 +50,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
 
     drawn = new Map();
 
-    if (reduced || before.size === 0) return;
+    if (reduced || keyed || before.size === 0) return;
 
     for (const row of rows()) {
       if (!("animate" in row) || row.matches("[data-dnd-dragging], [data-dnd-dropping]")) continue;
@@ -57,11 +58,12 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
       const options = { duration: reorderMs(row), easing: easingOut(row) };
 
       if (was === undefined) row.animate({ opacity: [0, 1] }, options);
-      else if (Math.abs(was - row.getBoundingClientRect().top) >= 1) row.animate({ translate: [`0 ${was - row.getBoundingClientRect().top}px`, "0 0"] }, options);
+      // A row the sortable shifted slides itself from that shift; a second translate here would double it.
+      else if (!row.style.translate && Math.abs(was - row.getBoundingClientRect().top) >= 1) row.animate({ translate: [`0 ${was - row.getBoundingClientRect().top}px`, "0 0"] }, options);
     }
   }, { defer: true }));
 
-  return () => { drawn = new Map(rows().map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
+  return (keyboard: boolean) => { keyed = keyboard; drawn = new Map(rows().map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
 };
 
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, container: Accessor<HTMLElement | undefined> = () => undefined) => {
@@ -184,7 +186,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const dropRules = {
     nests: (id: string) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
     takes: (id: string, parent: string | null) => placeable(placeNodes(), id, parent),
-    onLift: (id: string | null) => { keepDrawn(); setLifted(id); },
+    onLift: (id: string | null, keyboard = false) => { keepDrawn(keyboard); setLifted(id); },
   };
 
   return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };

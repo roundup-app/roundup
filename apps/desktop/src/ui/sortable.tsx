@@ -277,7 +277,7 @@ type SortableTree = DropRules & {
   /** The row content's inset from its border box, in pixels, at its current depth. */
   inset: (element: HTMLElement) => number;
   /** Called with the dragged row's id as its drag starts, before the rows are measured, and with null once the drop is shown or the drag is cancelled: a caller may fold the row's children in between. */
-  onLift?: (id: string | null) => void;
+  onLift?: (id: string | null, keyboard: boolean) => void;
   /** A string the promise resolves to is the Daemon's refusal; the dragged row then blends back once. */
   onMove: (move: SortableMove) => MoveAnswer;
   /** The drop a release would commit, or null once the drag ends. */
@@ -744,7 +744,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopPointer?.();
 
     // The children fold before the rows are measured, so the slots are those of the folded list.
-    if (tree && source) tree.onLift?.(String(source.id));
+    if (tree && source) tree.onLift?.(String(source.id), event.operation.activatorEvent instanceof KeyboardEvent);
 
     slots.allow(tree && source ? (to) => legalIndex(tree, String(source.id), to) : () => true);
     lifted = source?.element?.parentNode ? { element: source.element, parent: source.element.parentNode, before: source.element.previousSibling } : null;
@@ -837,7 +837,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     // A pointer release that commits nothing sends the other rows back.
     const relax = () => {
-      tree?.onLift?.(null);
+      tree?.onLift?.(null, !pointerDrag);
 
       if (pointerDrag) { place(others(source).map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(); }
     };
@@ -875,7 +875,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         const run = () => {
           const answer = tree.onMove({ id: String(source?.id), parent: final.drop.parent, index: final.drop.index });
 
-          tree.onLift?.(null);
+          tree.onLift?.(null, !pointerDrag);
 
           return answer;
         };
