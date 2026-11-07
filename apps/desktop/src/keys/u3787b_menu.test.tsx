@@ -25,7 +25,7 @@ const owner = (terminal: HTMLElement) => {
     remove = dispose;
     disposals.push(dispose);
     registerKeys({ kind: "region", element: () => terminal }, [{
-      action: CHORDS.find(action => action.keys === "⌘F")!,
+      action: CHORDS["terminal.find"],
       capture: focus => ({
         available: () => available() && !!focus && terminal.contains(focus),
         invoke: () => { calls.push(focus!); },

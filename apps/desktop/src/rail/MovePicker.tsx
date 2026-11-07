@@ -3,7 +3,7 @@ import { movedTo } from "../state/rail";
 import { applying } from "../app/pending";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { SortableMove } from "../ui/sortable";
-import { createSignal, Show } from "solid-js";
+import { batch, createSignal, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Combobox } from "../ui/Combobox";
 import { Popover } from "../ui/Popover";
@@ -63,8 +63,11 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
       const lift = rail.draw(tree => movedTo(tree, params.id, { parent: params.parent, index: params.index }));
       const result = await applying(() => app.rpc("rail.move", params));
 
-      if (result.kind === "applied") rail.keepApplied(params.id, { parent: params.parent, index: params.index });
-      lift();
+      // U3800d: the kept move and the lifted drawing are one redraw, not two.
+      batch(() => {
+        if (result.kind === "applied") rail.keepApplied(params.id, { parent: params.parent, index: params.index });
+        lift();
+      });
 
       if (result.kind === "refused") throw result.error;
 

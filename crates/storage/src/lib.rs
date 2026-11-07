@@ -3,6 +3,7 @@
 use std::path::Path;
 
 mod codec;
+pub mod migration;
 pub use codec::{Json, Word};
 
 use rusqlite::Connection;
@@ -149,14 +150,23 @@ pub fn fixture() -> rusqlite::Result<tempfile::TempDir> {
     Ok(dir)
 }
 
+/// N22: a private in-memory database holding the real Project schema, for a store with no directory.
+pub fn memory() -> rusqlite::Result<Connection> {
+    image(false)
+}
+
 /// N5420a: current-version input compares against the unchanged fresh image.
 fn reference() -> rusqlite::Result<Connection> {
+    image(true)
+}
+
+fn image(read_only: bool) -> rusqlite::Result<Connection> {
     let mut db = Connection::open_in_memory()?;
     let image = std::io::Read::chain(
         std::io::Read::chain(&FRESH[..18], &[1u8, 1][..]),
         &FRESH[20..],
     );
-    db.deserialize_read_exact(rusqlite::MAIN_DB, image, FRESH.len(), true)?;
+    db.deserialize_read_exact(rusqlite::MAIN_DB, image, FRESH.len(), read_only)?;
     Ok(db)
 }
 
@@ -177,7 +187,7 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
     }
     if stored > known as i64 {
         // MG3: a database ahead by additive migrations still holds everything this build knows.
-        return match provenance::migration::missing(db, &reference()?)? {
+        return match crate::migration::missing(db, &reference()?)? {
             None => Ok(()),
             Some(difference) => Err(error(format!(
                 "database version {stored}; this build supports through {known}. This database lacks what this build needs ({difference}); it came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup."
@@ -194,8 +204,8 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
         apply(&mut reference, migrations()[..stored as usize].to_vec())?;
         reference
     };
-    if let Some(difference) = provenance::migration::difference(db, &reference)? {
-        return Err(error(provenance::migration::divergence(
+    if let Some(difference) = crate::migration::difference(db, &reference)? {
+        return Err(error(crate::migration::divergence(
             &difference,
             stored,
             known,

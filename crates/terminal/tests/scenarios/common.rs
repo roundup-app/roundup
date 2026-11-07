@@ -20,7 +20,7 @@ pub fn ctx(dir: &tempfile::TempDir, bus: &Bus) -> Ctx {
     Ctx {
         actor: Actor::user(),
         bus: bus.clone(),
-        touches: Arc::new(Touches::open(&dir.path().join("provenance.db")).unwrap()),
+        touches: Arc::new(Touches::open(dir.path()).unwrap()),
     }
 }
 

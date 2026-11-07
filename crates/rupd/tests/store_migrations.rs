@@ -24,6 +24,7 @@ fn agents(dir: &Path, bus: Bus) -> Arc<agents::Agents> {
                 None,
             ),
             agents::worktree::Git::from_env(),
+            agents::Quiet::default().shared(),
         )
         .unwrap(),
     )
@@ -123,11 +124,10 @@ async fn n20_current_store_opens() {
     // Provenance is also used in memory by current callers.
     for memory in [false, true] {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("provenance.db");
         let touches = if memory {
             provenance::Touches::in_memory().unwrap()
         } else {
-            provenance::Touches::open(&path).unwrap()
+            provenance::Touches::open(dir.path()).unwrap()
         };
         touches
             .record(&Actor::user(), Verb::Wrote, "pad:kept")
@@ -136,7 +136,7 @@ async fn n20_current_store_opens() {
             touches
         } else {
             drop(touches);
-            provenance::Touches::open(&path).unwrap()
+            provenance::Touches::open(dir.path()).unwrap()
         };
         let history = touches.history("pad:kept").unwrap();
         assert_eq!(history.len(), 1);

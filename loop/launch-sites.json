@@ -364,11 +364,6 @@
     "kind": "indirect",
     "sha256": "d07144397b72f02e818b25fd6eef0db60530f26ef12714934eeb5763f3808e62"
   },
-  "crates/provenance/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/rpc/examples/r16_client.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -715,11 +710,6 @@
   "crates/rupd/tests/workstream_measurement.rs": {
     "cleanup": "Shared Rupd handle kills and waits on Drop before caller-owned TempDirs drop; reopen explicitly kills and waits before relaunch.",
     "data": "Delegates launches to support/rupd_harness.rs with an explicit absolute caller-owned TempDir, retained across reopen.",
-    "kind": "reference"
-  },
-  "crates/todos/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
   "crates/todos/t15_perf.py": {

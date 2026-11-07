@@ -198,7 +198,7 @@ async fn u4698c_other_mutations_keep_priority() {
         ("todo.reopen", json!({"id":1})),
         ("todo.assign", json!({"id":1,"owner":null})),
         ("todo.setBlockers", json!({"id":1,"blockers":[2]})),
-        ("todo.move", json!({"id":1,"home":"home"})),
+        ("todo.move", json!({"id":1,"home":"1"})),
         ("todo.reorder", json!({"id":1,"before":null})),
     ] {
         h.call(method, params).await.unwrap();

@@ -162,7 +162,7 @@ async fn t19_failed_history_preserves_done_state() {
     let before = changes(&h, 1).await;
     let touches = h.touches(1);
     h.events();
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
     assert!(h.call("todo.reopen", json!({"id":1})).await.is_err());
     assert_eq!(
@@ -341,7 +341,7 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
     let h = Harness::new(dir.path());
     h.call("todo.create", json!({"title": "a"})).await.unwrap();
     let before = changes(&h, 1).await;
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
     for (method, params) in [
         ("todo.update", json!({"id": 1, "title": "lost"})),
@@ -380,15 +380,14 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
 async fn t15_equal_time_reads_and_changes_keep_order() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
-    let touches_path = dir.path().join("touches.db");
     let mut h = h;
-    h.ctx.touches = Arc::new(Touches::open(&touches_path).unwrap());
+    h.ctx.touches = Arc::new(Touches::open(dir.path()).unwrap());
     h.call("todo.create", json!({"title": "a"})).await.unwrap();
     h.call("todo.get", json!({"id": 1})).await.unwrap();
     h.call_as(agent("a"), "todo.update", json!({"id": 1, "body": "new"}))
         .await
         .unwrap();
-    let db = rusqlite::Connection::open(&touches_path).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute("UPDATE touches SET at = 0", []).unwrap();
     let history = changes(&h, 1).await;
     assert_eq!(history["unread"], history["changes"][1]["seq"]);
@@ -435,7 +434,7 @@ async fn t15_list_does_not_load_history() {
             .await
             .unwrap();
     }
-    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute("UPDATE changes SET after_values = 'unreadable'", [])
         .unwrap();
     let list = h.call("todo.list", json!({})).await.unwrap();
@@ -446,7 +445,7 @@ async fn t15_list_does_not_load_history() {
 
 // Valid current-schema payloads; setup is separate from execution/row observation.
 fn hand_fixture() -> store::Store {
-    let store = store::Store::open(Path::new(":memory:")).unwrap();
+    let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
     store.db.execute_batch(
         "WITH RECURSIVE n(id) AS (SELECT 1 UNION ALL SELECT id+1 FROM n WHERE id<1000)
          INSERT INTO todos(id,title,body,created_at,updated_at,pos,owner)
@@ -695,7 +694,7 @@ fn t5642b_narrow_history_matches_actor_semantics() {
         ),
     ];
     for (name, events, eligible) in cases {
-        let store = store::Store::open(Path::new(":memory:")).unwrap();
+        let store = store::Store::open(&storage::fixture().unwrap().keep()).unwrap();
         store
             .insert(
                 "todo",

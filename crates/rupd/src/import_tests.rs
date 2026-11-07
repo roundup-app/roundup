@@ -19,6 +19,7 @@ fn import_daemon_with_clock(project: &Path, launcher: agents::claude_code::Launc
             terminals,
             launcher,
             agents::worktree::Git::from_env(),
+            agents::Quiet::default().shared(),
         )
         .unwrap()
         .with_clock(|| 1_793_036_800_000)

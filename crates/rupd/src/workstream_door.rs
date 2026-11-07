@@ -52,10 +52,11 @@ for line in sys.stdin:
                 None,
             ),
             agents::worktree::Git::from_env(),
+            agents::Quiet::default().shared(),
         )
         .unwrap(),
     );
-    let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
+    let touches = Arc::new(provenance::Touches::open(&dir).unwrap());
     let mut daemon = Daemon {
         naming: Arc::new(parking_lot::Mutex::new(
             crate::data::open_naming(&crate::data::naming_path(&dir)).unwrap(),

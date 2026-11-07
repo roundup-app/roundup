@@ -364,7 +364,14 @@ mod tests {
                     .unwrap()
                     .with_test_input(recorded),
             );
-            agents::Agents::open(dir.path(), dir.path(), bus, terminals).unwrap()
+            agents::Agents::open(
+                dir.path(),
+                dir.path(),
+                bus,
+                terminals,
+                agents::Quiet::default().shared(),
+            )
+            .unwrap()
         })
         .unwrap();
         rusqlite::Connection::open(dir.path().join("project.db")).unwrap().execute_batch(

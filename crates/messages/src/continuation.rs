@@ -218,7 +218,14 @@ impl Messages {
             reply_to: None,
         };
         let sent = self
-            .send_message_with(&ctx, params, false, None, Some(&c))
+            .send_message_with(
+                &ctx,
+                params,
+                false,
+                crate::pushes::Payload::Note,
+                None,
+                Some(&c),
+            )
             .await;
         let message = match sent {
             Ok(message) => message,

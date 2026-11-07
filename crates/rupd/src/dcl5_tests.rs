@@ -56,6 +56,7 @@ impl Run {
                     terminals,
                     launcher,
                     agents::worktree::Git::from_env(),
+                    agents::Quiet::default().shared(),
                 )
                 .unwrap()
                 .with_clock(move || clock.load(Ordering::SeqCst))

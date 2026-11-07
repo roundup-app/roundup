@@ -24,6 +24,7 @@ async fn r3696c_forty_workstreams_avoid_temporary_node_copies() {
             None,
         ),
         agents::worktree::Git::from_env(),
+        agents::Quiet::default().shared(),
     )
     .unwrap();
     let ctx = Ctx {

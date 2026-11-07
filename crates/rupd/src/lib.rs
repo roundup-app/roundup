@@ -574,6 +574,7 @@ pub mod test_support {
                 terminals,
                 launcher,
                 agents::worktree::Git::from_env(),
+                agents::Quiet::default().shared(),
             )
             .unwrap()
             .with_clock(clock)

@@ -1,4 +1,4 @@
-import { CHORDS, LEADER, defaultPress, pressOf, shortcutLabel } from "../keys/chords";
+import { CHORDS, LEADER, defaultPress, pressOf, shortcutLabel, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
 import { copy } from "./copy";
 import { appSettings } from "./preferences";
 
@@ -12,11 +12,11 @@ const RESERVED = () => new Map([["meta+KeyQ", copy.quitApp], ["meta+KeyH", copy.
 /** The action that holds `press` now, a macOS-reserved chord included. */
 export const holderOf = (press: string, except = ""): string | undefined =>
   RESERVED().get(press)
-  ?? CHORDS.find(row => row.name !== except && row.presses.includes(press))?.what
-  ?? LEADER.find(row => row.press.toLowerCase() === press.toLowerCase())?.what;
+  ?? CHORD_ROWS.find(row => row.name !== except && row.presses.includes(press))?.what
+  ?? LEADER_ROWS.find(row => row.press.toLowerCase() === press.toLowerCase())?.what;
 
 /** The owner of `press` for a lookup: a reserved chord or a row. */
-export const ownerOf = (press: string): string | undefined => RESERVED().get(press) ?? CHORDS.find(row => row.presses.includes(press))?.what;
+export const ownerOf = (press: string): string | undefined => RESERVED().get(press) ?? CHORD_ROWS.find(row => row.presses.includes(press))?.what;
 
 export const isModifier = (event: KeyboardEvent) => ["Control", "Alt", "Meta", "Shift", "CapsLock"].includes(event.key) || event.isComposing;
 

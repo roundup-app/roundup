@@ -63,7 +63,7 @@ async fn t27_refs_persist_and_delete_clears_them() {
     h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
         .await
         .unwrap();
-    let rows: i64 = rusqlite::Connection::open(dir.path().join("todos.db"))
+    let rows: i64 = rusqlite::Connection::open(dir.path().join("project.db"))
         .unwrap()
         .query_row("SELECT count(*) FROM todo_refs", [], |r| r.get(0))
         .unwrap();

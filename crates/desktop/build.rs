@@ -1,12 +1,14 @@
+mod build_stamp;
+
 fn main() {
-    let commit = std::process::Command::new("git")
-        .args(["rev-parse", "--short=12", "HEAD"])
-        .output()
-        .ok()
-        .filter(|out| out.status.success())
-        .and_then(|out| String::from_utf8(out.stdout).ok())
-        .unwrap_or_default();
-    println!("cargo:rustc-env=ROUNDUP_COMMIT={}", commit.trim());
+    let dir = std::env::current_dir().expect("the build runs in a directory");
+    for path in build_stamp::rerun_paths(&dir) {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+    println!(
+        "cargo:rustc-env=ROUNDUP_COMMIT={}",
+        build_stamp::stamp(&dir)
+    );
     tauri_build::try_build(
         tauri_build::Attributes::new()
             .plugin(

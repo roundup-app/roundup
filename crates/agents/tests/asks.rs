@@ -52,6 +52,12 @@ struct Harness {
 impl Harness {
     fn open(dir: &std::path::Path) -> Self {
         let bus = Bus::new();
+        // The Daemon creates `project.db` first; the stores then open inside it.
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: bus.clone(),
+            touches: Arc::new(provenance::Touches::open(dir).unwrap()),
+        };
         let terminals = Arc::new(terminal::Terminals::open(dir, bus.clone()).unwrap());
         let agents = Arc::new(
             agents::Agents::open_with(
@@ -65,6 +71,7 @@ impl Harness {
                     None,
                 ),
                 agents::worktree::Git::from_env(),
+                agents::Quiet::default().shared(),
             )
             .unwrap(),
         );
@@ -80,11 +87,6 @@ impl Harness {
             }),
         )
         .unwrap();
-        let ctx = Ctx {
-            actor: Actor::user(),
-            bus,
-            touches: Arc::new(provenance::Touches::open(&dir.join("touches.db")).unwrap()),
-        };
         Self {
             asks,
             agents,
@@ -182,6 +184,12 @@ impl DoorHarness {
         }
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let bus = Bus::new();
+        // The Daemon creates `project.db` first; the stores then open inside it.
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: bus.clone(),
+            touches: Arc::new(provenance::Touches::open(dir).unwrap()),
+        };
         let (tx, bytes) = mpsc::unbounded_channel();
         let refuse = Arc::new(AtomicBool::new(false));
         let refused = refuse.clone();
@@ -211,10 +219,12 @@ impl DoorHarness {
                     None,
                 ),
                 agents::worktree::Git::from_env(),
+                agents::Quiet::default()
+                    .with_context(|| "Context must not enter a new Ask's Steer".into())
+                    .with_inbox(|_, _| {})
+                    .shared(),
             )
             .unwrap()
-            .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
-            .with_coordination(|_, _, _| async { Ok(()) })
             .with_steer_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {
@@ -236,11 +246,6 @@ impl DoorHarness {
             }),
         )
         .unwrap();
-        let ctx = Ctx {
-            actor: Actor::user(),
-            bus,
-            touches: Arc::new(provenance::Touches::open(&dir.join("touches.db")).unwrap()),
-        };
         Self {
             h: Harness {
                 asks,
@@ -702,7 +707,7 @@ async fn a42_picking_new_uses_the_first_six_words_as_its_title() {
 async fn a2703a_failed_ask_reason_uses_rail_name() {
     let dir = tempfile::tempdir().unwrap();
     let mut f = DoorHarness::open_with_bound(dir.path(), Duration::from_millis(100));
-    rusqlite::Connection::open(dir.path().join("agents.db")).unwrap()
+    rusqlite::Connection::open(dir.path().join("project.db")).unwrap()
         .execute_batch("DELETE FROM sqlite_sequence WHERE name = 'nodes'; INSERT INTO sqlite_sequence(name,seq) VALUES('nodes',7012)").unwrap();
     let id = f.workstream().await;
     f.start(&id).await;

@@ -100,6 +100,20 @@ class Lints(unittest.TestCase):
                 self.write('test.rs', source)
                 self.scan('ast', status)
 
+    def test_b6506_the_lint_rejects_a_prefix_read(self):
+        for path, source, status in [
+            ('crates/messages/src/plan.rs', 'fn f(b: &str) -> bool { b.starts_with("[digest]") }', 1),
+            ('crates/messages/src/plan.rs', 'fn f(b: &str) -> Option<&str> { b.strip_prefix("[wake]") }', 1),
+            ('crates/messages/src/plan.rs', 'fn f(b: &str) -> bool { b.starts_with("note") }', 0),
+            ('crates/other/src/plan.rs', 'fn f(b: &str) -> bool { b.starts_with("[digest]") }', 0),
+        ]:
+            with self.subTest(path=path, source=source):
+                self.write(path, source)
+                out = self.scan('ast', status)
+                if status:
+                    self.assertIn(path, out)
+                    self.assertIn('prefix-read', out)
+
     def test_t3797a_dom_cloning(self):
         for source, status in [('const x = element.cloneNode();', 1), ('const x = element.cloneNode(true);', 1),
                                ('const x = element["cloneNode"]();', 1),
@@ -126,6 +140,7 @@ class Lints(unittest.TestCase):
 
     def test_t3797a_ast_extra_beside_exception(self):
         for rule, path, source in [('sleep-poll', 'a.rs', 'fn f() { loop { sleep(x); } }\n'),
+                                   ('one-schema-owner', 'crates/provenance/src/a.rs', 'fn f() { open("project.db"); }\n'),
                                    ('dom-clone', 'a.ts', 'element.cloneNode();\n'),
                                    ('style-override', 'a.tsx', 'const a = "color: red !important";\n')]:
             with self.subTest(rule=rule):

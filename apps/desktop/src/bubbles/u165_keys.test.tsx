@@ -110,7 +110,7 @@ describe("u165 the keys for bubbles", () => {
   });
 
   it("u165_other_keys_reach_the_terminal_and_help_lists_the_bubble_chord", async () => {
-    const { CHORDS } = await import("../keys/chords");
+    const { CHORD_ROWS } = await import("../keys/chords");
 
     await mountBubbles("a");
     await waitFor(() => expect(bubble("1")).not.toBeNull());
@@ -118,7 +118,7 @@ describe("u165 the keys for bubbles", () => {
 
     bubble("1").dispatchEvent(escape);
     expect(escape.defaultPrevented).toBe(false);
-    expect(CHORDS.slice(0, 5).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T"]);
+    expect(CHORD_ROWS.slice(0, 5).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T"]);
     fireEvent.keyDown(document.body, { key: "x" });
   });
 });

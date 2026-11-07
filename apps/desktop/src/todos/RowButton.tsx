@@ -1,5 +1,5 @@
 import { modalOpen, registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, CHORD_ROWS } from "../keys/chords";
 import { copy } from "./copy";
 import type { JSX } from "solid-js";
 import "./rowButton.styles.css";
@@ -15,7 +15,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       && (event.altKey ? props.reorderable === true : props.pressed !== undefined)
       && ((event.key !== "Escape" && event.key !== "Backspace") || props.selectionActive === true),
     run: (event) => props.onKeyDown?.(event),
-  }, ...CHORDS.filter(row => row.name === "todo.open-draft" || row.name === "rail.rename").map(action => ({
+  }, ...CHORD_ROWS.filter(row => row.name === "todo.open-draft" || row.name === "rail.rename").map(action => ({
     action,
     searchable: false as const,
     when: (event: KeyboardEvent) => event.target === button && !props.keysSuspended
@@ -30,7 +30,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       };
     },
   })), ...[false, true].map(out => ({
-    action: CHORDS.find(row => row.name === (out ? "todo.triage-unnest" : "todo.triage-nest"))!,
+    action: CHORDS[out ? "todo.triage-unnest" : "todo.triage-nest"],
     searchable: false as const, repeat: true as const,
     when: (event: KeyboardEvent) => event.target === button && props.nest?.(out) != null,
     capture: (focus: Element | null) => {
