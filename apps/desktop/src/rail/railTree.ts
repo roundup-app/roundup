@@ -63,7 +63,8 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
     }
   }, { defer: true }));
 
-  return (keyboard: boolean) => { keyed = keyboard; drawn = new Map(rows().map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
+  // A row inside a collapsed group is inert and not drawn: it returns by fading in, never by sliding from where the hidden group left it.
+  return (keyboard: boolean) => { keyed = keyboard; drawn = new Map(rows().filter(row => !row.closest("[inert], [hidden]")).map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
 };
 
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, container: Accessor<HTMLElement | undefined> = () => undefined) => {
