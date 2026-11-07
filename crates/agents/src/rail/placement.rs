@@ -8,10 +8,10 @@ impl Rail {
         id: &str,
         parent: Option<&str>,
         index: u32,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), StoreError> {
         let name = self.name(id)?;
         let parent_name = parent.map(|id| self.name(id)).transpose()?;
-        let tx = self.db.transaction().map_err(sql)?;
+        let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
         check_parent(&nodes, node.kind, parent)?;
@@ -27,13 +27,13 @@ impl Rail {
             && node.kind == NodeKind::Agent
             && under.kind == NodeKind::Agent
         {
-            return Err(RpcError::conflict(format!(
+            return Err(StoreError::conflict(format!(
                 "{name} cannot move under Agent {}: only a start nests it",
                 parent_name.as_deref().unwrap_or(GONE_AGENT)
             )));
         }
         if parent.is_some_and(|parent| is_within(&nodes, parent, id)) {
-            return Err(RpcError::conflict(format!(
+            return Err(StoreError::conflict(format!(
                 "{name} cannot move into itself"
             )));
         }
@@ -46,8 +46,7 @@ impl Rail {
         ids.insert((index as usize).min(ids.len()), id.to_owned());
         place(&tx, parent, &ids)?;
         if node.parent.as_deref() != parent {
-            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])
-                .map_err(sql)?;
+            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])?;
             place(
                 &tx,
                 node.parent.as_deref(),
@@ -56,34 +55,29 @@ impl Rail {
         }
         // Explicit moves supersede this surviving node's retained placement, even if
         // a later move returns it to the same parent and index.
-        let retained: bool = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_deletions')",
-                [],
-                |r| r.get(0),
-            )
-            .map_err(sql)?;
+        let retained: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_deletions')",
+            [],
+            |r| r.get(0),
+        )?;
         if retained {
-            tx.execute("UPDATE rail_deletions SET boundary=json_set(boundary,'$.after',json((SELECT COALESCE(json_group_array(json(value)),'[]') FROM json_each(json_extract(boundary,'$.after')) WHERE json_extract(value,'$.id')<>?))) WHERE restored=0 AND json_type(boundary)='object'", [id]).map_err(sql)?;
+            tx.execute("UPDATE rail_deletions SET boundary=json_set(boundary,'$.after',json((SELECT COALESCE(json_group_array(json(value)),'[]') FROM json_each(json_extract(boundary,'$.after')) WHERE json_extract(value,'$.id')<>?))) WHERE restored=0 AND json_type(boundary)='object'", [id])?;
         }
-        tx.commit().map_err(sql)
+        Ok(tx.commit()?)
     }
 }
 
 impl Rail {
     /// U5690c: collect identities in one transaction, using the pre-action tree order.
-    pub fn group(&mut self, ids: &[String]) -> Result<RailNode, RpcError> {
-        let tx = self.db.transaction().map_err(sql)?;
+    pub fn group(&mut self, ids: &[String]) -> Result<RailNode, StoreError> {
+        let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         for id in ids {
             find(&nodes, id)?;
         }
         let chosen: std::collections::HashSet<_> = ids.iter().map(String::as_str).collect();
         if chosen.len() < 2 {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "select at least two Rail rows",
-            ));
+            return Err(StoreError::invalid("select at least two Rail rows"));
         }
         // Walk existing sibling ordinals, independent of request/click order.
         fn walk(
@@ -128,8 +122,7 @@ impl Rail {
         tx.execute(
             "INSERT INTO nodes(kind,name,parent,ord) VALUES('group','Group',?,?)",
             params![destination, index as i64],
-        )
-        .map_err(sql)?;
+        )?;
         let group = tx.last_insert_rowid().to_string();
         let mut parents: std::collections::HashSet<Option<&str>> = selected
             .iter()
@@ -148,19 +141,17 @@ impl Rail {
         }
         place(&tx, Some(&group), &selected)?;
         // A user grouping supersedes retained undo placement just as an explicit move does.
-        let retained: bool = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_deletions')",
-                [],
-                |r| r.get(0),
-            )
-            .map_err(sql)?;
+        let retained: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_deletions')",
+            [],
+            |r| r.get(0),
+        )?;
         if retained {
             for id in &selected {
-                tx.execute("UPDATE rail_deletions SET boundary=json_set(boundary,'$.after',json((SELECT COALESCE(json_group_array(json(value)),'[]') FROM json_each(json_extract(boundary,'$.after')) WHERE json_extract(value,'$.id')<>?))) WHERE restored=0 AND json_type(boundary)='object'", [id]).map_err(sql)?;
+                tx.execute("UPDATE rail_deletions SET boundary=json_set(boundary,'$.after',json((SELECT COALESCE(json_group_array(json(value)),'[]') FROM json_each(json_extract(boundary,'$.after')) WHERE json_extract(value,'$.id')<>?))) WHERE restored=0 AND json_type(boundary)='object'", [id])?;
             }
         }
-        tx.commit().map_err(sql)?;
+        tx.commit()?;
         self.node(&group)
     }
 }

@@ -168,12 +168,16 @@ impl Shared {
                         return Err(RpcError::conflict("Agent changed during removal judgement"));
                     }
                 }
-                let result =
-                    rail.remove_workstream(&id_owned, &mut removal, None, |db, removal| {
+                let result = rail.remove_workstream(
+                    &id_owned,
+                    &mut removal,
+                    None,
+                    |db, removal| -> Result<_, RpcError> {
                         let out = apply(db, removal)?;
                         undo.remove(&git, &project)?;
                         Ok(out)
-                    });
+                    },
+                );
                 match result {
                     Ok(out) => {
                         let mut calls = shared
@@ -193,7 +197,7 @@ impl Shared {
                     }
                     Err(err) => {
                         undo.restore(&git.bounded(), &project)?;
-                        Err(err)
+                        Err(err.into())
                     }
                 }
             })
@@ -307,7 +311,7 @@ impl Agents {
         actor: &Actor,
         operation: &str,
     ) -> Result<Option<Removal>, RpcError> {
-        self.shared.rail().deletion(actor, operation)
+        Ok(self.shared.rail().deletion(actor, operation)?)
     }
 
     /// Retain one captured selection in the existing graph transaction; this never starts or stops programs.
@@ -431,7 +435,7 @@ impl Agents {
         actor: &Actor,
         p: &contracts::agent::DeletionParams,
     ) -> Result<Removal, RpcError> {
-        rail::Rail::restore_removal_in(db, actor, p)
+        Ok(rail::Rail::restore_removal_in(db, actor, p)?)
     }
 }
 
@@ -470,7 +474,7 @@ impl Agents {
         db: &rusqlite::Connection,
         operation: &str,
     ) -> Result<(), RpcError> {
-        rail::Rail::acknowledge_restoration_in(db, operation)
+        Ok(rail::Rail::acknowledge_restoration_in(db, operation)?)
     }
 }
 
