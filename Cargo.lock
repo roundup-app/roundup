@@ -3609,8 +3609,10 @@ dependencies = [
  "rpc",
  "rusqlite",
  "rusqlite_migration",
+ "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "unicode-normalization",
  "url",
@@ -5533,6 +5535,7 @@ dependencies = [
  "stats_alloc",
  "tempfile",
  "terminal",
+ "thiserror 2.0.21",
  "tokio",
  "vt100",
 ]

@@ -21,8 +21,13 @@ pub(super) fn type_queued(
                     Some(clock())
                 };
                 for sample in samples {
-                    let mut sample = sample.lock().expect("sample lock");
-                    sample.written = written;
+                    match sample.locked("sample lock") {
+                        Ok(mut sample) => sample.written = written,
+                        Err(err) => {
+                            eprintln!("terminal {number}: input stopped: {err}");
+                            return;
+                        }
+                    }
                 }
             }
             Input::Effect(effect, completed) => {
@@ -42,53 +47,51 @@ pub(super) fn read(
     handle: &Handle,
     screen: &Mutex<ScreenState>,
     output: &broadcast::Sender<Chunk>,
-) {
+) -> Result<(), Error> {
     let mut chunk = [0u8; READ_CHUNK];
     // Linux reports the closed PTY as an error, macOS as end of file: both mean "no more output".
     while let Ok(read) = reader.read(&mut chunk) {
         if read == 0 {
             break;
         }
+        let data = within(&chunk, ..read);
         if let Some(recorder) = handle.recorder.get() {
             let at = (shared.clock)();
-            recorder
-                .lock()
-                .expect("recorder lock")
-                .read(&chunk[..read], at);
+            recorder.locked("recorder lock")?.read(data, at)?;
         }
         let (seen, reported) = {
-            let mut state = screen.lock().expect("terminal screen lock");
+            let mut state = screen.locked("terminal screen lock")?;
             let offset = state.after;
             // U6144a: the parser reads the chunk up to each Kitty query's end, so every reply keeps
             // the order the program wrote its queries in.
             let mut kitty = Vec::new();
-            state.kitty.feed(&chunk[..read], &mut kitty);
+            state.kitty.feed(data, &mut kitty);
             let parsed = state.ensure_parser().map(|parser| {
                 catch_unwind(AssertUnwindSafe(|| {
                     let mut seen = Seen::default();
                     let mut from = 0;
                     for &(end, request) in &kitty {
-                        parser.process(&chunk[from..end]);
+                        parser.process(within(data, from..end));
                         from = end;
                         let mut part = std::mem::take(parser.callbacks_mut());
                         seen.titles.append(&mut part.titles);
                         seen.requests.append(&mut part.requests);
                         seen.requests.push(request);
                     }
-                    parser.process(&chunk[from..read]);
+                    parser.process(within(data, from..));
                     let mut part = std::mem::take(parser.callbacks_mut());
                     seen.titles.append(&mut part.titles);
                     seen.requests.append(&mut part.requests);
                     seen
                 }))
             });
-            let reported = state.status.feed(&chunk[..read], (shared.clock)());
+            let reported = state.status.feed(data, (shared.clock)());
             state.after += read as u64;
-            state.log.push(&chunk[..read]);
+            state.log.push(data);
             // Sent under the lock so a snapshot's `after` and a subscription's start never straddle a chunk.
             let _ = output.send(Chunk {
                 offset,
-                bytes: Arc::from(&chunk[..read]),
+                bytes: Arc::from(data),
             });
             let seen = match parsed {
                 Some(Ok(seen)) => {
@@ -117,8 +120,9 @@ pub(super) fn read(
         shared.answer(number, &seen.requests);
         seen.titles
             .into_iter()
-            .for_each(|title| shared.retitle(number, title));
+            .try_for_each(|title| shared.retitle(number, title))?;
     }
+    Ok(())
 }
 
 /// What a chunk asked when no screen parser reads it: the Kitty queries alone.
@@ -140,22 +144,29 @@ pub(super) fn pump(
     output: broadcast::Sender<Chunk>,
     exit_hold: Option<&ExitHold>,
 ) {
-    read(shared, number, reader, handle, screen, &output);
+    stopped(
+        number,
+        "output stopped",
+        read(shared, number, reader, handle, screen, &output),
+    );
     let code = program::exit_code(number, reap(&handle.program));
     if let Some(hold) = exit_hold {
         hold();
     }
     drop(output);
-    shared.finish(number, code);
+    stopped(number, "exit not published", shared.finish(number, code));
 }
 
 impl Shared {
     /// X17: queue `bytes` for the program of Terminal `number`; a program that no longer reads is told on stderr.
     pub(super) fn type_into(&self, number: u64, bytes: Vec<u8>) {
-        let handle = self
-            .table()
-            .get(&number)
-            .and_then(|entry| entry.handle.clone());
+        let handle = match self.table() {
+            Ok(table) => table.get(&number).and_then(|entry| entry.handle.clone()),
+            Err(err) => {
+                eprintln!("terminal {number}: reply dropped: {err}");
+                return;
+            }
+        };
         if let Some(handle) = handle
             && let Err(err) = handle.input.try_send(Input::Bytes(bytes, Vec::new()))
         {
@@ -165,7 +176,13 @@ impl Shared {
 
     /// X17: one reply per query, in the order asked; all but XTVERSION wait for the scheme the App last set.
     pub(super) fn answer(&self, number: u64, requests: &[scheme::Request]) {
-        let palette = *self.scheme.lock().expect("terminal scheme lock");
+        let palette = match self.scheme.locked("terminal scheme lock") {
+            Ok(palette) => *palette,
+            Err(err) => {
+                eprintln!("terminal {number}: replies dropped: {err}");
+                return;
+            }
+        };
         let replies: Vec<u8> = requests
             .iter()
             .filter_map(|request| match request {

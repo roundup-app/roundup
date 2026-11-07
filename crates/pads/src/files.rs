@@ -3,11 +3,12 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use rpc::RpcError;
 use tempfile::NamedTempFile;
 
+use crate::Error;
+
 /// Atomic: a temp file in the same directory, then a rename.
-pub fn write(dir: &Path, name: &str, text: &str) -> Result<(), RpcError> {
+pub fn write(dir: &Path, name: &str, text: &str) -> Result<(), Error> {
     let write = || -> io::Result<()> {
         let temp = staged_text(dir, text)?;
         temp.persist(path(dir, name)).map_err(|err| err.error)?;
@@ -17,7 +18,7 @@ pub fn write(dir: &Path, name: &str, text: &str) -> Result<(), RpcError> {
 }
 
 /// Create a missing rename mirror without replacing an external destination.
-pub fn write_new(dir: &Path, name: &str, text: &str) -> Result<(), RpcError> {
+pub fn write_new(dir: &Path, name: &str, text: &str) -> Result<(), Error> {
     let write = || -> io::Result<()> {
         let temp = staged_text(dir, text)?;
         temp.persist_noclobber(path(dir, name))
@@ -35,7 +36,7 @@ fn staged_text(dir: &Path, text: &str) -> io::Result<NamedTempFile> {
 }
 
 /// `None` when the file does not exist.
-pub fn read(dir: &Path, name: &str) -> Result<Option<String>, RpcError> {
+pub fn read(dir: &Path, name: &str) -> Result<Option<String>, Error> {
     match std::fs::read_to_string(path(dir, name)) {
         Ok(text) => Ok(Some(text)),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -48,7 +49,7 @@ fn path(dir: &Path, name: &str) -> PathBuf {
 }
 
 /// The file system refusing a name (too long, or code points it cannot store) is the caller's mistake; anything else is ours.
-fn refused(err: io::Error, name: &str) -> RpcError {
+fn refused(err: io::Error, name: &str) -> Error {
     let invalid =
         err.kind() == io::ErrorKind::InvalidFilename || err.raw_os_error() == Some(libc::EILSEQ);
     let code = if invalid {
@@ -56,12 +57,12 @@ fn refused(err: io::Error, name: &str) -> RpcError {
     } else {
         rpc::code::INTERNAL
     };
-    RpcError::new(code, format!("pad file {name}.md: {err}"))
+    Error::new(code, format!("pad file {name}.md: {err}"))
 }
 
 /// Create a mirror without replacing any existing file. Dropping the path rolls it back;
 /// keep it only after SQLite commits, so a refused restore leaves both holders unchanged.
-pub fn restore(dir: &Path, name: &str, text: &str) -> Result<tempfile::TempPath, RpcError> {
+pub fn restore(dir: &Path, name: &str, text: &str) -> Result<tempfile::TempPath, Error> {
     write_new(dir, name, text)?;
     tempfile::TempPath::try_from_path(path(dir, name)).map_err(|e| refused(e, name))
 }

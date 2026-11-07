@@ -13,19 +13,16 @@ impl Terminals {
     /// read them. `NOT_FOUND` if it is unknown or has exited; `CONFLICT` if the program has left
     /// [`WRITE_BACKLOG`] writes unread.
     pub async fn write(&self, id: &str, bytes: &[u8]) -> Result<(), RpcError> {
-        self.write_at(id, bytes, (self.shared.clock)())
+        Ok(self.write_at(id, bytes, (self.shared.clock)())?)
     }
 
-    pub(super) fn write_at(&self, id: &str, bytes: &[u8], received: f64) -> Result<(), RpcError> {
+    pub(super) fn write_at(&self, id: &str, bytes: &[u8], received: f64) -> Result<(), Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.enqueue(Input::Bytes(bytes.to_vec(), Vec::new()));
         }
         let handle = self.running(id)?;
         let samples = match handle.recorder.get() {
-            Some(recorder) => recorder
-                .lock()
-                .expect("recorder lock")
-                .receive(bytes, received),
+            Some(recorder) => recorder.locked("recorder lock")?.receive(bytes, received)?,
             None => Vec::new(),
         };
         handle.enqueue(id, Input::Bytes(bytes.to_vec(), samples))
@@ -40,9 +37,10 @@ impl Terminals {
                 .write_all(&bytes)
                 .and_then(|()| writer.flush())
                 .map_err(|err| {
-                    RpcError::unknown_outcome(format!(
+                    Error::unknown_outcome(format!(
                         "Terminal write may be partial: {err}; do not retry"
                     ))
+                    .into()
                 })
         })
         .await
@@ -59,18 +57,20 @@ impl Terminals {
     ) -> Result<(), RpcError> {
         #[cfg(feature = "test-support")]
         if let Some(writer) = &self.test_input {
-            return effect(&mut **writer.lock().expect("test input lock"));
+            return effect(&mut **writer.locked("test input lock")?);
         }
         let (tx, rx) = tokio::sync::oneshot::channel();
+        let effect = move |writer: &mut dyn Write| effect(writer).map_err(Error::from);
         self.enqueue(id, Input::Effect(Box::new(effect), tx))?;
-        rx.await.map_err(|_| {
-            RpcError::unknown_outcome(
+        let result = rx.await.map_err(|_| {
+            Error::unknown_outcome(
                 "Terminal input ended before reporting its physical effect; do not retry",
             )
-        })?
+        })?;
+        Ok(result?)
     }
 
-    fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
+    fn enqueue(&self, id: &str, input: Input) -> Result<(), Error> {
         if let Some(remote) = self.remote(id)? {
             return remote.enqueue(input);
         }
