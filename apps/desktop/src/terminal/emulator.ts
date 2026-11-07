@@ -96,6 +96,7 @@ type InputOrigin = Terminal & { _core: { coreService: {
 type RenderRows = Terminal & { _core: { _renderService?: { refreshRows(start: number, end: number, sync: boolean): void } } };
 
 export { attachRenderer, arabicRuns } from "./renderer";
+
 export type { RendererAddon } from "./renderer";
 
 /** OSC 52 copies use the originating Terminal's clipboard failure owner. */
@@ -229,6 +230,7 @@ export const createXtermEmulators = (
     // Every listener and observer this emulator adds belongs to one root.
 
     let owner: Owner | null = null;
+
     const stopListeners = createRoot(dispose => {
       owner = getOwner();
 
