@@ -95,6 +95,14 @@ class Guard(unittest.TestCase):
             # Even a base that already contains the extra collision grants no exception.
             self.assertTrue(self.check(all_paths | {extra}, all_paths | {extra}))
 
+    def test_b4522_guard_accepts_recorded_duplicates_moved_whole(self):
+        d, names = next((d.encode(), [n.encode() for n in names]) for d, names in FIXTURES["groups"])
+        old = {d + n for n in names}
+        moved = {b"moved/migrations/" + n for n in names}
+        self.assertEqual(self.check(old, moved), [])
+        self.assertTrue(self.check(old, moved | {b"moved/migrations/" + names[0].split(b"-")[0] + b"-extra.sql"}))
+        self.assertTrue(self.check(old, {b"moved/migrations/" + n for n in names[:1]} | {b"moved/migrations/" + names[0].split(b"-")[0] + b"-other.sql"}))
+
     def test_b4522_guard_refuses_missing_base(self):
         tree = self.tree(frozenset({b"new/migrations/1.sql"}))
         argv = sys.argv
