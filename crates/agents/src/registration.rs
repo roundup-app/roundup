@@ -362,7 +362,7 @@ pub(super) fn save_signal_conversation(
     let Some(conversation_id) = claude_code::see(payload).conversation else {
         return Ok(());
     };
-    rail.save_conversation(id, &conversation_id, run.cwd())?;
+    rail.save_conversation(id, conversation_id, run.cwd())?;
     rail.save_conversation_yolo(id, run.yolo())?;
     Ok(())
 }
