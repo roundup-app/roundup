@@ -16,6 +16,22 @@ use crate::{Observation, Run, Slot};
 
 use crate::tests::*;
 #[tokio::test]
+async fn u177_a_door_attempt_awaits_its_channel_until_it_is_up_or_missing() {
+    for settled in [
+        contracts::agent::Channel::Up,
+        contracts::agent::Channel::Missing,
+    ] {
+        let watched = Watched::named();
+        let shared = &watched.shared;
+        assert!(shared.channel_pending("7013"));
+
+        shared.set_channel(Actor::daemon(), "7013", "1", settled);
+
+        assert!(!shared.channel_pending("7013"), "{settled:?}");
+    }
+}
+
+#[tokio::test]
 async fn a2703a_errors_use_rail_names() {
     for case in [
         "channel", "ended", "closing", "starting", "resuming", "cleanup", "missing",

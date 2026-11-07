@@ -71,6 +71,15 @@ fn spawn_status_listener(
                     let _ = inner.completed.send("on_status");
                 }
                 Ok(contracts::Event {
+                    data: EventData::AgentChannel(channel),
+                    ..
+                }) => {
+                    // E6: a Door held its Messages while its Channel was `pending`.
+                    if channel.channel != contracts::agent::Channel::Pending {
+                        deliver_pending(&inner, &channel.id).await;
+                    }
+                }
+                Ok(contracts::Event {
                     data: EventData::RailRenamed { id, name },
                     ..
                 }) => {

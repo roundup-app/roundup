@@ -291,9 +291,27 @@ impl Agents {
 
     /// B51: check Agent `id`'s Claude inbox and keep the outcome as its Rail fact `inbox`.
     pub fn inbox_check(&self, id: &str) -> contracts::agent::Inbox {
-        let state = self.launcher.inbox_check(id);
+        let state = if self.awaiting_channel(id) {
+            contracts::agent::Inbox::Missing
+        } else {
+            self.launcher.inbox_check(id)
+        };
         self.shared.events.inbox.set(id, state);
         state
+    }
+
+    /// E6, B51: a Door takes Messages once its `rup mcp` is up, or the Channel deadline passed;
+    /// a note it takes before then can ask for a tool Claude Code has not connected yet.
+    fn awaiting_channel(&self, id: &str) -> bool {
+        let mcp = self
+            .shared
+            .rail()
+            .get_mcp()
+            .is_ok_and(|mcp| models::mcp_on(self.shared.mcp_env.as_deref(), mcp.on));
+        if !mcp || !self.is_door(id) {
+            return false;
+        }
+        self.shared.channel_pending(id)
     }
 
     /// B5763b: the receiving peer session used for durable inbox comparison.
