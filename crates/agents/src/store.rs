@@ -150,17 +150,12 @@ impl Agents {
                     observed: Default::default(),
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
-                    tool_calls: Default::default(),
                 },
-                channels: Mutex::new(HashMap::new()),
                 scan: Scan::new(scan_interval_from_env()),
-                strays: Mutex::new(HashMap::new()),
                 context: None,
                 automatic_renaming: None,
                 naming_guide: None,
                 coordination: None,
-                waits: Mutex::new(HashMap::new()),
-                resumes: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
             launcher,
@@ -339,7 +334,7 @@ impl Agents {
     /// B5763b: the exact content the current receiving permission mode will write.
     pub fn inbox_content(&self, id: &str, note: &claude_code::inbox::Entry) -> String {
         let runs = self.shared.runs();
-        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo());
+        let yolo = matches!(runs.slot(id), Some(Slot::Running(run)) if run.yolo());
         self.launcher.inbox_content(id, note, yolo)
     }
 
@@ -351,7 +346,7 @@ impl Agents {
         notes: &[claude_code::inbox::Entry],
     ) -> Result<(), contracts::agent::Inbox> {
         let runs = self.shared.runs();
-        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo());
+        let yolo = matches!(runs.slot(id), Some(Slot::Running(run)) if run.yolo());
         self.launcher
             .inbox_write(id, notes, yolo)
             .inspect_err(|state| {
@@ -365,13 +360,13 @@ impl Agents {
 
     /// A5556: whether this Attempt has received explicit input.
     pub fn input_started(&self, id: &str) -> bool {
-        matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if run.input_started())
+        matches!(self.shared.runs().slot(id), Some(Slot::Running(run)) if run.input_started())
     }
 
     /// Admit pending automatic Messages after explicit input, using the existing status lane.
     pub fn admit_input(&self, id: &str) {
         let mut runs = self.shared.runs();
-        if let Some(Slot::Running(run)) = runs.get_mut(id)
+        if let Some(Slot::Running(run)) = runs.slot_mut(id)
             && !run.input_started()
         {
             self.shared
@@ -406,6 +401,7 @@ impl Agents {
 
 #[cfg(test)]
 pub(super) mod tests {
+    use crate::agent::Runs;
     use crate::{ending, events, rail_view};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -444,7 +440,7 @@ pub(super) mod tests {
             let adapter_clock = Arc::clone(&clock);
             let (dir, bus, shared) = shared_over_temp_dir(clock);
             let run = Run::fixture(adapter_clock, false);
-            shared.runs().insert("1".into(), Slot::Running(run));
+            shared.runs().put("1".into(), Slot::Running(run));
             let (terminal, terminal_events) = broadcast::channel(16);
             let events = bus.subscribe();
             let watcher = tokio::spawn(watch(
@@ -593,17 +589,12 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
-                tool_calls: Default::default(),
             },
-            channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
             naming_guide: None,
             coordination: None,
-            waits: Mutex::new(HashMap::new()),
-            resumes: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
     }
@@ -657,17 +648,12 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
-                tool_calls: Default::default(),
             },
-            channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
             naming_guide: None,
             coordination: None,
-            waits: Mutex::new(HashMap::new()),
-            resumes: Mutex::new(HashMap::new()),
         })
     }
 
@@ -679,7 +665,7 @@ pub(super) mod tests {
             .insert(NodeKind::Agent, "a", parent, Some("1"))
             .unwrap()
             .id;
-        shared.runs().insert(
+        shared.runs().put(
             id.clone(),
             Slot::Running(Run::fixture(Arc::new(|| 0), true)),
         );
@@ -738,17 +724,12 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
-                tool_calls: Default::default(),
             },
-            channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
             naming_guide: None,
             coordination: None,
-            waits: Mutex::new(HashMap::new()),
-            resumes: Mutex::new(HashMap::new()),
         });
         (dir, shared)
     }

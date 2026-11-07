@@ -16,21 +16,21 @@ impl Shared {
     ) -> Result<Vec<String>, RpcError> {
         let mut rail = self.rail();
         let mut runs = self.runs();
-        if !matches!(runs.get(id), Some(Slot::Starting { attempt: active, .. }) if active.as_str() == attempt)
+        if !matches!(runs.slot(id), Some(Slot::Starting { attempt: active, .. }) if active.as_str() == attempt)
         {
             return Err(RpcError::conflict(format!(
                 "{}: stale start completion",
                 rail.name(id)?
             )));
         }
-        let Some(Slot::Starting { named, parked, .. }) = runs.remove(id) else {
+        let Some(Slot::Starting { named, parked, .. }) = runs.take(id) else {
             unreachable!("spawn marks {id} Starting before run_agent runs")
         };
         let mut run = build(named);
         if run.input_started()
             && let Err(error) = self.save_input_started(id, run.attempt())
         {
-            runs.insert(id.to_owned(), Slot::Running(run));
+            runs.put(id.to_owned(), Slot::Running(run));
             return Err(error);
         }
         run.observe(Observation::Finished(rail.finished(id).unwrap_or_default()));
@@ -44,7 +44,7 @@ impl Shared {
                 // Put `id` back so the caller's own failed-spawn cleanup (which expects to find
                 // its Attempt still in `runs`) still removes the orphaned node and kills the
                 // Terminal `start` already recorded, exactly as any other failed spawn.
-                runs.insert(id.to_owned(), Slot::Running(run));
+                runs.put(id.to_owned(), Slot::Running(run));
                 return Err(err);
             }
             let first_prompt = claude_code::see(&payload).prompt.map(name::from_prompt);
@@ -53,9 +53,11 @@ impl Shared {
             // with it. `rail.node(id)` itself cannot be `NOT_FOUND` (a Starting id's Rail node is
             // removed only by its own failed spawn, which never reaches here), but the write a
             // parked rename makes can still fail on its own account.
+            let held = &mut runs.get_mut(id).expect("taken, not removed").facts;
             match self.apply(
                 Some(&mut *rail),
                 &mut run,
+                held,
                 id,
                 &actor,
                 Observation::Signal(payload),
@@ -67,7 +69,7 @@ impl Shared {
                 ),
             }
         }
-        runs.insert(id.to_owned(), Slot::Running(run));
+        runs.put(id.to_owned(), Slot::Running(run));
         Ok(prompts)
     }
 
@@ -81,7 +83,7 @@ impl Shared {
     pub(super) fn finish_resuming(
         &self,
         rail: Option<&mut rail::Rail>,
-        runs: &mut HashMap<String, Slot>,
+        runs: &mut HashMap<String, Agent>,
         id: &str,
         actor: Actor,
         payload: Value,
@@ -98,14 +100,14 @@ impl Shared {
             terminal_id,
             mut parked,
             done,
-        }) = runs.remove(id)
+        }) = runs.take(id)
         else {
             unreachable!("observe matched a Resuming slot for {id}");
         };
         if !is_resume_ack(&payload, &conversation_id, self.git.is_forked()) || terminal_id.is_none()
         {
             hold(id, &mut parked, actor, payload);
-            runs.insert(
+            runs.put(
                 id.to_owned(),
                 Slot::Resuming {
                     mode,
@@ -150,7 +152,7 @@ impl Shared {
     pub(super) fn promote_parked_resume_ack(&self, id: &str) {
         let mut rail = self.rail();
         let mut runs = self.runs();
-        let found = match runs.get(id) {
+        let found = match runs.slot(id) {
             Some(Slot::Resuming {
                 conversation_id,
                 parked,
@@ -172,7 +174,7 @@ impl Shared {
             mut parked,
             done,
             ..
-        }) = runs.remove(id)
+        }) = runs.take(id)
         else {
             unreachable!("checked above, under the same lock")
         };
@@ -216,7 +218,7 @@ impl Shared {
     fn promote_resuming(
         &self,
         rail: &mut rail::Rail,
-        runs: &mut HashMap<String, Slot>,
+        runs: &mut HashMap<String, Agent>,
         id: &str,
         attempt: Ordinal,
         old: Option<Box<Run>>,
@@ -284,9 +286,11 @@ impl Shared {
             let first_prompt = claude_code::see(&parked_payload)
                 .prompt
                 .map(name::from_prompt);
+            let held = &mut runs.get_mut(id).expect("taken, not removed").facts;
             if let Err(err) = self.apply(
                 Some(rail),
                 &mut run,
+                held,
                 id,
                 &parked_actor,
                 Observation::Signal(parked_payload),
@@ -325,15 +329,17 @@ impl Shared {
         if starred {
             run.note_star();
         }
+        let held = &mut runs.get_mut(id).expect("taken, not removed").facts;
         let applied = self.apply(
             Some(rail),
             &mut run,
+            held,
             id,
             &actor,
             Observation::Signal(payload),
             None,
         );
-        runs.insert(id.to_owned(), Slot::Running(run));
+        runs.put(id.to_owned(), Slot::Running(run));
         let _ = done.send(Ok(()));
         applied
     }

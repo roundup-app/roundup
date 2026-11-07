@@ -63,6 +63,8 @@ pub(crate) enum Slot {
         error: RpcError,
     },
     Closing,
+    /// No Slot: the node has no program and its facts stay. `Runs` reads it as absent.
+    Gone,
 }
 
 impl Slot {
@@ -72,7 +74,7 @@ impl Slot {
             | Self::Resuming { attempt, .. }
             | Self::ResumeCleanup { attempt, .. } => attempt.as_str(),
             Self::Running(run) => run.attempt(),
-            Self::Closing => "",
+            Self::Closing | Self::Gone => "",
         }
     }
 
@@ -86,7 +88,7 @@ impl Slot {
         match self {
             Self::Running(run) => run.named = true,
             Self::Starting { named, .. } => *named = true,
-            Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing => {}
+            Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing | Self::Gone => {}
         }
     }
 }
