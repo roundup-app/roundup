@@ -7,6 +7,8 @@ mod brief;
 mod conversation;
 mod discovery;
 pub mod extras;
+mod hook;
+pub(crate) use hook::see;
 pub mod inbox;
 mod launch;
 mod launch_files;
@@ -569,24 +571,6 @@ impl AgentAdapter for ClaudeCode {
 /// E3: mutable Context travels after the work text so A27's name still comes from the work.
 pub(crate) const CONTEXT_START: &str = "\n\n<roundup-context>\n";
 
-/// The hook event a payload names, or `Signal` when it names none.
-pub fn event_name(payload: &Value) -> &str {
-    payload["hook_event_name"].as_str().unwrap_or("Signal")
-}
-
-/// The prompt a `UserPromptSubmit` payload carries (empty when it carries none); `None` for any
-/// other payload.
-pub fn submitted_prompt(payload: &Value) -> Option<&str> {
-    (payload["hook_event_name"] == "UserPromptSubmit")
-        .then(|| payload["prompt"].as_str().unwrap_or_default())
-}
-
-/// Whether `payload` is the `SessionStart` Signal, which readies a fresh Agent for its first
-/// prompt (H12).
-pub fn is_session_start(payload: &Value) -> bool {
-    payload["hook_event_name"] == "SessionStart"
-}
-
 /// E3: what the `SessionStart` hook prints so Claude Code adds `text` to the model's context: the
 /// vendor's own JSON, `hookSpecificOutput.additionalContext`.
 pub fn session_start_context(text: &str) -> String {
@@ -682,27 +666,9 @@ pub fn interrupt_bytes() -> Vec<u8> {
     vec![0x1b]
 }
 
-/// A21: the conversation a `SessionStart` payload names, accepted only as a UUID; `None` for any
-/// other payload, or one whose `session_id` is not a UUID.
-pub fn conversation_id(payload: &Value) -> Option<String> {
-    (payload["hook_event_name"] == "SessionStart")
-        .then(|| payload["session_id"].as_str())
-        .flatten()
-        .filter(|id| is_uuid(id))
-        .map(str::to_owned)
-}
-
-/// A22: whether a `SessionStart` payload says it began with `--resume`; `None` for any other
-/// payload.
-pub fn session_source(payload: &Value) -> Option<&str> {
-    (payload["hook_event_name"] == "SessionStart")
-        .then(|| payload["source"].as_str())
-        .flatten()
-}
-
 /// `8-4-4-4-12` lowercase or uppercase hex, dashes at those exact positions; no other form (no
 /// braces, no `urn:uuid:`) is accepted as a conversation id.
-fn is_uuid(id: &str) -> bool {
+pub(super) fn is_uuid(id: &str) -> bool {
     let bytes = id.as_bytes();
     bytes.len() == 36
         && [8, 13, 18, 23].iter().all(|&i| bytes[i] == b'-')
