@@ -156,7 +156,7 @@ async fn dv3_rejected_file_deletion_restarts_without_denial_then_retry_commits()
         client
             .request(
                 "pad.delete",
-                json!({"name":"notes","operation":"del-notes"})
+                json!({"name":"notes","operation":"del-notes-again"})
             )
             .await
             .unwrap_err()

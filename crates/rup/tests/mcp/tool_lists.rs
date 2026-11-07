@@ -343,7 +343,7 @@ async fn p16_shared_pad_access_over_public_seams() {
             let removed = shim
                 .call(
                     "pad_delete",
-                    json!({"name":renamed,"operation":"del-renamed","expectedIncarnation":original["incarnation"]}),
+                    json!({"name":renamed,"operation":format!("del-{renamed}"),"expectedIncarnation":original["incarnation"]}),
                 )
                 .await;
             assert_ne!(removed.is_error, Some(true));

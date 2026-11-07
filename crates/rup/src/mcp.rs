@@ -116,7 +116,6 @@ impl std::fmt::Display for Gone {
     }
 }
 
-/// The JSON Schema of `P`, which a params struct makes an object.
 /// P9a, T6a: a deletion's retry key is the caller's; one the caller gave none is made here, so a
 /// replay after an unknown reply is possible. The Daemon makes none.
 fn with_key(arguments: &mut JsonObject) {
@@ -137,6 +136,7 @@ fn with_key(arguments: &mut JsonObject) {
     }
 }
 
+/// The JSON Schema of `P`, which a params struct makes an object.
 fn schema_of<P: JsonSchema>() -> JsonObject {
     schemars::schema_for!(P).ensure_object().clone()
 }

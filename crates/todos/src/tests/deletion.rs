@@ -531,3 +531,44 @@ async fn u3787a_redo_refuses_replaced_creation_and_retries_after_authoritative_r
         .unwrap();
     assert_eq!(h.call("todo.get", json!({"id":1})).await.unwrap(), original);
 }
+
+#[tokio::test]
+async fn t6a_a_replay_returns_the_first_receipt_and_other_ids_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::new(dir.path());
+    for title in ["one", "two"] {
+        made(&h, json!({"title":title})).await;
+    }
+    let first = h
+        .call("todo.delete", json!({"operation":"k","ids":[2,1]}))
+        .await
+        .unwrap();
+    h.events();
+    let touched = h.touches(1);
+    let replay = h
+        .call("todo.delete", json!({"operation":"k","ids":[1,2,1]}))
+        .await
+        .unwrap();
+    assert_eq!(replay, first);
+    assert!(h.events().is_empty());
+    assert_eq!(h.touches(1), touched);
+    let other = h
+        .call("todo.delete", json!({"operation":"k","ids":[1]}))
+        .await
+        .unwrap_err();
+    assert_eq!(other.code, code::CONFLICT);
+}
+
+#[tokio::test]
+async fn t6a_a_256_byte_key_is_accepted_and_257_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    made(&h, json!({"title":"one"})).await;
+    assert!(h
+        .call("todo.delete", json!({"operation":"a".repeat(257),"ids":[1]}))
+        .await
+        .is_err());
+    h.call("todo.delete", json!({"operation":"a".repeat(256),"ids":[1]}))
+        .await
+        .unwrap();
+}
