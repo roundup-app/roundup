@@ -27,6 +27,36 @@ impl Run {
             .unwrap()
     }
 
+    /// The setup's own settled note (DCL6) is a Door turn that carries quiet notes out; it comes
+    /// 2 s after the child rests, so it is let pass before the quiet window is counted.
+    async fn let_settled_pass(&self) {
+        let _ = tokio::time::timeout(Duration::from_secs(8), async {
+            loop {
+                let delivered = self
+                    .user
+                    .request("message.list", json!({}))
+                    .await
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|m| {
+                        m["to"] == self.door
+                            && m["status"] == "delivered"
+                            && m["body"].as_str().unwrap().starts_with("[settled]")
+                    });
+                if delivered {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await;
+        // The turn it starts ends, and the Daemon compares what it changed.
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        self.compared().await;
+    }
+
     /// A live Door's Daemon has had time to compare and push: it attempted no push and no send.
     async fn settle_quiet(&self) {
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -44,6 +74,7 @@ impl Run {
 #[tokio::test]
 async fn dtc2_a_status_flip_of_a_child_starts_no_door_turn() {
     let run = Run::start_live().await;
+    run.let_settled_pass().await;
     std::fs::write(run.dir.path().join("attempts"), "").unwrap();
     // Setup's own Messages may have carried the first quiet notes out; only later ones are counted.
     let before = run.digests().await.len();
@@ -65,6 +96,7 @@ async fn dtc2_a_last_line_change_of_a_child_under_a_wake_starts_no_door_turn() {
     // The child is idle, so the Wake request fires at once (B42) and the Door takes a turn for it
     // (Working, Idle); the change under test comes after that turn, which would carry it out.
     run.idle(&run.door, rest + 2).await;
+    run.let_settled_pass().await;
     std::fs::write(run.dir.path().join("attempts"), "").unwrap();
     let before = run.digests().await.len();
     run.change("while waiting").await;

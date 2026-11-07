@@ -226,7 +226,8 @@ impl Run {
         .await;
     }
 
-    async fn assert_silent(&self) {
+    /// Every comparison the Daemon has begun is complete, and so is each push it made.
+    async fn compared(&self) {
         // Consume stderr through the same comparison acknowledgement before asserting absence.
         wait(|| {
             self.log
@@ -241,6 +242,10 @@ impl Run {
                     .count()
         })
         .await;
+    }
+
+    async fn assert_silent(&self) {
+        self.compared().await;
         let attempts =
             std::fs::read_to_string(self.dir.path().join("attempts")).unwrap_or_default();
         assert!(
@@ -548,6 +553,8 @@ async fn delivered(events: &mut Client, id: u64) {
 /// B5168f: these changes are only new open Todos, so their Digests are held until a Message is
 /// delivered; a note to the Door delivers them with it.
 async fn release(run: &Run, events: &mut Client) {
+    // A quiet change still being compared would miss this Message's rollup.
+    run.compared().await;
     let note = run
         .user
         .request(
