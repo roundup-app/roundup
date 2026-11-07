@@ -39,6 +39,8 @@ lint-rust base="": lint-repo
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
     tools/nodes-sql/guard.sh
+    tools/agents-state/guard.test.sh
+    tools/agents-state/guard.sh
     tools/retired-words.test.sh
     tools/retired-words.sh
     tools/library-reuse.test.sh

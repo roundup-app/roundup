@@ -183,7 +183,7 @@ impl crate::Agents {
         }
         let waiting = {
             let runs = self.shared.runs();
-            runs.iter().find_map(|(agent, slot)| match slot {
+            runs.iter().find_map(|(agent, entry)| match &entry.slot {
                 crate::Slot::Running(run)
                     if run.terminal_id() == terminal
                         && run
