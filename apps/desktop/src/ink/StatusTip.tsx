@@ -9,7 +9,7 @@ import { shownKind } from "./FailureLine";
 const REVEALING = new Set<Status["kind"]>(["blocked", "needs-you", "working", "error"]);
 
 /** Mounted only while shown, so a hidden reading subscribes to no clock; `live` false reads the clock without demanding it. U6640a: the Rail row shows it in place; `StatusTip` shows it for other surfaces. */
-export const Reveal = (props: { status: Status; label?: string; live?: boolean }) => {
+export const Reveal = (props: { status: Status; label?: string; live?: boolean; split?: boolean }) => {
   const now = useDisplayNow(() => props.live ?? true);
 
   const age = () => {
@@ -19,7 +19,10 @@ export const Reveal = (props: { status: Status; label?: string; live?: boolean }
   };
 
   // U5231a: an error's reason is the row's FailureLine, so the reveal adds only the age.
-  return <>{props.label === undefined && props.status.kind === "error" ? age() : copy.statusReveal(props.label ?? props.status.label, age())}</>;
+  const label = () => props.label ?? props.status.label;
+
+  // U6640b: split, the label is its own cut span and the age keeps its width.
+  return <>{props.label === undefined && props.status.kind === "error" ? age() : props.split ? <><span class="row-status-label">{label()}</span><span class="row-status-age">{copy.statusReveal(label(), age()).slice(label().length)}</span></> : copy.statusReveal(label(), age())}</>;
 };
 
 /** Only the handlers and description link: the row keeps its own id, `data-scope` and `data-part`, which the trigger's would overwrite. Merge them with the row's own props by zag's `mergeProps`, which chains handlers. */

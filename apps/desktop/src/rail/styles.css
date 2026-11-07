@@ -124,15 +124,21 @@
 
 /* U6640b: a long status keeps one line, cut with …. */
 .rail-row .row-status {
-  flex: 0 1 auto;
+  flex: 0 1000 auto;
+  margin-inline-end: auto;
+  display: flex;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--grey);
   font-size: var(--text-row);
   line-height: 1.15;
 }
+
+.rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rail-row .row-status-age { flex: none; }
+/* The name keeps its width first; the status is the only part that shrinks. */
+.rail-row:has(.row-status) .name { flex: 0 1 auto; }
 
 [data-part="branch-control"].rail-row .name {
   font-weight: 600;

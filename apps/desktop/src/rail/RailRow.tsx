@@ -234,7 +234,7 @@ export const RailRowView = (props: {
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
-      <Show when={statusRead()}>{status => <span class="row-status" data-state="status" ref={statusCut[0]}><Reveal status={status()} label={statusLabel()} live={false} /></span>}</Show>
+      <Show when={statusRead()}>{status => <span class="row-status" data-state="status" ref={statusCut[0]}><Reveal status={status()} label={statusLabel()} live={false} split /></span>}</Show>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
