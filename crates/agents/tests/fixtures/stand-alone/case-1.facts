@@ -1,0 +1,7 @@
+12 colour tokens
+9 colour tokens
+Three components hard-code a hex colour
+The settings page ignores the theme switch
+saves to local storage
+No test covers the switch
+should the three hard-coded components move to tokens in this pass
