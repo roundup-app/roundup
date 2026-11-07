@@ -69,6 +69,29 @@ fn seeded_order(title: &str, body: &str) -> Order {
     }
 }
 
+/// `CapParams` whose `cap` was checked while parsing: null, or a whole number from 1 to `u32::MAX`.
+#[derive(serde::Deserialize)]
+#[serde(try_from = "CapParams")]
+struct CapRequest {
+    cap: Option<u32>,
+}
+
+impl TryFrom<CapParams> for CapRequest {
+    type Error = &'static str;
+
+    fn try_from(params: CapParams) -> Result<Self, Self::Error> {
+        let cap = match params.cap {
+            None | Some(Value::Null) => None,
+            Some(Value::Number(n)) => match n.as_u64().and_then(|n| u32::try_from(n).ok()) {
+                Some(n) if n >= 1 => Some(n),
+                _ => return Err("cap must be a whole number of 1 or more, or null"),
+            },
+            Some(_) => return Err("cap must be a whole number of 1 or more, or null"),
+        };
+        Ok(Self { cap })
+    }
+}
+
 fn refuse(message: impl Into<String>) -> RpcError {
     RpcError::new(code::INVALID_PARAMS, message)
 }
@@ -259,15 +282,7 @@ impl Queuer {
         rpc::reply(&node)
     }
 
-    fn set_cap(&self, CapParams { cap }: CapParams) -> Result<Value, RpcError> {
-        let cap = match cap {
-            None | Some(Value::Null) => None,
-            Some(Value::Number(n)) => match n.as_u64() {
-                Some(n) if (1..=u64::from(u32::MAX)).contains(&n) => Some(n as u32),
-                _ => return Err(refuse("cap must be a whole number of 1 or more, or null")),
-            },
-            Some(_) => return Err(refuse("cap must be a whole number of 1 or more, or null")),
-        };
+    fn set_cap(&self, CapRequest { cap }: CapRequest) -> Result<Value, RpcError> {
         self.agents.set_workstream_cap(cap)?;
         self.changed();
         rpc::reply(&())

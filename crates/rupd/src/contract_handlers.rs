@@ -49,7 +49,7 @@ impl Daemon {
         if conn.actor.kind != contracts::ActorKind::User {
             return Err(RpcError::forbidden("only the user forks the data folder"));
         }
-        let params: contracts::data::ForkParams = rpc::params(params)?;
+        let params: crate::fork::ForkRequest = rpc::params(params)?;
         let root = crate::data::naming_path(&self.data_dir)
             .parent()
             .map(std::path::Path::to_path_buf)
