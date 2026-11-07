@@ -10,8 +10,6 @@ use contracts::pad::{
 use contracts::{ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, OpenError};
 
-use crate::reply;
-use serde_json::Value;
 
 use crate::store::Store;
 use crate::{Pads, files, name, reference, section};
@@ -31,7 +29,7 @@ impl Pads {
         })
     }
 
-    pub(super) fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, Error> {
+    pub(super) async fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Pad, Error> {
         name::validate(&p.name)?;
         let pad = Pad {
             incarnation: String::new(), // Assigned by the existing source-creation trigger.
@@ -50,7 +48,7 @@ impl Pads {
             get(&store, &pad.name)
         })?;
         wrote(ctx, &pad.name)?;
-        reply(&pad)
+        Ok(pad)
     }
 
     /// T27: whether the Pad `link` names, and its section, exist now. It logs no Touch.
@@ -67,18 +65,18 @@ impl Pads {
             .is_none_or(|heading| section::find(&pad.text, &section::wanted(heading)).is_some()))
     }
 
-    pub(super) fn read(&self, ctx: &Ctx, p: PadName) -> Result<Value, Error> {
+    pub(super) async fn read(&self, ctx: &Ctx, p: PadName) -> Result<Pad, Error> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         ctx.touch(Verb::Read, &item(&pad.name))?;
-        reply(&pad)
+        Ok(pad)
     }
 
-    pub(super) fn list(&self) -> Result<Vec<Pad>, Error> {
+    pub(super) async fn list(&self, _ctx: &Ctx) -> Result<Vec<Pad>, Error> {
         self.store()?.list().map_err(Error::internal)
     }
 
-    pub(super) fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, Error> {
+    pub(super) async fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Pad, Error> {
         let store = self.store()?;
         let pad = store.atomically(|| {
             let pad = get(&store, &p.name)?;
@@ -106,10 +104,10 @@ impl Pads {
             get(&store, &pad.name)
         })?;
         wrote(ctx, &pad.name)?;
-        reply(&pad)
+        Ok(pad)
     }
 
-    pub(super) fn append(&self, ctx: &Ctx, p: AppendParams) -> Result<Value, Error> {
+    pub(super) async fn append(&self, ctx: &Ctx, p: AppendParams) -> Result<Pad, Error> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         let text = pad.text + &p.text;
@@ -118,11 +116,11 @@ impl Pads {
             self.mirror(&store, &pad.name, &text)
         })?;
         wrote(ctx, &pad.name)?;
-        reply(&get(&store, &pad.name)?)
+        Ok(get(&store, &pad.name)?)
     }
 
     /// P15: the revision check, the insertion and the write happen in one transaction, so of two callers with one expected revision only one succeeds.
-    pub(super) fn append_section(&self, ctx: &Ctx, p: AppendSectionParams) -> Result<Value, Error> {
+    pub(super) async fn append_section(&self, ctx: &Ctx, p: AppendSectionParams) -> Result<Pad, Error> {
         let store = self.store()?;
         get(&store, &p.name)?;
         let wanted = section::wanted(&p.heading);
@@ -158,10 +156,10 @@ impl Pads {
             get(&store, &pad.name)
         })?;
         wrote(ctx, &pad.name)?;
-        reply(&pad)
+        Ok(pad)
     }
 
-    pub(super) fn reorder(&self, ctx: &Ctx, p: ReorderParams) -> Result<Value, Error> {
+    pub(super) async fn reorder(&self, ctx: &Ctx, p: ReorderParams) -> Result<Pad, Error> {
         if ctx.actor.kind != ActorKind::User {
             return Err(Error::forbidden("only the user may reorder pads"));
         }
@@ -204,11 +202,11 @@ impl Pads {
                 name: pad.name.clone(),
             }));
         }
-        reply(&pad)
+        Ok(pad)
     }
 
     /// The Daemon has checked `home` against the Rail (P12). A move to the Home it has changes nothing.
-    pub(super) fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Pad, Error> {
+    pub(super) async fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Pad, Error> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         if pad.home == p.home {
@@ -222,7 +220,7 @@ impl Pads {
         })
     }
 
-    pub(super) fn export(&self, ctx: &Ctx, p: ExportParams) -> Result<Value, Error> {
+    pub(super) async fn export(&self, ctx: &Ctx, p: ExportParams) -> Result<(), Error> {
         if !Path::new(&p.path).is_absolute() {
             return Err(Error::new(
                 rpc::code::INVALID_PARAMS,
@@ -239,13 +237,13 @@ impl Pads {
             Error::new(code, format!("cannot export to {}: {err}", p.path))
         })?;
         ctx.touch(Verb::Read, &item(&pad.name))?;
-        Ok(Value::Null)
+        Ok(())
     }
 
-    pub(super) fn set_storage(&self, ctx: &Ctx, p: SetStorageParams) -> Result<Value, Error> {
+    pub(super) async fn set_storage(&self, ctx: &Ctx, p: SetStorageParams) -> Result<(), Error> {
         let store = self.store()?;
         if store.files().map_err(Error::internal)? == p.files {
-            return Ok(Value::Null);
+            return Ok(());
         }
         let imported = store.atomically(|| {
             let pads = store.list().map_err(Error::internal)?;
@@ -269,7 +267,7 @@ impl Pads {
         for name in &imported {
             wrote(ctx, name)?;
         }
-        Ok(Value::Null)
+        Ok(())
     }
 
     /// Writes the file while file storage is on. Callers do this inside `Store::atomically`, so a failure rolls the database change back.

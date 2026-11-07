@@ -10,7 +10,6 @@
     )
 )]
 
-mod contract_handlers;
 mod deletion;
 mod error;
 pub use error::Error;
@@ -31,7 +30,7 @@ use std::sync::Mutex;
 use async_trait::async_trait;
 use contracts::pad::PadName;
 use contracts::{Actor, EventData};
-use rpc::{Ctx, Module, RpcError, params};
+use rpc::{Ctx, Module, RpcError};
 use serde_json::Value;
 
 use operations::{found, get, wrote};
@@ -46,18 +45,18 @@ pub struct Pads {
 impl Pads {
     /// Every Pad, as `pad.list` replies. It logs no Touch.
     pub fn list_all(&self) -> Result<Vec<contracts::pad::Pad>, RpcError> {
-        Ok(self.list()?)
+        Ok(self.store()?.list().map_err(Error::internal)?)
     }
 
     /// `pad.move`: the Daemon has checked `home` against the Rail (P12).
-    pub fn set_home(
+    pub async fn set_home(
         &self,
         ctx: &Ctx,
         name: &str,
         home: Option<String>,
     ) -> Result<contracts::pad::Pad, RpcError> {
         let name = name.to_owned();
-        Ok(self.move_to(ctx, contracts::pad::MoveParams { name, home })?)
+        Ok(self.move_to(ctx, contracts::pad::MoveParams { name, home }).await?)
     }
 }
 
@@ -68,7 +67,7 @@ impl Module for Pads {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        contracts::pads_methods!(rpc::dispatch_values, self, ctx, method, value)
+        contracts::pads_methods!(rpc::dispatch_methods, Pads, self, ctx, method, value)
     }
 }
 
@@ -78,8 +77,4 @@ impl Module for Pads {
 pub struct RemovalFiles {
     files: Vec<(PathBuf, tempfile::TempPath)>,
     committed: bool,
-}
-
-fn reply<T: serde::Serialize>(value: &T) -> Result<Value, Error> {
-    Ok(rpc::reply(value)?)
 }
