@@ -97,7 +97,7 @@ const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth:
   /** The lifted row's middle now, in scroll-content coordinates of the lift. */
   const liftedMiddle = () => startOf(dragged!.from, dragged!.from) + lift!.sizes[dragged!.from]! / 2 + (axis === "x" ? pointer!.x : pointer!.y) - dragged!.at + offset(lift!.scroller) - lift!.offset;
 
-  /** The slot the pointer picks: the one nearest the lifted row's middle among those `allowed`, held until another is past STICKY_ROW_SHARE of a row nearer. */
+  /** The slot the pointer picks: the one nearest the lifted row's middle among those `allowed`, kept until another is past STICKY_ROW_SHARE of a row nearer. */
   const repick = (): number => {
     // The pick reads the lifted row's middle against its own middle at each slot, the places `pose` draws, so a tall row and the rows agree.
     const middle = liftedMiddle();

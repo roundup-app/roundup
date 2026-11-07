@@ -99,8 +99,8 @@ it("u6550b_workstream_has_no_slot_in_a_workstream", () => {
   }
 });
 
-it("u6550c_a_held_workstream_stops_only_at_root_gaps", () => {
-  // W0 with two Agents (the held row, folded), W1 with two Agents, W2: the indices a pointer or a key may stop at are the ones outside W1's Agents.
+it("u6550c_a_lifted_workstream_stops_only_at_root_gaps", () => {
+  // W0 with two Agents (the lifted row, folded), W1 with two Agents, W2: the indices a pointer or a key may stop at are the ones outside W1's Agents.
   const { nodes, rows } = flatten([
     { kind: "workstream", below: [] },
     { kind: "workstream", below: [{ kind: "agent", below: [] }, { kind: "agent", below: [] }] },
@@ -109,6 +109,6 @@ it("u6550c_a_held_workstream_stops_only_at_root_gaps", () => {
 
   const rules = { nests: (id: string) => nodes.get(id)?.kind === "workstream", takes: (id: string, parent: string | null) => placeable(nodes, id, parent) };
 
-  // Drop indices 0..4 of the held W0 among [W1, a, b, W2]: before W1, before a, before b, before W2, after W2.
+  // Drop indices 0..4 of the lifted W0 among [W1, a, b, W2]: before W1, before a, before b, before W2, after W2.
   expect(legalGaps(rows, rules, "n0")).toEqual([true, false, false, true, true]);
 });
