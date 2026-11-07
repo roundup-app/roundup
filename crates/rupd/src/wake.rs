@@ -12,17 +12,24 @@ use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use crate::digest::{Reader, World};
 
-const MAX_IDS: usize = 20;
+/// `WakeParams` whose `ids` list was checked while parsing: one to twenty.
+#[derive(serde::Deserialize)]
+#[serde(try_from = "WakeParams")]
+struct WakeRequest(WakeParams);
+
+impl TryFrom<WakeParams> for WakeRequest {
+    type Error = &'static str;
+
+    fn try_from(params: WakeParams) -> Result<Self, Self::Error> {
+        if params.ids.is_empty() || params.ids.len() > 20 {
+            return Err("ids must name 1 to 20 Agents");
+        }
+        Ok(Self(params))
+    }
+}
 
 pub(super) fn parse_request(params: serde_json::Value) -> Result<WakeParams, RpcError> {
-    let WakeParams { ids, any } = rpc::params(params)?;
-    if ids.is_empty() || ids.len() > MAX_IDS {
-        return Err(RpcError::new(
-            code::INVALID_PARAMS,
-            format!("ids must name 1 to {MAX_IDS} Agents"),
-        ));
-    }
-    Ok(WakeParams { ids, any })
+    Ok(rpc::params::<WakeRequest>(params)?.0)
 }
 
 /// What the deciding task remembers between Events: serialised by its lock, so a registration and a
@@ -361,6 +368,19 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn c6629b_a_bad_wake_ids_list_fails_to_parse() {
+        let ids = |n: usize| serde_json::json!({"ids": (0..n).map(|i| i.to_string()).collect::<Vec<_>>()});
+        for bad in [0, 21] {
+            let err = super::parse_request(ids(bad)).unwrap_err();
+            assert_eq!(err.code, rpc::code::INVALID_PARAMS);
+            assert!(err.message.contains("ids must name 1 to 20 Agents"));
+        }
+        for good in [1, 20] {
+            assert_eq!(super::parse_request(ids(good)).unwrap().ids.len(), good);
+        }
+    }
+
     use super::*;
 
     #[test]
