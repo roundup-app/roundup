@@ -178,7 +178,7 @@ async fn b28_a_failed_operation_changes_nothing_listed() {
 #[tokio::test]
 async fn b28_a_transaction_open_at_a_panic_rolls_back() {
     let dir = tempfile::tempdir().unwrap();
-    let mut store = Store::open(&dir.path().join("messages.db")).unwrap();
+    let mut store = Store::open(dir.path()).unwrap();
     let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let _ = store.atomically(|_| -> Result<(), crate::Error> { panic!("mid-transaction") });
     }));

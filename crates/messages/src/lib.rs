@@ -17,7 +17,6 @@ mod contract_handlers;
 mod delivery;
 pub mod digest;
 #[doc(hidden)]
-pub mod digest_schema;
 mod dispatch;
 mod error;
 pub mod evidence;
@@ -33,7 +32,6 @@ mod retirement;
 mod routes;
 mod runtime;
 #[doc(hidden)]
-pub mod schema;
 mod send;
 mod step;
 mod store;
