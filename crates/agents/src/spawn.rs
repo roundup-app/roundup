@@ -465,7 +465,7 @@ impl Agents {
                 std::env::var_os("ROUNDUP_MCP").as_deref(),
                 self.shared.rail().get_mcp()?.on,
             ),
-            lean: Launcher::load_lean(&self.dir, id),
+            lean: Launcher::load_lean(&self.dir, id)?,
         };
         let started = attempt.to_owned();
         let (argv, env) = self

@@ -8,7 +8,11 @@ pub(super) fn exclude_worktrees(exclude: &Path) -> std::io::Result<()> {
     if let Some(parent) = exclude.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let existing = std::fs::read_to_string(exclude).unwrap_or_default();
+    let existing = match std::fs::read_to_string(exclude) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(err) => return Err(err),
+    };
     if existing.lines().any(|line| line.trim() == ".roundup/") {
         return Ok(());
     }

@@ -198,8 +198,11 @@ impl Shared {
         let agent = node.kind == NodeKind::Agent;
         node.can_make_workstream =
             agent && node.parent.is_none() && rail.has_conversation(&node.id)?;
-        node.can_save_as_mode =
-            agent && Launcher::load_lean(&self.rail_view.data_dir, &node.id).is_some();
+        node.can_save_as_mode = agent
+            && matches!(
+                Launcher::load_lean(&self.rail_view.data_dir, &node.id),
+                Ok(Some(_))
+            );
         node.yolo = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.yolo,
             Some(
