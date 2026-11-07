@@ -20,12 +20,10 @@ fn project(db: &Connection) -> Result<String, Error> {
         .map_err(Error::internal)
 }
 
-/// The Daemon's own retention (cleanup, Rail removal) names its key here; the client contract never does.
-fn fresh_key(db: &Connection) -> Result<OperationKey, Error> {
-    let key: String = db
-        .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
-        .map_err(Error::internal)?;
-    OperationKey::new(key).map_err(Error::internal)
+/// A cascade's per-Pad key comes from the caller's own Rail operation and the Pad creation, so a
+/// replayed cascade meets the same receipts; the Daemon makes no key of its own.
+fn participant_key(operation: &str, incarnation: &str) -> Result<OperationKey, Error> {
+    OperationKey::new(format!("{operation}:{incarnation}")).map_err(Error::internal)
 }
 
 fn operation(
@@ -384,7 +382,7 @@ impl Pads {
                 actor,
                 &DeleteParams {
                     name: pad.name.clone(),
-                    operation: fresh_key(db)?,
+                    operation: participant_key(operation, &pad.incarnation)?,
                     expected_incarnation: Some(pad.incarnation.clone()),
                 },
             )?
@@ -568,7 +566,7 @@ impl Pads {
                 actor,
                 &DeleteParams {
                     name: name.clone(),
-                    operation: fresh_key(db)?,
+                    operation: participant_key(operation, &incarnation)?,
                     expected_incarnation: Some(incarnation.clone()),
                 },
             )?
