@@ -89,7 +89,7 @@ export const copy = {
   collapseExpand: "Collapse / expand",
   triageMove: sharedCopy.move,
   triageAssign: sharedCopy.assign,
-  triageWorkstream: sharedCopy.draftSurface("workstream"),
+  triageWorkstream: sharedCopy.workstream,
   triageNest: "Nest",
   triageUnnest: "Un-nest",
   triageDone: sharedCopy.done,
