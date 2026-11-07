@@ -388,3 +388,7 @@ p.ink[role="alert"] {
 .todo-open { position: relative; z-index: 1; flex: none; }
 .todo-open svg { width: var(--space-4); height: var(--space-4); }
 .todo-open:focus-visible { color: var(--text); }
+
+/* U6398a: the chevron turns only during a pointer fold's projection, so a key fold snaps (M1). */
+[data-fold-motion] { --fold-turn: var(--duration-layout); }
+.section-head [data-part="branch-indicator"] { transition: transform var(--fold-turn, var(--duration-instant)) var(--easing-out); }

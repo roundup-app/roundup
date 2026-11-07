@@ -172,7 +172,7 @@ export const OpenRow = (props: {
         </span>
         <Age updatedAt={props.todo.updated_at} />
         <OpenButton name={props.todo.title} onOpen={() => props.onOpen(props.todo, "pointer")} />
-        <Show when={sorted}>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} tooltip={copy.moveItem(props.todo.title)} ref={el => order().handle(el ?? null)} />}</Show>
+        <Show when={sorted}>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} ref={el => order().handle(el ?? null)} />}</Show>
       </div>
   );
 
