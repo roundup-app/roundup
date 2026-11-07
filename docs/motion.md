@@ -6,7 +6,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 
 | Requirement | Trigger and result | Observer |
 | --- | --- | --- |
-| M1 | Keys, keyboard list moves, tab switches and Return/Space activation: final state/focus by next frame, no timed effect, even during pointer motion | U3010b behavioral App seam plus rendered key interruption |
+| M1 | Keys, keyboard list moves, tab switches and Return/Space activation: final state/focus by next frame, no timed effect, even during pointer motion. The one exception is a panel size change started by a key (the Rail fold, and the Bench and Drawer opening, closing, rotating and maximising): it slides in about 150 ms from one token (`--duration-key`), and under reduced motion takes M10's opacity preset | U3010b behavioral App seam plus rendered key interruption |
 | M2 | Enabled pointer press: scale 1→0.97 in 100 ms; release/cancel/blur returns to 1 in 100 ms; no added background; a Project tab stays still (U6220b) | U3010b rendered press/cancel; disabled action regression |
 | M3 | Pointer Drawer, Shelf and Terminal Bubble: Motion spring, duration target 250 ms, bounce ≤0.1, retarget displayed position and velocity | U3010b continuity trace; existing focus/resize regressions |
 | M4 | Pointer App-rendered menu/popover: trigger-corner scale 0.96→1 and opacity 0→1, 150 ms enter, 100 ms exit | U3010b rendered placement/exit; Ark focus/action test |
@@ -15,7 +15,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 | M7 | Acknowledged non-key Todo completion: tick draws, row starts folding at acknowledgement +300 ms through M5; data/count changes immediately | U3010c fake-clock lifetime and rendered tick/fold |
 | M8 | Clipboard success: activated control's label “Copied” for 1.5 s, through one helper; rejection shows failure line | U3010c fake clipboard/clock and every rendered caller |
 | M9 | Kind change: 150 ms glyph crossfade; only working rotates at rest | U3010c rendered Kind transitions; P3 attention regression |
-| M10 | One live preference source, no `!important`: all movement becomes 150 ms opacity fade, final geometry/focus next frame; no loop/replay; M1 still instant | U3010b/d live switch, rendered reduced variants and source review |
+| M10 | One live preference source, no `!important`: all movement becomes 150 ms opacity fade, final geometry/focus next frame; no loop/replay; keys stay instant, except M1's key-started panel changes, which take this preset | U3010b/d live switch, rendered reduced variants and source review |
 | M11 | Only transform/opacity interpolate; all settings resolve Tokens; every App-owned effect appears in the inventory or is deleted | U3010a/d source inventory, critic and bundle observation |
 | M12 | Pointer fold or unfold of any list (Rail sections, Workstreams, idle fold, Rail footer list, Shelf owner groups, Todos done fold, Disclosure, Tree branches): one shared helper (`ui/fold.ts`), one Motion layout projection on M5's duration and easing, final layout committed once; the pressed row and scroll offset stay; a second press retargets; a key folds at once (M1); reduced motion is M10's fade | U6398a-d shared-helper call counts, critic and frame probe |
 
@@ -23,7 +23,7 @@ These are policy and rendered obligations except the named behavior tests in the
 
 ## Accepted effects
 
-Key source always overrides the preset to instant. Under reduced motion every non-key movement below uses the single 150 ms opacity preset, final geometry is immediate and loops stop. Static state changes stay instant. All times/scales/curves/spring parameters are Token values; this table gives targets, not permission for caller literals. The existing easing Token may supply tweens; it is no longer the only allowed curve.
+Key source overrides the preset to instant, except a key-started panel size change (M1), which slides on `--duration-key`. Under reduced motion every non-key movement below uses the single 150 ms opacity preset, final geometry is immediate and loops stop. Static state changes stay instant. All times/scales/curves/spring parameters are Token values; this table gives targets, not permission for caller literals. The existing easing Token may supply tweens; it is no longer the only allowed curve.
 
 | Surface / source | Purpose / family | Target preset / properties | Exit / interruption | Acceptance |
 | --- | --- | --- | --- | --- |
@@ -33,6 +33,7 @@ Key source always overrides the preset to instant. Under reduced motion every no
 | Terminal Bubble / pointer open-close | Spatial consistency / spring | Same spring; transform/opacity | Current position/velocity; existing single-bubble placement/focus | U3010b M3; U2580a amended |
 | Shelf / edge peek | Spatial consistency / slide, no scrim | Same spring; transform only | Covers the centre and reserves nothing, so no fit; use commits the reserved width at once, with one fit; reduced motion appears and leaves instantly | U6224 |
 | Drawer, Shelf, Bubble, Help, Leader, Switcher / key open-close | Immediate access / none | 0 | Cancel stale effects; final content/focus next frame | U3010b M1; U2580a |
+| Rail fold, Bench and Drawer open, close, rotate and maximise / key | Spatial consistency / slide | Same path as the pointer's, in about 150 ms from `--duration-key`; transform only | A press during it reverses from the drawn place; one settled Terminal fit; reduced motion is M10's fade | U6228g; M1 |
 | Help, Leader, Switcher / pointer | Immediate access / none | 0 | Existing immediate dismissal/focus | U2580a |
 | App-rendered menu/popover / pointer open-close | Spatial consistency / corner entrance | Scale 0.96→1 plus fade, 150 ms in, 100 ms out | Resolved trigger origin follows Ark placement; exit inert; key immediate | U3010b M4 |
 | Web modal and scrim / pointer | Feedback / fade | Existing 120 ms crossfade Token; opacity | Current opacity; Ark owns focus/dismissal; key immediate | U3512; U3010b/d |
