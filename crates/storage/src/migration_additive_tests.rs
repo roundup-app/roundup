@@ -95,11 +95,8 @@ fn mg1_the_changes_own_migrations_are_additive() {
         .args([
             "diff",
             "--name-only",
-            "--relative",
             "--diff-filter=A",
             "origin/main...HEAD",
-            "--",
-            "migrations/project",
         ])
         .output();
     let Ok(listed) = listed.and_then(|o| {
@@ -114,6 +111,8 @@ fn mg1_the_changes_own_migrations_are_additive() {
     let new: Vec<String> = String::from_utf8(listed.stdout)
         .unwrap()
         .lines()
+        .filter_map(|l| l.strip_prefix("crates/storage/"))
+        .filter(|l| l.starts_with("migrations/project/"))
         .map(str::to_string)
         .collect();
     let mut previous = Connection::open_in_memory().unwrap();
