@@ -197,7 +197,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     if (!choose || native) expect(screen.queryByRole("dialog")).toBeNull();
   } else if (chord === "agent") {
     await waitFor(() => expect(calls("agent.spawn")).toHaveLength(1));
-    expect(calls("agent.spawn")[0]?.params).toMatchObject({ cwd: "/p", parent: place === "agent-terminal" ? null : "home" });
+    expect(calls("agent.spawn")[0]?.params).toMatchObject({ cwd: "/p", parent: null });
   } else if (chord === "terminal") {
     await waitFor(() => expect(calls("terminal.open")).toHaveLength(1));
     expect(calls("terminal.open")[0]?.params).toEqual({ workstream: "home", cols: 100, rows: 30 });

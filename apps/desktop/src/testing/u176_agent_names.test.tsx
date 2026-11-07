@@ -1,7 +1,7 @@
 import { copy as recoveryCopy } from "../sharedCopy";
 import { copy as railCopy } from "../rail/copy";
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
@@ -10,7 +10,6 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "./fakeApp";
 import { agent, workstream, event } from "./nodes";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { menuProbe } from "./menuProbe";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 

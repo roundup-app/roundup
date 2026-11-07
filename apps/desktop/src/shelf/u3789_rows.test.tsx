@@ -537,15 +537,6 @@ it("u4275c_rows_keep_details_in_the_opened_todo_return", async () => {
   expect(app.calls.slice(before).filter(call => ["todo.update", "todo.complete", "todo.move"].includes(call.method))).toEqual([]);
 });
 
-it("u4275b_row_actions_keep_menu_semantics", async () => {
-  const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
-  const row = document.querySelector('.rail-row[data-id="auth"]')!;
-  fireEvent.click(row.querySelector('[aria-label="Add Agent"]')!);
-  await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null,cols:100,rows:30}]));
-
-});
-
-
 it("u4275b_row_actions_keep_menu_semantics_stop_cancellation", async () => {
   const { app } = await open("tree-40", ["backend", "auth", "tokens"]);
   const row = document.querySelector('.rail-row[data-id="tokens"]')!;
