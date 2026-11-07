@@ -20,7 +20,8 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { mergeProps } from "@zag-js/solid";
-import { StatusTip } from "../ink/StatusTip";
+import { Reveal, reads } from "../ink/StatusTip";
+import { createCut } from "../ink/Tip";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
 import { descendantsOf, isWorkstream } from "./layout";
@@ -160,6 +161,10 @@ export const RailRowView = (props: {
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
+  // U6640a, U6640b: the label and age sit in the row on one line, cut with …; the full text is in the Terminal.
+  const statusRead = () => reads(props.row.node.status, connected.rail.dismissed(props.row.node)) ? props.row.node.status : null;
+  const statusCut = createCut(() => statusLabel());
+
   const unread = createMemo(() => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null));
   const level = createMemo(() => alertLevel(props.topology, props.row.node));
   const selected = createMemo(() => props.selected);
@@ -215,12 +220,13 @@ export const RailRowView = (props: {
     props.onOpen();
   };
 
-  const row = (mine: (extra: RowProps) => RowProps) => <StatusTip status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)}>{reveal => <div {...mergeProps({ onClick: choose }, mine(mergeProps(rowProps(), reveal())))} ref={el => { element = el; props.sortRef(el); }}>
+  const row = (mine: (extra: RowProps) => RowProps) => <div {...mergeProps({ onClick: choose }, mine(rowProps()))} ref={el => { element = el; props.sortRef(el); }}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
+      <Show when={statusRead()}>{status => <span class="row-status" data-state="status" ref={statusCut[0]}><Reveal status={status()} label={statusLabel()} /></span>}</Show>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
@@ -265,7 +271,7 @@ export const RailRowView = (props: {
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && !exhaustedResume() && !connected.rail.dismissed(props.row.node)}><FailureLine status={props.row.node.status} dismiss={() => connected.rail.dismiss(props.row.node)} recover={{ run: () => props.onOpen(props.row.node.id), label: copy.openTerminal }} /></Show>
-  </div>}</StatusTip>;
+  </div>;
 
   return <>
     <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>

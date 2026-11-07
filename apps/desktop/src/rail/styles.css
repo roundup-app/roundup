@@ -122,6 +122,18 @@
   line-height: 1.15;
 }
 
+/* U6640b: a long status keeps one line, cut with …. */
+.rail-row .row-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--grey);
+  font-size: var(--text-row);
+  line-height: 1.15;
+}
+
 [data-part="branch-control"].rail-row .name {
   font-weight: 600;
 }
