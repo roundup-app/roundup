@@ -6,7 +6,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { mountNavigation } from "../testing/navigationFixture";
 import { mountSwitcher } from "../switcher/switcherFixture";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
-import { CHORDS, LEADER } from "./chords";
+import { CHORDS, LEADER, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openTabs, tab } from "../header/stripFixture";
@@ -131,7 +131,10 @@ const activate = async (keys: string, source: "key" | "pointer", leader = false)
     fireEvent.click(button);
   }
   else {
-    const row = leader ? LEADER.find(row => row.keys === keys)! : CHORDS.find(row => row.keys === keys)!;
+    const row = (leader ? [...LEADER_ROWS] : [...CHORD_ROWS]).find(row => row.keys === keys);
+
+    if (!row) throw new Error(`no row shows ${keys}`);
+
     const parts = ("press" in row ? row.press : row.presses[0]!).split("+");
     press(parts.at(-1)!, { metaKey: parts.includes("meta"), shiftKey: parts.includes("shift") || parts.includes("Shift") });
   }

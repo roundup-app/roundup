@@ -84,3 +84,12 @@ it("u3010c_reduced_motion_settles_a_kind_change_and_an_in_progress_fade_immediat
   expect(container.querySelectorAll("svg")).toHaveLength(1);
   expect(container.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Working");
 });
+
+it("u3800d_a_redraw_that_keeps_the_kind_starts_no_fade", () => {
+  document.documentElement.style.setProperty("--duration-reduced", "150ms");
+  const [row, redraw] = createSignal<{ kind: Kind }>({ kind: "working" }, { equals: false });
+  const { container } = render(() => <ReducedMotionContext.Provider value={() => false}><KindGlyph kind={row().kind} /></ReducedMotionContext.Provider>);
+
+  redraw({ kind: "working" });
+  expect(container.querySelectorAll("svg")).toHaveLength(1);
+});
