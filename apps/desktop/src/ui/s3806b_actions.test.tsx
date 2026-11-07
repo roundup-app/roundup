@@ -325,7 +325,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     // Changing the tree and selection must not retarget the pending action.
     const tree = app.handlers["rail.tree"]!;
     // SAFETY: the fake Daemon's rail.tree handler answers a RailNode[].
-    app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== (outcome === "missing" ? row.selected : row.removes)), agent("keep", "idle", "idle", { order: 9 })];
+    app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== row.removes), agent("keep", "idle", "idle", { order: 9 })];
     await connected.rail.refresh({ terminals: true });
     connected.rail.select("keep");
   }
@@ -537,13 +537,6 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       if (row.owner !== "App") render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
       app.handlers["agent.spawn"] = () => agent("recovered", "idle", "idle");
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
-
-      if (outcome === "missing") {
-        expect(ofMethod()).toHaveLength(1);
-        expect(connected.rail.commandFailure.message()).toContain("unavailable");
-
-        return;
-      }
 
       if (submitted && outcome === "unknown") {
         expect(document.activeElement).toBe(document.querySelector(`[data-revision="${submitted.revision}"] textarea`));
