@@ -127,6 +127,11 @@ impl Agents {
                 },
                 terminals,
                 clock: Arc::new(|| now_ms().max(0)),
+                shell: std::env::var_os("SHELL")
+                    .map(|shell| shell.to_string_lossy().into_owned())
+                    .filter(|shell| !shell.is_empty())
+                    .unwrap_or_else(|| "/bin/sh".into()),
+                mcp_env: std::env::var_os("ROUNDUP_MCP"),
                 rail_view: rail_view::State {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
@@ -576,6 +581,8 @@ pub(super) mod tests {
             },
             terminals,
             clock,
+            shell: "/bin/sh".into(),
+            mcp_env: None,
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -638,6 +645,8 @@ pub(super) mod tests {
                 kill: Arc::new(FailingKill),
             },
             clock: Arc::new(|| 0),
+            shell: "/bin/sh".into(),
+            mcp_env: None,
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
@@ -737,6 +746,8 @@ pub(super) mod tests {
                 kill: Arc::new(FlakyKill(std::sync::atomic::AtomicBool::new(false))),
             },
             clock: Arc::new(|| 0),
+            shell: "/bin/sh".into(),
+            mcp_env: None,
             rail_view: rail_view::State {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),

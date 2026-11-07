@@ -154,6 +154,7 @@ export const Pads = (props: {
     rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
+    focused: selection.focused,
     targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
