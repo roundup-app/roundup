@@ -161,7 +161,11 @@ async fn p10_rejected_calls_leave_no_trace() {
                 json!({"name":"../x","text":"replacement"}),
                 code::INVALID_PARAMS,
             ),
-            ("pad.delete", json!({"name":"../x"}), code::INVALID_PARAMS),
+            (
+                "pad.delete",
+                json!({"name":"../x","operation":"del-../x"}),
+                code::INVALID_PARAMS,
+            ),
             (
                 "pad.write",
                 json!({"name":"missing","text":"replacement"}),
