@@ -74,8 +74,8 @@ impl Pads {
         reply(&pad)
     }
 
-    pub(super) fn list(&self) -> Result<Value, Error> {
-        reply(&self.store()?.list().map_err(Error::internal)?)
+    pub(super) fn list(&self) -> Result<Vec<Pad>, Error> {
+        self.store()?.list().map_err(Error::internal)
     }
 
     pub(super) fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, Error> {
@@ -208,15 +208,15 @@ impl Pads {
     }
 
     /// The Daemon has checked `home` against the Rail (P12). A move to the Home it has changes nothing.
-    pub(super) fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Value, Error> {
+    pub(super) fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Pad, Error> {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         if pad.home == p.home {
-            return reply(&pad);
+            return Ok(pad);
         }
         found(store.set_home(&pad.name, p.home.as_deref()), &pad.name)?;
         wrote(ctx, &pad.name)?;
-        reply(&Pad {
+        Ok(Pad {
             home: p.home,
             ..pad
         })

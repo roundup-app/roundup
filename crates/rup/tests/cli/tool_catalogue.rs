@@ -143,14 +143,14 @@ async fn m2219_a_rup_command_is_judged_and_touched_like_the_tool() {
 
 #[tokio::test]
 async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
-    use agents::claude_code::{Folders, Launcher, Pair, Role};
+    use agents::claude_code::{Folders, LaunchFacts, Launcher, Role};
     let root = tempfile::tempdir().unwrap();
     let project = root.path().join("proj");
     let data = project.join(".roundup");
     std::fs::create_dir_all(&data).unwrap();
     let rup = PathBuf::from(env!("CARGO_BIN_EXE_rup"));
     let launcher = Launcher::new("claude", root.path().join("claude.json"), rup, None);
-    let pair = Pair {
+    let pair = LaunchFacts {
         mcp_off: true,
         ..Default::default()
     };
@@ -163,18 +163,18 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
     let lines: Vec<&str> = help.lines().map(str::trim).collect();
     for role in [Role::Agent, Role::Door] {
         let _argv = launcher
-            .prepare_on(
-                Folders {
+            .prepare_on(&agents::claude_code::Request {
+                folders: Folders {
                     project: &project,
                     data: &data,
                 },
-                "7",
-                "1",
-                &project,
-                None,
+                id: "7",
+                attempt: "1",
+                cwd: &project,
+                resume: None,
                 role,
-                &pair,
-            )
+                facts: &pair,
+            })
             .unwrap();
         let brief = std::fs::read_to_string(data.join("agents/7.brief.md")).unwrap();
         let named: BTreeSet<&str> = brief

@@ -533,15 +533,15 @@ async fn i5_launch_sets_roundup_agent_in_the_claude_environment() {
     let s = setup();
     let launcher = plugin_launcher(&s);
     let (_, env) = launcher
-        .launch_on(
-            folders(&s.dir),
-            "7",
-            "1",
-            &s.cwd,
-            None,
-            Role::Agent,
-            &Default::default(),
-        )
+        .launch_on(&agents::claude_code::Request {
+            folders: folders(&s.dir),
+            id: "7",
+            attempt: "1",
+            cwd: &s.cwd,
+            resume: None,
+            role: Role::Agent,
+            facts: &Default::default(),
+        })
         .await
         .unwrap();
     assert_eq!(env["ROUNDUP_AGENT"], "7");
@@ -634,12 +634,20 @@ fn a43_the_brief_names_the_id_variable_and_rup_help() {
 impl Setup {
     /// M2219: prepare Agent `id` with the roundup MCP server off.
     fn prepare_off(&self, id: &str, role: Role) -> Vec<String> {
-        let pair = agents::claude_code::Pair {
+        let pair = agents::claude_code::LaunchFacts {
             mcp_off: true,
             ..Default::default()
         };
         self.launcher()
-            .prepare_on(folders(&self.dir), id, "1", &self.cwd, None, role, &pair)
+            .prepare_on(&agents::claude_code::Request {
+                folders: folders(&self.dir),
+                id,
+                attempt: "1",
+                cwd: &self.cwd,
+                resume: None,
+                role,
+                facts: &pair,
+            })
             .unwrap()
     }
 }
@@ -839,7 +847,7 @@ use trust::vars;
 
 #[tokio::test]
 async fn a3516a_user_launches_have_no_restart_restricting_flags() {
-    use agents::claude_code::Pair;
+    use agents::claude_code::LaunchFacts;
     let s = setup();
     let launcher = plugins::plugin_launcher(&s);
     std::fs::write(s.root.path().join("claude"),
@@ -847,18 +855,18 @@ async fn a3516a_user_launches_have_no_restart_restricting_flags() {
     for resume in [None, Some("00000000-0000-4000-8000-000000003516")] {
         for mcp_off in [false, true] {
             let (argv, env) = launcher
-                .launch_on(
-                    folders(&s.dir),
-                    "7",
-                    "1",
-                    &s.cwd,
+                .launch_on(&agents::claude_code::Request {
+                    folders: folders(&s.dir),
+                    id: "7",
+                    attempt: "1",
+                    cwd: &s.cwd,
                     resume,
-                    Role::Agent,
-                    &Pair {
+                    role: Role::Agent,
+                    facts: &LaunchFacts {
                         mcp_off,
-                        ..Pair::default()
+                        ..LaunchFacts::default()
                     },
-                )
+                })
                 .await
                 .unwrap();
             let output = std::process::Command::new(&argv[0])

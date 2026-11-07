@@ -314,18 +314,18 @@ async fn b2706_note_mode_is_the_users_default_mode() {
                 data: &data,
             };
             launcher
-                .prepare_on(
+                .prepare_on(&agents::claude_code::Request {
                     folders,
-                    "7",
-                    "1",
-                    &project,
-                    None,
-                    agents::claude_code::Role::Agent,
-                    &agents::claude_code::Pair {
-                        permission_mode: selected,
+                    id: "7",
+                    attempt: "1",
+                    cwd: &project,
+                    resume: None,
+                    role: agents::claude_code::Role::Agent,
+                    facts: &agents::claude_code::LaunchFacts {
+                        permission: selected.into(),
                         ..Default::default()
                     },
-                )
+                })
                 .unwrap();
             let listener = listed_for(
                 "7",

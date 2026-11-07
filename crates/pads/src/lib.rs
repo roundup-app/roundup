@@ -43,6 +43,24 @@ pub struct Pads {
     files_dir: PathBuf,
 }
 
+impl Pads {
+    /// Every Pad, as `pad.list` replies. It logs no Touch.
+    pub fn list_all(&self) -> Result<Vec<contracts::pad::Pad>, RpcError> {
+        Ok(self.list()?)
+    }
+
+    /// `pad.move`: the Daemon has checked `home` against the Rail (P12).
+    pub fn set_home(
+        &self,
+        ctx: &Ctx,
+        name: &str,
+        home: Option<String>,
+    ) -> Result<contracts::pad::Pad, RpcError> {
+        let name = name.to_owned();
+        Ok(self.move_to(ctx, contracts::pad::MoveParams { name, home })?)
+    }
+}
+
 #[async_trait]
 impl Module for Pads {
     fn namespaces(&self) -> &'static [&'static str] {

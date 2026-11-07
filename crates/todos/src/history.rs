@@ -1,5 +1,5 @@
 //! Todo reads and per-Actor history acknowledgements.
-use contracts::todo::{History, ReadHistoryParams, TodoId};
+use contracts::todo::{History, ReadHistoryParams, Todo, TodoId};
 use rpc::Ctx;
 use serde_json::Value;
 
@@ -7,7 +7,7 @@ use super::{Todos, item};
 use crate::error::{Error, reply};
 
 impl Todos {
-    pub(super) fn get(&self, ctx: &Ctx, p: TodoId) -> Result<Value, Error> {
+    pub(super) fn get(&self, ctx: &Ctx, p: TodoId) -> Result<Todo, Error> {
         let store = self.store()?;
         let todo = store.get(p.id)?;
         let through = store
@@ -16,7 +16,7 @@ impl Todos {
             .map_or(0, |(change, _)| change.seq);
         ctx.touches
             .record_todo_read(&ctx.actor, &item(p.id), through)?;
-        reply(&todo)
+        Ok(todo)
     }
 
     pub(super) fn get_history(&self, ctx: &Ctx, p: TodoId) -> Result<Value, Error> {

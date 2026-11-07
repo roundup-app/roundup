@@ -9,7 +9,7 @@ impl Agents {
         role: Role,
         model: Option<String>,
         effort: Option<String>,
-    ) -> Result<Pair, RpcError> {
+    ) -> Result<LaunchFacts, RpcError> {
         models::check_listed(model.as_deref(), effort.as_deref())?;
         let project = self.project_models()?;
         if actor.kind == ActorKind::Agent {

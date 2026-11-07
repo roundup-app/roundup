@@ -8,15 +8,15 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
     for role in [Role::Door, Role::Scout, Role::Agent] {
         for resume in [None, Some("saved-conversation"), None] {
             let (argv, env) = launcher
-                .launch_on(
-                    folders(&s.dir),
-                    "7",
-                    "1",
-                    &s.cwd,
+                .launch_on(&agents::claude_code::Request {
+                    folders: folders(&s.dir),
+                    id: "7",
+                    attempt: "1",
+                    cwd: &s.cwd,
                     resume,
                     role,
-                    &Default::default(),
-                )
+                    facts: &Default::default(),
+                })
                 .await
                 .unwrap();
             let paths: Vec<_> = argv
@@ -58,15 +58,15 @@ async fn q11_real_claude_loads_three_plugins() {
     let launcher = Launcher::new(executable, s.claude_json.clone(), s.rup.clone(), None);
     for role in [Role::Door, Role::Agent] {
         let (argv, env) = launcher
-            .launch_on(
-                folders(&s.dir),
-                "7",
-                "1",
-                &s.cwd,
-                None,
+            .launch_on(&agents::claude_code::Request {
+                folders: folders(&s.dir),
+                id: "7",
+                attempt: "1",
+                cwd: &s.cwd,
+                resume: None,
                 role,
-                &Default::default(),
-            )
+                facts: &Default::default(),
+            })
             .await
             .unwrap();
         let mut command = tokio::process::Command::new(&argv[0]);
@@ -134,15 +134,15 @@ async fn q11_missing_plugin_is_a_launch_error() {
         let s = setup();
         let launcher = plugin_launcher(&s);
         let (argv, _) = launcher
-            .launch_on(
-                folders(&s.dir),
-                "7",
-                "1",
-                &s.cwd,
-                None,
-                Role::Agent,
-                &Default::default(),
-            )
+            .launch_on(&agents::claude_code::Request {
+                folders: folders(&s.dir),
+                id: "7",
+                attempt: "1",
+                cwd: &s.cwd,
+                resume: None,
+                role: Role::Agent,
+                facts: &Default::default(),
+            })
             .await
             .unwrap();
         let path = Path::new(&argv[argv.iter().position(|arg| arg == "--plugin-dir").unwrap() + 1])
@@ -155,15 +155,15 @@ async fn q11_missing_plugin_is_a_launch_error() {
         for role in [Role::Door, Role::Agent] {
             for resume in [None, Some("saved-conversation")] {
                 let error = launcher
-                    .launch_on(
-                        folders(&s.dir),
-                        "8",
-                        "2",
-                        &s.cwd,
+                    .launch_on(&agents::claude_code::Request {
+                        folders: folders(&s.dir),
+                        id: "8",
+                        attempt: "2",
+                        cwd: &s.cwd,
                         resume,
                         role,
-                        &Default::default(),
-                    )
+                        facts: &Default::default(),
+                    })
                     .await
                     .unwrap_err();
                 assert!(error.message.contains("missing or corrupt"), "{error:?}");
@@ -196,15 +196,15 @@ async fn q11_plugin_delivery_keeps_user_files_unchanged() {
         for role in [Role::Door, Role::Agent] {
             for resume in [None, Some("saved-conversation"), None] {
                 launcher
-                    .launch_on(
-                        folders(&s.dir),
-                        "7",
-                        "1",
-                        &s.cwd,
+                    .launch_on(&agents::claude_code::Request {
+                        folders: folders(&s.dir),
+                        id: "7",
+                        attempt: "1",
+                        cwd: &s.cwd,
                         resume,
                         role,
-                        &Default::default(),
-                    )
+                        facts: &Default::default(),
+                    })
                     .await
                     .unwrap();
                 assert_eq!(user_files(&s.cwd), before);
@@ -234,15 +234,15 @@ async fn q11_unsupported_runtime_is_a_launch_error() {
     .unwrap();
     for role in [Role::Door, Role::Agent] {
         let error = launcher
-            .launch_on(
-                folders(&s.dir),
-                "7",
-                "1",
-                &s.cwd,
-                None,
+            .launch_on(&agents::claude_code::Request {
+                folders: folders(&s.dir),
+                id: "7",
+                attempt: "1",
+                cwd: &s.cwd,
+                resume: None,
                 role,
-                &Default::default(),
-            )
+                facts: &Default::default(),
+            })
             .await
             .unwrap_err();
         assert!(
