@@ -4,7 +4,7 @@ import { fromBase64 } from "./base64";
 import { nextChunk, takeFirst } from "./chunks";
 import type { Backlog } from "./chunks";
 import { copy as appCopy } from "./copy";
-import type { Emulator } from "./emulator";
+import type { Emulator, Size } from "./emulator";
 import type { Failures } from "./failures";
 import { restoreScrollback } from "./scrollback";
 import type { Watches } from "./watch";
@@ -46,6 +46,8 @@ export type PumpHolder = {
   emulator: Emulator;
   stream: Stream | null;
   complete: boolean;
+  /** The size the Daemon's PTY last held, as sent or as a snapshot reported; null when unknown. */
+  resizeSize: Size | null;
 };
 
 export type PumpDeps<H extends PumpHolder> = {
@@ -168,6 +170,8 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     if (!isOpen(stream)) return false;
 
     if (retained !== null) {
+      // The restored size came from saved scrollback, not from the PTY.
+      holder.resizeSize = null;
       stream.after = retained;
       requestAnimationFrame(() => reflow(id, holder));
 
@@ -181,6 +185,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
     if (holder.complete) holder.emulator.reset();
 
     holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
+    holder.resizeSize = { cols: snapshot.cols, rows: snapshot.rows };
     holder.emulator.write(fromBase64(snapshot.data), () => requestAnimationFrame(() => reflow(id, holder)));
 
     stream.after = snapshot.after;
