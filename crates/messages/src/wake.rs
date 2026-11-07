@@ -9,6 +9,7 @@ use contracts::{Actor, Kind};
 use rpc::Ctx;
 
 use crate::digest::{cut, kind_word};
+use crate::pushes::Payload;
 use crate::{Messages, lock};
 
 pub(crate) const PREFIX: &str = "[wake]";
@@ -108,8 +109,14 @@ impl Messages {
     }
 
     /// B42: in one write, removes request `wake` and creates the Message `body` from the Daemon
-    /// to `to`. `false` when the request was not open, so nothing was made.
-    pub async fn fire_wake(&self, wake: u32, to: &str, body: String) -> Result<bool, Error> {
+    /// to `to`, a Wake of `ids`, the Agents it names in the order named. `false` when the request was not open, so nothing was made.
+    pub async fn fire_wake(
+        &self,
+        wake: u32,
+        to: &str,
+        ids: Vec<String>,
+        body: String,
+    ) -> Result<bool, Error> {
         let ctx = Ctx {
             actor: Actor::daemon(),
             bus: self.inner.bus.clone(),
@@ -122,7 +129,7 @@ impl Messages {
             reply_to: None,
         };
         match self
-            .send_message_with(&ctx, params, false, Some(wake), None)
+            .send_message_with(&ctx, params, false, Payload::Wake { ids }, Some(wake), None)
             .await
         {
             Ok(_) => Ok(true),
@@ -145,7 +152,13 @@ impl Messages {
             body: crate::digest::push_body(entry),
             reply_to: None,
         };
-        self.send_message(&ctx, params, false).await.map(drop)
+        let payload = Payload::Digest {
+            entries: vec![entry.clone()],
+            stands_for: 1,
+        };
+        self.send_message(&ctx, params, false, payload)
+            .await
+            .map(drop)
     }
 
     /// B42: inside the write that makes the note, the request goes with it.

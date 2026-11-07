@@ -1,7 +1,7 @@
 //! B22: what keeps pushed digests (B21) from flooding a Door. At most 8 go out in any
 //! 60 000 ms; the rest wait and leave as one rollup; at most 20 stay `pending`, the
 //! oldest two merging into one when a twenty-first arrives. No cap loses a count: each digest has
-//! a weight, read from its body, and a rollup or a merge weighs what it holds.
+//! a weight, kept in its payload, and a rollup or a merge weighs what it holds.
 
 use crate::Error;
 use std::collections::{HashMap, VecDeque};
@@ -105,124 +105,121 @@ impl Slot {
     }
 }
 
-/// Whether a Message from `from` with `body` is a pushed digest.
-pub(crate) fn is_digest(from: &Actor, body: &str) -> bool {
-    *from == Actor::daemon() && body.starts_with(PREFIX)
+/// B6506: what a stored Message is, typed once where it enters and kept in `messages.payload`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) enum Payload {
+    #[default]
+    Note,
+    /// A pushed digest: the entries its body lists, and the changes it stands for (B22(c)).
+    Digest {
+        entries: Vec<DigestEntry>,
+        stands_for: u32,
+    },
+    /// A firing (B42): the Agents it names, in the order named.
+    Wake { ids: Vec<String> },
 }
 
-/// B22(c): the changes a pushed digest stands for: 1 for a plain push, K for a rollup, N for a
-/// merge, W for a plain push that folded older ones (B34).
-pub(crate) fn weight(body: &str) -> u32 {
-    let head = body.lines().next().unwrap_or_default();
-    let Some(counted) = head.strip_prefix("[digest] [") else {
-        return folded_weight(body);
-    };
-    let digits = counted.bytes().take_while(u8::is_ascii_digit).count();
-    let rest = &counted[digits..];
-    if rest.starts_with(" updates kept back]") || rest.starts_with(" earlier updates: ") {
-        counted[..digits].parse().unwrap_or(1)
-    } else {
-        1
+impl Payload {
+    /// Whether the Message is a pushed digest (B22).
+    pub(crate) fn is_digest(&self) -> bool {
+        matches!(self, Payload::Digest { .. })
+    }
+
+    /// B22(c): the changes a Message stands for: 1 for a plain push or a note, K for a rollup,
+    /// N for a merge, W for a plain push that folded older ones (B34).
+    pub(crate) fn weight(&self) -> u32 {
+        match self {
+            Payload::Digest { stands_for, .. } => *stands_for,
+            _ => 1,
+        }
+    }
+
+    /// The entries a pushed digest holds, in the order its body lists them.
+    pub(crate) fn entries(&self) -> &[DigestEntry] {
+        match self {
+            Payload::Digest { entries, .. } => entries,
+            _ => &[],
+        }
+    }
+
+    /// B34: the names of the children a pushed digest holds an entry of.
+    pub(crate) fn names(&self) -> Vec<String> {
+        self.entries().iter().map(|e| e.name.clone()).collect()
+    }
+
+    /// B34: whether a Message with this `body` is one child's push, not a rollup or a merge.
+    pub(crate) fn is_plain_push(&self, body: &str) -> bool {
+        match self {
+            Payload::Digest {
+                entries,
+                stands_for,
+            } => matches!(entries.as_slice(), [entry]
+                if body == counted(&digest::push_body(entry), *stands_for)),
+            _ => false,
+        }
     }
 }
 
-/// B34: the `(<w> changes)` line that ends a plain push, or 1.
-fn folded_weight(body: &str) -> u32 {
-    body.lines()
-        .last()
-        .and_then(|line| line.strip_prefix("  ("))
-        .and_then(|rest| rest.strip_suffix(" changes)"))
-        .and_then(|digits| digits.parse().ok())
-        .unwrap_or(1)
+/// The payloads of some stored Messages, by id; a Message not in it is a `Note`.
+#[derive(Default)]
+pub(crate) struct Payloads(pub(crate) HashMap<u32, Payload>);
+
+impl Payloads {
+    pub(crate) fn of(&self, message: &Message) -> &Payload {
+        static NOTE: Payload = Payload::Note;
+        self.0.get(&message.id).unwrap_or(&NOTE)
+    }
 }
 
-/// One part of a pushed digest's body: a line that is no entry, or an entry's lines.
-enum Piece<'a> {
-    Line(&'a str),
-    Block(DigestEntry, Vec<&'a str>),
-}
-
-/// B33: `body` split into its entries and the lines between them.
-fn pieces(body: &str) -> Vec<Piece<'_>> {
-    let mut out = Vec::new();
-    let mut lines = body.lines().peekable();
-    while let Some(line) = lines.next() {
-        let head = line.strip_prefix("[digest] ").unwrap_or(line);
-        if digest::parse_head(head).is_none() {
-            out.push(Piece::Line(line));
+/// B34: `body`, a pushed digest of `payload`, without the entries of the children in `gone`, and
+/// with nothing at all when that leaves no entry of a plain push.
+pub(crate) fn without(
+    body: &str,
+    payload: &Payload,
+    gone: &std::collections::HashSet<String>,
+) -> String {
+    let entries = payload.entries();
+    if payload.is_plain_push(body) {
+        return if entries.iter().any(|e| gone.contains(&e.name)) {
+            String::new()
+        } else {
+            body.to_owned()
+        };
+    }
+    let mut out = String::new();
+    let mut at = 0;
+    for entry in entries {
+        let line = format!("\n{}", digest::entry_text(entry));
+        let Some(found) = body[at..].find(&line) else {
             continue;
-        }
-        let mut block = vec![line];
-        while lines.peek().is_some_and(|next| next.starts_with("  ")) {
-            block.extend(lines.next());
-        }
-        match digest::parse_entry(head, block.get(1..).unwrap_or_default()) {
-            Some(entry) => out.push(Piece::Block(entry, block)),
-            None => out.extend(block.into_iter().map(Piece::Line)),
+        };
+        let (start, end) = (at + found, at + found + line.len());
+        if gone.contains(&entry.name) {
+            out.push_str(&body[at..start]);
+            at = end;
+        } else {
+            out.push_str(&body[at..end]);
+            at = end;
         }
     }
+    out.push_str(&body[at..]);
     out
-}
-
-/// The entries a pushed digest holds, in the order it lists them.
-pub(crate) fn entries_of(body: &str) -> Vec<DigestEntry> {
-    pieces(body)
-        .into_iter()
-        .filter_map(|piece| match piece {
-            Piece::Block(entry, _) => Some(entry),
-            Piece::Line(_) => None,
-        })
-        .collect()
-}
-
-/// B34: whether `body` is one child's push, not a rollup or a merge.
-pub(crate) fn is_plain_push(body: &str) -> bool {
-    body.strip_prefix("[digest] ")
-        .is_some_and(|rest| digest::parse_head(rest.lines().next().unwrap_or_default()).is_some())
-}
-
-/// B34: the names of the children a pushed digest holds an entry of.
-pub(crate) fn names_in(body: &str) -> Vec<String> {
-    entries_of(body).into_iter().map(|e| e.name).collect()
-}
-
-/// B34: `body` without the entries of the children in `gone`, and with nothing at all when that
-/// leaves no entry of a plain push.
-pub(crate) fn without(body: &str, gone: &std::collections::HashSet<String>) -> String {
-    let kept: Vec<&str> = pieces(body)
-        .into_iter()
-        .flat_map(|piece| match piece {
-            Piece::Line(line) => vec![line],
-            Piece::Block(entry, lines) if !gone.contains(&entry.name) => lines,
-            Piece::Block(..) => Vec::new(),
-        })
-        .collect();
-    if kept
-        .iter()
-        .any(|line| digest::parse_head(line.strip_prefix("[digest] ").unwrap_or(line)).is_some())
-        || kept
-            .first()
-            .is_some_and(|head| head.starts_with("[digest] ["))
-    {
-        kept.join("\n")
-    } else {
-        String::new()
-    }
 }
 
 /// B34: the text of each of `found` (oldest first) for one prompt: a pushed digest loses the
 /// entries of the children that a newer one in `found` holds, so the prompt names each child once.
-pub(crate) fn bodies_of(found: &[Message]) -> Vec<String> {
+pub(crate) fn bodies_of(found: &[Message], payloads: &Payloads) -> Vec<String> {
     let mut later = std::collections::HashSet::new();
     let mut bodies: Vec<String> = found
         .iter()
         .enumerate()
         .rev()
         .map(|(index, message)| {
-            if message.kind != MessageKind::Note || !is_digest(&message.from, &message.body) {
+            let payload = payloads.of(message);
+            if message.kind != MessageKind::Note || !payload.is_digest() {
                 return message.body.clone();
             }
-            let body = without(&message.body, &later);
+            let body = without(&message.body, payload, &later);
             // Equal adjacent digests reach the shared rendered comparison together (B5763b).
             // Different updates still replace the older child's content under B34.
             if index
@@ -234,7 +231,7 @@ pub(crate) fn bodies_of(found: &[Message]) -> Vec<String> {
                         || previous.body != message.body
                 })
             {
-                later.extend(names_in(&message.body));
+                later.extend(payload.names());
             }
             body
         })
@@ -254,12 +251,11 @@ pub(crate) fn counted(body: &str, weight: u32) -> String {
 
 /// `header`, then `entries` (newest first, one per child) one to a line, at most 8 and 4096 bytes
 /// in all; the children left out are named on one last line, cut at 512 bytes.
-fn compose(header: &str, entries: &[DigestEntry]) -> String {
+/// The entries the body lists are the payload's, as the body renders them.
+fn compose(header: &str, entries: &[DigestEntry]) -> (String, Vec<DigestEntry>) {
     // B49: inside a Rollup or a merge an end note keeps B19's bounds.
-    let lines: Vec<String> = entries
-        .iter()
-        .map(|entry| entry_text(&digest::rolled(entry)))
-        .collect();
+    let mut rolled: Vec<DigestEntry> = entries.iter().map(digest::rolled).collect();
+    let lines: Vec<String> = rolled.iter().map(entry_text).collect();
     let fit = |reserve: usize| {
         let mut used = header.len();
         let mut taken = 0;
@@ -291,7 +287,8 @@ fn compose(header: &str, entries: &[DigestEntry]) -> String {
         body.push('\n');
         body.push_str(&cut(&more, MORE_BYTES));
     }
-    body
+    rolled.truncate(taken);
+    (body, rolled)
 }
 
 /// The newest entry of each child, from `entries` newest first.
@@ -304,31 +301,50 @@ fn newest_per_child(entries: impl IntoIterator<Item = DigestEntry>) -> Vec<Diges
 }
 
 /// B22(b): the Message that stands for `older` and `newer`.
-pub(crate) fn merged_body(older: &Message, newer: &Message) -> String {
-    let count = weight(&older.body) + weight(&newer.body);
+pub(crate) fn merged(
+    (older, older_payload): (&Message, &Payload),
+    (newer, newer_payload): (&Message, &Payload),
+) -> (String, Payload) {
+    let count = older_payload.weight() + newer_payload.weight();
     let header = format!(
         "{PREFIX} [{count} earlier updates: #{} #{}]",
         older.id, newer.id
     );
     let entries = newest_per_child(
-        entries_of(&newer.body)
-            .into_iter()
-            .chain(entries_of(&older.body)),
+        newer_payload
+            .entries()
+            .iter()
+            .chain(older_payload.entries())
+            .cloned(),
     );
-    compose(&header, &entries)
+    let (body, entries) = compose(&header, &entries);
+    (
+        body,
+        Payload::Digest {
+            entries,
+            stands_for: count,
+        },
+    )
 }
 
 /// B22(a): the Message that stands for the `waiting` changes, oldest first.
-fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> String {
+pub(crate) fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> (String, Payload) {
     let count: u32 = waiting.iter().map(|(_, _, weight)| weight).sum();
     let header = format!("{PREFIX} [{count} updates kept back]");
-    compose(
+    let (body, entries) = compose(
         &header,
         &waiting
             .iter()
             .rev()
             .map(|(_, entry, _)| entry.clone())
             .collect::<Vec<_>>(),
+    );
+    (
+        body,
+        Payload::Digest {
+            entries,
+            stands_for: count,
+        },
     )
 }
 
@@ -403,11 +419,17 @@ async fn roll_up(
     {
         return;
     }
-    let body = match slot.waiting.as_slice() {
-        [(_, entry, 1)] if plain => push_body(entry),
+    let sent = match slot.waiting.as_slice() {
+        [(_, entry, 1)] if plain => (
+            push_body(entry),
+            Payload::Digest {
+                entries: vec![entry.clone()],
+                stands_for: 1,
+            },
+        ),
         waiting => rollup_body(waiting),
     };
-    match send_digest(inner, meta, body).await {
+    match send_digest(inner, meta, sent).await {
         Ok(()) => {
             slot.sent.push_back(now);
             slot.waiting.clear();
@@ -417,7 +439,11 @@ async fn roll_up(
 }
 
 /// Sends one pushed digest, then merges the oldest two while more than 20 are open.
-async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(), Error> {
+async fn send_digest(
+    inner: &Arc<Inner>,
+    meta: &str,
+    (body, payload): (String, Payload),
+) -> Result<(), Error> {
     let messages = Messages {
         inner: Arc::clone(inner),
     };
@@ -433,10 +459,20 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
         reply_to: None,
     };
     crate::trip(inner, "push").map_err(Error::internal)?;
-    messages.send_message(&ctx, params(body), false).await?;
+    messages
+        .send_message(&ctx, params(body), false, payload)
+        .await?;
     while lock(&inner.store).open_digests(meta)?.len() > OPEN_DIGESTS {
         if let Err(err) = messages
-            .send_message(&ctx, params(PREFIX.to_owned()), true)
+            .send_message(
+                &ctx,
+                params(PREFIX.to_owned()),
+                true,
+                Payload::Digest {
+                    entries: Vec::new(),
+                    stands_for: 1,
+                },
+            )
             .await
         {
             crate::log_failure("push", &err.to_string());
@@ -451,18 +487,22 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
 /// once when a pending digest already holds its entry.
 pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, Error> {
     let ledger = inner.pushes.lock().await;
-    let pending = lock(&inner.store).pending_all()?;
+    let (pending, payloads) = {
+        let store = lock(&inner.store);
+        let pending = store.pending_all()?;
+        let payloads = store.payloads(&pending)?;
+        (pending, payloads)
+    };
     let mut counts: HashMap<String, u32> = HashMap::new();
     let mut digested: HashMap<&str, Vec<DigestEntry>> = HashMap::new();
     for message in &pending {
-        let digest = is_digest(&message.from, &message.body);
-        *counts.entry(message.to.clone()).or_default() +=
-            if digest { weight(&message.body) } else { 1 };
-        if digest {
+        let payload = payloads.of(message);
+        *counts.entry(message.to.clone()).or_default() += payload.weight();
+        if payload.is_digest() {
             digested
                 .entry(&message.to)
                 .or_default()
-                .extend(entries_of(&message.body));
+                .extend(payload.entries().iter().cloned());
         }
     }
     for (door, slot) in &ledger.metas {
@@ -640,6 +680,12 @@ mod tests {
         assert_eq!(ledger.metas["stopped"].waiting[0].2, 7);
         let delivered = lock(&messages.inner.store).list().unwrap();
         assert_eq!(delivered.len(), 1);
-        assert_eq!(weight(&delivered[0].body), 7);
+        assert_eq!(
+            lock(&messages.inner.store)
+                .payload(delivered[0].id)
+                .unwrap()
+                .weight(),
+            7
+        );
     }
 }
