@@ -1,5 +1,45 @@
 use super::*;
 
+/// The error a writer returns to end the input thread without reporting the running effect's
+/// result, so its caller sees a lost result (UNKNOWN_OUTCOME).
+#[derive(Debug)]
+pub struct InputEnded;
+
+impl std::fmt::Display for InputEnded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("input ended")
+    }
+}
+
+impl std::error::Error for InputEnded {}
+
+/// Remembers whether the writer returned `InputEnded`.
+struct EndWatch<'a> {
+    inner: &'a mut dyn Write,
+    ended: bool,
+}
+
+impl EndWatch<'_> {
+    fn watch<T>(&mut self, result: std::io::Result<T>) -> std::io::Result<T> {
+        if let Err(err) = &result {
+            self.ended |= err.get_ref().is_some_and(|inner| inner.is::<InputEnded>());
+        }
+        result
+    }
+}
+
+impl Write for EndWatch<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        let result = self.inner.write(bytes);
+        self.watch(result)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        let result = self.inner.flush();
+        self.watch(result)
+    }
+}
+
 /// Feed queued writes to the PTY. It blocks on a program that does not read, which is why it has a
 /// thread of its own instead of one from the pool `kill` also needs.
 pub(super) fn type_queued(
@@ -32,7 +72,15 @@ pub(super) fn type_queued(
             }
             Input::Effect(effect, completed) => {
                 if !completed.is_closed() {
-                    let _ = completed.send(effect(&mut *writer));
+                    let mut watch = EndWatch {
+                        inner: &mut *writer,
+                        ended: false,
+                    };
+                    let result = effect(&mut watch);
+                    if watch.ended {
+                        return;
+                    }
+                    let _ = completed.send(result);
                 }
             }
         }

@@ -258,11 +258,8 @@ impl std::io::Write for ObservedInput {
                 return self.writer.write(bytes.get(..1).unwrap_or(bytes));
             }
             Some("partial") => return Err(std::io::Error::other("input observer partial write")),
-            // Ends the input thread so the effect's result sender drops unsent; `resume_unwind`
-            // skips the panic hook and the `panic` lint.
-            Some("end") => {
-                std::panic::resume_unwind(Box::new("input observer ended without a result"))
-            }
+            // Ends the input thread so the effect's result sender drops unsent.
+            Some("end") => return Err(std::io::Error::other(terminal::InputEnded)),
             _ => {}
         }
         self.writer.write(bytes)
