@@ -97,8 +97,8 @@ async fn u6380b_a_door_names_its_workstream() {
     f.call("rail.startDoor", json!({"id": numbered}))
         .await
         .unwrap();
-    f.submit(&numbered, "Fix the refresh race in token.ts").await;
-    assert_eq!(f.name_of(&numbered).await, "Fix Refresh Race");
+    f.submit(&numbered, "Write the docs").await;
+    assert_eq!(f.name_of(&numbered).await, "Write Docs");
 
     let named = f.workstream("team", None).await;
     f.call("rail.startDoor", json!({"id": named}))
