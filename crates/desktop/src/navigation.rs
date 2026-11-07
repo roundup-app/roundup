@@ -14,20 +14,23 @@ pub(crate) enum Verdict {
 }
 
 /// The App's own pages: the bundled origin (`tauri://`, `tauri.localhost`, `about:blank`) and the dev server.
-fn own_page(url: &Url) -> bool {
+fn own_page(url: &Url, dev_port: u16) -> bool {
     match url.scheme() {
         "tauri" | "about" => true,
         "http" | "https" => match url.host_str() {
             Some("tauri.localhost") => true,
-            Some("localhost" | "127.0.0.1") => url.port() == Some(5173),
+            Some("localhost" | "127.0.0.1") => url.port() == Some(dev_port),
             _ => false,
         },
         _ => false,
     }
 }
 
-pub(crate) fn check(url: &Url) -> Verdict {
-    if own_page(url) {
+/// The dev server's port when no `ROUNDUP_DEV_PORT` sets one (`apps/desktop/vite.config.ts`).
+pub(crate) const DEFAULT_DEV_PORT: u16 = 5173;
+
+pub(crate) fn check(url: &Url, dev_port: u16) -> Verdict {
+    if own_page(url, dev_port) {
         return Verdict::Allow;
     }
     match url.scheme() {
@@ -36,10 +39,10 @@ pub(crate) fn check(url: &Url) -> Verdict {
     }
 }
 
-pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
+pub(crate) fn plugin<R: Runtime>(dev_port: u16) -> TauriPlugin<R> {
     tauri::plugin::Builder::new("navigation-guard")
-        .on_navigation(|_, url| {
-            match check(url) {
+        .on_navigation(move |_, url| {
+            match check(url, dev_port) {
                 Verdict::Allow => return true,
                 Verdict::Refuse => {}
                 Verdict::Open(address) => {
@@ -74,8 +77,13 @@ mod tests {
             "http://localhost:5173/",
             "http://localhost:5173/?x=1#y",
         ] {
-            assert_eq!(check(&url(own)), Verdict::Allow, "{own}");
+            assert_eq!(check(&url(own), 5173), Verdict::Allow, "{own}");
         }
+        assert_eq!(check(&url("http://localhost:5180/"), 5180), Verdict::Allow);
+        assert_eq!(
+            check(&url("http://localhost:5173/"), 5180),
+            Verdict::Open("http://localhost:5173/".into())
+        );
         for web in [
             "https://example.com/a",
             "http://example.com",
@@ -83,7 +91,7 @@ mod tests {
             "http://localhost:8080/",
         ] {
             assert_eq!(
-                check(&url(web)),
+                check(&url(web), 5173),
                 Verdict::Open(url(web).to_string()),
                 "{web}"
             );
@@ -94,7 +102,7 @@ mod tests {
             "ftp://example.com",
             "data:text/html,x",
         ] {
-            assert_eq!(check(&url(other)), Verdict::Refuse, "{other}");
+            assert_eq!(check(&url(other), 5173), Verdict::Refuse, "{other}");
         }
     }
 }

@@ -54,6 +54,7 @@ fn build_with_feedback<R: Runtime>(
     feedback: impl Fn(&AppHandle<R>, String, Option<i32>) + Send + 'static,
 ) -> Builder<R> {
     let data_dir = config.data_dir.clone();
+    let dev_port = config.dev_port.unwrap_or(navigation::DEFAULT_DEV_PORT);
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_os = "macos")]
     let builder = builder
@@ -79,7 +80,7 @@ fn build_with_feedback<R: Runtime>(
                 .build(),
         )
         .plugin(window::plugin())
-        .plugin(navigation::plugin())
+        .plugin(navigation::plugin(dev_port))
         .manage(fork_app::Identity::of(config.data_dir.as_deref()))
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
