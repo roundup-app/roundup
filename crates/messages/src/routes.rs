@@ -3,7 +3,7 @@
 use super::*;
 
 impl Messages {
-    pub(super) async fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Value, Error> {
+    pub(super) async fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Route, Error> {
         let by_agent = ctx.actor.kind == ActorKind::Agent;
         if ctx.actor.kind == ActorKind::Ext {
             return Err(Error::forbidden(
@@ -60,10 +60,10 @@ impl Messages {
             delivery: p.delivery,
         };
         ctx.emit(EventData::RouteChanged(route.clone()));
-        reply(&route)
+        Ok(route)
     }
 
-    pub(super) fn list_routes(&self) -> Result<Value, Error> {
-        reply(&self.store()?.list_routes()?)
+    pub(super) async fn list_routes(&self, _ctx: &Ctx) -> Result<Vec<Route>, Error> {
+        Ok(self.store()?.list_routes()?)
     }
 }

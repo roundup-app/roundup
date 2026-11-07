@@ -13,7 +13,6 @@
 )]
 
 pub mod continuation;
-mod contract_handlers;
 mod delivery;
 pub mod digest;
 #[doc(hidden)]
@@ -60,7 +59,7 @@ use delivery::{
     Ending, Pick, accept_receiver, accept_reservation, binding, deliver_pending as nudge,
     load_rail_nodes, reconcile, start_listener,
 };
-use dispatch::{is_receiver, item, params, reply, require_user, send_params};
+use dispatch::{is_receiver, item, require_user};
 pub use error::Error;
 use flight::confirm_ids;
 pub use inbox::NoteInbox;
