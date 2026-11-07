@@ -299,8 +299,7 @@ impl Daemon {
     ) -> Result<contracts::agent::Brief, RpcError> {
         let NodeId { id } = id;
         let (context, nodes) = self.awareness(conn, NodeId { id: id.clone() }).await?;
-        let settings = data::read_naming(&self.naming.lock())
-            .map_err(RpcError::internal)?;
+        let settings = data::read_naming(&self.naming.lock()).map_err(RpcError::internal)?;
         let text = context::naming(
             context::text(&nodes, &context),
             &settings,
