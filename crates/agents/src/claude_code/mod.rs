@@ -158,6 +158,7 @@ impl ClaudeCode {
         }
     }
 
+    #[cfg(feature = "test-support")]
     /// PS9.2: an Agent whose tooling pushes no Signal; its Terminal's program status gives its Kind.
     fn without_hooks(mut self) -> Self {
         self.hooked = false;
@@ -591,6 +592,7 @@ pub(crate) fn starting(
 }
 
 /// PS9.2: `starting`, for an Agent whose tooling pushes no Signal.
+#[cfg(feature = "test-support")]
 pub(crate) fn hookless(
     clock: impl Fn() -> i64 + Send + 'static,
 ) -> (Box<dyn AgentAdapter + Send>, View) {
