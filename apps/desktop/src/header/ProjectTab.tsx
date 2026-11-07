@@ -17,7 +17,7 @@ import type { SortableParts } from "../ui/sortable";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import type { App } from "../app/seam";
 import { modalOpen, registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, TAB_CLOSE, ariaChord } from "../keys/chords";
 import { MARKS, markOf, nameParts } from "./tab";
 import { PROJECT_ALERTS, type ProjectAlerts } from "../state/projectAlerts";
 import type { StripTab } from "./tab";
@@ -247,7 +247,13 @@ export const ProjectTab = (props: {
         }
       }} />}</Show>}>
         <Tabs.Trigger value={props.tab.path} class="tab-name-button"
-          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy}
+          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
+          onKeyDown={(press) => {
+            if (TAB_CLOSE.presses.includes(press.key) && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && !press.isComposing) {
+              press.preventDefault();
+              props.onClose();
+            }
+          }}
           ref={(element) => { button = element; props.sort?.handleRef(element); onCleanup(() => props.sort?.handleRef(undefined)); }}
           onClick={(click) => {
             if (click.target instanceof Element && click.target.closest('.tab-mark')) {
@@ -259,7 +265,7 @@ export const ProjectTab = (props: {
           <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
         </Tabs.Trigger>
         <div class="tab-actions">
-        <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.selected || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
+        <IconButton class="tab-close" aria-hidden="true" tabIndex={-1} aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.selected || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
         </div>
       </Show>
     </FlatTab>

@@ -90,3 +90,13 @@ it("u6544c_recover_drafts_in_menu", async () => {
   await app.pickMenu("Recover unfinished work");
   await waitFor(() => expect(document.querySelector(".header-recovery")).not.toBeNull());
 });
+
+it("u6544b_backspace_on_a_focused_tab_closes_exactly_that_project", async () => {
+  const { app } = await openTabs({ a: [], b: [], c: [] });
+
+  fireEvent.keyDown(tab("b"), { key: "Backspace" });
+  await waitFor(() => expect(app.closed).toEqual([path("b")]));
+  app.closed.length = 0;
+  fireEvent.keyDown(tab("c"), { key: "Delete" });
+  await waitFor(() => expect(app.closed).toEqual([path("c")]));
+});
