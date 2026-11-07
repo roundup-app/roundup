@@ -757,6 +757,7 @@ pub(crate) mod tests {
                 None,
                 at,
                 (1, 1),
+                &crate::pushes::Payload::Note,
             )
             .unwrap()
     }
@@ -799,6 +800,7 @@ pub(crate) mod tests {
                         None,
                         0,
                         (1, 1),
+                        &crate::pushes::Payload::Note,
                     )
                     .unwrap()
             })

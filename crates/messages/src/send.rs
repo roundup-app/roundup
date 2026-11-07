@@ -1,5 +1,6 @@
 //! Authenticated Message acceptance and atomic allocation.
 
+use crate::pushes::Payload;
 use contracts::message::Delivery;
 
 use super::*;
@@ -16,7 +17,7 @@ impl Messages {
         if uses_inbox {
             self.refuse_repeat(ctx, &p).await?;
         }
-        let message = self.send_message(ctx, p, false).await?;
+        let message = self.send_message(ctx, p, false, Payload::Note).await?;
         if uses_inbox {
             inbox::refuse_mismatch(&self.inner, &message).await?;
         }
@@ -44,8 +45,10 @@ impl Messages {
         ctx: &Ctx,
         p: SendParams,
         merge: bool,
+        payload: Payload,
     ) -> Result<Message, Error> {
-        self.send_message_with(ctx, p, merge, None, None).await
+        self.send_message_with(ctx, p, merge, payload, None, None)
+            .await
     }
 
     /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42);
@@ -54,6 +57,7 @@ impl Messages {
         ctx: &Ctx,
         p: SendParams,
         merge: bool,
+        mut payload: Payload,
         wake: Option<u32>,
         continuation: Option<&continuation::Continue>,
     ) -> Result<Message, Error> {
@@ -79,7 +83,7 @@ impl Messages {
         // The reply-to check, the bound check and the insert run while one lock is taken, so a
         // second sender racing for the same receiver's last open slot cannot pass its own check
         // before this one's insert lands (B1).
-        let digest = p.kind == MessageKind::Note && pushes::is_digest(&ctx.actor, &p.body);
+        let digest = matches!(payload, Payload::Digest { .. });
         let (message, merged) = {
             let mut store = self.store()?;
             // Outside the transaction: a refusal keeps the drops `accept_receiver` reconciled.
@@ -129,7 +133,7 @@ impl Messages {
                     let [first, second, ..] = oldest.as_slice() else {
                         return Err(Error::conflict("fewer than two pushed digests to merge"));
                     };
-                    body = pushes::merged_body(first, second);
+                    (body, payload) = pushes::merged(first, second);
                     folded = vec![first.id, second.id];
                 } else if digest && pushes::is_plain_push(&p.body) {
                     // B34: a plain push of a child stands for the older ones it waits with.
@@ -145,6 +149,9 @@ impl Messages {
                         .collect();
                     let weight = 1 + older.iter().map(|m| pushes::weight(&m.body)).sum::<u32>();
                     body = pushes::counted(&p.body, weight);
+                    if let Payload::Digest { stands_for, .. } = &mut payload {
+                        *stands_for = weight;
+                    }
                     folded = older.iter().map(|m| m.id).collect();
                 }
                 let message = store.insert(
@@ -157,6 +164,7 @@ impl Messages {
                     reason,
                     (self.inner.clock)(),
                     receiver_status.as_ref().map_or((0, 0), binding),
+                    &payload,
                 )?;
                 if wake.is_some() {
                     (self.inner.fault)("wake").map_err(Error::internal)?;

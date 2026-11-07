@@ -798,3 +798,49 @@ async fn dcl10a_a_refused_ledger_write_keeps_the_entry_waiting() {
     assert_eq!(h.messages.inner.pushes.lock().await.waiting_count("top"), 1);
     assert_eq!(pushes::Ledger::load(&other).waiting_count("top"), 1);
 }
+
+/// B6506: the push, the fold, the Rollup and the merge each write their payload with their body.
+#[tokio::test]
+async fn b6506_a_pending_digest_is_never_stored_as_note() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    for n in 0..30 {
+        h.at(n).await;
+        h.push(&entry(&format!("c{}", n % 12), n as u32)).await;
+    }
+    h.at(60_000).await;
+    let stored = h.all().await;
+    let digests: Vec<&Message> = stored
+        .iter()
+        .filter(|m| m.from == Actor::daemon() && m.body.starts_with("[digest]"))
+        .collect();
+    assert!(!digests.is_empty(), "{} digests", digests.len());
+    let mut shapes = std::collections::HashSet::new();
+    for message in digests {
+        let payload = lock(&h.messages.inner.store).payload(message.id).unwrap();
+        let pushes::Payload::Digest {
+            entries,
+            stands_for,
+        } = payload
+        else {
+            panic!("{} is stored as {payload:?}: {}", message.id, message.body);
+        };
+        assert_eq!(
+            stands_for,
+            pushes::weight(&message.body),
+            "{}",
+            message.body
+        );
+        assert_eq!(
+            entries,
+            pushes::entries_of(&message.body),
+            "{}",
+            message.body
+        );
+        shapes.insert(
+            message.body.lines().next().unwrap().contains('[') as u8 + 2 * (stands_for > 1) as u8,
+        );
+    }
+    // A plain push and a folded or counted one were both stored.
+    assert!(shapes.len() >= 2, "{shapes:?}");
+}

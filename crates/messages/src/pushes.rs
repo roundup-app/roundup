@@ -105,6 +105,20 @@ impl Slot {
     }
 }
 
+/// B6506: what a stored Message is, typed once where it enters and kept in `messages.payload`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) enum Payload {
+    #[default]
+    Note,
+    /// A pushed digest: the entries its body lists, and the changes it stands for (B22(c)).
+    Digest {
+        entries: Vec<DigestEntry>,
+        stands_for: u32,
+    },
+    /// A firing (B42): the Agents it names, in the order named.
+    Wake { ids: Vec<String> },
+}
+
 /// Whether a Message from `from` with `body` is a pushed digest.
 pub(crate) fn is_digest(from: &Actor, body: &str) -> bool {
     *from == Actor::daemon() && body.starts_with(PREFIX)
@@ -254,12 +268,11 @@ pub(crate) fn counted(body: &str, weight: u32) -> String {
 
 /// `header`, then `entries` (newest first, one per child) one to a line, at most 8 and 4096 bytes
 /// in all; the children left out are named on one last line, cut at 512 bytes.
-fn compose(header: &str, entries: &[DigestEntry]) -> String {
+/// The entries the body lists are the payload's, as the body renders them.
+fn compose(header: &str, entries: &[DigestEntry]) -> (String, Vec<DigestEntry>) {
     // B49: inside a Rollup or a merge an end note keeps B19's bounds.
-    let lines: Vec<String> = entries
-        .iter()
-        .map(|entry| entry_text(&digest::rolled(entry)))
-        .collect();
+    let mut rolled: Vec<DigestEntry> = entries.iter().map(digest::rolled).collect();
+    let lines: Vec<String> = rolled.iter().map(entry_text).collect();
     let fit = |reserve: usize| {
         let mut used = header.len();
         let mut taken = 0;
@@ -291,7 +304,8 @@ fn compose(header: &str, entries: &[DigestEntry]) -> String {
         body.push('\n');
         body.push_str(&cut(&more, MORE_BYTES));
     }
-    body
+    rolled.truncate(taken);
+    (body, rolled)
 }
 
 /// The newest entry of each child, from `entries` newest first.
@@ -304,7 +318,7 @@ fn newest_per_child(entries: impl IntoIterator<Item = DigestEntry>) -> Vec<Diges
 }
 
 /// B22(b): the Message that stands for `older` and `newer`.
-pub(crate) fn merged_body(older: &Message, newer: &Message) -> String {
+pub(crate) fn merged(older: &Message, newer: &Message) -> (String, Payload) {
     let count = weight(&older.body) + weight(&newer.body);
     let header = format!(
         "{PREFIX} [{count} earlier updates: #{} #{}]",
@@ -315,20 +329,34 @@ pub(crate) fn merged_body(older: &Message, newer: &Message) -> String {
             .into_iter()
             .chain(entries_of(&older.body)),
     );
-    compose(&header, &entries)
+    let (body, entries) = compose(&header, &entries);
+    (
+        body,
+        Payload::Digest {
+            entries,
+            stands_for: count,
+        },
+    )
 }
 
 /// B22(a): the Message that stands for the `waiting` changes, oldest first.
-fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> String {
+pub(crate) fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> (String, Payload) {
     let count: u32 = waiting.iter().map(|(_, _, weight)| weight).sum();
     let header = format!("{PREFIX} [{count} updates kept back]");
-    compose(
+    let (body, entries) = compose(
         &header,
         &waiting
             .iter()
             .rev()
             .map(|(_, entry, _)| entry.clone())
             .collect::<Vec<_>>(),
+    );
+    (
+        body,
+        Payload::Digest {
+            entries,
+            stands_for: count,
+        },
     )
 }
 
@@ -403,11 +431,17 @@ async fn roll_up(
     {
         return;
     }
-    let body = match slot.waiting.as_slice() {
-        [(_, entry, 1)] if plain => push_body(entry),
+    let sent = match slot.waiting.as_slice() {
+        [(_, entry, 1)] if plain => (
+            push_body(entry),
+            Payload::Digest {
+                entries: vec![entry.clone()],
+                stands_for: 1,
+            },
+        ),
         waiting => rollup_body(waiting),
     };
-    match send_digest(inner, meta, body).await {
+    match send_digest(inner, meta, sent).await {
         Ok(()) => {
             slot.sent.push_back(now);
             slot.waiting.clear();
@@ -417,7 +451,11 @@ async fn roll_up(
 }
 
 /// Sends one pushed digest, then merges the oldest two while more than 20 are open.
-async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(), Error> {
+async fn send_digest(
+    inner: &Arc<Inner>,
+    meta: &str,
+    (body, payload): (String, Payload),
+) -> Result<(), Error> {
     let messages = Messages {
         inner: Arc::clone(inner),
     };
@@ -433,10 +471,20 @@ async fn send_digest(inner: &Arc<Inner>, meta: &str, body: String) -> Result<(),
         reply_to: None,
     };
     crate::trip(inner, "push").map_err(Error::internal)?;
-    messages.send_message(&ctx, params(body), false).await?;
+    messages
+        .send_message(&ctx, params(body), false, payload)
+        .await?;
     while lock(&inner.store).open_digests(meta)?.len() > OPEN_DIGESTS {
         if let Err(err) = messages
-            .send_message(&ctx, params(PREFIX.to_owned()), true)
+            .send_message(
+                &ctx,
+                params(PREFIX.to_owned()),
+                true,
+                Payload::Digest {
+                    entries: Vec::new(),
+                    stands_for: 1,
+                },
+            )
             .await
         {
             crate::log_failure("push", &err.to_string());

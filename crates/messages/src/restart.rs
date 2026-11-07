@@ -161,6 +161,7 @@ impl Messages {
                 None,
                 (self.inner.clock)(),
                 at,
+                &crate::pushes::Payload::Note,
             )?;
             s.record_restart_note(agent, key, message.id)?;
             Ok(message)

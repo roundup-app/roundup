@@ -371,7 +371,12 @@ async fn b5763d_all_inbox_producers_share_the_repeat_rule() {
             .unwrap();
         assert!(
             h.messages
-                .fire_wake(wake.id, "receiver", "[wake] child is idle".into())
+                .fire_wake(
+                    wake.id,
+                    "receiver",
+                    vec!["child".into()],
+                    "[wake] child is idle".into()
+                )
                 .await
                 .unwrap()
         );

@@ -184,7 +184,11 @@ impl Waker {
         }
         let entries: Vec<DigestEntry> = wake.ids.iter().map(|id| self.entry(id, world)).collect();
         let body = messages::wake::note_body(&entries);
-        match self.messages.fire_wake(wake.id, &wake.waiter, body).await {
+        match self
+            .messages
+            .fire_wake(wake.id, &wake.waiter, wake.ids.clone(), body)
+            .await
+        {
             Ok(true) => Some(Fired {
                 waiter: wake.waiter,
                 ids: wake.ids,

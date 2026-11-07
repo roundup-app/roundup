@@ -7,11 +7,13 @@ use contracts::Actor;
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
 use rpc::OpenError;
 
+use crate::pushes::Payload;
 use crate::wake::Wake;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use storage::Json;
 
 pub(crate) type Binding = (i64, i64);
 
@@ -313,12 +315,13 @@ impl Store {
         reason: Option<Reason>,
         at: i64,
         binding: Binding,
+        payload: &Payload,
     ) -> Result<Message, Error> {
         let from_json = actor_json(from)?;
         self.db
             .execute(
-                "INSERT INTO messages (from_actor, to_id, kind, body, reply_to, status, reason, at, receiver_attempt, receiver_revision, rank)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+                "INSERT INTO messages (from_actor, to_id, kind, body, reply_to, status, reason, at, receiver_attempt, receiver_revision, payload, rank)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
                      CASE WHEN ?6 = 'pending' THEN (SELECT COALESCE(MAX(rank), 0) + 1 FROM messages) ELSE 0 END)",
                 params![
                     from_json,
@@ -330,7 +333,8 @@ impl Store {
                     reason.map(text_of),
                     at,
                     binding.0,
-                    binding.1
+                    binding.1,
+                    Json(payload)
                 ],
             )
             .map_err(Error::internal)?;
@@ -362,6 +366,16 @@ impl Store {
                 let daemon = Actor::daemon();
                 stmt.query_map(params![to, text_of(daemon.kind), daemon.id], row_to_message)?
                     .collect()
+            })
+            .map_err(Error::internal)
+    }
+
+    /// B6506: what the Message `id` is, by the payload written with it.
+    #[cfg(test)]
+    pub(crate) fn payload(&self, id: u32) -> Result<Payload, Error> {
+        self.db
+            .query_row("SELECT payload FROM messages WHERE id = ?1", [id], |row| {
+                row.get::<_, Json<Payload>>(0).map(|json| json.0)
             })
             .map_err(Error::internal)
     }

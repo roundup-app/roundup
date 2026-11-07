@@ -719,6 +719,7 @@ fn return_notes(
             None,
             at,
             binding,
+            &crate::pushes::Payload::Note,
         )?);
     }
     Ok(notes)
@@ -770,6 +771,7 @@ mod tests {
                 None,
                 0,
                 (1, 1),
+                &crate::pushes::Payload::Note,
             )
             .unwrap();
         let quiet = pending(&messages, &Actor::daemon(), &body);
@@ -843,6 +845,7 @@ mod dcl_tests {
                     None,
                     5,
                     (1, 1),
+                    &crate::pushes::Payload::Note,
                 )
                 .unwrap()
                 .id
@@ -901,6 +904,7 @@ mod dcl_tests {
                         None,
                         5,
                         (1, 1),
+                        &crate::pushes::Payload::Note,
                     )
                     .unwrap()
                     .id

@@ -27,6 +27,7 @@ fn put(store: &Store, status: MessageStatus, reason: Option<Reason>) -> u32 {
             reason,
             1,
             (1, 1),
+            &crate::pushes::Payload::Note,
         )
         .unwrap()
         .id

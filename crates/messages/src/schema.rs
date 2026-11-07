@@ -58,6 +58,7 @@ fn migrations() -> Vec<M<'static>> {
         M::up(include_str!("../migrations/009/up.sql")),
         M::up(include_str!("../migrations/010/up.sql")),
         M::up(include_str!("../migrations/012/up.sql")),
+        M::up(include_str!("../migrations/013/up.sql")),
     ]
 }
 
@@ -65,6 +66,123 @@ fn migrations() -> Vec<M<'static>> {
 mod tests {
     use super::*;
     use rusqlite_migration::Migrations;
+
+    /// B6506: `body` as a row written before the `payload` column: from `from`, a `note`.
+    fn old_row(db: &Connection, from: &contracts::Actor, body: &str) -> i64 {
+        db.execute(
+            "INSERT INTO messages (from_actor, to_id, kind, body, status, at)
+             VALUES (?1, 'door', 'note', ?2, 'pending', 0)",
+            rusqlite::params![serde_json::to_string(from).unwrap(), body],
+        )
+        .unwrap();
+        db.last_insert_rowid()
+    }
+
+    fn message(id: u32, body: &str) -> contracts::message::Message {
+        contracts::message::Message {
+            id,
+            from: contracts::Actor::daemon(),
+            to: "door".into(),
+            kind: contracts::message::MessageKind::Note,
+            body: body.into(),
+            reply_to: None,
+            status: contracts::message::MessageStatus::Pending,
+            reason: None,
+            waiting: None,
+            at: 0,
+        }
+    }
+
+    #[test]
+    fn b6506_the_backfill_keeps_every_digests_weight_and_fold() {
+        use crate::digest::push_body;
+        use crate::pushes::{self, Payload};
+        use contracts::agent::DigestEntry;
+        let entry = |name: &str, last: &str, link: bool, pads: &[&str]| DigestEntry {
+            name: name.into(),
+            kind: contracts::Kind::NeedsYou,
+            last: last.into(),
+            todos: 3,
+            link: link.then(|| "roundup://agent/a1?project=k".to_owned()),
+            pads: pads.iter().map(|p| (*p).to_owned()).collect(),
+        };
+        let a = entry(
+            "worker is a name",
+            "ran the (tests)",
+            true,
+            &["notes", "plan"],
+        );
+        let b = entry("b", "", false, &[]);
+        let plain = push_body(&a);
+        let folded = pushes::counted(&push_body(&b), 4);
+        let rollup =
+            pushes::rollup_body(&[("a".into(), a.clone(), 3), ("b".into(), b.clone(), 2)]).0;
+        let older = message(7, &plain);
+        let newer = message(8, &folded);
+        let merged = pushes::merged(&older, &newer).0;
+        let wake = "[wake]\nworker is idle\n  last: done".to_owned();
+
+        let mut db = Connection::open_in_memory().unwrap();
+        let all = migrations();
+        Migrations::new(all[..all.len() - 1].to_vec())
+            .to_latest(&mut db)
+            .unwrap();
+        let daemon = contracts::Actor::daemon();
+        let user = contracts::Actor::user();
+        let digests = [&plain, &folded, &rollup, &merged];
+        let ids: Vec<i64> = digests
+            .iter()
+            .map(|body| old_row(&db, &daemon, body))
+            .collect();
+        let wake_id = old_row(&db, &daemon, &wake);
+        let user_id = old_row(&db, &user, &plain);
+        let note_id = old_row(&db, &daemon, "a Daemon note");
+        let before: Vec<(String, String)> = db
+            .prepare("SELECT body, status FROM messages ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        Migrations::new(all.clone()).to_latest(&mut db).unwrap();
+
+        let payload = |id: i64| -> Payload {
+            let text: String = db
+                .query_row("SELECT payload FROM messages WHERE id = ?1", [id], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            serde_json::from_str(&text).unwrap()
+        };
+        for (id, body) in ids.iter().zip(digests) {
+            assert_eq!(
+                payload(*id),
+                Payload::Digest {
+                    entries: pushes::entries_of(body),
+                    stands_for: pushes::weight(body)
+                },
+                "{body}"
+            );
+        }
+        assert_eq!(
+            payload(ids[1]),
+            Payload::Digest {
+                entries: vec![b.clone()],
+                stands_for: 4
+            }
+        );
+        assert_eq!(payload(wake_id), Payload::Wake { ids: vec![] });
+        assert_eq!(payload(user_id), Payload::Note);
+        assert_eq!(payload(note_id), Payload::Note);
+        let after: Vec<(String, String)> = db
+            .prepare("SELECT body, status FROM messages ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(before, after);
+    }
 
     #[test]
     fn n5088a_messages_refuses_a_newer_database() {
@@ -232,8 +350,8 @@ mod deletion_tests {
         let path = dir.path().join("messages.db");
         let mut db = Connection::open(&path).unwrap();
         let sequence = migrations();
-        // The one before the last two (010) drops the retired tables; the last adds tables of its own.
-        Migrations::new(sequence[..sequence.len() - 2].to_vec())
+        // The one before the last three (010) drops the retired tables; the last adds tables of its own.
+        Migrations::new(sequence[..sequence.len() - 3].to_vec())
             .to_latest(&mut db)
             .unwrap();
         db.execute_batch(r#"INSERT INTO messages(id,from_actor,to_id,kind,body,status,at) VALUES(77,'{"kind":"user","id":"you","parent":null}','you','note','keep exact','delivered',42);
@@ -246,7 +364,7 @@ mod deletion_tests {
             .to_latest(&mut reference)
             .unwrap();
         for _ in 0..2 {
-            // `open` upgrades only a store one version behind; this one is two behind.
+            // `open` upgrades only a store one version behind; this one is three behind.
             Migrations::new(migrations()).to_latest(&mut db).unwrap();
             assert_eq!(
                 provenance::migration::difference(&db, &reference).unwrap(),
