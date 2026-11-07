@@ -155,7 +155,7 @@ run("u6239 Project tab drag", () => {
   }`;
 
   /** Press that grip (a row drags only from its grip), move it over the next row and read what paints the held element: its ground's alpha and whether it sits in the top layer, above every row. */
-  const held = async (selector: string) => {
+  const held = async (selector: string, onRail = false) => {
     const from = await page.call<{ x: number; y: number }>(grip(selector));
 
     await page.pointer("down", from.x, from.y);
@@ -163,10 +163,15 @@ run("u6239 Project tab drag", () => {
     await page.pointer("move", from.x + 10, from.y + 24);
     await page.until(`() => Boolean(document.querySelector('[data-dnd-dragging]'))`);
 
-    const seen = await page.call<{ opaque: boolean; top: boolean }>(`() => {
+    const seen = await page.call<{ opaque: boolean; top: boolean; rail: boolean }>(`() => {
       const el = document.querySelector('[data-dnd-dragging]');
       const ground = getComputedStyle(el).backgroundColor;
-      return { opaque: !ground.includes('/') && !ground.startsWith('rgba') && ground !== 'transparent', top: el.matches(':popover-open') };
+      const probe = document.createElement('div');
+      probe.style.backgroundColor = 'var(--rail-ground)';
+      document.body.append(probe);
+      const rail = !${onRail} || getComputedStyle(probe).backgroundColor === ground;
+      probe.remove();
+      return { opaque: !ground.includes('/') && !ground.startsWith('rgba') && ground !== 'transparent', top: el.matches(':popover-open'), rail };
     }`);
 
     await page.pointer("up", from.x + 10, from.y + 24);
@@ -217,11 +222,14 @@ run("u6239 Project tab drag", () => {
     }`);
   };
 
-  // The Shelf's rows are its Todos and its Pads.
-  for (const [surface, url, open, selector] of [
-    ["rail", "/harness.html?seed=tree-40", async () => {}, ".rail .rail-row .sortable-handle"],
-    ["todo", "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", todos, ".shelf .todo-row .sortable-handle"],
-    ["pad", "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", () => shelfTab("pads"), ".shelf .pad-row-head .sortable-handle"],
+  // The Rail and the Shelf sit on `--rail-ground`; a Todo and a Pad are the Shelf's rows, and the shelf case holds the Shelf's own rule.
+  const shelfUrl = "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40";
+
+  for (const [surface, url, open, selector, rail] of [
+    ["rail", "/harness.html?seed=tree-40", async () => {}, ".rail .rail-row .sortable-handle", true],
+    ["todo", shelfUrl, todos, ".shelf .todo-row .sortable-handle", null],
+    ["pad", shelfUrl, () => shelfTab("pads"), ".shelf .pad-row-head .sortable-handle", null],
+    ["shelf", shelfUrl, todos, ".shelf .sortable-handle", true],
   ] as const) {
     it(`u6554b_every_held_row_is_opaque_and_on_top_${surface}`, async () => {
       await page.scheme("dark");
@@ -230,7 +238,7 @@ run("u6239 Project tab drag", () => {
       await page.until(grip(selector));
       // U6554b explicitly commissions this one painting guard (#6554).
       // oxlint-disable-next-line anti-slop/no-new-web-assertions
-      expect(await held(selector)).toEqual({ opaque: true, top: true });
+      expect(await held(selector, rail)).toEqual({ opaque: true, top: true, rail: true });
     }, 60_000);
   }
 
