@@ -13,13 +13,18 @@ import { setResizeDragging } from "../resize/dragging";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); Reflect.deleteProperty(document, "fonts"); });
 
+const hasCore = (terminal: object): terminal is { _core: { coreService: { triggerBinaryEvent(data: string): void } } } => "_core" in terminal;
+
 it("u430_a_keystroke_during_a_slide_sends_no_resize", async () => {
   vi.stubGlobal("matchMedia", () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
   Object.defineProperty(document, "fonts", { configurable: true, value: { load: () => Promise.resolve() } });
   const spy = vi.spyOn(xterm, "Terminal");
   const factory = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }));
   const emulator = factory("t-a");
-  const real = spy.mock.instances[0]!;
+  const real = spy.mock.instances.at(0);
+
+  if (!real) throw new Error("no xterm Terminal was built");
+
   const host = document.createElement("div");
   const element = document.createElement("div");
   host.append(element);
@@ -43,7 +48,9 @@ it("u430_a_keystroke_during_a_slide_sends_no_resize", async () => {
     set(true);
     cols += 5;
     real.input("x", true);
-    (real as unknown as { _core: { coreService: { triggerBinaryEvent(data: string): void } } })._core.coreService.triggerBinaryEvent("\x1b[M");
+    if (!hasCore(real)) throw new Error("xterm hides its core service");
+    real._core.coreService.triggerBinaryEvent("\x1b[M");
+
     await new Promise(resolve => setTimeout(resolve, 20));
     expect(callsTo(app, "terminal.resize")).toHaveLength(before);
     set(false);
