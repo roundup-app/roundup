@@ -17,13 +17,14 @@ impl Shared {
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
             let mut prompt = prompt;
-            if startup_context && let Some(read) = &shared.context {
-                let context = async { read(shared.tree()?, id.clone()).await };
+            if startup_context {
+                let context = async { shared.wiring.context(shared.tree()?, id.clone()).await };
                 match tokio::time::timeout(Duration::from_secs(4), context).await {
-                    Ok(Ok(text)) => prompt.push_str(&format!(
+                    Ok(Ok(Some(text))) => prompt.push_str(&format!(
                         "{}{text}\n</roundup-context>",
                         claude_code::CONTEXT_START
                     )),
+                    Ok(Ok(None)) => {}
                     Ok(Err(err)) => eprintln!("agents: no startup Context for {id}: {err}"),
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
@@ -75,15 +76,14 @@ impl Shared {
                 }));
             }
         }
-        let Some(send) = &self.coordination else {
-            return Err(SteerError::Refused(PromptError::NotAccepted {
+        match self.wiring.coordinate(from, id.to_owned(), text).await {
+            Ok(Delivery::Sent) => Ok(()),
+            Ok(Delivery::Refused) => Err(SteerError::Refused(PromptError::NotAccepted {
                 id: id.to_owned(),
                 name,
-            }));
-        };
-        send(from, id.to_owned(), text)
-            .await
-            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))
+            })),
+            Err(error) => Err(SteerError::Refused(PromptError::Rail(error))),
+        }
     }
 }
 

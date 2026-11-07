@@ -521,10 +521,7 @@ impl Shared {
         name: Option<String>,
     ) -> Result<(), RpcError> {
         if run.claim_name()
-            && self
-                .automatic_renaming
-                .as_ref()
-                .map_or(Ok(true), |read| read())?
+            && self.wiring.naming()?.automatic_renaming
             && let Some(name) = name
             && let node = rail.node(id)?
             && (node.kind == NodeKind::Agent

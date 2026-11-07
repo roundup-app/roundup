@@ -165,8 +165,8 @@ type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync
 type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
 
 struct Shared {
-    naming_guide: Option<Arc<dyn Fn() -> Result<String, RpcError> + Send + Sync>>,
-    automatic_renaming: Option<Arc<dyn Fn() -> Result<bool, RpcError> + Send + Sync>>,
+    /// Naming, Context and Coordination, supplied once by the Daemon.
+    wiring: Arc<dyn Wiring>,
     git: worktree::Git,
     worktrunk: worktrunk::Collector,
     project_dir: PathBuf,
@@ -187,10 +187,6 @@ struct Shared {
     mcp_env: Option<std::ffi::OsString>,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
-    /// E3: the Daemon supplies mutable Context before the one first Steer.
-    context: Option<ContextText>,
-    /// A4452d: where roundup's own text goes instead of the Terminal.
-    coordination: Option<CoordinationSink>,
     /// F5: the scan of the Doors' process trees.
     scan: Scan,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
@@ -241,28 +237,6 @@ pub const RESUME_ACK_BOUND: Duration = Duration::from_secs(10);
 pub const START_DOOR_ACK_BOUND: Duration = Duration::from_secs(8);
 
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
-
-/// A4452a: sends roundup's own text to an Agent's Claude inbox as a Message, `(sender, agent id, text)`.
-type CoordinationSink = Arc<
-    dyn Fn(
-            Actor,
-            String,
-            String,
-        )
-            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), RpcError>> + Send>>
-        + Send
-        + Sync,
->;
-
-type ContextText = Arc<
-    dyn Fn(
-            Vec<RailNode>,
-            String,
-        )
-            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, RpcError>> + Send>>
-        + Send
-        + Sync,
->;
 
 /// What `Shared::apply` leaves to do once its locks are let go: the first prompt to Steer at the
 /// first `SessionStart` (H12), and when, on `clock`, the adapter wants its next
@@ -379,7 +353,11 @@ mod resume;
 mod spawn;
 mod steer;
 mod store;
+mod wiring;
 mod worktree_wiring;
+#[cfg(any(test, feature = "test-support"))]
+pub use wiring::Quiet;
+pub use wiring::{Delivery, Naming, Wiring};
 mod worktrunk;
 
 use door::{Scan, scan_interval_from_env};

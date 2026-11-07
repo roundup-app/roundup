@@ -129,7 +129,7 @@ async fn n16_all_stores_share_one_project_database() {
         }
         let initialize: fn(&mut Connection, &Path) -> rusqlite::Result<()> = match name {
             "agents" => agents::schema::open,
-            "todos" => todos::schema::open,
+            "todos" => todos_schema,
             "pads" => pads_standalone,
             "provenance" => {
                 |db, _| db.execute_batch(include_str!("../../provenance/migrations/001/up.sql"))
@@ -550,12 +550,29 @@ fn u5740c_other_representations_are_unchanged_on_refusal() {
 #[test]
 fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let dir = tempfile::tempdir().unwrap();
-    let db = storage::connect(dir.path()).unwrap();
-    // N22: Pads and Touches open through `storage::connect`, which checks the schema, so it opens before the lock.
+    storage::connect(dir.path()).unwrap();
+    // N22: Pads, Todos and Touches all open through `storage::connect`, which checks the schema, so none stays idle under the lock.
     let bus = rpc::Bus::new();
     drop(pads::Pads::open(dir.path(), bus.clone()).unwrap());
+    drop(todos::Todos::open(dir.path(), bus).unwrap());
     drop(provenance::Touches::open(dir.path()).unwrap());
-    db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
-    db.execute_batch("BEGIN EXCLUSIVE").unwrap();
-    let _todos = todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
+}
+
+/// The Todos migrations as the pre-N22 standalone store ran them.
+fn todos_schema(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
+    for sql in [
+        include_str!("../../todos/migrations/001/up.sql"),
+        include_str!("../../todos/migrations/002/up.sql"),
+        include_str!("../../todos/migrations/003/up.sql"),
+        include_str!("../../todos/migrations/004/up.sql"),
+        include_str!("../../todos/migrations/005/up.sql"),
+        include_str!("../../todos/migrations/006/up.sql"),
+        include_str!("../../todos/migrations/007/up.sql"),
+        include_str!("../../todos/migrations/009/up.sql"),
+        include_str!("../../todos/migrations/010/up.sql"),
+        include_str!("../../todos/migrations/011/up.sql"),
+    ] {
+        db.execute_batch(sql)?;
+    }
+    Ok(())
 }

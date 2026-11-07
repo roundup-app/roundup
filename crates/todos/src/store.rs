@@ -26,15 +26,11 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn open(path: &Path) -> rusqlite::Result<Self> {
-        let mut db = Connection::open(path)?;
+    /// N22: the Project database in `dir`, opened by `storage::connect`.
+    pub(crate) fn open(dir: &Path) -> rusqlite::Result<Self> {
+        let mut db = storage::connect(dir)?;
         db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
-        // The Daemon initializes Project WAL; repeating the pragma eagerly loads its whole schema.
-        if path.file_name().is_none_or(|name| name != "project.db") {
-            db.pragma_update(None, "journal_mode", "WAL")?;
-        }
         db.pragma_update(None, "foreign_keys", true)?;
-        crate::schema::open(&mut db, path)?;
         Ok(Self { db })
     }
 
@@ -50,7 +46,7 @@ impl Store {
         use contracts::EventData;
         use contracts::agent::{KeptItem, KeptReason, RemovalKind, RemovedItem};
         use contracts::todo::TodoId;
-        let before = self.list()?;
+        let before = list_in(db)?;
         let mut events = Vec::new();
         for todo in before.iter().filter(|t| t.home.as_deref() == Some(home)) {
             if todo.done || scope == contracts::agent::RemoveScope::All {
@@ -195,42 +191,7 @@ impl Store {
     }
 
     pub(crate) fn list(&self) -> Result<Vec<Todo>, Error> {
-        // T5642a: three executions replace 1 + 3N reads; only ids/indices accompany final Todos.
-        let mut stmt = self.db.prepare(
-            "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority,
-             EXISTS(SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
-                    WHERE b.todo = todos.id AND o.done = 0)
-             FROM todos ORDER BY pos, id",
-        )?;
-        let rows = stmt.query_map([], |r| Ok(todo_row(r)))?;
-        let mut todos = Vec::new();
-        let mut indices = HashMap::new();
-        for row in rows {
-            let todo = row??;
-            indices.insert(todo.id, todos.len());
-            todos.push(todo);
-        }
-        let mut stmt = self
-            .db
-            .prepare("SELECT todo, blocker FROM blockers ORDER BY todo, blocker")?;
-        let edges = stmt.query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, u32>(1)?)))?;
-        for edge in edges {
-            let (id, blocker) = edge?;
-            if let Some(todo) = indices.get(&id).and_then(|&index| todos.get_mut(index)) {
-                todo.blockers.push(blocker);
-            }
-        }
-        let mut stmt = self
-            .db
-            .prepare("SELECT todo, url FROM todo_refs ORDER BY todo, id")?;
-        let refs = stmt.query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?)))?;
-        for reference in refs {
-            let (id, url) = reference?;
-            if let Some(todo) = indices.get(&id).and_then(|&index| todos.get_mut(index)) {
-                todo.refs.push(url);
-            }
-        }
-        Ok(todos)
+        list_in(&self.db)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -313,18 +274,11 @@ impl Store {
             "UPDATE todos SET home = ?2 WHERE id = ?1",
             params![id, home],
         )?;
-        let retained: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
-            [],
-            |r| r.get(0),
-        )?;
-        if retained {
-            tx.execute(
-                "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
-                [id.to_string()],
-            )
-            ?;
-        }
+        tx.execute(
+            "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
+            [id.to_string()],
+        )
+        ?;
         tx.commit()?;
         self.get(id)
     }
@@ -346,18 +300,11 @@ impl Store {
             params![id, owner.map(creator_json).transpose()?],
         )?;
         self.record_change(id, Some(before), after_touch, actor)?;
-        let retained: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
-            [],
-            |r| r.get(0),
-        )?;
-        if retained {
-            tx.execute(
-                "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
-                [id.to_string()],
-            )
-            ?;
-        }
+        tx.execute(
+            "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
+            [id.to_string()],
+        )
+        ?;
         tx.commit()?;
         self.get(id)
     }
@@ -373,7 +320,7 @@ impl Store {
         let tx = self.db.unchecked_transaction()?;
         let id = {
             let mut stmt = tx.prepare(&format!(
-                "SELECT t.id, t.owner, c.handed FROM todos t
+                "SELECT t.id, t.owner, c.handed, t.creator, c.actor FROM todos t
                  LEFT JOIN changes c ON c.seq = ({LAST_OWNER_CHANGE})
                  WHERE t.done = 0 AND json_extract(t.owner, '$.kind') = 'agent'
                     AND json_extract(t.owner, '$.id') = ?1
@@ -388,6 +335,17 @@ impl Store {
                 let owner = parse_creator(&owner)?;
                 let handed: Option<String> = row.get(2)?;
                 let handed = handed.map(|text| parse_creator(&text)).transpose()?;
+                // DTC1: a Todo the agent created for itself, its owner unchanged by anyone else since, is no hand-off.
+                let creator: String = row.get(3)?;
+                let by: Option<String> = row.get(4)?;
+                let own = parse_creator(&creator)? == owner
+                    && by
+                        .map(|text| parse_creator(&text))
+                        .transpose()?
+                        .is_none_or(|actor| actor == owner);
+                if own {
+                    continue;
+                }
                 if handed.as_ref() != Some(&owner) {
                     selected = Some(row.get::<_, u32>(0)?);
                     break;
@@ -631,6 +589,42 @@ impl Store {
 }
 
 /// Relations are filled by the caller, so base payloads move directly into the returned array.
+/// Every Todo through `db`, which may be the coordinator's transaction (N22).
+fn list_in(db: &Connection) -> Result<Vec<Todo>, Error> {
+    // T5642a: three executions replace 1 + 3N reads; only ids/indices accompany final Todos.
+    let mut stmt = db.prepare(
+        "SELECT id, title, body, done, created_at, updated_at, creator, home, owner, priority,
+         EXISTS(SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
+                WHERE b.todo = todos.id AND o.done = 0)
+         FROM todos ORDER BY pos, id",
+    )?;
+    let rows = stmt.query_map([], |r| Ok(todo_row(r)))?;
+    let mut todos = Vec::new();
+    let mut indices = HashMap::new();
+    for row in rows {
+        let todo = row??;
+        indices.insert(todo.id, todos.len());
+        todos.push(todo);
+    }
+    let mut stmt = db.prepare("SELECT todo, blocker FROM blockers ORDER BY todo, blocker")?;
+    let edges = stmt.query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, u32>(1)?)))?;
+    for edge in edges {
+        let (id, blocker) = edge?;
+        if let Some(todo) = indices.get(&id).and_then(|&index| todos.get_mut(index)) {
+            todo.blockers.push(blocker);
+        }
+    }
+    let mut stmt = db.prepare("SELECT todo, url FROM todo_refs ORDER BY todo, id")?;
+    let refs = stmt.query_map([], |r| Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?)))?;
+    for reference in refs {
+        let (id, url) = reference?;
+        if let Some(todo) = indices.get(&id).and_then(|&index| todos.get_mut(index)) {
+            todo.refs.push(url);
+        }
+    }
+    Ok(todos)
+}
+
 fn todo_row(r: &rusqlite::Row<'_>) -> Result<Todo, Error> {
     let row = (|| -> rusqlite::Result<_> {
         Ok((
@@ -713,13 +707,7 @@ impl super::Todos {
     /// `dir` is the Project's data folder (N1).
     pub(super) fn open_store(dir: &Path) -> Result<Self, OpenError> {
         Ok(Self {
-            store: Mutex::new(Store::open(&dir.join(
-                if dir.join("project.db").exists() {
-                    "project.db"
-                } else {
-                    "todos.db"
-                },
-            ))?),
+            store: Mutex::new(Store::open(dir)?),
         })
     }
 
