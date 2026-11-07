@@ -389,12 +389,11 @@ async fn t8_creator_from_an_extension_is_stored_as_is() {
 #[tokio::test]
 async fn t8_unparseable_creator_fails_as_internal() {
     let dir = tempfile::tempdir().unwrap();
-    let db_path = dir.path().join("project.db");
     {
         let h = Harness::new(dir.path());
         h.call("todo.create", json!({"title": "a"})).await.unwrap();
     }
-    rusqlite::Connection::open(&db_path)
+    storage::connect(dir.path())
         .unwrap()
         .execute("UPDATE todos SET creator = 'not json' WHERE id = 1", [])
         .unwrap();
@@ -410,7 +409,7 @@ async fn t8_failed_statement_fails_as_internal() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     h.call("todo.create", json!({"title": "a"})).await.unwrap();
-    rusqlite::Connection::open(dir.path().join("project.db"))
+    storage::connect(dir.path())
         .unwrap()
         .execute_batch(
             "CREATE TRIGGER refuse BEFORE UPDATE ON todos BEGIN SELECT RAISE(ABORT, 'refused'); END",
