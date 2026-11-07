@@ -182,10 +182,10 @@ impl Shared {
                     Ok(out) => {
                         for item in &removal.removed {
                             if item.kind == RemovalKind::Agent {
-                                runs.remove(&item.id);
+                                runs.forget(&item.id);
                             }
                         }
-                        runs.remove(&id_owned);
+                        runs.forget(&id_owned);
                         Ok((removal, out))
                     }
                     Err(err) => {
@@ -494,7 +494,7 @@ mod tests {
         shared
             .runs()
             .iter()
-            .filter_map(|(id, agent)| Some((id.clone(), agent.facts.tool_call.clone()?)))
+            .filter_map(|(id, agent)| Some((id.to_string(), agent.facts.tool_call.clone()?)))
             .collect()
     }
 
@@ -588,10 +588,9 @@ mod tests {
             .unwrap()
             .id;
         shared.rail().allocate_attempt(&ws).unwrap();
-        shared.runs().put(
-            ws.clone(),
-            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
-        );
+        shared
+            .runs()
+            .put(&ws, Slot::Running(Run::fixture(Arc::new(|| 0), true)));
         let finished = running_agent(&shared, Some(&ws));
         let living = running_agent(&shared, Some(&ws));
         let sibling = shared
@@ -645,10 +644,9 @@ mod tests {
             .unwrap()
             .id;
         shared.rail().allocate_attempt(&group).unwrap();
-        shared.runs().put(
-            group.clone(),
-            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
-        );
+        shared
+            .runs()
+            .put(&group, Slot::Running(Run::fixture(Arc::new(|| 0), true)));
         let child = shared
             .rail()
             .insert(NodeKind::Agent, "child", Some(&group), None)
@@ -838,7 +836,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn a16_a_terminal_exit_after_its_id_is_evicted_from_runs_does_not_panic_the_watcher() {
         let w = Watched::start();
-        w.shared.runs().remove("1");
+        w.shared.runs().forget("1");
 
         w.send(EventData::TerminalExited(ExitedEvent {
             id: "1".into(),

@@ -40,7 +40,7 @@ impl Shared {
         }) = runs.take(id)
         {
             old.release_closing(ended);
-            runs.put(id.to_owned(), Slot::Running(*old));
+            runs.put(id, Slot::Running(*old));
         }
     }
 
@@ -139,7 +139,7 @@ impl Shared {
                     node.terminal_id = Some(run.terminal_id().to_owned());
                 }
                 None | Some(Slot::Gone) => {
-                    runs.put(id.to_owned(), Slot::Closing);
+                    runs.put(id, Slot::Closing);
                 }
                 Some(Slot::ResumeCleanup {
                     terminal_id,
@@ -167,7 +167,7 @@ impl Shared {
         if let Some(Agent {
             slot: Slot::Running(run),
             facts,
-        }) = self.runs().get_mut(id)
+        }) = self.runs().agent_mut(id)
         {
             self.apply(None, run, facts, id, &actor, Observation::Stopped, None)?;
         }
@@ -232,7 +232,7 @@ impl Shared {
             if remove {
                 // A failed delete keeps the node, so its facts stay with it.
                 if result.is_ok() {
-                    runs.remove(id);
+                    runs.forget(id);
                 } else {
                     runs.take(id);
                 }
@@ -243,7 +243,7 @@ impl Shared {
             }) = runs.take(id)
             {
                 old.finish_closing();
-                runs.put(id.to_owned(), Slot::Running(*old));
+                runs.put(id, Slot::Running(*old));
             }
             result
         };

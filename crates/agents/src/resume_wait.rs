@@ -99,8 +99,8 @@ pub(crate) fn fold(entry: &mut Option<Resume>, status: &Status, now: i64) -> boo
 
 /// Marks every resume due at `now` as sent and names its Agent. A resume never fires while its
 /// turn runs.
-pub(crate) fn take_due<'a>(
-    agents: impl Iterator<Item = (&'a String, &'a mut Option<Resume>)>,
+pub(crate) fn take_due<'a, I: ToString + 'a>(
+    agents: impl Iterator<Item = (&'a I, &'a mut Option<Resume>)>,
     now: i64,
 ) -> Vec<String> {
     let mut due = Vec::new();
@@ -113,14 +113,14 @@ pub(crate) fn take_due<'a>(
         entry.sent += 1;
         entry.awaiting = true;
         entry.at = (entry.sent < RESUMES).then(|| now + delay_ms(entry.sent, now));
-        due.push(id.clone());
+        due.push(id.to_string());
     }
     due
 }
 
 impl Shared {
     pub(super) fn resume_of(&self, id: &str) -> Option<Resume> {
-        self.runs().get(id)?.facts.resume.clone()
+        self.runs().agent(id)?.facts.resume.clone()
     }
 }
 
@@ -148,7 +148,7 @@ impl Agents {
         let moved = self
             .shared
             .runs()
-            .get_mut(id)
+            .agent_mut(id)
             .is_some_and(|agent| agent.facts.resume.take().is_some());
         if moved {
             self.shared

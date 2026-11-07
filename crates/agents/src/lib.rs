@@ -6,6 +6,7 @@ static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::I
 
 #[doc(hidden)]
 pub mod schema;
+use crate::id::AgentId;
 use contracts::agent::Ordinal;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
@@ -36,6 +37,7 @@ mod asks;
 mod auto;
 pub mod claude_code;
 mod convert;
+mod id;
 mod models;
 pub mod placement;
 mod pr_checks;
@@ -171,7 +173,7 @@ struct Shared {
     rail: Mutex<rail::Rail>,
     /// A node is marked `Starting`, and unmarked on failure, in the same Rail critical section
     /// that creates or reserves it, so `agent.stop` never finds a starting node unmarked.
-    runs: Mutex<HashMap<String, Agent>>,
+    runs: Mutex<HashMap<AgentId, Agent>>,
     /// A41: removal excludes Door starts until its Rail transaction has committed.
     door_lifecycle: tokio::sync::RwLock<()>,
     bus: Bus,

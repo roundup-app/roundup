@@ -4,10 +4,11 @@
 
 use super::plan::{self, Facts, Plan, Spec};
 use super::*;
+use crate::id::AgentId;
 
 /// A request whose folders exist and hold together.
 struct Checked {
-    id: u64,
+    id: AgentId,
     cwd: PathBuf,
     project: PathBuf,
     paths: Paths,
@@ -66,7 +67,7 @@ impl Launcher {
     fn check(&self, request: &Request<'_>) -> Result<Checked, RpcError> {
         let invalid = |message: String| RpcError::new(code::INVALID_PARAMS, message);
         let Folders { project, data: dir } = request.folders;
-        let id = parse_id(request.id)
+        let id = AgentId::parse(request.id)
             .ok_or_else(|| invalid(format!("{:?} is not a node id", request.id)))?;
         let cwd = request
             .cwd
