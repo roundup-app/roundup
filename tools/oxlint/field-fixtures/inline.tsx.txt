@@ -1,0 +1,1 @@
+export const Framed = () => <input class="field-inline" aria-label="Name" />;

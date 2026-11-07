@@ -11,6 +11,8 @@
 }
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]),
 .app-dialog-form textarea,
+.field-frame,
+.field-inline,
 .import-prompt,
 .note-form input,
 .note-form textarea,
@@ -29,6 +31,8 @@
 }
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"])::placeholder,
 .app-dialog-form textarea::placeholder,
+.field-frame::placeholder,
+.field-inline::placeholder,
 .app-combobox-input::placeholder {
   color: var(--grey);
   opacity: 1;
@@ -51,6 +55,8 @@
 }
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
 .app-dialog-form textarea:disabled,
+.field-frame:disabled,
+.field-inline:disabled,
 .import-prompt:disabled,
 .note-form input:disabled,
 .note-form textarea:disabled,
@@ -63,6 +69,8 @@
 
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):focus-visible,
 .app-dialog-form textarea:focus-visible,
+.field-frame:focus-visible,
+.field-inline:focus-visible,
 .import-prompt:focus-visible,
 .note-form input:focus-visible,
 .note-form textarea:focus-visible,
@@ -96,4 +104,14 @@
 :is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"])[data-part="input"]:hover:not(:disabled, [data-invalid]),
 .app-combobox-input:hover:not(:disabled, [data-invalid]) {
   border-color: var(--disabled);
+}
+
+/* U6545a: a field that edits text in place (a tab, row or title rename) is the frame at the text's own size. */
+.field-inline:is(input, textarea) {
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  line-height: inherit;
+  letter-spacing: inherit;
 }

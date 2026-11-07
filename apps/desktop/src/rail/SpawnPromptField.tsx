@@ -26,7 +26,7 @@ export const SpawnPromptField = (props: {
     aria-label={copy.task}
     placeholder={copy.taskHint}
     rows={1}
-    class="spawn-prompt-field"
+    class="spawn-prompt-field field-frame"
     value={props.value}
     ref={(field) => {
     const focus = captureFocus();

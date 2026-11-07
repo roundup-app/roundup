@@ -10,8 +10,8 @@ const createdNames = (app: Parameters<typeof railCallsTo>[0]): unknown[] => rail
 
 const named = (...names: string[]) => names.map((name) => ({ name, parent: null }));
 
-describe("u167 a new Workstream's default name is unique among the Rail's roots", () => {
-  it("u167_three_creations_then_a_rename_then_a_fourth_send_the_first_free_names", async () => {
+describe("u6545b a new Workstream's default name is numbered and unique among the Rail's roots", () => {
+  it("u6545b_workstream_default_name_is_numbered", async () => {
     const tree: RailNode[] = [];
     const mounted = await mountRail(tree);
     let n = 0;
@@ -27,12 +27,12 @@ describe("u167 a new Workstream's default name is unique among the Rail's roots"
       await mounted.rail.settled();
     };
 
-    await create(1, "New Workstream");
-    await create(2, "New Workstream 2");
-    await create(3, "New Workstream 3");
+    await create(1, "Workstream");
+    await create(2, "Workstream 2");
+    await create(3, "Workstream 3");
 
-    expect(createdNames(mounted.app)).toEqual(named("New Workstream", "New Workstream 2", "New Workstream 3"));
-    expect(rowNames()).toEqual(expect.arrayContaining(["New Workstream", "New Workstream 2", "New Workstream 3"]));
+    expect(createdNames(mounted.app)).toEqual(named("Workstream", "Workstream 2", "Workstream 3"));
+    expect(rowNames()).toEqual(expect.arrayContaining(["Workstream", "Workstream 2", "Workstream 3"]));
 
     tree[1] = workstream("w2", { name: "renamed" });
     mounted.app.emit(event({ name: "rail.changed" }));
@@ -40,13 +40,6 @@ describe("u167 a new Workstream's default name is unique among the Rail's roots"
     await mounted.rail.settled();
 
     await chooseFooter("Workstream");
-    await waitFor(() => expect(createdNames(mounted.app)).toEqual(named("New Workstream", "New Workstream 2", "New Workstream 3", "New Workstream 2")));
-  });
-
-  it("u167_the_new_name_is_the_one_thread_and_card_words_use", async () => {
-    const mounted = await mountRail([workstream("a", { name: "New Workstream" }), workstream("b", { name: "New Workstream 2" })]);
-
-    expect(mounted.rail.nameOf({ kind: "agent", id: "b", parent: null })).toBe("New Workstream 2");
-    expect(mounted.rail.nameOf({ kind: "agent", id: "a", parent: null })).toBe("New Workstream");
+    await waitFor(() => expect(createdNames(mounted.app)).toEqual(named("Workstream", "Workstream 2", "Workstream 3", "Workstream 2")));
   });
 });

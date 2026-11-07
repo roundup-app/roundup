@@ -3,6 +3,7 @@ import { auditWebAssertionsRule, noNewWebAssertionsRule } from "./web-assertions
 import { boundedTestTimeoutRule } from "./web-timeout/rule.mjs";
 import { noInlineDeleteConfirmationRule } from "./rules/no-inline-delete-confirmation.ts";
 import { noRawAnchorBoxRule } from "./rules/no-raw-anchor-box.ts";
+import { requireFieldFrameRule } from "./rules/require-field-frame.ts";
 import { noTooltipBypassRule } from "./rules/no-tooltip-bypass.ts";
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
@@ -35,6 +36,7 @@ const antiSlopPlugin = eslintCompatPlugin({
         "audit-web-assertions": auditWebAssertionsRule,
         "no-new-web-assertions": noNewWebAssertionsRule,
         "no-tooltip-bypass": noTooltipBypassRule,
+        "require-field-frame": requireFieldFrameRule,
         "no-raw-anchor-box": noRawAnchorBoxRule,
         "no-inline-delete-confirmation": noInlineDeleteConfirmationRule,
 		"no-array-filter-map": noArrayFilterMapRule,
