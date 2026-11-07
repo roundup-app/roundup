@@ -2,6 +2,7 @@
 #![deny(clippy::fn_params_excessive_bools)]
 
 use super::*;
+use crate::id::AgentId;
 
 /// Every file one Agent's launch owns, under the Project's data folder `dir`.
 pub(in crate::claude_code) struct Paths {
@@ -14,7 +15,7 @@ pub(in crate::claude_code) struct Paths {
 }
 
 impl Paths {
-    pub fn new(dir: &Path, id: u64) -> Self {
+    pub fn new(dir: &Path, id: AgentId) -> Self {
         Self {
             agents: agents_dir(dir),
             settings: settings_path(dir, id),
@@ -26,27 +27,19 @@ impl Paths {
     }
 }
 
-/// An Agent id becomes a file name and a shell word, so only a node id in its one form (decimal,
-/// no sign, no leading zero) is accepted; `;` or `../` never reach a shell or a path.
-pub(in crate::claude_code) fn parse_id(id: &str) -> Option<u64> {
-    id.parse()
-        .ok()
-        .filter(|number: &u64| number.to_string() == id)
-}
-
 pub(in crate::claude_code) fn agents_dir(dir: &Path) -> PathBuf {
     dir.join("agents")
 }
 
-pub(in crate::claude_code) fn settings_path(dir: &Path, id: u64) -> PathBuf {
+pub(in crate::claude_code) fn settings_path(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.settings.json"))
 }
 
-pub(in crate::claude_code) fn mcp_config_path(dir: &Path, id: u64) -> PathBuf {
+pub(in crate::claude_code) fn mcp_config_path(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.mcp.json"))
 }
 
-pub(in crate::claude_code) fn shim_dir(dir: &Path, id: u64) -> PathBuf {
+pub(in crate::claude_code) fn shim_dir(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.bin"))
 }
 
@@ -54,7 +47,7 @@ pub(in crate::claude_code) fn shim_dir(dir: &Path, id: u64) -> PathBuf {
 /// that holds it is that Door's program (F5).
 pub fn settings_marker(dir: &Path, id: &str) -> Option<PathBuf> {
     let dir = dir.canonicalize().ok()?;
-    Some(settings_path(&dir, parse_id(id)?))
+    Some(settings_path(&dir, AgentId::parse(id)?))
 }
 
 /// One executable in `shims` for each program name an Adapter supplies, each failing loud.
@@ -71,18 +64,18 @@ pub(in crate::claude_code) fn write_shims(shims: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-pub(in crate::claude_code) fn remove_shims(dir: &Path, id: u64) -> std::io::Result<()> {
+pub(in crate::claude_code) fn remove_shims(dir: &Path, id: AgentId) -> std::io::Result<()> {
     match std::fs::remove_dir_all(shim_dir(dir, id)) {
         Err(err) if err.kind() != ErrorKind::NotFound => Err(err),
         _ => Ok(()),
     }
 }
 
-pub(in crate::claude_code) fn lean_path(dir: &Path, id: u64) -> PathBuf {
+pub(in crate::claude_code) fn lean_path(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.lean.json"))
 }
 
-pub(in crate::claude_code) fn extras_dir(dir: &Path, id: u64) -> PathBuf {
+pub(in crate::claude_code) fn extras_dir(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.extras"))
 }
 
@@ -96,7 +89,7 @@ pub(in crate::claude_code) fn lean_of(role: Role, pair: &LaunchFacts) -> Option<
     }
 }
 
-pub(in crate::claude_code) fn brief_path(dir: &Path, id: u64) -> PathBuf {
+pub(in crate::claude_code) fn brief_path(dir: &Path, id: AgentId) -> PathBuf {
     agents_dir(dir).join(format!("{id}.brief.md"))
 }
 

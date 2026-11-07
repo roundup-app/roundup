@@ -168,7 +168,7 @@ fn a4_concurrent_spawns_each_get_their_cwd_trusted() {
                     launcher
                         .prepare(
                             folders(&dir),
-                            &(spawner * 10 + n).to_string(),
+                            &(spawner * 10 + n + 1).to_string(),
                             "1",
                             cwd,
                             None,

@@ -1,4 +1,5 @@
 import { copy } from "./copy";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { useSplitter } from "@ark-ui/solid/splitter";
 import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, type JSX } from "solid-js";
 import type { Side } from "../resize/widths";
@@ -67,6 +68,14 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
   const triggerId = () => props.side.direction === 1 ? "rail:centre" as const : "centre:shelf" as const;
   const trigger = () => api().getResizeTriggerProps({ id: triggerId(), disabled: props.disabled || props.hidden });
 
+  // Ark's handlers arrive as a function or a [function, data] tuple.
+  const invoke = <E extends Event>(handler: JSX.EventHandlerUnion<HTMLDivElement, E> | undefined, event: E & { currentTarget: HTMLDivElement; target: Element }) => {
+    if (!handler) return;
+
+    if (0 in handler) handler[0](handler[1], event);
+    else handler(event);
+  };
+
   createEffect(on(() => props.side.now(), (value) => setPixels(value)));
 
   onMount(() => {
@@ -127,6 +136,8 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     if (event.button === 0 && !props.disabled && !props.hidden) {
       releaseHold?.();
 
+      const removers: Array<() => void> = [];
+
       const cancel = (event: Event) => {
         // Zag maps pointercancel to POINTER_UP. Keep that commit path out of cancellation.
         if (event.type === "pointercancel") event.stopPropagation();
@@ -141,10 +152,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
           // SAFETY: the targets are the mounted resize edge assigned above.
           const normalized = key as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
 
-          if (handler) {
-            if (0 in handler) handler[0](handler[1], normalized);
-            else handler(normalized);
-          }
+          invoke(handler, normalized);
         };
 
         // POINTER_DOWN enters Zag on a microtask; cancel after that entry if blur came first.
@@ -154,26 +162,23 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
       };
 
       const release = () => {
-        window.removeEventListener("pointerup", release, true);
-        window.removeEventListener("pointercancel", cancel, true);
-        window.removeEventListener("blur", cancel);
+        for (const remove of removers) remove();
         releaseHold = undefined;
         props.onDragging?.(false);
       };
 
       releaseHold = release;
       props.onDragging?.(true);
-      window.addEventListener("pointerup", release, true);
-      window.addEventListener("pointercancel", cancel, true);
-      window.addEventListener("blur", cancel);
+      removers.push(
+        makeEventListener(window, "pointerup", release, true),
+        makeEventListener(window, "pointercancel", cancel, true),
+        makeEventListener(window, "blur", cancel),
+      );
     }
 
     const handler = trigger().onPointerDown;
 
-    if (handler) {
-      if (0 in handler) handler[0](handler[1], event);
-      else handler(event);
-    }
+    invoke(handler, event);
   };
 
   const boundaryKeys = Object.keys({ Home: true, End: true });
@@ -197,10 +202,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     // Ordinary keys go straight to Ark; only its unsupported modifier/boundary
     // cases need an adapted event (capability record on #3742 and #4094).
     if (!shiftArrow && !reverseBoundary) {
-      if (handler) {
-        if (0 in handler) handler[0](handler[1], event);
-        else handler(event);
-      }
+      invoke(handler, event);
 
       return;
     }
@@ -221,10 +223,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     // SAFETY: the normalized event retains the original element targets above.
     const normalized = adapted as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
 
-    if (handler) {
-      if (0 in handler) handler[0](handler[1], normalized);
-      else handler(normalized);
-    }
+    invoke(handler, normalized);
 
     if (adapted.defaultPrevented) event.preventDefault();
   };

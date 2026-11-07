@@ -1,13 +1,12 @@
 //! Todo reads and per-Actor history acknowledgements.
 use contracts::todo::{History, ReadHistoryParams, Todo, TodoId};
 use rpc::Ctx;
-use serde_json::Value;
 
 use super::{Todos, item};
-use crate::error::{Error, reply};
+use crate::error::Error;
 
 impl Todos {
-    pub(super) fn get(&self, ctx: &Ctx, p: TodoId) -> Result<Todo, Error> {
+    pub(super) async fn get(&self, ctx: &Ctx, p: TodoId) -> Result<Todo, Error> {
         let store = self.store()?;
         let todo = store.get(p.id)?;
         let through = store
@@ -19,7 +18,7 @@ impl Todos {
         Ok(todo)
     }
 
-    pub(super) fn get_history(&self, ctx: &Ctx, p: TodoId) -> Result<Value, Error> {
+    pub(super) async fn get_history(&self, ctx: &Ctx, p: TodoId) -> Result<History, Error> {
         let store = self.store()?;
         let rows = store.history(p.id)?;
         let read = ctx.touches.todo_read(&ctx.actor, &item(p.id))?;
@@ -31,13 +30,13 @@ impl Todos {
                 Some((seq, None)) => *touch >= seq,
             })
             .map(|(change, _)| change.seq);
-        reply(&History {
+        Ok(History {
             changes: rows.into_iter().map(|(change, _)| change).collect(),
             unread,
         })
     }
 
-    pub(super) fn read_history(&self, ctx: &Ctx, p: ReadHistoryParams) -> Result<Value, Error> {
+    pub(super) async fn read_history(&self, ctx: &Ctx, p: ReadHistoryParams) -> Result<(), Error> {
         let store = self.store()?;
         let history = store.history(p.id)?;
         if !history.iter().any(|(change, _)| change.seq == p.through) {
@@ -53,6 +52,6 @@ impl Todos {
             .max(p.through);
         ctx.touches
             .record_todo_read(&ctx.actor, &item(p.id), through)?;
-        Ok(Value::Null)
+        Ok(())
     }
 }

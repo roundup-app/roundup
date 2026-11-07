@@ -137,10 +137,10 @@ impl Agents {
         let placed = {
             let mut rail = self.shared.rail();
             let mut runs = self.shared.runs();
-            if runs.contains_key(id) {
+            if runs.agent(id).is_some() {
                 false
             } else if rail.attach_terminal(id, &spawned.id).is_ok() {
-                runs.put(id.to_owned(), Slot::Running(run));
+                runs.put(id, Slot::Running(run));
                 true
             } else {
                 false

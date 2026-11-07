@@ -1,4 +1,5 @@
 import type { createCopyFeedback } from "./CopyButton";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { writeText } from "../app/clipboard";
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -186,12 +187,8 @@ export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) =>
 
   const from = { x: press.clientX, y: press.clientY };
 
-  const stop = () => {
-    document.removeEventListener("pointerup", release);
-    window.removeEventListener("pointerdown", stop, true);
-    window.removeEventListener("blur", stop);
-    window.removeEventListener("pointercancel", stop, true);
-  };
+  const removers: Array<() => void> = [];
+  const stop = () => { for (const remove of removers) remove(); };
 
   const release = (event: PointerEvent) => {
     stop();
@@ -199,8 +196,10 @@ export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) =>
     if (Math.hypot(event.clientX - from.x, event.clientY - from.y) < PULL_DISTANCE) open(event.clientX, event.clientY);
   };
 
-  document.addEventListener("pointerup", release);
-  window.addEventListener("pointerdown", stop, true);
-  window.addEventListener("blur", stop);
-  window.addEventListener("pointercancel", stop, true);
+  removers.push(
+    makeEventListener(document, "pointerup", release),
+    makeEventListener(window, "pointerdown", stop, true),
+    makeEventListener(window, "blur", stop),
+    makeEventListener(window, "pointercancel", stop, true),
+  );
 };

@@ -94,3 +94,18 @@ The Time and Timeline views and measurement machinery are removed (`scenarios/re
 
 - Gate: does a path parse a vendor record's usage or money, hold a rate or price, store or send a token or money value, or show one in the App, a Card, the CLI or a tool reply?
 - Observer: `u3016l_no_cost_or_token_names_remain` finds no cost or token name in the App, crates or contracts, and `u3016l_vendor_usage_and_cost_fields_are_dropped_at_the_adapter` reads a fixture that carries usage and gets time only.
+
+## P15 One open protocol per layer below roundup
+
+roundup owns attention and coordination: which matter sits in the centre, who may ask the user, and the records Agents coordinate through (Doors, Messages, Todos, Pads). Everything below it (machines, terminal hosts, transport, the Agent program) it drives through one open protocol per layer and re-implements none. A layer qualifies only if it is open source, reached through the user's own ssh, and passes the Agent's status (OSC 7501) and roundup's channel (hooks, MCP) through unchanged (`docs/adr/0012-herdr-core-machine-layer.md`).
+
+- Gate: does code re-implement a layer below roundup (machine, terminal host, transport, Agent program) that an open protocol serves, or does a layer sit under roundup that is closed source, needs more than the user's own ssh, or alters OSC 7501, hooks or MCP?
+- Observer: MC1 (`machine.list` is read as it is and roundup stores no machine row) and the Spike's OSC 7501 and hook pass-through (`spikes/herdr-core-client/REPORT.md`, PR #6705).
+
+## P16 The centre and the way to the next matter
+
+Everything the user sees is the matter in the centre or the way to choose the next one. A machine shows only as a chip or a status on an Agent. Signals from below reach the user only through the Door and the alerts the user turned on (P3). roundup's own window already passes: the shelf follows the Rail's selection. Customisation changes how a matter looks and what acts on it, never this Principle.
+
+- Gate: does a machine show anywhere but as a chip or a status on an Agent (a sidebar, a Rail level, a dispatch panel), or does a signal from below reach the user other than through the Door and the alerts the user turned on?
+- Observer: MC3 (no surface but the Agent's chip or status shows a machine) and MC4 (a missing machine layer raises no alert).
+
