@@ -291,7 +291,9 @@ impl Agents {
                     .unwrap_or_else(|err| Err(RpcError::internal(err)))
             }
             None if Path::new(saved_cwd).is_dir() => Ok(()),
-            None => Err(RpcError::conflict(format!("worktree_missing: {saved_cwd}"))),
+            None => Err(RpcError::from(worktree::WorktreeError::Missing(
+                saved_cwd.to_string(),
+            ))),
         }
     }
 

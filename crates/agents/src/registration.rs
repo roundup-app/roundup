@@ -33,8 +33,7 @@ impl Shared {
             runs.insert(id.to_owned(), Slot::Running(run));
             return Err(error);
         }
-        run.adapter_mut()
-            .set_finished(rail.finished(id).unwrap_or_default());
+        run.observe(Observation::Finished(rail.finished(id).unwrap_or_default()));
         let mut prompts = Vec::new();
         for (actor, payload) in parked {
             // A21: a parked Signal naming a conversation is saved before it is applied, same as a
@@ -278,8 +277,7 @@ impl Shared {
             );
             return Err(error);
         }
-        run.adapter_mut()
-            .set_finished(rail.finished(id).unwrap_or_default());
+        run.observe(Observation::Finished(rail.finished(id).unwrap_or_default()));
         // Only the matching ack may release the first prompt; a parked mismatched SessionStart
         // must not take it before the remembered title is applied below.
         for (parked_actor, parked_payload) in parked {

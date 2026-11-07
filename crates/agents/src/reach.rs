@@ -187,8 +187,9 @@ impl crate::Agents {
                 crate::Slot::Running(run)
                     if run.terminal_id() == terminal
                         && run
-                            .adapter()
-                            .status()
+                            .view()
+                            .status
+                            .as_ref()
                             .is_some_and(|status| status.kind == Kind::NeedsYou) =>
                 {
                     Some(agent.clone())

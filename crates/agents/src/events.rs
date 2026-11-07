@@ -11,6 +11,9 @@ impl Observation {
             Self::Stopped => "stop",
             Self::Exit { .. } => "exit",
             Self::Program(_) => "program status",
+            Self::Finished(_) => "finished",
+            Self::Failed(_) => "failed",
+            Self::Resumed(_) => "resumed",
         }
     }
 }
@@ -170,9 +173,7 @@ impl Shared {
     pub(super) fn observe_program(&self, terminal: &str, status: Status) {
         let found = self.runs().iter().find_map(|(id, slot)| match slot {
             Slot::Running(run)
-                if run.terminal_id() == terminal
-                    && !run.ended()
-                    && !run.adapter().has_hook_signal() =>
+                if run.terminal_id() == terminal && !run.ended() && !run.view().hooked =>
             {
                 Some((id.clone(), run.attempt().to_string()))
             }
@@ -294,10 +295,9 @@ impl Shared {
                         && let Err(err) = save_signal_conversation(rail, run, id, payload)
                     {
                         self.events.observed.notify_waiters();
-                        if let Some(status) = run
-                            .adapter_mut()
-                            .fail(format!("cannot save conversation: {err}"))
-                        {
+                        if let (Some(status), _) = run.observe(Observation::Failed(format!(
+                            "cannot save conversation: {err}"
+                        ))) {
                             run.publish(&self.bus, actor.clone(), id, status);
                         }
                         self.spawn_kill(run.terminal_id().to_owned());
@@ -420,32 +420,30 @@ impl Shared {
                 calls.insert(id.to_owned(), tracked);
             }
         }
-        let was_kind = run.adapter().status().map(|status| status.kind);
-        let was_finished = run.adapter().finished();
-        let was_final_text = run.adapter().final_text();
-        let was_completed = run.adapter().completed_turn().map(str::to_owned);
-        let was_background = run.adapter().retained();
+        let was = run.view().clone();
+        let was_kind = was.status.as_ref().map(|status| status.kind);
         let signal = matches!(observation, Observation::Signal(_));
-        let (changed, completion_changed) = run.adapter_mut().observe_completion(observation);
+        let (changed, completion_changed) = run.observe(observation);
         let changed = changed.or_else(|| {
             if !exited || run.ended() {
                 return None;
             }
-            let mut status = run.adapter().status()?.clone();
+            let mut status = run.view().status.clone()?;
             status.since = (self.clock)();
             Some(status)
         });
-        if super::rail_view::visibility_protection(run.adapter().status().map(|s| s.kind)).is_some()
+        if super::rail_view::visibility_protection(run.view().status.as_ref().map(|s| s.kind))
+            .is_some()
             && let Some(rail) = rail.as_deref_mut()
             && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
         {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        if was_final_text != run.adapter().final_text() || completion_changed {
+        if was.final_text != run.view().final_text || completion_changed {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        if let Some(turn) = run.adapter().completed_turn()
-            && was_completed.as_deref() != Some(turn)
+        if let Some(turn) = run.view().completed_turn.as_deref()
+            && was.completed_turn.as_deref() != Some(turn)
         {
             self.bus.emit(
                 actor.clone(),
@@ -492,15 +490,15 @@ impl Shared {
             }
         }
         // DCL3c: background work is saved before its Status is published, so a reopen finds it.
-        let background = run.adapter().retained();
-        if background != was_background {
+        let background = run.view().retained.clone();
+        if background != was.retained {
             self.save_background(id, run.attempt(), background)?;
         }
         // U3566c: a counted finish is saved before its Status is published.
-        if run.adapter().finished() != was_finished
+        if run.view().finished != was.finished
             && let Some(rail) = rail.as_deref_mut()
         {
-            rail.set_finished(id, run.adapter().finished())?;
+            rail.set_finished(id, run.view().finished)?;
         }
         // Announced while `runs` is parked, so announcements leave in the order the Status
         // changed; `emit` never blocks.
@@ -553,7 +551,7 @@ impl Shared {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         let prompt = run.release_prompt();
-        Ok((prompt, run.adapter().tick_at()))
+        Ok((prompt, run.view().next_due))
     }
 }
 
@@ -669,7 +667,7 @@ impl Shared {
             let Some(Slot::Running(run)) = runs.get(id) else {
                 return Ok(tick_at);
             };
-            if run.ended() || !run.adapter().needs_processes() {
+            if run.ended() || !run.view().needs_snapshot {
                 return Ok(tick_at);
             }
             // A program that is gone has no work; its Exit follows.
@@ -713,7 +711,7 @@ impl Agents {
         Some(contracts::event::Completion {
             maker: maker.to_owned(),
             attempt: run.attempt().to_string(),
-            turn: run.adapter().turn()?.to_owned(),
+            turn: run.view().turn.as_deref()?.to_owned(),
         })
     }
 
@@ -724,7 +722,13 @@ impl Agents {
             .runs()
             .iter()
             .filter_map(|(id, slot)| match slot {
-                Slot::Running(run) if !run.ended() && run.adapter().stalled(limit_ms) => {
+                Slot::Running(run)
+                    if !run.ended()
+                        && run
+                            .view()
+                            .quiet_since
+                            .is_some_and(|at| (self.shared.clock)() - at >= limit_ms) =>
+                {
                     Some(id.clone())
                 }
                 _ => None,
@@ -738,8 +742,8 @@ impl Agents {
             .runs()
             .iter()
             .filter_map(|(id, slot)| match slot {
-                Slot::Running(run) if !run.ended() && run.adapter().compactions() > 0 => {
-                    Some((id.clone(), run.adapter().compactions()))
+                Slot::Running(run) if !run.ended() && run.view().compactions > 0 => {
+                    Some((id.clone(), run.view().compactions))
                 }
                 _ => None,
             })
@@ -759,7 +763,7 @@ impl Agents {
                 if run.ended() {
                     return None;
                 }
-                let (turn, started, ended, text) = run.adapter().completed_text()?;
+                let (turn, started, ended, text) = run.view().completed.as_deref()?;
                 Some((
                     id.clone(),
                     (

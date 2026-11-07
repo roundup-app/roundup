@@ -460,3 +460,19 @@ async fn g6_worktrees_are_found_by_stored_path_after_a_restart() {
     assert_refused(&err, code::NOT_FOUND, "worktree_missing");
     assert!(f.tree().await.iter().any(|n| n.id == id));
 }
+
+#[test]
+fn rb3798c_a_resume_of_a_missing_worktree_is_not_found() {
+    let dir = tempfile::tempdir().unwrap();
+    let worktree = agents::worktree::Worktree {
+        path: dir.path().join("gone"),
+        branch: "b".into(),
+        base: "main".into(),
+    };
+
+    let err = Git::from_env()
+        .verify_resumable(dir.path(), &worktree)
+        .unwrap_err();
+
+    assert_refused(&err, code::NOT_FOUND, "worktree_missing");
+}

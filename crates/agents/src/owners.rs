@@ -120,13 +120,15 @@ impl Agents {
             |(_, cwd)| cwd,
         );
         let clock = Arc::clone(&self.shared.clock);
-        let mut adapter = ClaudeCode::starting(move || clock());
-        adapter.set_finished(self.shared.rail().finished(id).unwrap_or_default());
+        let mut fold = Fold::new(claude_code::starting(move || clock()));
+        fold.observe(Observation::Finished(
+            self.shared.rail().finished(id).unwrap_or_default(),
+        ));
         if let Some(kept) = stored.background {
-            adapter.resume_background(kept);
+            fold.observe(Observation::Resumed(kept));
         }
         let run = Run::reattached(
-            adapter,
+            fold,
             stored.attempt.clone(),
             spawned.id.clone(),
             cwd,

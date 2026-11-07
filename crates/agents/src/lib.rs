@@ -56,8 +56,8 @@ pub mod rewind;
 mod scan;
 pub mod worktree;
 
-use agent::{Run, Slot};
-use claude_code::{ClaudeCode, LaunchFacts, Launcher, Role};
+use agent::{Fold, Run, Slot};
+use claude_code::{LaunchFacts, Launcher, Role};
 
 /// How a session began, as its adapter reports it.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -90,7 +90,7 @@ pub enum Observation {
     Signal(Value),
     /// The window title the Agent's program set.
     Title(String),
-    /// The clock reached the time the adapter asked for (see `ClaudeCode::tick_at`).
+    /// The clock reached the time the adapter asked for (see `View::next_due`).
     Tick,
     /// DCL3: the processes under the Agent's program (`root`), or why they could not be read.
     Processes {
@@ -104,15 +104,58 @@ pub enum Observation {
     /// PS9.2: the Status its Terminal's program reports (PS7); read only by an adapter with no
     /// hook Signal.
     Program(Status),
+    /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
+    Finished(u64),
+    /// A21: roundup could not save the Agent's conversation; the Status settles to `error` with
+    /// this label and no later Observation changes it.
+    Failed(String),
+    /// DCL3c: the background work a Daemon reopen kept; the first process snapshot decides what
+    /// still runs.
+    Resumed(claude_code::background::Retained),
+}
+
+/// What one fold of an Observation left: the Status change, if any, and the Agent's state as the
+/// supervisor reads it, so no call reaches into the adapter between folds.
+pub struct Folded {
+    /// The new Status; `None` means no change.
+    pub changed: Option<Status>,
+    /// A5482c: the fold moved the completed turn's text.
+    pub(crate) completion_changed: bool,
+    pub(crate) view: View,
+}
+
+/// The Agent's state after a fold, vendor-neutral.
+#[derive(Clone)]
+pub struct View {
+    pub(crate) status: Option<Status>,
+    /// U3566c
+    pub(crate) finished: u64,
+    pub(crate) final_text: contracts::agent::FinalTextKind,
+    /// The authoritative turn of the current work.
+    pub(crate) turn: Option<Box<str>>,
+    pub(crate) completed_turn: Option<Box<str>>,
+    /// A5482c: completed turn identity, start/end times and final text.
+    pub(crate) completed: Option<Arc<(String, i64, i64, String)>>,
+    /// DCL5: compactions finished.
+    pub(crate) compactions: u64,
+    /// DCL3c: background work a reopen keeps.
+    pub(crate) retained: Option<claude_code::background::Retained>,
+    pub(crate) ended: bool,
+    /// PS9.1: whether the Agent's tooling pushes Signals.
+    pub(crate) hooked: bool,
+    /// When the adapter wants an `Observation::Tick`.
+    pub(crate) next_due: Option<i64>,
+    /// DCL3: a Stop came, so a process snapshot decides whether work outlives it.
+    pub(crate) needs_snapshot: bool,
+    /// DCL5: when a working turn with no tool call or background work last showed activity.
+    pub(crate) quiet_since: Option<i64>,
 }
 
 /// Turns one vendor's program into an Agent's Status. It emits `error`, `needs-you`, `working`,
 /// `idle` and `done`, never `blocked`: that Kind is the Daemon's, from Todos and Routes.
 pub trait AgentAdapter {
-    /// Fold one Observation into the Status. `None` means no change.
-    fn observe(&mut self, observation: Observation) -> Option<Status>;
-    /// PS9.1: whether the Agent's tooling pushes Signals; if so they alone give its Kind.
-    fn has_hook_signal(&self) -> bool;
+    /// Fold one Observation into the Status and the state read back from it.
+    fn observe(&mut self, observation: Observation) -> Folded;
 }
 
 type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync>;
@@ -396,7 +439,7 @@ impl Agents {
     pub fn drop_hooks_for_test(&self, id: &str) {
         if let Some(Slot::Running(run)) = self.shared.runs().get_mut(id) {
             let clock = Arc::clone(&self.shared.clock);
-            *run.adapter_mut() = ClaudeCode::starting(move || clock()).without_hooks();
+            run.replace_fold(claude_code::hookless(move || clock()));
         }
     }
 

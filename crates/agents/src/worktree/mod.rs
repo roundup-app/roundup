@@ -304,17 +304,11 @@ impl Git {
     /// check's concern (resume never cares whether it is landed).
     pub fn verify_resumable(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         if !worktree.path.is_dir() {
-            return Err(RpcError::conflict(format!(
-                "worktree_missing: {}",
-                worktree.path.display()
-            )));
+            return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let branch_ref = format!("refs/heads/{}", worktree.branch);
         if self.reference(project, &branch_ref)?.is_none() {
-            return Err(RpcError::conflict(format!(
-                "worktree_branch_missing: {}",
-                worktree.branch
-            )));
+            return Err(WorktreeError::BranchMissing(worktree.branch.clone()).into());
         }
         let expected_path = canonical_path(&worktree.path);
         match self
@@ -323,13 +317,9 @@ impl Git {
             .find(|(path, _)| *path == expected_path)
         {
             Some((_, Some(reference))) if reference == branch_ref => Ok(()),
-            Some((_, Some(_))) => Err(RpcError::conflict(
-                "worktree_mismatched: registered to another branch",
-            )),
-            Some((_, None)) => Err(RpcError::conflict(
-                "worktree_detached: no branch checked out",
-            )),
-            None => Err(RpcError::conflict("worktree_unregistered")),
+            Some((_, Some(_))) => Err(WorktreeError::Mismatched.into()),
+            Some((_, None)) => Err(WorktreeError::Detached.into()),
+            None => Err(WorktreeError::Unregistered.into()),
         }
     }
 
@@ -337,10 +327,7 @@ impl Git {
     /// changes outside `.roundup/`. Runs no command that writes.
     pub fn state(&self, project: &Path, worktree: &Worktree) -> Result<WorktreeState, RpcError> {
         if !worktree.path.is_dir() {
-            return Err(RpcError::new(
-                code::NOT_FOUND,
-                format!("worktree_missing: {}", worktree.path.display()),
-            ));
+            return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let range = format!("{}...refs/heads/{}", worktree.base, worktree.branch);
         let counts = self
@@ -412,9 +399,7 @@ impl Git {
     pub fn require_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         let (dirty, ahead) = self.unlanded(project, worktree)?;
         if dirty != 0 || ahead != 0 {
-            return Err(RpcError::conflict(format!(
-                "worktree_unlanded: dirty {dirty}, ahead {ahead}"
-            )));
+            return Err(WorktreeError::Unlanded { dirty, ahead }.into());
         }
         Ok(())
     }
@@ -429,10 +414,7 @@ impl Git {
         check: Option<&str>,
     ) -> Result<String, RpcError> {
         if !worktree.path.is_dir() {
-            return Err(RpcError::new(
-                code::NOT_FOUND,
-                format!("worktree_missing: {}", worktree.path.display()),
-            ));
+            return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let Some(check) = check else {
             return Err(RpcError::conflict(
@@ -440,9 +422,7 @@ impl Git {
             ));
         };
         if self.dirty(worktree)? {
-            return Err(RpcError::conflict(
-                "worktree_dirty: the Worktree has changes",
-            ));
+            return Err(WorktreeError::Dirty.into());
         }
         let base_ref = format!("refs/heads/{}", worktree.base);
         let moved =
@@ -958,7 +938,7 @@ fn invalid(name: &str, detail: impl std::fmt::Display) -> RpcError {
 }
 
 fn failed(detail: impl std::fmt::Display) -> RpcError {
-    RpcError::internal(format!("worktree_failed: {detail}"))
+    WorktreeError::Failed(detail.to_string()).into()
 }
 
 /// `cwd` mapped into `worktree_path`, the same subpath it was of `project`; `None` when `cwd` is
@@ -968,19 +948,17 @@ pub fn map_cwd(project: &Path, cwd: &Path, worktree_path: &Path) -> Option<PathB
     Some(worktree_path.join(relative))
 }
 
-#[path = "worktree_exclude.rs"]
+mod error;
 mod exclude;
+pub(crate) use error::WorktreeError;
 use exclude::exclude_worktrees;
 
-#[path = "worktree_command.rs"]
 mod command;
 
-#[path = "worktree_prepared.rs"]
 mod prepared;
 
 #[cfg(test)]
-#[path = "../tests/scenarios/g9.rs"]
+#[path = "../../tests/scenarios/g9.rs"]
 mod g9;
 
-#[path = "worktree_comparison.rs"]
 mod comparison;
