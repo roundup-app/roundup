@@ -16,8 +16,8 @@ export const AttentionKey = () => {
     },
   });
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "J")!, searchable: false, capture }]);
-  registerKeys({ kind: "app" }, [{ action: CHORDS.find((row) => row.name === "attention.jump")!, capture }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.attention"], searchable: false, capture }]);
+  registerKeys({ kind: "app" }, [{ action: CHORDS["attention.jump"], capture }]);
 
   return null;
 };

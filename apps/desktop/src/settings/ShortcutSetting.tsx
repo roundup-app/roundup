@@ -3,7 +3,7 @@ import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { copy } from "./copy";
 import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
-import { type KeyText, leaderKeys, ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel } from "../keys/chords";
+import { type KeyText, leaderKeys, ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
 import { checkRecorded, holderOf, isModifier, ownerOf, shortcutsWith } from "./shortcutRules";
 import { registerKeys } from "../keys/registry";
 import { appSettings, saveAppSettings } from "./preferences";
@@ -107,7 +107,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     <For each={ACTION_ROWS}>{row => row.name === "todo.capture"
       ? <><ShortcutSetting field="quickAdd" {...props} /><ShortcutSetting field="quickAddAnywhere" {...props} /></>
       : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)} failure={failed()?.at === row.name ? failed()!.message : null}
-          {...(CHORDS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: beginRecord(row.name) } : {})}
+          {...(CHORD_ROWS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: beginRecord(row.name) } : {})}
           overridden={row.name in overrides()} onReset={() => change(row.name, null)} />}</For>
   </>;
 };
@@ -150,8 +150,8 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
     const reserved = new Map([["meta+KeyQ", copy.quitApp], ["meta+KeyH", copy.hideApp], ["meta+Space", copy.spotlight], ["meta+Tab", copy.switchApps]]);
 
     const holder = reserved.get(press)
-      ?? CHORDS.find(row => row.what !== copy.captureATodo && row.presses.includes(press))?.what
-      ?? LEADER.find(row => row.press.toLowerCase() === press.toLowerCase())?.what;
+      ?? CHORD_ROWS.find(row => row.what !== copy.captureATodo && row.presses.includes(press))?.what
+      ?? LEADER_ROWS.find(row => row.press.toLowerCase() === press.toLowerCase())?.what;
 
     if (holder) return setFailure(copy.shortcutRefusal(shortcutLabel(press, event.key), holder));
 

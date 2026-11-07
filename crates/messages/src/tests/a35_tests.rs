@@ -71,7 +71,7 @@ impl RestartHarness {
         let bus = Bus::new();
         let fail: Arc<StdMutex<Option<String>>> = Arc::default();
         let failing = fail.clone();
-        let touches = Arc::new(Touches::open(&dir.join("touches.db")).unwrap());
+        let touches = Arc::new(Touches::open(dir).unwrap());
         let clock = Arc::new(std::sync::atomic::AtomicI64::new(42));
         let reads = clock.clone();
         let env = Env {

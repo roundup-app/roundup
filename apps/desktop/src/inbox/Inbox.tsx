@@ -229,7 +229,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
 export const InboxKey = () => {
   const { drawer, rail, showView } = useConnectedProject();
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "I")!, capture: () => ({ available: () => true, invoke: () => { drawer.close(); showView(null); rail.select(null); showView("attention"); queueFocus(() => document.querySelector<HTMLElement>('.made-heading button')?.focus()); } }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.inbox"], capture: () => ({ available: () => true, invoke: () => { drawer.close(); showView(null); rail.select(null); showView("attention"); queueFocus(() => document.querySelector<HTMLElement>('.made-heading button')?.focus()); } }) }]);
 
   return null;
 };

@@ -1,6 +1,6 @@
 import { KeyHint } from "./KeyHint";
 import { createEffect, createMemo, createSignal, For, Show, onCleanup, onMount } from "solid-js";
-import { hintsFor, LEADER, shortcutLabel } from "./chords";
+import { hintsFor, LEADER, shortcutLabel, LEADER_ROWS } from "./chords";
 import type { HintPlace } from "./chords";
 import { copy } from "./copy";
 import { captureActions, endLeader, leaderArmed, modalOpen } from "./registry";
@@ -32,7 +32,7 @@ export const HintLine = () => {
     if (leaderArmed()) {
       const available = actions();
 
-      return LEADER.filter(key => {
+      return LEADER_ROWS.filter(key => {
         const matches = available.filter(row => row.value === `action:leader:${key.keys}`);
 
         return matches.some(action => action.available());

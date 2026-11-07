@@ -1,4 +1,4 @@
-import { shortcutLabel } from "../keys/chords";
+import { shortcutLabel, CHORD_ROWS } from "../keys/chords";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
@@ -6,7 +6,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { AppSettings } from "./AppSettings";
 import { appSettings, saveAppSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
-import { ACTION_ROWS, CHORDS, HELP_ROWS, type Chord } from "../keys/chords";
+import { ACTION_ROWS, CHORDS, type ChordName, HELP_ROWS, type Chord } from "../keys/chords";
 import { copy } from "./copy";
 
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await saveAppSettings({ shortcuts: {}, quickAdd: "meta+shift+KeyT" }); localStorage.clear(); });
@@ -28,11 +28,11 @@ const mount = async () => {
 };
 
 // SAFETY: every name passed is one of the table's own rows.
-const chord = (name: string) => CHORDS.find(row => row.name === name)!;
+const chord = (name: ChordName) => CHORDS[name];
 
 const press = (code: string, mods: KeyboardEventInit) => fireEvent.keyDown(window, { code, key: code.replace(/^Key/, "").toLowerCase(), ...mods });
 
-const rowOf = (view: ReturnType<typeof within>, name: string) => view.getByRole("button", { name: new RegExp(`^${chord(name).what}`) });
+const rowOf = (view: ReturnType<typeof within>, name: ChordName) => view.getByRole("button", { name: new RegExp(`^${chord(name).what}`) });
 
 const freeTShift = () => saveAppSettings({ quickAdd: "meta+shift+KeyY" });
 
@@ -46,17 +46,13 @@ it("u5239a_one_row_per_named_action_with_its_label_and_keys", async () => {
 
 it("u5239a_a_new_table_entry_gets_a_row", async () => {
   const added = { name: "test.added", keys: shortcutLabel("meta+Digit9"), what: "Added by a test", presses: [] } satisfies Chord;
-  // SAFETY: the tables are readonly views of arrays; the test adds and removes one row.
-  (CHORDS as Chord[]).push(added);
-  // SAFETY: as above.
+  // SAFETY: the table is a readonly view of an array; the test adds and removes one row.
   (ACTION_ROWS as Chord[]).push(added);
 
   try {
     expect((await mount()).view.getByText(added.what)).toBeTruthy();
   } finally {
     // SAFETY: removes the row pushed above.
-    (CHORDS as Chord[]).pop();
-    // SAFETY: as above.
     (ACTION_ROWS as Chord[]).pop();
   }
 });
@@ -148,7 +144,7 @@ it("u5239d_the_terminal_sweep_holds_with_overrides", async () => {
   press("KeyT", { metaKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().shortcuts["terminal.new"]).toBe("meta+shift+KeyT"));
 
-  const appScope = CHORDS.filter(row => row.name !== "todo.capture" && !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor).flatMap(row => row.presses);
+  const appScope = CHORD_ROWS.filter(row => row.name !== "todo.capture" && !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor).flatMap(row => row.presses);
 
   expect(appScope).toContain("meta+shift+KeyT");
   expect(appScope).not.toContain("meta+KeyT");

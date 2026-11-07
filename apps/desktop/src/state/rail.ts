@@ -145,7 +145,8 @@ export const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace)
   // Siblings show in `order`, so the new sequence renumbers it.
   const sequence = moved.flatMap(each => each.parent === place.parent ? [each.id] : []);
 
-  return moved.map(each => each.parent === place.parent ? { ...each, order: sequence.indexOf(each.id) } : each);
+  // U3800d: a sibling whose number is unchanged stays the same object, so the Rail redraws only what the move changed.
+  return moved.map(each => each.parent === place.parent && each.order !== sequence.indexOf(each.id) ? { ...each, order: sequence.indexOf(each.id) } : each);
 };
 
 /** The Daemon's own `starting` Status, drawn before it reports one. */

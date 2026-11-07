@@ -7,7 +7,7 @@ version.workspace = true
 [dependencies]
 contracts = { path = "../contracts" }
 rusqlite.workspace = true
-rusqlite_migration.workspace = true
+storage = { path = "../storage" }
 time = "0.3.55"
 
 [lints]

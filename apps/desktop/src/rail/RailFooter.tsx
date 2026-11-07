@@ -6,7 +6,7 @@ import { dismissable, ReservedLine, type Dismissible } from "../ink/ReservedLine
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
 import { KeyChip } from "../keys/KeyChip";
-import { ariaChord, chordNamed } from "../keys/chords";
+import { ariaChord, CHORDS } from "../keys/chords";
 import { activationSource, captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
@@ -49,9 +49,9 @@ export const RailFooter = (props: {
   const [pointer, setPointer] = createSignal(false);
 
   const choices = [
-    { kind: "agent", name: "agent.new", label: copy.addAgentWord.trim(), run: () => captureActions(document.activeElement).find(action => action.name === "agent.new")?.run() },
-    { kind: "workstream", name: "workstream.new", label: copy.addWorkstreamWord.trim(), run: createWorkstream },
-    { kind: "mode", name: "mode.new", label: copy.modeWord, run: props.openCreateMode },
+    { kind: "agent", name: "agent.new" as const, label: copy.addAgentWord.trim(), run: () => captureActions(document.activeElement).find(action => action.name === "agent.new")?.run() },
+    { kind: "workstream", name: "workstream.new" as const, label: copy.addWorkstreamWord.trim(), run: createWorkstream },
+    { kind: "mode", name: "mode.new" as const, label: copy.modeWord, run: props.openCreateMode },
   ] as const;
 
   return (
@@ -72,7 +72,7 @@ export const RailFooter = (props: {
             <Menu.Trigger onPointerDown={() => setPointer(true)} onKeyDown={() => setPointer(false)} onClick={event => setPointer(activationSource(event) === "pointer")} data-button="add" aria-label={copy.create} aria-disabled={canSpawn() ? undefined : true}><Icon name="plus" /></Menu.Trigger>
             <Portal><Menu.Positioner><Menu.Content aria-label={copy.create} class="rail-create-menu" data-pointer={pointer() || undefined}>
               <For each={choices}>{choice => {
-                const chord = () => chordNamed(choice.name)!;
+                const chord = () => CHORDS[choice.name];
 
                 return <Menu.Item value={choice.kind} disabled={!canSpawn()} aria-keyshortcuts={ariaChord(chord())}><Icon name={KIND_ICON[choice.kind]} />{choice.label}<KeyChip keys={chord().keys} /></Menu.Item>;
               }}</For>
