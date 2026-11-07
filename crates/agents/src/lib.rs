@@ -108,6 +108,10 @@ struct Shared {
     /// Milliseconds since the Unix epoch. Adapters stamp Statuses with it and the watchers time
     /// Ticks by it, so the two never disagree about when a hold ends.
     clock: Clock,
+    /// The Daemon's `SHELL`, read once when the store opens.
+    shell: String,
+    /// The Daemon's `ROUNDUP_MCP` (M2219), read once when the store opens.
+    mcp_env: Option<std::ffi::OsString>,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
     /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
