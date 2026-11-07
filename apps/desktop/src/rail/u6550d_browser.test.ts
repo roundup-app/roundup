@@ -64,7 +64,7 @@ it("u6550d_escape_after_a_pointer_lift_slides_each_row_once", async () => {
   expect(moved.length).toBeGreaterThan(0);
 
   for (const row of rows) {
-    // The held Workstream is the pointer's, not a row the lift moved.
+    // The lifted Workstream is the pointer's, not a row the lift moved.
     if (row.id === "backend" || !(row.id in lifted)) continue;
     const slid = Math.abs(lifted[row.id]! - row.layout) >= 1;
 
