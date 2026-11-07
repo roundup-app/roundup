@@ -660,6 +660,7 @@
   opacity: 1;
   pointer-events: auto;
 }
+.rail-row[data-lifted="true"]:is(:hover, :focus-within) :is(.row-icons, .row-controls) { opacity: 0; pointer-events: none; } /* U6550a: a lifted row shows its folded count with no control over it. */
 .rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 

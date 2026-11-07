@@ -178,7 +178,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   const endCompose = () => setComposing(false);
 
-  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id));
+  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id), () => container());
 
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
@@ -328,14 +328,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     const ids = nodeIds();
     const next = ids[ids.indexOf(node.id) + 1] ?? ids[ids.indexOf(node.id) - 1];
-    menu.requestRemove(node, rail.exitOf(node), () => {
+    menu.requestRemove(node, rail.exitOf(node), () => untrack(() => {
       if (next === undefined || rail.selected() !== node.id && !selection.selection.isSelected(node.id)) return;
 
       selection.selection.replace(next);
       anchorAt(next);
       rail.select(next);
       focusRow(next);
-    });
+    }));
   };
 
   const openMenuAtFocusedRow = (press: KeyboardEvent) => {
@@ -729,7 +729,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
             return content ? content.getBoundingClientRect().left - element.getBoundingClientRect().left : 0;
           },
-          nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
+          ...dropRules,
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
           accepts: () => !pointerOutside(),
@@ -793,11 +793,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                             failure.show(message, id, "rail", () => setEditingName(id));
                           }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
-                          onRename={async (name) => {
-                            await rail.rename(view().node.id, name);
-                            failure.acknowledge(view().node.id);
+                          onRename={(name) => {
+                            const id = view().node.id;
+
+                            return rail.rename(id, name).then(() => failure.acknowledge(id));
                           }}
-                          lifted={parts.isDragging()}
+                          lifted={parts.isDragging()} folded={lifted() === view().node.id}
                           sortRef={parts.ref}
                           handleRef={parts.handleRef}
                           draggable={daemonExit() === null}
@@ -848,7 +849,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         setCreatingMode(false);
         // The arriving Door must not reuse the selection permission to take focus from this row.
         const focus = rail.terminalFocus();
-        queueMicrotask(() => focus(() => rowElement(id)?.focus({ preventScroll: true })));
+        queueMicrotask(() => untrack(() => focus(() => rowElement(id)?.focus({ preventScroll: true }))));
         void menu.restartSession(id, request);
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />

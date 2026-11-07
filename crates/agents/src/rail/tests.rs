@@ -250,6 +250,46 @@ fn a16_a_groups_delete_failing_after_a_successful_move_rolls_both_back() {
     assert_eq!(found.parent.as_deref(), Some(group.id.as_str()));
 }
 
+/// U6550c: the App reads `apps/desktop/src/rail/placement.json` to show only drops the Daemon takes; it agrees with `check_parent` for every kind pair.
+#[test]
+fn u6550c_placement_table_is_check_parent() {
+    let table: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../apps/desktop/src/rail/placement.json"
+    ))
+    .unwrap();
+    let make = |rail: &mut Rail, kind: NodeKind, name: &str| {
+        let leaf = (kind == NodeKind::Agent).then_some("1");
+        rail.insert(kind, name, None, leaf).unwrap().id
+    };
+    let kinds = [
+        (NodeKind::Workstream, "workstream"),
+        (NodeKind::Group, "group"),
+        (NodeKind::Agent, "agent"),
+    ];
+    for (kind, name) in kinds {
+        for (parent_kind, parent_name) in kinds {
+            let (_dir, mut rail) = rail();
+            let id = make(&mut rail, kind, "moved");
+            let parent = make(&mut rail, parent_kind, "parent");
+            let moved = rail.move_node(&id, Some(&parent), 0).is_ok();
+            let rule = &table[name][parent_name];
+            assert_eq!(
+                moved,
+                rule != &serde_json::Value::Bool(false),
+                "{name} under {parent_name}"
+            );
+        }
+    }
+    // "chain": a Workstream under a Group takes it only while every ancestor of that Group is a Group.
+    let (_dir, mut rail) = rail();
+    let workstream = make(&mut rail, NodeKind::Workstream, "holder");
+    let group = make(&mut rail, NodeKind::Group, "inner");
+    let moved = make(&mut rail, NodeKind::Workstream, "moved");
+    rail.move_node(&group, Some(&workstream), 0).unwrap();
+    assert_eq!(table["workstream"]["group"], "chain");
+    assert!(rail.move_node(&moved, Some(&group), 0).is_err());
+}
+
 fn code_of(error: super::StoreError) -> i64 {
     rpc::RpcError::from(error).code
 }
