@@ -563,7 +563,8 @@ async fn b49_a_5000_byte_summary_gives_a_note_of_at_most_600_bytes() {
         "{}",
         last.len()
     );
-    assert!(last.len() > 500, "{}", last.len());
+    // DTC2: quiet notes waiting before the end note make its rollup hold B19's 120-byte `last`.
+    assert!(last.len() >= 100, "{}", last.len());
     assert!(entry_text_of(&note).len() <= 1024, "{}", note.len());
 }
 
