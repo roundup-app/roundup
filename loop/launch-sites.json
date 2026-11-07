@@ -891,6 +891,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/tests/dcr1_cut_off_jobs.rs": {
+    "cleanup": "In-process test runtime owns the Daemon and its socket; the TempDir closes after both.",
+    "data": "Daemon opened with an explicit TempDir data path through test_support; no production fallback resolver.",
+    "kind": "in-process"
+  },
   "crates/rupd/tests/dcl2_workstream_state.rs": {
     "cleanup": "The shared rupd harness's Drop stops the Daemon before the owned data directory closes.",
     "data": "Absolute caller-owned TempDir override through the shared harness; no later environment override.",
