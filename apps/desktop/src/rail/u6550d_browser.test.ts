@@ -26,7 +26,7 @@ const mouse = (action: "move" | "down" | "up", x = pointer.x, y = pointer.y) => 
 
 const handle = (id: string) => read<{ x: number; y: number }>(`(() => { const r = document.querySelector('.rail-row[data-id="${id}"] .sortable-handle').getBoundingClientRect(); return { x: r.x + Math.min(8, r.width / 2), y: r.y + r.height / 2 }; })()`);
 
-type Slide = { id: string; translates: number; shift: number; layout: number };
+type Slide = { id: string; translates: number; from: number | null; layout: number };
 
 it("u6550d_escape_after_a_pointer_lift_slides_each_row_once", async () => {
   await page.scheme("light");
@@ -52,33 +52,28 @@ it("u6550d_escape_after_a_pointer_lift_slides_each_row_once", async () => {
 
   const rows = await read<Slide[]>(`[...document.querySelectorAll('.rail-row[data-id]')].map(row => {
     const translates = row.getAnimations().filter(a => a.effect instanceof KeyframeEffect && a.effect.getKeyframes().some(frame => "translate" in frame));
-    const shift = new DOMMatrix(getComputedStyle(row).transform).m42;
-    return { id: row.dataset.id, translates: translates.length, shift, layout: row.getBoundingClientRect().top - shift };
+    const now = parseFloat(getComputedStyle(row).translate.split(" ")[1] ?? "0") || 0;
+    const first = translates[0]?.effect.getKeyframes()[0].translate;
+    return { id: row.dataset.id, translates: translates.length, from: first === undefined ? null : parseFloat(String(first).split(" ")[1]), layout: row.getBoundingClientRect().top - now };
   })`);
 
-  const moved = rows.filter(row => row.id !== "backend" && row.layout < 800 && row.id in lifted && Math.abs(lifted[row.id]! - row.layout) >= 20);
+  const moved = rows.filter(row => row.id !== "backend" && row.id in lifted && Math.abs(lifted[row.id]! - row.layout) >= 1);
 
-  // U6550d: the Escape fold is one Motion layout projection (U6398a), never a second translate.
+  // U6550d commissions this assertion: each row's translate animations after Escape.
   // oxlint-disable-next-line anti-slop/no-new-web-assertions
   expect(moved.length).toBeGreaterThan(0);
 
-  for (const row of moved) {
-    const back = lifted[row.id]! - row.layout;
+  for (const row of rows) {
+    // The lifted Workstream is the pointer's, not a row the lift moved.
+    if (row.id === "backend" || !(row.id in lifted)) continue;
+    const slid = Math.abs(lifted[row.id]! - row.layout) >= 1;
 
-    // A row the sortable displaced slides by its own single translate (the projection on it is a sub-pixel remainder); every other moved row is projected, never both.
-    if (row.translates > 0) {
-      // oxlint-disable-next-line anti-slop/no-new-web-assertions
-      expect(row.translates, row.id).toBe(1);
-      // oxlint-disable-next-line anti-slop/no-new-web-assertions
-      expect(Math.abs(row.shift), row.id).toBeLessThan(3);
-      continue;
-    }
+    // oxlint-disable-next-line anti-slop/no-new-web-assertions
+    expect(row.translates, row.id).toBe(slid ? 1 : 0);
 
-    // The projection starts at the place the row was drawn and has run toward the new place: same side, never past the lift.
+    if (!slid) continue;
     // oxlint-disable-next-line anti-slop/no-new-web-assertions
-    expect(Math.sign(row.shift), row.id).toBe(Math.sign(back));
-    // oxlint-disable-next-line anti-slop/no-new-web-assertions
-    expect(Math.abs(row.shift), row.id).toBeLessThanOrEqual(Math.abs(back) + 1.5);
+    expect(Math.abs(row.layout + row.from! - lifted[row.id]!), row.id).toBeLessThan(1.5);
   }
 
   expect(await read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move')`)).toEqual([]);
