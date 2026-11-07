@@ -34,7 +34,7 @@ export type CopyValue = string | number | undefined;
 export const labels = new Map([
   ["held", "held alerts"], ["open-tab", "the selected Project"], ["tab-order", "the Project tab order"], ["project-alerts", "Project alert levels"], ["unseen", "read markers"], ["drafts", "unfinished work"],
   ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
-  ["widths", "panel widths"], ["shelf", "work item layout"], ["terminal-font", "Terminal text size"],
+  ["viewer", "panel layout"],
  ]);
 
 export const copy = {

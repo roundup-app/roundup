@@ -11,7 +11,7 @@ beforeAll(async () => {
   page = await openPage(chrome);
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=resources", 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
-  await page.call(`() => localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({open: false, tab: "todos"}))`);
+  await page.call(`() => localStorage.setItem("roundup:viewer", JSON.stringify({frame: {open: false, tab: "todos"}}))`);
 }, 90_000);
 
 afterAll(async () => { await page?.close(); });

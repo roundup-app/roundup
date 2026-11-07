@@ -117,7 +117,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       const { useBrowserStorage } = await import('/src/state/storage.ts');
       await Promise.all(['/src/tokens.css', '/src/styles.css', '/src/scrollbar.css'].map(path => import(path)));
       // Restore Pads directly so the unused default Todos tab never mounts.
-      localStorage.setItem(${JSON.stringify(`roundup:shelf:${real.dir}`)}, JSON.stringify({ open: true, tab: 'pads', maximised: false }));
+      localStorage.setItem('roundup:viewer', JSON.stringify({ frame: { open: true, tab: 'pads', maximised: false } }));
       useBrowserStorage(localStorage);
       const served = createServedApp(location.origin);
       const app = { ...served, ask: async () => true, closeProject: async () => {}, chooseProjectPath: async () => ${JSON.stringify(real.dir)} };

@@ -78,7 +78,7 @@ it("u4547a_heading_actions_change_only_the_named_section", async () => {
   expect(app.calls).toEqual([]);
 });
 
-it("u4547a_section_state_survives_reopen_per_project", async () => {
+it("u4547a_section_state_survives_reopen_for_every_project", async () => {
   const reopen = async (path: string) => {
     const app = createFakeApp();
     app.opened.project = { name: "Project", path };
@@ -95,12 +95,12 @@ it("u4547a_section_state_survives_reopen_per_project", async () => {
   await settled();
   cleanup();
   await reopen("/other");
-  expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["true", "true", "true"]);
+  expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["false", "true", "false"]);
   fireEvent.click(heading(1));
   await settled();
   cleanup();
   await reopen("/p");
-  await waitFor(() => expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["false", "true", "false"]));
+  await waitFor(() => expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["false", "false", "false"]));
   fireEvent.click(heading(0));
   await settled();
   expect(rowOf("plain").closest('[role=treeitem]')?.getAttribute("aria-expanded")).toBe("false");

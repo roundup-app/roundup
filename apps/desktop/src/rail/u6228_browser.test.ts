@@ -10,7 +10,7 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 
 const META = 4;
 
-const KEY = "roundup:widths:/Users/you/harness";
+const KEY = "roundup:viewer";
 
 let page: ChromePage;
 

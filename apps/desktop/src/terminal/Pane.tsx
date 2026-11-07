@@ -2,7 +2,7 @@ import { siblingsOf } from "../rail/layout";
 import { EmptyState } from "../ink/EmptyState";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
-import { appSettings } from "../settings/preferences";
+import { appSettings, saveAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
 import { layoutMoving } from "../resize/motion";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
@@ -17,7 +17,7 @@ import { captureActions } from "../keys/registry";
 import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
-import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
+import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "./fontSize";
 import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
@@ -31,13 +31,11 @@ import "./styles.css";
 export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined; openObject?: ((url: string, surface: string) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
-  const storage = fontSizeStorage(connected.project.path);
   let fontSize: number | undefined;
-  let zoomed = storage.read() !== null;
   const createEmulator = props.createEmulator ?? lazyXtermEmulators();
 
   const screens = createScreens(connected, (id, copy) => {
-    fontSize ??= storage.read() ?? appSettings().fontSize;
+    fontSize ??= appSettings().fontSize;
     const emulator = createEmulator(id, copy);
 
     emulator.setFontSize(fontSize);
@@ -46,7 +44,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   }, props.openObject);
 
   createEffect(on(() => appSettings().fontSize, size => {
-    if (!zoomed) { fontSize = size; screens.setFontSize(size); refitNextFrame(); }
+    fontSize = size;
+    screens.setFontSize(size);
+    refitNextFrame();
   }, { defer: true }));
 
   createEffect(on(() => appSettings().fontFamily, () => refitNextFrame(), { defer: true }));
@@ -203,14 +203,13 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   };
 
   const resize = (key: "grow" | "shrink" | "reset") => (): void => {
-    const next = key === "reset" ? appSettings().fontSize : Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, (fontSize ?? appSettings().fontSize) + (key === "grow" ? 1 : -1)));
+    const next = key === "reset" ? DEFAULT_FONT_SIZE : Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, (fontSize ?? appSettings().fontSize) + (key === "grow" ? 1 : -1)));
 
     if (next === fontSize && key !== "reset") return;
 
-    zoomed = key !== "reset";
     fontSize = next;
     screens.setFontSize(next);
-    void (zoomed ? storage.write(next) : storage.clear()).then(cause => { if (cause !== null) console.warn(copy.terminalZoomNotKept(cause)); });
+    void saveAppSettings({ fontSize: next }).then(cause => { if (cause !== null) console.warn(copy.terminalZoomNotKept(cause)); });
     refitNextFrame();
   };
 

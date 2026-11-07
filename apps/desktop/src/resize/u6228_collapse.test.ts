@@ -5,7 +5,7 @@ import { createWidths, STRIP_WIDTH } from "./widths";
 afterEach(() => localStorage.clear());
 
 it("u6228_collapse_is_kept_per_project_and_keeps_the_last_width", async () => {
-  const settled = () => vi.waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:widths:/a") ?? "null")).toMatchObject({ collapsed: true }));
+  const settled = () => vi.waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")).toMatchObject({ collapsed: true }));
 
   await createRoot(async (dispose) => {
     const [path, setPath] = createSignal<string | null>("/a");

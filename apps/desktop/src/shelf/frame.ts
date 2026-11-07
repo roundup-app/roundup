@@ -1,9 +1,8 @@
 import type { ActivationSource } from "../keys/registry";
 import { batch, createComputed, createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
-import * as v from "valibot";
 import { copy } from "./copy";
-import { storageSchema, storedValue } from "../state/storage";
+import { saveViewer, viewer } from "../resize/viewer";
 import { createSlideLifetime } from "../ui/slideLifetime";
 
 /** U4708: the PADS tab and each Pad row draw this one icon. */
@@ -15,15 +14,6 @@ export const SHELF_TABS = [
 ] as const;
 
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
-
-const frameSchema = storageSchema("roundup:shelf", v.object({
-  maximised: v.optional(v.boolean(), true),
-  open: v.optional(v.boolean()),
-  tab: v.optional(v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos")),
-}));
-
-/** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open; a surface with no stored size starts as `maximisedByDefault` says (U4698a). */
-const storageOf = (path: string, surface: string) => storedValue(surface === "shelf" ? `roundup:shelf:${path}` : `roundup:shelf:${path}:${surface}`, frameSchema);
 
 /** U6224: closed, peeking in from the trailing edge without being used, or open. */
 type ShelfPhase = "closed" | "peeking" | "open";
@@ -59,7 +49,7 @@ export type ShelfFrame = {
   settle: () => void;
 };
 
-/** U370, U373: the Shelf's open state and open tab for the active Project, restored in the frame the Project first shows. */
+/** U370, U373: the Shelf's open state and open tab, one record for every Project, so a Project switch changes none of them. */
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: (() => void) | undefined, initialOpen = true, surface: Accessor<string> = () => "shelf", maximisedByDefault: (surface: string) => boolean = () => false): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
   const [phase, setPhase] = createSignal<ShelfPhase>(initialOpen ? "open" : "closed");
@@ -73,24 +63,17 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
 
-  const memory = new Map<string, { maximised: boolean; open?: boolean; tab?: ShelfTab }>();
-
   const save = () => {
-    const at = path();
+    if (path() === null) return;
 
-    if (at !== null) {
-      const value = surface() === "shelf"
-        ? { open: open(), tab: tab(), maximised: maximised() }
-        : { maximised: maximised() };
-
-      memory.set(JSON.stringify([at, surface()]), value);
-      void storageOf(at, surface()).write(value);
-    }
+    if (surface() === "shelf") saveViewer({ frame: { open: open(), tab: tab(), maximised: maximised() } });
+    else saveViewer({ surfaces: { ...viewer().surfaces, [surface()]: maximised() } });
   };
 
   createComputed(
     on(() => [path(), surface()] as const, ([at, side]) => {
-      const stored = at === null ? null : memory.get(JSON.stringify([at, side])) ?? storageOf(at, side).read();
+      const kept = at === null ? null : viewer();
+      const stored = kept === null ? null : side === "shelf" ? kept.frame : kept.surfaces[side] === undefined ? null : { maximised: kept.surfaces[side], open: undefined, tab: undefined };
       const restored = stored === null || stored === undefined ? initialOpen : stored.open ?? true;
 
       setMaximised(stored?.maximised ?? maximisedByDefault(side));
