@@ -4,7 +4,7 @@ impl Observation {
     /// The word a log line names this Observation by; a Signal by its vendor event.
     fn name(&self) -> &str {
         match self {
-            Self::Signal(payload) => claude_code::event_name(payload),
+            Self::Signal(payload) => claude_code::see(payload).name,
             Self::Title(_) => "title",
             Self::Tick => "tick",
             Self::Processes { .. } => "processes",
@@ -140,7 +140,7 @@ impl InboxState {
         let file = {
             let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
             // Each transcript owns its I/O lock; the registry never waits for a scan.
-            if let Some(path) = claude_code::inbox::transcript_of(payload) {
+            if let Some(path) = claude_code::see(payload).transcript {
                 let same = files.get(agent).is_some_and(|(known, _)| *known == path);
                 if !same {
                     self.watches
@@ -250,7 +250,8 @@ impl Shared {
     ) -> Result<Option<i64>, RpcError> {
         let name = self.rail().name(id)?;
         let first_prompt = match &observation {
-            Observation::Signal(payload) => claude_code::submitted_prompt(payload)
+            Observation::Signal(payload) => claude_code::see(payload)
+                .prompt
                 .filter(|prompt| !order::is_clarification_steer(prompt))
                 .map(name::from_prompt),
             _ => None,
@@ -355,7 +356,7 @@ impl Shared {
         let exited = matches!(observation, Observation::Exit { .. });
         // A4452a: coordination waits for SessionStart; no star gates it.
         let session_start = matches!(&observation, Observation::Signal(payload)
-            if claude_code::is_session_start(payload));
+            if claude_code::see(payload).session_start);
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
             run.note_session_start();
@@ -364,7 +365,7 @@ impl Shared {
             run.note_star();
         }
         if matches!(&observation, Observation::Signal(payload)
-            if claude_code::submitted_prompt(payload).is_some())
+            if claude_code::see(payload).prompt.is_some())
             && !run.input_started()
         {
             self.save_input_started(id, run.attempt())?;
@@ -372,7 +373,7 @@ impl Shared {
         }
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
         if matches!(&observation, Observation::Signal(payload)
-            if claude_code::submitted_prompt(payload).is_some())
+            if claude_code::see(payload).prompt.is_some())
             && run
                 .steer()
                 .and_then(|steer| steer.slash_written.as_ref())

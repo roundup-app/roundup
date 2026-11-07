@@ -58,6 +58,31 @@ pub mod worktree;
 use agent::{Run, Slot};
 use claude_code::{ClaudeCode, Launcher, Pair, Role};
 
+/// How a session began, as its adapter reports it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Source {
+    Resume,
+    Fork,
+    Other,
+}
+
+/// What the supervisor reads from one Signal, whatever the vendor: parsed once by the adapter
+/// (`claude_code::see`), so nothing outside it probes a payload.
+pub(crate) struct Seen<'a> {
+    /// The event the Signal names, or `Signal` when it names none.
+    pub(crate) name: &'a str,
+    /// The prompt a submission carries (empty when it carries none); `None` for any other Signal.
+    pub(crate) prompt: Option<&'a str>,
+    /// Whether the Signal readies a fresh Agent for its first prompt (H12).
+    pub(crate) session_start: bool,
+    /// A21: the conversation a session start names, accepted only as a UUID.
+    pub(crate) conversation: Option<&'a str>,
+    /// A22: how a session start says it began.
+    pub(crate) source: Option<Source>,
+    /// The transcript file the Signal names.
+    pub(crate) transcript: Option<std::path::PathBuf>,
+}
+
 /// One input an adapter reads about its Agent.
 pub enum Observation {
     /// A structured event the Agent's own tooling pushed; for Claude Code, a hook payload.

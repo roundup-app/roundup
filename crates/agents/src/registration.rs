@@ -48,7 +48,7 @@ impl Shared {
                 runs.insert(id.to_owned(), Slot::Running(run));
                 return Err(err);
             }
-            let first_prompt = claude_code::submitted_prompt(&payload).map(name::from_prompt);
+            let first_prompt = claude_code::see(&payload).prompt.map(name::from_prompt);
             // Logged, not panicked: a panic here would unwind while `rail` and `runs` are both
             // still locked, poisoning them and taking every later `rail()`/`runs()` call down
             // with it. `rail.node(id)` itself cannot be `NOT_FOUND` (a Starting id's Rail node is
@@ -279,8 +279,9 @@ impl Shared {
         // Only the matching ack may release the first prompt; a parked mismatched SessionStart
         // must not take it before the remembered title is applied below.
         for (parked_actor, parked_payload) in parked {
-            let first_prompt =
-                claude_code::submitted_prompt(&parked_payload).map(name::from_prompt);
+            let first_prompt = claude_code::see(&parked_payload)
+                .prompt
+                .map(name::from_prompt);
             if let Err(err) = self.apply(
                 Some(rail),
                 &mut run,
@@ -358,7 +359,7 @@ pub(super) fn save_signal_conversation(
     id: &str,
     payload: &Value,
 ) -> Result<(), RpcError> {
-    let Some(conversation_id) = claude_code::conversation_id(payload) else {
+    let Some(conversation_id) = claude_code::see(payload).conversation else {
         return Ok(());
     };
     rail.save_conversation(id, &conversation_id, run.cwd())?;
@@ -371,9 +372,10 @@ pub(super) fn save_signal_conversation(
 /// `--fork-session` (FOP5978c), so Claude Code sends source `fork` with a new conversation id,
 /// which becomes the Agent's saved conversation (U6266c).
 pub(super) fn is_resume_ack(payload: &Value, conversation_id: &str, forked: bool) -> bool {
-    match claude_code::session_source(payload) {
-        Some("resume") => claude_code::conversation_id(payload).as_deref() == Some(conversation_id),
-        Some("fork") => forked && claude_code::conversation_id(payload).is_some(),
+    let seen = claude_code::see(payload);
+    match seen.source {
+        Some(Source::Resume) => seen.conversation == Some(conversation_id),
+        Some(Source::Fork) => forked && seen.conversation.is_some(),
         _ => false,
     }
 }
