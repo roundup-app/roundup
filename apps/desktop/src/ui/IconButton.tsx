@@ -28,9 +28,13 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
   if (local.bare) return <button {...mergeProps({ type: "button" as const }, rest, { onClick: click })} data-button="icon" class={`word ${local.class ?? ""}`} />;
 
   // Tip: Escape belongs to the surrounding App surface; blur and pointer leave dismiss the name.
-  // SAFETY: `rest` holds only button attributes; the same props the trigger spreads onto a button, typed for HTMLElement.
   return <Tip text={local.tooltip ?? props["aria-label"]} chord={chord()}>
-    {(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { get "aria-keyshortcuts"() { return ariaChord(chord()); } }, { onClick: click }) as TriggerProps)} data-button="icon" class={`word ${local.class ?? ""}`} />}
+    {(trigger) => {
+      // SAFETY: `rest` holds only button attributes; the same props the trigger spreads onto a button, typed for HTMLElement.
+      const merged = mergeProps({ type: "button" as const }, rest, { get "aria-keyshortcuts"() { return ariaChord(chord()); } }, { onClick: click }) as TriggerProps;
+
+      return <button {...trigger(merged)} data-button="icon" class={`word ${local.class ?? ""}`} />;
+    }}
   </Tip>;
 };
 
