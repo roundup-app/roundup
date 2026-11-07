@@ -80,7 +80,11 @@ impl Todos {
         Ok(todo)
     }
 
-    pub(super) async fn set_blockers(&self, ctx: &Ctx, p: SetBlockersParams) -> Result<Todo, Error> {
+    pub(super) async fn set_blockers(
+        &self,
+        ctx: &Ctx,
+        p: SetBlockersParams,
+    ) -> Result<Todo, Error> {
         let store = self.store()?;
         let was_blocked = store.blocked_ids()?;
         store.get(p.id)?;

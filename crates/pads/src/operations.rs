@@ -10,7 +10,6 @@ use contracts::pad::{
 use contracts::{ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, OpenError};
 
-
 use crate::store::Store;
 use crate::{Pads, files, name, reference, section};
 
@@ -120,7 +119,11 @@ impl Pads {
     }
 
     /// P15: the revision check, the insertion and the write happen in one transaction, so of two callers with one expected revision only one succeeds.
-    pub(super) async fn append_section(&self, ctx: &Ctx, p: AppendSectionParams) -> Result<Pad, Error> {
+    pub(super) async fn append_section(
+        &self,
+        ctx: &Ctx,
+        p: AppendSectionParams,
+    ) -> Result<Pad, Error> {
         let store = self.store()?;
         get(&store, &p.name)?;
         let wanted = section::wanted(&p.heading);

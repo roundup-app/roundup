@@ -48,7 +48,11 @@ impl Terminals {
         self.kill(&p.id).await
     }
 
-    pub(super) async fn scheme_terminal(&self, _ctx: &Ctx, p: SchemeParams) -> Result<(), RpcError> {
+    pub(super) async fn scheme_terminal(
+        &self,
+        _ctx: &Ctx,
+        p: SchemeParams,
+    ) -> Result<(), RpcError> {
         self.set_scheme(p).await
     }
 

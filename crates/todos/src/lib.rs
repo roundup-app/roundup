@@ -74,7 +74,9 @@ impl Todos {
         id: u32,
         home: Option<String>,
     ) -> Result<contracts::todo::Todo, RpcError> {
-        Ok(self.move_to(ctx, contracts::todo::MoveParams { id, home }).await?)
+        Ok(self
+            .move_to(ctx, contracts::todo::MoveParams { id, home })
+            .await?)
     }
 
     /// `todo.assign`, unconditionally: the Daemon has checked the owner against the Rail (T17).

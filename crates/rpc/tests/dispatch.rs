@@ -65,6 +65,10 @@ async fn c6493b_bad_params_answer_invalid_params_without_calling_the_handler() {
         .await
         .unwrap_err();
     assert_eq!(err.code, code::INVALID_PARAMS);
-    assert!(err.message.starts_with("invalid params: "), "{}", err.message);
+    assert!(
+        err.message.starts_with("invalid params: "),
+        "{}",
+        err.message
+    );
     assert_eq!(owner.calls.load(Ordering::SeqCst), 0);
 }

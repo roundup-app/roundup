@@ -56,7 +56,9 @@ impl Pads {
         home: Option<String>,
     ) -> Result<contracts::pad::Pad, RpcError> {
         let name = name.to_owned();
-        Ok(self.move_to(ctx, contracts::pad::MoveParams { name, home }).await?)
+        Ok(self
+            .move_to(ctx, contracts::pad::MoveParams { name, home })
+            .await?)
     }
 }
 

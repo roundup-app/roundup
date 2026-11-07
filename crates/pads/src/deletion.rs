@@ -230,7 +230,11 @@ impl Pads {
         Ok(receipt)
     }
 
-    pub(super) async fn redo_delete(&self, ctx: &Ctx, p: RedoDeleteParams) -> Result<Deletion, Error> {
+    pub(super) async fn redo_delete(
+        &self,
+        ctx: &Ctx,
+        p: RedoDeleteParams,
+    ) -> Result<Deletion, Error> {
         let store = self.store()?;
         let mut files = RemovalFiles::default();
         let (receipt, changed) = store.atomically(|| {
@@ -317,7 +321,11 @@ impl Pads {
         Ok(receipt)
     }
 
-    pub(super) async fn get_deletion(&self, ctx: &Ctx, id: GetDeletionParams) -> Result<Deletion, Error> {
+    pub(super) async fn get_deletion(
+        &self,
+        ctx: &Ctx,
+        id: GetDeletionParams,
+    ) -> Result<Deletion, Error> {
         let store = self.store()?;
         let receipt = operation(&store.db, &id.operation, &ctx.actor)?
             .map(|(receipt, _)| receipt)
