@@ -182,6 +182,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         terminal_output_stop,
         open_target,
         open_in_editor,
+        list_editors,
         alert::state_alert,
         save_pasted_image,
         feedback::feedback_capture,
@@ -431,16 +432,35 @@ fn terminal_output_stop(
 }
 
 #[tauri::command]
-fn open_target(target: open::Target) -> Result<(), RpcError> {
-    open::launch(&open::check(target)?)
+async fn open_target(target: open::Target, editor: Option<String>) -> Result<(), RpcError> {
+    // LaunchServices discovery waits for the system, so it must not block the window's event loop.
+    tauri::async_runtime::spawn_blocking(move || {
+        open::launch(&open::check(target)?, editor.as_deref())
+    })
+    .await
+    .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
+}
+
+/// U6372a: the code editors of the Settings choice that are installed.
+#[tauri::command]
+async fn list_editors() -> Result<Vec<open::EditorChoice>, RpcError> {
+    tauri::async_runtime::spawn_blocking(open::installed_editors)
+        .await
+        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))
 }
 
 #[tauri::command]
-async fn open_in_editor(path: String, line: Option<u32>) -> Result<(), RpcError> {
+async fn open_in_editor(
+    path: String,
+    line: Option<u32>,
+    editor: Option<String>,
+) -> Result<(), RpcError> {
     // LaunchServices discovery waits for the system, so it must not block the window's event loop.
-    tauri::async_runtime::spawn_blocking(move || open::open_in_editor(&path, line))
-        .await
-        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
+    tauri::async_runtime::spawn_blocking(move || {
+        open::open_in_editor(&path, line, editor.as_deref())
+    })
+    .await
+    .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
 }
 
 /// The image's bytes are the request body and its media type the `type` header, so no byte list crosses as JSON.

@@ -55,7 +55,7 @@ describe("u427 a Workstream row's icons", () => {
 
   it("u429_the_rail_shows_a_missing_editor_in_one_failure_line", async () => {
     const mounted = await mountRail([workstream("g")]);
-    mounted.app.editorFailure = new RpcError(-32001, "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR");
+    mounted.app.editorFailure = new RpcError(-32001, "no code editor found; choose one in Settings");
 
     await chooseAction(mounted.app, "g", "Open in editor");
 
