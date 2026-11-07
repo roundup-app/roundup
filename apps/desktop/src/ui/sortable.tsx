@@ -14,10 +14,11 @@ import { CollisionPriority, CollisionType, type CollisionDetector, type UniqueId
 import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers";
 import { showPopover } from "@dnd-kit/dom/utilities";
 import { effect } from "@dnd-kit/state";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { createContext, createEffect, createMemo, mergeProps, on, onCleanup, splitProps, useContext, type JSX } from "solid-js";
+import { createContext, createEffect, createMemo, mergeProps, on, onCleanup, splitProps, untrack, useContext, type JSX } from "solid-js";
 
 /** Past this many pixels outside the list the preview shows no move; back inside the lower gap it follows again. */
 const FAR_OUT_PX = 56;
@@ -313,6 +314,16 @@ const swallowNextClick = (): (() => void) => {
   return forget;
 };
 
+/**
+ * In a tree the lift motion slides the rows once the Rail has redrawn, from where each one shows. The library's own index slide
+ * starts from that motion's offset plus its own measure and would double it, so a tree's cancel stops the library's slides.
+ */
+const stopLibrarySlides = (source: Draggable | null, tree: SortableTree | undefined) => {
+  if (!tree) return;
+
+  for (const draggable of source?.manager?.registry.draggables ?? []) if (isSortable(draggable)) draggable.sortable.transition = null;
+};
+
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children"]);
@@ -320,7 +331,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let list: HTMLDivElement | undefined;
   let stopTracking: (() => void) | undefined;
   let stopPointer: (() => void) | undefined;
-  const slots = fixedSlots(local.horizontal ? "x" : "y", () => list, !!local.tree);
+  const slots = untrack(() => fixedSlots(local.horizontal ? "x" : "y", () => list, !!local.tree));
 
   // A drop shows its new order at once: the dragged row settles into the slot and waits there until the list itself shows the order, or the Daemon refuses.
   // The move itself runs once the row has landed (`run`): a list that redraws on a move then blocks no frame of the settle.
@@ -565,8 +576,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       preview(keyDrop(tree, dragged, keyboard));
     };
 
-    window.addEventListener("keydown", turn, { capture: true });
-    stopListening = () => window.removeEventListener("keydown", turn, { capture: true });
+    stopListening = makeEventListener(window, "keydown", turn, { capture: true });
   };
 
   /** The pose callback of a pointer drag of `source`: the other rows follow the pointer, sliding when the far zone flips or, where the owner refuses slots, from slot to slot. */
@@ -837,9 +847,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     // A pointer release that commits nothing sends the other rows back.
     const relax = () => {
+      stopLibrarySlides(source, tree);
       tree?.onLift?.(null, !pointerDrag);
 
-      // A tree's lift motion slides the rows from where they show once the Rail has redrawn; a slide from the old shift here would add to it.
       if (pointerDrag) { place(others(source).map(({ element }) => ({ element, shift: 0 })), !tree); reclipAfterSlide(); }
     };
 
@@ -919,9 +929,9 @@ const Item = (props: ItemProps) => {
   const slots = useContext(SlotsContext);
   // A keyboard drag's next target skips the rows whose index the owner refuses: the library then moves the row to the next index it takes.
   const accept = slots ? { accept: (): boolean => slots.takes(sortable.sortable.index) } : {};
-  const sortable = useSortable(mergeProps(props, { transition: { duration: 0 } }, slots ? { collisionDetector: slots } : {}, accept, props.pressable ? { sensors: [pointerSensor()] } : {}));
+  const sortable = useSortable(untrack(() => mergeProps(props, { transition: { duration: 0 } }, slots ? { collisionDetector: slots } : {}, accept, props.pressable ? { sensors: [pointerSensor()] } : {})));
 
-  return props.children(sortable);
+  return untrack(() => props.children(sortable));
 };
 
 /** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. */
