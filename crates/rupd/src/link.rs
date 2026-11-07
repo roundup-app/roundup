@@ -3,7 +3,7 @@
 
 use contracts::link::{LinkContent, LinkUrl};
 use contracts::{ActorKind, agent, deliverable, pad, terminal, todo};
-use rpc::{RpcError, code, params};
+use rpc::{RpcError, code};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
@@ -94,8 +94,11 @@ fn parse(url: &str) -> Result<(Target, String, Option<String>), RpcError> {
 }
 
 impl Daemon {
-    pub(crate) async fn link_read(&self, conn: &mut Conn, args: Value) -> Result<Value, RpcError> {
-        let LinkUrl { url } = params(args)?;
+    pub(crate) async fn link_read(
+        &self,
+        conn: &mut Conn,
+        LinkUrl { url }: LinkUrl,
+    ) -> Result<LinkContent, RpcError> {
         let (target, key, heading) = parse(&url)?;
         // Publications carry their stored Project identity; their reader checks it rather than
         // the current-content link key, so neither identity can substitute for the other.
@@ -190,7 +193,7 @@ impl Daemon {
                 LinkContent::Workstream { id, node, children }
             }
         };
-        rpc::reply(&content)
+        Ok(content)
     }
 
     /// The Rail row of `id`, when it is a Workstream (`workstream`) or an Agent.

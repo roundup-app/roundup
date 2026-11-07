@@ -2,53 +2,96 @@
 
 use contracts::describe::{self, DescribeParams};
 use contracts::methods;
-use contracts::{HistoryParams, IdentifyParams, SubscribeParams, TouchedParams};
-use rpc::{RpcError, params, reply};
-use serde_json::{Value, json};
+use contracts::{HistoryParams, IdentifyParams, SubscribeParams, SubscribeResult, TouchedParams};
+use rpc::RpcError;
+use serde_json::json;
 
 use crate::{Conn, Daemon};
 
-/// `None` means the namespace is not the Daemon's; route it to a module.
-pub(crate) fn call(
-    daemon: &Daemon,
-    conn: &mut Conn,
-    namespace: &str,
-    method: &str,
-    args: &Value,
-) -> Option<Result<Value, RpcError>> {
-    Some(match (namespace, method) {
-        (_, "daemon.ping") => serde_json::from_str(&ping_json(daemon)).map_err(RpcError::internal),
-        (_, "daemon.methods") => Ok(json!(methods::method_names())),
-        (_, "api.list") => reply(&describe::list()),
-        (_, "api.describe") => params::<DescribeParams>(args.clone()).and_then(|p| {
-            let described = describe::describe(&p.method).map_err(|closest| {
-                let hint = closest.map_or_else(String::new, |name| format!("; closest: {name}"));
-                RpcError::new(
-                    rpc::code::METHOD_NOT_FOUND,
-                    format!("method not found: {}{hint}", p.method),
-                )
-            })?;
-            reply(&described)
-        }),
-        (_, "daemon.identify") => params::<IdentifyParams>(args.clone()).map(|p| {
-            conn.actor = p.actor;
-            Value::Null
-        }),
-        (_, "events.subscribe") => subscribe(daemon, conn, args),
-        (_, "provenance.history") => params::<HistoryParams>(args.clone())
-            .and_then(|p| daemon.touches.history(&p.item).map_err(RpcError::internal))
-            .and_then(|touches| reply(&touches)),
-        (_, "provenance.touched") => params::<TouchedParams>(args.clone())
-            .and_then(|p| {
-                daemon
-                    .touches
-                    .touched(&p.actor_id)
-                    .map_err(RpcError::internal)
-            })
-            .and_then(|touches| reply(&touches)),
-        ("daemon" | "api" | "events" | "provenance", _) => Err(RpcError::method_not_found(method)),
-        _ => return None,
-    })
+impl Daemon {
+    pub(crate) async fn daemon_ping(&self, _conn: &mut Conn) -> Result<contracts::Ping, RpcError> {
+        serde_json::from_str(&ping_json(self)).map_err(RpcError::internal)
+    }
+
+    pub(crate) async fn daemon_methods(&self, _conn: &mut Conn) -> Result<Vec<String>, RpcError> {
+        Ok(methods::method_names()
+            .into_iter()
+            .map(String::from)
+            .collect())
+    }
+
+    pub(crate) async fn api_list(
+        &self,
+        _conn: &mut Conn,
+    ) -> Result<describe::MethodList, RpcError> {
+        Ok(describe::list())
+    }
+
+    pub(crate) async fn api_describe(
+        &self,
+        _conn: &mut Conn,
+        p: DescribeParams,
+    ) -> Result<describe::MethodDescription, RpcError> {
+        describe::describe(&p.method).map_err(|closest| {
+            let hint = closest.map_or_else(String::new, |name| format!("; closest: {name}"));
+            RpcError::new(
+                rpc::code::METHOD_NOT_FOUND,
+                format!("method not found: {}{hint}", p.method),
+            )
+        })
+    }
+
+    pub(crate) async fn daemon_identify(
+        &self,
+        conn: &mut Conn,
+        p: IdentifyParams,
+    ) -> Result<(), RpcError> {
+        conn.actor = p.actor;
+        Ok(())
+    }
+
+    pub(crate) async fn provenance_history(
+        &self,
+        _conn: &mut Conn,
+        p: HistoryParams,
+    ) -> Result<Vec<contracts::Touch>, RpcError> {
+        self.touches.history(&p.item).map_err(RpcError::internal)
+    }
+
+    pub(crate) async fn provenance_touched(
+        &self,
+        _conn: &mut Conn,
+        p: TouchedParams,
+    ) -> Result<Vec<contracts::Touch>, RpcError> {
+        self.touches
+            .touched(&p.actor_id)
+            .map_err(RpcError::internal)
+    }
+
+    /// D11: a bad `after` fails here, before any Event is sent.
+    pub(crate) async fn events_subscribe(
+        &self,
+        conn: &mut Conn,
+        params: Option<SubscribeParams>,
+    ) -> Result<SubscribeResult, RpcError> {
+        let mut events = self.bus.subscribe_after(params.unwrap_or_default())?;
+        let head = events.head();
+        let frames = conn.events.clone();
+        tokio::spawn(async move {
+            loop {
+                let event = tokio::select! {
+                    _ = frames.closed() => return,
+                    event = events.next() => event,
+                };
+                let Some(event) = event else { return };
+                let frame = json!({ "jsonrpc": "2.0", "method": "event", "params": event });
+                if frames.send(frame.into()).is_err() {
+                    return;
+                }
+            }
+        });
+        Ok(SubscribeResult { head })
+    }
 }
 
 /// R16: ping writes only the fingerprint; the A38 method list made each round trip
@@ -67,30 +110,4 @@ pub(crate) fn ping_json(daemon: &Daemon) -> String {
         json!(daemon.project_key),
         *CONTRACT,
     )
-}
-
-/// D11: a bad `after` fails here, before any Event is sent.
-fn subscribe(daemon: &Daemon, conn: &Conn, args: &Value) -> Result<Value, RpcError> {
-    let params: SubscribeParams = if args.is_null() {
-        SubscribeParams::default()
-    } else {
-        params(args.clone())?
-    };
-    let mut events = daemon.bus.subscribe_after(params)?;
-    let head = events.head();
-    let frames = conn.events.clone();
-    tokio::spawn(async move {
-        loop {
-            let event = tokio::select! {
-                _ = frames.closed() => return,
-                event = events.next() => event,
-            };
-            let Some(event) = event else { return };
-            let frame = json!({ "jsonrpc": "2.0", "method": "event", "params": event });
-            if frames.send(frame.into()).is_err() {
-                return;
-            }
-        }
-    });
-    Ok(json!({ "head": head }))
 }

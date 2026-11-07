@@ -55,7 +55,7 @@ use contracts::terminal::{
 };
 use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
-use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
+use rpc::{Bus, Ctx, Module, OpenError, RpcError, params};
 use serde_json::Value;
 use tokio::sync::{broadcast, watch};
 
@@ -838,6 +838,6 @@ impl Module for Terminals {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        contracts::terminal_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        contracts::terminal_methods!(rpc::dispatch_methods, Terminals, self, ctx, method, value)
     }
 }

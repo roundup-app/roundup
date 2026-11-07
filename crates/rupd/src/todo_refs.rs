@@ -4,7 +4,7 @@ use contracts::todo::{Ref, RefParams, RefState, TodoId};
 use rpc::{RpcError, code, params};
 use serde_json::Value;
 
-use crate::Daemon;
+use crate::{Conn, Daemon};
 
 impl Daemon {
     /// An `addRef` link must be a Pad link of this Project and name a Pad, and a heading, that exist.
@@ -29,8 +29,11 @@ impl Daemon {
     }
 
     /// `todo.refs`: each link with whether its Pad and heading exist now. It logs no Touch.
-    pub(crate) fn todo_refs(&self, args: Value) -> Result<Value, RpcError> {
-        let TodoId { id } = params(args)?;
+    pub(crate) async fn todo_refs(
+        &self,
+        _conn: &mut Conn,
+        TodoId { id }: TodoId,
+    ) -> Result<Vec<Ref>, RpcError> {
         let refs = self
             .todos
             .refs(id)?
@@ -50,6 +53,6 @@ impl Daemon {
                 })
             })
             .collect::<Result<Vec<_>, RpcError>>()?;
-        rpc::reply(&refs)
+        Ok(refs)
     }
 }

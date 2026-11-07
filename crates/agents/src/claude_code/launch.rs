@@ -3,6 +3,7 @@
 //! working directory (no hook fires for the trust dialog).
 #![deny(clippy::fn_params_excessive_bools)]
 
+use crate::id::AgentId;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::{OsStr, OsString};
 use std::io::ErrorKind;
@@ -274,7 +275,7 @@ impl Launcher {
     /// Delete what `prepare` wrote for Agent `id`, for an Agent that never started.
     pub fn discard(dir: &Path, id: &str) -> std::io::Result<()> {
         // `prepare` writes nothing for an id that is not a node id.
-        let Some(id) = parse_id(id) else {
+        let Some(id) = AgentId::parse(id) else {
             return Ok(());
         };
         for file in [
@@ -312,6 +313,6 @@ mod seam;
 mod write;
 
 use self::paths::Paths;
+pub(in crate::claude_code) use paths::lean_path;
 pub use paths::settings_marker;
 use paths::*;
-pub(in crate::claude_code) use paths::{lean_path, parse_id};

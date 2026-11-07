@@ -7,6 +7,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Wall clock (`provenance::now_ms`) | none | — |
+| Handler (`rpc::Handler`, the typed function `dispatch_methods!` calls) | none | — |
+| With params (`rpc::WithParams`, marks a Handler that takes the decoded params) | none | — |
+| Context only (`rpc::CtxOnly`, marks a Handler of a method with no params) | none | — |
+| Declared result (`rpc::Declared`, a type a Handler may return for a declared result, so the wire bytes stay as the answerer sent them) | none | — |
 | Code term | same | — |
 | User label | same | — |
 | App copy catalogue (`copy`) | same | — |
@@ -18,7 +22,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Project | same | — |
-| Project start (`StartParams`, `StartKind`, `StartedRow`, `project.start`, `rpc_project_request`, `StartFailed`) | same | — |
+| Project start (`StartParams`, `StartKind`, `StartedRow`, `project.start`, `StartFailed`) | same | — |
 | Opened Project (`Opened`, `project.open`, `openRequested`) | same | — |
 | Project opening (`createProjectOpening`, `ProjectOpening`, `ProjectRequest`, `Confirmation`) | Open Project | — |
 | App registration (`registration`, `action.closed`) | none | — |

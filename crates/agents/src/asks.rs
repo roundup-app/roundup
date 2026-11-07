@@ -642,17 +642,16 @@ impl Module for Asks {
                 "Ask methods carry a Steer from the user",
             ));
         }
-        contracts::asks_methods!(rpc::dispatch_methods, self, ctx, method, value)
+        contracts::asks_methods!(rpc::dispatch_methods, Asks, self, ctx, method, value)
     }
 }
 
 impl Asks {
-    async fn rpc_ask_send(
+    async fn ask_send(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::ask::SendParams,
+    ) -> Result<contracts::ask::Ask, RpcError> {
         let shared = &self.shared;
         {
             let SendParams {
@@ -661,7 +660,7 @@ impl Asks {
                 workstream,
                 project,
                 parts,
-            } = params(value)?;
+            } = p;
             if submission
                 .as_ref()
                 .is_some_and(|id| id.is_empty() || id.len() > 128)
@@ -682,7 +681,7 @@ impl Asks {
                 if let Some(id) = &submission
                     && let Some(ask) = store.replay(id, &text, workstream.as_deref())?
                 {
-                    return reply(&ask);
+                    return Ok(ask);
                 }
                 if let Some(id) = &workstream {
                     let node = shared.agents.shared.node(id)?;
@@ -719,23 +718,22 @@ impl Asks {
             } else {
                 shared.dispatch(ctx, &ask.id, ask.parts.clone());
             }
-            reply(&ask)
+            Ok(ask)
         }
     }
 
     /// U6271a: one Placement call across the supplied Projects; stores nothing, types nothing.
-    async fn rpc_ask_place(
+    async fn ask_place(
         &self,
         _ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::ask::PlaceParams,
+    ) -> Result<Vec<contracts::ask::PlacedPart>, RpcError> {
         let shared = &self.shared;
         let PlaceParams {
             text,
             projects,
             project,
-        } = params(value)?;
+        } = p;
         if text.trim().is_empty() || text.len() > 32_768 {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -805,25 +803,19 @@ impl Asks {
                 }
             })
             .collect();
-        reply(&placed)
+        Ok(placed)
     }
 
-    async fn rpc_ask_list(
-        &self,
-        _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
+    async fn ask_list(&self, _ctx: &Ctx) -> Result<Vec<contracts::ask::Ask>, RpcError> {
         let shared = &self.shared;
-        reply(&shared.store().list()?)
+        Ok(shared.store().list()?)
     }
 
-    async fn rpc_ask_pick(
+    async fn ask_pick(
         &self,
         ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
+        p: contracts::ask::PickParams,
+    ) -> Result<contracts::ask::Ask, RpcError> {
         let shared = &self.shared;
         {
             shared.recover(ctx)?;
@@ -831,7 +823,7 @@ impl Asks {
                 id,
                 part: ord,
                 target,
-            } = params(value)?;
+            } = p;
             let mut store = shared.store();
             let ask = store.get(&id)?;
             let mut part = ask
@@ -900,7 +892,7 @@ impl Asks {
                 Place::New { .. } if part.state == State::Queued => shared.start_new(ctx, &id, ord),
                 _ => {}
             }
-            reply(&ask)
+            Ok(ask)
         }
     }
 }

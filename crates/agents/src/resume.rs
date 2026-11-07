@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::claude_code::Permission;
+use crate::id::AgentId;
 
 /// How one A22 resume runs: how long it waits for the ack and what it continues.
 pub(super) struct Resumption<'a> {
@@ -46,8 +47,8 @@ impl Agents {
         if ctx.actor.kind == contracts::ActorKind::Agent
             && mode.is_none()
             && self.shared.rail().node(id)?.kind == NodeKind::Agent
-            && !self.shared.runs().contains_key(id)
             && !self.shared.rail().is_cut_off(id)?
+            && !self.shared.runs().agent(id).is_some()
         {
             return Err(RpcError::conflict(format!(
                 "{id} finished before the Daemon restarted: only the user resumes it"
@@ -225,7 +226,7 @@ impl Agents {
         };
         let (done_tx, done_rx) = oneshot::channel();
         runs.put(
-            id.to_owned(),
+            id,
             Slot::Resuming {
                 mode: mode.unwrap_or_default(),
                 attempt: attempt.clone(),
@@ -250,7 +251,11 @@ impl Agents {
 
     /// A resume refuses a slot that is starting, stopping, resuming or (without an explicit
     /// mode) running.
-    fn check_slot(runs: &HashMap<String, Agent>, id: &str, explicit: bool) -> Result<(), RpcError> {
+    fn check_slot(
+        runs: &HashMap<AgentId, Agent>,
+        id: &str,
+        explicit: bool,
+    ) -> Result<(), RpcError> {
         match runs.slot(id) {
             Some(Slot::Starting { .. }) => {
                 return Err(RpcError::conflict(format!("{id} is still starting")));
@@ -303,7 +308,7 @@ impl Agents {
     async fn stop_replaced_run(&self, ctx: &Ctx, id: &str) -> Result<(), RpcError> {
         let stop_terminal = {
             let mut runs = self.shared.runs();
-            match runs.get_mut(id) {
+            match runs.agent_mut(id) {
                 Some(Agent {
                     slot: Slot::Resuming { old: Some(old), .. },
                     facts,
@@ -545,7 +550,7 @@ impl Shared {
     /// sender, so dropping an RPC receiver cannot detach cleanup from its ownership record.
     pub(super) fn fail_resume(
         &self,
-        runs: &mut HashMap<String, Agent>,
+        runs: &mut HashMap<AgentId, Agent>,
         id: &str,
         attempt: Ordinal,
         abandoned: Abandoned,
@@ -558,13 +563,13 @@ impl Shared {
         } = abandoned;
         let Some(terminal_id) = terminal_id else {
             if let Some(old) = old {
-                runs.put(id.to_owned(), Slot::Running(*old));
+                runs.put(id, Slot::Running(*old));
             }
             let _ = done.send(Err(error));
             return;
         };
         runs.put(
-            id.to_owned(),
+            id,
             Slot::ResumeCleanup {
                 old,
                 attempt,
@@ -605,7 +610,7 @@ impl Shared {
             match cleanup {
                 Ok(()) => {
                     if let Some(Slot::ResumeCleanup { old: Some(old), .. }) = runs.take(&id) {
-                        runs.put(id.clone(), Slot::Running(*old));
+                        runs.put(&id, Slot::Running(*old));
                     }
                     error
                 }

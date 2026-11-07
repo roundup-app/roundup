@@ -50,7 +50,7 @@ impl Agents {
 
     /// A5214b: a Mode named `name` holding Agent `id`'s first prompt, extras, Model and Effort.
     /// The Agent is not touched.
-    pub(super) fn save_as_mode(
+    pub(super) async fn save_as_mode(
         &self,
         ctx: &Ctx,
         SaveAsModeParams { id, name }: SaveAsModeParams,
