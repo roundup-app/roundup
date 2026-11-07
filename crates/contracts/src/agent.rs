@@ -92,8 +92,9 @@ pub enum RemoveScope {
     All,
 }
 
-/// A client's retry key for the deletion ledger (R30): 1 to 96 bytes.
-pub type OperationKey = crate::Text<96, { crate::text::NONEMPTY }>;
+/// A client's retry key for the deletion ledger (R30, P9a, T6a): 1 to 256 bytes, refused at parse.
+/// Rail removal still checks 96 bytes of it until the agents slice.
+pub type OperationKey = crate::Text<256, { crate::text::NONEMPTY }>;
 
 /// A client key requests data-only removal; omission keeps irreversible removal's consent path.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]

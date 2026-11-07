@@ -20,13 +20,17 @@ fn c4_declarations_preserve_mcp_policy() {
     let rows: BTreeMap<_, _> = commands(true)
         .into_iter()
         .map(|offer| {
-            let params = offer.params(
+            let mut params = offer.params(
                 "fixture-agent",
                 Some(JsonObject::from_iter([
                     ("id".into(), "supplied-id".into()),
                     ("reader".into(), "supplied-reader".into()),
                 ])),
             );
+            if params.get("operation").is_some() {
+                // P9a, T6a: the key `rup` made is random; the row pins that it made one.
+                params["operation"] = "made".into();
+            }
             let mut row = serde_json::json!({
                     "tool": offer.tool, "params": params,
                     "takes_params": offer.input != Input::None && offer.input != Input::OwnId,

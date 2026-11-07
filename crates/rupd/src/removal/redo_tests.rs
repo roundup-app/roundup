@@ -363,9 +363,13 @@ async fn u3787a_rail_redo_identity_and_authority_refusals_leave_every_participan
             request["restoration"] = json!("stale");
         }
         if conflict == "pad-incarnation" {
-            call(&daemon, "pad.delete", json!({"name":"chosen"}))
-                .await
-                .unwrap();
+            call(
+                &daemon,
+                "pad.delete",
+                json!({"name":"chosen","operation":"del-chosen"}),
+            )
+            .await
+            .unwrap();
             call(
                 &daemon,
                 "pad.create",

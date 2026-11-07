@@ -3,6 +3,7 @@
 use std::path::Path;
 
 mod codec;
+pub mod ledger;
 pub mod migration;
 pub use codec::{Json, Word};
 

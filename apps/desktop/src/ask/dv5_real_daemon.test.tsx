@@ -134,7 +134,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   expect(opened).toHaveLength(2);
   const cached = opened[1]!;
   expect(cached.kind).toBe("path");
-  await app.rpc("pad.delete", { name: "revoked-pad" });
+  await app.rpc("pad.delete", { name: "revoked-pad", operation: crypto.randomUUID() });
   refusal = null;
   fireEvent.click(padButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
@@ -292,7 +292,7 @@ it("dv6_bound_share_refuses_foreign_wrong_removed_and_revoked_identities_without
       `roundup://deliverable/${original.id}?project=${replacement.project}`,
       `roundup://deliverable/${original.id}?project=${(await app.rpc("daemon.ping", null)).projectKey}`,
     ]) await expect(app.rpc("link.read", { url: wrong })).rejects.toThrow();
-    await app.rpc("pad.delete", { name: pad.name });
+    await app.rpc("pad.delete", { name: pad.name, operation: crypto.randomUUID() });
     await app.rpc("pad.create", { name: pad.name, text: "different object with the same name" });
     await real.restart();
     expect(await app.rpc("link.read", { url })).toMatchObject({ kind: "deliverable", record: original, resolution: { kind: "unavailable", cause: "access-revoked" } });

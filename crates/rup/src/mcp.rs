@@ -85,7 +85,13 @@ impl Offered {
         match self.input {
             Input::None => Value::Null,
             Input::OwnId => serde_json::json!({ "id": agent }),
-            Input::Arguments => Value::Object(arguments.unwrap_or_default()),
+            Input::Arguments => {
+                let mut arguments = arguments.unwrap_or_default();
+                if matches!(self.method, "pad.delete" | "todo.delete") {
+                    with_key(&mut arguments);
+                }
+                Value::Object(arguments)
+            }
             Input::ArgumentsWithOwnId => own("id", arguments.unwrap_or_default()),
             Input::ArgumentsWithOwnReader => match arguments {
                 Some(arguments) => own("reader", arguments),
@@ -107,6 +113,26 @@ impl std::fmt::Display for Gone {
         match self {
             Gone::Unreachable(why) => f.write_str(why),
         }
+    }
+}
+
+/// P9a, T6a: a deletion's retry key is the caller's; one the caller gave none is made here, so a
+/// replay after an unknown reply is possible. The Daemon makes none.
+fn with_key(arguments: &mut JsonObject) {
+    if arguments.get("operation").is_none_or(Value::is_null) {
+        let mut bytes = [0u8; 16];
+        if getrandom::fill(&mut bytes).is_err() {
+            // Without getrandom, the standard library's per-process random hasher seeds a key.
+            use std::hash::{BuildHasher, Hasher};
+            let state = std::collections::hash_map::RandomState::new();
+            for (at, half) in bytes.chunks_mut(8).enumerate() {
+                let mut hasher = state.build_hasher();
+                hasher.write_usize(at);
+                half.copy_from_slice(&hasher.finish().to_le_bytes());
+            }
+        }
+        let key: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        arguments.insert("operation".into(), key.into());
     }
 }
 

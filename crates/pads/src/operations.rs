@@ -33,7 +33,7 @@ impl Pads {
             home: None,
         };
         let store = self.store()?;
-        let pad = store.atomically(|| {
+        let pad = store.atomically(|_tx| {
             if !store.insert(&pad).map_err(Error::internal)? {
                 return Err(Error::conflict(format!("pad exists: {}", pad.name)));
             }
@@ -71,7 +71,7 @@ impl Pads {
 
     pub(super) async fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Pad, Error> {
         let store = self.store()?;
-        let pad = store.atomically(|| {
+        let pad = store.atomically(|_tx| {
             let pad = get(&store, &p.name)?;
             if let Some(expected) = &p.expected_incarnation
                 && expected != &pad.incarnation
@@ -104,7 +104,7 @@ impl Pads {
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         let text = pad.text + &p.text;
-        store.atomically(|| {
+        store.atomically(|_tx| {
             found(store.set_text(&pad.name, &text, now_ms().max(0)), &pad.name)?;
             self.mirror(&store, &pad.name, &text)
         })?;
@@ -127,7 +127,7 @@ impl Pads {
                 "heading and text must not be empty",
             ));
         }
-        let pad = store.atomically(|| {
+        let pad = store.atomically(|_tx| {
             let pad = get(&store, &p.name)?;
             if let Some(expected) = p.expected_revision
                 && expected != pad.revision
@@ -161,7 +161,7 @@ impl Pads {
             return Err(Error::forbidden("only the user may reorder pads"));
         }
         let store = self.store()?;
-        let (pad, changed) = store.atomically(|| {
+        let (pad, changed) = store.atomically(|_tx| {
             let pad = get(&store, &p.name)?;
             if pad.incarnation != p.expected_incarnation || pad.name != p.name {
                 return Err(Error::conflict("the original pad creation changed"));
@@ -242,7 +242,7 @@ impl Pads {
         if store.files().map_err(Error::internal)? == p.files {
             return Ok(());
         }
-        let imported = store.atomically(|| {
+        let imported = store.atomically(|_tx| {
             let pads = store.list().map_err(Error::internal)?;
             for pad in &pads {
                 name::validate(&pad.name)?;

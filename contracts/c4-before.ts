@@ -428,7 +428,7 @@ revision: number,
 
 home: string | null, };
 
-export type pad_DeleteParams = { name: string, operation?: string, expectedIncarnation?: string, };
+export type pad_DeleteParams = { name: string, operation: string, expectedIncarnation?: string, };
 
 export type pad_Deletion = { project: string, operation: string, pad: pad_Pad, restored: boolean, };
 

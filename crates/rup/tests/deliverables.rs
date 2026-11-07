@@ -99,7 +99,12 @@ async fn dv3_revoked_access() {
     let opened = call(&c, "deliverable.resolve", id.clone()).await;
     let path = std::path::Path::new(opened["path"].as_str().unwrap());
     assert!(path.is_file());
-    call(&c, "pad.delete", json!({"name":"notes"})).await;
+    call(
+        &c,
+        "pad.delete",
+        json!({"name":"notes","operation":"del-notes"}),
+    )
+    .await;
     assert!(
         !path.exists(),
         "source deletion invalidates cached access immediately"

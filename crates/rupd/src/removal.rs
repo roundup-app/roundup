@@ -180,7 +180,7 @@ impl Daemon {
         let pads = Arc::clone(&self.pads);
         let home = id.to_owned();
         let caller = actor.clone();
-        let apply = move |db: &rusqlite::Connection, removal: &mut contracts::agent::Removal| {
+        let apply = move |db: &rusqlite::Transaction, removal: &mut contracts::agent::Removal| {
             let workstream: bool = db
                 .query_row(
                     "SELECT kind='workstream' FROM nodes WHERE CAST(id AS TEXT)=?",

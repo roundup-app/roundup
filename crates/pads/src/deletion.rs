@@ -1,9 +1,11 @@
 //! Transactional retention and restoration through the existing SQLite owner.
 use super::*;
 use crate::Error;
+use contracts::agent::OperationKey;
 use contracts::pad::{DeleteParams, Deletion, DeletionId, GetDeletionParams, RedoDeleteParams};
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, Transaction};
 use std::path::Path;
+use storage::ledger::{self, Ledger, Refusal, Retained};
 
 pub(super) fn cause(actor: &Actor) -> PadDeletion {
     if *actor == Actor::daemon() {
@@ -16,6 +18,14 @@ pub(super) fn cause(actor: &Actor) -> PadDeletion {
 fn project(db: &Connection) -> Result<String, Error> {
     db.query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
         .map_err(Error::internal)
+}
+
+/// The Daemon's own retention (cleanup, Rail removal) names its key here; the client contract never does.
+fn fresh_key(db: &Connection) -> Result<OperationKey, Error> {
+    let key: String = db
+        .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
+        .map_err(Error::internal)?;
+    OperationKey::new(key).map_err(Error::internal)
 }
 
 fn operation(
@@ -46,10 +56,7 @@ fn operation(
 /// Capture the authoritative chosen creation and check authority in the caller's
 /// existing Project write transaction. No event or file effect is started here.
 /// Rail coordination must retain before removing the row and commit its file guard last.
-pub fn retain(db: &Connection, actor: &Actor, p: &DeleteParams) -> Result<Deletion, Error> {
-    if db.is_autocommit() {
-        return Err(Error::internal("Pad retention requires a transaction"));
-    }
+pub fn retain(db: &Transaction, actor: &Actor, p: &DeleteParams) -> Result<Deletion, Error> {
     name::validate(&p.name)?;
     let pad = source(db, &p.name)
         .map_err(Error::internal)?
@@ -61,18 +68,7 @@ pub fn retain(db: &Connection, actor: &Actor, p: &DeleteParams) -> Result<Deleti
     {
         return Err(Error::conflict("Pad creation changed"));
     }
-    let operation = match &p.operation {
-        Some(id) if !id.is_empty() && id.len() <= 256 => id.clone(),
-        Some(_) => {
-            return Err(Error::new(
-                rpc::code::INVALID_PARAMS,
-                "invalid deletion operation",
-            ));
-        }
-        None => db
-            .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
-            .map_err(Error::internal)?,
-    };
+    let operation = p.operation.as_str().to_owned();
     let receipt = Deletion {
         project: project(db)?,
         operation,
@@ -121,10 +117,11 @@ fn validate_targets(db: &Connection, home: Option<&str>, names: &str) -> Result<
 /// Restore rows and consume the operation in an existing Project write transaction.
 /// The coordinator validates retained Home existence and stages file mirrors
 /// before committing. Refusal rolls back with the coordinator's other item changes.
-pub fn restore(db: &Connection, actor: &Actor, id: &DeletionId) -> Result<(Deletion, bool), Error> {
-    if db.is_autocommit() {
-        return Err(Error::internal("Pad restoration requires a transaction"));
-    }
+pub fn restore(
+    db: &Transaction,
+    actor: &Actor,
+    id: &DeletionId,
+) -> Result<(Deletion, bool), Error> {
     let mut receipt = read(db, actor, id)?;
     if receipt.restored {
         return Ok((receipt, false));
@@ -183,18 +180,27 @@ impl Pads {
         let cause = cause(&ctx.actor);
         let store = self.store()?;
         let mut files = RemovalFiles::default();
-        let (receipt, changed) = store.atomically(|| {
-            if let Some(id) = &p.operation
-                && let Some((receipt, request)) = operation(&store.db, id, &ctx.actor)?
-            {
-                if request != serde_json::to_string(&p).map_err(Error::internal)? {
+        let (receipt, changed) = store.atomically(|tx| {
+            let actor = serde_json::to_string(&ctx.actor).map_err(Error::internal)?;
+            let request = serde_json::to_string(&p).map_err(Error::internal)?;
+            match ledger::retain(tx, Ledger::Pads, &actor, &p.operation, &request) {
+                Ok(Retained::Replay(_)) => {
+                    let (receipt, _) = operation(tx, &p.operation, &ctx.actor)?
+                        .ok_or_else(|| Error::internal("deletion receipt vanished"))?;
+                    return Ok((receipt, false));
+                }
+                Ok(Retained::Fresh) => {}
+                Err(Refusal::Forbidden) => {
+                    return Err(Error::forbidden("deletion belongs to another Actor"));
+                }
+                Err(Refusal::Conflict) => {
                     return Err(Error::conflict(
                         "deletion operation already used with different targets",
                     ));
                 }
-                return Ok((receipt, false));
+                Err(Refusal::Sql(error)) => return Err(Error::internal(error)),
             }
-            let receipt = retain(&store.db, &ctx.actor, &p)?;
+            let receipt = retain(tx, &ctx.actor, &p)?;
             let pad = &receipt.pad;
             store
                 .record_deletion(&pad.name, cause)
@@ -219,7 +225,7 @@ impl Pads {
     ) -> Result<Deletion, Error> {
         let store = self.store()?;
         let mut files = RemovalFiles::default();
-        let (receipt, changed) = store.atomically(|| {
+        let (receipt, changed) = store.atomically(|tx| {
             if project(&store.db)? != p.project {
                 return Err(Error::forbidden("deletion belongs to another Project"));
             }
@@ -272,11 +278,11 @@ impl Pads {
                 ));
             }
             let receipt = retain(
-                &store.db,
+                tx,
                 &ctx.actor,
                 &DeleteParams {
                     name: current.name.clone(),
-                    operation: Some(p.operation.clone()),
+                    operation: OperationKey::new(p.operation.as_str()).map_err(Error::internal)?,
                     expected_incarnation: Some(current.incarnation),
                 },
             )?;
@@ -319,8 +325,8 @@ impl Pads {
     pub(super) async fn restore(&self, ctx: &Ctx, id: DeletionId) -> Result<Deletion, Error> {
         let store = self.store()?;
         let mut mirror = None;
-        let (receipt, changed) = store.atomically(|| {
-            let (receipt, changed) = restore(&store.db, &ctx.actor, &id)?;
+        let (receipt, changed) = store.atomically(|tx| {
+            let (receipt, changed) = restore(tx, &ctx.actor, &id)?;
             if changed && store.files().map_err(Error::internal)? {
                 mirror = Some(super::files::restore(
                     &self.files_dir,
@@ -354,7 +360,7 @@ impl Pads {
     /// removal and file rollback guard. Kept Pads retain their original incarnation/Home.
     pub fn retain_workstream(
         &self,
-        db: &Connection,
+        db: &Transaction,
         actor: &Actor,
         operation: &str,
         home: &str,
@@ -378,7 +384,7 @@ impl Pads {
                 actor,
                 &DeleteParams {
                     name: pad.name.clone(),
-                    operation: None,
+                    operation: fresh_key(db)?,
                     expected_incarnation: Some(pad.incarnation.clone()),
                 },
             )?
@@ -392,7 +398,7 @@ impl Pads {
     /// Keep the returned paths only after commit; dropping them undoes every staged creation.
     pub fn restore_workstream_in(
         &self,
-        db: &Connection,
+        db: &Transaction,
         actor: &Actor,
         operation: &str,
     ) -> Result<(Vec<tempfile::TempPath>, Vec<EventData>), Error> {
@@ -527,7 +533,7 @@ impl Pads {
     /// Stage only the retained Pad incarnations in the coordinator's transaction.
     pub fn redo_workstream_in(
         &self,
-        db: &Connection,
+        db: &Transaction,
         actor: &Actor,
         prior: &str,
         operation: &str,
@@ -562,7 +568,7 @@ impl Pads {
                 actor,
                 &DeleteParams {
                     name: name.clone(),
-                    operation: None,
+                    operation: fresh_key(db)?,
                     expected_incarnation: Some(incarnation.clone()),
                 },
             )?
