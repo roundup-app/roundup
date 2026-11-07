@@ -411,6 +411,10 @@ An older test that asserted only the removed per-render work is cut, naming the 
 
 **U6283c an xterm cause is fixed through xterm.** Given a frame trace with every roundup handler removed that still drops frames, then the cause is xterm itself: the PR names the xterm option or version that does it and fixes it through xterm's options or a released version, never a patch of xterm in place. Policy, judged by the review run; if the trace shows no dropped frame this clause is met by the trace being recorded in the PR.
 
+**U6283e a scrolled frame costs the same whatever the scrollback keeps.** Given a Terminal holding a long Claude Code conversation, or many Turns, or many pictures drawn and then folded, when it scrolls, then per-frame work touches only what is in view:
+- the Turn gutter pass finds the Turns in view by search and visits no other, so its marker reads grow with the logarithm of the Turns kept, never with their number, and its row reads are those of the Turns in view (test `u6283e_frame_cost_does_not_grow_with_turns`: 200 Turns against 1, call counts);
+- pictures add no per-frame handler: `drawnImages.ts` runs per transfer and on save only. Policy, judged by the review run against the diff; the pinned `@xterm/addon-image` placeholder walk is xterm-side work, which U6283c names if a trace shows it.
+
 **U6283d the Mac observation.** Observer: policy, the owner's Mac, with no CI observer for real frame times. A debug `.app` with its own identifier (never `dev.roundup.app`) scrolls a Terminal holding 10,000 lines of real `claude` output top to bottom by trackpad, once on `main` and once on the PR head. The head shows no frame over 16.7 ms and no forced layout started by roundup's scripts. Both traces' p95 frame times are recorded in the PR.
 
 ## Daemon cost per request (`crates/rupd/src/open.rs`, `crates/rupd/src/resume_turn.rs`)
