@@ -1,3 +1,7 @@
+#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(clippy::panic, clippy::indexing_slicing)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -9,7 +13,7 @@ use sysinfo::System;
 
 /// Measure the Daemon against rule 7 and fail when a metric misses `budgets.json`.
 #[derive(Parser)]
-struct Args {
+struct Raw {
     /// Run only X14’s isolated flood observation (exit 1 until output is isolated).
     #[arg(long)]
     flood: bool,
@@ -34,6 +38,66 @@ struct Args {
     budgets: PathBuf,
     #[arg(long, default_value = "target/perf.json")]
     out: PathBuf,
+}
+
+/// What one invocation does, chosen once from the flags.
+enum Mode {
+    /// X14's isolated flood observation.
+    Flood { timeout: std::time::Duration },
+    /// Rule 7's measurement against `budgets.json`.
+    Gate(Gate),
+}
+
+struct Gate {
+    runs: usize,
+    pairs: usize,
+    calls: usize,
+    budgets: PathBuf,
+}
+
+struct Args {
+    rupd: PathBuf,
+    rup: PathBuf,
+    out: PathBuf,
+    mode: Mode,
+}
+
+impl From<Raw> for Args {
+    fn from(raw: Raw) -> Self {
+        let mode = if raw.flood {
+            Mode::Flood {
+                timeout: std::time::Duration::from_secs(raw.flood_timeout),
+            }
+        } else {
+            Mode::Gate(Gate {
+                runs: raw.runs,
+                pairs: raw.pairs,
+                calls: raw.calls,
+                budgets: raw.budgets,
+            })
+        };
+        Self {
+            rupd: raw.rupd,
+            rup: raw.rup,
+            out: raw.out,
+            mode,
+        }
+    }
+}
+
+impl Args {
+    fn parse() -> Self {
+        Raw::parse().into()
+    }
+
+    #[cfg(test)]
+    fn parse_from<I, T>(argv: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<std::ffi::OsString> + Clone,
+    {
+        Raw::parse_from(argv).into()
+    }
 }
 
 /// The launcher takes only an absolute `rup` (R14), so a relative path is joined to the current directory.
@@ -93,21 +157,32 @@ async fn sample(
 }
 
 async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
-    if args.flood {
-        let report = perf::flood::observe(std::time::Duration::from_secs(args.flood_timeout)).await;
-        if let Some(dir) = args.out.parent() {
-            std::fs::create_dir_all(dir)?;
-        }
-        let evidence = serde_json::json!({"flood": report, "passed": report.passed(), "load": System::load_average().one});
-        std::fs::write(&args.out, serde_json::to_vec_pretty(&evidence)?)?;
-        println!("{}", serde_json::to_string_pretty(&evidence)?);
-        if let Some(error) = report.error {
-            return Err(error.into());
-        }
-        return Ok(report.passed());
+    match &args.mode {
+        Mode::Flood { timeout } => flood(args, *timeout).await,
+        Mode::Gate(gate) => measure(args, gate).await,
     }
-    let budgets = read_budgets(&args.budgets)?;
-    if args.runs == 0 {
+}
+
+async fn flood(
+    args: &Args,
+    timeout: std::time::Duration,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let report = perf::flood::observe(timeout).await;
+    if let Some(dir) = args.out.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let evidence = serde_json::json!({"flood": report, "passed": report.passed(), "load": System::load_average().one});
+    std::fs::write(&args.out, serde_json::to_vec_pretty(&evidence)?)?;
+    println!("{}", serde_json::to_string_pretty(&evidence)?);
+    if let Some(error) = report.error {
+        return Err(error.into());
+    }
+    Ok(report.passed())
+}
+
+async fn measure(args: &Args, gate: &Gate) -> Result<bool, Box<dyn std::error::Error>> {
+    let budgets = read_budgets(&gate.budgets)?;
+    if gate.runs == 0 {
         return Err("no load figures recorded".into());
     }
     // Keep R10's missing binary error before machine selection.
@@ -116,7 +191,7 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
     }
     let default_rupd = absolute("target/release/rupd")?;
     if cfg!(target_os = "linux") && args.rupd == default_rupd {
-        let classes = args.budgets.with_file_name("classes.json");
+        let classes = gate.budgets.with_file_name("classes.json");
         let provenance = if classes.try_exists()? {
             perf::machine::read_provenance(&classes)?
         } else {
@@ -129,13 +204,14 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
             }
             let mut host = paired_host::Host {
                 args,
+                gate,
                 root: std::env::current_dir()?,
                 owned: tempfile::tempdir()?,
                 checkouts: Vec::new(),
                 commands: Vec::new(),
                 observer: None,
             };
-            let result = perf::paired::collect(selection, &budgets, args.pairs, &mut host).await;
+            let result = perf::paired::collect(selection, &budgets, gate.pairs, &mut host).await;
             match result {
                 Ok(Some(pair)) => {
                     #[derive(serde::Serialize)]
@@ -152,8 +228,8 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
                         pair: &pair,
                         observer: &host.observer,
                         commands: &host.commands,
-                        calls: args.calls,
-                        runs_per_invocation: args.runs,
+                        calls: gate.calls,
+                        runs_per_invocation: gate.runs,
                         exit: u8::from(!pair.passed),
                     };
                     std::fs::write(&args.out, serde_json::to_vec_pretty(&evidence)?)?;
@@ -180,18 +256,18 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
                     )?;
                     return Err(error);
                 }
-                Ok(None) => unreachable!("paired selection"),
+                Ok(None) => return Err("paired selection returned no pair".into()),
             }
         }
     }
-    let measured = sample(args.runs, args.calls, &args.rupd, &args.rup, &args.out).await?;
+    let measured = sample(gate.runs, gate.calls, &args.rupd, &args.rup, &args.out).await?;
     let per_run = measured.per_run;
     let loads = measured.loads;
 
     let class = if cfg!(target_os = "linux") {
         // R16: each class's baseline provenance sits beside the budgets.
         let provenance =
-            perf::machine::read_provenance(&args.budgets.with_file_name("classes.json"))?;
+            perf::machine::read_provenance(&gate.budgets.with_file_name("classes.json"))?;
 
         Some(perf::machine::select(
             &perf::machine::read(),
@@ -265,6 +341,7 @@ mod paired_host {
 
     pub struct Host<'a> {
         pub args: &'a super::Args,
+        pub gate: &'a super::Gate,
         pub root: PathBuf,
         pub owned: tempfile::TempDir,
         pub checkouts: Vec<PathBuf>,
@@ -440,8 +517,8 @@ mod paired_host {
                 .out
                 .with_extension(format!("{}-{turn}.json", side.to_string_lossy()));
             let mut report = super::sample(
-                self.args.runs,
-                self.args.calls,
+                self.gate.runs,
+                self.gate.calls,
                 &build.daemon,
                 &build.rup,
                 &out,
@@ -471,7 +548,6 @@ mod paired_host {
     #[cfg(all(test, target_os = "linux"))]
     mod tests {
         use super::*;
-        use clap::Parser;
 
         #[tokio::test]
         async fn r16_references_resolve_the_git_merge_base_and_full_head() {
@@ -519,8 +595,12 @@ mod paired_host {
                 "--out",
                 repo.path().join("perf.json").to_str().unwrap(),
             ]);
+            let super::super::Mode::Gate(gate) = &args.mode else {
+                panic!("the default mode is the gate");
+            };
             let mut host = Host {
                 args: &args,
+                gate,
                 root: repo.path().into(),
                 owned: tempfile::tempdir().unwrap(),
                 checkouts: vec![],

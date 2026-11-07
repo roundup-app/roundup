@@ -1,4 +1,8 @@
 //! U3010d: consume native presentation evidence without starting an App or window.
+#![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(clippy::panic, clippy::indexing_slicing)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -94,12 +98,21 @@ fn analyze(bytes: &[u8]) -> (u8, Value) {
         return invalid("sample window overflows the native clock");
     };
     let timestamps = &evidence.timestamps_ns;
-    if timestamps.len() < 2 || timestamps.windows(2).any(|pair| pair[1] <= pair[0]) {
+    if timestamps.len() < 2
+        || timestamps
+            .windows(2)
+            .any(|pair| matches!(pair, [a, b] if b <= a))
+    {
         return invalid(
             "presentation timestamps must be strictly increasing; no sorting or gap repair is performed",
         );
     }
-    if timestamps[0] > evidence.sample_start_ns || timestamps[timestamps.len() - 1] < end {
+    let (Some(&first), Some(&last)) = (timestamps.first(), timestamps.last()) else {
+        return invalid(
+            "presentation timestamps must be strictly increasing; no sorting or gap repair is performed",
+        );
+    };
+    if first > evidence.sample_start_ns || last < end {
         return invalid(
             "native presentations must bracket the entire 60-second sample; a partial export cannot pass",
         );
@@ -107,12 +120,22 @@ fn analyze(bytes: &[u8]) -> (u8, Value) {
     // Include intervals crossing either boundary so cropping cannot hide a late frame.
     let intervals: Vec<f64> = timestamps
         .windows(2)
-        .filter(|pair| pair[1] > evidence.sample_start_ns && pair[0] < end)
-        .map(|pair| (pair[1] - pair[0]) as f64 / 1_000_000.0)
+        .filter_map(|pair| match pair {
+            [a, b] if *b > evidence.sample_start_ns && *a < end => {
+                Some((b - a) as f64 / 1_000_000.0)
+            }
+            _ => None,
+        })
         .collect();
     let mut sorted = intervals.clone();
     sorted.sort_by(f64::total_cmp);
-    let percentile = |share: f64| sorted[(share * sorted.len() as f64).ceil() as usize - 1];
+    let percentile = |share: f64| {
+        let rank = (share * sorted.len() as f64).ceil() as usize;
+        sorted
+            .get(rank.wrapping_sub(1))
+            .copied()
+            .unwrap_or(f64::NAN)
+    };
     let period = 1000.0 / evidence.refresh_hz;
     let long_count = intervals.iter().filter(|&&ms| ms > 1.5 * period).count();
     let long_rate = long_count as f64 / intervals.len() as f64;
