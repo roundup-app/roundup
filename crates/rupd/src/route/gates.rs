@@ -1,13 +1,5 @@
 use super::*;
 
-/// A Door's read of a child's Terminal.
-pub(crate) fn is_child_read(method: &str) -> bool {
-    matches!(
-        method,
-        "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
-    )
-}
-
 impl Daemon {
     /// A known Agent process cannot gain the user's control or receipt access by identifying
     /// as the user. The wire reader captures this before an earlier action can delay dispatch.
@@ -37,12 +29,7 @@ impl Daemon {
         actor: &Actor,
         method: &str,
     ) -> Result<(), RpcError> {
-        let observed = match method {
-            "agent.stop" | "agent.interrupt" | "agent.prompt" | "rail.rename" | "terminal.kill"
-            | "terminal.close" | "terminal.resize" => actor.kind == ActorKind::Agent,
-            _ => false,
-        };
-        if !observed {
+        if actor.kind != ActorKind::Agent {
             return Ok(());
         }
         let Some(gate) = &self.prompt_effect_gate else {
@@ -79,17 +66,17 @@ impl Daemon {
     pub(crate) async fn guard_terminal_read(
         &self,
         actor: &Actor,
-        method: &str,
+        child_read: bool,
         params: &Value,
     ) -> Result<Option<String>, RpcError> {
-        self.guard_terminal(actor, method, params, false).await
+        self.guard_terminal(actor, child_read, params, false).await
     }
 
     /// `guard_terminal_read`, or with `show` B53's wider rule for a Show request.
     pub(crate) async fn guard_terminal(
         &self,
         actor: &Actor,
-        method: &str,
+        child_read: bool,
         params: &Value,
         show: bool,
     ) -> Result<Option<String>, RpcError> {
@@ -115,7 +102,7 @@ impl Daemon {
                 .map(|()| info.owner.clone()),
             Some(info) => self
                 .agents
-                .guard_terminal_read(actor, id, info.owner.as_deref(), is_child_read(method))
+                .guard_terminal_read(actor, id, info.owner.as_deref(), child_read)
                 .map(|()| info.owner.clone()),
             None if id.parse::<u64>().is_ok_and(|n| n.to_string() == id) => {
                 Err(RpcError::not_found(format!("terminal {id}")))
@@ -136,9 +123,9 @@ impl Daemon {
             .output
             .as_ref()
             .ok_or_else(|| RpcError::internal("this call cannot receive Terminal output"))?;
-        self.guard_terminal_read(&conn.actor, method, &params)
+        self.guard_terminal_read(&conn.actor, false, &params)
             .await?;
-        if method == "terminal.outputStop" {
+        if crate::route::policy::policy(method).is_some_and(|row| row.releases) {
             port.release(&id);
             return rpc::reply(&());
         }
@@ -178,13 +165,14 @@ impl Daemon {
     /// T14, P12: a Todo or Pad an Agent just created gets the nearest Workstream at or above that Agent as its Home.
     pub(crate) async fn home_in_workstream(
         &self,
-        method: &str,
+        pad: bool,
         actor: &Actor,
         created: Value,
     ) -> Result<Value, RpcError> {
-        let (namespace, move_method, key) = match method {
-            "pad.create" => ("pad", "pad.move", "name"),
-            _ => ("todo", "todo.move", "id"),
+        let (namespace, move_method, key) = if pad {
+            ("pad", "pad.move", "name")
+        } else {
+            ("todo", "todo.move", "id")
         };
         let nodes = self.rail().await?;
         let mut at = nodes.iter().find(|node| node.id == actor.id);

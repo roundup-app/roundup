@@ -85,35 +85,29 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             daemon.actions.answer(&frames, answer);
             continue;
         }
-        let method = request
+        let row = request
             .as_ref()
-            .and_then(|request| request["method"].as_str().map(str::to_owned));
+            .and_then(|request| request["method"].as_str())
+            .and_then(crate::route::policy::policy);
         // Actor and subscription changes must commit before the next wire request is read.
-        if matches!(
-            method.as_deref(),
-            Some(
-                "daemon.identify" | "events.subscribe" | "terminal.output" | "terminal.outputStop"
-            )
-        ) {
+        if row.is_some_and(|row| row.settles) {
             if let Some(reply) = daemon.dispatch(&mut conn, &line, None).await {
                 let _ = frames.send(reply);
             }
             continue;
         }
-        let actor = if method.as_deref() == Some("terminal.write") {
-            let writer = daemon.terminal_writer(&conn);
-            if writer.kind == ActorKind::Agent {
-                writer
-            } else {
-                conn.actor.clone()
+        use crate::route::policy::Actor as Caller;
+        let actor = match row.map(|row| row.actor) {
+            Some(Caller::TerminalWriter) => {
+                let writer = daemon.terminal_writer(&conn);
+                if writer.kind == ActorKind::Agent {
+                    writer
+                } else {
+                    conn.actor.clone()
+                }
             }
-        } else if method
-            .as_deref()
-            .is_some_and(crate::route::takes_caller_identity)
-        {
-            daemon.action_actor(&conn)
-        } else {
-            conn.actor.clone()
+            Some(Caller::Caller) => daemon.action_actor(&conn),
+            Some(Caller::Connection) | None => conn.actor.clone(),
         };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);

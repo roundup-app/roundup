@@ -326,3 +326,35 @@ async fn dcl3c_reopen_keeps_open_background_agent_until_its_own_stop() {
 async fn kind(agents: &Agents, bus: &Bus) -> Kind {
     tree(agents, bus).await[0].status.as_ref().unwrap().kind
 }
+
+/// X6570b: a failed owner lookup fails the save and writes no owner file.
+#[tokio::test]
+async fn x6570b_save_owner_fails_when_the_lookup_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().canonicalize().unwrap();
+    let script = data.join("fake-claude");
+    std::fs::write(&script, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nexec sleep 30\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bus = Bus::new();
+    let (agents, terminals) = open(&data, &bus);
+    let cwd = data.to_string_lossy().into_owned();
+    let spawned: RailNode =
+        serde_json::from_value(call(&agents, &bus, "agent.spawn", json!({"cwd": cwd})).await)
+            .unwrap();
+    let terminal = spawned.terminal_id.clone().unwrap();
+    let file = data.join("owners").join(format!("{}.json", spawned.id));
+    assert!(file.exists());
+
+    std::fs::remove_file(&file).unwrap();
+    terminals.kill(&terminal).await.unwrap();
+    terminals.poison_remote_table_for_test();
+    let err = agents
+        .save_owner_for_test(&spawned.id, &terminal)
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::INTERNAL);
+    assert!(!file.exists());
+
+    // A directly owned Terminal writes no file and succeeds.
+    let direct = Terminals::open(&data, bus.clone()).unwrap();
+    assert!(direct.terminal_owner(&terminal).unwrap().is_none());
+}

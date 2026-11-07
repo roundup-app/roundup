@@ -39,12 +39,31 @@ impl Terminals {
         }
     }
 
-    /// The persistable owner record behind client Terminal `id`; `None` for a Terminal this
-    /// client owns directly.
-    pub fn terminal_owner(&self, id: &str) -> Option<TerminalOwner> {
-        let number = id.parse().ok()?;
-        let remotes = self.remotes.locked("remote table").ok()?;
-        remotes.get(&number).map(|remote| remote.owner.clone())
+    /// The persistable owner record behind client Terminal `id`; `Ok(None)` for a Terminal this
+    /// client owns directly. A poisoned remote table is an error, never "owned directly" (X6570a).
+    pub fn terminal_owner(&self, id: &str) -> Result<Option<TerminalOwner>, RpcError> {
+        let Ok(number) = id.parse::<u64>() else {
+            return Ok(None);
+        };
+        let remotes = self.remotes.locked("remote table")?;
+        Ok(remotes.get(&number).map(|remote| remote.owner.clone()))
+    }
+
+    /// X6570a: poison the remote table as a panic in another thread would.
+    #[cfg(feature = "test-support")]
+    #[allow(
+        clippy::panic,
+        reason = "only a panic while the lock is held poisons a Mutex"
+    )]
+    pub fn poison_remote_table_for_test(&self) {
+        let _ = std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    let _guard = self.remotes.lock();
+                    panic!("poison the remote table");
+                })
+                .join()
+        });
     }
 
     /// Attach a persisted owner record of this Terminals' own Project, launching nothing and
