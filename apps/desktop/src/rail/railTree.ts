@@ -1,4 +1,3 @@
-import { foldLayout } from "./foldLayout";
 import { createMemo, createSignal, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
@@ -38,12 +37,10 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
-export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, scope: () => HTMLElement | undefined = () => undefined) => {
+export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
   const { rail, now } = connected;
   /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
-  const [lifted, setLifted] = createSignal<string | null>(null);
-  /** The fold and its return ease the rows (M5); a rail not yet mounted has none to ease. */
-  const onLift = (id: string | null) => foldLayout(scope(), connected.reducedMotion(), () => setLifted(id));
+  const [lifted, onLift] = createSignal<string | null>(null);
   const collapsed = rail.collapsed;
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
