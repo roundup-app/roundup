@@ -38,7 +38,7 @@ impl Auto {
                 }
                 let _guard = gate.lock().await;
                 if let Err(err) = tell(&reader).await {
-                    eprintln!("rupd: Auto notices for the Door were not retained: {err}");
+                    eprintln!("Auto notices for the Door were not retained: {err}");
                 }
             }
         }
