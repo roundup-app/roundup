@@ -7,7 +7,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 | Requirement | Trigger and result | Observer |
 | --- | --- | --- |
 | M1 | Keys, keyboard list moves, tab switches and Return/Space activation: final state/focus by next frame, no timed effect, even during pointer motion. The one exception is a panel size change started by a key (the Rail fold, and the Bench and Drawer opening, closing, rotating and maximising): it slides in about 150 ms from one token (`--duration-key`), and under reduced motion takes M10's opacity preset | U3010b behavioral App seam plus rendered key interruption |
-| M2 | Enabled pointer press: scale 1→0.97 in 100 ms; release/cancel/blur returns to 1 in 100 ms; no added background; a Project tab stays still (U6220b) | U3010b rendered press/cancel; disabled action regression |
+| M2 | Enabled pointer press: scale 1→0.97 in 100 ms; release/cancel/blur returns to 1 in 100 ms; no added background; a Project tab stays still (U6220b) | U3010b rendered press/cancel (CSS `scale` on `[data-pressed]`; `motion` remains in `ink/KindGlyph.tsx`, `pads/PadRichEditor.tsx`); disabled action regression |
 | M3 | Pointer Drawer, Shelf and Terminal Bubble: Motion spring, duration target 250 ms, bounce ≤0.1, retarget displayed position and velocity | U3010b continuity trace; existing focus/resize regressions |
 | M4 | Pointer App-rendered menu/popover: trigger-corner scale 0.96→1 and opacity 0→1, 150 ms enter, 100 ms exit | U3010b rendered placement/exit; Ark focus/action test |
 | M5 | Pointer/incoming reorder, nest, add/remove: Motion layout, 200 ms; no height keyframes | U3010c measured Solid layout probe and source review |
@@ -147,9 +147,10 @@ The pre-Motion U3010b observer recorded continuous CSS retargeting for Drawer/re
 ## Implementation slices
 
 M8's shared clipboard acknowledgement merged in #4119. The next slice installs vanilla
-Motion 14.6.0 and integrates pointer press feedback in `ui/pressFeedback.ts`, reusing
-the App's reduced-motion accessor. Pointer down/release use the `--scale-press` and
-`--duration-press` Tokens for bounded controls. Full-width Rail and Todo rows keep
+Motion 14.6.0. Pointer press feedback (M2) is a platform CSS `scale` transition on
+`[data-pressed]`, using the `--scale-press`, `--duration-press` and `--easing-out` Tokens
+for bounded controls, with no script animating it; `motion` stays in use for
+`ink/KindGlyph.tsx` and `pads/PadRichEditor.tsx`. Full-width Rail and Todo rows keep
 indentation, guides and dividers fixed, using their shared instant ink/opacity feedback.
 Reduced motion also uses that instant feedback, with no transform or opacity fade.
 Tokens resolve at installation and refresh when the live preference changes.
