@@ -670,7 +670,7 @@ mod tests {
                 "closing" => {
                     shared.runs().insert("7013".into(), crate::Slot::Closing);
                 }
-                "starting" => shared.mark_starting("7013", "1".into()),
+                "starting" => shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap()),
                 "ended" => {
                     if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
                         run.ended = true;

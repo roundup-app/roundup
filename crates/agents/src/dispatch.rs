@@ -354,12 +354,6 @@ impl Agents {
                 attempt,
                 payload,
             } = params(value)?;
-            if contracts::agent::parse_positive_ordinal(&attempt).is_none() {
-                return Err(RpcError::new(
-                    code::INVALID_PARAMS,
-                    "attempt must be a canonical positive decimal within signed 64-bit range",
-                ));
-            }
             shared.events.inbox.scan(&id, &payload);
             shared.observe(
                 ctx.actor.clone(),

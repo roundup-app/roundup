@@ -264,7 +264,7 @@ mod tests {
             parent: parent.map(str::to_owned),
             order: 0,
             status: status(Kind::Idle),
-            attempt: (kind == NodeKind::Agent || door).then(|| "1".into()),
+            attempt: (kind == NodeKind::Agent || door).then(contracts::agent::Ordinal::first),
             status_revision: None,
             final_text: None,
             terminal_id: None,

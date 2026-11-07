@@ -34,8 +34,8 @@ async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
     // A failed release leaves the reservation and queue intact.
     assert!(m.release_restart("door", "rewind-c", "2").await.is_err());
     let next = RailNode {
-        attempt: Some("2".into()),
-        status_revision: Some("2".into()),
+        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
+        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
         ..agent_node("door", Kind::Idle)
     };
     *rail.0.lock().unwrap() = vec![next];
@@ -128,8 +128,8 @@ impl RestartHarness {
 
     fn next(&self) {
         self.rail.0.lock().unwrap()[0] = RailNode {
-            attempt: Some("2".into()),
-            status_revision: Some("2".into()),
+            attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
+            status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
             ..agent_node("door", Kind::Idle)
         };
     }
@@ -144,8 +144,8 @@ impl RestartHarness {
             EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
                 ended: false,
                 id: "door".into(),
-                attempt: attempt.into(),
-                status_revision: revision.into(),
+                attempt: contracts::agent::Ordinal::parse(attempt).unwrap(),
+                status_revision: contracts::agent::Ordinal::parse(revision).unwrap(),
                 status: Status {
                     kind,
                     label: "test".into(),
@@ -336,7 +336,7 @@ fn a35_daemon_death_replays_queued_messages_and_the_acknowledged_note() {
         assert_eq!(note.id, before.last().unwrap().id);
         assert_eq!(touches.history(&item(note.id)).unwrap().len(), 1);
         recovered.next();
-        recovered.rail.0.lock().unwrap()[0].attempt = Some("3".into());
+        recovered.rail.0.lock().unwrap()[0].attempt = Some(contracts::agent::Ordinal::parse("3").unwrap());
         recovered
             .messages
             .release_restart("door", "c", "3")
@@ -538,8 +538,8 @@ async fn reservation_waits_for_prompt(retiring: bool) {
         EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
             ended: false,
             id: "door".into(),
-            attempt: "1".into(),
-            status_revision: "2".into(),
+            attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+            status_revision: contracts::agent::Ordinal::parse("2").unwrap(),
             status: Status {
                 kind: Kind::Idle,
                 label: "idle".into(),
@@ -652,8 +652,8 @@ async fn dcl8_stopped_and_crashed_door_keep_backlog_across_restart() {
     // The next Attempt gets the same ids, in order, as one batch.
     h.rail.0.lock().unwrap()[0] = RailNode {
         kind: NodeKind::Workstream,
-        attempt: Some("2".into()),
-        status_revision: Some("2".into()),
+        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
+        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
         ..agent_node("door", Kind::Idle)
     };
     h.status("2", "2", Kind::Idle).await;

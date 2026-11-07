@@ -182,8 +182,8 @@ for line in sys.stdin:
         EventData::AgentStatus(Box::new(StatusEvent {
             ended: false,
             id: id.into(),
-            attempt: "1".into(),
-            status_revision: "1".into(),
+            attempt: contracts::agent::Ordinal::first(),
+            status_revision: contracts::agent::Ordinal::first(),
             status: Status {
                 kind: Kind::Done,
                 label: "old exit".into(),

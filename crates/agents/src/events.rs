@@ -172,7 +172,7 @@ impl Shared {
             Slot::Running(run)
                 if run.terminal_id == terminal && !run.ended && !run.adapter.has_hook_signal() =>
             {
-                Some((id.clone(), run.attempt.clone()))
+                Some((id.clone(), run.attempt.to_string()))
             }
             _ => None,
         });
@@ -289,7 +289,7 @@ impl Shared {
                         {
                             run.status_revision = run
                                 .status_revision
-                                .checked_add(1)
+                                .next()
                                 .expect("Status revision exhausted");
                             self.bus.emit(
                                 actor.clone(),
@@ -297,7 +297,7 @@ impl Shared {
                                     ended: false,
                                     id: id.to_owned(),
                                     attempt: run.attempt.clone(),
-                                    status_revision: run.status_revision.to_string(),
+                                    status_revision: run.status_revision.clone(),
                                     status,
                                 })),
                             );
@@ -469,7 +469,7 @@ impl Shared {
                 actor.clone(),
                 EventData::AgentCompleted(contracts::event::Completion {
                     maker: id.to_owned(),
-                    attempt: run.attempt.clone(),
+                    attempt: run.attempt.to_string(),
                     turn: turn.to_owned(),
                 }),
             );
@@ -535,13 +535,13 @@ impl Shared {
             let status = resume_wait::resuming(&status, self.resume_of(id).as_ref());
             run.status_revision = run
                 .status_revision
-                .checked_add(1)
+                .next()
                 .expect("Status revision exhausted");
             let event = StatusEvent {
                 ended: run.ended,
                 id: id.to_owned(),
                 attempt: run.attempt.clone(),
-                status_revision: run.status_revision.to_string(),
+                status_revision: run.status_revision.clone(),
                 status,
             };
             self.bus
@@ -633,7 +633,7 @@ pub(super) fn interrupt_bound_from_env() -> Duration {
 pub(super) async fn watch(
     shared: Arc<Shared>,
     id: String,
-    attempt: String,
+    attempt: Ordinal,
     mut events: Receiver<Arc<EventData>>,
 ) {
     // DCL3c: an Agent reattached after a Daemon reopen may hold work the first Stop left running.
@@ -741,7 +741,7 @@ impl Agents {
         }
         Some(contracts::event::Completion {
             maker: maker.to_owned(),
-            attempt: run.attempt.clone(),
+            attempt: run.attempt.to_string(),
             turn: run.adapter.turn()?.to_owned(),
         })
     }

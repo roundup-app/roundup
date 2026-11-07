@@ -526,16 +526,7 @@ pub mod test_support {
                 since: 0,
                 finished: "0".into(),
             });
-            node.status_revision = Some(
-                (node
-                    .status_revision
-                    .as_ref()
-                    .unwrap()
-                    .parse::<u64>()
-                    .unwrap()
-                    + 1)
-                .to_string(),
-            );
+            node.status_revision = node.status_revision.as_ref().unwrap().next();
             let event = contracts::agent::StatusEvent {
                 ended: false,
                 id: id.into(),

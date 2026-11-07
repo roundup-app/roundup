@@ -20,11 +20,107 @@ pub use launch::{
 };
 
 /// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
-pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
+fn parse_positive_ordinal(value: &str) -> Option<i64> {
     value
         .parse::<i64>()
         .ok()
         .filter(|n| *n > 0 && n.to_string() == value)
+}
+
+/// A positive decimal count (an Attempt or a Status revision), a string on the wire.
+/// A malformed value fails at deserialize.
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Type, JsonSchema,
+)]
+#[serde(try_from = "String", into = "String")]
+#[specta(type = String)]
+#[schemars(with = "String")]
+pub struct Ordinal {
+    value: i64,
+    text: String,
+}
+
+impl Ordinal {
+    /// `None` unless `n` is positive.
+    pub fn new(n: i64) -> Option<Self> {
+        (n > 0).then(|| Self {
+            value: n,
+            text: n.to_string(),
+        })
+    }
+
+    /// Parse the wire form; `None` for `0`, `01`, a sign, a space or a non-number.
+    pub fn parse(value: &str) -> Option<Self> {
+        parse_positive_ordinal(value).map(|value| Self {
+            value,
+            text: value.to_string(),
+        })
+    }
+
+    /// The first Attempt or Status revision.
+    pub fn first() -> Self {
+        Self {
+            value: 1,
+            text: "1".to_owned(),
+        }
+    }
+
+    /// The ordinal after this one; `None` past `i64::MAX`.
+    pub fn next(&self) -> Option<Self> {
+        self.value.checked_add(1).and_then(Self::new)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.text
+    }
+
+    pub fn get(&self) -> i64 {
+        self.value
+    }
+}
+
+impl TryFrom<String> for Ordinal {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, String> {
+        Self::parse(&value).ok_or_else(|| format!("invalid ordinal {value:?}"))
+    }
+}
+
+impl From<Ordinal> for String {
+    fn from(value: Ordinal) -> String {
+        value.text
+    }
+}
+
+macro_rules! ordinal_eq {
+    ($($other:ty),*) => {$(
+        impl PartialEq<$other> for Ordinal {
+            fn eq(&self, other: &$other) -> bool {
+                self.text == **other
+            }
+        }
+        impl PartialEq<Ordinal> for $other {
+            fn eq(&self, other: &Ordinal) -> bool {
+                other.text == **self
+            }
+        }
+    )*};
+}
+ordinal_eq!(&str, String);
+
+impl std::ops::Deref for Ordinal {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.text
+    }
+}
+
+impl std::fmt::Display for Ordinal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.text)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -447,9 +543,11 @@ pub struct RailNode {
     /// `None` for Terminals.
     pub status: Option<Status>,
     /// Last allocated program attempt; present even after stop or reopen.
-    pub attempt: Option<String>,
+    #[specta(type = Option<String>)]
+    pub attempt: Option<Ordinal>,
     /// Status transition within the current Attempt; absent after reopen.
-    pub status_revision: Option<String>,
+    #[specta(type = Option<String>)]
+    pub status_revision: Option<Ordinal>,
     /// U5483c: only authoritative known-empty final text can permit folding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = FinalText)]
@@ -838,7 +936,8 @@ pub struct PromptParams {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SignalParams {
     pub id: String,
-    pub attempt: String,
+    #[specta(type = String)]
+    pub attempt: Ordinal,
     #[specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>)]
     pub payload: Value,
 }
@@ -905,8 +1004,10 @@ pub struct StatusEvent {
     #[specta(optional, type = bool)]
     pub ended: bool,
     pub id: String,
-    pub attempt: String,
-    pub status_revision: String,
+    #[specta(type = String)]
+    pub attempt: Ordinal,
+    #[specta(type = String)]
+    pub status_revision: Ordinal,
     pub status: Status,
 }
 

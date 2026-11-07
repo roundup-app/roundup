@@ -159,15 +159,15 @@ impl Hops {
                 .parse::<i64>()
                 .unwrap()
                 + 1;
-            node.status_revision = Some(revision.to_string());
+            node.status_revision = Some(contracts::agent::Ordinal::new(revision as i64).unwrap());
         }
         self.bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(StatusEvent {
                 ended: false,
                 id: id.into(),
-                attempt: "1".into(),
-                status_revision: revision.to_string(),
+                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
+                status_revision: contracts::agent::Ordinal::new(revision as i64).unwrap(),
                 status,
             })),
         );

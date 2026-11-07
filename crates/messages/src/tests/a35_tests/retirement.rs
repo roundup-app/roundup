@@ -9,7 +9,7 @@ async fn a35_a_previously_stopped_door_restarts_with_its_retained_messages() {
         .await;
     h.status("1", "2", Kind::Done).await;
     h.rail.0.lock().unwrap()[0].status.as_mut().unwrap().kind = Kind::Done;
-    h.rail.0.lock().unwrap()[0].status_revision = Some("2".into());
+    h.rail.0.lock().unwrap()[0].status_revision = Some(contracts::agent::Ordinal::parse("2").unwrap());
     h.messages.reserve_restart("door", "c", None).await.unwrap();
     h.next();
     h.messages.release_restart("door", "c", "2").await.unwrap();
@@ -36,7 +36,7 @@ async fn a35_retirement_preserves_records_after_removal_and_old_events() {
     );
     assert_eq!(h.messages.thread("door").unwrap()[0].id, delivered.id);
     h.rail.0.lock().unwrap()[0] = RailNode {
-        status_revision: Some("2".into()),
+        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
         ..agent_node("door", Kind::Working)
     };
     let written = h.inbox.written();

@@ -6,6 +6,7 @@ static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::I
 
 #[doc(hidden)]
 pub mod schema;
+use contracts::agent::Ordinal;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -270,7 +271,7 @@ pub const SCAN_INTERVAL: Duration = Duration::from_millis(2000);
 enum Slot {
     /// Its Terminal is starting; `since` is when, on `clock`, it was marked.
     Starting {
-        attempt: String,
+        attempt: Ordinal,
         since: i64,
         /// A `rail.rename` came while it started; its first prompt must not undo it.
         named: bool,
@@ -281,7 +282,7 @@ enum Slot {
     /// A22: a resume's launch is pending acknowledgement; `since` is when, on `clock`, it began.
     Resuming {
         mode: contracts::agent::ResumeMode,
-        attempt: String,
+        attempt: Ordinal,
         since: i64,
         /// The stashed exited Run, presented and restored on rollback; `None` when there was
         /// nothing to restore (a reopened Agent with no live Run, A12).
@@ -309,7 +310,7 @@ enum Slot {
     ResumeCleanup {
         /// Keep the last acknowledged Run until cleanup or explicit Stop restores it.
         old: Option<Box<Run>>,
-        attempt: String,
+        attempt: Ordinal,
         terminal_id: String,
         pending: bool,
         error: RpcError,
@@ -340,8 +341,8 @@ struct Run {
     /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
     startup_context: bool,
     input_started: bool,
-    attempt: String,
-    status_revision: i64,
+    attempt: Ordinal,
+    status_revision: Ordinal,
     closing: bool,
     ended: bool,
     adapter: ClaudeCode,
@@ -476,8 +477,8 @@ impl Agents {
             EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
                 ended: false,
                 id: id.to_owned(),
-                attempt: "1".into(),
-                status_revision: "1".into(),
+                attempt: Ordinal::first(),
+                status_revision: Ordinal::first(),
                 status,
             })),
         );
