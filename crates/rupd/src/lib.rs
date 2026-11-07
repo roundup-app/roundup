@@ -205,13 +205,13 @@ impl Daemon {
         for orphan in orphans(&rail, &todos, &pads) {
             match orphan {
                 Orphan::TodoHome(id) => {
-                    self.todos.set_home(&ctx, id, None)?;
+                    self.todos.set_home(&ctx, id, None).await?;
                 }
                 Orphan::TodoOwner(id) => {
-                    self.todos.set_owner(&ctx, id, None)?;
+                    self.todos.set_owner(&ctx, id, None).await?;
                 }
                 Orphan::PadHome(name) => {
-                    self.pads.set_home(&ctx, &name, None)?;
+                    self.pads.set_home(&ctx, &name, None).await?;
                 }
             }
         }

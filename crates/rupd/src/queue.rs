@@ -135,7 +135,7 @@ impl Queuer {
             return Err(refuse("name must not be empty"));
         }
         let ctx = self.ctx(actor.clone());
-        let todo = self.todos.read(&ctx, id)?;
+        let todo = self.todos.read(&ctx, id).await?;
         if todo.done {
             return Err(refuse(format!("todo {id} is done")));
         }
@@ -158,13 +158,15 @@ impl Queuer {
             },
         )?;
         let owned = async {
-            self.todos.set_home(&ctx, id, Some(node.id.clone()))?;
+            self.todos
+                .set_home(&ctx, id, Some(node.id.clone()))
+                .await?;
             let door = Actor {
                 kind: ActorKind::Agent,
                 id: node.id.clone(),
                 parent: None,
             };
-            self.todos.set_owner(&ctx, id, Some(door)).map(|_| ())
+            self.todos.set_owner(&ctx, id, Some(door)).await.map(|_| ())
         }
         .await;
         if let Err(err) = owned {

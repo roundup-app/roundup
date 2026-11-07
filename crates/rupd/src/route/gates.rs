@@ -180,13 +180,13 @@ impl Daemon {
             let name = created["name"]
                 .as_str()
                 .ok_or_else(|| RpcError::internal("a created Pad has no name"))?;
-            return rpc::reply(&self.pads.set_home(&ctx, name, home)?);
+            return rpc::reply(&self.pads.set_home(&ctx, name, home).await?);
         }
         let id = created["id"]
             .as_u64()
             .and_then(|id| u32::try_from(id).ok())
             .ok_or_else(|| RpcError::internal("a created Todo has no id"))?;
-        rpc::reply(&self.todos.set_home(&ctx, id, home)?)
+        rpc::reply(&self.todos.set_home(&ctx, id, home).await?)
     }
 
     /// A5168a: only a Door uses the GitHub tools; a Door is the Agent whose id is a Workstream's.
