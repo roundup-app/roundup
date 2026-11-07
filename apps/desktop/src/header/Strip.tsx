@@ -74,6 +74,15 @@ export const Strip = (props: {
     }
   };
 
+  /** U6544b: each Project closes as its X does; one with running work asks first, and the others wait for a later ask. */
+  const closeAll = (closing: string[]) => {
+    for (const path of closing) {
+      const tab = props.tabs.find(each => each.path === path);
+
+      if (tab) requestClose(tab);
+    }
+  };
+
   let settling = 0;
   let flips = 0;
 
@@ -268,6 +277,9 @@ export const Strip = (props: {
                   onMark={() => props.onMark(path)}
                   onRename={(name, base) => props.onRename(path, name, base)}
                   onClose={() => requestClose(tab())}
+                  closeOthers={paths().length > 1 ? () => closeAll(paths().filter(each => each !== path)) : undefined}
+                  closeToLeft={at() > 0 ? () => closeAll(paths().slice(0, at())) : undefined}
+                  closeToRight={at() < paths().length - 1 ? () => closeAll(paths().slice(at() + 1)) : undefined}
                   app={props.app}
                   alerts={props.alerts.level(path)}
                   onAlerts={(level) => props.alerts.set(path, level)}

@@ -54,8 +54,8 @@ it.skipIf(!captureDir("P3557c"))("p3557c_header_rendered_failure_before_and_afte
   await browser("wait", "--fn", "!!document.querySelector('.tab-rename')");
   await browser("fill", ".tab-rename", "  retained é 🧭 雪  ");
   await browser("eval", "document.querySelector('.tab-rename').dispatchEvent(new KeyboardEvent('keydown', {key:'Escape',code:'Escape',bubbles:true,cancelable:true}))");
-  await browser("wait", "--fn", "!!document.querySelector('.tab-recover') && !document.querySelector('.tab-rename')");
-  await browser("click", ".tab-recover");
+  await browser("wait", "--fn", "!document.querySelector('.tab-rename')");
+  await browser("eval", "window.__fake.app.menuChoice = 'recover'; document.querySelector('.project-tab[data-selected=true], .project-tab').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, cancelable:true}));");
   await browser("wait", "--fn", "!!document.querySelector('.header-recovery')");
   await browser("eval", "window.__fake.app.clipboardWrite = async () => { throw new Error('Clipboard access denied'); }; [...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Copy name').click()");
   await browser("wait", "--fn", "!!document.querySelector('.header-recovery [role=alert]')");

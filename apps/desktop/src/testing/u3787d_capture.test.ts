@@ -99,8 +99,8 @@ it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", a
       return true;
     })()`);
     await lane.browser("reload");
-    await lane.until("!!document.querySelector('.tab-recover')");
-    await lane.browser("click", ".tab-recover");
+    await lane.until("!!document.querySelector('.project-tab')");
+    await lane.evaluate(`(() => { window.__fake.app.menuChoice = 'recover'; document.querySelector('.project-tab[data-selected=true], .project-tab').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, cancelable:true})); return true; })()`);
     await lane.until("!!document.querySelector('.header-recovery')");
     await capture("project-recovery");
     await lane.browser("press", "Escape");

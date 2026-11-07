@@ -14,7 +14,6 @@ import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
 import { Dialog } from "../ui/Dialog";
 import type { SortableParts } from "../ui/sortable";
-import { Tip } from "../ui/Tip";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import type { App } from "../app/seam";
 import { modalOpen, registerKeys } from "../keys/registry";
@@ -83,6 +82,10 @@ export const ProjectTab = (props: {
   onMark: () => void;
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
+  /** U6544b: the menu's bulk closes; absent when that item would close nothing. */
+  closeOthers?: (() => void) | undefined;
+  closeToLeft?: (() => void) | undefined;
+  closeToRight?: (() => void) | undefined;
   /** U2694a: the seam that shows the tab's system menu; a tab without one has none. */
   app?: Pick<App, "showContextMenu" | "writeClipboardText"> | undefined;
   ref?: (element: HTMLElement) => void;
@@ -192,7 +195,7 @@ export const ProjectTab = (props: {
   ]);
 
   return <>
-    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
+    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); props.sort?.ref(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
@@ -202,8 +205,12 @@ export const ProjectTab = (props: {
 
         if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
+          ...(records().length || problem() || copyFailure() ? [{ id: "recover", label: copy.recoverDrafts, run: () => { recover(true); } }] : []),
           { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: props.alerts === level, run: () => props.onAlerts(level) })) },
           { id: "close", label: copy.close, run: () => props.onClose() },
+          { id: "close-others", label: copy.closeOthers, enabled: props.closeOthers !== undefined, run: () => props.closeOthers?.() },
+          { id: "close-left", label: copy.closeToLeft, enabled: props.closeToLeft !== undefined, run: () => props.closeToLeft?.() },
+          { id: "close-right", label: copy.closeToRight, enabled: props.closeToRight !== undefined, run: () => props.closeToRight?.() },
         ], x, y));
       }}>
       <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={async (saved, refocus) => {
@@ -248,10 +255,7 @@ export const ProjectTab = (props: {
           <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
         </Tabs.Trigger>
         <div class="tab-actions">
-        <Show when={records().length || problem() || copyFailure()}>
-          <Tip text={copy.recoverDrafts}>{trigger => <IconButton {...trigger()} class="tab-recover" data-visible={near() || props.selected} tabIndex={props.selected ? 0 : -1} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.name)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
-        </Show>
-        <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
+        <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.selected || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
         </div>
       </Show>
     </FlatTab>
