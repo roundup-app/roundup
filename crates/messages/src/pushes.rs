@@ -551,7 +551,10 @@ async fn send_digest(
 /// DCL10: per Door, the changes it has not received, read from storage: pending Messages
 /// (a pushed digest standing for its weight) plus the ledger's waiting entries, a change counted
 /// once when a pending digest already holds its entry.
-pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, Error> {
+pub(crate) async fn waiting_counts(
+    inner: &Arc<Inner>,
+    with_quiet: bool,
+) -> Result<HashMap<String, u32>, Error> {
     let ledger = inner.pushes.lock().await;
     let (pending, payloads) = {
         let store = lock(&inner.store);
@@ -572,6 +575,9 @@ pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String,
         }
     }
     for (door, slot) in &ledger.metas {
+        if slot.all_quiet && !with_quiet {
+            continue;
+        }
         let digested = digested.get(door.as_str());
         for (_, entry, weight) in &slot.waiting {
             if !digested.is_some_and(|digested| digested.contains(entry)) {
@@ -600,7 +606,13 @@ impl Messages {
 
     /// DCL10: per Door, how many changes it has not received, read from the stored backlog.
     pub async fn waiting_counts(&self) -> Result<HashMap<String, u32>, Error> {
-        waiting_counts(&self.inner).await
+        waiting_counts(&self.inner, true).await
+    }
+
+    /// DTC2: `waiting_counts` without the quiet notes, which wait for a Message the Door takes
+    /// and so cannot be waited on by the Message that settles a Workstream.
+    pub async fn waiting_counts_unquiet(&self) -> Result<HashMap<String, u32>, Error> {
+        waiting_counts(&self.inner, false).await
     }
 }
 

@@ -760,12 +760,12 @@ async fn digest_pushes(client: &rpc::Client, to: &str) -> Vec<(Value, Value)> {
         .unwrap()
         .iter()
         .filter(|message| message["from"]["id"] == "rupd")
-        .map(|message| {
+        .flat_map(|message| {
             let body = message["body"].as_str().unwrap();
-            let entry = body
-                .strip_prefix("[digest] ")
-                .expect("body is [digest] and an entry");
-            (message.clone(), entry_of(entry))
+            daemon::rollup_entries(body)
+                .into_iter()
+                .map(|text| (message.clone(), entry_of(&text)))
+                .collect::<Vec<_>>()
         })
         .collect()
 }
