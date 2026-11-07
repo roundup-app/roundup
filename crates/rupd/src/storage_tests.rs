@@ -12,6 +12,36 @@ const STORES: [&str; 6] = [
     "digest",
 ];
 
+/// What the retired standalone Messages and Digest stores created, which the Project must still hold.
+fn standalone_messages(current: &mut Connection, digest: bool) {
+    let sql: &[&str] = if digest {
+        &[
+            include_str!("../../messages/migrations/001-digest/up.sql"),
+            include_str!("../../messages/migrations/011-digest/up.sql"),
+        ]
+    } else {
+        &[
+            include_str!("../../messages/migrations/001/up.sql"),
+            include_str!("../../messages/migrations/002/up.sql"),
+            include_str!("../../messages/migrations/003/up.sql"),
+            "CREATE TABLE message_sender_names (agent TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL);",
+            include_str!("../../messages/migrations/004/up.sql"),
+            include_str!("../../messages/migrations/005/up.sql"),
+            messages::evidence::SCHEMA,
+            messages::continuation::SCHEMA,
+            include_str!("../../messages/migrations/006/up.sql"),
+            include_str!("../../messages/migrations/007/up.sql"),
+            include_str!("../../messages/migrations/008/up.sql"),
+            include_str!("../../messages/migrations/009/up.sql"),
+            include_str!("../../messages/migrations/010/up.sql"),
+            include_str!("../../messages/migrations/012/up.sql"),
+        ]
+    };
+    for step in sql {
+        current.execute_batch(step).unwrap();
+    }
+}
+
 mod dump {
     include!("../../storage/src/tests/dump.rs");
 }
@@ -76,13 +106,18 @@ async fn n16_all_stores_share_one_project_database() {
     let mut expected = std::collections::BTreeMap::new();
     for name in STORES {
         let mut current = Connection::open_in_memory().unwrap();
+        if matches!(name, "messages" | "digest") {
+            standalone_messages(&mut current, name == "digest");
+            for (table, sql) in standalone::schema(&current) {
+                expected.insert(table, sql);
+            }
+            continue;
+        }
         let initialize = match name {
             "agents" => agents::schema::open,
             "todos" => todos::schema::open,
             "pads" => pads::schema::open,
             "provenance" => provenance::schema::open,
-            "messages" => messages::schema::open,
-            "digest" => messages::digest_schema::open,
             _ => unreachable!(),
         };
         initialize(&mut current, Path::new(name)).unwrap();

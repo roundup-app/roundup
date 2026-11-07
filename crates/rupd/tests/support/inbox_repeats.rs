@@ -184,7 +184,7 @@ impl Delivery {
         self.peer.writes.lock().unwrap().clone()
     }
     fn flight(&self, id: u32) -> bool {
-        rusqlite::Connection::open(self.dir.path().join("messages.db"))
+        rusqlite::Connection::open(self.dir.path().join("project.db"))
             .unwrap()
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM message_flight WHERE message_id=?)",
@@ -305,7 +305,7 @@ async fn b5763c_restart_closes_a_dropped_inflight_repeat() {
         let mut h = Delivery::new();
         let first = h.send("note", "A").await;
         h.messages.confirm_inbox("receiver", &[first]);
-        let db = rusqlite::Connection::open(h.dir.path().join("messages.db")).unwrap();
+        let db = rusqlite::Connection::open(h.dir.path().join("project.db")).unwrap();
         if legacy {
             db.execute("DELETE FROM message_inbox_last", []).unwrap();
             let content = Entry {
