@@ -1,6 +1,7 @@
 import { animate as motionAnimate, animateLayout as motionLayout } from "motion";
 import { createRoot, createEffect } from "solid-js";
 import type { Accessor } from "solid-js";
+import { attachFold } from "./foldProject";
 
 /** Every fold control in the App: Ark's tree branch and collapsible triggers, and the Rail's chevrons and section heads. */
 const folds = '[data-scope="tree-view"][data-part="branch-control"], [data-scope="tree-view"][data-part="branch-trigger"], [data-scope="collapsible"][data-part="trigger"], .rail-chevron, .rail-group-chevron, .section-head, [data-fold]';
@@ -133,6 +134,10 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
         return;
       }
 
+      start(scope, () => {}, control);
+    };
+
+    const start = (scope: Element, change: () => void, control?: Element) => {
       const retargeting = running?.scope === scope;
 
       if (running && !retargeting) clear(running.scope);
@@ -143,11 +148,11 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
       running = session;
       const known = new Set(scope.querySelectorAll<HTMLElement>(bodies));
       const before: Leaving[] = [...known].flatMap(body => body.parentElement ? [{ body, parent: body.parentElement, next: body.nextSibling, rect: body.getBoundingClientRect() }] : []);
-      const pressed = control.getBoundingClientRect().top;
+      const pressed = control?.getBoundingClientRect().top ?? 0;
 
       /** The scroll offset follows the pressed row, so the browser's clamp never moves it under the pointer. */
       const hold = () => {
-        if (!control.isConnected || scope === doc.body) return;
+        if (!control?.isConnected || scope === doc.body) return;
         const drift = control.getBoundingClientRect().top - pressed;
 
         if (drift) scope.scrollTop += drift;
@@ -155,11 +160,17 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
 
       let changed = false;
 
-      void animateLayout(scope, () => settled(scope).then(did => {
-        changed = did;
+      void animateLayout(scope, () => {
+        const done = settled(scope);
 
-        if (did) hold();
-      }), { duration: seconds, ease }).then(group => {
+        change();
+
+        return done.then(did => {
+          changed = did;
+
+          if (did) hold();
+        });
+      }, { duration: seconds, ease }).then(group => {
         if (!changed) {
           if (running === session) { running = null; clear(scope); }
 
@@ -186,7 +197,8 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
     };
 
     doc.addEventListener("click", press, true);
+    const detach = attachFold((scope, change, anchor) => { if (reduced()) change(); else start(scope, change, anchor); });
 
-    return () => { doc.removeEventListener("click", press, true); running = null; dispose(); };
+    return () => { doc.removeEventListener("click", press, true); detach(); running = null; dispose(); };
   });
 }
