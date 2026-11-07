@@ -158,7 +158,7 @@
   /* D8: the one border width, named once for the tab boxes and the edges; the bar's own rule sits at its bottom edge (flat-tab.styles.css). */
   --rule: var(--hairline-width);
   display: grid;
-  grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) auto calc(var(--space-5) * 4);
+  grid-template-columns: calc(var(--space-5) * 5) minmax(0, 1fr) auto calc(var(--space-5) * 5);
   align-items: center;
   height: 100%;
   padding-inline: var(--space-2);
@@ -167,6 +167,9 @@
 }
 
 .traffic-lights { grid-column: 1; height: 100%; }
+
+/* U6228f: the Rail's toggle sits at the end of the leading column, right after the traffic lights, in every Rail state. */
+.window-bar .rail-toggle { grid-column: 1; grid-row: 1; justify-self: end; }
 .window-bar .strip { grid-column: 2; overflow: clip; }
 
 .header-recovery {
