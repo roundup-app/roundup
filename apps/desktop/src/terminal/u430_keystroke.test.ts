@@ -13,7 +13,9 @@ import { setResizeDragging } from "../resize/dragging";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); Reflect.deleteProperty(document, "fonts"); });
 
-const hasCore = (terminal: object): terminal is { _core: { coreService: { triggerBinaryEvent(data: string): void } } } => "_core" in terminal;
+type Core = { _core: { coreService: { triggerBinaryEvent(data: string): void } } };
+
+const hasCore = (term: xterm.Terminal): term is xterm.Terminal & Core => "_core" in term;
 
 it("u430_a_keystroke_during_a_slide_sends_no_resize", async () => {
   vi.stubGlobal("matchMedia", () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
@@ -48,6 +50,7 @@ it("u430_a_keystroke_during_a_slide_sends_no_resize", async () => {
     set(true);
     cols += 5;
     real.input("x", true);
+
     if (!hasCore(real)) throw new Error("xterm hides its core service");
     real._core.coreService.triggerBinaryEvent("\x1b[M");
 
