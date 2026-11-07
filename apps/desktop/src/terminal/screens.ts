@@ -92,14 +92,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (holder) holder.shownSize = size;
 
     // U6418c: only a size sent to the Daemon is recorded as the PTY's; one that landed while it was down is sent after it returns.
-    if (!exited(id) && daemonExit() === null) {
-      if (holder) holder.resizeSize = size;
+    if (exited(id) || daemonExit() !== null) return;
 
-      void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => {
-        // A refused size was never delivered; the next host notification can retry it without hiding its failure.
-        if (!delivered && holder?.resizeSize === size) holder.resizeSize = null;
-      });
-    }
+    if (holder) holder.resizeSize = size;
+
+    // A refused size was never delivered; the next host notification can retry it without hiding its failure.
+    void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => { if (!delivered && holder?.resizeSize === size) holder.resizeSize = null; });
   };
 
   const reflow = (id: string, holder: Holder): void => {
