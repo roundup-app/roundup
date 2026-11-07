@@ -4,31 +4,23 @@
 use agents::guard::{Live, Source};
 use std::collections::HashSet;
 use std::process::Command;
-use std::time::{Duration, Instant};
 
 #[test]
 fn amg1_reparented_child_is_marked_by_its_environment() {
-    let script = "( setsid sleep 30 & ) &";
-    let status = Command::new("sh")
-        .args(["-c", script])
+    let out = Command::new("sh")
+        .args(["-c", "setsid sleep 30 >/dev/null 2>&1 </dev/null & echo $!"])
         .env("ROUNDUP_AGENT", "amg1-agent")
-        .status()
+        .output()
         .unwrap();
-    assert!(status.success());
+    assert!(out.status.success());
+    let pid: u32 = String::from_utf8_lossy(&out.stdout).trim().parse().unwrap();
     let mut live = Live::new(HashSet::new);
-    let deadline = Instant::now() + Duration::from_secs(4);
-    let found = loop {
-        let sample = live.sample();
-        let hit = sample.readings.iter().find(|r| r.name == "sleep").cloned();
-        if hit.is_some() || Instant::now() > deadline {
-            break hit;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    };
+    let sample = live.sample();
+    let found = sample.readings.iter().find(|r| r.pid == pid).cloned();
     if let Some(r) = &found {
         live.end(r.pid);
     }
-    let found = found.expect("the reparented sleep is read");
+    let found = found.expect("the detached sleep is read");
     assert_eq!(found.agent.as_deref(), Some("amg1-agent"));
     let sample = live.sample();
     assert!(
