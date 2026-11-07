@@ -11,6 +11,7 @@ backon = "1"
 getrandom = "0.3"
 notify = "8"
 provenance = { path = "../provenance" }
+storage = { path = "../storage" }
 rpc = { path = "../rpc" }
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 rusqlite.workspace = true

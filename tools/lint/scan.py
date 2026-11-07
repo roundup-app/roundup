@@ -97,7 +97,10 @@ def inventory(section, root):
         attrs = attributes(root, paths)
         rows = []
         # B6506: a Message's kind is its `payload`, so the messages crate never reads it back out of a body prefix.
-        for ext, language, ids, scope in [('.rs', 'Rust', ['sleep-poll'], ''), ('.rs', 'Rust', ['prefix-read'], 'crates/messages/src/'), ('.ts', 'TypeScript', ['dom-clone', 'style-override'], ''), ('.tsx', 'Tsx', ['dom-clone', 'style-override'], '')]:
+        # N22: a store crate never names the Project file, probes `sqlite_schema` or opens a schema itself.
+        # Todos, Pads and Messages join the list as their Issues (#6538, #6539, #6540) land.
+        owned = tuple(f'crates/{crate}/src/' for crate in ('provenance',))
+        for ext, language, ids, scope in [('.rs', 'Rust', ['sleep-poll'], ''), ('.rs', 'Rust', ['prefix-read'], 'crates/messages/src/'), ('.rs', 'Rust', ['one-schema-owner'], owned), ('.ts', 'TypeScript', ['dom-clone', 'style-override'], ''), ('.tsx', 'Tsx', ['dom-clone', 'style-override'], '')]:
             files = [p for p in paths if p.endswith(ext) and p.startswith(scope) and (root / p).is_file() and not is_generated(root, p, (root / p).read_bytes(), attrs)]
             if not files:
                 continue

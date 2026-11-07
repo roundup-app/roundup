@@ -140,6 +140,7 @@ class Lints(unittest.TestCase):
 
     def test_t3797a_ast_extra_beside_exception(self):
         for rule, path, source in [('sleep-poll', 'a.rs', 'fn f() { loop { sleep(x); } }\n'),
+                                   ('one-schema-owner', 'crates/provenance/src/a.rs', 'fn f() { open("project.db"); }\n'),
                                    ('dom-clone', 'a.ts', 'element.cloneNode();\n'),
                                    ('style-override', 'a.tsx', 'const a = "color: red !important";\n')]:
             with self.subTest(rule=rule):

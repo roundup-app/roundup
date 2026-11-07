@@ -115,5 +115,17 @@
         }
       }
     ]
+  },
+  "one-schema-owner": {
+    "any": [
+      {
+        "kind": "string_literal",
+        "regex": "project\\.db|sqlite_schema"
+      },
+      {
+        "kind": "scoped_identifier",
+        "regex": "(^|::)schema::open$"
+      }
+    ]
   }
 }

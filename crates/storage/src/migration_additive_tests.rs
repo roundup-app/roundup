@@ -171,7 +171,7 @@ fn mg1_the_changes_own_migrations_are_additive() {
     let mut all = Connection::open_in_memory().unwrap();
     apply(&mut all, migrations()).unwrap();
     assert_eq!(
-        provenance::migration::missing(&all, &previous).unwrap(),
+        crate::migration::missing(&all, &previous).unwrap(),
         None,
         "MG2: the change's migrations drop or retype what origin/main has"
     );

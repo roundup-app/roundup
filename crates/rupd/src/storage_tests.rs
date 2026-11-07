@@ -127,11 +127,13 @@ async fn n16_all_stores_share_one_project_database() {
             }
             continue;
         }
-        let initialize = match name {
+        let initialize: fn(&mut Connection, &Path) -> rusqlite::Result<()> = match name {
             "agents" => agents::schema::open,
             "todos" => todos::schema::open,
             "pads" => pads_standalone,
-            "provenance" => provenance::schema::open,
+            "provenance" => {
+                |db, _| db.execute_batch(include_str!("../../provenance/migrations/001/up.sql"))
+            }
             _ => unreachable!(),
         };
         initialize(&mut current, Path::new(name)).unwrap();
@@ -543,18 +545,17 @@ fn u5740c_other_representations_are_unchanged_on_refusal() {
     }
 }
 
-/// R3696c: these stores have no startup recovery and `storage::connect` already initialized WAL.
+/// R3696c: these stores (Touches opens through `connect`, which reads the schema once) have no startup recovery and `storage::connect` already initialized WAL.
 /// Holding SQLite's read lock closed detects an eager schema read without a timing threshold.
 #[test]
 fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let dir = tempfile::tempdir().unwrap();
     let db = storage::connect(dir.path()).unwrap();
-    // N22: Pads opens through `storage::connect`, which checks the schema, so it opens before the lock.
+    // N22: Pads and Touches open through `storage::connect`, which checks the schema, so it opens before the lock.
     let bus = rpc::Bus::new();
     drop(pads::Pads::open(dir.path(), bus.clone()).unwrap());
+    drop(provenance::Touches::open(dir.path()).unwrap());
     db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
     db.execute_batch("BEGIN EXCLUSIVE").unwrap();
-    let path = dir.path().join("project.db");
-    let _touches = provenance::Touches::open(&path).expect("Touches must not read the schema yet");
     let _todos = todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
 }
