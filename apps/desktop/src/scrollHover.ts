@@ -145,15 +145,15 @@ export const trackScrollbars = (doc: Document): void => {
     }
   };
 
-  const flush = () => {
+  /** Drops the bars and slot of every scroll area that left the document. */
+  const prune = () => {
     for (const [element, { bars, slot }] of entries) {
-      if (element.isConnected) place(element, slot);
-      else {
-        resize.unobserve(element);
-        bars.destroy();
-        slot.remove();
-        entries.delete(element);
-      }
+      if (element.isConnected) continue;
+
+      resize.unobserve(element);
+      bars.destroy();
+      slot.remove();
+      entries.delete(element);
     }
 
     for (const [root, observer] of roots) {
@@ -162,6 +162,12 @@ export const trackScrollbars = (doc: Document): void => {
         roots.delete(root);
       }
     }
+  };
+
+  const flush = () => {
+    prune();
+
+    for (const [element, { slot }] of entries) place(element, slot);
   };
 
   const observe = (root: Document | ShadowRoot) => {
@@ -203,7 +209,11 @@ export const trackScrollbars = (doc: Document): void => {
         if (record.type === "childList" && (record.target instanceof Element || record.target instanceof Document || record.target instanceof ShadowRoot)) parents.add(record.target);
       }
 
-      if (outside) scanning ||= requestAnimationFrame(scan);
+      if (!outside) return;
+
+      // U2580a: a closed layer leaves no slot of its bars for a frame; only the rescan waits.
+      prune();
+      scanning ||= requestAnimationFrame(scan);
     });
 
     observer.observe(root, { childList: true, subtree: true });
