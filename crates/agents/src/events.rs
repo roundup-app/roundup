@@ -301,7 +301,7 @@ impl Shared {
                 .get_mut(id)
                 .map(|agent| (&mut agent.slot, &mut agent.facts))
             {
-                Some((Slot::Running(run), held)) => {
+                Some((Slot::Running(run), agent_facts)) => {
                     if run.ended() {
                         return Err(RpcError::not_found(format!("{name} has ended")));
                     }
@@ -316,7 +316,7 @@ impl Shared {
                     self.apply(
                         rail.as_deref_mut(),
                         run,
-                        held,
+                        agent_facts,
                         id,
                         &actor,
                         observation,
@@ -365,7 +365,7 @@ impl Shared {
         &self,
         mut rail: Option<&mut rail::Rail>,
         run: &mut Run,
-        held: &mut agent::Facts,
+        agent_facts: &mut agent::Facts,
         id: &str,
         actor: &Actor,
         observation: Observation,
@@ -386,11 +386,11 @@ impl Shared {
         }
         // The payload is borrowed here, before `decide` consumes it, so no Signal is copied.
         if let Observation::Signal(payload) = &observation {
-            self.announce_tool_call(held, actor, id, run.cwd(), payload);
+            self.announce_tool_call(agent_facts, actor, id, run.cwd(), payload);
         }
         let now = (self.clock)();
         for effect in fold::decide(run, id, observation, &facts, now, first_prompt) {
-            self.perform(rail.as_deref_mut(), run, held, id, actor, effect)?;
+            self.perform(rail.as_deref_mut(), run, agent_facts, id, actor, effect)?;
         }
         let prompt = run.release_prompt();
         Ok((prompt, run.view().next_due))
@@ -399,14 +399,14 @@ impl Shared {
     /// Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
     fn announce_tool_call(
         &self,
-        held: &mut agent::Facts,
+        agent_facts: &mut agent::Facts,
         actor: &Actor,
         id: &str,
         cwd: &str,
         payload: &serde_json::Value,
     ) {
-        if claude_code::toolcall::fold(&mut held.tool_call, payload, cwd, (self.clock)())
-            && let Some(tracked) = &held.tool_call
+        if claude_code::toolcall::fold(&mut agent_facts.tool_call, payload, cwd, (self.clock)())
+            && let Some(tracked) = &agent_facts.tool_call
         {
             self.bus.emit(
                 actor.clone(),
@@ -423,7 +423,7 @@ impl Shared {
         &self,
         rail: Option<&mut rail::Rail>,
         run: &mut Run,
-        held: &mut agent::Facts,
+        agent_facts: &mut agent::Facts,
         id: &str,
         actor: &Actor,
         effect: fold::Effect,
@@ -481,7 +481,7 @@ impl Shared {
                     rail.set_finished(id, finished)?;
                 }
             }
-            Effect::Publish(status) => self.publish_status(run, held, id, actor, status),
+            Effect::Publish(status) => self.publish_status(run, agent_facts, id, actor, status),
             Effect::Name(name) => {
                 if let Some(rail) = rail {
                     self.name_from_prompt(rail, run, id, actor, name)?;
@@ -496,15 +496,15 @@ impl Shared {
     fn publish_status(
         &self,
         run: &mut Run,
-        held: &mut agent::Facts,
+        agent_facts: &mut agent::Facts,
         id: &str,
         actor: &Actor,
         status: Status,
     ) {
         // U6248b: the raw Status moves the resume table before it is announced.
-        let resume_moved = resume_wait::fold(&mut held.resume, &status, (self.clock)());
-        let status = waiting_on(&status, held.wait);
-        let status = resume_wait::resuming(&status, held.resume.as_ref());
+        let resume_moved = resume_wait::fold(&mut agent_facts.resume, &status, (self.clock)());
+        let status = waiting_on(&status, agent_facts.wait);
+        let status = resume_wait::resuming(&status, agent_facts.resume.as_ref());
         run.publish(&self.bus, actor.clone(), id, status);
         if resume_moved {
             self.bus.emit(Actor::daemon(), EventData::RailChanged);

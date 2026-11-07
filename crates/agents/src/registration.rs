@@ -53,11 +53,11 @@ impl Shared {
             // with it. `rail.node(id)` itself cannot be `NOT_FOUND` (a Starting id's Rail node is
             // removed only by its own failed spawn, which never reaches here), but the write a
             // parked rename makes can still fail on its own account.
-            let held = &mut runs.get_mut(id).expect("taken, not removed").facts;
+            let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
             match self.apply(
                 Some(&mut *rail),
                 &mut run,
-                held,
+                agent_facts,
                 id,
                 &actor,
                 Observation::Signal(payload),
@@ -286,11 +286,11 @@ impl Shared {
             let first_prompt = claude_code::see(&parked_payload)
                 .prompt
                 .map(name::from_prompt);
-            let held = &mut runs.get_mut(id).expect("taken, not removed").facts;
+            let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
             if let Err(err) = self.apply(
                 Some(rail),
                 &mut run,
-                held,
+                agent_facts,
                 id,
                 &parked_actor,
                 Observation::Signal(parked_payload),
@@ -329,11 +329,11 @@ impl Shared {
         if starred {
             run.note_star();
         }
-        let held = &mut runs.get_mut(id).expect("taken, not removed").facts;
+        let agent_facts = &mut runs.get_mut(id).expect("taken, not removed").facts;
         let applied = self.apply(
             Some(rail),
             &mut run,
-            held,
+            agent_facts,
             id,
             &actor,
             Observation::Signal(payload),
