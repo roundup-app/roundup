@@ -15,17 +15,26 @@ impl Daemon {
                 "only the user controls global naming preferences",
             ));
         }
-        let db = self.naming.lock().expect("naming preferences poisoned");
         if method == "daemon.getNaming" {
-            return rpc::reply(&crate::data::read_naming(&db).map_err(RpcError::internal)?);
+            self.get_naming()
+        } else {
+            self.set_naming(rpc::params(params)?)
         }
-        let settings: contracts::project::NamingSettings = rpc::params(params)?;
+    }
+
+    fn get_naming(&self) -> Result<Value, RpcError> {
+        let db = self.naming.lock().expect("naming preferences poisoned");
+        rpc::reply(&crate::data::read_naming(&db).map_err(RpcError::internal)?)
+    }
+
+    fn set_naming(&self, settings: contracts::project::NamingSettings) -> Result<Value, RpcError> {
         if settings.naming_guide.trim().is_empty() {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
                 "Enter a naming guide before saving.",
             ));
         }
+        let db = self.naming.lock().expect("naming preferences poisoned");
         crate::data::write_naming(&db, &settings).map_err(RpcError::internal)?;
         rpc::reply(&())
     }
