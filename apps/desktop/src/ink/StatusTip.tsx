@@ -8,9 +8,9 @@ import { shownKind } from "./FailureLine";
 
 const REVEALING = new Set<Status["kind"]>(["blocked", "needs-you", "working", "error"]);
 
-/** Mounted only while shown, so a hidden reading subscribes to no clock. U6640a: the Rail row shows it in place; `StatusTip` shows it for other surfaces. */
-export const Reveal = (props: { status: Status; label?: string }) => {
-  const now = useDisplayNow(() => true);
+/** Mounted only while shown, so a hidden reading subscribes to no clock; `live` false reads the clock without demanding it. U6640a: the Rail row shows it in place; `StatusTip` shows it for other surfaces. */
+export const Reveal = (props: { status: Status; label?: string; live?: boolean }) => {
+  const now = useDisplayNow(() => props.live ?? true);
 
   const age = () => {
     const span = elapsed(props.status.since, now());

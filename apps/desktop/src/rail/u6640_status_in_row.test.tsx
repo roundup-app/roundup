@@ -8,6 +8,14 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const KINDS = ["blocked", "needs-you", "working", "error"] as const;
 
+const find = (selector: string, root: ParentNode = document): HTMLElement => {
+  const found = root.querySelector<HTMLElement>(selector);
+
+  if (found === null) throw new Error(`missing ${selector}`);
+
+  return found;
+};
+
 const since = () => ({ since: Date.now() - 15 * 60_000, finished: "0" });
 
 it("u6640a_a_rail_row_holds_its_status_and_its_mark_has_no_tooltip", async () => {
@@ -16,16 +24,16 @@ it("u6640a_a_rail_row_holds_its_status_and_its_mark_has_no_tooltip", async () =>
   await mountRail(nodes);
 
   for (const kind of KINDS) {
-    const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${kind}"]`)!;
-    const mark = row.querySelector<HTMLElement>(".row-state")!;
+    const row = find(`.rail-row[data-id="${kind}"]`);
+    const mark = find(".row-state", row);
 
-    expect(row.querySelector(".row-status")!.textContent).toBe(copy.statusReveal(`${kind} label`, copy.statusAge.minutes(15)));
+    expect(find(".row-status", row).textContent).toBe(copy.statusReveal(`${kind} label`, copy.statusAge.minutes(15)));
     fireEvent.pointerMove(mark, { pointerType: "mouse" });
     fireEvent.focusIn(mark);
     row.focus();
     await new Promise((done) => setTimeout(done, 250));
     expect(screen.queryByRole("tooltip")).toBeNull();
-    expect(row.closest("[role=treeitem]")!.getAttribute("aria-label")).toContain(`${kind} label`);
+    expect((row.closest("[role=treeitem]")?.getAttribute("aria-label") ?? "")).toContain(`${kind} label`);
   }
 });
 
@@ -33,7 +41,7 @@ it("u6640b_a_long_status_is_one_cut_line", async () => {
   const label = "Which of the three migration strategies should I take for the payments tables? ".repeat(3).trim();
 
   await mountRail([agent("a", "needs-you", label, { name: "alpha", status: { kind: "needs-you", label, ...since() } })]);
-  const status = document.querySelector<HTMLElement>(".rail-row[data-id='a'] .row-status")!;
+  const status = find(".rail-row[data-id='a'] .row-status");
 
   expect(status.textContent).toContain(label);
   expect(status.hasAttribute("title")).toBe(false);

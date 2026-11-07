@@ -161,6 +161,7 @@ export const RailRowView = (props: {
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
+  // R17: only a working row keeps the clock live; a stopped row's age moves with the next tick another demand causes.
   // U6640a, U6640b: the label and age sit in the row on one line, cut with …; the full text is in the Terminal.
   const statusRead = () => reads(props.row.node.status, connected.rail.dismissed(props.row.node)) ? props.row.node.status : null;
   const statusCut = createCut(() => statusLabel());
@@ -220,23 +221,25 @@ export const RailRowView = (props: {
     props.onOpen();
   };
 
+  const chips = () => <span class="worktree-chips row-secondary">
+        <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
+        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
+      </span>;
+
   const row = (mine: (extra: RowProps) => RowProps) => <div {...mergeProps({ onClick: choose }, mine(rowProps()))} ref={el => { element = el; props.sortRef(el); }}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
-      <Show when={statusRead()}>{status => <span class="row-status" data-state="status" ref={statusCut[0]}><Reveal status={status()} label={statusLabel()} /></span>}</Show>
+      <Show when={statusRead()}>{status => <span class="row-status" data-state="status" ref={statusCut[0]}><Reveal status={status()} label={statusLabel()} live={status().kind === "working"} /></span>}</Show>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
-      <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
-        <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
-        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
-      </span></Show>
+      <Show when={!workstream() && props.row.node.worktree}>{chips()}</Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
