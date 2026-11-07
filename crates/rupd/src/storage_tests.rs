@@ -21,6 +21,20 @@ mod standalone {
     include!("../tests/support/store_migrations.rs");
 }
 
+/// The Pads crate's migration files as a standalone store built them, for the expected schema.
+fn pads_standalone(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
+    use rusqlite_migration::M;
+    Migrations::new(vec![
+        M::up(include_str!("../../pads/migrations/001/up.sql")),
+        M::up(include_str!("../../pads/migrations/002/up.sql")),
+        M::up(include_str!("../../pads/migrations/003/up.sql")),
+        M::up(include_str!("../../pads/migrations/004/up.sql")),
+        M::up(include_str!("../../pads/migrations/005/up.sql")),
+    ])
+    .to_latest(db)
+    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+}
+
 // The prefix just before 0046-delete-reactions, the migration these tests retire tables with.
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
@@ -79,7 +93,7 @@ async fn n16_all_stores_share_one_project_database() {
         let initialize = match name {
             "agents" => agents::schema::open,
             "todos" => todos::schema::open,
-            "pads" => pads::schema::open,
+            "pads" => pads_standalone,
             "provenance" => provenance::schema::open,
             "messages" => messages::schema::open,
             "digest" => messages::digest_schema::open,
@@ -493,12 +507,13 @@ fn u5740c_other_representations_are_unchanged_on_refusal() {
 fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let dir = tempfile::tempdir().unwrap();
     let db = storage::connect(dir.path()).unwrap();
+    // N22: Pads opens through `storage::connect`, which checks the schema, so it opens before the lock.
+    let bus = rpc::Bus::new();
+    drop(pads::Pads::open(dir.path(), bus.clone()).unwrap());
     db.pragma_update(None, "locking_mode", "EXCLUSIVE").unwrap();
     db.execute_batch("BEGIN EXCLUSIVE").unwrap();
     let path = dir.path().join("project.db");
-    let bus = rpc::Bus::new();
     let _touches = provenance::Touches::open(&path).expect("Touches must not read the schema yet");
     let _todos =
-        todos::Todos::open(dir.path(), bus.clone()).expect("Todos must not read the schema yet");
-    let _pads = pads::Pads::open(dir.path(), bus).expect("Pads must not read the schema yet");
+        todos::Todos::open(dir.path(), bus).expect("Todos must not read the schema yet");
 }
