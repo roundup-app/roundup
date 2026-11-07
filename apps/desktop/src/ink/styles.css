@@ -376,6 +376,7 @@ p.ink[role="alert"] {
   color: var(--grey);
 }
 
+.section-head [data-part="branch-indicator"] { transition: transform var(--duration-reorder) var(--easing-out); }
 .section-head [data-part="branch-indicator"][data-state="open"] {
   transform: rotate(90deg);
 }

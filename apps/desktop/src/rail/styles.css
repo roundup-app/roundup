@@ -799,6 +799,7 @@
 .rail-fold [data-part="branch-indicator"] {
   position: absolute;
   right: var(--rail-edge);
+  transition: transform var(--duration-reorder) var(--easing-out);
 }
 
 .rail-tree .rail-fold {

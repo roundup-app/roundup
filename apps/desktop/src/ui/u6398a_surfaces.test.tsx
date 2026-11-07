@@ -35,18 +35,16 @@ it("u6398a_a_pointer_press_on_the_todos_done_fold_starts_one_projection", async 
   await mountTodos([todo(1, { done: true, title: "old one" }), todo(2)]);
   fireEvent.click(await screen.findByRole("button", { name: "1 done" }), { detail: 1 });
   expect(engine.animateLayout).toHaveBeenCalledOnce();
-  expect(screen.getByText(/old one/)).toBeTruthy();
+  expect(await screen.findByText(/old one/)).toBeTruthy();
 });
 
-it("u6398a_the_todos_done_fold_fades_its_leaving_rows_out_through_opacity", async () => {
+it("u6398a_the_todos_done_fold_stays_mounted_through_its_exit_state", async () => {
   await mountTodos([todo(1, { done: true, title: "old one" }), todo(2)]);
   const toggle = await screen.findByRole("button", { name: "1 done" });
   fireEvent.click(toggle, { detail: 1 });
-  engine.animate.mockClear();
+  await waitFor(() => expect(document.querySelector(".todo-done-fold")?.getAttribute("data-state")).toBe("open"));
   fireEvent.click(toggle, { detail: 1 });
-  await waitFor(() => expect(engine.animate).toHaveBeenCalledWith(expect.any(Element), { opacity: [1, 0] }, expect.anything()));
-  const leaving = engine.animate.mock.calls.map(call => call[0]).find(element => element.hasAttribute("inert"));
-  expect(leaving?.isConnected).toBe(true);
+  await waitFor(() => expect(document.querySelector(".todo-done-fold")?.getAttribute("data-state") ?? "closed").toBe("closed"));
 });
 
 it("u6398a_a_pointer_press_on_the_idle_fold_starts_one_projection", async () => {
