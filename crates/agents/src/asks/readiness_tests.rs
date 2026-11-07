@@ -56,7 +56,7 @@ async fn fixture() -> (Watched, Asks, Ctx, mpsc::UnboundedReceiver<Vec<u8>>) {
     let ctx = Ctx {
         actor: Actor::user(),
         bus: w.shared.bus.clone(),
-        touches: Arc::new(provenance::Touches::open(&w._dir.path().join("touches.db")).unwrap()),
+        touches: Arc::new(provenance::Touches::open(w._dir.path()).unwrap()),
     };
     (w, asks, ctx, rx)
 }
