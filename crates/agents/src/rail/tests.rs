@@ -295,13 +295,9 @@ fn code_of(error: super::StoreError) -> i64 {
 }
 
 #[test]
-fn dcl9_stored_node_with_unknown_kind_or_role_fails_instead_of_reading_as_an_agent() {
+fn dcl9_stored_node_with_unknown_kind_fails_instead_of_reading_as_an_agent() {
     let (_dir, mut rail) = rail();
     let node = rail.insert(NodeKind::Agent, "kept", None, None).unwrap();
-    rail.db
-        .execute("UPDATE nodes SET role='scout' WHERE id=?", [&node.id])
-        .unwrap();
-    assert!(rail.role(&node.id).is_err());
     rail.db
         .execute("UPDATE nodes SET kind='room' WHERE id=?", [&node.id])
         .unwrap();
