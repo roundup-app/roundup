@@ -73,6 +73,13 @@ const bulkCloseItems = (closing: BulkCloses = {}) => [
   { id: "close-right", label: copy.closeToRight, enabled: closing.right !== undefined, run: () => closing.right?.() },
 ];
 
+const closeOnKey = (close: () => void) => (press: KeyboardEvent) => {
+  if (TAB_CLOSE.presses.includes(press.key) && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && !press.isComposing) {
+    press.preventDefault();
+    close();
+  }
+};
+
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
@@ -248,12 +255,7 @@ export const ProjectTab = (props: {
       }} />}</Show>}>
         <Tabs.Trigger value={props.tab.path} class="tab-name-button"
           aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
-          onKeyDown={(press) => {
-            if (TAB_CLOSE.presses.includes(press.key) && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && !press.isComposing) {
-              press.preventDefault();
-              props.onClose();
-            }
-          }}
+          onKeyDown={closeOnKey(() => props.onClose())}
           ref={(element) => { button = element; props.sort?.handleRef(element); onCleanup(() => props.sort?.handleRef(undefined)); }}
           onClick={(click) => {
             if (click.target instanceof Element && click.target.closest('.tab-mark')) {
