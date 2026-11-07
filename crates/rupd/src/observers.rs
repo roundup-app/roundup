@@ -258,11 +258,9 @@ impl std::io::Write for ObservedInput {
                 return self.writer.write(bytes.get(..1).unwrap_or(bytes));
             }
             Some("partial") => return Err(std::io::Error::other("input observer partial write")),
-            Some("end") => {
-                return Err(std::io::Error::other(
-                    "input observer ended without a result",
-                ));
-            }
+            // The observer exists to end the input thread without a result, which only a panic does.
+            #[allow(clippy::panic)]
+            Some("end") => panic!("input observer ended without a result"),
             _ => {}
         }
         self.writer.write(bytes)
