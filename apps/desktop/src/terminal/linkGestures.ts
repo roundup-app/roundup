@@ -1,3 +1,5 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { createRoot } from "solid-js";
 import type { ILink, Terminal } from "@xterm/xterm";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
@@ -165,12 +167,18 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
     },
   };
 
-  host.addEventListener("mousedown", down, true);
-  host.addEventListener("mousemove", move, true);
-  host.addEventListener("mouseleave", leave);
-  const document = host.ownerDocument;
-  document.addEventListener("mouseup", up, true);
-  document.addEventListener("mousedown", nextPress, true);
+  // One root owns this attach's listeners.
+  const stopListeners = createRoot(dispose => {
+    makeEventListener(host, "mousedown", down, true);
+    makeEventListener(host, "mousemove", move, true);
+    makeEventListener(host, "mouseleave", leave);
+    const document = host.ownerDocument;
+    makeEventListener(document, "mouseup", up, true);
+    makeEventListener(document, "mousedown", nextPress, true);
+
+    return dispose;
+  });
+
   // U6283a: a scroll always ends in a render, so one pass per frame after xterm draws covers both.
   const rendered = terminal.onRender(refresh);
 
@@ -181,10 +189,6 @@ export const attachLinkGestures = (terminal: Terminal, host: HTMLElement, open: 
 
     for (const mark of marks) mark.remove();
     (terminal.element ?? host).style.cursor = "";
-    host.removeEventListener("mousedown", down, true);
-    host.removeEventListener("mousemove", move, true);
-    host.removeEventListener("mouseleave", leave);
-    document.removeEventListener("mouseup", up, true);
-    document.removeEventListener("mousedown", nextPress, true);
+    stopListeners();
   };
 };
