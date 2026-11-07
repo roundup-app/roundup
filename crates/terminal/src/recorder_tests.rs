@@ -263,3 +263,31 @@ async fn r21_buffered_output_yields_to_other_terminals() {
     assert_eq!(progress.load(Ordering::SeqCst), 1);
     input.await.unwrap();
 }
+
+/// RB3798b: a lock a panicking thread poisoned answers INTERNAL; the call goes on with no state a panic left behind.
+#[tokio::test]
+async fn rb3798b_a_poisoned_lock_answers_internal() {
+    let dir = tempfile::tempdir().unwrap();
+    let bus = Bus::new();
+    let terminals = Terminals::open(dir.path(), bus.clone()).unwrap();
+    let shared = Arc::clone(&terminals.shared);
+    let _ = std::thread::spawn(move || {
+        let _held = shared.table.lock().unwrap();
+        std::panic::resume_unwind(Box::new("poison the table"));
+    })
+    .join();
+    let ctx = Ctx {
+        actor: Actor::user(),
+        bus,
+        touches: Arc::new(Touches::open(&dir.path().join("touches.db")).unwrap()),
+    };
+    let error = terminals
+        .call(
+            &ctx,
+            "terminal.resize",
+            json!({"id":"1", "cols":80, "rows":24}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::INTERNAL);
+}
