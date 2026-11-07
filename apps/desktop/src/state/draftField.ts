@@ -35,8 +35,8 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
   const value = createMemo(() => v.safeParse(schema, latest()?.value));
 
   // A draft found at creation is recovered; typing or an explicit save makes the owner's revisions its own.
-
   const [owned, setOwned] = createSignal<ReadonlySet<string>>(new Set<string>());
+
   const recovered = () => {
     const draft = latest();
 
