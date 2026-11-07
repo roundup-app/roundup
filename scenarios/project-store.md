@@ -46,6 +46,26 @@ Required checks (policy):
 
 Observer (policy): Linux Rust tests suffice. Inspect the deletion diff for each adoption path and its callers; do not add source-text tests for deleted code. Run `loop/rules.sh vocab`, `loop/rules.sh scenario-ids` and `just check origin/main`: exit 0 passes; any other exit fails. Report one row per failed command with its exit code. No Mac observation is required.
 
+## One schema owner
+
+**N22 one crate owns the Project schema (policy).** Rule: a database has one schema owner. `crates/storage` owns the Project schema, its migration list and its fresh image; `storage::connect(dir)` opens a store's connection and `storage::fixture()` gives its tests the real Project schema. No store picks its file, settings table or table set by file name or by probing `sqlite_schema`. Stores keep separate connections (ADR 0004, #3961); one opener never means one shared `Connection`. Table, column, stored byte and migration file stay as they are; `rusqlite_migration` stays the only engine. Behaviour is N16, N17 and N20 (`n16_all_stores_share_one_project_database`, `n17_old_store_files_never_block_the_open`, `n20_current_store_opens`), unchanged.
+
+Checks on `main` before the move, over `crates/todos/src`, `crates/pads/src`, `crates/messages/src` and `crates/provenance/src` (a number each; the move takes each to 0):
+
+1. `rg '"project\.db"'` matches 17 lines: `messages/src/{schema.rs 1, digest_schema.rs 1, runtime.rs 2, tests/b_push_tests.rs 2}`, `pads/src/{schema.rs 1, store.rs 2, operations.rs 2}`, `todos/src/{schema.rs 1, store.rs 3}`, `provenance/src/{schema.rs 1, store.rs 1}`.
+2. `rg 'sqlite_schema WHERE name='` matches 7 lines: `pads/src/store.rs` (`set_home` 1), `pads/src/deletion.rs` (`retain` 1, `restore` 1), `todos/src/store.rs` (`set_home` 1, `set_owner` 1), `todos/src/deletion.rs` (`restore_with` 1, `retain` 1).
+3. `rg 'schema::open'` matches 5 lines, one in each of `todos`, `pads`, `provenance` and `messages` `store.rs`, and `messages/src/digest.rs`.
+
+Keeper: a rule `one-schema-owner` in `tools/lint/rules.json` (outside the frozen `loop/`), run by `just lint-rust` through `python3 tools/lint/scan.py ast`: it fails a string `"project.db"`, a `sqlite_schema` string or a `schema::open` path under `crates/{todos,pads,messages,provenance}/src`. Exit 0 passes, 1 is a violation, 2 an incomplete scan; the debt file gains no entry for it.
+
+Policy: the codec fixes the failure policy for stored words at once. `Word<T>` and `Json<T>` implement rusqlite `FromSql`/`ToSql`; an unknown stored word fails the read and is never defaulted (`provenance-unknown-kind`, #6420, fixed the case where provenance mapped one to the user).
+
+Policy: the Terminal owner builds `Touches::open(Path::new(":memory:"))` in `crates/terminal/src/owner.rs` for its `Ctx`. The child `storage-provenance` opens that Touches on the Project schema in memory (`storage::fixture()`'s image, loaded without a file), or removes Touches from that `Ctx` if no Terminal call reads it. It names the choice and measures the helper's start with `just perf` (docs/perf.md): `cold_start_ms` stays within 10% of `main` (rule 7); a larger result takes the `Ctx` without Touches.
+
+Policy: `todos::Store::remove_workstream` (`crates/todos/src/store.rs`) receives the coordinator's `db: &Connection` yet calls `self.list()`, which reads through the Store's own connection and cannot see the coordinator's earlier writes in the same transaction. The fix passes the transaction to the read (a `list` over `&Transaction`); it never shares a connection. A34's `scenarios/workstream-remove.md` removal tests stay the proof.
+
+Required checks (policy): N16, N17, N20, R3696c (fresh image) and A34 on `main`'s tests; `just perf` cold start within 10% of `main`. Observer: Linux Rust tests and `python3 tools/lint/scan.py ast`; exit 0 passes, any other exit fails, one row per failed command with its exit code. No Mac observation is required.
+
 ## Message sender name storage
 
 **N2705a last observed sender names persist in the Project schema.** Specification for #2735, the Project-schema prerequisite for #2705's B2705a in `scenarios/messages.md`. Implementation owns only `crates/rupd/**`: one added SQL migration under `crates/rupd/migrations/project/` and applied-schema behaviour tests in the existing `crates/rupd/src/storage.rs` test module (policy).

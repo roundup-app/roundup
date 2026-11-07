@@ -256,7 +256,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       if (submittedRevision) await drafts?.submit(submittedRevision);
 
       try {
-        const node = await app.rpc("agent.spawn", { cwd: path, prompt: text, parent: null, name: copy.importAgentName });
+        const node = await app.rpc("agent.spawn", { cwd: path, prompt: text, parent: null, name: copy.importAgentName, appNamed: true });
 
         if (submittedRevision) drafts?.settle(submittedRevision, "acknowledged");
 
