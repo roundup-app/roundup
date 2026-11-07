@@ -37,6 +37,11 @@ let adapterRevision = 0;
 // Holders for one key are created repeatedly, so writes stay in order across all holders.
 const queue = new PQueue({ concurrency: 1 });
 
+// A fresh identity each time the backing store is replaced or reopened, so memos over saved records re-read.
+const [opened, setOpened] = createSignal<object>({});
+
+export const storageOpened = opened;
+
 const [failures, setFailures] = createSignal<{ key: string; cause: string; retry: () => Promise<string | null> }[]>([]);
 
 /** Recoverable pending operations, with full foreign causes; no draft contents are logged. */
@@ -60,6 +65,7 @@ export const useBrowserStorage = (adapter: Storage) => {
   browser = adapter;
   initialized = true;
   setFailures([]);
+  setOpened({});
 };
 
 /** U6249d C6: the user's own choice to start fresh removes every `roundup:` key obsolete saved work left in the browser. */
@@ -93,6 +99,7 @@ export const initializeStorage = async (): Promise<null | { status: "incompatibl
     }
 
     initialized = true;
+    setOpened({});
 
     return null;
   } catch (error) {
