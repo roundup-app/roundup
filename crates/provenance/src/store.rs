@@ -7,24 +7,18 @@ use rusqlite::{Connection, OptionalExtension, params};
 use crate::Touches;
 
 impl Touches {
-    pub fn open(path: &Path) -> rusqlite::Result<Self> {
-        Self::from_connection(Connection::open(path)?, path)
+    /// The Project database in `dir`, through `storage::connect` (N22).
+    pub fn open(dir: &Path) -> rusqlite::Result<Self> {
+        Ok(Self {
+            db: Mutex::new(storage::connect(dir)?),
+        })
     }
 
+    /// A private in-memory database with the Project schema.
     pub fn in_memory() -> rusqlite::Result<Self> {
-        Self::from_connection(
-            Connection::open_in_memory()?,
-            Path::new("provenance.db (memory)"),
-        )
-    }
-
-    fn from_connection(mut db: Connection, path: &Path) -> rusqlite::Result<Self> {
-        // The Daemon initializes Project WAL; repeating the pragma eagerly loads its whole schema.
-        if path.file_name().is_none_or(|name| name != "project.db") {
-            db.pragma_update(None, "journal_mode", "WAL")?;
-        }
-        crate::schema::open(&mut db, path)?;
-        Ok(Self { db: Mutex::new(db) })
+        Ok(Self {
+            db: Mutex::new(storage::memory()?),
+        })
     }
 
     pub fn record(&self, actor: &Actor, verb: Verb, item: &str) -> rusqlite::Result<()> {

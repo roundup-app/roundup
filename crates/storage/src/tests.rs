@@ -84,7 +84,7 @@ fn matching_prefix_upgrades(behind: usize) {
             migrations().len() as i64
         );
         assert_eq!(
-            provenance::migration::difference(&db, &reference().unwrap()).unwrap(),
+            crate::migration::difference(&db, &reference().unwrap()).unwrap(),
             None
         );
         assert_eq!(saved_rows(&db), rows);

@@ -43,6 +43,7 @@ dependencies = [
  "shlex 2.0.1",
  "soft-canonicalize",
  "stats_alloc",
+ "storage",
  "tempfile",
  "terminal",
  "thiserror 2.0.21",
@@ -3964,7 +3965,7 @@ version = "0.0.0"
 dependencies = [
  "contracts",
  "rusqlite",
- "rusqlite_migration",
+ "storage",
  "tempfile",
  "time",
 ]
@@ -4904,7 +4905,6 @@ dependencies = [
  "contracts",
  "getrandom 0.3.4",
  "memchr",
- "provenance",
  "rusqlite",
  "rusqlite_migration",
  "rustix",
@@ -5675,6 +5675,7 @@ dependencies = [
  "rusqlite_migration",
  "serde",
  "serde_json",
+ "storage",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",

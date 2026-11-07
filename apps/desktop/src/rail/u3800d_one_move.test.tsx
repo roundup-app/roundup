@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
-import { createMemo, createRoot, createSignal } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, on } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -76,6 +76,41 @@ it("u3800g_focus_lands_on_the_dropped_row", async () => {
   expect(document.activeElement).toBe(rowOf("F7"));
 });
 
+it("u3800d_a_key_straight_after_a_move_walks_the_new_order", async () => {
+  const nodes = tree40();
+  const m = await mountRail(nodes);
+  await settled();
+
+  // The Daemon answers in the move's own task, so focus is back on F7 before any task the redraw queued; ArrowDown lands then.
+  const press = (event: FocusEvent) => {
+    if (event.target !== rowOf("F7")) return;
+    document.removeEventListener("focusin", press);
+    fireEvent.keyDown(rowOf("F7"), { key: "ArrowDown", code: "ArrowDown" });
+  };
+
+  m.app.handlers["rail.move"] = params => {
+    document.addEventListener("focusin", press);
+    const at = nodes.findIndex(node => node.id === params.id);
+    nodes.splice(at, 1, { ...nodes[at]!, parent: params.parent, order: params.index });
+    m.app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+
+    return null;
+  };
+
+  fireEvent.click(rowOf("F7"));
+  rowOf("F7").focus();
+  fireEvent.keyDown(rowOf("F7"), { key: "m", code: "KeyM" });
+  await screen.findByRole("combobox");
+  fireEvent.click(screen.getByRole("option", { name: "W1" }));
+  await m.rail.settled();
+  await settled();
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+  // F7 now ends W1, so the row after it is W2.
+  expect(document.activeElement).toBe(rowOf("W2"));
+  expect(m.rail.selected()).toBe("F7");
+});
+
 it("u3800g_collection_survives_a_redraw_that_leaves_the_tree_as_it_was", async () => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree40();
@@ -92,4 +127,29 @@ it("u3800g_collection_survives_a_redraw_that_leaves_the_tree_as_it_was", async (
     expect(tree.expanded()).toBe(expanded);
     dispose();
   });
+});
+
+it("u3800d_a_redraw_that_shows_a_row_fewer_rebuilds_the_collection_at_once", async () => {
+  const nodes = tree40();
+  const app = createFakeApp();
+  app.handlers["rail.tree"] = () => structuredClone(nodes);
+  const clock = createRoot(() => createMemo(() => NOW));
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, clock);
+  const holds: boolean[] = [];
+
+  const dispose = createRoot(dispose => {
+    const tree = createRailTree(connected, () => new Set(), () => undefined);
+    // Each redraw records, in its own update, whether the collection still holds F7.
+    createEffect(on(tree.rows, () => holds.push(tree.collection().findNode("F7") !== undefined)));
+
+    return dispose;
+  });
+
+  nodes.splice(nodes.findIndex(node => node.id === "F7"), 1);
+  app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  await connected.rail.settled();
+  await settled();
+
+  expect(holds).toEqual([true, false]);
+  dispose();
 });
