@@ -18,6 +18,10 @@ impl Todos {
 '''
 
 
+POLICY_ROW = '    ("project.contractProbe", PLAIN),\n'
+ANCHOR = '    ("project.get", PLAIN),\n'
+
+
 class Addition(unittest.TestCase):
     def test_c4_one_declaration_reaches_every_surface(self):
         with tempfile.TemporaryDirectory(prefix="c4-addition-") as directory:
@@ -35,6 +39,11 @@ class Addition(unittest.TestCase):
                 declaration.write_text(original.replace("    todos_methods[\"todo\"] {\n", "    todos_methods[\"todo\"] {\n" + DECLARATION))
                 handler = checkout / "crates/todos/src/dispatch.rs"
                 handler.write_text(handler.read_text() + HANDLER)
+                # A new method needs its policy row too: the table has no default row.
+                policy = checkout / "crates/rupd/src/route/policy.rs"
+                table = policy.read_text()
+                self.assertIn(ANCHOR, table)
+                policy.write_text(table.replace(ANCHOR, POLICY_ROW + ANCHOR, 1))
                 integration = checkout / "crates/rup/tests/mcp.rs"
                 integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp/c4_adapter.rs"]\nmod c4_adapter;\n')
                 adapter = checkout / "crates/rup/src/mcp.rs"

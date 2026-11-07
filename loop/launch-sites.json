@@ -761,9 +761,19 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rupd/src/route.rs": {
+  "crates/rupd/src/route/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "tools/method-policy/guard.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Greps committed rupd sources for method-name comparisons; no Daemon launch.",
+    "kind": "reference"
+  },
+  "tools/contracts/test_addition.py": {
+    "cleanup": "Temporary checkout is removed on success and failure; no Daemon launch.",
+    "data": "Edits copied sources in a temporary directory; names rupd files only.",
     "kind": "reference"
   },
   "crates/rupd/src/fork_tests.rs": {
