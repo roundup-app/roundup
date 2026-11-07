@@ -99,11 +99,11 @@ impl Touches {
         stmt.query_map([arg], |row| {
             Ok(Touch {
                 actor: Actor {
-                    kind: parse_kind(&row.get::<_, String>(0)?),
+                    kind: parse_kind(&row.get::<_, String>(0)?)?,
                     id: row.get(1)?,
                     parent: row.get(2)?,
                 },
-                verb: parse_verb(&row.get::<_, String>(3)?),
+                verb: parse_verb(&row.get::<_, String>(3)?)?,
                 item: row.get(4)?,
                 at: row.get(5)?,
             })
@@ -120,11 +120,13 @@ fn kind_str(kind: ActorKind) -> &'static str {
     }
 }
 
-fn parse_kind(text: &str) -> ActorKind {
+/// A stored word no variant has is an error, never a default.
+fn parse_kind(text: &str) -> rusqlite::Result<ActorKind> {
     match text {
-        "agent" => ActorKind::Agent,
-        "ext" => ActorKind::Ext,
-        _ => ActorKind::User,
+        "user" => Ok(ActorKind::User),
+        "agent" => Ok(ActorKind::Agent),
+        "ext" => Ok(ActorKind::Ext),
+        _ => Err(unknown(0, text)),
     }
 }
 
@@ -135,10 +137,18 @@ fn verb_str(verb: Verb) -> &'static str {
     }
 }
 
-fn parse_verb(text: &str) -> Verb {
-    if text == "read" {
-        Verb::Read
-    } else {
-        Verb::Wrote
+fn parse_verb(text: &str) -> rusqlite::Result<Verb> {
+    match text {
+        "read" => Ok(Verb::Read),
+        "wrote" => Ok(Verb::Wrote),
+        _ => Err(unknown(3, text)),
     }
+}
+
+fn unknown(column: usize, text: &str) -> rusqlite::Error {
+    rusqlite::Error::FromSqlConversionFailure(
+        column,
+        rusqlite::types::Type::Text,
+        format!("unknown stored text {text:?}").into(),
+    )
 }

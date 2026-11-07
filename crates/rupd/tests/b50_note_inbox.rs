@@ -557,6 +557,36 @@ async fn b50_a_note_is_delivered_when_the_transcript_records_it() {
 }
 
 #[tokio::test]
+async fn u6404b_a_receiver_with_a_background_shell_gets_its_note_after_its_stop() {
+    let mut run = Run::open(1, false).await;
+    run.spawn().await;
+    run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"run the tests"}))
+        .await;
+    run.signal(json!({"hook_event_name":"Stop"})).await;
+    std::fs::write(run.dir.path().join("bg-shell"), "").unwrap();
+    until("the shell holds the Agent working", async || {
+        let node = run.rail_node().await;
+        node["status"]["label"]
+            .as_str()
+            .is_some_and(|label| label.starts_with("waiting on "))
+            .then_some(())
+    })
+    .await;
+    let id = run.note("the child finished").await;
+    let sent = std::time::Instant::now();
+    until("the note is taken up while the shell runs", async || {
+        (run.entries() == [format!("rup-{id}")]).then_some(())
+    })
+    .await;
+    assert!(
+        sent.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        sent.elapsed()
+    );
+    assert_eq!(run.rail_status().await, "working");
+}
+
+#[tokio::test]
 async fn b50_a_long_note_shows_as_one_line() {
     let run = Run::start().await;
     let body = format!("[wake] {}", "é".repeat(300));

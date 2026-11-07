@@ -122,6 +122,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     }
   });
 
+  const [editors] = createResource(() => view.open(), async open => open ? await props.app.listEditors().catch(() => []) : []);
+
   const save = async (patch: Parameters<typeof saveAppSettings>[0]) => setFailure(await saveAppSettings(patch));
 
   const numericFields = [
@@ -255,6 +257,14 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     naming: () => <Deferred load={() => import("./NamingSettings")} label={copy.automaticRenaming}>{module => <module.NamingSettings app={props.app} />}</Deferred>,
     feedbackIssue: () => <FeedbackSetting onFailure={setFailure} />,
     skill: () => <Deferred load={() => import("./SkillSetting")} label={copy.skill}>{module => <module.SkillSetting app={props.app} />}</Deferred>,
+    codeEditor: () => {
+      const saved = appSettings().codeEditor;
+      const installed = editors() ?? [];
+
+      return <Select label={copy.codeEditor} description={copy.codeEditorHint} value={saved}
+        choices={[{ value: "", label: copy.editorAutomatic }, ...installed.map(({ id, name }) => ({ value: id, label: name })), ...saved && !installed.some(({ id }) => id === saved) ? [{ value: saved, label: saved }] : []]}
+        onValueChange={codeEditor => void save({ codeEditor })} />;
+    },
     fontFamily: () => <>
         <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
@@ -305,6 +315,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       { id: "fontFamily", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontFamily, description: copy.fontFamilyHint },
       { id: "fontWeight", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontWeight, description: copy.fontWeightHint },
       ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
+      { id: "codeEditor", page: copy.settingsEditor, group: copy.settingsEditor, label: copy.codeEditor, description: copy.codeEditorHint },
       { id: "quickAdd", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddTodo, description: copy.quickAddHint },
       { id: "quickAddAnywhere", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddAnywhere, description: copy.quickAddAnywhereHint },
       { id: "padWidth", page: copy.settingsPads, group: copy.settingsPads, label: copy.defaultWidth, description: copy.defaultWidthHint },
@@ -353,6 +364,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsTerminal}</div>
           <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
+          <div class="settings-category" aria-hidden="true">{copy.settingsEditor}</div>
+          <Tabs.Trigger value="Editor">{copy.settingsEditor}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsGeneral}</div>
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
@@ -380,6 +393,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.fontSize()}{controls.lineHeight()}{controls.letterSpacing()}
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Editor"><SettingsGroup hideHeading name={copy.settingsEditor}>{controls.codeEditor()}</SettingsGroup></Tabs.Content>
       <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><Deferred load={() => import("./ShortcutSetting")} label={copy.settingsShortcuts}>{module => <module.ShortcutSettings capture={props.app.capture} app={props.app} onFailure={setFailure} />}</Deferred></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         {controls.mode()}

@@ -281,19 +281,6 @@ impl Launcher {
         remove_shims(dir, id)
     }
 
-    /// LC4, LC7: remember that Agent `id` launches lean as `lean` says, for every launch after.
-    pub fn save_lean(dir: &Path, id: &str, lean: &Lean) -> Result<(), RpcError> {
-        let id = parse_id(id).ok_or_else(|| RpcError::internal("not a node id"))?;
-        let value = serde_json::to_value(lean).map_err(RpcError::internal)?;
-        replace_file(&lean_path(dir, id), &value).map_err(RpcError::internal)
-    }
-
-    /// What `save_lean` kept; `None` for an Agent that launches with the user's full setup.
-    pub fn load_lean(dir: &Path, id: &str) -> Option<Lean> {
-        let bytes = std::fs::read(lean_path(dir, parse_id(id)?)).ok()?;
-        serde_json::from_slice(&bytes).ok()
-    }
-
     /// The names LC7 resolves against, for a Project at `project`.
     pub fn extras_sources<'a>(&'a self, project: &'a Path) -> extras::Sources<'a> {
         extras::Sources {
@@ -918,7 +905,7 @@ fn object(value: &mut Value) -> Result<&mut Map<String, Value>, &'static str> {
 
 /// An Agent id becomes a file name and a shell word, so only a node id in its one form (decimal,
 /// no sign, no leading zero) is accepted; `;` or `../` never reach a shell or a path.
-fn parse_id(id: &str) -> Option<u64> {
+pub(super) fn parse_id(id: &str) -> Option<u64> {
     id.parse()
         .ok()
         .filter(|number: &u64| number.to_string() == id)
@@ -968,7 +955,7 @@ fn remove_shims(dir: &Path, id: u64) -> std::io::Result<()> {
     }
 }
 
-fn lean_path(dir: &Path, id: u64) -> PathBuf {
+pub(super) fn lean_path(dir: &Path, id: u64) -> PathBuf {
     agents_dir(dir).join(format!("{id}.lean.json"))
 }
 

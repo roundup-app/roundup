@@ -13,6 +13,7 @@ mod idle;
 mod launch;
 mod menu;
 mod menu_bar;
+mod navigation;
 mod open;
 mod paste;
 mod reopen;
@@ -53,6 +54,7 @@ fn build_with_feedback<R: Runtime>(
     feedback: impl Fn(&AppHandle<R>, String, Option<i32>) + Send + 'static,
 ) -> Builder<R> {
     let data_dir = config.data_dir.clone();
+    let dev_port = config.dev_port.unwrap_or(navigation::DEFAULT_DEV_PORT);
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_os = "macos")]
     let builder = builder
@@ -78,6 +80,7 @@ fn build_with_feedback<R: Runtime>(
                 .build(),
         )
         .plugin(window::plugin())
+        .plugin(navigation::plugin(dev_port))
         .manage(fork_app::Identity::of(config.data_dir.as_deref()))
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
@@ -182,6 +185,7 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         terminal_output_stop,
         open_target,
         open_in_editor,
+        list_editors,
         alert::state_alert,
         save_pasted_image,
         feedback::feedback_capture,
@@ -431,16 +435,35 @@ fn terminal_output_stop(
 }
 
 #[tauri::command]
-fn open_target(target: open::Target) -> Result<(), RpcError> {
-    open::launch(&open::check(target)?)
+async fn open_target(target: open::Target, editor: Option<String>) -> Result<(), RpcError> {
+    // LaunchServices discovery waits for the system, so it must not block the window's event loop.
+    tauri::async_runtime::spawn_blocking(move || {
+        open::launch(&open::check(target)?, editor.as_deref())
+    })
+    .await
+    .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
+}
+
+/// U6372a: the code editors of the Settings choice that are installed.
+#[tauri::command]
+async fn list_editors() -> Result<Vec<open::EditorChoice>, RpcError> {
+    tauri::async_runtime::spawn_blocking(open::installed_editors)
+        .await
+        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))
 }
 
 #[tauri::command]
-async fn open_in_editor(path: String, line: Option<u32>) -> Result<(), RpcError> {
+async fn open_in_editor(
+    path: String,
+    line: Option<u32>,
+    editor: Option<String>,
+) -> Result<(), RpcError> {
     // LaunchServices discovery waits for the system, so it must not block the window's event loop.
-    tauri::async_runtime::spawn_blocking(move || open::open_in_editor(&path, line))
-        .await
-        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
+    tauri::async_runtime::spawn_blocking(move || {
+        open::open_in_editor(&path, line, editor.as_deref())
+    })
+    .await
+    .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
 }
 
 /// The image's bytes are the request body and its media type the `type` header, so no byte list crosses as JSON.

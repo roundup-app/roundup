@@ -1,4 +1,19 @@
 //! Native integration owns Objective-C objects and thread obligations; callers supply only safe handles.
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
 #[cfg(target_vendor = "apple")]
 mod webkit_rate;
 #[cfg(target_vendor = "apple")]

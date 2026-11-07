@@ -423,12 +423,8 @@ impl Shared {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
             let mut current = calls.remove(id);
-            if claude_code::toolcall::fold(
-                &mut current,
-                payload,
-                &run.cwd,
-                provenance::now_ms().max(0),
-            ) && let Some(tracked) = &current
+            if claude_code::toolcall::fold(&mut current, payload, &run.cwd, (self.clock)())
+                && let Some(tracked) = &current
             {
                 self.bus.emit(
                     actor.clone(),
@@ -454,7 +450,7 @@ impl Shared {
                 return None;
             }
             let mut status = run.adapter.status()?.clone();
-            status.since = provenance::now_ms().max(0);
+            status.since = (self.clock)();
             Some(status)
         });
         if super::rail_view::visibility_protection(run.adapter.status().map(|s| s.kind)).is_some()
@@ -561,7 +557,11 @@ impl Shared {
                 .as_ref()
                 .map_or(Ok(true), |read| read())?
             && let Some(name) = name
-            && rail.node(id)?.kind == NodeKind::Agent
+            && let node = rail.node(id)?
+            && (node.kind == NodeKind::Agent
+                || (node.kind == NodeKind::Workstream
+                    && name::is_workstream_placeholder(&node.name)))
+            && !rail.user_named(id)?
         {
             let parent = rail.node(id)?.parent;
             let siblings = rail.tree()?;

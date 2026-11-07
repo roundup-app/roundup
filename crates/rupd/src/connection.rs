@@ -107,48 +107,10 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             } else {
                 conn.actor.clone()
             }
-        } else if method.as_deref().is_some_and(|m| {
-            m.starts_with("deliverable.")
-                || matches!(m, "project.open" | "project.start")
-                || actions::is_action(m)
-                || matches!(
-                    m,
-                    "todo.delete"
-                        | "todo.deletion"
-                        | "todo.restore"
-                        | "todo.redo"
-                        | "rail.remove"
-                        | "rail.deletion"
-                        | "rail.restore"
-                        | "rail.redo"
-                        | "message.progress"
-                        | "message.report"
-                        | "message.acceptResult"
-                        | "message.verifyResult"
-                        | "message.resolveResult"
-                        | "message.reconcileWork"
-                        | "message.resumeWork"
-                )
-        }) || matches!(
-            method.as_deref(),
-            Some(
-                "daemon.getNaming"
-                    | "daemon.setNaming"
-                    | "rail.group"
-                    | "rail.removeSelection"
-                    | "rail.rename"
-                    | "rail.setAlertLevel"
-                    | "workstream.setAuto"
-                    | "agent.spawn"
-                    | "agent.stop"
-                    | "agent.interrupt"
-                    | "agent.prompt"
-                    | "agent.setOrder"
-                    | "agent.setVisibility"
-                    | "agent.resume"
-                    | "agent.instructions"
-            )
-        ) {
+        } else if method
+            .as_deref()
+            .is_some_and(crate::route::takes_caller_identity)
+        {
             daemon.action_actor(&conn)
         } else {
             conn.actor.clone()

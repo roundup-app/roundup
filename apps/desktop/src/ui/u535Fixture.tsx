@@ -1,6 +1,7 @@
 import { render } from "solid-js/web";
 import { createSignal, For } from "solid-js";
-import { Sortable, type SortableMove, type TreeRow } from "./sortable";
+import { Sortable, type SortableMove } from "./sortable";
+import type { TreeRow } from "./treeDrop";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";

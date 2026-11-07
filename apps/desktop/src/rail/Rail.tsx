@@ -232,7 +232,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     const target = branch?.key ?? parent;
     setFocused(target);
-    queueMicrotask(() => rowElement(target)?.focus());
+    // U3800g: the restore runs at the next frame, after the drop's task.
+    requestAnimationFrame(() => rowElement(target)?.focus());
   }));
 
   const openRow = (id: string) => {
@@ -721,6 +722,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         tree={{
           rows: treeRows(),
           indent: railStep(),
+          // U22: a release outside the Rail's box drops nothing, so a nest steps inside it.
+          bounds: () => container()?.getBoundingClientRect(),
           inset: (element) => {
             const content = element.querySelector<HTMLElement>(".line");
 
@@ -729,6 +732,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
+          accepts: () => !pointerOutside(),
         }}
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
@@ -808,7 +812,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                       {(view) => (
                         <TreeView.NodeProvider node={entryOf(view().key).node} indexPath={entryOf(view().key).indexPath}>
                           <TreeView.Branch data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}>
-                            <TreeView.BranchControl class="rail-fold row-wash" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
+                            <TreeView.BranchControl class="rail-fold row-wash row-wash-inert" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
                               <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
                               <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
                               <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>

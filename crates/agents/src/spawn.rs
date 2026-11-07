@@ -164,6 +164,13 @@ impl Agents {
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
             if given.is_some()
+                && ctx.actor.kind == ActorKind::User
+                && params.app_named != Some(true)
+            {
+                rail.set_user_named(&node.id)?;
+            }
+            if given.is_some()
+                && !(params.app_named == Some(true) && !by_agent)
                 && let Some(slot) = self.shared.runs().get_mut(&node.id)
             {
                 slot.settle_name();
@@ -297,10 +304,7 @@ impl Agents {
             }
             None => self.project_dir().to_string_lossy().into_owned(),
         };
-        let shell = std::env::var_os("SHELL")
-            .map(|shell| shell.to_string_lossy().into_owned())
-            .filter(|shell| !shell.is_empty())
-            .unwrap_or_else(|| "/bin/sh".into());
+        let shell = self.shared.shell.clone();
         let spawned = self
             .shared
             .terminals
@@ -459,10 +463,10 @@ impl Agents {
             model: node.model,
             effort: node.effort,
             mcp_off: !models::mcp_on(
-                std::env::var_os("ROUNDUP_MCP").as_deref(),
+                self.shared.mcp_env.as_deref(),
                 self.shared.rail().get_mcp()?.on,
             ),
-            lean: Launcher::load_lean(&self.dir, id),
+            lean: Launcher::load_lean(&self.dir, id)?,
         };
         let started = attempt.to_owned();
         let (argv, env) = self
@@ -522,7 +526,9 @@ impl Agents {
             .await?;
         if attach {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
-            let attached = attached.and_then(|()| self.save_owner(id, &spawned.id));
+            let attached = attached
+                .map_err(RpcError::from)
+                .and_then(|()| self.save_owner(id, &spawned.id));
             if let Err(err) = attached {
                 report_undo(
                     "kill the Agent's Terminal",

@@ -101,7 +101,7 @@ fn saved_prefix_behind(behind: usize) -> (tempfile::TempDir, Connection, usize) 
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = migrations().len() - 5;
+    let prefix = migrations().len() - 6;
     Migrations::new(migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();

@@ -65,7 +65,7 @@ def occurrences(rows):
 
 
 def inventory(section, root):
-    print(f'lint: {section} ({dict(size="Git newline cap", ast="ast-grep 0.51.0", typos="typos 1.51.1", ruff="Ruff 0.17.2", dependencies="cargo-deny 0.20.2")[section]})', file=sys.stderr)
+    print(f'lint: {section} ({dict(size="Git newline cap", ast="ast-grep 0.51.0", typos="typos 1.51.1", ruff="Ruff 0.17.2", oxlint="Oxlint 1.86.0 with eslint-plugin-solid 0.18.1 and tsgolint", dependencies="cargo-deny 0.20.2")[section]})', file=sys.stderr)
     paths = tracked(root)
     if section == 'size':
         attrs = attributes(root, paths)
@@ -123,6 +123,19 @@ def inventory(section, root):
             source = '\n'.join((root / path).read_text().splitlines()[match['location']['row'] - 1:match['end_location']['row']])
             rows.append((match['code'], path, source, f'{match["location"]["column"]}:{match["end_location"]["column"]}', str(match['location']['row']) + ':' + str(match['location']['column'])))
         return occurrences(rows)
+    if section == 'oxlint':
+        # The same configured run as `pnpm lint`; only the Solid and exhaustiveness diagnostics are debt here.
+        os.environ.setdefault('OXLINT_TSGOLINT_PATH', str(HERE.parent.parent / 'node_modules/.bin/tsgolint'))
+        output = run([HERE.parent.parent / 'node_modules/.bin/oxlint', '--type-aware', '-A', 'correctness', '-f', 'json', 'apps/desktop/src'], root, (0, 1))
+        rows = []
+        for match in json.loads(output.stdout)['diagnostics']:
+            if not re.match(r'solid\(|typescript\(switch-exhaustiveness-check\)$', match['code']):
+                continue
+            span = match['labels'][0]['span']
+            data = (root / match['filename']).read_bytes()
+            source = data[span['offset']:span['offset'] + span['length']].decode(errors='replace')
+            rows.append((match['code'], match['filename'], source, match['message'], f'{span["line"]}:{span["column"]}'))
+        return occurrences(rows)
     if section == 'dependencies':
         from dependencies import inventory as dependencies
         return dependencies(root, run, binary('cargo-deny'))
@@ -153,7 +166,8 @@ def compare(actual, allowed, label, subset=False):
 
 def load(text):
     debt = json.loads(text)
-    if set(debt) != {'size', 'ast', 'typos', 'ruff', 'dependencies'}:
+    debt.setdefault('oxlint', [])
+    if set(debt) - {'oxlint'} != {'size', 'ast', 'typos', 'ruff', 'dependencies'}:
         raise ValueError('baseline: expected all five inventories')
     for section, rows in debt.items():
         if not isinstance(rows, list) or any(not row.get('reason', '').strip() for row in rows):
@@ -163,7 +177,7 @@ def load(text):
 
 def main():
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('section', choices=[*SECTIONS, 'size', 'ast', 'typos', 'ruff', 'dependencies'])
+    parser.add_argument('section', choices=[*SECTIONS, 'size', 'ast', 'typos', 'ruff', 'oxlint', 'dependencies'])
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('--base', default='origin/main')
     parser.add_argument('--record', action='store_true', help='print current inventory; never authorizes an exception')
@@ -178,6 +192,8 @@ def main():
     base = run(['git', 'merge-base', 'HEAD', args.base], root).stdout.strip()
     names = run(['git', 'ls-tree', '--name-only', base, DEBT], root).stdout.strip()
     errors = []
+    # A lint the merge base never recorded has no base inventory to be a subset of; its first PR records it.
+    unrecorded = {'oxlint'} if not names or 'oxlint' not in json.loads(run(['git', 'show', f'{base}:{DEBT}'], root).stdout) else set()
     if names:
         old = load(run(['git', 'show', f'{base}:{DEBT}'], root).stdout)
     else:
@@ -186,11 +202,12 @@ def main():
             checkout = Path(directory) / 'base'
             run(['git', 'worktree', 'add', '--detach', checkout, base], root)
             try:
-                old = {section: inventory(section, checkout) for section in sections}
+                old = {section: inventory(section, checkout) for section in sections if section not in unrecorded}
             finally:
                 run(['git', 'worktree', 'remove', '--force', checkout], root)
     for section in sections:
-        errors.extend(compare(debt[section], old[section], f'{section} merge-base', subset=True))
+        if section not in unrecorded:
+            errors.extend(compare(debt[section], old[section], f'{section} merge-base', subset=True))
         errors.extend(compare(actual[section], debt[section], section))
         for row in debt[section]:
             print(f'baseline debt: {section} {json.dumps(row, ensure_ascii=False)}')
