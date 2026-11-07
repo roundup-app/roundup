@@ -5,12 +5,14 @@
 mod alert;
 mod closed;
 pub(crate) mod error;
+mod lookup;
 mod placement;
 mod queue;
 mod removal;
 mod settings;
 mod view;
 use error::StoreError;
+pub use lookup::{home_in, is_home_in, maker_in, registered_in};
 use view::load_nodes;
 
 use std::path::Path;

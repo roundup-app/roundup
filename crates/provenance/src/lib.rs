@@ -4,6 +4,7 @@ pub mod migration;
 #[doc(hidden)]
 pub mod schema;
 mod store;
+pub use store::record_in;
 
 use std::sync::Mutex;
 
