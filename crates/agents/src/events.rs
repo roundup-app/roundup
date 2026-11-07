@@ -487,6 +487,11 @@ impl Shared {
                     self.name_from_prompt(rail, run, id, actor, name)?;
                 }
             }
+            Effect::Title => {
+                if let Some(rail) = rail {
+                    self.name_from_title(rail, run, id, actor)?;
+                }
+            }
         }
         Ok(())
     }
@@ -511,6 +516,61 @@ impl Shared {
         }
     }
 
+    /// A9: Claude Code's first `ai-title` renames the row Automatic naming named, once.
+    fn name_from_title(
+        &self,
+        rail: &mut rail::Rail,
+        run: &mut Run,
+        id: &str,
+        actor: &Actor,
+    ) -> Result<(), RpcError> {
+        if !self.wiring.naming()?.automatic_renaming || rail.user_named(id)? {
+            run.set_title_pending(false);
+            return Ok(());
+        }
+        let Some((conversation, cwd)) = rail.conversation(id)? else {
+            return Ok(());
+        };
+        let launcher = &self.rail_view.launcher;
+        if let Some(title) = launcher.first_title(std::path::Path::new(&cwd), &conversation) {
+            run.set_title_pending(false);
+            if let Some(name) = name::from_title(&title) {
+                self.rename_automatically(rail, id, actor, name)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Rename `id` to `name`, made unique among its siblings, and announce it.
+    fn rename_automatically(
+        &self,
+        rail: &mut rail::Rail,
+        id: &str,
+        actor: &Actor,
+        name: String,
+    ) -> Result<(), RpcError> {
+        let parent = rail.node(id)?.parent;
+        let siblings = rail.tree()?;
+        let taken = siblings
+            .iter()
+            .filter(|node| node.id != id && node.parent == parent)
+            .map(|node| node.name.as_str());
+        let before = rail.node(id)?.name;
+        let node = rail.rename(id, &name::unique(&name, taken))?;
+        // The Rail lock also orders publication against RPC renames.
+        if node.name != before {
+            self.bus.emit(
+                actor.clone(),
+                EventData::RailRenamed {
+                    id: node.id,
+                    name: node.name,
+                },
+            );
+        }
+        self.bus.emit(actor.clone(), EventData::RailChanged);
+        Ok(())
+    }
+
     /// The first prompt names the Agent, unless a name is settled or automatic naming is off.
     fn name_from_prompt(
         &self,
@@ -522,32 +582,17 @@ impl Shared {
     ) -> Result<(), RpcError> {
         if run.claim_name()
             && self.wiring.naming()?.automatic_renaming
-            && let Some(name) = name
             && let node = rail.node(id)?
             && (node.kind == NodeKind::Agent
                 || (node.kind == NodeKind::Workstream
                     && name::is_workstream_placeholder(&node.name)))
             && !rail.user_named(id)?
         {
-            let parent = rail.node(id)?.parent;
-            let siblings = rail.tree()?;
-            let taken = siblings
-                .iter()
-                .filter(|node| node.id != id && node.parent == parent)
-                .map(|node| node.name.as_str());
-            let before = rail.node(id)?.name;
-            let node = rail.rename(id, &name::unique(&name, taken))?;
-            // The Rail lock also orders publication against RPC renames.
-            if node.name != before {
-                self.bus.emit(
-                    actor.clone(),
-                    EventData::RailRenamed {
-                        id: node.id,
-                        name: node.name,
-                    },
-                );
+            // A9: whether or not the prompt had words, Claude Code's title may still name the row.
+            run.set_title_pending(true);
+            if let Some(name) = name {
+                self.rename_automatically(rail, id, actor, name)?;
             }
-            self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         Ok(())
     }

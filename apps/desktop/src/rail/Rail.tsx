@@ -95,7 +95,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [{ id: "add", label: copy.addMenu, children: [
-        { id: "add-agent", label: copy.addAgentMenu, enabled: !actions.add.disabled, run: actions.add.run },
         { id: "add-todo", label: copy.todo, enabled: daemonExit() === null, run: () => connected.createIn("todo", node.id) },
         { id: "add-pad", label: copy.pad, enabled: daemonExit() === null, run: () => connected.createIn("pad", node.id) },
         { id: "add-terminal", label: copy.addTerminalMenu, enabled: daemonExit() === null, run: () => connected.createIn("terminal", node.id) },
@@ -381,17 +380,11 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   let sendOrder: Promise<void> = Promise.resolve();
 
-  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) => {
-    const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
+  const spawnAgentWith = (prompt: string | null) => {
+    const params: SpawnParams = { cwd: project.path, prompt, parent: null, model: null, effort: null };
 
     const run = () => {
       if (!canSpawn()) return;
-
-      if (under !== null && !rail.nodes.some(node => node.id === under && node.kind === "workstream")) {
-        failure.show(copy.railDraftUnavailable);
-
-        return;
-      }
 
       // U6000a, U6000d: the row (drawn below) shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired.
       const turn = sendOrder;
@@ -402,7 +395,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         const focus = captureFocus(true);
         let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
         // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
-        const lift = rail.drawNew("agent", copy.newAgent, under);
+        const lift = rail.drawNew("agent", copy.newAgent, null);
 
         try {
           await turn;
@@ -446,16 +439,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       const actions: Extract<RowActions, { kind: "workstream" }> = {
         ...base,
         kind: "workstream",
-        add: {
-          disabled: !canSpawn(),
-          shortcut: parent() === node.id && !composing(),
-          run: () => {
-            if (!canSpawn()) return;
-
-            if (composing()) field()?.focus();
-            else spawnAgentWith(null, node.id);
-          },
-        },
       };
 
       if (node.opening_prompt?.trim()) actions.restart = {
@@ -516,7 +499,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           const prepared = await rail.prepareTerminal?.();
 
           try {
-            const node = await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: originalParent, model: null, effort: null, ...prepared?.size });
+            const node = await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, ...prepared?.size });
 
             if (node.terminal_id) prepared?.bind(node.terminal_id);
             spawned = node.id;

@@ -252,14 +252,14 @@ it.each(["agent", "workstream"] as const)("u5742c_authorized_native_link_choice_
   expect(m.app.calls.filter(call => call.method === "link.read").map(call => call.params)).toEqual([{ url }]);
 });
 
-it.each(["fold", "add-agent", "door-action", "menu"])("u5742b_controls_do_not_activate_the_row_%s", async control => {
+it.each(["fold", "door-action", "menu"])("u5742b_controls_do_not_activate_the_row_%s", async control => {
   const m = await mount([agent("ann", "idle", "ready"), door("mode", "idle", "ready", { opening_prompt: "review this" }), agent("child", "idle", "ready", { parent: "mode" })]);
   m.connected.rail.select("ann");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-ann"));
   const { copy } = await import("./copy");
   m.app.handlers["agent.spawn"] = () => new Promise(() => {});
   m.app.handlers["workstream.restart"] = () => new Promise(() => {});
-  const label = control === "fold" ? copy.collapse : control === "add-agent" ? copy.addAgentLabel : control === "door-action" ? copy.restart : copy.rowActions;
+  const label = control === "fold" ? copy.collapse : control === "door-action" ? copy.restart : copy.rowActions;
   const button = [...row("mode").querySelectorAll<HTMLButtonElement>("button")].find(button => button.getAttribute("aria-label") === label)!;
   expect(button).toBeDefined();
   fireEvent.pointerDown(button); button.focus(); fireEvent.click(button);
@@ -270,7 +270,7 @@ it.each(["fold", "add-agent", "door-action", "menu"])("u5742b_controls_do_not_ac
 
   if (control === "menu") { await waitFor(() => expect(m.app.shownMenus).toHaveLength(1)); await m.app.closeMenu(); }
 
-  if (control === "add-agent" || control === "door-action") await waitFor(() => expect(m.app.calls.filter(call => call.method === (control === "add-agent" ? "agent.spawn" : "workstream.restart"))).toHaveLength(1));
+  if (control === "door-action") await waitFor(() => expect(m.app.calls.filter(call => call.method === "workstream.restart")).toHaveLength(1));
   expect(m.app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 

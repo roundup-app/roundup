@@ -1,0 +1,7 @@
+[ Files | Notes | + ]
+[x Files | x Notes ]
+Files / Notes
+"Scenario ID" is the short name
+tests carry it so a failure points to the promise it breaks
+roundup://pad/tab-drafts?project=demo
+A fix agent already runs on the tab strip

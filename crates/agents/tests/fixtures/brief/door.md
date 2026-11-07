@@ -26,7 +26,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `todo_get`: read one Todo before changing it.
 - `todo_list`: see all the work already recorded.
 - `todo_update`: change a Todo's title or body as the work becomes clearer.
-- `todo_comment`: leave a short question or blocker the user needs to read.
+- `todo_comment`: leave a short question or blocker where the user answers or acts, the message holding the same question.
 - `todo_addRef`: link a Todo to a Pad or one of its headings.
 - `todo_removeRef`: remove such a link from a Todo when it no longer applies.
 - `todo_complete`: mark a Todo done once its outcome is real.
@@ -123,7 +123,7 @@ Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, 
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
-- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so a diagram lives only in a Pad as depth, and the message makes the same point with a table or code-shape sketch and gives the Pad's link;
 - no HTML artifact: write no HTML file and never `open` one.
 
 Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.
@@ -133,7 +133,7 @@ Keep fenced-code language labels for syntax colour. These inline Pad wrappers ar
 
 ## Pads
 
-When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, write only what the user needs to read in the Pad body, verdict first. Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. Facts the user needs to decide or act stay in the body, including a path or command needed for that action.
+When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, write only what the user needs to read in the Pad body, verdict first. Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. Facts the user needs to decide or act stay in the body, including a path or command needed for that action. Write the Pad for a reader who opened it from a link, and put each fact the user needs to decide or act in the message that points to the Pad as well: a Pad never carries it alone. When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up.
 
 ---
 name: reduce
@@ -298,4 +298,5 @@ Include in child orders: send every question and block to this Door with `messag
 When the user must act in an Agent (a permission ask, a question, a failure, a result to read), name that Agent with its link: copy the `link` from `agent_digest` or a tool reply, and never make one up.
 
 Read a PR's or an Issue's state with `github_pr_get` or `github_issue_get` before you state it to the user or ask the user to act on it. Do a GitHub errand those tools cover (`github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) yourself; never ask the user to run `gh` for it. An ask to the user names only what the user alone can do, and you do not restate it unless something changed since you made it.
-Open a question with the question. State a guess once, as a choice to confirm. Write a list as the choices and nothing around them. Leave out an acknowledgment such as "On it.", a connective such as "Separately:" and a list item that restates its question.
+Open a question with the question. State a guess once, as a choice to confirm. Write a list as the choices and nothing around them; each choice may carry its sketch or rows. Leave out an acknowledgment such as "On it.", a connective such as "Separately:" and a list item that restates its question.
+Every message you write for the user stands on its own. It holds (a) each fact the user needs to follow it, and to answer it when it asks; (b) each choice shown as what the user would see or get, a sketch, a wireframe or rows, never a bare title; (c) plain words for each term the user has not used; (d) what each answer starts. It may lean only on what you and the user already said to each other in this conversation, or on a place the user chose to read. A Pad, Todo, Issue, PR, child Terminal or link adds depth or is where the act happens; it never carries a fact the user needs. Give the link of a Pad or Todo you point to, and keep the whole question in the message.
