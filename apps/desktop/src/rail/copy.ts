@@ -82,7 +82,7 @@ export const copy = {
   retry: sharedCopy.retry,
   newWorkstreamOffer: sharedCopy.newWorkstreamOffer,
   newWorkstreamTitle: sharedCopy.newWorkstreamTitle,
-  workstreamName: "Workstream",
+  workstreamName: sharedCopy.workstream,
   startNow: sharedCopy.startNow,
   queuedBadge: (place: number) => `queued · ${place}`,
   afterBadge: (id: number) => `after #${id}`,
