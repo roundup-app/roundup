@@ -93,5 +93,27 @@
         ]
       }
     ]
+  },
+  "prefix-read": {
+    "all": [
+      {
+        "kind": "call_expression"
+      },
+      {
+        "has": {
+          "field": "function",
+          "regex": "(^|\\.)(starts_with|strip_prefix)$"
+        }
+      },
+      {
+        "has": {
+          "field": "arguments",
+          "has": {
+            "kind": "string_literal",
+            "regex": "^\"\\["
+          }
+        }
+      }
+    ]
   }
 }
