@@ -54,7 +54,7 @@ export const NativeAlert = (props: {
 
       if (accepted) await props.onConfirm(answer === "this" || answer === "all" ? answer : undefined);
       else props.onCancel();
-      queueMicrotask(() => focus(() => props.finalFocus()?.focus({ preventScroll: true })));
+      queueMicrotask(() => focus(() => untrack(() => props.finalFocus())?.focus({ preventScroll: true })));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
@@ -67,7 +67,8 @@ export const NativeAlert = (props: {
       answered();
       pending = false;
 
-      if (repeat) void request();
+      // An answer that opened the next question (a queued close) asks it now that this request is done.
+      if (repeat || (mine !== generation && untrack(() => props.open))) void request();
     }
   };
 

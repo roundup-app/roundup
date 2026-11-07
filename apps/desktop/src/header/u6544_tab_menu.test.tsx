@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { questionProbe } from "../testing/menuProbe";
 import { agent } from "../testing/nodes";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { openTabs, path, projectTabs, tab } from "./stripFixture";
@@ -73,9 +74,25 @@ it("u6544b_bulk_close_asks_about_one_project_then_closes_the_rest", async () => 
   open("d");
   await app.pickMenu("Close to the Left");
   await questionDialog();
-  await waitFor(() => expect(app.closed).toEqual([path("a")]));
+  await waitFor(() => expect([...app.closed].sort()).toEqual([path("a"), path("c")]));
   await answerQuestion(true);
   await waitFor(() => expect([...app.closed].sort()).toEqual([path("a"), path("b"), path("c")]));
+});
+
+it("u6578a_multi_close_asks_each_running_tab_in_turn", async () => {
+  const { app } = await openTabs({ a: [agent("w", "working", "x")], b: [agent("v", "working", "y")], c: [], d: [] });
+
+  open("d");
+  await app.pickMenu("Close Others");
+  await questionDialog();
+  await waitFor(() => expect(app.closed).toEqual([path("c")]));
+  await answerQuestion(true);
+  await waitFor(() => expect(app.closed).toContain(path("a")));
+  await waitFor(() => expect(questionProbe.count).toBe(2));
+  await answerQuestion(false);
+  await Promise.resolve();
+  await waitFor(() => expect(questionProbe.shown).toBeNull());
+  expect([...app.closed].sort()).toEqual([path("a"), path("c")]);
 });
 
 it("u6544c_recover_drafts_in_menu", async () => {

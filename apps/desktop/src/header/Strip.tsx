@@ -63,7 +63,16 @@ const createClosing = (props: { tabs: StripTab[]; onClose: (path: string) => voi
   };
 
   const closeAll = (closing: string[]) => {
-    waiting = [...closing];
+    // A Project with no running work closes at once; only the ones with a question wait for their turn.
+    waiting = [];
+
+    for (const path of closing) {
+      const tab = props.tabs.find(each => each.path === path);
+
+      if (tab && tab.exitText === null && tab.running.length > 0) waiting.push(path);
+      else void props.onClose(path);
+    }
+
     next();
   };
 
