@@ -29,16 +29,24 @@ fn git_path(dir: &Path, name: &str) -> Option<PathBuf> {
     })
 }
 
-/// The files Cargo watches: HEAD of this checkout or worktree, the ref HEAD names, and the packed
-/// refs a moved ref may live in. HEAD and `packed-refs` only when they exist; the loose ref always,
-/// since a commit on a packed branch creates that file and Cargo reruns when a watched path appears.
+/// The paths Cargo watches: HEAD of this checkout or worktree, the ref HEAD names, and the packed
+/// refs a moved ref may live in. Cargo reruns on every build for a watched path that is missing, so
+/// each path exists: a loose ref that a packed branch lacks is watched as its nearest existing
+/// directory, whose change time moves when a commit creates the file.
 pub fn rerun_paths(dir: &Path) -> Vec<PathBuf> {
     let mut paths: Vec<PathBuf> = git_path(dir, "HEAD").into_iter().collect();
     if paths.is_empty() {
         return paths;
     }
     if let Some(head_ref) = git(dir, &["symbolic-ref", "-q", "HEAD"]) {
-        paths.extend(git_path(dir, &head_ref));
+        if let Some(loose) = git_path(dir, &head_ref) {
+            paths.extend(
+                loose
+                    .ancestors()
+                    .find(|path| path.exists())
+                    .map(Path::to_path_buf),
+            );
+        }
     }
     paths.extend(git_path(dir, "packed-refs").filter(|path| path.exists()));
     paths

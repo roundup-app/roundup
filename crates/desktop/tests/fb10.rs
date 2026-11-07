@@ -36,18 +36,11 @@ fn head(dir: &Path) -> String {
 }
 
 #[test]
-fn fb10_rerun_paths_include_a_missing_loose_ref() {
+fn fb10_rerun_paths_watch_the_refs_directory_for_a_packed_ref() {
     let repo = packed_repo();
     let paths = build_stamp::rerun_paths(repo.path());
-    let loose = paths
-        .iter()
-        .find(|p| {
-            p.to_string_lossy()
-                .replace('\\', "/")
-                .ends_with(".git/refs/heads/main")
-        })
-        .expect("the loose ref is watched");
-    assert!(!loose.exists());
+    assert!(paths.iter().all(|p| p.exists()), "{paths:?}");
+    assert!(paths.iter().any(|p| p.ends_with(".git/refs/heads")));
     assert!(paths.iter().any(|p| p.ends_with("packed-refs")));
 }
 
@@ -74,7 +67,7 @@ fn fb10_the_stamp_follows_a_commit_after_pack_refs() {
         git(dir, &["commit", "-q", "--allow-empty", "-m", "next"]);
         let loose = build_stamp::rerun_paths(dir)
             .into_iter()
-            .any(|p| p.exists() && p.to_string_lossy().contains("refs/heads"));
+            .any(|p| p.ends_with("refs/heads/main") || p.ends_with("refs/heads/side"));
         assert!(loose, "the commit created the watched loose ref");
         let after = build_stamp::stamp(dir);
         assert_eq!(after, head(dir));
