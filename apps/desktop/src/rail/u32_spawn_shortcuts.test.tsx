@@ -14,14 +14,14 @@ const chord = (key: string, kept: KeyboardEventInit = { metaKey: true }) => fire
 const spawnCalls = (mounted: Awaited<ReturnType<typeof mountRail>>) => railCallsTo(mounted.app, "agent.spawn");
 
 describe("u32 spawn shortcuts and pinned actions", () => {
-  it("u32_cmd_n_spawns_an_agent_under_the_selected_group", async () => {
+  it("u32_cmd_n_spawns_an_a_top_level_agent", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => SPAWNED;
     mounted.rail.select("g");
 
     chord("n");
 
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   });
 
   it("u32_a_second_chord_while_a_spawn_is_in_flight_sends_its_own_spawn", async () => {
