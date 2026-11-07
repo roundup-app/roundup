@@ -43,8 +43,8 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
     let status = contracts::agent::StatusEvent {
         ended: true,
         id: "a1".into(),
-        attempt: "2".into(),
-        status_revision: "3".into(),
+        attempt: contracts::agent::Ordinal::parse("2").unwrap(),
+        status_revision: contracts::agent::Ordinal::parse("3").unwrap(),
         status: contracts::common::Status {
             kind: contracts::common::Kind::Working,
             label: "building".into(),

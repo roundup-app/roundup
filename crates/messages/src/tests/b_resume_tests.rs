@@ -47,7 +47,7 @@ async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
 
     // Resuming: Attempt 2 shows `starting` at Status revision 1, then the ack makes it idle.
     let resuming = RailNode {
-        attempt: Some("2".into()),
+        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
         ..node(
             "m",
             NodeKind::Workstream,
@@ -58,8 +58,8 @@ async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
     *rail.0.lock().unwrap() = vec![resuming];
     on_status(&messages.inner, "m", "2", "1", Kind::Working).await;
     let idle = RailNode {
-        attempt: Some("2".into()),
-        status_revision: Some("2".into()),
+        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
+        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
         ..agent_node("m", Kind::Idle)
     };
     *rail.0.lock().unwrap() = vec![idle];
@@ -72,7 +72,7 @@ fn survivor(kind: Kind, revision: Option<&str>) -> RailNode {
     RailNode {
         visibility: Default::default(),
         terminal_id: Some("terminal-b".into()),
-        status_revision: revision.map(str::to_owned),
+        status_revision: revision.map(|n| contracts::agent::Ordinal::parse(n).unwrap()),
         ..agent_node("b", kind)
     }
 }

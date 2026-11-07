@@ -30,7 +30,7 @@ impl Module for StaleOnce {
         }
         let stale = self.stale.swap(false, std::sync::atomic::Ordering::SeqCst);
         let mut node = agent_node("b", if stale { Kind::Working } else { Kind::Idle });
-        node.status_revision = Some(if stale { "1" } else { "2" }.into());
+        node.status_revision = contracts::agent::Ordinal::parse(if stale { "1" } else { "2" });
         Ok(serde_json::to_value(vec![node]).unwrap())
     }
 }

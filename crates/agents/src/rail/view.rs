@@ -1,5 +1,6 @@
 //! Loading stored Rail nodes, before live Agent facts are applied.
 use super::*;
+use contracts::agent::Ordinal;
 
 // R3696c: adding visibility made the compound empty-history read cost 915 VM steps.
 // Test the preparation gate once, then read the ordinary rows without per-node predicates.
@@ -11,7 +12,7 @@ const NODES: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
 pub(super) fn load_nodes(
     db: &Connection,
     include_preparation: bool,
-) -> Result<Vec<RailNode>, RpcError> {
+) -> Result<Vec<RailNode>, StoreError> {
     load_with(db, include_preparation, 0, |node, _| node)
 }
 
@@ -20,122 +21,115 @@ fn load_with<T>(
     include_preparation: bool,
     capacity: usize,
     mut map: impl FnMut(RailNode, u64) -> T,
-) -> Result<Vec<T>, RpcError> {
+) -> Result<Vec<T>, StoreError> {
     let all = include_preparation
         || !db
-            .prepare_cached(PREPARING)
-            .map_err(sql)?
-            .query_row([], |row| row.get::<_, bool>(0))
-            .map_err(sql)?;
+            .prepare_cached(PREPARING)?
+            .query_row([], |row| row.get::<_, bool>(0))?;
     let mut query = if all {
         db.prepare_cached(NODES)
     } else {
         db.prepare_cached(&format!("{NODES} WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))"))
-    }.map_err(sql)?;
-    let rows = query
-        .query_map([], |row| {
-            let kind = match row.get_ref(1)?.as_str()? {
-                "group" => NodeKind::Group,
-                "workstream" => NodeKind::Workstream,
-                _ => NodeKind::Agent,
-            };
-            let worktree = match (
-                row.get::<_, Option<String>>(7)?,
-                row.get::<_, Option<String>>(8)?,
-                row.get::<_, Option<String>>(9)?,
-            ) {
-                (Some(path), Some(branch), Some(base)) => Some(Worktree { path, branch, base }),
-                _ => None,
-            };
-            let stored = row
-                .get_ref(10)?
+    }?;
+    let rows = query.query_map([], |row| {
+        let kind = match row.get_ref(1)?.as_str()? {
+            "group" => NodeKind::Group,
+            "workstream" => NodeKind::Workstream,
+            _ => NodeKind::Agent,
+        };
+        let worktree = match (
+            row.get::<_, Option<String>>(7)?,
+            row.get::<_, Option<String>>(8)?,
+            row.get::<_, Option<String>>(9)?,
+        ) {
+            (Some(path), Some(branch), Some(base)) => Some(Worktree { path, branch, base }),
+            _ => None,
+        };
+        let stored = row
+            .get_ref(10)?
+            .as_str_or_null()?
+            .and_then(|json| serde_json::from_str(json).ok());
+        let work = match kind {
+            NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
+            NodeKind::Agent => stored,
+            NodeKind::Group => None,
+        };
+        let node = RailNode {
+            workstream_state: None,
+            waiting: None,
+            unreachable: None,
+            resume: None,
+            start_attribution: row
+                .get_ref(19)?
                 .as_str_or_null()?
-                .and_then(|json| serde_json::from_str(json).ok());
-            let work = match kind {
-                NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
-                NodeKind::Agent => stored,
-                NodeKind::Group => None,
-            };
-            let node = RailNode {
-                workstream_state: None,
-                waiting: None,
-                unreachable: None,
-                resume: None,
-                start_attribution: row
-                    .get_ref(19)?
-                    .as_str_or_null()?
-                    .map(serde_json::from_str)
-                    .transpose()
-                    .map_err(|error| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            19,
-                            rusqlite::types::Type::Text,
-                            Box::new(error),
-                        )
-                    })?,
-                visibility: match row.get_ref(20)?.as_str()? {
-                    "internal" => contracts::agent::RailVisibility::Internal,
-                    _ => contracts::agent::RailVisibility::Shown,
-                },
-                alert_level: serde_json::from_str(row.get_ref(18)?.as_str()?).map_err(|error| {
+                .map(serde_json::from_str)
+                .transpose()
+                .map_err(|error| {
                     rusqlite::Error::FromSqlConversionFailure(
-                        18,
+                        19,
                         rusqlite::types::Type::Text,
                         Box::new(error),
                     )
                 })?,
-                opening_prompt: if kind == NodeKind::Workstream {
-                    row.get(17)?
-                } else {
-                    None
-                },
-                auto: (kind == NodeKind::Workstream)
-                    .then(|| row.get(15))
-                    .transpose()?,
-                id: row.get::<_, i64>(0)?.to_string(),
-                kind,
-                name: row.get(2)?,
-                parent: row.get::<_, Option<i64>>(3)?.map(|id| id.to_string()),
-                order: row.get(4)?,
-                status: None,
-                status_revision: None,
-                final_text: None,
-                attempt: match row.get::<_, i64>(5)? {
-                    0 => None,
-                    n => Some(n.to_string()),
-                },
-                terminal_id: row.get(6)?,
-                worktree,
-                // R3696c: SQL null predicates cost 280 extra VM steps per forty nodes.
-                // Borrow the fields without copying conversation text; presentation gates
-                // availability on the live Attempt (R16).
-                can_resume: !matches!(row.get_ref(13)?, rusqlite::types::ValueRef::Null)
-                    && !matches!(row.get_ref(14)?, rusqlite::types::ValueRef::Null),
-                can_make_workstream: false,
-                can_save_as_mode: false,
-                yolo: false,
-                channel: None,
-                stray: Vec::new(),
-                work,
-                model: row.get(11)?,
-                effort: row.get(12)?,
-                inbox: None,
-                tool_call: None,
-                overview: None,
-            };
-            Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
-        })
-        .map_err(sql)?;
+            visibility: match row.get_ref(20)?.as_str()? {
+                "internal" => contracts::agent::RailVisibility::Internal,
+                _ => contracts::agent::RailVisibility::Shown,
+            },
+            alert_level: serde_json::from_str(row.get_ref(18)?.as_str()?).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    18,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })?,
+            opening_prompt: if kind == NodeKind::Workstream {
+                row.get(17)?
+            } else {
+                None
+            },
+            auto: (kind == NodeKind::Workstream)
+                .then(|| row.get(15))
+                .transpose()?,
+            id: row.get::<_, i64>(0)?.to_string(),
+            kind,
+            name: row.get(2)?,
+            parent: row.get::<_, Option<i64>>(3)?.map(|id| id.to_string()),
+            order: row.get(4)?,
+            status: None,
+            status_revision: None,
+            final_text: None,
+            attempt: Ordinal::new(row.get::<_, i64>(5)?),
+            terminal_id: row.get(6)?,
+            worktree,
+            // R3696c: SQL null predicates cost 280 extra VM steps per forty nodes.
+            // Borrow the fields without copying conversation text; presentation gates
+            // availability on the live Attempt (R16).
+            can_resume: !matches!(row.get_ref(13)?, rusqlite::types::ValueRef::Null)
+                && !matches!(row.get_ref(14)?, rusqlite::types::ValueRef::Null),
+            can_make_workstream: false,
+            can_save_as_mode: false,
+            yolo: false,
+            channel: None,
+            stray: Vec::new(),
+            work,
+            model: row.get(11)?,
+            effort: row.get(12)?,
+            inbox: None,
+            tool_call: None,
+            overview: None,
+        };
+        Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
+    })?;
     let mut nodes = Vec::with_capacity(capacity);
     for row in rows {
-        nodes.push(row.map_err(sql)?);
+        nodes.push(row?);
     }
     Ok(nodes)
 }
 
 impl Rail {
     /// Every node, each parent before its children, siblings by `order`.
-    pub fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
+    pub fn tree(&self) -> Result<Vec<RailNode>, StoreError> {
         self.tree_with(|node, _| Ok(node))
     }
 
@@ -143,7 +137,7 @@ impl Rail {
     pub(crate) fn tree_with(
         &self,
         mut present: impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
-    ) -> Result<Vec<RailNode>, RpcError> {
+    ) -> Result<Vec<RailNode>, StoreError> {
         // R3696c: the separate finish-count query/map made a forty-Workstream
         // reply allocate 290 times. Keep the count beside its node during traversal.
         // R3696c: growing this buffer costs 19,968 bytes per forty-node reply.
@@ -160,58 +154,57 @@ impl Rail {
     }
 
     /// U3566c: the Agent's published finishes; `0` for a node never counted.
-    pub(crate) fn finished(&self, id: &str) -> Result<u64, RpcError> {
-        self.db
+    pub(crate) fn finished(&self, id: &str) -> Result<u64, StoreError> {
+        Ok(self
+            .db
             .query_row(
                 "SELECT finished FROM nodes WHERE CAST(id AS TEXT)=?1",
                 [id],
                 |row| row.get::<_, i64>(0),
             )
             .optional()
-            .map(|finished| finished.unwrap_or_default().cast_unsigned())
-            .map_err(sql)
+            .map(|finished| finished.unwrap_or_default().cast_unsigned())?)
     }
 
-    pub(crate) fn set_finished(&mut self, id: &str, finished: u64) -> Result<(), RpcError> {
-        self.db
+    pub(crate) fn set_finished(&mut self, id: &str, finished: u64) -> Result<(), StoreError> {
+        Ok(self
+            .db
             .execute(
                 "UPDATE nodes SET finished=?1 WHERE CAST(id AS TEXT)=?2",
                 params![finished.cast_signed(), id],
             )
-            .map(drop)
-            .map_err(sql)
+            .map(drop)?)
     }
 
     pub(crate) fn set_opening_prompt(
         &mut self,
         id: &str,
         prompt: Option<&str>,
-    ) -> Result<bool, RpcError> {
-        self.db
+    ) -> Result<bool, StoreError> {
+        Ok(self.db
             .execute(
                 "UPDATE nodes SET opening_prompt=?1 WHERE CAST(id AS TEXT)=?2 AND opening_prompt IS NOT ?1",
                 params![prompt, id],
             )
-            .map(|changed| changed != 0)
-            .map_err(sql)
+            .map(|changed| changed != 0)?)
     }
 
     /// FOP5978b: turn every Auto off.
-    pub(crate) fn clear_all_auto(&mut self) -> Result<(), RpcError> {
-        self.db
+    pub(crate) fn clear_all_auto(&mut self) -> Result<(), StoreError> {
+        Ok(self
+            .db
             .execute("UPDATE nodes SET auto=0 WHERE auto!=0", [])
-            .map(|_| ())
-            .map_err(sql)
+            .map(|_| ())?)
     }
 
-    pub(crate) fn set_auto(&mut self, id: &str, auto: bool) -> Result<bool, RpcError> {
-        self.db
+    pub(crate) fn set_auto(&mut self, id: &str, auto: bool) -> Result<bool, StoreError> {
+        Ok(self
+            .db
             .execute(
                 "UPDATE nodes SET auto=?1 WHERE CAST(id AS TEXT)=?2 AND auto!=?1",
                 params![auto, id],
             )
-            .map(|changed| changed != 0)
-            .map_err(sql)
+            .map(|changed| changed != 0)?)
     }
 }
 
@@ -226,13 +219,13 @@ struct Topology {
 fn ordered(
     mut flat: Vec<(RailNode, u64)>,
     present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
-) -> Result<Vec<RailNode>, RpcError> {
+) -> Result<Vec<RailNode>, StoreError> {
     // R3696c's root-only allocation bound needs no topology or second payload buffer.
     if flat.iter().all(|(node, _)| node.parent.is_none()) {
         flat.sort_unstable_by_key(|(node, _)| node.order);
         return flat
             .into_iter()
-            .map(|(node, finished)| present(node, finished))
+            .map(|(node, finished)| present(node, finished).map_err(StoreError::from))
             .collect();
     }
     let topology = topology(&flat);
@@ -287,7 +280,7 @@ fn walk(
     mut flat: Vec<(RailNode, u64)>,
     prepared: Walk,
     present: &mut impl FnMut(RailNode, u64) -> Result<RailNode, RpcError>,
-) -> Result<Vec<RailNode>, RpcError> {
+) -> Result<Vec<RailNode>, StoreError> {
     let Walk {
         mut topology,
         mut slots,
@@ -308,7 +301,7 @@ fn walk(
     }
     flat.truncate(emitted);
     flat.into_iter()
-        .map(|(node, finished)| present(node, finished))
+        .map(|(node, finished)| present(node, finished).map_err(StoreError::from))
         .collect()
 }
 

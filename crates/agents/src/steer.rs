@@ -62,7 +62,7 @@ impl Shared {
         let name = self
             .rail()
             .name(id)
-            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         match self.runs().get(id) {
             Some(Slot::Running(run))
                 if attempt.is_none_or(|attempt| run.attempt == attempt)
@@ -98,7 +98,11 @@ impl Agents {
         id: &str,
         attempt: &str,
     ) -> Result<FirstSteerCompletion, PromptError> {
-        let name = self.shared.rail().name(id).map_err(PromptError::Rail)?;
+        let name = self
+            .shared
+            .rail()
+            .name(id)
+            .map_err(|error| PromptError::Rail(error.into()))?;
         let missing = || PromptError::NotFound {
             id: id.to_owned(),
             name: name.clone(),
@@ -259,7 +263,7 @@ impl Shared {
         let name = self
             .rail()
             .name(id)
-            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         let not_found = |name: &str| PromptError::NotFound {
             id: id.to_owned(),
             name: name.to_owned(),
@@ -368,7 +372,7 @@ impl Shared {
                 Ok(None)
             }
         }
-        .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         let retaining = self.me.upgrade();
         let retained_delivery = delivery.clone();
         let bytes = if verbatim {
@@ -406,14 +410,14 @@ impl Shared {
         {
             self.rail()
                 .instruction_state(delivery, contracts::agent::InstructionState::Refused)
-                .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+                .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         }
         let failure = match effect {
             Err(err) if err.code == code::NOT_FOUND => {
                 let name = self
                     .rail()
                     .name(id)
-                    .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+                    .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
                 return Err(SteerError::Refused(not_found(&name)));
             }
             Err(err) => {
@@ -423,7 +427,7 @@ impl Shared {
                     name: self
                         .rail()
                         .name(id)
-                        .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                        .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?,
                 };
                 if err.code == code::UNKNOWN_OUTCOME {
                     SteerError::Uncertain(reason)
@@ -443,16 +447,17 @@ impl Shared {
                                     &delivery,
                                     contracts::agent::InstructionState::Submitted,
                                 )
-                                .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
+                                .map_err(|error| {
+                                    SteerError::Uncertain(PromptError::Rail(error.into()))
+                                })?;
                         }
                         return Ok(());
                     }
                     _ => SteerError::Uncertain(PromptError::NotAccepted {
                         id: id.to_owned(),
-                        name: self
-                            .rail()
-                            .name(id)
-                            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                        name: self.rail().name(id).map_err(|error| {
+                            SteerError::Uncertain(PromptError::Rail(error.into()))
+                        })?,
                     }),
                 }
             }
@@ -460,7 +465,7 @@ impl Shared {
         let name = self
             .rail()
             .name(id)
-            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
+            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?;
         let mut runs = self.runs();
         let ended = match runs.get_mut(id) {
             Some(Slot::Running(run)) if run.terminal_id == terminal_id => {
@@ -665,7 +670,9 @@ mod tests {
                 "closing" => {
                     shared.runs().insert("7013".into(), crate::Slot::Closing);
                 }
-                "starting" => shared.mark_starting("7013", "1".into()),
+                "starting" => {
+                    shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap())
+                }
                 "ended" => {
                     if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
                         run.ended = true;

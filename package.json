@@ -23,6 +23,7 @@
     "@copilotkit/aimock": "1.45.1",
     "@oxlint/plugins": "1.86.0",
     "eslint-plugin-solid": "0.18.1",
+    "eslint-plugin-sonarjs": "4.2.2",
     "fallow": "^3.34.0",
     "lefthook": "2.2.2",
     "lint-staged": "17.6.0",

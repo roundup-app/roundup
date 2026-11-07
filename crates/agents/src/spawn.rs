@@ -329,7 +329,7 @@ impl Agents {
     pub(super) async fn run_agent(
         &self,
         id: &str,
-        attempt: &str,
+        attempt: &Ordinal,
         cwd: &Path,
         first: Option<String>,
         startup_context: bool,
@@ -401,7 +401,7 @@ impl Agents {
         let prompts = self.shared.finish_starting(id, attempt, |named| {
             Run::starting(
                 Arc::clone(&self.shared.clock),
-                attempt.to_owned(),
+                attempt.clone(),
                 spawned.id.clone(),
                 effective_cwd.to_string_lossy().into_owned(),
                 prompt,
@@ -425,7 +425,7 @@ impl Agents {
         tokio::spawn(watch(
             Arc::clone(&self.shared),
             id.to_owned(),
-            attempt.to_owned(),
+            attempt.clone(),
             spawned.events,
         ));
         Ok(spawned.id)
@@ -438,7 +438,7 @@ impl Agents {
     pub(super) async fn start(
         &self,
         id: &str,
-        attempt: &str,
+        attempt: &Ordinal,
         cwd: &Path,
         resume: Option<&str>,
         attach: bool,
@@ -526,7 +526,9 @@ impl Agents {
             .await?;
         if attach {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
-            let attached = attached.and_then(|()| self.save_owner(id, &spawned.id));
+            let attached = attached
+                .map_err(RpcError::from)
+                .and_then(|()| self.save_owner(id, &spawned.id));
             if let Err(err) = attached {
                 report_undo(
                     "kill the Agent's Terminal",
@@ -542,7 +544,7 @@ impl Agents {
 impl Run {
     fn starting(
         clock: Clock,
-        attempt: String,
+        attempt: Ordinal,
         terminal_id: String,
         cwd: String,
         prompt: Option<String>,
@@ -554,7 +556,7 @@ impl Run {
             startup_context,
             input_started: prompt.is_some(),
             attempt,
-            status_revision: 1,
+            status_revision: Ordinal::first(),
             closing: false,
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
@@ -647,7 +649,7 @@ mod idle_tests {
             if restart {
                 let mut earlier = Run::starting(
                     Arc::new(|| 0),
-                    "1".into(),
+                    contracts::agent::Ordinal::parse("1").unwrap(),
                     "old".into(),
                     "/".into(),
                     None,
@@ -670,7 +672,7 @@ mod idle_tests {
             );
             let mut run = Run::starting(
                 Arc::new(|| 0),
-                "1".into(),
+                contracts::agent::Ordinal::parse("1").unwrap(),
                 "none".into(),
                 "/".into(),
                 prompt,
@@ -717,7 +719,7 @@ mod idle_tests {
             .unwrap();
         let mut earlier = Run::starting(
             Arc::new(|| 0),
-            "1".into(),
+            contracts::agent::Ordinal::parse("1").unwrap(),
             "old".into(),
             "/".into(),
             None,
@@ -736,7 +738,7 @@ mod idle_tests {
             node.id.clone(),
             Slot::Resuming {
                 mode: contracts::agent::ResumeMode::default(),
-                attempt: "2".into(),
+                attempt: contracts::agent::Ordinal::parse("2").unwrap(),
                 since: 0,
                 old: None,
                 conversation_id: conversation.into(),

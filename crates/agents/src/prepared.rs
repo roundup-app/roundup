@@ -235,7 +235,7 @@ impl Agents {
         }
         let mut rail = self.shared.rail();
         match outcome {
-            Ok(()) => rail.set_prepared_unavailable(&key, None),
+            Ok(()) => Ok(rail.set_prepared_unavailable(&key, None)?),
             Err(message) => {
                 let first = message.lines().next().unwrap_or_default().to_owned();
                 rail.set_prepared_unavailable(&key, Some(&first))?;

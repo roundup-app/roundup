@@ -1,0 +1,71 @@
+{
+  "label": "head",
+  "chromium": "headless",
+  "viewport": "1512x950",
+  "seed": "tree-40",
+  "drops": [
+    {
+      "drop": 1,
+      "moved": true,
+      "longest_task_ms": 175.9,
+      "tasks_over_16_7": 4
+    },
+    {
+      "drop": 2,
+      "moved": true,
+      "longest_task_ms": 152.2,
+      "tasks_over_16_7": 5
+    },
+    {
+      "drop": 3,
+      "moved": true,
+      "longest_task_ms": 138.1,
+      "tasks_over_16_7": 3
+    },
+    {
+      "drop": 4,
+      "moved": true,
+      "longest_task_ms": 118.4,
+      "tasks_over_16_7": 3
+    },
+    {
+      "drop": 5,
+      "moved": true,
+      "longest_task_ms": 137.6,
+      "tasks_over_16_7": 4
+    },
+    {
+      "drop": 6,
+      "moved": true,
+      "longest_task_ms": 128.7,
+      "tasks_over_16_7": 5
+    },
+    {
+      "drop": 7,
+      "moved": true,
+      "longest_task_ms": 128.8,
+      "tasks_over_16_7": 4
+    },
+    {
+      "drop": 8,
+      "moved": true,
+      "longest_task_ms": 113.7,
+      "tasks_over_16_7": 4
+    },
+    {
+      "drop": 9,
+      "moved": true,
+      "longest_task_ms": 133.6,
+      "tasks_over_16_7": 4
+    },
+    {
+      "drop": 10,
+      "moved": true,
+      "longest_task_ms": 129.1,
+      "tasks_over_16_7": 7
+    }
+  ],
+  "min_longest_task_ms": 113.7,
+  "median_longest_task_ms": 129.1,
+  "max_longest_task_ms": 175.9
+}
