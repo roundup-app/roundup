@@ -389,7 +389,7 @@ async fn t8_creator_from_an_extension_is_stored_as_is() {
 #[tokio::test]
 async fn t8_unparseable_creator_fails_as_internal() {
     let dir = tempfile::tempdir().unwrap();
-    let db_path = dir.path().join("todos.db");
+    let db_path = dir.path().join("project.db");
     {
         let h = Harness::new(dir.path());
         h.call("todo.create", json!({"title": "a"})).await.unwrap();
@@ -410,7 +410,7 @@ async fn t8_failed_statement_fails_as_internal() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::new(dir.path());
     h.call("todo.create", json!({"title": "a"})).await.unwrap();
-    rusqlite::Connection::open(dir.path().join("todos.db"))
+    rusqlite::Connection::open(dir.path().join("project.db"))
         .unwrap()
         .execute_batch(
             "CREATE TRIGGER refuse BEFORE UPDATE ON todos BEGIN SELECT RAISE(ABORT, 'refused'); END",
@@ -464,10 +464,10 @@ async fn t4902_todo_values_and_history_have_no_duration() {
     assert!(h.event_data().get("estimate_minutes").is_none());
     for (method, params) in [
         ("todo.update", json!({"id":1,"title":"saved"})),
-        ("todo.assign", json!({"id":1,"owner":agent("a")})),
+        ("todo.assign", json!({"id":1,"owner":agent("7")})),
         ("todo.complete", json!({"id":1})),
         ("todo.reopen", json!({"id":1})),
-        ("todo.move", json!({"id":1,"home":"w1"})),
+        ("todo.move", json!({"id":1,"home":"1"})),
         ("todo.reorder", json!({"id":1,"before":null})),
     ] {
         let reply = h.call(method, params).await.unwrap();
@@ -487,8 +487,8 @@ async fn t4902_todo_values_and_history_have_no_duration() {
     assert!(got.get("estimate_minutes").is_none());
     assert_eq!(got["title"], "saved");
     assert_eq!(got["body"], "keep");
-    assert_eq!(got["home"], "w1");
-    assert_eq!(got["owner"], json!(agent("a")));
+    assert_eq!(got["home"], "1");
+    assert_eq!(got["owner"], json!(agent("7")));
     let listed = h.call("todo.list", json!({})).await.unwrap();
     assert_eq!(listed, json!([got]));
     let history = changes(&h, 1).await;
