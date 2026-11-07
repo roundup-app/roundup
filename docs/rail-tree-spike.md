@@ -28,7 +28,7 @@ Branch `spike/rail-tree-ark-free` (commit `d2a419061`), never merged. `apps/desk
 | `@headless-tree/core` | github.com/lukasbach/headless-tree | 1.8.0, 2026-10-25 | A Solid binding: rows and roving focus would be wired by hand, and its own drag feature duplicates `@dnd-kit` (`ui/sortable.tsx`). |
 | `@zag-js/tree-view` | github.com/chakra-ui/zag | 1.47.0, 2026-10-26 | Nothing against Ark: it is Ark's engine, so it keeps the same per-row props recompute. |
 | `react-arborist` | github.com/jameskerr/react-arborist | 4.0.1, 2026-10-11 | Solid: it needs React, `react-dnd` and `react-dom`. |
-| Custom code | the shim above | n/a | Keyboard walk, typeahead, focus and RTL-safe arrow semantics, all rewritten and re-tested. |
+| Custom code | the shim above | n/a | Keyboard walk, typeahead and focus, all rewritten and re-tested. |
 
 Ark itself (`@ark-ui/solid` 5.40.0, 2026-10-29) is current and maintained.
 
