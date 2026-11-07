@@ -138,11 +138,9 @@ export const createBulkDelete = <Id,>(props: {
       setFailures(remaining);
       setQuestion(null);
       readback = undefined;
-      queueMicrotask(() => focus(() => {
-        focusAfter()?.focus();
+      queueMicrotask(() => focus(() => focusAfter()?.focus()));
 
-        if (remaining.length === 0) selectFocused();
-      }));
+      if (remaining.length === 0) queueMicrotask(selectFocused);
     };
 
     await readback();
