@@ -24,6 +24,7 @@ pub mod evidence;
 mod failure;
 mod flight;
 mod inbox;
+mod plan;
 mod pushes;
 mod receiver_view;
 mod removal;
