@@ -58,7 +58,7 @@ impl Daemon {
                     node.name
                 )));
             }
-            if turns[..at].iter().any(|seen| seen.agent == wanted.agent) {
+            if turns.iter().take(at).any(|seen| seen.agent == wanted.agent) {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
                     format!("{} is named twice", node.name),

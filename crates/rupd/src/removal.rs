@@ -9,6 +9,14 @@ use serde_json::Value;
 
 use crate::Daemon;
 
+/// The deletion a retained operation holds; a receipt without one is a store fault.
+fn retained(removal: &contracts::agent::Removal) -> Result<&contracts::agent::Deletion, RpcError> {
+    removal
+        .deletion
+        .as_ref()
+        .ok_or_else(|| RpcError::internal("retained operation has no deletion"))
+}
+
 impl Daemon {
     pub(crate) async fn remove_selection(
         &self,
@@ -27,25 +35,24 @@ impl Daemon {
                 "empty Rail selection",
             ));
         }
-        if let Some(operation) = &p.operation
-            && let Some(receipt) = self.agents.rail_deletion(actor, operation)?
-        {
-            let ids = if receipt.selection.is_empty() {
-                vec![
-                    receipt
-                        .deletion
-                        .as_ref()
-                        .expect("retained operation")
-                        .id
-                        .clone(),
-                ]
-            } else {
-                receipt.selection.clone()
-            };
-            if ids != p.ids {
-                return Err(RpcError::conflict("removal key names another selection"));
+        if let Some(operation) = &p.operation {
+            if operation.is_empty() || operation.len() > 96 {
+                return Err(RpcError::new(
+                    rpc::code::INVALID_PARAMS,
+                    "removal needs a key of 1–96 bytes",
+                ));
             }
-            return rpc::reply(&receipt);
+            if let Some(receipt) = self.agents.rail_deletion(actor, operation)? {
+                let ids = if receipt.selection.is_empty() {
+                    vec![retained(&receipt)?.id.clone()]
+                } else {
+                    receipt.selection.clone()
+                };
+                if ids != p.ids {
+                    return Err(RpcError::conflict("removal key names another selection"));
+                }
+                return rpc::reply(&receipt);
+            }
         }
         let tree = self.rail().await?;
         for id in &p.ids {
@@ -80,7 +87,10 @@ impl Daemon {
                 let mut removed = selected.clone();
                 removed.extend(removal.removed.iter().filter(|i| i.kind == RemovalKind::Agent).map(|i| i.id.clone()));
                 let owners = todos::Todos::remove_owners_in(db, &Actor::daemon(), &retention, &removed)?;
-                removal_touch(db, &caller, &selected[0], Some(&retention), removal)?;
+                let first = selected
+                    .first()
+                    .ok_or_else(|| RpcError::new(rpc::code::INVALID_PARAMS, "empty Rail selection"))?;
+                removal_touch(db, &caller, first, Some(&retention), removal)?;
                 Ok((files,events,owners))
             }).await?;
             for file in files {
@@ -109,7 +119,7 @@ impl Daemon {
             let node = tree
                 .iter()
                 .find(|n| n.id == *id)
-                .expect("validated selection");
+                .ok_or_else(|| RpcError::not_found("Rail selection"))?;
             if node.kind == NodeKind::Workstream {
                 let removal: Removal = serde_json::from_value(
                     self.remove_workstream(actor, id, RemoveScope::This).await?,
@@ -264,22 +274,10 @@ impl Daemon {
                 Ok(None)
             };
         };
-        if receipt
-            .deletion
-            .as_ref()
-            .expect("retained operation")
-            .project
-            != p.project
-        {
+        if retained(&receipt)?.project != p.project {
             return Err(RpcError::forbidden("removal belongs to another Project"));
         }
-        if !restore
-            || receipt
-                .deletion
-                .as_ref()
-                .expect("retained operation")
-                .restored
-        {
+        if !restore || retained(&receipt)?.restored {
             return Ok(Some(receipt));
         }
         let actor = conn.actor.clone();
@@ -320,7 +318,7 @@ impl Daemon {
                         removal_touch(
                             db,
                             &actor,
-                            &result.deletion.as_ref().expect("retained operation").id,
+                            &retained(&result)?.id,
                             Some(&p.operation),
                             &result,
                         )?;

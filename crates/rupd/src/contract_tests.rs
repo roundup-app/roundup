@@ -83,7 +83,8 @@ async fn send_note_from(daemon: &Daemon, from: &str, to: &str, body: &str) -> Va
         )
         .await
         .unwrap()
-        .into_value();
+        .into_value()
+        .unwrap();
     assert!(response.get("error").is_none(), "{response}");
     response["result"].clone()
 }
@@ -111,7 +112,7 @@ async fn b2_a_user_set_non_agent_auto_route_reaches_the_inbox() {
             .await
             .expect("idle writes the inbox");
         assert_eq!(
-            *state.entries.lock().unwrap(),
+            *state.entries.lock(),
             [("2".into(), id, from.into(), "Audit result".into())]
         );
         let pending = tests::ask(
@@ -138,7 +139,7 @@ async fn b2_a_user_set_non_agent_auto_route_reaches_the_inbox() {
         )
         .await;
         assert_eq!(delivered["result"]["status"], "delivered");
-        assert_eq!(*state.terminal_writes.lock().unwrap(), 0);
+        assert_eq!(*state.terminal_writes.lock(), 0);
     }
 }
 
@@ -168,8 +169,8 @@ async fn b4_a_user_set_non_agent_drop_route_drops_the_message() {
             }
         }
         assert_eq!(dropped, [sent]);
-        assert!(state.entries.lock().unwrap().is_empty());
-        assert_eq!(*state.terminal_writes.lock().unwrap(), 0);
+        assert!(state.entries.lock().is_empty());
+        assert_eq!(*state.terminal_writes.lock(), 0);
     }
 }
 
@@ -214,7 +215,7 @@ async fn b5_a_non_agent_route_change_preserves_the_pending_message() {
                 "{event:?}"
             );
         }
-        assert!(state.entries.lock().unwrap().is_empty());
+        assert!(state.entries.lock().is_empty());
     }
 }
 
@@ -709,7 +710,7 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     let mut observed = daemon.bus.subscribe();
     let daemon_sender = Actor::daemon().id;
     for from in ["you", "ext:audit", daemon_sender.as_str()] {
-        let response = daemon.dispatch(&mut conn, &json!({"id":1,"method":"route.set","params":{"from":from,"to":"2","delivery":"drop"}}).to_string(), None).await.unwrap().into_value();
+        let response = daemon.dispatch(&mut conn, &json!({"id":1,"method":"route.set","params":{"from":from,"to":"2","delivery":"drop"}}).to_string(), None).await.unwrap().into_value().unwrap();
         assert_eq!(response["error"]["code"], code::FORBIDDEN, "{response}");
     }
     assert_eq!(daemon.touches.sequence().unwrap(), before);

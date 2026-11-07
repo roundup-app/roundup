@@ -302,11 +302,6 @@
     "kind": "indirect",
     "sha256": "fda24f7d3782b4768c590b46740cd7f6c3475884a2fcea2051507a425cbc2a77"
   },
-  "crates/messages/src/digest_schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/messages/src/inbox.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -322,17 +317,7 @@
     "data": "Owns no executable launch or App data; the rupd name appears only in the Message failure diagnostic.",
     "kind": "reference"
   },
-  "crates/messages/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/messages/src/tests/b_hop_tests.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "crates/pads/src/schema.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"

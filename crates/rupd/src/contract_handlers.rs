@@ -10,7 +10,7 @@ impl Daemon {
         conn: &mut Conn,
     ) -> Result<contracts::project::NamingSettings, RpcError> {
         user_naming(conn)?;
-        let db = self.naming.lock().expect("naming preferences poisoned");
+        let db = self.naming.lock();
         crate::data::read_naming(&db).map_err(RpcError::internal)
     }
 
@@ -26,7 +26,7 @@ impl Daemon {
                 "Enter a naming guide before saving.",
             ));
         }
-        let db = self.naming.lock().expect("naming preferences poisoned");
+        let db = self.naming.lock();
         crate::data::write_naming(&db, &settings).map_err(RpcError::internal)
     }
 

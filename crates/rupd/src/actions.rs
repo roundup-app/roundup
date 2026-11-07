@@ -1,8 +1,8 @@
 //! NA6–NA9: `action.list` and `action.run` are relayed live to the App that registered with
 //! `action.serve`. The Daemon holds no action list of its own.
 
+use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
@@ -50,14 +50,10 @@ impl Answerer {
 
     /// A second registration replaces the first (NA6 policy).
     fn register(&self, frames: mpsc::UnboundedSender<Frame>) {
-        let previous = self
-            .app
-            .lock()
-            .expect("action answerer poisoned")
-            .replace(App {
-                frames,
-                pending: Pending::new(),
-            });
+        let previous = self.app.lock().replace(App {
+            frames,
+            pending: Pending::new(),
+        });
         if let Some(previous) = previous {
             // A closed old connection has no live confirmation left to invalidate.
             let _ = previous
@@ -68,7 +64,7 @@ impl Answerer {
 
     /// The App's connection closed: its registration ends and its pending calls are lost.
     pub(crate) fn closed(&self, frames: &mpsc::UnboundedSender<Frame>) {
-        let mut app = self.app.lock().expect("action answerer poisoned");
+        let mut app = self.app.lock();
         if app
             .as_ref()
             .is_some_and(|app| app.frames.same_channel(frames))
@@ -82,7 +78,7 @@ impl Answerer {
         let Some(id) = line["id"].as_u64() else {
             return;
         };
-        let mut app = self.app.lock().expect("action answerer poisoned");
+        let mut app = self.app.lock();
         let Some(app) = app.as_mut().filter(|app| app.frames.same_channel(frames)) else {
             return;
         };
@@ -101,7 +97,7 @@ impl Answerer {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = oneshot::channel();
         {
-            let mut app = self.app.lock().expect("action answerer poisoned");
+            let mut app = self.app.lock();
             let Some(app) = app.as_mut() else {
                 return Relay::NoApp;
             };
@@ -123,7 +119,7 @@ impl Answerer {
         match answer {
             Some(answer) => Relay::Answer(answer),
             _ => {
-                if let Some(app) = self.app.lock().expect("action answerer poisoned").as_mut() {
+                if let Some(app) = self.app.lock().as_mut() {
                     app.pending.remove(&id);
                 }
                 Relay::Lost
@@ -196,10 +192,12 @@ impl Daemon {
             }
         };
         let mut request = json!({"path": path, "source": self.project, "agent": agent});
-        if let Some(start) = start {
-            request["kind"] = json!(start.kind);
-            request["name"] = json!(start.name);
-            request["prompt"] = json!(start.prompt);
+        if let Some(start) = &start
+            && let Some(object) = request.as_object_mut()
+        {
+            object.insert("kind".to_owned(), json!(start.kind));
+            object.insert("name".to_owned(), json!(start.name));
+            object.insert("prompt".to_owned(), json!(start.prompt));
         }
         match self.actions.relay(method, request).await {
             Relay::NoApp => Err(app_closed()),

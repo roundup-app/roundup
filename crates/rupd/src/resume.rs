@@ -82,8 +82,10 @@ impl Daemon {
                 .iter()
                 .any(|o| matches!(o, ResultObservation::Passed { .. }));
             let unavailable = matches!(result.availability, Resolution::Unavailable { .. });
-            let superseded = progress.results[index + 1..]
+            let superseded = progress
+                .results
                 .iter()
+                .skip(index + 1)
                 .any(|later| later.report.request.target.id == target.id);
             let confirmed = if let Some((_, evidence)) = resolved {
                 Some(format!("authoritative receipt {}", evidence.revision))

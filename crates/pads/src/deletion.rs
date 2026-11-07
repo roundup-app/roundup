@@ -80,29 +80,20 @@ pub fn retain(db: &Connection, actor: &Actor, p: &DeleteParams) -> Result<Deleti
         restored: false,
     };
     let mut record = serde_json::to_value(&receipt).map_err(Error::internal)?;
-    let has_nodes: bool = db
+    let names: String = db
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
-            [],
+            "SELECT json_group_object(CAST(id AS TEXT),name) FROM nodes WHERE CAST(id AS TEXT) IN (?1)",
+            rusqlite::params![pad.home],
             |r| r.get(0),
         )
         .map_err(Error::internal)?;
-    if has_nodes {
-        let names: String = db
-            .query_row(
-                "SELECT json_group_object(CAST(id AS TEXT),name) FROM nodes WHERE CAST(id AS TEXT) IN (?1)",
-                rusqlite::params![pad.home],
-                |r| r.get(0),
-            )
-            .map_err(Error::internal)?;
-        record
-            .as_object_mut()
-            .ok_or_else(|| Error::internal("deletion record is not an object"))?
-            .insert(
-                "targetNames".into(),
-                serde_json::from_str(&names).map_err(Error::internal)?,
-            );
-    }
+    record
+        .as_object_mut()
+        .ok_or_else(|| Error::internal("deletion record is not an object"))?
+        .insert(
+            "targetNames".into(),
+            serde_json::from_str(&names).map_err(Error::internal)?,
+        );
     db.execute("INSERT INTO pad_deletions(operation,actor,request,record,incarnation,pad_key) VALUES(?1,?2,?3,?4,?5,(SELECT key FROM pads WHERE key=?6))",
         rusqlite::params![receipt.operation, serde_json::to_string(actor).map_err(Error::internal)?,
             serde_json::to_string(p).map_err(Error::internal)?, serde_json::to_string(&record).map_err(Error::internal)?,
@@ -139,17 +130,8 @@ pub fn restore(db: &Connection, actor: &Actor, id: &DeletionId) -> Result<(Delet
         return Ok((receipt, false));
     }
     let pad = &receipt.pad;
-    let has_nodes: bool = db
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
-            [],
-            |r| r.get(0),
-        )
-        .map_err(Error::internal)?;
-    if has_nodes {
-        let names: String = db.query_row("SELECT COALESCE(json_extract(record,'$.targetNames'),'{}') FROM pad_deletions WHERE operation=?",[&id.operation],|r|r.get(0)).map_err(Error::internal)?;
-        validate_targets(db, pad.home.as_deref(), &names)?;
-    }
+    let names: String = db.query_row("SELECT COALESCE(json_extract(record,'$.targetNames'),'{}') FROM pad_deletions WHERE operation=?",[&id.operation],|r|r.get(0)).map_err(Error::internal)?;
+    validate_targets(db, pad.home.as_deref(), &names)?;
     let incarnation = pad.incarnation.parse::<i64>().map_err(Error::internal)?;
     let state = source_state(db, incarnation).map_err(Error::internal)?;
     if source(db, &pad.name).map_err(Error::internal)?.is_some() {

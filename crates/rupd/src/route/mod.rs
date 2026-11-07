@@ -1,4 +1,5 @@
 use super::*;
+use crate::field::Field;
 
 mod gates;
 pub(crate) mod policy;
@@ -49,7 +50,7 @@ impl Daemon {
             .get_mut("params")
             .map(Value::take)
             .unwrap_or(Value::Null);
-        let method = request["method"].as_str().unwrap_or_default();
+        let method = request.field("method").as_str().unwrap_or_default();
         let outcome = match policy(method) {
             None => Err(RpcError::method_not_found(method)),
             Some(row) => {
@@ -253,7 +254,7 @@ impl Daemon {
             }
             Gate::None | Gate::UserOnly | Gate::RefTarget | Gate::Spawn => {}
         }
-        let outcome = if row.gate == Gate::Spawn && params["specialist"].is_string() {
+        let outcome = if row.gate == Gate::Spawn && params.field("specialist").is_string() {
             self.spawn_specialist(&conn.actor, params.clone()).await
         } else {
             module
@@ -264,8 +265,8 @@ impl Daemon {
             After::MessageSend | After::AgentSignal if outcome.is_ok() => {
                 let id = if row.after == After::MessageSend {
                     Some(conn.actor.id.as_str())
-                } else if params["payload"]["hook_event_name"] == "Stop" {
-                    Some(params["id"].as_str().unwrap_or_default())
+                } else if params.field("payload").field("hook_event_name") == "Stop" {
+                    Some(params.field("id").as_str().unwrap_or_default())
                 } else {
                     None
                 };
@@ -310,7 +311,7 @@ impl Daemon {
 mod tests {
     use super::*;
     use base64::{Engine, engine::general_purpose::STANDARD};
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
 
     #[test]
     fn z6395a_one_table_decides_which_methods_take_the_process_identity() {
@@ -331,7 +332,7 @@ mod tests {
     struct Input(Arc<Mutex<Vec<Vec<u8>>>>);
     impl io::Write for Input {
         fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.0.lock().unwrap().push(bytes.to_vec());
+            self.0.lock().push(bytes.to_vec());
             Ok(bytes.len())
         }
         fn flush(&mut self) -> io::Result<()> {
@@ -354,7 +355,7 @@ mod tests {
     fn fixture() -> (tempfile::TempDir, Daemon, Conn, Input) {
         let dir = tempfile::tempdir().unwrap();
         let input = Input::default();
-        input.0.lock().unwrap().reserve(4);
+        input.0.lock().reserve(4);
         let recorded = input.clone();
         let mut daemon = test_daemon_with_agents(dir.path(), |_: agents::Agents| {
             let bus = Bus::new();
@@ -419,15 +420,15 @@ mod tests {
             std::hint::black_box(params);
             old_reply = rt.block_on(daemon.dispatch_parsed(&mut conn, copied, Some(old_actor)));
         });
-        assert_eq!(input.0.lock().unwrap().len(), 1);
+        assert_eq!(input.0.lock().len(), 1);
         let after = allocation_counter::measure(|| {
             new_reply =
                 rt.block_on(daemon.dispatch_parsed(&mut conn, new_request, Some(new_actor)));
         });
-        let reply = new_reply.unwrap().into_value();
+        let reply = new_reply.unwrap().into_value().unwrap();
         assert_eq!(reply, json!({"jsonrpc":"2.0", "id":7, "result":null}));
-        assert_eq!(old_reply.unwrap().into_value(), reply);
-        assert_eq!(input.0.lock().unwrap().as_slice(), &[bytes.clone(), bytes]);
+        assert_eq!(old_reply.unwrap().into_value().unwrap(), reply);
+        assert_eq!(input.0.lock().as_slice(), &[bytes.clone(), bytes]);
         eprintln!(
             "1 MiB encoded write allocated bytes: old={} new={}",
             before.bytes_total, after.bytes_total
@@ -450,10 +451,11 @@ mod tests {
             )
             .await
             .unwrap()
-            .into_value();
+            .into_value()
+            .unwrap();
         assert_eq!(conn.actor, actor("2"));
         assert_eq!(reply["error"]["code"], code::FORBIDDEN);
-        assert!(input.0.lock().unwrap().is_empty());
+        assert!(input.0.lock().is_empty());
     }
     #[tokio::test]
     async fn r5638d_malformed_write_has_no_effect() {
@@ -476,9 +478,10 @@ mod tests {
                 .dispatch_parsed(&mut conn, req, Some(actor("1")))
                 .await
                 .unwrap()
-                .into_value();
+                .into_value()
+                .unwrap();
             assert_eq!(reply["error"]["code"], code::INVALID_PARAMS);
-            assert!(input.0.lock().unwrap().is_empty());
+            assert!(input.0.lock().is_empty());
         }
     }
     #[tokio::test]
@@ -492,9 +495,10 @@ mod tests {
             )
             .await
             .unwrap()
-            .into_value();
+            .into_value()
+            .unwrap();
         assert_eq!(reply["error"]["code"], code::INVALID_PARAMS);
-        assert!(input.0.lock().unwrap().is_empty());
+        assert!(input.0.lock().is_empty());
     }
     #[tokio::test]
     async fn r5638d_unknown_terminal_has_no_effect() {
@@ -508,9 +512,10 @@ mod tests {
                 )
                 .await
                 .unwrap()
-                .into_value();
+                .into_value()
+                .unwrap();
             assert_eq!(reply["error"]["code"], code::NOT_FOUND);
-            assert!(input.0.lock().unwrap().is_empty());
+            assert!(input.0.lock().is_empty());
         }
     }
     #[tokio::test]
@@ -541,12 +546,13 @@ mod tests {
                 assert_eq!(reply.get("result").is_some(), caller == "1");
             }
         }
-        assert_eq!(input.0.lock().unwrap().len(), 9);
+        assert_eq!(input.0.lock().len(), 9);
         let parse = daemon
             .dispatch(&mut conn, "{", None)
             .await
             .unwrap()
-            .into_value();
+            .into_value()
+            .unwrap();
         assert_eq!(parse["id"], Value::Null);
         assert_eq!(parse["error"]["code"], code::PARSE_ERROR);
     }
@@ -562,7 +568,7 @@ mod tests {
                     .await
                     .is_none()
             );
-            assert_eq!(input.0.lock().unwrap().as_slice(), &[b"x".to_vec()]);
+            assert_eq!(input.0.lock().as_slice(), &[b"x".to_vec()]);
         }
     }
 }

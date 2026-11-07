@@ -80,7 +80,7 @@ impl From<DeliverableError> for RpcError {
 type Ret<T> = std::result::Result<T, DeliverableError>;
 
 pub(crate) struct Publications {
-    db: std::sync::Mutex<Connection>,
+    db: parking_lot::Mutex<Connection>,
     cache: PathBuf,
     quota: i64,
 }
@@ -89,7 +89,7 @@ impl Publications {
     #[cfg(test)]
     pub(crate) fn in_memory(cache: PathBuf) -> Self {
         Self {
-            db: std::sync::Mutex::new(
+            db: parking_lot::Mutex::new(
                 Connection::open_in_memory().expect("test publication database"),
             ),
             cache,
@@ -105,7 +105,7 @@ impl Publications {
         }
     }
     pub(crate) fn invalidate_revoked(&self) -> std::result::Result<(), RpcError> {
-        let db = self.db.lock().expect("publication database poisoned");
+        let db = self.db.lock();
         for record in store::live_in(&db)? {
             if let PublishedTarget::Pad { incarnation, .. } = record.target
                 && matches!(
@@ -142,7 +142,7 @@ impl Publications {
         #[cfg(not(feature = "test-support"))]
         let quota = QUOTA;
         Ok(Self {
-            db: std::sync::Mutex::new(db),
+            db: parking_lot::Mutex::new(db),
             cache,
             quota,
         })
@@ -167,7 +167,12 @@ fn open_directory(
 impl Publications {
     fn directory(&self, create: bool) -> std::io::Result<std::fs::File> {
         use rustix::fs::{CWD, Mode};
-        let parent = open_directory(CWD, self.cache.parent().expect("Project data"))?;
+        let parent = open_directory(
+            CWD,
+            self.cache
+                .parent()
+                .ok_or_else(|| std::io::Error::other("Project data has no parent"))?,
+        )?;
         if create {
             match rustix::fs::mkdirat(&parent, "publication-files", Mode::from_raw_mode(0o700)) {
                 Ok(()) | Err(rustix::io::Errno::EXIST) => {}
@@ -445,11 +450,7 @@ impl Daemon {
         } else {
             None
         };
-        let mut db = self
-            .publications
-            .db
-            .lock()
-            .expect("publication database poisoned");
+        let mut db = self.publications.db.lock();
         let tx = db.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let settles = matches!(method, "deliverable.publish" | "deliverable.remove");
         if settles {

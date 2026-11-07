@@ -1,9 +1,9 @@
 //! D10, D11: the Event log in `project.db`. A row's id is the Event number, so no second counter
 //! can drift from the log; AUTOINCREMENT keeps a number from returning after its row is pruned.
 
+use parking_lot::Mutex;
 #[cfg(test)]
 use std::path::Path;
-use std::sync::Mutex;
 
 use contracts::Event;
 use rpc::{EVENT_WINDOW, EventLog, RpcError};
@@ -26,8 +26,8 @@ impl SqliteLog {
         Ok(Self { db: Mutex::new(db) })
     }
 
-    fn db(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.db.lock().unwrap_or_else(|e| e.into_inner())
+    fn db(&self) -> parking_lot::MutexGuard<'_, Connection> {
+        self.db.lock()
     }
 }
 
@@ -182,7 +182,6 @@ mod tests {
         fn read(&self, after: u64, limit: usize) -> Result<Vec<Event>, RpcError> {
             self.first_read_bounds
                 .lock()
-                .unwrap()
                 .get_or_insert_with(|| self.bounds_read.load(std::sync::atomic::Ordering::SeqCst));
             self.log.read(after, limit)
         }
@@ -190,7 +189,7 @@ mod tests {
             let bounds = self.log.bounds()?;
             self.bounds_read
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            if let Some((entered, release)) = self.pause.lock().unwrap().take() {
+            if let Some((entered, release)) = self.pause.lock().take() {
                 entered.send(()).unwrap();
                 release
                     .recv_timeout(std::time::Duration::from_secs(5))
@@ -263,7 +262,8 @@ mod tests {
             )
             .await
             .unwrap()
-            .into_value();
+            .into_value()
+            .unwrap();
         assert!(answer.get("error").is_none(), "{answer}");
         let first = answer["result"]["head"].as_u64().unwrap() - EVENT_WINDOW + 1;
         writer.join().unwrap();
@@ -272,7 +272,7 @@ mod tests {
         let end = bus.subscribe_after(Default::default()).unwrap().head();
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
             for expected in first..=end {
-                let event = replay.recv().await.unwrap().into_value();
+                let event = replay.recv().await.unwrap().into_value().unwrap();
                 assert_eq!(event["params"]["seq"], expected);
             }
         })
@@ -300,7 +300,7 @@ mod tests {
         let answer = daemon.dispatch(&mut conn,
             r#"{"jsonrpc":"2.0","id":1,"method":"events.subscribe","params":{"kept":true,"after":0}}"#,
             None,
-        ).await.unwrap().into_value();
+        ).await.unwrap().into_value().unwrap();
         assert_eq!(answer["error"]["code"], code::INVALID_PARAMS);
         daemon.bus.emit(Actor::user(), EventData::RailChanged);
         // A mistaken subscription would queue retained or live Events on this connection.

@@ -1,7 +1,22 @@
 //! The Daemon: every other part of roundup is a client of it.
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
-#![cfg_attr(test, allow(clippy::disallowed_methods))]
+#![cfg_attr(test, allow(clippy::disallowed_methods, clippy::disallowed_types))]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
 
 mod actions;
 mod auto;
@@ -25,6 +40,7 @@ mod evidence;
 mod extensions;
 mod facts;
 mod feedback;
+mod field;
 mod fork;
 #[cfg(test)]
 mod fork_tests;
@@ -91,7 +107,7 @@ use tokio::sync::mpsc;
 const STOP_ROUNDS: usize = 5;
 
 pub struct Daemon {
-    naming: Arc<std::sync::Mutex<rusqlite::Connection>>,
+    naming: Arc<parking_lot::Mutex<rusqlite::Connection>>,
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
     todos: Arc<todos::Todos>,
@@ -283,7 +299,7 @@ impl Daemon {
     ) -> Result<contracts::agent::Brief, RpcError> {
         let NodeId { id } = id;
         let (context, nodes) = self.awareness(conn, NodeId { id: id.clone() }).await?;
-        let settings = data::read_naming(&self.naming.lock().expect("naming preferences poisoned"))
+        let settings = data::read_naming(&self.naming.lock())
             .map_err(RpcError::internal)?;
         let text = context::naming(
             context::text(&nodes, &context),
@@ -450,12 +466,18 @@ fn test_daemon_with_agents(
 
 /// Process-free domain fixture, using the existing lifecycle and inbox traits.
 #[cfg(any(test, feature = "test-support"))]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 pub mod test_support {
     use super::*;
     use async_trait::async_trait;
     use contracts::agent::{Inbox, RailNode};
     use contracts::{Kind, Status};
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
 
     #[derive(Default)]
     pub struct ReplyState {
@@ -474,10 +496,10 @@ pub mod test_support {
         }
         async fn call(&self, _: &Ctx, method: &str, _: Value) -> Result<Value, RpcError> {
             match method {
-                "rail.tree" => rpc::reply(&*self.nodes.lock().unwrap()),
+                "rail.tree" => rpc::reply(&*self.nodes.lock()),
                 "agent.channelUp" => Ok(Value::Null),
                 "terminal.write" => {
-                    *self.terminal_writes.lock().unwrap() += 1;
+                    *self.terminal_writes.lock() += 1;
                     Ok(Value::Null)
                 }
                 _ => Err(RpcError::method_not_found(method)),
@@ -487,7 +509,7 @@ pub mod test_support {
     #[async_trait]
     impl agents::RailRead for ReplyState {
         fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
-            Ok(self.nodes.lock().unwrap().clone())
+            Ok(self.nodes.lock().clone())
         }
     }
     #[async_trait]
@@ -500,7 +522,7 @@ pub mod test_support {
             id: &str,
             notes: &[agents::claude_code::inbox::Entry],
         ) -> Result<(), Inbox> {
-            self.entries.lock().unwrap().extend(
+            self.entries.lock().extend(
                 notes
                     .iter()
                     .map(|n| (id.into(), n.id, n.from.clone(), n.text.clone())),
@@ -511,7 +533,7 @@ pub mod test_support {
     }
     impl ReplyState {
         pub fn status(&self, id: &str, kind: Kind) {
-            let mut nodes = self.nodes.lock().unwrap();
+            let mut nodes = self.nodes.lock();
             let node = nodes.iter_mut().find(|n| n.id == id).unwrap();
             node.status = Some(Status {
                 kind,
@@ -606,7 +628,7 @@ pub mod test_support {
                 ],
             )
             .unwrap();
-            state.nodes.lock().unwrap().push(node);
+            state.nodes.lock().push(node);
         }
         let messages = Arc::new(
             messages::Messages::open_with(

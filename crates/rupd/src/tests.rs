@@ -14,6 +14,7 @@ pub(crate) async fn ask(daemon: &Daemon, line: &str) -> Value {
         .await
         .unwrap()
         .into_value()
+        .unwrap()
 }
 
 pub(super) fn daemon_in(dir: &Path) -> Daemon {
