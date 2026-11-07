@@ -212,7 +212,7 @@ mod tests {
         let mut quiet = batch(vec![note(1, "a"), note(2, "b")]);
         quiet.quiet = true;
         let Plan::Hold { ids, why } = plan(&quiet) else {
-            panic!("a quiet batch is held");
+            panic!("a quiet batch is deferred");
         };
         assert_eq!((ids, why), (vec![1, 2], None));
     }

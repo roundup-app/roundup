@@ -219,12 +219,12 @@ async fn load<'a>(
         }
         keep
     };
-    let held = |why| Plan::Hold {
+    let deferred = |why| Plan::Hold {
         ids: asked.clone(),
         why,
     };
     if notes.is_empty() {
-        return Ok(Err(held(None)));
+        return Ok(Err(deferred(None)));
     }
     let senders: std::collections::HashSet<&str> = notes
         .iter()
@@ -262,7 +262,7 @@ async fn load<'a>(
         None
     };
     let Some(inbox) = inner.inbox.get() else {
-        return Ok(Err(held(None)));
+        return Ok(Err(deferred(None)));
     };
     let session = inbox
         .session(agent)
@@ -275,7 +275,7 @@ async fn load<'a>(
                 failure::record(inner, agent, failure::UNREADABLE);
                 let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
                 failure::hold(inner, &ids, Some(failure::UNREADABLE));
-                return Ok(Err(held(Some(failure::UNREADABLE))));
+                return Ok(Err(deferred(Some(failure::UNREADABLE))));
             }
         };
         if let Some(content) = &previous {
