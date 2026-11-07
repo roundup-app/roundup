@@ -202,6 +202,7 @@ export const Todos = (props: {
     rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
+    focused: selection.focused,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
     done: () => done().map(target),
     context: () => connected.rail.selected() ?? "overview",
@@ -795,6 +796,17 @@ export const Todos = (props: {
           nests: () => true,
           onMove: (move) => dropOf(tree(), group().items.filter(todo => !pending().includes(todo)), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
+          // A drop lands as shown only if its plan changes something and the Todo then nests under the parent shown: a nest that makes a cycle, or one under another first blocker, does not.
+          accepts: (move) => {
+            const id = Number(move.id), parent = move.parent === null ? null : Number(move.parent);
+            const items = group().items.filter(todo => !pending().includes(todo));
+            const plan = planDrop(tree(), items, todos.all(), id, parent, move.index);
+            const blockers = plan.blockers;
+
+            if (blockers === undefined) return plan.before !== undefined;
+
+            return treeRows(items.map(todo => todo.id === id ? { ...todo, blockers } : todo)).find(row => row.todo.id === id)?.parent === parent;
+          },
         }}>
         <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>
         {renderChildren(null)}

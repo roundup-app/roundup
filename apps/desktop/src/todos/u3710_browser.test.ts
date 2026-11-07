@@ -53,6 +53,9 @@ const drag = async (from: Point, to: Point, release = true) => {
 
   for (let step = 1; step <= 8; step++) await page.pointer("move", from.x + ((to.x - from.x) * step) / 8, from.y + ((to.y - from.y) * step) / 8);
 
+  // U3800e: a release commits the drop the last painted frame showed, so the last move paints before it.
+  await page.call("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null))))");
+
   if (release) await page.pointer("up", to.x, to.y);
 };
 
@@ -176,7 +179,8 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
   }, 60_000);
 
   it.each([1512, 1280])("u4710b_nearest_step_and_unnest_use_distance_at_%s", async width => {
-    for (const fraction of [0.49, 0.51, -1]) {
+    // U3800e: the depth changes a quarter of a level past the halfway mark, so 0.7 of a step keeps it and 0.8 changes it.
+    for (const fraction of [0.7, 0.8, -1]) {
       await setup();
       await page.resize(width, width === 1280 ? 820 : 950);
       const order = await ids();
@@ -192,7 +196,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
       const from = await centre(1);
       await drag(from, {x: from.x + fraction * await treeStep(), y: from.y});
       await settled();
-      expect(await calls()).toEqual(fraction === 0.49 ? [] : [{method: "todo.setBlockers", params: {id: order[1], blockers: fraction < 0 ? [] : [order[0]]}}]);
+      expect(await calls()).toEqual(fraction === 0.7 ? [] : [{method: "todo.setBlockers", params: {id: order[1], blockers: fraction < 0 ? [] : [order[0]]}}]);
     }
   }, 60_000);
 
@@ -209,6 +213,30 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     await drag(edge, { x: edge.x + 2 * await treeStep(), y: edge.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
+    expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[2], blockers: [order[1]] } }]);
+  });
+
+  it("u3800e_one_drag_from_the_grips_far_end_nests_two_levels", async () => {
+    await setup();
+    const order = await ids();
+    await page.call(`async order => {
+      await window.__fake.app.rpc('todo.setBlockers', {id: order[1], blockers: [order[0]]});
+      window.__mark = window.__fake.app.calls.length;
+    }`, order);
+    await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
+
+    // U3800e: pressed at the grip's far end, the deeper levels share the room left before the window's edge.
+    const far = await page.call<{ from: Point; to: Point }>(`rows => {
+      const grip = document.querySelector('.shelf').querySelectorAll(rows)[2].closest(".todo-row").querySelector(".sortable-handle").getBoundingClientRect();
+      const y = grip.top + grip.height / 2;
+
+      return { from: { x: grip.right - 1, y }, to: { x: innerWidth - 1, y } };
+    }`, rows);
+
+    await drag(far.from, far.to);
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
+    await settled();
+
     expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[2], blockers: [order[1]] } }]);
   });
 
