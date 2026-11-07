@@ -46,3 +46,28 @@ it("u3800d_one_move_touches_only_its_rows", async () => {
   expect(rows).toContain("F7");
   expect(rows.filter(id => !["F7", "W1", "A12"].includes(id))).toEqual([]);
 });
+
+it("u3800g_focus_lands_on_the_dropped_row", async () => {
+  const nodes = tree40();
+  const m = await mountRail(nodes);
+  await settled();
+
+  m.app.handlers["rail.move"] = params => {
+    const at = nodes.findIndex(node => node.id === params.id);
+    nodes.splice(at, 1, { ...nodes[at]!, parent: params.parent, order: params.index });
+    m.app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+
+    return null;
+  };
+
+  const row = rowOf("F7");
+  row.focus();
+  fireEvent.keyDown(row, { key: "m", code: "KeyM" });
+  await screen.findByRole("combobox");
+  fireEvent.click(screen.getByRole("option", { name: "W1" }));
+  await m.rail.settled();
+  await settled();
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+  expect(document.activeElement).toBe(rowOf("F7"));
+});
