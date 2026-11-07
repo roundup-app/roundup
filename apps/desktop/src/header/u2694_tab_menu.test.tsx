@@ -22,7 +22,7 @@ describe("u2694 the Project tab's system menu", () => {
 
     open("api");
 
-    expect(app.menuLabels()).toEqual(["Rename", "Alerts", "Close", "Close Others", "Close Right"]);
+    expect(app.menuLabels()).toEqual(["Rename", "Alerts", "Close", "Close Others", "Close to the Right"]);
     expect(app.shownMenus.at(-1)!.items.find(item => item.id === "rename")).toMatchObject({ shortcut: "F2" });
   });
 

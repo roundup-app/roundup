@@ -36,13 +36,13 @@ it("u6544b_close_others_left_right", async () => {
   const labels = () => app.menuLabels();
 
   open("a");
-  expect(labels()).toEqual(expect.arrayContaining(["Close", "Close Others", "Close Right"]));
-  expect(labels()).not.toContain("Close Left");
+  expect(labels()).toEqual(expect.arrayContaining(["Close", "Close Others", "Close to the Right"]));
+  expect(labels()).not.toContain("Close to the Left");
   await app.closeMenu();
 
   open("c");
-  expect(labels()).not.toContain("Close Right");
-  expect(labels()).toContain("Close Left");
+  expect(labels()).not.toContain("Close to the Right");
+  expect(labels()).toContain("Close to the Left");
   await app.closeMenu();
 
   open("b");
@@ -58,12 +58,12 @@ it("u6544b_close_to_the_left_and_right_close_only_that_side", async () => {
   const { app } = await openTabs({ a: [], b: [], c: [] });
 
   open("b");
-  await app.pickMenu("Close Left");
+  await app.pickMenu("Close to the Left");
   await waitFor(() => expect(app.closed).toEqual([path("a")]));
   app.closed.length = 0;
 
   open("b");
-  await app.pickMenu("Close Right");
+  await app.pickMenu("Close to the Right");
   await waitFor(() => expect(app.closed).toEqual([path("c")]));
 });
 
@@ -71,7 +71,7 @@ it("u6544b_bulk_close_asks_about_one_project_then_closes_the_rest", async () => 
   const { app } = await openTabs({ a: [], b: [agent("w", "working", "x")], c: [], d: [] });
 
   open("d");
-  await app.pickMenu("Close Left");
+  await app.pickMenu("Close to the Left");
   await questionDialog();
   await waitFor(() => expect(app.closed).toEqual([path("a")]));
   await answerQuestion(true);

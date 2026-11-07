@@ -278,7 +278,9 @@ it("u2773c_header_external_change_keeps_original", async () => {
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
   expect(tab("B")).toBeDefined();
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^B`) }));
-  await screen.findByRole("dialog", { name: "Unfinished work" });
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(recovery).getByText(" exact 雪 ", { exact: true, normalizer: text => text })).toBeDefined();
+  expect(within(recovery).getByRole("status", { name: "Failed" })).toBeDefined();
 });
 
 it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", async () => {
@@ -394,6 +396,7 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
   expect(window.localStorage.getItem(key)).toBe(original);
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByText("  memory 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
   expect(window.localStorage.getItem(key)).toBe(original);
   expect(within(dialog).getByRole("alert")).toBeDefined();
