@@ -130,7 +130,10 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     }));
 
     // U3800g: a move that leaves the tree's signature as it was keeps the collection, so Ark does not recompute every row's item props.
-    const signature = JSON.stringify(children);
+    const flat: string[] = [];
+    const visit = (n: RailNode) => { flat.push(`${n.id}|${n.name}|${n.childrenCount}`); n.children?.forEach(visit); };
+    children.forEach(visit);
+    const signature = flat.sort().join("\n");
 
     if (previous && signatures.get(previous) === signature) return previous;
 
