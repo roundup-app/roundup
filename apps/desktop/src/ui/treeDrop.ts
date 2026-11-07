@@ -184,3 +184,90 @@ export const stepLevel = (steps: readonly DepthStep[], lo: number, level: number
 
   return up > level ? up : down < level ? down : level;
 };
+
+/** How a pointer drag reads a tree drop's depth: one indent in pixels, the levels each gap allows from the dragged row's own depth, and the box the pointer picks depths in. */
+export type DepthReading = { indent: number; levels: (slot: number) => { lo: number; hi: number }; box: { left: number; right: number } };
+
+/**
+ * How a pointer drag of `dragged` reads its drop's depth: the levels each gap allows from the row's own depth, in the tree's box, else the window.
+ * A depth the tree refuses at either end of a gap's range would show no line, so the room goes to the depths between; a gap where it refuses every depth keeps them all.
+ */
+export const depthReading = (tree: DropRules & { rows: readonly TreeRow[]; indent: number; bounds?: (() => { left: number; right: number } | undefined) | undefined; accepts?: ((move: { id: string; parent: string | null; index: number }) => boolean) | undefined }, dragged: string, windowWidth: number): DepthReading => ({
+  indent: tree.indent,
+  levels: (index) => {
+    const { rows, remaining, slot, own } = gapAt(tree.rows, dragged, index);
+    const legal = legalDepths(remaining, tree, dragged, slot);
+    const all = depthsAt(remaining, tree.nests, slot);
+    const min = legal[0] ?? all.min;
+    const max = legal.at(-1) ?? all.max;
+
+    const takes = (depth: number) => {
+      const drop = dropAt(remaining, tree.nests, slot, depth);
+
+      return isInPlace(rows, dragged, drop) || tree.accepts?.({ id: dragged, parent: drop.parent, index: drop.index }) !== false;
+    };
+
+    let lo = min, hi = max;
+
+    while (hi >= lo && !takes(hi)) hi--;
+
+    if (hi < lo) return { lo: min - own.depth, hi: max - own.depth };
+
+    while (!takes(lo)) lo++;
+
+    return { lo: lo - own.depth, hi: hi - own.depth };
+  },
+  box: tree.bounds?.() ?? { left: 0, right: windowWidth },
+});
+
+/** A cache of whether each drop index of the dragged row has a gap the owner takes, rebuilt when the rows or the dragged row change. */
+export const legalIndexOf = () => {
+  let cached: { rows: readonly TreeRow[]; dragged: string; ok: boolean[] } | null = null;
+
+  return (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, index: number): boolean => {
+    if (!tree.takes) return true;
+
+    if (cached?.rows !== tree.rows || cached.dragged !== dragged) cached = { rows: tree.rows, dragged, ok: legalGaps(tree.rows, tree, dragged) };
+
+    return cached.ok[index] ?? false;
+  };
+};
+
+/** The gap and depth a keyboard drag holds. */
+export type KeyStop = { slot: number; depth: number };
+
+/** The stop a keyboard drag of `dragged` starts at: the gap and depth the row stands at. */
+export const keyStart = (tree: readonly TreeRow[], dragged: string): KeyStop => {
+  const rows = withDepth(tree);
+  const remaining = remainingRows(rows, dragged);
+  const own = rows.find((row) => row.id === dragged);
+
+  if (!own) throw new Error(`no row ${dragged}`);
+
+  return { slot: rows.slice(0, rows.indexOf(own)).filter((row) => remaining.includes(row)).length, depth: own.depth };
+};
+
+/** The stop one ArrowLeft (-1) or ArrowRight (1) moves to: the next depth the owner takes for the gap, else where it stands. */
+export const keyTurn = (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, stop: KeyStop, direction: 1 | -1): KeyStop => {
+  const depths = legalDepths(remainingRows(withDepth(tree.rows), dragged), tree, dragged, stop.slot);
+  const wanted = stop.depth + direction;
+  const depth = direction === 1 ? depths.find((each) => each >= wanted) : depths.findLast((each) => each <= wanted);
+
+  return { slot: stop.slot, depth: depth ?? stop.depth };
+};
+
+/** The drop a keyboard stop shows. */
+export const keyDrop = (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, stop: KeyStop): SortableDrop => dropAt(remainingRows(withDepth(tree.rows), dragged), tree.nests, stop.slot, stop.depth);
+
+/**
+ * The drop for the gap before index `index` of the dragged row: a keyboard drag at its own depth, else `level` levels from the row's own depth.
+ * A gap the owner refuses snaps to the nearest one it takes; a key goes on past it the way it was going, from the gap `from` the last resolve took.
+ */
+export const resolveDrop = (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, index: number, level: number, keyboard: KeyStop | null, from: number) => {
+  const { rows, remaining, slot, own } = gapAt(tree.rows, dragged, index);
+  const gap = legalSlot(remaining, tree, dragged, slot, keyboard ? Math.sign(slot - from) : 0);
+  const stop = keyboard && keyboard.slot !== gap ? { slot: gap, depth: legalDepths(remaining, tree, dragged, gap)[0]! } : keyboard;
+  const depth = stop ? stop.depth : own.depth + level;
+
+  return { rows, gap, keyboard: stop, drop: dropAt(remaining, tree.nests, gap, nearestDepth(legalDepths(remaining, tree, dragged, gap), depth)) };
+};

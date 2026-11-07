@@ -36,7 +36,6 @@ import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "./persist/storage";
 import { createRailDrag } from "./drag";
-import { placeable } from "./placement";
 import { createRailSelection } from "./selection";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
@@ -58,8 +57,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const todoCount = createAgentPads();
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
-  /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
-  const [lifted, setLifted] = createSignal<string | null>(null);
   const failure = rail.commandFailure;
   const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
@@ -181,10 +178,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   const endCompose = () => setComposing(false);
 
-  /** The Daemon's placement rule over the Rail's nodes, for the drops a drag may show (U6550c). */
-  const placeNodes = createMemo(() => new Map(rail.nodes.map((node) => [node.id, { id: node.id, kind: node.kind, parent: node.parent }])));
-
-  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id), lifted);
+  const { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id));
 
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
@@ -735,9 +729,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
             return content ? content.getBoundingClientRect().left - element.getBoundingClientRect().left : 0;
           },
-          nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
-          takes: (id, parent) => placeable(placeNodes(), id, parent),
-          onLift: setLifted,
+          ...dropRules,
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
           accepts: () => !pointerOutside(),
@@ -805,8 +797,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                             await rail.rename(view().node.id, name);
                             failure.acknowledge(view().node.id);
                           }}
-                          lifted={parts.isDragging()}
-                          folded={lifted() === view().node.id}
+                          lifted={parts.isDragging()} folded={lifted() === view().node.id}
                           sortRef={parts.ref}
                           handleRef={parts.handleRef}
                           draggable={daemonExit() === null}

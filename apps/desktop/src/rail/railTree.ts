@@ -1,11 +1,12 @@
-import { createMemo, type Accessor } from "solid-js";
+import { createMemo, createSignal, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { foldIdOf, layoutRail, type NodeRow, type RailRow } from "./layout";
+import { foldIdOf, isWorkstream, layoutRail, type NodeRow, type RailRow } from "./layout";
+import { placeable } from "./placement";
 import type { RailSection } from "./persist/storage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
@@ -36,8 +37,10 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
-export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, lifted: Accessor<string | null> = () => null) => {
+export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined) => {
   const { rail, now } = connected;
+  /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
+  const [lifted, onLift] = createSignal<string | null>(null);
   const collapsed = rail.collapsed;
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
@@ -140,5 +143,14 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: topology().nodes[topology().parent[topology().index.get(row.node.id)!] ?? -1]?.id ?? null })));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
-  return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey };
+  const placeNodes = createMemo(() => new Map(rail.nodes.map((node) => [node.id, { id: node.id, kind: node.kind, parent: node.parent }])));
+
+  /** What a drag asks of the Rail: which rows nest a child, the Daemon's placement rule for the drops it may show (U6550c), and the fold of the row it holds. */
+  const dropRules = {
+    nests: (id: string) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
+    takes: (id: string, parent: string | null) => placeable(placeNodes(), id, parent),
+    onLift,
+  };
+
+  return { topology, sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };
 };
