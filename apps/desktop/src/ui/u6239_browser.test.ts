@@ -144,8 +144,8 @@ run("u6239 Project tab drag", () => {
     expect(await saved()).not.toEqual(savedBefore);
   }, 60_000);
 
-  /** Hold the element `selector` names, move it over the next one and read what paints the held element: its ground's alpha and whether it sits in the top layer, above every row. */
-  const held = async (selector: string) => {
+  /** Hold the element `selector` names, move it over the next one and read what paints the lifted element: its ground's alpha and whether it sits in the top layer, above every row. */
+  const lifted = async (selector: string) => {
     const from = await page.call<{ x: number; y: number }>(`selector => {
       const b = document.querySelector(selector).getBoundingClientRect();
       return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
@@ -167,7 +167,7 @@ run("u6239 Project tab drag", () => {
     return seen;
   };
 
-  it("u6554a_held_tab_is_opaque_and_on_top", async () => {
+  it("u6554a_lifted_tab_is_opaque_and_on_top", async () => {
     await page.scheme("dark");
     await page.load("/harness.html?seed=tabs-8", 1512, 950);
     await page.until(`() => document.querySelectorAll('.app-tabs-list .project-tab').length >= 6`);
@@ -196,13 +196,13 @@ run("u6239 Project tab drag", () => {
     ["pad", "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", ".pad-row-head"],
     ["shelf", "/harness.html?seed=tree-40", ".shelf .shelf-row"],
   ] as const) {
-    it(`u6554b_every_held_row_is_opaque_and_on_top_${surface}`, async () => {
+    it(`u6554b_every_lifted_row_is_opaque_and_on_top_${surface}`, async () => {
       await page.scheme("dark");
       await page.load(url, 1512, 950);
       await page.until(`() => Boolean(document.querySelector(${JSON.stringify(selector)}))`);
       // U6554b explicitly commissions this one painting guard (#6554).
       // oxlint-disable-next-line anti-slop/no-new-web-assertions
-      expect(await held(selector)).toEqual({ opaque: true, top: true });
+      expect(await lifted(selector)).toEqual({ opaque: true, top: true });
     }, 60_000);
   }
 
