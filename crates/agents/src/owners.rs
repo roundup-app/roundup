@@ -125,27 +125,13 @@ impl Agents {
         if let Some(kept) = stored.background {
             adapter.resume_background(kept);
         }
-        let run = Run {
-            yolo: false,
-            startup_context: false,
-            input_started: stored.input_started,
-            attempt: stored.attempt.clone(),
-            status_revision: Ordinal::first(),
-            closing: false,
-            ended: false,
+        let run = Run::reattached(
             adapter,
-            prompt: None,
-            first_pending: false,
-            first_completion: None,
-            first_prompt: Some(FirstPrompt::Acknowledged),
-            session_started: None,
-            starred: false,
-            steer: None,
-            interrupt: None,
-            named: true,
-            terminal_id: spawned.id.clone(),
+            stored.attempt.clone(),
+            spawned.id.clone(),
             cwd,
-        };
+            stored.input_started,
+        );
         let placed = {
             let mut rail = self.shared.rail();
             let mut runs = self.shared.runs();

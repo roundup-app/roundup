@@ -39,7 +39,7 @@ impl Agents {
                 (NodeKind::Group, _) => return Err(RpcError::conflict("a Group has no program")),
                 (NodeKind::Agent, None) => None,
                 (NodeKind::Workstream, None) => {
-                    if matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended)
+                    if matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended())
                     {
                         return Err(RpcError::conflict(format!(
                             "{id} is a Workstream whose Door is running"
@@ -84,7 +84,7 @@ impl Agents {
         };
         claude_code::extras::resolve(&self.launcher.extras_sources(self.project_dir()), &extras)?;
         let live = match self.shared.runs().get(&id) {
-            Some(Slot::Running(run)) => !run.ended,
+            Some(Slot::Running(run)) => !run.ended(),
             Some(_) => return Err(RpcError::conflict(format!("{id} is starting or stopping"))),
             None => false,
         };
@@ -167,10 +167,10 @@ impl Agents {
                     return Err(RpcError::conflict(format!("{id} is stopping")));
                 }
                 Some(Slot::ResumeCleanup { error, .. }) => return Err(error.clone()),
-                Some(Slot::Running(run)) if run.closing => {
+                Some(Slot::Running(run)) if run.closing() => {
                     return Err(RpcError::conflict(format!("{id} is stopping")));
                 }
-                Some(Slot::Running(run)) if !run.ended && mode.is_none() => {
+                Some(Slot::Running(run)) if !run.ended() && mode.is_none() => {
                     return Err(RpcError::conflict(format!("{id} is running")));
                 }
                 None | Some(Slot::Running(_)) => {}
@@ -243,10 +243,10 @@ impl Agents {
         let stop_terminal = {
             let mut runs = self.shared.runs();
             match runs.get_mut(id) {
-                Some(Slot::Resuming { old: Some(old), .. }) if !old.ended => {
+                Some(Slot::Resuming { old: Some(old), .. }) if !old.ended() => {
                     self.shared
                         .apply(None, old, id, &ctx.actor, Observation::Stopped, None)?;
-                    Some(old.terminal_id.clone())
+                    Some(old.terminal_id().to_owned())
                 }
                 _ => None,
             }
@@ -265,7 +265,7 @@ impl Agents {
                 return Err(err);
             }
             if let Some(Slot::Resuming { old: Some(old), .. }) = self.shared.runs().get_mut(id) {
-                old.ended = true;
+                old.exit();
             }
         }
 
@@ -555,7 +555,7 @@ mod tests {
         assert_eq!(launches.load(Ordering::SeqCst), 0);
         assert!(agents.shared.terminals.list().await.is_empty());
         let runs = agents.shared.runs();
-        assert!(matches!(runs.get(&id), Some(Slot::Running(run)) if !run.yolo));
+        assert!(matches!(runs.get(&id), Some(Slot::Running(run)) if !run.yolo()));
     }
 
     #[tokio::test]

@@ -321,7 +321,7 @@ impl Agents {
     /// B5763b: the exact content the current receiving permission mode will write.
     pub fn inbox_content(&self, id: &str, note: &claude_code::inbox::Entry) -> String {
         let runs = self.shared.runs();
-        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
+        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo());
         self.launcher.inbox_content(id, note, yolo)
     }
 
@@ -333,7 +333,7 @@ impl Agents {
         notes: &[claude_code::inbox::Entry],
     ) -> Result<(), contracts::agent::Inbox> {
         let runs = self.shared.runs();
-        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
+        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo());
         self.launcher
             .inbox_write(id, notes, yolo)
             .inspect_err(|state| {
@@ -347,36 +347,23 @@ impl Agents {
 
     /// A5556: whether this Attempt has received explicit input.
     pub fn input_started(&self, id: &str) -> bool {
-        matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if run.input_started)
+        matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if run.input_started())
     }
 
     /// Admit pending automatic Messages after explicit input, using the existing status lane.
     pub fn admit_input(&self, id: &str) {
         let mut runs = self.shared.runs();
         if let Some(Slot::Running(run)) = runs.get_mut(id)
-            && !run.input_started
+            && !run.input_started()
         {
             self.shared
-                .save_input_started(id, &run.attempt)
+                .save_input_started(id, run.attempt())
                 .expect("persist explicit inbox input");
-            run.input_started = true;
-            let Some(status) = run.adapter.status().cloned() else {
+            run.start_input();
+            let Some(status) = run.adapter().status().cloned() else {
                 return;
             };
-            run.status_revision = run
-                .status_revision
-                .next()
-                .expect("Status revision exhausted");
-            self.shared.bus.emit(
-                Actor::daemon(),
-                EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
-                    id: id.into(),
-                    attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.clone(),
-                    status,
-                    ended: run.ended,
-                })),
-            );
+            run.publish(&self.shared.bus, Actor::daemon(), id, status);
         }
     }
 
@@ -417,7 +404,6 @@ pub(super) mod tests {
     use tokio::task::JoinHandle;
     use tokio::time::Instant;
 
-    use crate::claude_code::ClaudeCode;
     use crate::{Clock, KillsTerminals, Observation, Run, Shared, Slot, rail, watch, worktree};
 
     pub(crate) const PATIENCE: Duration = Duration::from_secs(60);
@@ -439,27 +425,7 @@ pub(super) mod tests {
             let clock: Clock = Arc::new(move || begun.elapsed().as_millis() as i64);
             let adapter_clock = Arc::clone(&clock);
             let (dir, bus, shared) = shared_over_temp_dir(clock);
-            let run = Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-                status_revision: contracts::agent::Ordinal::first(),
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(move || adapter_clock()),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: false,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            };
+            let run = Run::fixture(adapter_clock, false);
             shared.runs().insert("1".into(), Slot::Running(run));
             let (terminal, terminal_events) = broadcast::channel(16);
             let events = bus.subscribe();
@@ -697,27 +663,7 @@ pub(super) mod tests {
             .id;
         shared.runs().insert(
             id.clone(),
-            Slot::Running(Run {
-                yolo: false,
-                startup_context: true,
-                input_started: true,
-                attempt: contracts::agent::Ordinal::parse("1").unwrap(),
-                status_revision: contracts::agent::Ordinal::first(),
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(|| 0),
-                prompt: None,
-                first_pending: false,
-                first_completion: None,
-                first_prompt: None,
-                steer: None,
-                session_started: None,
-                starred: false,
-                interrupt: None,
-                named: true,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            }),
+            Slot::Running(Run::fixture(Arc::new(|| 0), true)),
         );
         id
     }
