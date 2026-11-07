@@ -46,7 +46,7 @@ const Root = (props: {
 };
 
 const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onKeyDown"> & { open: boolean; onKey: (event: KeyboardEvent) => void }) => {
-  const [local, rest] = splitProps(props, ["open", "onKey"]);
+  const [local, rest] = splitProps(props, ["open", "onKey", "class"]);
   const combobox = useComboboxContext();
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -67,7 +67,7 @@ const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onK
 
     // Ark's input defaults to a single-line combobox; mentions keep the textarea's
     // multiline textbox role, which supports active-descendant list navigation.
-    return <textarea {...input} {...rest} class="field-frame" role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-controls={local.open ? combobox().getInputProps()["aria-controls"] : undefined} spellcheck={false} autocorrect="off" autocapitalize="off" />;
+    return <textarea {...input} {...rest} class={`${local.class ?? ""} field-frame`} role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-controls={local.open ? combobox().getInputProps()["aria-controls"] : undefined} spellcheck={false} autocorrect="off" autocapitalize="off" />;
   }} /></Combobox.Control>;
 };
 

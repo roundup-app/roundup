@@ -1,6 +1,8 @@
 import type { RailNode } from "@contracts/agent/RailNode";
 
-const STEM = "Workstream";
+import { copy } from "./copy";
+
+const STEM = copy.workstreamName;
 
 /** U167: the first free name of `Workstream`, `Workstream 2`… (U6545b) among the Rail's root rows. */
 export const defaultWorkstreamName = (nodes: readonly RailNode[]): string => {
