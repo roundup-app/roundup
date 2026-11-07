@@ -185,7 +185,7 @@ it("u3804_reset_restores_the_default", async () => {
   await mount();
   await section("Shortcuts");
   fireEvent.click(screen.getByText("Reset", { selector: "button" }));
-  await waitFor(() => expect(CHORDS.find(row => row.what === copy.captureATodo)?.presses).toEqual(["meta+shift+KeyT"]));
+  await waitFor(() => expect(CHORDS["todo.capture"].presses).toEqual(["meta+shift+KeyT"]));
   expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe("⇧⌘T");
 });
 

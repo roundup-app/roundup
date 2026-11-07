@@ -1,5 +1,5 @@
 import { appSettings, saveAppSettings } from "../settings/preferences";
-import { ariaChord, chordNamed } from "../keys/chords";
+import { ariaChord, CHORDS } from "../keys/chords";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createSignal } from "solid-js";
@@ -18,17 +18,17 @@ it("u5217_plus_opens_ordered_creation_choices", async () => {
   const items = await screen.findAllByRole("menuitem");
   expect(items.map(item => item.getAttribute("data-value"))).toEqual(["agent", "workstream", "mode"]);
 
-  for (const [index, name] of ["agent.new", "workstream.new", "mode.new"].entries()) {
-    expect(items[index]!.querySelector("kbd")?.textContent).toBe(chordNamed(name)!.keys);
-    expect(items[index]!.getAttribute("aria-keyshortcuts")).toBe(ariaChord(chordNamed(name)));
+  for (const [index, name] of (["agent.new", "workstream.new", "mode.new"] as const).entries()) {
+    expect(items[index]!.querySelector("kbd")?.textContent).toBe(CHORDS[name].keys);
+    expect(items[index]!.getAttribute("aria-keyshortcuts")).toBe(ariaChord(CHORDS[name]));
   }
 
   const before = appSettings().shortcuts;
 
   try {
     await saveAppSettings({ shortcuts: { ...before, "workstream.new": "ctrl+meta+KeyW" } });
-    expect(items[1]!.querySelector("kbd")?.textContent).toBe(chordNamed("workstream.new")!.keys);
-    expect(items[1]!.getAttribute("aria-keyshortcuts")).toBe(ariaChord(chordNamed("workstream.new")));
+    expect(items[1]!.querySelector("kbd")?.textContent).toBe(CHORDS["workstream.new"].keys);
+    expect(items[1]!.getAttribute("aria-keyshortcuts")).toBe(ariaChord(CHORDS["workstream.new"]));
   } finally {
     await saveAppSettings({ shortcuts: before });
   }

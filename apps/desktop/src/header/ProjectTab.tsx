@@ -177,7 +177,7 @@ export const ProjectTab = (props: {
   createEffect(on(() => props.recovery, selected => { if (selected) edit(selected); }));
 
   registerKeys({ kind: "region", element: () => wrap }, [
-    { action: CHORDS.find(action => action.name === "rail.rename")!, when: press => press.target === button,
+    { action: CHORDS["rail.rename"], when: press => press.target === button,
       capture: focus => ({
         available: () => focus === button && button?.isConnected === true && document.activeElement === button && editing() === null && !modalOpen(),
         invoke: () => edit(),

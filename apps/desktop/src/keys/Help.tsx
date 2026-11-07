@@ -2,7 +2,7 @@ import { captureFocus, returnFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
 import { copy } from "./copy";
 import { createSignal, For, Show } from "solid-js";
-import { CHORDS, HELP_KEYS, LEADER, leaderKeys, SHELF_KEYS, chordNamed } from "./chords";
+import { CHORDS, HELP_KEYS, LEADER, leaderKeys, SHELF_KEYS, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { captureActions, registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
 
@@ -11,18 +11,18 @@ const bubbleScopes = new Map(Object.entries(copy.helpBubbleScope));
 const rowScopes = new Map(Object.entries(copy.helpRowScope));
 
 const sections = (projectOpen: boolean, shelfOpen: boolean) => projectOpen ? [
-  { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor) },
-  { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: leaderKeys(row), what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
+  { title: copy.helpScope.app, rows: CHORD_ROWS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor) },
+  { title: copy.helpScope.leader, rows: LEADER_ROWS.map(row => ({ ...row, keys: leaderKeys(row), what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
   // #3853 adds the Terminal Find owner; until then its menu catalogue entry has no working key to advertise.
-  { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals && row.name !== "terminal.find") },
-  { title: copy.helpScope.rail, rows: CHORDS.filter(row => row.inRail) },
-  { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.name !== "todo.triage-enter").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
-  { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.name === "todo.triage-enter") },
-  { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
+  { title: copy.helpScope.terminals, rows: CHORD_ROWS.filter(row => row.inTerminals && row.name !== "terminal.find") },
+  { title: copy.helpScope.rail, rows: CHORD_ROWS.filter(row => row.inRail) },
+  { title: copy.helpScope.shelf, rows: CHORD_ROWS.filter(row => row.inShelf && !row.inTriage && row.name !== "todo.triage-enter").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
+  { title: copy.helpScope.todos, rows: CHORD_ROWS.filter(row => row.inShelf && row.name === "todo.triage-enter") },
+  { title: copy.helpScope.triage, rows: CHORD_ROWS.filter(row => row.inTriage) },
 ].map(section => section.title === copy.helpScope.todos ? [
   section,
-  { title: copy.helpScope.editor, rows: [{ ...chordNamed("terminal.switch")!, what: copy.bold }, ...CHORDS.filter(row => row.inEditor)] },
-] : [section]) : [[{ title: copy.helpScope.app, rows: CHORDS.filter(row => row.inFirstRun || row.what === copy.captureATodo || row.what === copy.settings) }]];
+  { title: copy.helpScope.editor, rows: [{ ...CHORDS["terminal.switch"], what: copy.bold }, ...CHORD_ROWS.filter(row => row.inEditor)] },
+] : [section]) : [[{ title: copy.helpScope.app, rows: CHORD_ROWS.filter(row => row.inFirstRun || row.what === copy.captureATodo || row.what === copy.settings) }]];
 
 /** U4324a: plain text and Terminal input keep `?`; every other App surface offers Help. */
 const opensFrom = (target: EventTarget | null): boolean => target instanceof Element
@@ -49,7 +49,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
     returnFocus(returnTo);
   };
 
-  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.name === "help.open")!, chords: HELP_KEYS, when: press => opensFrom(press.target), capture: focus => ({
+  registerKeys({ kind: "app" }, [{ action: CHORDS["help.open"], chords: HELP_KEYS, when: press => opensFrom(press.target), capture: focus => ({
     available: () => !open() && !!focus?.isConnected && opensFrom(focus),
     invoke: show,
   }) }]);

@@ -177,8 +177,9 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
   const send = (data: EventData) => app.emit({ actor: USER, ...data });
 
+  // A real Daemon sends its Event in a task of its own, so the App's redraw for it never shares the write's task.
   const changed = <T,>(value: T): T => {
-    queueMicrotask(() => send({ name: "rail.changed" }));
+    setTimeout(() => send({ name: "rail.changed" }), 0);
 
     return value;
   };
@@ -310,7 +311,9 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
   app.handlers["workstream.restart"] = ({ id }) => app.handlers["rail.startDoor"]!({ id });
 
-  app.handlers["rail.move"] = ({ id, parent, index }) => {
+  app.handlers["rail.move"] = async ({ id, parent, index }) => {
+    // A real Daemon answers a move in a later task than the drop that sent it.
+    await new Promise(resolve => setTimeout(resolve, 0));
     const moved = find(id);
     const siblings = nodes.filter((other) => other.parent === parent && other.id !== id).sort((left, right) => left.order - right.order);
     siblings.splice(index, 0, Object.assign(moved, { parent }));

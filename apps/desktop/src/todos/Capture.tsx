@@ -299,13 +299,13 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   }
 
   registerKeys({ kind: "leader" }, [{
-    action: LEADER.find(row => row.keys === "T")!,
+    action: LEADER["leader.capture"],
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
   }]);
   onMount(() => props.onReady?.(port ? nativeShow : show));
   onCleanup(() => props.onReady?.(undefined));
   createEffect(() => { if (!props.onReady) registerKeys({ kind: "app" }, [{
-    action: CHORDS.find(row => row.what === copy.captureATodo)!,
+    action: CHORDS["todo.capture"],
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
   }]); });
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [{ chords: ["Escape"], run: discard }]);
