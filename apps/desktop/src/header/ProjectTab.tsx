@@ -259,7 +259,7 @@ export const ProjectTab = (props: {
           <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
         </Tabs.Trigger>
         <div class="tab-actions">
-        <IconButton class="tab-close" aria-hidden="true" tabIndex={-1} aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.selected || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
+        <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.selected || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
         </div>
       </Show>
     </FlatTab>
