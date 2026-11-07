@@ -169,6 +169,9 @@ impl Source for Live {
             .system
             .processes()
             .iter()
+            // Linux lists each thread as a process sharing its process's RSS; counting them
+            // would charge one Agent's memory once per thread.
+            .filter(|(_, p)| p.thread_kind().is_none())
             .map(|(pid, p)| {
                 (
                     *pid,
