@@ -24,6 +24,7 @@ pub mod action;
 pub mod agent;
 pub mod ask;
 pub mod common;
+pub mod config;
 pub mod data;
 mod declarations;
 pub mod deliverable;

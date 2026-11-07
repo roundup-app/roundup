@@ -165,6 +165,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("ask.pick", PLAIN),
     ("ask.place", PLAIN),
     ("ask.send", PLAIN),
+    ("config.read", Policy { actor: Actor::Caller, ..PLAIN }),
     ("daemon.getNaming", Policy { actor: Actor::Caller, ..PLAIN }),
     ("daemon.identify", Policy { settles: true, ..PLAIN }),
     ("daemon.methods", PLAIN),

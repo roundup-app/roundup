@@ -4,6 +4,7 @@ import * as v from "valibot";
 import tokens from "../tokens.css?inline";
 import { storageOpened, storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
+import { fileKeys, lookColours, lookSettings } from "./configFile";
 import type { CapturePort, AppSeam } from "../app/seam";
 
 const tokenNumber = (name: string) => Number.parseFloat(new RegExp(`--${name}:\\s*([^;]+);`).exec(tokens)![1]!);
@@ -66,11 +67,21 @@ const [written, setWritten] = createSignal<object>({});
 
 const storage = storedValue("roundup:app-settings", schema, () => setWritten({}));
 
-const settings = createRoot(() => createMemo((): Preferences => {
+const stored = createRoot(() => createMemo((): Preferences => {
   storageOpened();
   written();
 
   return storage.read() ?? v.parse(schema, {});
+}));
+
+/** What the user chose in App Settings, without the Config files' values: the record a save writes back. */
+export const storedSettings = (): Preferences => stored();
+
+const settings = createRoot(() => createMemo((): Preferences => {
+  const chosen = stored();
+
+  // MC40, MC41: a value in the Config files shows over the chosen one.
+  return { ...chosen, ...lookSettings(), shortcuts: { ...chosen.shortcuts, ...fileKeys() } };
 }));
 
 /** One app-wide record, parsed once per change; each untrusted field defaults independently. The memo notifies all open Project tabs. */
@@ -102,7 +113,7 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
   const captured = structuredClone(patch);
 
   return saving.add(async () => {
-    const before = untrack(appSettings);
+    const before = untrack(storedSettings);
     const replacement = captured.quickAddAnywhere !== undefined && captured.quickAddAnywhere !== before.quickAddAnywhere;
 
     try {
@@ -129,11 +140,23 @@ export const applyAppAppearance = () => {
     if (mode === "system") document.documentElement.style.removeProperty("color-scheme");
     else document.documentElement.style.colorScheme = mode;
   });
+  // MC40: the Tokens `look.json` colours; one dropped from the file returns to its stylesheet value.
+  let coloured: string[] = [];
+
+  createEffect(() => {
+    const colours = lookColours();
+    const style = document.documentElement.style;
+
+    for (const token of coloured) if (!(token in colours)) style.removeProperty(token);
+    for (const [token, value] of Object.entries(colours)) style.setProperty(token, value);
+    coloured = Object.keys(colours);
+  });
   onCleanup(() => {
     delete document.documentElement.dataset.mode;
     delete document.documentElement.dataset.interfaceScale;
     delete document.documentElement.dataset.focusMarkers;
     document.documentElement.style.removeProperty("color-scheme");
+    for (const token of Object.keys(lookColours())) document.documentElement.style.removeProperty(token);
   });
 };
 

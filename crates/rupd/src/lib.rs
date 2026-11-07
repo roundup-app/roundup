@@ -23,6 +23,7 @@ mod auto;
 #[cfg(test)]
 mod auto_tests;
 mod builtin;
+mod config;
 mod connection;
 mod context;
 mod contract_handlers;
@@ -153,6 +154,8 @@ pub struct Daemon {
     actions: actions::Answerer,
     /// UA1: the owner's Extensions, started once the socket is served.
     extensions: extensions::Host,
+    /// MC40, MC41: the owner's look and keys files.
+    config: config::Config,
 }
 
 /// What `rail.remove` left dangling.
@@ -358,6 +361,13 @@ impl Daemon {
     #[must_use]
     pub fn with_extensions(mut self, dir: &Path) -> Self {
         self.extensions = extensions::Host::new(dir.to_path_buf());
+        self
+    }
+
+    /// Reads `look.json` and `keys.json` from `dir` instead of the Daemon's own default (MC40).
+    #[must_use]
+    pub fn with_config(mut self, dir: &Path) -> Self {
+        self.config = config::Config::new(dir.to_path_buf());
         self
     }
 

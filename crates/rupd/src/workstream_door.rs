@@ -81,6 +81,7 @@ for line in sys.stdin:
         prompt_effect_gate: None,
         actions: Default::default(),
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
+        config: crate::config::Config::new(std::path::PathBuf::new()),
         agents: agents.clone(),
         rail: agents.clone(),
         wake_gate: Default::default(),

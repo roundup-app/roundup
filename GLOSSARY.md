@@ -278,6 +278,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Hook | same | — |
 | User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |
 | Extension host (`crates/rupd` `src/extensions/`, `extension.problem`) | none | — |
+| Config (`crates/rupd` `src/config.rs`, `config.read`, `config.changed`, `config.problem`, `ConfigState`) | none | — |
 | Wiring (`agents::Wiring`, `Naming`, `Delivery`, `Quiet`) | none | — |
 
 ### Design system

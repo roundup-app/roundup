@@ -127,6 +127,11 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
         silent: raised !== undefined && !raised.chime,
         open: openAgent(id),
       });
+    } else if (event.name === "config.problem") {
+      // MC40, MC41: one Toast per refused file; the last good state stays.
+      const item = `config:${event.data.file}:${event.data.cause}`;
+
+      push({ key: item, item, kind: "error", name: event.data.file, line: event.data.cause, selected: false, open: () => null });
     } else if (event.name === "extension.problem") {
       // UA11: one Toast per problem, whatever the Switcher shows.
       const item = `extension:${event.data.extension}:${event.data.cause}`;
