@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { ACTION_ROWS } from "./chords";
+import { ACTION_ROWS, CHORDS } from "./chords";
 import type { ActionArg, ActionValue, ActionValues } from "./chords";
 import type { RunParams } from "@contracts/action/RunParams";
 import type { ProjectCalls } from "../app/seam";
@@ -47,7 +47,7 @@ export const listActions = (focus: Element | null = document.activeElement): Act
 
     return {
       name: row.name, label: row.what,
-      keys: "press" in row ? `${ACTION_ROWS.find(chord => chord.name === "leader.open")!.keys} ${row.keys}` : row.keys,
+      keys: "press" in row ? `${CHORDS["leader.open"].keys} ${row.keys}` : row.keys,
       args: row.args ?? [], available, cause: available ? undefined : causeOf(row),
     };
   });

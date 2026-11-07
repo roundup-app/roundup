@@ -86,7 +86,7 @@ export const OwnerCommand = (props: {
   const assignable = (id: number | undefined) => props.active() && id !== undefined && props.todos.byId().get(id)?.done === false && eligible(id).length > 0;
 
   // U4453b: an unavailable assignment yields to the Rail's Ask action.
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, when: () => assignable(props.selected()), capture: () => {
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.assign"], when: () => assignable(props.selected()), capture: () => {
     const id = props.selected();
 
     return { available: () => assignable(id),

@@ -2,7 +2,7 @@ import { cleanup } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openTabs } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
-import { CHORDS, pressOf } from "./chords";
+import { CHORDS, pressOf, CHORD_ROWS } from "./chords";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
@@ -19,7 +19,7 @@ const MODS: KeyboardEventInit[] = [{ ctrlKey: true }, { altKey: true }, { metaKe
   { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true }, { altKey: true, metaKey: true }];
 
 it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
-  expect(CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor).flatMap(row => row.presses)).toEqual(KEPT);
+  expect(CHORD_ROWS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor).flatMap(row => row.presses)).toEqual(KEPT);
   await openTabs({ api: [agent("a1", "idle", "x")] });
 
   const terminal = document.body.appendChild(document.createElement("textarea"));
@@ -56,7 +56,7 @@ it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
 /** U6171c: the Terminal's editing presses (U2242) are never App chords. */
 it("u6171c_no_terminal_scoped_chord_equals_a_terminal_editing_press", () => {
   const editing = ["meta+Backspace", "meta+ArrowLeft", "meta+ArrowRight", "alt+Backspace", "alt+ArrowLeft", "alt+ArrowRight"];
-  const bound = CHORDS.filter(row => !row.inRail && !row.inShelf && !row.inEditor && !row.inTriage && !row.inFirstRun).flatMap(row => row.presses);
+  const bound = CHORD_ROWS.filter(row => !row.inRail && !row.inShelf && !row.inEditor && !row.inTriage && !row.inFirstRun).flatMap(row => row.presses);
 
   expect(bound.filter(press => editing.includes(press))).toEqual([]);
 });

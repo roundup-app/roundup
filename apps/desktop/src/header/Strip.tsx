@@ -240,7 +240,7 @@ export const Strip = (props: {
 
   // U186: leader `⇧J` marks the next Project that needs you, or this one; the webview takes it wherever focus is.
   registerKeys({ kind: "leader" }, [{
-    action: LEADER.find((row) => row.keys === "⇧J")!,
+    action: LEADER["leader.attention-other-project"],
     capture: () => ({ available: () => !asking() && props.tabs.length >= 2 && props.tabs.some((tab) => markOf(tab) !== null),
     invoke: () => {
       if (props.tabs.length < 2) return;

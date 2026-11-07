@@ -4,7 +4,7 @@ import { traverseFast, isJSXElement } from "@babel/types";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
-import { CHORDS, ariaChord, ariaShortcut } from "../keys/chords";
+import { CHORDS, ariaChord, type ChordName } from "../keys/chords";
 import { saveAppSettings } from "../settings/preferences";
 import { useBrowserStorage } from "../state/storage";
 import { Tip } from "../ui/Tip";
@@ -104,16 +104,16 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
 });
 
 it("u5247_icon_button_reads_its_key_by_name", async () => {
-  render(() => <><IconButton aria-label="Maximise" action="shelf.maximise">+</IconButton><IconButton aria-label="Nothing" action="no.such">-</IconButton></>);
+  render(() => <><IconButton aria-label="Maximise" action="shelf.maximise">+</IconButton><IconButton aria-label="Nothing">-</IconButton></>);
   const button = screen.getByRole("button", { name: "Maximise" });
-  const maximise = CHORDS.find((row) => row.name === "shelf.maximise")!.keys;
+  const maximise = CHORDS["shelf.maximise"].keys;
 
   fireEvent.keyDown(document, { key: "Tab" });
   button.focus();
   const tip = await screen.findByRole("tooltip");
 
   expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe(maximise);
-  expect(button.getAttribute("aria-keyshortcuts")).toBe(ariaShortcut(maximise));
+  expect(button.getAttribute("aria-keyshortcuts")).toBe(ariaChord(CHORDS["shelf.maximise"]));
   expect(button.hasAttribute("action")).toBe(false);
   expect(screen.getByRole("button", { name: "Nothing" }).hasAttribute("aria-keyshortcuts")).toBe(false);
 });
@@ -131,7 +131,7 @@ it("u5247_a_rebound_key_shows_everywhere", async () => {
 
   await waitFor(() => expect(button.getAttribute("aria-keyshortcuts")).toBe("Control+Shift+Y"));
   expect(before).not.toBe("Control+Shift+Y");
-  expect(chips()).toBe(CHORDS.find((row) => row.name === "todo.capture")!.keys);
+  expect(chips()).toBe(CHORDS["todo.capture"].keys);
 });
 
 // U5247a: each owner mounts for real; the button's attribute names the press, and that press must do what a click does.
@@ -190,7 +190,7 @@ const pressOf = (shortcut: string, target: Element) => {
   });
 };
 
-const owners: [string, string, () => Promise<HTMLElement>, (app: Awaited<ReturnType<typeof mountOwners>>) => string][] = [
+const owners: [string, ChordName, () => Promise<HTMLElement>, (app: Awaited<ReturnType<typeof mountOwners>>) => string][] = [
   ["Layout shelf.maximise", "shelf.maximise", () => shelfButton("Maximise"), () => String(screen.queryByLabelText("Restore", { selector: "button" }) !== null)],
   ["Layout shelf.close", "shelf.close", () => shelfButton("Close the Bench"), () => String(document.querySelector<HTMLElement>(".window")!.dataset["shelf"])],
   ["Todos todo.triage-enter", "todo.triage-enter", () => shelfButton("Triage"), () => String(screen.getByLabelText("Triage", { selector: "button" }).getAttribute("aria-pressed"))],
@@ -199,7 +199,7 @@ const owners: [string, string, () => Promise<HTMLElement>, (app: Awaited<ReturnT
 ];
 
 it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async (_owner, name, find, observe) => {
-  const row = CHORDS.find(chord => chord.name === name)!;
+  const row = CHORDS[name];
 
   const run = async (how: "click" | "press") => {
     cleanup();

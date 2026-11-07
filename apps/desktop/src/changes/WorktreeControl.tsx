@@ -144,7 +144,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
     void review();
   };
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "C")!, capture: () => ({ available: () => count() > 0 && rail.selected() === id && originalAvailable(), invoke: openPanel }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.changes"], capture: () => ({ available: () => count() > 0 && rail.selected() === id && originalAvailable(), invoke: openPanel }) }]);
 
   createEffect(() => { if (props.recoveryOpen) close(); });
 

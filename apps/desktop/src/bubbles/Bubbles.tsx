@@ -680,7 +680,7 @@ export const Bubbles = (props: {
   const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 
   registerKeys({ kind: "app" }, [
-    { action: CHORDS.find((row) => row.name === "terminal.new")!,
+    { action: CHORDS["terminal.new"],
       when: (press) => outsideEditor(press.target),
       capture: (focus) => {
         const owner = terminalOwner();
@@ -727,7 +727,7 @@ export const Bubbles = (props: {
   };
 
   registerKeys({ kind: "app" }, [{
-    action: CHORDS.find((row) => row.name === "terminal.switch")!,
+    action: CHORDS["terminal.switch"],
     when: () => hasTerminalFocus(document.activeElement),
     capture: switchPair,
   }]);
@@ -739,13 +739,13 @@ export const Bubbles = (props: {
   };
 
   registerKeys({ kind: "leader" }, [
-    { action: LEADER.find((row) => row.keys === "M")!, capture: (focus) => {
+    { action: LEADER["leader.bubble-minimise"], capture: (focus) => {
       const id = focusedId(focus);
       const wasMin = id !== null && placeOf(id).min;
 
       return { available: () => hasFocusedBubble(focus), invoke: () => toggleMinimised(id!, wasMin) };
     } },
-    { action: LEADER.find((row) => row.keys === "W")!, capture: (focus) => ({ available: () => hasFocusedBubble(focus), invoke: () => closeFocused(focus) }) },
+    { action: LEADER["leader.bubble-close"], capture: (focus) => ({ available: () => hasFocusedBubble(focus), invoke: () => closeFocused(focus) }) },
   ]);
 
   const onFocusIn = (event: FocusEvent): void => {

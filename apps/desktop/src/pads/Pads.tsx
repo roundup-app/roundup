@@ -3,7 +3,7 @@ import { Age } from "../shelf/Age";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
 import { modalOpen, registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
+import { CHORD_ROWS } from "../keys/chords";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
@@ -352,7 +352,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
   const rename = () => { setEditing(true); };
 
-  registerKeys({ kind: "layer", element: () => row, active: () => document.activeElement === row && !modalOpen(), modal: false }, CHORDS.filter(action => action.name === "todo.open-draft" || action.name === "rail.rename").map(action => ({
+  registerKeys({ kind: "layer", element: () => row, active: () => document.activeElement === row && !modalOpen(), modal: false }, CHORD_ROWS.filter(action => action.name === "todo.open-draft" || action.name === "rail.rename").map(action => ({
     action, searchable: false as const,
     when: (event: KeyboardEvent) => event.target === row && !event.isComposing,
     capture: (focus: Element | null) => {

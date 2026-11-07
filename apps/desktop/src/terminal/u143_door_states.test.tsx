@@ -6,7 +6,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
 import { door, event, info, workstream } from "../testing/nodes";
 import { openTabs, path } from "../header/stripFixture";
-import { CHORDS } from "../keys/chords";
+import { CHORD_ROWS } from "../keys/chords";
 import { copy } from "./copy";
 import { mountRailAndPane } from "./paneHarness";
 
@@ -212,7 +212,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
 
 
 
-it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut))(
+it.each(CHORD_ROWS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut))(
   "u2571b_each_empty_hint_runs_its_action $what", async (row) => {
     const { app } = await openTabs({ p: [] });
     const daemon = app.of(path("p"));

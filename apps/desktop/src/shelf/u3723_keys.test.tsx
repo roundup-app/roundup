@@ -122,7 +122,9 @@ it("u3722_the_chip_comes_from_the_registry_row", async () => {
   button.focus();
   const tooltip = await screen.findByRole("tooltip");
   const keys = [...tooltip.querySelectorAll("kbd")].map(chip => chip.textContent).join("");
-  const row = CHORDS.find(row => row.keys === keys)!;
+  const row = CHORDS["shelf.maximise"];
+
+  expect(keys).toBe(row.keys);
 
   fireEvent.keyDown(button, { key: keys.toLowerCase(), code: row.presses[0]! });
   expect(shelf.getByRole("button", { name: "Restore" })).toBe(button);

@@ -580,12 +580,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
-    { action: CHORDS.find(row => row.name === "rail.move")!, when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
+    { action: CHORDS["rail.move"], when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
-    { action: CHORDS.find(row => row.name === "agent.restart-mode")!, when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
+    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
       return {
@@ -593,13 +593,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         invoke: () => { if (id) void menu.restartSession(id); },
       };
     } },
-    { action: CHORDS.find((row) => row.name === "agent.new")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
+    { action: CHORDS["agent.new"], match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: { ...CHORDS.find((row) => row.name === "agent.new-with-prompt")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(args?.prompt); } }) },
-    { action: CHORDS.find(row => row.name === "workstream.new")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
-    { action: CHORDS.find(row => row.name === "mode.new")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
+    { action: { ...CHORDS["agent.new-with-prompt"], get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(args?.prompt); } }) },
+    { action: CHORDS["workstream.new"], capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
+    { action: CHORDS["mode.new"], capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     // U6249d: Escape on a focused row dismisses the failure its line shows, as the line's Dismiss does.
     { chords: ["Escape"], when: press => shownFailure(focusedRowId(press)) !== undefined, run: press => rail.dismiss(shownFailure(focusedRowId(press))!) },
@@ -609,10 +609,10 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
       void contextMenu(app, recoveryEntries(), box.left + 8, box.top + 8);
     } },
-    { action: CHORDS.find((row) => row.name === "rail.remove")!, capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
+    { action: CHORDS["rail.remove"], capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
-  registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.name === "rail.rename")!, capture: focus => {
+  registerKeys({ kind: "region", element: container }, [{ action: CHORDS["rail.rename"], capture: focus => {
     const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
     return {
