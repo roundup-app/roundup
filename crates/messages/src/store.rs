@@ -321,13 +321,14 @@ impl Store {
         at: i64,
         binding: Binding,
     ) -> Result<Message, Error> {
+        let from_json = actor_json(from)?;
         self.db
             .execute(
                 "INSERT INTO messages (from_actor, to_id, kind, body, reply_to, status, reason, at, receiver_attempt, receiver_revision, rank)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                      CASE WHEN ?6 = 'pending' THEN (SELECT COALESCE(MAX(rank), 0) + 1 FROM messages) ELSE 0 END)",
                 params![
-                    actor_json(from),
+                    from_json,
                     to,
                     text_of(kind),
                     body,
@@ -575,7 +576,9 @@ impl Store {
                     .map_err(Error::internal)?;
                 store.clear_flight(id)?;
                 if changed == 1 {
-                    confirmed.push(store.get(id)?.expect("just updated"));
+                    confirmed.push(store.get(id)?.ok_or_else(|| {
+                        Error::internal("message vanished right after it was updated")
+                    })?);
                 }
             }
             Ok((confirmed, repeated))
@@ -638,7 +641,9 @@ impl Store {
                 )
                 .map_err(Error::internal)?;
             if changed == 1 {
-                dropped.push(self.get(message.id)?.expect("just updated"));
+                dropped.push(self.get(message.id)?.ok_or_else(|| {
+                    Error::internal("message vanished right after it was updated")
+                })?);
             }
         }
         Ok(dropped)
@@ -724,6 +729,7 @@ impl Store {
     /// B1: the Messages to `to` that are `pending`, pushed digests (B22) and Wake notes
     /// (B42) left out.
     pub(crate) fn count_open(&self, to: &str) -> Result<u32, Error> {
+        let daemon = actor_json(&Actor::daemon())?;
         self.db
             .query_row(
                 &format!(
@@ -731,7 +737,7 @@ impl Store {
                 ),
                 params![
                     to,
-                    actor_json(&Actor::daemon()),
+                    daemon,
                     crate::pushes::PREFIX,
                     crate::wake::PREFIX
                 ],
@@ -747,6 +753,7 @@ impl Store {
         attempt: i64,
         except: Option<u32>,
     ) -> Result<Option<Message>, Error> {
+        let user = actor_json(&Actor::user())?;
         self.db
             .query_row(
                 "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
@@ -754,7 +761,7 @@ impl Store {
                  WHERE to_id = ?1 AND status IN ('pending', 'delivered')
                    AND receiver_attempt = ?2 AND from_actor != ?3 AND (?4 IS NULL OR id != ?4)
                  ORDER BY rank DESC, id DESC LIMIT 1",
-                params![to, attempt, actor_json(&Actor::user()), except],
+                params![to, attempt, user, except],
                 row_to_message,
             )
             .optional()
@@ -780,6 +787,7 @@ impl Store {
 
     /// B22: the pushed digests to `to` that are `pending`, oldest first.
     pub(crate) fn open_digests(&self, to: &str) -> Result<Vec<Message>, Error> {
+        let daemon = actor_json(&Actor::daemon())?;
         self.db
             .prepare(&format!(
                 "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at
@@ -788,7 +796,7 @@ impl Store {
             ))
             .and_then(|mut stmt| {
                 stmt.query_map(
-                    params![to, actor_json(&Actor::daemon()), crate::pushes::PREFIX],
+                    params![to, daemon, crate::pushes::PREFIX],
                     row_to_message,
                 )?
                 .collect()
@@ -946,8 +954,8 @@ fn from_text<T: DeserializeOwned>(column: usize, text: &str) -> rusqlite::Result
     })
 }
 
-fn actor_json(actor: &Actor) -> String {
-    serde_json::to_string(actor).expect("an Actor is always serializable")
+fn actor_json(actor: &Actor) -> Result<String, Error> {
+    serde_json::to_string(actor).map_err(Error::internal)
 }
 
 #[cfg(test)]

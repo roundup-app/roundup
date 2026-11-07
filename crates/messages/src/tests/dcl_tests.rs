@@ -187,7 +187,8 @@ async fn u6260a_held_prompt_is_reported_to_its_sender() {
         vec![note.clone()],
         Inbox::Ok,
     )
-    .await;
+    .await
+    .unwrap();
     let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
     assert_eq!(seen.status, MessageStatus::Pending);
     assert_eq!(seen.waiting.as_deref(), Some(failure::AWAITING_INPUT));
@@ -203,7 +204,8 @@ async fn u6260a_held_prompt_is_reported_to_its_sender() {
         vec![note.clone()],
         Inbox::Ok,
     )
-    .await;
+    .await
+    .unwrap();
     assert_eq!(written_by(&gated), vec![vec![note.id]]);
     let seen = failure::with_waiting(inner, lock(&inner.store).get(note.id).unwrap().unwrap());
     assert_eq!(seen.waiting, None);

@@ -162,23 +162,25 @@ pub(crate) async fn send(
     pick: Pick,
     mut notes: Vec<Message>,
     state: Inbox,
-) -> bool {
-    failure::forget_settled(inner);
+) -> Result<bool, Error> {
+    failure::forget_settled(inner)?;
     {
         let store = lock(&inner.store);
-        notes.retain(|m| {
-            if store.in_flight(m.id).expect("message store")
-                && lock(&inner.inbox_written).contains(&m.id)
-            {
-                return false;
+        let mut keep = Vec::with_capacity(notes.len());
+        for m in notes {
+            if store.in_flight(m.id)? && lock(&inner.inbox_written).contains(&m.id) {
+                continue;
             }
-            let waiting = failure::waiting_reason(failure::admitted(inner, agent, m), state);
+            let waiting = failure::waiting_reason(failure::admitted(inner, agent, &m), state);
             failure::hold(inner, &[m.id], waiting);
-            waiting.is_none()
-        });
+            if waiting.is_none() {
+                keep.push(m);
+            }
+        }
+        notes = keep;
     }
     if notes.is_empty() {
-        return true;
+        return Ok(true);
     }
     let senders: std::collections::HashSet<&str> = notes
         .iter()
@@ -186,7 +188,7 @@ pub(crate) async fn send(
         .map(|m| m.from.id.as_str())
         .collect();
     if !senders.is_empty() && load_rail_nodes(inner).await.is_err() {
-        return false;
+        return Ok(false);
     }
     let names = {
         let store = lock(&inner.store);
@@ -195,14 +197,14 @@ pub(crate) async fn send(
             .map(|id| store.sender_name(id).map(|name| (id, name)))
             .collect();
         let Ok(names) = names else {
-            return false;
+            return Ok(false);
         };
         names
     };
     // DCL8: the open-Job snapshot goes with the batch that leaves no Message of the receiver pending.
     let last = {
         let store = lock(&inner.store);
-        let pending = store.pending_all().expect("message store");
+        let pending = store.pending_all()?;
         pending.iter().all(|m| {
             m.to != agent
                 || pushes::is_digest(&m.from, &m.body)
@@ -223,7 +225,10 @@ pub(crate) async fn send(
             id: note.id,
             kind: note.kind,
             from: if note.from.kind == ActorKind::Agent {
-                names[note.from.id.as_str()].clone()
+                names
+                    .get(note.from.id.as_str())
+                    .cloned()
+                    .unwrap_or_else(|| note.from.id.clone())
             } else {
                 note.from.id.clone()
             },
@@ -245,14 +250,12 @@ pub(crate) async fn send(
         };
     }
     let Some(inbox) = inner.inbox.get() else {
-        return true;
+        return Ok(true);
     };
     let session = inbox
         .session(agent)
         .unwrap_or_else(|| format!("attempt:{}", at.0));
-    let mut previous = lock(&inner.store)
-        .last_inbox(agent, &session)
-        .expect("message store");
+    let mut previous = lock(&inner.store).last_inbox(agent, &session)?;
     if previous.is_none() {
         previous = match inbox.previous(agent) {
             Ok(previous) => previous,
@@ -260,19 +263,17 @@ pub(crate) async fn send(
                 failure::record(inner, agent, failure::UNREADABLE);
                 let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
                 failure::hold(inner, &ids, Some(failure::UNREADABLE));
-                return true;
+                return Ok(true);
             }
         };
         if let Some(content) = &previous {
-            lock(&inner.store)
-                .record_inbox(agent, &session, content)
-                .expect("message store");
+            lock(&inner.store).record_inbox(agent, &session, content)?;
         }
     }
     let quiet = {
         let store = lock(&inner.store);
         let given = if notes.iter().any(|m| pushes::is_digest(&m.from, &m.body)) {
-            store.delivered_to(agent).expect("message store")
+            store.delivered_to(agent)?
         } else {
             Vec::new()
         };
@@ -303,25 +304,25 @@ pub(crate) async fn send(
             || empty.iter().any(|e| e.id == m.id)
     });
     if notes.is_empty() {
-        return true;
+        return Ok(true);
     }
     let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
     failure::hold(inner, &ids, None);
     let _typing = {
         let mut store = lock(&inner.store);
         if store.require_generation(agent, at).is_err() {
-            return false;
+            return Ok(false);
         }
         for note in &notes {
-            let bound = store.bound(note.id).expect("message store");
+            let bound = store.bound(note.id)?;
             if bound.0 != at.0 || (pick == Pick::Next && bound.1 >= at.1) {
-                return false;
+                return Ok(false);
             }
         }
         {
             let mut typing = lock(&inner.typing);
             if ids.iter().any(|id| typing.contains(id)) {
-                return false;
+                return Ok(false);
             }
             typing.extend(ids.iter().copied());
         }
@@ -329,12 +330,8 @@ pub(crate) async fn send(
             set: &inner.typing,
             ids: ids.clone(),
         };
-        if store
-            .record_flight_all(&ids)
-            .expect("message store")
-            .is_none()
-        {
-            return false;
+        if store.record_flight_all(&ids)?.is_none() {
+            return Ok(false);
         }
         guard
     };
@@ -358,26 +355,26 @@ pub(crate) async fn send(
                 "DELETE FROM message_inbox_last WHERE receiver=? AND session=?",
                 rusqlite::params![agent, session],
             )
-            .expect("message store");
+            .map_err(Error::internal)?;
         for id in &ids {
-            lock(&inner.store).clear_flight(*id).expect("message store");
+            lock(&inner.store).clear_flight(*id)?;
         }
-        return true;
+        return Ok(true);
     }
     {
         let mut store = lock(&inner.store);
         if !said.is_empty() {
-            store
-                .record_inbox(agent, &session, previous.as_deref().expect("written entry"))
-                .expect("message store");
-            lock(&inner.inbox_written).extend(
-                said.iter()
-                    .filter(|e| store.in_flight(e.id).expect("message store"))
-                    .map(|e| e.id),
-            );
+            if let Some(previous) = previous.as_deref() {
+                store.record_inbox(agent, &session, previous)?;
+            }
+            for entry in &said {
+                if store.in_flight(entry.id)? {
+                    lock(&inner.inbox_written).insert(entry.id);
+                }
+            }
         }
         for id in repeats {
-            if let Some(message) = store.deliver_repeat(id).expect("message store") {
+            if let Some(message) = store.deliver_repeat(id)? {
                 inner
                     .bus
                     .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
@@ -395,7 +392,7 @@ pub(crate) async fn send(
         let empty: Vec<u32> = empty.iter().map(|entry| entry.id).collect();
         confirm_ids(inner, agent, &empty);
     }
-    true
+    Ok(true)
 }
 
 impl Messages {
