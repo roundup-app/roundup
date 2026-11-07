@@ -343,6 +343,12 @@ impl Agents {
     }
 
     /// B6: observe or refuse a Steer immediately before its physical Terminal write.
+    /// Replace the Daemon's wiring; configure before sharing Agents.
+    #[must_use]
+    pub fn with_wiring(self, wiring: Arc<dyn Wiring>) -> Self {
+        self.configure(|shared| shared.wiring = wiring)
+    }
+
     /// Configure before sharing Agents; the observer runs on the Terminal input thread
     /// and must not reenter its input queue.
     #[must_use]

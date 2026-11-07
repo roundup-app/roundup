@@ -76,8 +76,9 @@ impl Daemon {
                 dir,
                 bus.clone(),
                 Arc::clone(&terminals),
-                wiring,
+                Arc::clone(&wiring) as Arc<dyn agents::Wiring>,
             )?)
+            .with_wiring(wiring)
             .with_steer_effect(steer_effect_observer(&observers))
             .with_resume_effect(resume_effect_observer(&observers))
             .with_overview_hold(overview_read_observer(&observers)),
