@@ -71,6 +71,16 @@ pub(super) fn item(id: u32) -> String {
     format!("message:{id}")
 }
 
+/// B53: a send names its `kind`; a missing one says which values are allowed.
+fn require_kind(value: &Value) -> Result<(), RpcError> {
+    if value.get("kind").is_none() {
+        return Err(RpcError::from(Error::invalid_params(
+            "kind is required and must be `note` or `question`",
+        )));
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl Module for Messages {
     fn namespaces(&self) -> &'static [&'static str] {
@@ -96,6 +106,9 @@ impl Module for Messages {
 impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         trip(&self.inner, method).map_err(RpcError::internal)?;
+        if method == "message.send" {
+            require_kind(&value)?;
+        }
         contracts::messages_methods!(rpc::dispatch_methods, Messages, self, ctx, method, value)
     }
 }
