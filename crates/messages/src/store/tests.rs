@@ -2,6 +2,10 @@ use contracts::ActorKind;
 
 use super::*;
 
+fn actor_json(actor: &Actor) -> String {
+    super::actor_json(actor).unwrap()
+}
+
 fn open(dir: &Path) -> Store {
     Store::open(&dir.join("messages.db")).unwrap()
 }

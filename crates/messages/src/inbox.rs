@@ -103,15 +103,14 @@ pub(crate) fn is_inbox_send(p: &SendParams) -> bool {
 /// is a `mismatch`: the note stays `pending` until Claude Code or the Daemon changes. A `missing`
 /// inbox is not told: the session is starting or gone, and the note goes at the Agent's next
 /// passing check.
-pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), RpcError> {
+pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), Error> {
     let Some(inbox) = inner.inbox.get() else {
         return Ok(());
     };
     if inbox.check(&note.to).await != Inbox::Mismatch {
         return Ok(());
     }
-    Err(RpcError::new(
-        code::INBOX_UNAVAILABLE,
+    Err(Error::inbox_unavailable(
         "Message pending: Claude Code changed its message format",
     ))
 }
@@ -123,24 +122,25 @@ fn open_job_snapshot(inner: &Arc<Inner>, agent: &str, at: store::Binding) -> Opt
     if lock(&inner.snapshotted).contains(&(agent.to_owned(), at.0)) {
         return None;
     }
-    let reported = |id: &str| -> Result<Vec<String>, RpcError> {
+    let attempts = |id: &str| -> Result<Vec<String>, Error> {
         let store = lock(&inner.store);
         let mut rows = store
             .db
             .prepare("SELECT record FROM message_results WHERE agent=? ORDER BY seq")
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let records = rows
             .query_map([id], |r| r.get::<_, String>(0))
-            .map_err(RpcError::internal)?;
+            .map_err(Error::internal)?;
         let mut attempts = Vec::new();
         for record in records {
             let report: contracts::message::ResultReport =
-                serde_json::from_str(&record.map_err(RpcError::internal)?)
-                    .map_err(RpcError::internal)?;
+                serde_json::from_str(&record.map_err(Error::internal)?).map_err(Error::internal)?;
             attempts.push(report.attempt);
         }
         Ok(attempts)
     };
+    // The seam to `agents` speaks `RpcError`.
+    let reported = |id: &str| attempts(id).map_err(RpcError::from);
     let jobs = inbox.open_jobs(agent, &reported);
     if jobs.is_empty() {
         return None;
@@ -162,23 +162,25 @@ pub(crate) async fn send(
     pick: Pick,
     mut notes: Vec<Message>,
     state: Inbox,
-) -> bool {
-    failure::forget_settled(inner);
+) -> Result<bool, Error> {
+    failure::forget_settled(inner)?;
     {
         let store = lock(&inner.store);
-        notes.retain(|m| {
-            if store.in_flight(m.id).expect("message store")
-                && lock(&inner.inbox_written).contains(&m.id)
-            {
-                return false;
+        let mut keep = Vec::with_capacity(notes.len());
+        for m in notes {
+            if store.in_flight(m.id)? && lock(&inner.inbox_written).contains(&m.id) {
+                continue;
             }
-            let waiting = failure::waiting_reason(failure::admitted(inner, agent, m), state);
+            let waiting = failure::waiting_reason(failure::admitted(inner, agent, &m), state);
             failure::hold(inner, &[m.id], waiting);
-            waiting.is_none()
-        });
+            if waiting.is_none() {
+                keep.push(m);
+            }
+        }
+        notes = keep;
     }
     if notes.is_empty() {
-        return true;
+        return Ok(true);
     }
     let senders: std::collections::HashSet<&str> = notes
         .iter()
@@ -186,7 +188,7 @@ pub(crate) async fn send(
         .map(|m| m.from.id.as_str())
         .collect();
     if !senders.is_empty() && load_rail_nodes(inner).await.is_err() {
-        return false;
+        return Ok(false);
     }
     let names = {
         let store = lock(&inner.store);
@@ -195,14 +197,14 @@ pub(crate) async fn send(
             .map(|id| store.sender_name(id).map(|name| (id, name)))
             .collect();
         let Ok(names) = names else {
-            return false;
+            return Ok(false);
         };
         names
     };
     // DCL8: the open-Job snapshot goes with the batch that leaves no Message of the receiver pending.
     let last = {
         let store = lock(&inner.store);
-        let pending = store.pending_all().expect("message store");
+        let pending = store.pending_all()?;
         pending.iter().all(|m| {
             m.to != agent
                 || pushes::is_digest(&m.from, &m.body)
@@ -223,7 +225,10 @@ pub(crate) async fn send(
             id: note.id,
             kind: note.kind,
             from: if note.from.kind == ActorKind::Agent {
-                names[note.from.id.as_str()].clone()
+                names
+                    .get(note.from.id.as_str())
+                    .cloned()
+                    .unwrap_or_else(|| note.from.id.clone())
             } else {
                 note.from.id.clone()
             },
@@ -245,14 +250,12 @@ pub(crate) async fn send(
         };
     }
     let Some(inbox) = inner.inbox.get() else {
-        return true;
+        return Ok(true);
     };
     let session = inbox
         .session(agent)
         .unwrap_or_else(|| format!("attempt:{}", at.0));
-    let mut previous = lock(&inner.store)
-        .last_inbox(agent, &session)
-        .expect("message store");
+    let mut previous = lock(&inner.store).last_inbox(agent, &session)?;
     if previous.is_none() {
         previous = match inbox.previous(agent) {
             Ok(previous) => previous,
@@ -260,19 +263,17 @@ pub(crate) async fn send(
                 failure::record(inner, agent, failure::UNREADABLE);
                 let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
                 failure::hold(inner, &ids, Some(failure::UNREADABLE));
-                return true;
+                return Ok(true);
             }
         };
         if let Some(content) = &previous {
-            lock(&inner.store)
-                .record_inbox(agent, &session, content)
-                .expect("message store");
+            lock(&inner.store).record_inbox(agent, &session, content)?;
         }
     }
     let quiet = {
         let store = lock(&inner.store);
         let given = if notes.iter().any(|m| pushes::is_digest(&m.from, &m.body)) {
-            store.delivered_to(agent).expect("message store")
+            store.delivered_to(agent)?
         } else {
             Vec::new()
         };
@@ -303,25 +304,25 @@ pub(crate) async fn send(
             || empty.iter().any(|e| e.id == m.id)
     });
     if notes.is_empty() {
-        return true;
+        return Ok(true);
     }
     let ids: Vec<u32> = notes.iter().map(|m| m.id).collect();
     failure::hold(inner, &ids, None);
     let _typing = {
         let mut store = lock(&inner.store);
         if store.require_generation(agent, at).is_err() {
-            return false;
+            return Ok(false);
         }
         for note in &notes {
-            let bound = store.bound(note.id).expect("message store");
+            let bound = store.bound(note.id)?;
             if bound.0 != at.0 || (pick == Pick::Next && bound.1 >= at.1) {
-                return false;
+                return Ok(false);
             }
         }
         {
             let mut typing = lock(&inner.typing);
             if ids.iter().any(|id| typing.contains(id)) {
-                return false;
+                return Ok(false);
             }
             typing.extend(ids.iter().copied());
         }
@@ -329,12 +330,8 @@ pub(crate) async fn send(
             set: &inner.typing,
             ids: ids.clone(),
         };
-        if store
-            .record_flight_all(&ids)
-            .expect("message store")
-            .is_none()
-        {
-            return false;
+        if store.record_flight_all(&ids)?.is_none() {
+            return Ok(false);
         }
         guard
     };
@@ -358,26 +355,26 @@ pub(crate) async fn send(
                 "DELETE FROM message_inbox_last WHERE receiver=? AND session=?",
                 rusqlite::params![agent, session],
             )
-            .expect("message store");
+            .map_err(Error::internal)?;
         for id in &ids {
-            lock(&inner.store).clear_flight(*id).expect("message store");
+            lock(&inner.store).clear_flight(*id)?;
         }
-        return true;
+        return Ok(true);
     }
     {
         let mut store = lock(&inner.store);
         if !said.is_empty() {
-            store
-                .record_inbox(agent, &session, previous.as_deref().expect("written entry"))
-                .expect("message store");
-            lock(&inner.inbox_written).extend(
-                said.iter()
-                    .filter(|e| store.in_flight(e.id).expect("message store"))
-                    .map(|e| e.id),
-            );
+            if let Some(previous) = previous.as_deref() {
+                store.record_inbox(agent, &session, previous)?;
+            }
+            for entry in &said {
+                if store.in_flight(entry.id)? {
+                    lock(&inner.inbox_written).insert(entry.id);
+                }
+            }
         }
         for id in repeats {
-            if let Some(message) = store.deliver_repeat(id).expect("message store") {
+            if let Some(message) = store.deliver_repeat(id)? {
                 inner
                     .bus
                     .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
@@ -395,7 +392,7 @@ pub(crate) async fn send(
         let empty: Vec<u32> = empty.iter().map(|entry| entry.id).collect();
         confirm_ids(inner, agent, &empty);
     }
-    true
+    Ok(true)
 }
 
 impl Messages {
@@ -559,6 +556,7 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
         );
         assert_eq!(lock(&inbox.batches)[0].len(), 1);
         let store = lock(&messages.inner.store);
@@ -591,7 +589,8 @@ pub(crate) mod tests {
                 vec![first.clone()],
                 Inbox::Ok,
             )
-            .await;
+            .await
+            .unwrap();
             messages.confirm_inbox("m", &[first.id]);
             repeat = pending(&messages, &Actor::daemon(), "same note");
             lock(&messages.inner.store)
@@ -608,7 +607,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         assert!(lock(&inbox.batches).is_empty());
         assert_eq!(
             lock(&messages.inner.store)
@@ -650,7 +650,8 @@ pub(crate) mod tests {
             vec![first.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         messages.confirm_inbox("m", &[first.id]);
         tokio::time::advance(std::time::Duration::from_secs(31)).await;
         let repeat = pending(&messages, &Actor::daemon(), &body);
@@ -662,7 +663,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Missing,
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(
             lock(&messages.inner.store)
                 .get(repeat.id)
@@ -679,7 +681,8 @@ pub(crate) mod tests {
             vec![repeat.clone()],
             Inbox::Ok,
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(lock(&inbox.batches).len(), 1);
         assert_eq!(
             lock(&messages.inner.store)
@@ -770,6 +773,7 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
         );
         assert_eq!(rail.reads.load(Ordering::SeqCst), 1);
         let expected: Vec<_> = notes
@@ -801,6 +805,7 @@ pub(crate) mod tests {
                 Inbox::Ok
             )
             .await
+            .unwrap()
         );
         assert_eq!(rail.reads.load(Ordering::SeqCst), 0);
     }
@@ -826,7 +831,11 @@ pub(crate) mod tests {
             pending(&messages, &agent("b"), "removed"),
             pending(&messages, &agent("missing-id"), "unknown"),
         ];
-        assert!(send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok).await);
+        assert!(
+            send(&messages.inner, "m", (1, 2), Pick::Next, notes, Inbox::Ok)
+                .await
+                .unwrap()
+        );
         let batches = lock(&inbox.batches);
         assert_eq!(batches[0][0].2, "last observed");
         assert_eq!(batches[0][1].2, "removed original");
@@ -857,7 +866,8 @@ pub(crate) mod tests {
                 vec![note.clone()],
                 Inbox::Ok,
             )
-            .await;
+            .await
+            .unwrap();
             assert!(lock(&inbox.batches).is_empty());
             assert!(!lock(&messages.inner.store).in_flight(note.id).unwrap());
             assert_eq!(
@@ -881,6 +891,7 @@ pub(crate) mod tests {
                         Inbox::Ok
                     )
                     .await
+                    .unwrap()
                 );
             } else {
                 assert!(
@@ -893,6 +904,7 @@ pub(crate) mod tests {
                         Inbox::Ok
                     )
                     .await
+                    .unwrap()
                 );
                 assert_eq!(lock(&inbox.batches)[0][0].0, note.id);
                 assert!(lock(&messages.inner.store).in_flight(note.id).unwrap());

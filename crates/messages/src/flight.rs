@@ -13,7 +13,9 @@ pub(crate) fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
                     .bus
                     .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
             }
-            failure::settle(inner, agent);
+            if let Err(err) = failure::settle(inner, agent) {
+                log_failure("confirm_inbox", &err.to_string());
+            }
             repeated
         }
         Err(err) => {

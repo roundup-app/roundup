@@ -266,7 +266,7 @@ fn b20_forbidden_not_found_and_conflict() {
         id: id.into(),
         parent: None,
     };
-    let code = |caller: &Actor, id: &str| seen.ask(caller, id, &from).unwrap_err().code;
+    let code = |c: &Actor, id: &str| rpc::RpcError::from(seen.ask(c, id, &from).unwrap_err()).code;
     assert_eq!(code(&agent("a"), "m"), rpc::code::FORBIDDEN);
     assert_eq!(code(&Actor::daemon(), "m"), rpc::code::FORBIDDEN);
     assert_eq!(code(&Actor::user(), "nobody"), rpc::code::NOT_FOUND);
@@ -372,7 +372,7 @@ fn b2705a_digest_errors_use_rail_names() {
             nodes.push(caller);
         }
         let from = sources(&nodes, &[], &[], &[]);
-        let error = Seen::default().ask(&caller, target, &from).unwrap_err();
+        let error = rpc::RpcError::from(Seen::default().ask(&caller, target, &from).unwrap_err());
         assert_eq!(error.code, expected_code, "{case}");
         assert_eq!(error.message, expected, "{case}");
     }
@@ -660,7 +660,7 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
         "a replay repeated the fallback"
     );
     assert_eq!(
-        seen.ask(&Actor::user(), "m", &from).unwrap_err().code,
+        rpc::RpcError::from(seen.ask(&Actor::user(), "m", &from).unwrap_err()).code,
         rpc::code::CONFLICT
     );
 }

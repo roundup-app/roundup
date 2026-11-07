@@ -49,14 +49,14 @@ pub(crate) fn hold(inner: &Inner, ids: &[u32], reason: Option<&'static str>) {
 
 /// Forgets the reason of every Message that left `pending`, however it left (written, refused,
 /// dropped or stale), so the map never outgrows the queue.
-pub(crate) fn forget_settled(inner: &Inner) {
+pub(crate) fn forget_settled(inner: &Inner) -> Result<(), Error> {
     let pending: HashSet<u32> = lock(&inner.store)
-        .pending_all()
-        .expect("message store")
+        .pending_all()?
         .into_iter()
         .map(|m| m.id)
         .collect();
     lock(&inner.waiting).retain(|id, _| pending.contains(id));
+    Ok(())
 }
 
 /// `message` as its sender reads it: a `pending` Message carries the reason it waits.
@@ -144,11 +144,8 @@ pub(crate) fn record(inner: &Inner, agent: &str, cause: &'static str) {
 }
 
 /// Receipts matched every pending Message: the failure is repaired.
-pub(crate) fn settle(inner: &Inner, agent: &str) {
-    let waiting = !lock(&inner.store)
-        .list_pending_to(agent)
-        .expect("message store")
-        .is_empty();
+pub(crate) fn settle(inner: &Inner, agent: &str) -> Result<(), Error> {
+    let waiting = !lock(&inner.store).list_pending_to(agent)?.is_empty();
     if !waiting {
         let mut failures = lock(&inner.failures);
         failures.cause.remove(agent);
@@ -157,42 +154,47 @@ pub(crate) fn settle(inner: &Inner, agent: &str) {
         failures.written.remove(agent);
         failures.misses.remove(agent);
     }
+    Ok(())
 }
 
 /// One reconciliation pass, without a new event: every eligible receiver whose Messages waited
 /// the schedule of its last write gets its cause shown and its original batch written again.
 pub(super) async fn sweep(inner: &Arc<Inner>) {
-    let (waiting, idle): (Vec<String>, Vec<String>) = {
+    if let Err(err) = try_sweep(inner).await {
+        log_failure("sweep", &err.to_string());
+    }
+}
+
+async fn try_sweep(inner: &Arc<Inner>) -> Result<(), Error> {
+    let (waiting, idle) = {
         let store = lock(&inner.store);
-        store
-            .receivers()
-            .expect("message store")
-            .into_iter()
-            .partition(|agent| {
-                !store
-                    .list_pending_to(agent)
-                    .expect("message store")
-                    .is_empty()
-            })
+        let (mut waiting, mut idle) = (Vec::new(), Vec::new());
+        for agent in store.receivers()? {
+            if store.list_pending_to(&agent)?.is_empty() {
+                idle.push(agent);
+            } else {
+                waiting.push(agent);
+            }
+        }
+        (waiting, idle)
     };
     for agent in &idle {
-        settle(inner, agent);
+        settle(inner, agent)?;
     }
     if waiting.is_empty() {
-        return;
+        return Ok(());
     }
     let Ok(nodes) = delivery::load_rail_nodes(inner).await else {
         // Eligibility cannot be established: show the read failure without waiting.
         for agent in &waiting {
             record(inner, agent, UNREADABLE);
         }
-        return;
+        return Ok(());
     };
     let now = (inner.clock)();
     for agent in waiting {
         let parked = lock(&inner.store)
-            .list_pending_to(&agent)
-            .expect("message store")
+            .list_pending_to(&agent)?
             .iter()
             .all(|m| !admitted(inner, &agent, m));
         let eligible = !parked
@@ -203,8 +205,7 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
                     && node.status.as_ref().is_some_and(delivery::ready)
             });
         let stored = lock(&inner.store)
-            .list_pending_to(&agent)
-            .expect("message store")
+            .list_pending_to(&agent)?
             .iter()
             .map(|m| m.at)
             .min()
@@ -238,22 +239,24 @@ pub(super) async fn sweep(inner: &Arc<Inner>) {
             }
         };
         if due {
-            rearm_written(inner, &agent);
+            rearm_written(inner, &agent)?;
             delivery::deliver_pending(inner, &agent).await;
         }
     }
+    Ok(())
 }
 
 /// A write that missed its receipt is written again under the same `msg_id`: its flight and
 /// written marks are forgotten, and its repeat check is skipped.
-fn rearm_written(inner: &Inner, agent: &str) {
+fn rearm_written(inner: &Inner, agent: &str) -> Result<(), Error> {
     let store = lock(&inner.store);
-    for message in store.list_pending_to(agent).expect("message store") {
+    for message in store.list_pending_to(agent)? {
         if lock(&inner.inbox_written).remove(&message.id) {
-            store.clear_flight(message.id).expect("message store");
+            store.clear_flight(message.id)?;
             lock(&inner.rewrite).insert(message.id);
         }
     }
+    Ok(())
 }
 
 impl Messages {

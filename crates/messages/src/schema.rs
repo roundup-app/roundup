@@ -12,9 +12,14 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
     if stored == sequence.len() as i64 - 1 {
         let run = || -> rusqlite::Result<()> {
             let mut reference = Connection::open_in_memory()?;
-            Migrations::new(sequence[..sequence.len() - 1].to_vec())
-                .to_latest(&mut reference)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            Migrations::new(
+                sequence
+                    .split_last()
+                    .map(|(_, rest)| rest.to_vec())
+                    .unwrap_or_default(),
+            )
+            .to_latest(&mut reference)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
             if let Some(difference) = provenance::migration::difference(db, &reference)? {
                 return Err(rusqlite::Error::InvalidParameterName(
                     provenance::migration::divergence(&difference, stored, sequence.len()),

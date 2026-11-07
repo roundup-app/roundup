@@ -9,10 +9,10 @@ use super::*;
 pub(super) fn start_listener(inner: &Arc<Inner>) {
     inner.listener_started.call_once(|| {
         spawn_push_clock(Arc::downgrade(inner));
-        let events = lock(&inner.events)
-            .take()
-            .expect("subscribed once, at open");
-        spawn_status_listener(Arc::clone(inner), events);
+        // Taken at most once, here, inside the `Once`.
+        if let Some(events) = lock(&inner.events).take() {
+            spawn_status_listener(Arc::clone(inner), events);
+        }
     });
 }
 
@@ -74,9 +74,9 @@ fn spawn_status_listener(
                     data: EventData::RailRenamed { id, name },
                     ..
                 }) => {
-                    lock(&inner.store)
-                        .record_sender_name(&id, &name)
-                        .expect("message sender name");
+                    if let Err(err) = lock(&inner.store).record_sender_name(&id, &name) {
+                        log_failure("rename", &err.to_string());
+                    }
                     #[cfg(test)]
                     let _ = inner.completed.send("rename");
                 }
@@ -118,18 +118,30 @@ pub(super) async fn on_status_labeled(
     kind: Kind,
     label: &str,
 ) {
+    if let Err(err) = apply_status(inner, agent, attempt, revision, kind, label).await {
+        log_failure("on_status", &err.to_string());
+    }
+}
+
+async fn apply_status(
+    inner: &Arc<Inner>,
+    agent: &str,
+    attempt: &contracts::agent::Ordinal,
+    revision: &contracts::agent::Ordinal,
+    kind: Kind,
+    label: &str,
+) -> Result<(), Error> {
     let at = (attempt.get(), revision.get());
     // StopFailure ends a turn, not its Terminal. Read authoritative liveness so a late
     // error cannot reopen an exited Attempt or close a resumed one.
     // A Door's pending Messages outlive its Attempts: read the Rail where an ending or a new
     // Attempt would otherwise apply B9.
     let new_attempt = lock(&inner.store)
-        .generation(agent)
-        .expect("message store")
+        .generation(agent)?
         .is_none_or(|state| state.attempt < at.0);
     let retained = if new_attempt || matches!(kind, Kind::Done | Kind::Error) {
         let Ok(nodes) = load_rail_nodes(inner).await else {
-            return;
+            return Ok(());
         };
         nodes
             .iter()
@@ -139,7 +151,7 @@ pub(super) async fn on_status_labeled(
     };
     let (closed, ready) = if kind == Kind::Error {
         let Ok(nodes) = load_rail_nodes(inner).await else {
-            return;
+            return Ok(());
         };
         let node = nodes
             .iter()
@@ -158,9 +170,7 @@ pub(super) async fn on_status_labeled(
     };
     {
         let mut store = lock(&inner.store);
-        if let Err(cause) = (inner.fault)("on_status") {
-            panic!("{cause}");
-        }
+        (inner.fault)("on_status").map_err(Error::internal)?;
         reconcile(
             inner,
             &mut store,
@@ -171,41 +181,45 @@ pub(super) async fn on_status_labeled(
                 receiver: receiver_of(retained),
                 restart: false,
             },
-        )
-        .expect("message store");
+        )?;
     }
     if !closed && ready {
-        on_idle(inner, agent, at, Pick::Next).await;
+        on_idle(inner, agent, at, Pick::Next).await?;
     }
+    Ok(())
 }
 
 /// Resync after bus lag or Rail changes so missed endings cannot leave Messages deliverable.
 /// A failed Rail read is retried on the next event; it never guesses that an Agent recovered.
 pub(super) async fn resync(inner: &Arc<Inner>) -> bool {
+    match try_resync(inner).await {
+        Ok(done) => done,
+        Err(err) => {
+            log_failure("resync", &err.to_string());
+            false
+        }
+    }
+}
+
+async fn try_resync(inner: &Arc<Inner>) -> Result<bool, Error> {
     let known = {
         let store = lock(&inner.store);
         store
-            .receivers()
-            .expect("message store")
+            .receivers()?
             .into_iter()
-            .map(|id| {
-                let generation = store.generation(&id).expect("message store");
-                (id, generation)
-            })
-            .collect::<Vec<_>>()
+            .map(|id| store.generation(&id).map(|generation| (id, generation)))
+            .collect::<Result<Vec<_>, _>>()?
     };
     let Ok(nodes) = load_rail_nodes(inner).await else {
-        return false;
+        return Ok(false);
     };
     let mut store = lock(&inner.store);
     for (id, generation) in known {
-        if !nodes.iter().any(|node| node.id == id)
-            && store.generation(&id).expect("message store") == generation
-        {
+        if !nodes.iter().any(|node| node.id == id) && store.generation(&id)? == generation {
             // Restart reservations end at removal; retirement protection is permanent.
-            store.end_restart(&id).expect("message store");
+            store.end_restart(&id)?;
             // B8: a removed Agent cannot be resumed, so nothing in flight waits for it.
-            store.clear_flights_to(&id).expect("message store");
+            store.clear_flights_to(&id)?;
             let attempt = generation.map_or(0, |state| state.attempt);
             reconcile(
                 inner,
@@ -217,18 +231,17 @@ pub(super) async fn resync(inner: &Arc<Inner>) -> bool {
                     receiver: Receiver::Agent,
                     restart: false,
                 },
-            )
-            .expect("message store");
+            )?;
         }
     }
     for node in nodes {
-        reconcile_node(inner, &mut store, &node, true).expect("message store");
+        reconcile_node(inner, &mut store, &node, true)?;
     }
-    true
+    Ok(true)
 }
 
 /// Read the Rail as the Daemon and persist its current sender names for removal/reopen.
-pub(super) async fn load_rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, RpcError> {
+pub(super) async fn load_rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, Error> {
     let ctx = Ctx {
         actor: Actor::daemon(),
         bus: inner.bus.clone(),
@@ -236,13 +249,13 @@ pub(super) async fn load_rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, RpcE
     };
     let tree = inner.agents.call(&ctx, "rail.tree", Value::Null).await?;
 
-    let nodes: Vec<RailNode> = serde_json::from_value(tree).map_err(RpcError::internal)?;
+    let nodes: Vec<RailNode> = serde_json::from_value(tree).map_err(Error::internal)?;
     record_sender_names(inner, &nodes)?;
     Ok(nodes)
 }
 
 /// Save the last Rail names observed by Messages for delivery after removal.
-fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), RpcError> {
+fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), Error> {
     let mut store = lock(&inner.store);
     store.atomically(|store| {
         for node in nodes {
@@ -259,7 +272,12 @@ fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), RpcError
 /// `Pick::Fresh` is for work that became deliverable while its receiver was already `idle` (a
 /// Message just sent or passed on to it): no `idle` event will follow for it, so the batch the next
 /// `idle` would pick is written now, though its Status revision is the current one.
-async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick) {
+async fn on_idle(
+    inner: &Arc<Inner>,
+    agent: &str,
+    at: store::Binding,
+    pick: Pick,
+) -> Result<(), Error> {
     // Preserve physical write order through comparison, inbox write and durable history.
     let _delivery = inner.delivery.write().await;
     let state = match inner.inbox.get() {
@@ -268,32 +286,26 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
     };
     let found = {
         let store = lock(&inner.store);
-        let reserved = store.is_reserved(agent).expect("message store");
+        let reserved = store.is_reserved(agent)?;
         if matches!(
             step::retirement_event(
-                store.retirement(agent).expect("message store").is_some(),
+                store.retirement(agent)?.is_some(),
                 step::restart_event(reserved, Event::Idle)
             ),
             Event::Busy
         ) || store.require_generation(agent, at).is_err()
         {
             if reserved {
-                let ids: Vec<u32> = store
-                    .list_pending_to(agent)
-                    .expect("message store")
-                    .iter()
-                    .map(|m| m.id)
-                    .collect();
+                let ids: Vec<u32> = store.list_pending_to(agent)?.iter().map(|m| m.id).collect();
                 failure::hold(inner, &ids, Some(failure::RESTART_RESERVED));
             }
-            return;
+            return Ok(());
         }
         // A just-sent Message is bound to the current revision, which the queue excludes.
         let upto = (at.0, at.1.saturating_add(i64::from(pick == Pick::Fresh)));
         let typing = lock(&inner.typing);
         let pending = store
-            .pending_queue(agent, upto)
-            .expect("message store")
+            .pending_queue(agent, upto)?
             .into_iter()
             .filter(|m| !typing.contains(&m.id))
             .collect::<Vec<_>>();
@@ -305,8 +317,9 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             .collect::<Vec<_>>()
     };
     if !found.is_empty() {
-        inbox::send(inner, agent, at, pick, found, state).await;
+        inbox::send(inner, agent, at, pick, found, state).await?;
     }
+    Ok(())
 }
 
 /// Which pending Messages an `idle` may type.
@@ -320,8 +333,14 @@ pub(super) enum Pick {
 
 /// B2, B13, B37: delivers pending Messages when the receiver is ready for a turn.
 pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
+    if let Err(err) = try_deliver_pending(inner, agent).await {
+        log_failure("deliver_pending", &err.to_string());
+    }
+}
+
+async fn try_deliver_pending(inner: &Arc<Inner>, agent: &str) -> Result<(), Error> {
     let Ok(nodes) = load_rail_nodes(inner).await else {
-        return;
+        return Ok(());
     };
     if let Some(node) = nodes.iter().find(|node| {
         node.id == agent
@@ -329,15 +348,14 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
             && node.status_revision.is_some()
             && node.status.as_ref().is_some_and(ready)
     }) {
-        on_idle(inner, agent, binding(node), Pick::Fresh).await;
+        on_idle(inner, agent, binding(node), Pick::Fresh).await?;
     } else if let Some(node) = nodes
         .iter()
         .find(|node| node.id == agent && !ended(node) && node.status_revision.is_some())
     {
         // U6296a: a live receiver that is not ready keeps its Messages pending, with the reason.
         let ids: Vec<u32> = lock(&inner.store)
-            .list_pending_to(&node.id)
-            .expect("message store")
+            .list_pending_to(&node.id)?
             .iter()
             .map(|m| m.id)
             .collect();
@@ -350,6 +368,7 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
         };
         failure::hold(inner, &fresh, Some(failure::RECEIVER_BUSY));
     }
+    Ok(())
 }
 
 /// U6404a: a Stop that a DCL3d hold keeps `working` (DCL3e's label) ends the turn, so the receiver
@@ -395,7 +414,7 @@ fn reconcile_node(
     store: &mut Store,
     node: &RailNode,
     restart: bool,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let at = binding(node);
     let poisoned = store.generation(&node.id)?.is_some_and(|state| {
         state.attempt == at.0
@@ -451,9 +470,9 @@ pub(super) fn accept_receiver(
     inner: &Inner,
     store: &mut Store,
     node: &RailNode,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     if store.retirement(&node.id)?.is_some() {
-        return Err(RpcError::conflict("receiver reserved for retirement"));
+        return Err(Error::conflict("receiver reserved for retirement"));
     }
     reconcile_node(inner, store, node, false)?;
     store.require_generation(&node.id, binding(node))
@@ -465,7 +484,7 @@ pub(super) fn accept_reservation(
     inner: &Inner,
     store: &mut Store,
     node: &RailNode,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let at = binding(node);
     reconcile_node(inner, store, node, false)?;
     if ended(node) {
@@ -473,7 +492,7 @@ pub(super) fn accept_reservation(
             .generation(&node.id)?
             .is_none_or(|state| state.attempt != at.0)
         {
-            return Err(RpcError::conflict("stale receiver Attempt"));
+            return Err(Error::conflict("stale receiver Attempt"));
         }
         Ok(())
     } else {
@@ -518,7 +537,7 @@ pub(super) fn reconcile(
     agent: &str,
     at: store::Binding,
     end: Ending,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let mut events = Vec::new();
     let result = reconcile_into(store, agent, at, end, &mut events);
     for event in events {
@@ -533,7 +552,7 @@ fn reconcile_into(
     at: store::Binding,
     end: Ending,
     events: &mut Vec<EventData>,
-) -> Result<(), RpcError> {
+) -> Result<(), Error> {
     let Ending {
         end,
         receiver,
@@ -637,20 +656,18 @@ fn return_note_body(ids: &[u32], name: &str, cause: &str) -> String {
             .rev()
             .find(|&i| cause.is_char_boundary(i))
             .unwrap_or(0);
-        format!("{} [cut]", &cause[..end])
+        format!("{} [cut]", cause.get(..end).unwrap_or_default())
     } else {
         cause.to_owned()
     };
-    if ids.len() <= NOTE_IDS {
+    let (head, rest) = ids.split_at_checked(NOTE_IDS).unwrap_or((ids, &[]));
+    let Some((first, last)) = rest.first().zip(rest.last()) else {
         return format!("[return] {} never reached {name}: {cause}", list(ids));
-    }
-    let (head, rest) = ids.split_at(NOTE_IDS);
+    };
     format!(
-        "[return] {}\n[+{} more: #{} to #{}]\nnever reached {name}: {cause}",
+        "[return] {}\n[+{} more: #{first} to #{last}]\nnever reached {name}: {cause}",
         list(head),
         rest.len(),
-        rest[0],
-        rest[rest.len() - 1]
     )
 }
 
@@ -660,7 +677,7 @@ fn return_notes(
     store: &mut Store,
     agent: &str,
     dropped: &[Message],
-) -> Result<Vec<Message>, RpcError> {
+) -> Result<Vec<Message>, Error> {
     let mut senders: Vec<&Actor> = Vec::new();
     for message in dropped {
         if message.from.kind == ActorKind::Agent && !senders.contains(&&message.from) {
@@ -700,7 +717,7 @@ impl Messages {
     /// `to`'s Status, when it names an Agent or a Door; `None` when it names the user.
     /// `NOT_FOUND` when it names no Actor; `INVALID_PARAMS` when it names a plain
     /// Workstream, which cannot receive a Message.
-    pub(super) async fn resolve_receiver(&self, to: &str) -> Result<Option<RailNode>, RpcError> {
+    pub(super) async fn resolve_receiver(&self, to: &str) -> Result<Option<RailNode>, Error> {
         if to == Actor::user().id {
             return Ok(None);
         }
@@ -708,7 +725,7 @@ impl Messages {
         let node = nodes
             .into_iter()
             .find(|node| node.id == to)
-            .ok_or_else(|| RpcError::not_found(format!("actor {to}")))?;
+            .ok_or_else(|| Error::not_found(format!("actor {to}")))?;
         Ok(Some(node))
     }
 }
@@ -745,11 +762,15 @@ mod tests {
             )
             .unwrap();
         let quiet = pending(&messages, &Actor::daemon(), &body);
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         assert!(lock(&inbox.batches).is_empty());
         assert!(!lock(&messages.inner.store).in_flight(quiet.id).unwrap());
         let ordinary = pending(&messages, &Actor::user(), "please continue");
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         {
             let batches = lock(&inbox.batches);
             assert_eq!(batches.len(), 1);
@@ -766,7 +787,9 @@ mod tests {
                 MessageStatus::Pending
             );
         }
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         assert_eq!(lock(&inbox.batches).len(), 1);
         messages.confirm_inbox("m", &[quiet.id, ordinary.id]);
         for id in [history.id, quiet.id, ordinary.id] {
@@ -775,7 +798,9 @@ mod tests {
                 MessageStatus::Delivered
             );
         }
-        on_idle(&messages.inner, "m", (1, 2), Pick::Next).await;
+        on_idle(&messages.inner, "m", (1, 2), Pick::Next)
+            .await
+            .unwrap();
         assert_eq!(lock(&inbox.batches).len(), 1);
         // BatchRail rejects every method but rail.tree: no Terminal write or prompt is possible.
     }
