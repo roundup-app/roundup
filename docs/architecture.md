@@ -24,7 +24,8 @@ The Rust workspace's `crates/*` members are:
 | `crates/messages` | `Messages`, Routes, inbox delivery, Digests and result history |
 | `crates/todos` | `Todos`, SQLite persistence and blocker graph |
 | `crates/pads` | `Pads`, SQLite contents and index, optional Markdown files |
-| `crates/rupd` | `Daemon`, socket server, Project storage, Event log and module wiring |
+| `crates/rupd` | `Daemon`, socket server, Event log and module wiring |
+| `crates/storage` | The Project schema: migration sequence, fresh image, `connect`, `fixture`, `Word` and `Json` codecs |
 | `crates/rup` | `rup` CLI and MCP server (`src/mcp.rs`) |
 | `crates/native` | Safe macOS integration for the App: WebKit preferences, menus, alerts and capture panel |
 | `crates/perf` | Daemon and native App performance observers |
@@ -62,7 +63,7 @@ Launching is separate from classification. In `crates/agents/src/spawn.rs`, `Age
 
 ## Data
 
-- The Daemon opens one Project database, `project.db`, in WAL mode. `crates/rupd/src/storage.rs` owns its migration sequence; `crates/rupd/src/open.rs` wires the stores to it. Rail/Agent metadata, Todos, Pads, Messages, Routes, Touches and the Event log share this database. Old per-store databases are not imported (`scenarios/project-store.md`).
+- The Daemon opens one Project database, `project.db`, in WAL mode. `crates/storage/src/lib.rs` owns its migration sequence; `crates/rupd/src/open.rs` wires the stores to it. Rail/Agent metadata, Todos, Pads, Messages, Routes, Touches and the Event log share this database. Old per-store databases are not imported (`scenarios/project-store.md`).
 - `crates/rupd/src/data.rs` resolves each Project's data folder beneath the supplied application data directory's `projects/` directory. Project state stays outside the user's source tree; Worktrees are the explicit exception (`scenarios/worktrees.md`).
 - Pads store text in SQLite by default. File-backed storage writes `<name>.md` beneath the data folder's `pads/` directory; `crates/pads/src/operations.rs` and `crates/pads/src/files.rs` own storage changes and file access.
 - `crates/provenance` records append-only Touches; `crates/rupd/src/event_log.rs` persists replayable Events.
