@@ -391,10 +391,7 @@ impl Agents {
         if let Some(path) = &retained
             && !path.is_dir()
         {
-            return Err(RpcError::internal(format!(
-                "worktree_missing: {}",
-                path.display()
-            )));
+            return Err(worktree::WorktreeError::Missing(path.display().to_string()).into());
         }
         let provisioned = if retained.is_none() {
             self.provision_worktree(id, cwd).await?
