@@ -335,7 +335,7 @@ fn copy_project(from: &Path, to: &Path, keep: &Keep) -> Result<Forked, RpcError>
             history: 0,
         });
     }
-    let conn = crate::storage::open(to).map_err(|e| failed(&db, e))?;
+    let conn = storage::connect(to).map_err(|e| failed(&db, e))?;
     let counts = prune(&conn, keep).map_err(|e| failed(&db, e))?;
     conn.execute_batch("VACUUM; PRAGMA wal_checkpoint(TRUNCATE)")
         .map_err(|e| failed(&db, e))?;

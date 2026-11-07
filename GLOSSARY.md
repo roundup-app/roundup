@@ -397,6 +397,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Storage recovery (`StorageRecovery`, `storageRecovery`, `retainedStorage`) | same | — |
+| Project schema crate (`storage`, `storage::connect`, `storage::fixture`, `Word`, `Json`) | none | — |
 | Capture panel (`CapturePanel`, `CapturePanelState`, `register_capture`) | same | — |
 | Capture presentation (`CapturePort`, `CaptureState`, `CaptureAction`, `captureStateSchema`, `captureActionSchema`, `CapturePanel` in the App, `control` in the capture-panel plugin) | same | — |
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |

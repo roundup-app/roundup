@@ -159,7 +159,7 @@ fn mg3_a_database_ahead_by_additive_migrations_opens() {
         dir.path(),
         "CREATE TABLE mg3_added(x); ALTER TABLE todos ADD COLUMN mg3_extra INTEGER;",
     );
-    let db = open(dir.path()).unwrap();
+    let db = connect(dir.path()).unwrap();
     let version: i64 = db
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .unwrap();
@@ -186,7 +186,7 @@ fn mg3_a_database_ahead_by_additive_migrations_opens() {
 fn mg3_a_database_ahead_with_a_missing_column_still_refuses() {
     let dir = tempfile::tempdir().unwrap();
     ahead(dir.path(), "ALTER TABLE todos DROP COLUMN priority;");
-    let message = open(dir.path()).unwrap_err().to_string();
+    let message = connect(dir.path()).unwrap_err().to_string();
     assert!(message.contains("lacks column `priority`"), "{message}");
     assert!(message.contains("newer or branch build"), "{message}");
 }

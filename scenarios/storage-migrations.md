@@ -49,13 +49,13 @@ Policy: the sole duplicate exceptions are these exact pre-existing path groups, 
 
 | Directory | Prefix | Exact existing members |
 | --- | --- | --- |
-| `crates/rupd/migrations/project/` | 15 | `0015-message-results.sql`, `0015-todo-change-actor.sql` |
-| `crates/rupd/migrations/project/` | 20 | `0020-continuations.sql`, `0020-todo-refs.sql` |
-| `crates/rupd/migrations/project/` | 23 | `0023-agent-finished.sql`, `0023-measurement-no-tokens-or-money.sql`, `0023-remove-decisions.sql` |
-| `crates/rupd/migrations/project/` | 26 | `0026-pad-deletions.sql`, `0026-todo-deletions.sql` |
+| `crates/storage/migrations/project/` | 15 | `0015-message-results.sql`, `0015-todo-change-actor.sql` |
+| `crates/storage/migrations/project/` | 20 | `0020-continuations.sql`, `0020-todo-refs.sql` |
+| `crates/storage/migrations/project/` | 23 | `0023-agent-finished.sql`, `0023-measurement-no-tokens-or-money.sql`, `0023-remove-decisions.sql` |
+| `crates/storage/migrations/project/` | 26 | `0026-pad-deletions.sql`, `0026-todo-deletions.sql` |
 | `crates/messages/migrations/` | 1 | `001/up.sql`, `001-digest/up.sql` |
 
-Policy: Messages' two `001` entries belong to independent Message and Digest sequences (`schema::open` and `digest_schema::open`); the explicit exception preserves both without granting new duplicates. The audit also covers `crates/agents/migrations/`, `crates/checkpoints/migrations/`, `crates/pads/migrations/`, `crates/provenance/migrations/`, `crates/rupd/migrations/` and `crates/todos/migrations/`; these contain no other duplicate prefixes at specification time. Future position-applied sets receive the same guard automatically. For explicit Rust lists, append new entries after existing ones as well as choosing an appended filename (policy).
+Policy: Messages' two `001` entries belong to independent Message and Digest sequences (`schema::open` and `digest_schema::open`); the explicit exception preserves both without granting new duplicates. The audit also covers `crates/agents/migrations/`, `crates/checkpoints/migrations/`, `crates/pads/migrations/`, `crates/provenance/migrations/`, `crates/storage/migrations/` and `crates/todos/migrations/`; these contain no other duplicate prefixes at specification time. Future position-applied sets receive the same guard automatically. For explicit Rust lists, append new entries after existing ones as well as choosing an appended filename (policy).
 
 ## Checks and observers
 
@@ -63,8 +63,8 @@ Applicable Gates (policy): N5467's refusal preserves obsolete data; current Pad 
 
 Required checks (policy; existing anchors on main):
 
-1. `crates/rupd/build.rs`, `main` and `fresh_image`, and `crates/rupd/src/storage.rs`, `migrations`: preserve the fresh SQL/image creation sequence, not runtime upgrades.
-2. `crates/rupd/src/storage_tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: retain fresh-from-empty equivalence and distinct identities; N5467c retires its historical suffix/rollback subcase.
+1. `crates/storage/build.rs`, `main` and `fresh_image`, and `crates/storage/src/lib.rs`, `migrations`: preserve the fresh SQL/image creation sequence, not runtime upgrades.
+2. `crates/storage/src/tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: retain fresh-from-empty equivalence and distinct identities; N5467c retires its historical suffix/rollback subcase.
 3. `crates/rupd/tests/store_migrations.rs`, `n20_current_store_opens`: preserve current store operations.
 4. `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”: retain file discovery and clean concurrent additions for fresh creation.
 
@@ -76,7 +76,7 @@ Policy: N5467 retires the repair observers; the filename guard's local fixtures 
 
 | Migration owner on main | In-process regression test to implement |
 |---|---|
-| Project: `crates/rupd/src/storage.rs`, `open` / `migrations` | `n5088a_project_refuses_a_newer_database` |
+| Project: `crates/storage/src/lib.rs`, `open` / `migrations` | `n5088a_project_refuses_a_newer_database` |
 | Agents: `crates/agents/src/schema.rs`, `open` | `n5088a_agents_refuses_a_newer_database` |
 | Todos: `crates/todos/src/schema.rs`, `open` | `n5088a_todos_refuses_a_newer_database` |
 | Pads: `crates/pads/src/schema.rs`, `open` | `n5088a_pads_refuses_a_newer_database` |
@@ -89,9 +89,9 @@ Each test creates a temporary SQLite file, sets `user_version` to one above the 
 
 Policy: one in-process test per migration owner; call the existing storage open seam, including schema `open` where that is the migration boundary. No App, browser, real Daemon process, vendor process or clock is needed. Standalone stores use standalone filenames: their existing `project.db` bypass remains valid because the Project migration owner guards the shared database first. Do not compare a shared Project version against a shorter standalone sequence. Audit all production `user_version` / `to_latest` owners at the implementation base and include any additional owner found, with one equivalent test (policy).
 
-Policy: preferences are audited, not converted. `apps/desktop/src/settings/preferences.ts`, `appSettings`, uses `storedValue` from `apps/desktop/src/state/storage.ts`, backed by the Tauri store's `work.json`; `crates/desktop/src/store.rs`, `Store`, keeps Project preferences in `projects.json`. Neither migrates SQLite `user_version`, so neither gets a fabricated SQLite guard or regression. Record any changed finding on the Issue. The build-time fresh-image generator in `crates/rupd/build.rs` creates a new database; it is not an opener of user data (policy).
+Policy: preferences are audited, not converted. `apps/desktop/src/settings/preferences.ts`, `appSettings`, uses `storedValue` from `apps/desktop/src/state/storage.ts`, backed by the Tauri store's `work.json`; `crates/desktop/src/store.rs`, `Store`, keeps Project preferences in `projects.json`. Neither migrates SQLite `user_version`, so neither gets a fabricated SQLite guard or regression. Record any changed finding on the Issue. The build-time fresh-image generator in `crates/storage/build.rs` creates a new database; it is not an opener of user data (policy).
 
-**N5088b the Project reports the refusal instead of a later SQL error.** Policy: a failed Project open propagates N5088a's complete diagnostic through the existing Daemon startup error and App Project-open/reopen failure surface. The affected Project shows the database path, stored and supported versions, and newer/branch-build explanation; it must not appear ready or defer the error until Add Todo or another application query. Keep the existing Project association and retry behaviour. Include actionable guidance to use the build that wrote the database or, for disposable pre-release data, reset that database after closing roundup; no automatic reset or deletion. Inspect the propagation from `crates/rupd/src/storage.rs`, `open`, through `crates/desktop/src/daemon.rs`, `start`, and `apps/desktop/src/state/projects.ts`, `createProjectsState`, to `apps/desktop/src/App.tsx`, `App`. This is an error-propagation policy, not a new UI or RPC contract; retain the existing surface and existing failure tests, with no new App/browser/process regression for this Issue.
+**N5088b the Project reports the refusal instead of a later SQL error.** Policy: a failed Project open propagates N5088a's complete diagnostic through the existing Daemon startup error and App Project-open/reopen failure surface. The affected Project shows the database path, stored and supported versions, and newer/branch-build explanation; it must not appear ready or defer the error until Add Todo or another application query. Keep the existing Project association and retry behaviour. Include actionable guidance to use the build that wrote the database or, for disposable pre-release data, reset that database after closing roundup; no automatic reset or deletion. Inspect the propagation from `crates/storage/src/lib.rs`, `open`, through `crates/desktop/src/daemon.rs`, `start`, and `apps/desktop/src/state/projects.ts`, `createProjectsState`, to `apps/desktop/src/App.tsx`, `App`. This is an error-propagation policy, not a new UI or RPC contract; retain the existing surface and existing failure tests, with no new App/browser/process regression for this Issue.
 
 Policy: this work adds refusal only. No repair, down-migration, import, schema adoption, automatic deletion, database rename or app-identifier change. `stored <= known` retains its existing migration/open behaviour. Do not rewrite applied SQL or weaken existing migration scenarios. Existing bounded repairs remain as specified; this work introduces none. No Message, Route, Held or Takeover change; M1–M10 remain unchanged.
 
@@ -103,7 +103,7 @@ Required checks (existing acceptance on `origin/main`; policy):
 
 1. `scenarios/project-store.md`, headings “N16 one live database holds all concerns” and “N17 old per-store databases never block startup”; `crates/rupd/src/storage_tests.rs`, `n16_all_stores_share_one_project_database` and `n17_old_store_files_never_block_the_open`, retain current persistence and ignored legacy files.
 2. `scenarios/project-store.md`, heading “N20 current schemas need no pre-release adoption”, retains the disposable-data policy without adding repair.
-3. `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”; `crates/rupd/src/storage.rs`, `migrations`, retains the frozen head and discovered added sequence.
+3. `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”; `crates/storage/src/lib.rs`, `migrations`, retains the frozen head and discovered added sequence.
 4. `apps/desktop/src/app/u37_reopen.test.tsx`, `u37_a_failed_reopen_shows_the_message_in_ink_and_offers_reopen_again`, retains the existing Project failure and retry surface.
 
 Principle observers (policy): P11's Gate asks whether a rejected operation loses unfinished input; refusal must not delete or reset data. Observe refusal's unchanged version/schema in the eight tests and inspect that no recovery path discards input. P12's Gate asks whether unavailable content hides its cause or substitutes another target; preserve the refused database's identity and diagnostic through N5088b's existing surface. No publication or editable surface is added.
@@ -116,7 +116,7 @@ Implementation verification (policy): run `just ready` and `cargo nextest run -p
 
 | Migration owner | In-process regression test to implement |
 |---|---|
-| Project: `crates/rupd/src/storage.rs`, `open` | `n5420a_project_refuses_a_divergent_database` |
+| Project: `crates/storage/src/lib.rs`, `open` | `n5420a_project_refuses_a_divergent_database` |
 | Agents: `crates/agents/src/schema.rs`, `open` | `n5420a_agents_refuses_a_divergent_database` |
 | Todos: `crates/todos/src/schema.rs`, `open` | `n5420a_todos_refuses_a_divergent_database` |
 | Pads: `crates/pads/src/schema.rs`, `open` | `n5420a_pads_refuses_a_divergent_database` |
@@ -140,7 +140,7 @@ Implementation verification (policy): `just ready`, `cargo nextest run -p rupd -
 
 Work order: [#5809](https://github.com/roundup-app/roundup/issues/5809). Terms: Project, Project data, Daemon (`GLOSSARY.md`). Policy: N5809a–c supersede N5467a–d (`scenarios/local-data-retirement.md`) and N20 (`scenarios/project-store.md`) only for an existing `project.db` with `0 < N < M` whose schema matches its production prefix. Standalone stores, nonempty version-zero databases, legacy folder/browser data and skipped-migration drift retain their existing refusal policies. B4522's retired repair stays retired; this exception requires exact prefix agreement, not adoption or repair of a different schema.
 
-Policy: `M` is the length of `crates/rupd/src/storage.rs`, `migrations`: the frozen ten-entry head used by `crates/rupd/build.rs`, then that build's discovered `migrations/project/*.sql` in bytewise filename order. `N` is the database's `PRAGMA user_version`, not a filename number. Build the reference at N by applying exactly entries 1..N to an empty in-memory database through installed `rusqlite_migration`. Compare it with the opened database using `provenance::migration::difference`, including its exclusion of SQLite internal objects and its first-difference ordering. The current-version reference remains the embedded `fresh.db`; no historical images or copied migration inventory are added.
+Policy: `M` is the length of `crates/storage/src/lib.rs`, `migrations`: the frozen ten-entry head used by `crates/storage/build.rs`, then that build's discovered `migrations/project/*.sql` in bytewise filename order. `N` is the database's `PRAGMA user_version`, not a filename number. Build the reference at N by applying exactly entries 1..N to an empty in-memory database through installed `rusqlite_migration`. Compare it with the opened database using `provenance::migration::difference`, including its exclusion of SQLite internal objects and its first-difference ordering. The current-version reference remains the embedded `fresh.db`; no historical images or copied migration inventory are added.
 
 **N5809a a matching saved Project upgrades and keeps its rows.** Given a temporary file-backed `project.db` built from the real production entries 1..N, where `0 < N < M`, run at `N = M - 1` and `N = M - 7` (`n5809a_matching_project_upgrades_and_keeps_rows`), containing explicitly identified sentinel rows, when the setup connection closes and production `storage::open` opens it, then open succeeds, `user_version` is M, its schema equals the build's `fresh.db` schema under `provenance::migration::difference`, and every sentinel row retains its key and values. Closing and reopening through the same production open still returns those rows at M (`n5809a_matching_project_upgrades_and_keeps_rows`, planned in `crates/rupd/src/storage_tests.rs`).
 
@@ -156,16 +156,16 @@ Policy: use the existing private `apply` seam to inject the failed suffix, not a
 
 ### Upgrade boundaries and verification
 
-Policy: N5088a's existing `n5088a_project_refuses_a_newer_database` remains the M+1 observer, including unchanged version and no application tables. Keep the nonempty version-zero case of `n5467a_older_store_is_refused_without_changes` in `crates/rupd/src/storage.rs`; retire only its matching positive-prefix refusal case, replaced by N5809a. Standalone N5467a tests remain unchanged. Empty input still follows fresh creation, and an existing current database follows its current reopen path. All fixtures live in temporary directories created by the tests; no test or observer reads an owner's database (policy).
+Policy: N5088a's existing `n5088a_project_refuses_a_newer_database` remains the M+1 observer, including unchanged version and no application tables. Keep the nonempty version-zero case of `n5467a_older_store_is_refused_without_changes` in `crates/storage/src/lib.rs`; retire only its matching positive-prefix refusal case, replaced by N5809a. Standalone N5467a tests remain unchanged. Empty input still follows fresh creation, and an existing current database follows its current reopen path. All fixtures live in temporary directories created by the tests; no test or observer reads an owner's database (policy).
 
 Required checks (policy; existing anchors on `origin/main`):
 
-1. `crates/rupd/build.rs`, `main`, `HEAD` and `fresh_image`, and `crates/rupd/src/storage.rs`, `migrations`, retain the same frozen head, discovered order and embedded-image creation.
-2. `crates/rupd/src/storage_tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`, retains fresh equivalence and independent Project identities; `n16_all_stores_share_one_project_database` retains current persisted values; `n17_old_store_files_never_block_the_open` retains ignored legacy files.
-3. `crates/rupd/src/storage.rs`, `n5088a_project_refuses_a_newer_database` and `n5420a_project_refuses_a_divergent_database`, retain newer-version and current-version schema refusal.
-4. `crates/rupd/src/storage.rs`, `retirement_tests::n5467a_older_store_is_refused_without_changes`, retains nonempty version-zero refusal. `crates/rupd/tests/store_migrations.rs`, `n5467a_daemon_reports_the_reset_folder`, retains the existing Daemon diagnostic for that same unversioned input; `n20_current_store_opens` retains standalone current operations.
+1. `crates/storage/build.rs`, `main`, `HEAD` and `fresh_image`, and `crates/storage/src/lib.rs`, `migrations`, retain the same frozen head, discovered order and embedded-image creation.
+2. `crates/storage/src/tests.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`, retains fresh equivalence and independent Project identities; `n16_all_stores_share_one_project_database` retains current persisted values; `n17_old_store_files_never_block_the_open` retains ignored legacy files.
+3. `crates/storage/src/lib.rs`, `n5088a_project_refuses_a_newer_database` and `n5420a_project_refuses_a_divergent_database`, retain newer-version and current-version schema refusal.
+4. `crates/storage/src/lib.rs`, `retirement_tests::n5467a_older_store_is_refused_without_changes`, retains nonempty version-zero refusal. `crates/rupd/tests/store_migrations.rs`, `n5467a_daemon_reports_the_reset_folder`, retains the existing Daemon diagnostic for that same unversioned input; `n20_current_store_opens` retains standalone current operations.
 5. `crates/provenance/src/migration.rs`, `difference`, `objects` and `columns`, define schema equality and first-difference diagnostics; reuse them without changing standalone migration behavior.
 
-Policy: P11's Gate forbids losing unfinished input on a failed operation; observe unchanged rows, schema and version on mismatch and rollback. P12's Gate forbids substituting content or hiding unavailability; observe retained row identities on success and the named cause on refusal. No App surface, RPC, Message law, migration SQL or standalone-store behavior changes. Implementation stays in `crates/rupd/src/storage.rs` and its tests; this file holds acceptance. Progress and engineering questions belong on #5809.
+Policy: P11's Gate forbids losing unfinished input on a failed operation; observe unchanged rows, schema and version on mismatch and rollback. P12's Gate forbids substituting content or hiding unavailability; observe retained row identities on success and the named cause on refusal. No App surface, RPC, Message law, migration SQL or standalone-store behavior changes. Implementation stays in `crates/storage/src/lib.rs` and its tests; this file holds acceptance. Progress and engineering questions belong on #5809.
 
 Observer (policy): Linux in-process SQLite tests suffice; no App, browser, vendor process or Mac observation is needed. Specification validation is `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Implementation runs `just ready`, the added/changed test files and these affected tests: `cargo nextest run -p rupd -E 'test(n5809) | test(n5088a_project) | test(n5420a_project) | test(n5467a_older_store) | test(n5467a_daemon) | test(r3696c_a_fresh_project) | test(n16_all_stores) | test(n17_old_store) | test(n20_current_store)'`. Exit 0 passes; every other exit fails. Report each failed command as its own row with the command and exit code. This specification PR uses `Refs #5809`, leaves it open and sets its queue fields to `Mode: implement`.

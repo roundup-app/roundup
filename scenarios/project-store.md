@@ -32,7 +32,7 @@ The implementation PR reports before/after counts for active main databases, and
 
 ## Pre-release storage cleanup
 
-**N20 current schemas need no pre-release adoption.** Given a fresh Project, when every store writes and the Daemon reopens the current `project.db`, then its written values remain readable (`n16_all_stores_share_one_project_database`, retained in `crates/rupd/src/storage.rs`). Given a fresh standalone or in-memory store used by current callers, when it writes and reopens where persistence applies, then its current schema supports the same store operations (`n20_current_store_opens`, parameterized over Agents, Todos, Pads, Provenance, Messages, Digest and Checkpoints; no historical-schema fixtures).
+**N20 current schemas need no pre-release adoption.** Given a fresh Project, when every store writes and the Daemon reopens the current `project.db`, then its written values remain readable (`n16_all_stores_share_one_project_database`, retained in `crates/storage/src/lib.rs`). Given a fresh standalone or in-memory store used by current callers, when it writes and reopens where persistence applies, then its current schema supports the same store operations (`n20_current_store_opens`, parameterized over Agents, Todos, Pads, Provenance, Messages, Digest and Checkpoints; no historical-schema fixtures).
 
 Policy: until release 0, no local application data needs to survive an upgrade. Delete each store's pre-release schema adoption: bootstrap hooks, historical table/column probes and transformations, adoption-only SQL, baseline fixtures and their unused support. Keep current-schema creation for live standalone/in-memory callers and the shared Project database; use the installed migration library without adding a replacement migration engine. This does not request automatic deletion, repair or import of an old `project.db`; N5467a (`scenarios/local-data-retirement.md`) now requires refusal naming the folder to reset. This policy also retires the historical-schema upgrade clauses of T8, T10, T12, T15, P12, B8 and B29, and P14’s “From before” binding recovery; their current-schema behaviours remain required. N14’s Marks content-format compatibility is unchanged; it is not schema adoption.
 
@@ -40,7 +40,7 @@ Policy: delete the Pads `scribes` recovery end to end: `Store::take_old_bindings
 
 Required checks (policy):
 
-1. N16 and N17, this file's headings “N16 one live database holds all concerns” and “N17 old per-store databases never block startup”; `crates/rupd/src/storage.rs`, `n16_all_stores_share_one_project_database` and `n17_old_store_files_never_block_the_open` preserve current persistence and ignored old files.
+1. N16 and N17, this file's headings “N16 one live database holds all concerns” and “N17 old per-store databases never block startup”; `crates/rupd/src/storage_tests.rs`, `n16_all_stores_share_one_project_database` and `n17_old_store_files_never_block_the_open` preserve current persistence and ignored old files.
 2. N1–N4, `scenarios/project-data.md`, headings “N1 the data folder” through “N4 a moved Project”; preserve current placement and Project isolation; N5467b retires N3’s legacy folder movement.
 3. A34, `scenarios/workstream-remove.md`, heading “A34 removing a Workstream removes its finished work and keeps the rest”; preserve current removal and rollback behaviour.
 
@@ -68,7 +68,7 @@ Required checks (policy): N16, N17, N20, R3696c (fresh image) and A34 on `main`'
 
 ## Message sender name storage
 
-**N2705a last observed sender names persist in the Project schema.** Specification for #2735, the Project-schema prerequisite for #2705's B2705a in `scenarios/messages.md`. Implementation owns only `crates/rupd/**`: one added SQL migration under `crates/rupd/migrations/project/` and applied-schema behaviour tests in the existing `crates/rupd/src/storage.rs` test module (policy).
+**N2705a last observed sender names persist in the Project schema.** Specification for #2735, the Project-schema prerequisite for #2705's B2705a in `scenarios/messages.md`. Implementation owns only `crates/rupd/**`: one added SQL migration under `crates/storage/migrations/project/` and applied-schema behaviour tests in the existing `crates/storage/src/lib.rs` test module (policy).
 
 - **Fresh creation.** Given an empty Project data directory, when `storage::open` applies the production migration sequence, then `message_sender_names` is empty and inserting `('7013', 'sad')` permits reading `sad` by the `agent` key (`n2705a_a_fresh_project_stores_a_sender_name`).
 - **Schema constraints.** The table has `agent TEXT PRIMARY KEY NOT NULL` and `name TEXT NOT NULL` (policy). Given the applied Project schema, when inserts attempt a null identity, a null name or a duplicate identity, then each is rejected by SQLite (`n2705a_sender_names_reject_nulls_and_duplicate_identities`, parameterized over those constraint violations).
@@ -81,7 +81,7 @@ Policy: `agent` is a machine identity used only as a storage key. Do not derive 
 
 Required checks (policy; existing acceptance on `main`):
 
-1. N16, this file's heading “N16 one live database holds all concerns”; `crates/rupd/src/storage.rs`, `n16_all_stores_share_one_project_database`, preserves the one-Project-database behaviour and written values after reopen.
-2. N21, `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”; `crates/rupd/src/storage.rs`, `n21_two_migrations_added_on_two_branches_merge_cleanly` and `n21_a_migration_file_runs_after_the_head_in_name_order`, preserve file discovery, ordering, invalid-name rejection and clean concurrent additions.
+1. N16, this file's heading “N16 one live database holds all concerns”; `crates/rupd/src/storage_tests.rs`, `n16_all_stores_share_one_project_database`, preserves the one-Project-database behaviour and written values after reopen.
+2. N21, `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”; `crates/storage/src/tests/migration_files.rs`, `n21_two_migrations_added_on_two_branches_merge_cleanly` and `n21_a_migration_file_runs_after_the_head_in_name_order`, preserve file discovery, ordering, invalid-name rejection and clean concurrent additions.
 
 Observer (policy): Linux Rust tests of the applied schema suffice; no Mac observation is required. The implementation PR closes #2735 only after the named N2705a applied-schema tests pass. Run `cargo nextest run -p rupd storage::tests`, `just lint-web`, `just lint-rust`, `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`; exit 0 passes and every other exit fails. Report one row per failed command with its exit code. This specification-only PR leaves #2735 open with `Scenarios: N2705a` and `Mode: implement`.

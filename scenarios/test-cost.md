@@ -237,8 +237,8 @@ The authorized implementation remains inside this file set (policy):
 | File | Responsibility/callers |
 | --- | --- |
 | `crates/rupd/src/deliverables.rs` | `Publications::open`, `Daemon::deliverable_call`, `bounded`, `resolve`, `invalidate_revoked`; publish/read/remove/replay/quota and private file handling, including its existing metadata-only test. No separate public storage interface. |
-| `crates/rupd/src/storage.rs` and one new SQL migration under `crates/rupd/migrations/project/` | Add the reference metadata and constraints through the existing migration sequence; extend existing schema/fresh-image tests. Do not rebuild the payload table or rewrite old payloads. |
-| `crates/rupd/build.rs` | Only if the additive migration needs an adjustment to the existing fresh-image generator; no new image facility, repaging or runtime VACUUM. |
+| `crates/storage/src/lib.rs` and one new SQL migration under `crates/storage/migrations/project/` | Add the reference metadata and constraints through the existing migration sequence; extend existing schema/fresh-image tests. Do not rebuild the payload table or rewrite old payloads. |
+| `crates/storage/build.rs` | Only if the additive migration needs an adjustment to the existing fresh-image generator; no new image facility, repaging or runtime VACUUM. |
 | `crates/rup/tests/deliverables.rs` | Preserve all behavioral assertions; adapt direct physical BLOB allocation/corruption/deletion probes to the selected retained location and add the missing crash/recovery cases. Apply rule 10 to this file and name every cut's surviving proof. The 32-publication observer's sequence, payloads and limits remain unchanged. |
 | `scenarios/deliverables.md`, `scenarios/test-cost.md`, `docs/adr/0004-sqlite-wal-and-md-pads.md` | Record authorized physical representation and its observers; no identity, durability, quota, atomicity or concurrency weakening. |
 
@@ -319,7 +319,7 @@ Checks (existing on specification base `983eb53c1`; none is retired):
 2. `crates/rup/tests/pad_sources.rs`, `dv2_source_incarnation_survives_edits_home_and_restart` (planned rename): the old snapshot survives all three public Pad mutations.
 3. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`, `dv2_publish_replay`, `dv2_changed_capture`, `dv3_no_substitution` and `dv4_removal_replay`: actual quota transactions, crash/replay, capture, integrity and removal.
 4. `crates/rupd/src/deliverables.rs`, `tests::dv2_metadata_only`: public metadata calls do not load BLOBs, with resolve as positive control.
-5. `crates/rupd/src/storage.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: fresh/migrated equivalence and distinct identities.
+5. `crates/storage/src/lib.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: fresh/migrated equivalence and distinct identities.
 6. Retired by R5460: B32 fresh owner facts and bounded owner-read WAL leases; the Message-to-Terminal guard they supported was retired by B3563c. The other R3778d concurrency and durability observers remain required.
 7. `crates/rupd/src/event_log.rs`, `d10_every_event_but_terminal_output_is_saved_and_numbered`, `d10_numbers_never_repeat_across_a_reopen`, `d11_an_after_older_than_the_window_names_the_oldest_kept`: Event durability and replay bounds.
 8. `scenarios/perf-macos-write.md`, R3696c; `docs/perf.md`, What is enforced, and what is not; `AGENTS.md`, Rules, rule 7: unchanged runtime/performance acceptance.
