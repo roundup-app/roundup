@@ -671,7 +671,7 @@ async fn serve(actor: Actor) -> Result<(), String> {
             if offer.method == "agent.spawn" {
                 let description = offer.tool.description.as_deref().unwrap_or_default();
                 offer.tool.description = Some(format!(
-                    "{description} Naming guide: {guide} Supply an optional name, trimmed and at most 32 characters; sibling collisions receive a suffix. When name is omitted, the first prompt names the child if Automatic renaming is on, otherwise it keeps its current name."
+                    "{description} Naming guide: {guide} Supply an optional name, trimmed and at most 42 characters; sibling collisions receive a suffix. When name is omitted, the first prompt names the child if Automatic renaming is on, otherwise it keeps its current name."
                 ).into());
             }
         }

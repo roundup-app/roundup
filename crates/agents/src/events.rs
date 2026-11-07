@@ -561,7 +561,11 @@ impl Shared {
                 .as_ref()
                 .map_or(Ok(true), |read| read())?
             && let Some(name) = name
-            && rail.node(id)?.kind == NodeKind::Agent
+            && let node = rail.node(id)?
+            && (node.kind == NodeKind::Agent
+                || (node.kind == NodeKind::Workstream
+                    && name::is_workstream_placeholder(&node.name)))
+            && !rail.user_named(id)?
         {
             let parent = rail.node(id)?.parent;
             let siblings = rail.tree()?;

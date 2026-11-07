@@ -129,7 +129,7 @@ async fn d2_the_first_prompt_names_the_agent() {
     let tree = project.rail_tree(&client).await;
     let named: Vec<_> = tree.iter().filter(|node| node.id == agent.id).collect();
     assert_eq!(named.len(), 1);
-    assert_eq!(named[0].name, "fix-refresh-race");
+    assert_eq!(named[0].name, "Fix Refresh Race");
     let model = project.model.as_ref().unwrap();
     model.assert_matched();
     assert!(

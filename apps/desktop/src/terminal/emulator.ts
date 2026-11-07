@@ -86,6 +86,9 @@ type InputOrigin = Terminal & { _core: { coreService: {
   onUserInput(listener: () => void): { dispose(): void };
 } } };
 
+/** xterm's render service: its public `refresh` waits an animation frame, its `sync` flag does not. */
+type RenderRows = Terminal & { _core: { _renderService?: { refreshRows(start: number, end: number, sync: boolean): void } } };
+
 export type RendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 
 /** OSC 52 copies use the originating Terminal's clipboard failure owner. */
@@ -476,7 +479,16 @@ export const createXtermEmulators = (
 
       const fitted = { cols: terminal.cols, rows: terminal.rows };
 
-      if (fitted.cols !== previous.cols || fitted.rows !== previous.rows) resized(fitted);
+      if (fitted.cols !== previous.cols || fitted.rows !== previous.rows) {
+        // U6418b: the WebGL renderer clears its canvas on resize and xterm redraws a frame later; drawing the rows
+        // here keeps that blank frame from being composited.
+        // SAFETY: pinned xterm 6.1 holds `_core._renderService` on its Terminal; the optional chain covers its absence.
+        const renderService = (terminal as RenderRows)._core._renderService;
+
+        if (opened) renderService?.refreshRows(0, terminal.rows - 1, true);
+
+        resized(fitted);
+      }
 
       return fitted;
     };

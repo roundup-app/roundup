@@ -195,7 +195,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
             tree.as_array()
                 .unwrap()
                 .iter()
-                .any(|n| n["id"] == id_on && n["name"] == "fix-refresh-race")
+                .any(|n| n["id"] == id_on && n["name"] == "Fix Refresh Race")
                 .then_some(())
         },
     )

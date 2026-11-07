@@ -1,6 +1,7 @@
 //! A9 a first prompt names its Agent.
 
 use contracts::agent::RailNode;
+use rpc::Module;
 use serde_json::json;
 
 use crate::common::{Fixture, hold_starts, release};
@@ -29,12 +30,12 @@ async fn a4452b_first_user_message_is_the_users_words() {
         .spawn(None, Some("roundup coordination must not name this agent"))
         .await
         .unwrap();
-    assert_eq!(node.name, "new-agent");
+    assert_eq!(node.name, "New Agent");
     f.changed();
 
     f.submit(&node.id, "Fix the refresh race in token.ts").await;
 
-    assert_eq!(f.name_of(&node.id).await, "fix-refresh-race");
+    assert_eq!(f.name_of(&node.id).await, "Fix Refresh Race");
     assert_eq!(f.changed(), 1);
 }
 
@@ -47,7 +48,7 @@ async fn a9_later_prompts_never_rename_the_agent() {
 
     f.submit(&node.id, "now write the docs").await;
 
-    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
     assert_eq!(f.changed(), 0);
 }
 
@@ -60,7 +61,7 @@ async fn a9_a_prompt_with_no_words_left_keeps_the_name_and_still_counts_as_the_f
     f.submit(&node.id, "please, the...").await;
     f.submit(&node.id, "fix the build").await;
 
-    assert_eq!(f.name_of(&node.id).await, "new-agent");
+    assert_eq!(f.name_of(&node.id).await, "New Agent");
     assert_eq!(f.changed(), 0);
 }
 
@@ -78,14 +79,90 @@ async fn a9_a_rename_before_the_first_prompt_wins() {
 }
 
 #[tokio::test]
-async fn a9_a_door_keeps_its_workstreams_name() {
-    let f = Fixture::running("sleep 30");
-    let team = f.workstream("team", None).await;
+async fn u6380b_a_door_names_its_workstream() {
+    let mut f = Fixture::running("sleep 30");
+    let team = f.workstream("New Workstream", None).await;
     f.call("rail.startDoor", json!({"id": team})).await.unwrap();
+    f.changed();
 
-    f.submit(&team, "fix the build").await;
+    f.submit(&team, "Fix the refresh race in token.ts").await;
+    assert_eq!(f.name_of(&team).await, "Fix Refresh Race");
+    assert_eq!(f.changed(), 1);
 
-    assert_eq!(f.name_of(&team).await, "team");
+    f.submit(&team, "now write the docs").await;
+    assert_eq!(f.name_of(&team).await, "Fix Refresh Race");
+    assert_eq!(f.changed(), 0);
+
+    let named = f.workstream("team", None).await;
+    f.call("rail.startDoor", json!({"id": named}))
+        .await
+        .unwrap();
+    f.submit(&named, "fix the build").await;
+    assert_eq!(f.name_of(&named).await, "team");
+}
+
+#[tokio::test]
+async fn u6380a_names_are_title_case_within_42() {
+    let f = Fixture::running("sleep 30");
+    let ok = f.spawn_named(Some(&"a".repeat(42)), None).await.unwrap();
+    assert_eq!(ok.name.chars().count(), 42);
+    let err = f
+        .spawn_named(Some(&"a".repeat(43)), None)
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::INVALID_PARAMS);
+    let taken = f.spawn_named(Some(&"a".repeat(42)), None).await.unwrap();
+    assert_eq!(taken.name, format!("{} 2", "a".repeat(40)));
+    let a = f.spawn(None, None).await.unwrap();
+    assert_eq!(a.name, "New Agent");
+    let rename = f
+        .call("rail.rename", json!({"id": a.id, "name": "b".repeat(43)}))
+        .await
+        .unwrap_err();
+    assert_eq!(rename.code, rpc::code::INVALID_PARAMS);
+}
+
+#[tokio::test]
+async fn u6380c_a_user_named_row_keeps_its_name() {
+    let mut f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    f.call("rail.rename", json!({"id": node.id, "name": "Mine"}))
+        .await
+        .unwrap();
+    f.changed();
+
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: node.id.clone(),
+        parent: None,
+    };
+    let err = f
+        .agents
+        .call(
+            &ctx,
+            "rail.rename",
+            json!({"id": node.id, "name": "Theirs"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(err.message, "the user named this row; keep its name");
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "Mine");
+    assert_eq!(f.changed(), 0);
+
+    f.call("rail.rename", json!({"id": node.id, "name": "Again"}))
+        .await
+        .unwrap();
+    let f = f.reopen();
+    let err = f
+        .agents
+        .call(&ctx, "rail.rename", json!({"id": node.id, "name": "X"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(f.name_of(&node.id).await, "Again");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -121,9 +198,9 @@ async fn u176_agents_with_one_prompt_are_numbered_among_their_siblings() {
     assert_eq!(
         names,
         [
-            "what-should-this",
-            "what-should-this-2",
-            "what-should-this-3"
+            "What Should This",
+            "What Should This 2",
+            "What Should This 3"
         ]
     );
 }
@@ -158,7 +235,7 @@ async fn a27_three_same_tag_siblings_are_named_by_their_text() {
     for id in &ids {
         names.push(f.name_of(id).await);
     }
-    assert_eq!(names, ["fix-login-bug", "write-docs", "tune-cache"]);
+    assert_eq!(names, ["Fix Login Bug", "Write Docs", "Tune Cache"]);
 }
 
 #[tokio::test]
@@ -184,20 +261,63 @@ async fn a28_a_given_name_survives_the_first_prompt() {
 }
 
 #[tokio::test]
+async fn u6414a_an_app_named_agent_takes_its_first_prompt_name() {
+    let f = Fixture::running("sleep 30");
+    let cwd = f.dir.path().to_string_lossy().into_owned();
+    let node = f
+        .call(
+            "agent.spawn",
+            json!({"cwd": cwd, "prompt": "fix the build", "name": "Import", "appNamed": true}),
+        )
+        .await
+        .unwrap();
+    let node: RailNode = serde_json::from_value(node).unwrap();
+    assert_eq!(node.name, "Import");
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
+
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: node.id.clone(),
+        parent: None,
+    };
+    f.agents
+        .call(&ctx, "rail.rename", json!({"id": node.id, "name": "Mine"}))
+        .await
+        .unwrap();
+    assert_eq!(f.name_of(&node.id).await, "Mine");
+
+    let typed = f.spawn_named(Some("Typed"), None).await.unwrap();
+    ctx.actor.id = typed.id.clone();
+    let err = f
+        .agents
+        .call(
+            &ctx,
+            "rail.rename",
+            json!({"id": typed.id, "name": "Theirs"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(err.message, "the user named this row; keep its name");
+}
+
+#[tokio::test]
 async fn a28_a_taken_name_gets_a_suffix() {
     let f = Fixture::running("sleep 30");
     let first = f.spawn_named(Some("docs"), None).await.unwrap();
     let second = f.spawn_named(Some("docs"), None).await.unwrap();
     let third = f.spawn_named(Some("docs"), None).await.unwrap();
     assert_eq!(first.name, "docs");
-    assert_eq!(second.name, "docs-2");
-    assert_eq!(third.name, "docs-3");
+    assert_eq!(second.name, "docs 2");
+    assert_eq!(third.name, "docs 3");
 }
 
 #[tokio::test]
 async fn a28_a_bad_name_is_invalid_params() {
     let f = Fixture::running("sleep 30");
-    for bad in ["", "   ", &"a".repeat(33), "two\nlines"] {
+    for bad in ["", "   ", &"a".repeat(43), "two\nlines"] {
         let err = f.spawn_named(Some(bad), None).await.unwrap_err();
         assert_eq!(err.code, rpc::code::INVALID_PARAMS, "{bad:?}");
     }
@@ -208,9 +328,9 @@ async fn a28_a_bad_name_is_invalid_params() {
 async fn a28_a_spawn_without_a_name_is_named_by_a9() {
     let f = Fixture::running("sleep 30");
     let node = f.spawn_named(None, None).await.unwrap();
-    assert_eq!(node.name, "new-agent");
+    assert_eq!(node.name, "New Agent");
     f.submit(&node.id, "fix the build").await;
-    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
 }
 
 #[tokio::test]
@@ -224,16 +344,16 @@ async fn a44_a_clarification_steer_names_no_agent() {
          `agent_context` names under `ask`. Then record a Work order with `agent_set_order`.",
     )
     .await;
-    assert_eq!(f.name_of(&node.id).await, "new-agent");
+    assert_eq!(f.name_of(&node.id).await, "New Agent");
 
     f.submit(&node.id, "fix the build").await;
-    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
 }
 
 #[tokio::test]
 async fn a2741a_first_prompt_and_rpc_share_the_committed_name_seam() {
     let f = Fixture::running("exec sleep 30");
-    f.spawn_named(Some("fix-build"), None).await.unwrap();
+    f.spawn_named(Some("Fix Build"), None).await.unwrap();
     let node = f.spawn(None, None).await.unwrap();
     let mut events = f.bus.subscribe();
     f.submit(&node.id, "fix the build").await;
@@ -243,7 +363,7 @@ async fn a2741a_first_prompt_and_rpc_share_the_committed_name_seam() {
     assert_eq!(
         crate::common::renames(&mut events),
         [
-            (node.id.clone(), "fix-build-2".into()),
+            (node.id.clone(), "Fix Build 2".into()),
             (node.id.clone(), "mine".into())
         ]
     );
@@ -323,7 +443,7 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
         if matches!(case, "no words" | "Clarification") {
             f.submit(&id, "fix the build").await;
             if case == "Clarification" {
-                expected.push((id.clone(), "fix-build".into()));
+                expected.push((id.clone(), "Fix Build".into()));
             }
         }
         f.call(

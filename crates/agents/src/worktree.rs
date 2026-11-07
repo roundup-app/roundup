@@ -961,30 +961,16 @@ fn failed(detail: impl std::fmt::Display) -> RpcError {
     RpcError::internal(format!("worktree_failed: {detail}"))
 }
 
-/// Add `.roundup/` to `exclude` (the repository's `info/exclude`), once: it is local, so the
-/// user's tracked files and `git status` do not change.
-fn exclude_worktrees(exclude: &Path) -> std::io::Result<()> {
-    if let Some(parent) = exclude.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let existing = std::fs::read_to_string(exclude).unwrap_or_default();
-    if existing.lines().any(|line| line.trim() == ".roundup/") {
-        return Ok(());
-    }
-    let mut text = existing;
-    if !text.is_empty() && !text.ends_with('\n') {
-        text.push('\n');
-    }
-    text.push_str(".roundup/\n");
-    std::fs::write(exclude, text)
-}
-
 /// `cwd` mapped into `worktree_path`, the same subpath it was of `project`; `None` when `cwd` is
 /// not under `project` at all (left for the usual cwd validation to reject).
 pub fn map_cwd(project: &Path, cwd: &Path, worktree_path: &Path) -> Option<PathBuf> {
     let relative = cwd.strip_prefix(project).ok()?;
     Some(worktree_path.join(relative))
 }
+
+#[path = "worktree_exclude.rs"]
+mod exclude;
+use exclude::exclude_worktrees;
 
 #[path = "worktree_command.rs"]
 mod command;
