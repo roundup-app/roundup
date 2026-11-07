@@ -107,7 +107,7 @@ export const CHORDS: readonly Chord[] = ([
 ] satisfies readonly (Omit<Chord, "keys"> & { keys: string })[]).map(withKeyText);
 
 /** U6544b: the keys that close a focused Project tab. A tab binds them itself, so no App chord, Help row or action lists them. */
-export const TAB_CLOSE: Chord = withKeyText({ name: "tab.close", keys: "⌫ ⌦", what: copy.close, presses: ["Backspace", "Delete"] });
+export const TAB_CLOSE: Chord = withKeyText({ name: "tab.close", keys: "⌫ ⌦", what: copy.close, presses: "Backspace Delete".split(" ") });
 
 /** U5239b: the default label of each action a saved override can move, so a caller naming an action by its default keys still finds it. */
 const DEFAULT_KEYS = new Map<string, string>();
