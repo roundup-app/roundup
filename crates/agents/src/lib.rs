@@ -463,6 +463,11 @@ impl Agents {
         }
     }
 
+    /// X6570b: run `save_owner` for Agent `id`'s Terminal `terminal_id`.
+    pub fn save_owner_for_test(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
+        self.save_owner(id, terminal_id)
+    }
+
     /// U4593 controls observed Status without a vendor, Terminal or wall clock.
     pub fn set_status_for_test(&self, id: &str, status: Status) {
         self.shared

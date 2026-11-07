@@ -25,7 +25,7 @@ impl Agents {
     /// Save the owner behind client Terminal `terminal_id` for Agent `id`'s current Attempt.
     /// A Terminal the client owns directly has no record, and reopening reports its Agent `done`.
     pub(super) fn save_owner(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
-        let Some(owner) = self.shared.terminals.terminal_owner(terminal_id) else {
+        let Some(owner) = self.shared.terminals.terminal_owner(terminal_id)? else {
             return Ok(());
         };
         let attempt = self.shared.rail().node(id)?.attempt.unwrap_or_default();
