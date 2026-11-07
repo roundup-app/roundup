@@ -273,7 +273,11 @@ fn u6550c_placement_table_is_check_parent() {
             let parent = make(&mut rail, parent_kind, "parent");
             let moved = rail.move_node(&id, Some(&parent), 0).is_ok();
             let rule = &table[name][parent_name];
-            assert_eq!(moved, rule != &serde_json::Value::Bool(false), "{name} under {parent_name}");
+            assert_eq!(
+                moved,
+                rule != &serde_json::Value::Bool(false),
+                "{name} under {parent_name}"
+            );
         }
     }
     // "chain": a Workstream under a Group takes it only while every ancestor of that Group is a Group.

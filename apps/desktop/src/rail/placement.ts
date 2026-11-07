@@ -8,7 +8,7 @@ export type PlaceNode = { id: string; kind: Kind; parent: string | null };
 /**
  * Whether the Daemon's `rail.move` takes `id` under `parent` (null is the root): the kind table in `placement.json`, which
  * `placement_table_is_check_parent` in `crates/agents/src/rail/tests.rs` ties to `check_parent`, plus never into itself.
- * A Group that holds a Workstream is held to the Workstream's row.
+ * A Group that holds a Workstream is kept to the Workstream's row.
  */
 export const placeable = (nodes: ReadonlyMap<string, PlaceNode>, id: string, parent: string | null): boolean => {
   const node = nodes.get(id);

@@ -5,7 +5,9 @@ import { mountRail, settled } from "./railFixture";
 
 // jsdom has no Web Animations: the library asks the document for its running ones when a drag starts.
 Object.assign(document, { getAnimations: () => [] });
+
 Object.assign(window, { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
+
 Object.assign(Element.prototype, { getAnimations: () => [], animate: () => ({ cancel() {}, finished: Promise.resolve(), addEventListener() {} }) });
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -20,6 +22,7 @@ const tree = () => [
 const lift = async (name: string) => {
   const handle = await screen.findByRole("button", { name: `Move ${name}` });
   handle.focus();
+
   fireEvent.keyDown(handle, { key: " ", code: "Space" });
   await settled();
 
@@ -28,37 +31,40 @@ const lift = async (name: string) => {
 
 const ids = () => [...document.querySelectorAll<HTMLElement>(".rail-row[data-id]:not([data-dnd-placeholder])")].map(row => row.dataset.id);
 
-it("u6550a_held_workstream_folds_its_children", async () => {
+it("u6550a_lifted_workstream_folds_its_children", async () => {
   const nodes = tree();
   const m = await mountRail(nodes);
   await settled();
   const moves: unknown[] = [];
 
-  m.app.handlers["rail.move"] = params => { moves.push(params);
+  m.app.handlers["rail.move"] = (params) => {
+    moves.push(params);
 
- return null; };
+    return null;
+  };
+
   expect(ids()).toEqual(["W0", "A0", "A1", "A2", "W1", "W2"]);
 
-  // Held: the count shows on the Door and the children leave the list; Escape puts them back in place.
+  // Lifted: the count shows on the Door and the children leave the list; Escape puts them back in place.
   const handle = await lift("W0");
-  expect(screen.getByRole("img", { name: "3 rows move with it" }).textContent).toBe("+3");
+  expect(Number(document.querySelector('[data-state="lifted"]')?.textContent?.slice(1))).toBe(3);
   expect(ids()).toEqual(["W0", "W1", "W2"]);
   fireEvent.keyDown(handle, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(ids()).toEqual(["W0", "A0", "A1", "A2", "W1", "W2"]));
-  expect(screen.queryByRole("img", { name: /rows move with it/ })).toBeNull();
+  expect(document.querySelector('[data-state="lifted"]')).toBeNull();
 
   // A drop where it was lifted ends the hold: the children are under the Door again and no move was sent.
   const dropped = await lift("W0");
   expect(ids()).toEqual(["W0", "W1", "W2"]);
   fireEvent.keyDown(dropped, { key: " ", code: "Space" });
   await waitFor(() => expect(ids()).toEqual(["W0", "A0", "A1", "A2", "W1", "W2"]));
-  expect(screen.queryByRole("img", { name: /rows move with it/ })).toBeNull();
+  expect(document.querySelector('[data-state="lifted"]')).toBeNull();
   expect(moves).toEqual([]);
 });
 
-it("u6550a_a_held_row_without_children_has_no_count", async () => {
+it("u6550a_a_lifted_row_without_children_has_no_count", async () => {
   await mountRail(tree());
   await settled();
   await lift("W1");
-  expect(screen.queryByRole("img", { name: /rows move with it/ })).toBeNull();
+  expect(document.querySelector('[data-state="lifted"]')).toBeNull();
 });

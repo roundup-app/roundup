@@ -5,37 +5,40 @@ import { placeable, type PlaceNode } from "./placement";
 
 type Kind = PlaceNode["kind"];
 
-type Shape = { kind: Kind; below: Shape[] };
+type Outline = { kind: Kind; below: Outline[] };
 
 /** Any tree of the three kinds; `valid` keeps what the Daemon could hold. */
-const trees = fc.letrec<{ node: Shape }>(tie => ({
+const trees = fc.letrec<{ node: Outline }>(tie => ({
   node: fc.oneof(
     { depthSize: "small" },
-    fc.constant<Shape>({ kind: "agent", below: [] }),
-    fc.record<Shape>({ kind: fc.constantFrom<Kind>("workstream", "group"), below: fc.array(tie("node"), { maxLength: 3 }) }),
+    fc.constant<Outline>({ kind: "agent", below: [] }),
+    fc.record<Outline>({ kind: fc.constantFrom<Kind>("workstream", "group"), below: fc.array(tie("node"), { maxLength: 3 }) }),
   ),
 })).node;
 
 /** Keeps the nodes the Daemon would hold: below a Workstream sit Agents and Groups, below a Group anything, below an Agent an Agent; a Workstream sits only in Groups. */
-const valid = (shape: Shape, under: Kind | null, groupsOnly: boolean): Shape | null => {
-  if (shape.kind === "workstream" && (under === "workstream" || under === "agent" || !groupsOnly)) return null;
+const valid = (outline: Outline, under: Kind | null, groupsOnly: boolean): Outline | null => {
+  if (outline.kind === "workstream" && (under === "workstream" || under === "agent" || !groupsOnly)) return null;
 
-  if (shape.kind === "group" && under === "agent") return null;
+  if (outline.kind === "group" && under === "agent") return null;
 
-  const below = shape.below.flatMap((child) => valid(child, shape.kind, groupsOnly && shape.kind === "group") ?? []);
+  const below = outline.below.flatMap((child) => valid(child, outline.kind, groupsOnly && outline.kind === "group") ?? []);
 
-  return { kind: shape.kind, below };
+  return { kind: outline.kind, below };
 };
 
-const flatten = (roots: Shape[]): { nodes: Map<string, PlaceNode>; rows: { id: string; parent: string | null }[] } => {
+type Row = { id: string; parent: string | null };
+
+const flatten = (roots: Outline[]) => {
   const nodes = new Map<string, PlaceNode>();
-  const rows: { id: string; parent: string | null }[] = [];
-  const walk = (shape: Shape, parent: string | null) => {
+  const rows: Row[] = [];
+
+  const walk = (outline: Outline, parent: string | null) => {
     const id = `n${nodes.size}`;
 
-    nodes.set(id, { id, kind: shape.kind, parent });
+    nodes.set(id, { id, kind: outline.kind, parent });
     rows.push({ id, parent });
-    shape.below.forEach((child) => walk(child, id));
+    outline.below.forEach((child) => walk(child, id));
   };
 
   roots.forEach((root) => walk(root, null));
@@ -79,9 +82,9 @@ it("u6550b_workstream_has_no_slot_in_a_workstream", () => {
   ]);
 
   const rules = { nests: (id: string) => nodes.get(id)?.kind === "workstream", takes: (id: string, parent: string | null) => placeable(nodes, id, parent) };
-  const held = [...nodes.values()].filter((node) => node.kind === "workstream");
+  const lifted = [...nodes.values()].filter((node) => node.kind === "workstream");
 
-  for (const { id } of held) {
+  for (const { id } of lifted) {
     const remaining = remainingRows(withDepth(rows), id);
 
     for (let slot = 0; slot <= remaining.length; slot++) {

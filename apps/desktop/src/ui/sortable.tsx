@@ -896,7 +896,14 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const index = isSortable(source) ? tree && pointerDrag ? shown?.index ?? source.initialIndex : pointerDrag && event.operation.shape?.initial.containsPoint(point) ? source.initialIndex : pointerDrag ? slots.slot() : source.index : null;
 
     // A pointer release that commits nothing sends the other rows back.
-    const relax = () => { tree?.onLift?.(null); if (pointerDrag) { place(others(source).map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(); } };
+    const relax = () => {
+      tree?.onLift?.(null);
+
+      if (pointerDrag) {
+        place(others(source).map(({ element }) => ({ element, shift: 0 })), true);
+        reclipAfterSlide();
+      }
+    };
 
     const final = !tree || event.canceled || !isSortable(source) ? null
       : pointerDrag ? shown && { rows: withDepth(tree.rows), drop: shown.drop }

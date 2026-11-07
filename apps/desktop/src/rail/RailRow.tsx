@@ -212,7 +212,7 @@ export const RailRowView = (props: {
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
-      <Show when={props.folded && descendantsOf(props.topology, props.row.node.id).length} fallback={<Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>}>{held => <span class="hidden-agents" data-state="held" role="img" aria-label={copy.heldChildren(held())}>+{held()}</span>}</Show>
+      <Show when={props.folded && descendantsOf(props.topology, props.row.node.id).length} fallback={<Show when={props.row.collapsed?.agents.length}>{hidden => <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(hidden())}>{hidden()}</span>}</Show>}>{lifted => <span class="hidden-agents" data-state="lifted" role="img" aria-label={copy.liftedChildren(lifted())}>+{lifted()}</span>}</Show>
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
