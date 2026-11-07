@@ -3,7 +3,7 @@ import { createRoot, createEffect } from "solid-js";
 import type { Accessor } from "solid-js";
 
 /** Every fold control in the App: Ark's tree branch and collapsible triggers, and the Rail's chevrons and section heads. */
-const folds = '[data-scope="tree-view"][data-part="branch-control"], [data-scope="tree-view"][data-part="branch-trigger"], [data-scope="collapsible"][data-part="trigger"], .rail-chevron, .rail-group-chevron, .section-head';
+const folds = '[data-scope="tree-view"][data-part="branch-control"], [data-scope="tree-view"][data-part="branch-trigger"], [data-scope="collapsible"][data-part="trigger"], .rail-chevron, .rail-group-chevron, .section-head, [data-fold]';
 
 /** What slides when a fold changes the layout above it; nesting is handled by the projection tree. */
 const movers = '[role="treeitem"], [data-part="item"], [data-part="branch-control"], .rail-row, .todo-row';
