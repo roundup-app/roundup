@@ -8,7 +8,7 @@ Declarations are in `crates/contracts/src/declarations.rs`, all `none(...)`: no 
 
 | Row | Independent control and exact public entry points | App caller | Implementation / acceptance |
 | --- | --- | --- | --- |
-| AK01 | Register the open App as the answerer of named actions: `action.serve`; no `rup` command, no MCP tool (NA6) | `app/tauri.ts`, `app/seam.ts`, `crates/desktop/src/state.rs` (`action.serve`) | `scenarios/named-actions.md` NA6. |
+| AK01 | Register the open App as the answerer of named actions: `action.serve`; no `rup` command, no MCP tool (NA6) | `app/tauri.ts`, `app/seam.ts`, `crates/desktop/src/projects.rs` (`action.serve`) | `scenarios/named-actions.md` NA6. |
 | AK02 | List the open App's named actions: `action.list`; `rup actions` | `keys/actions.ts` (answers the relayed call), `app/seam.ts` (schema); `rup` in `crates/rup/src/cli/actions.rs` | NA5, NA6, NA11. |
 | AK03 | List the User actions the owner's Extensions declared: `action.userList`; no `rup` command, no MCP tool | `switcher/Switcher.tsx` | NA6; Switcher scenarios. |
 | AK04 | Run a named action with arguments: `action.run`; `rup do <name> [key=value…]` | `keys/actions.ts` (answers), `switcher/Switcher.tsx` (runs a User action), `app/seam.ts`; `rup` in `crates/rup/src/cli/actions.rs` | NA3, NA7, NA8, NA9, NA10, NA12. |
