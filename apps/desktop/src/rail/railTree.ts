@@ -1,9 +1,9 @@
-import { createDeferred, createMemo, createSignal, type Accessor } from "solid-js";
+import { createDeferred, createEffect, createMemo, createSignal, on, type Accessor } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
-import { projectFold } from "../ui/foldProject";
+import { easingOut, reorderMs, translateOf } from "../ui/reorderMotion";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
 import { foldIdOf, isWorkstream, layoutRail, type NodeRow, type RailRow } from "./layout";
@@ -38,10 +38,57 @@ type RailNode = { id: string; name: string; childrenCount?: number; children?: R
 
 type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
 
+/** The animations on a row that run its translate. */
+const cancelTranslates = (row: HTMLElement) => {
+  for (const animation of row.getAnimations()) {
+    const translating = animation instanceof CSSTransition ? animation.transitionProperty === "translate" : animation.effect instanceof KeyframeEffect && animation.effect.getKeyframes().some(frame => "translate" in frame);
+
+    if (translating) animation.cancel();
+  }
+};
+
+/** U6550a, M5: a lift or cancel by key is immediate (M1); a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn (once the sortable has cleared its own shifts) and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
+const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: Accessor<string | null>) => {
+  let drawn = new Map<string, number>();
+  let keyed = false;
+  const slides = new WeakMap<HTMLElement, Animation>();
+  const rows = () => [...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []];
+
+  createEffect(on(lifted, () => queueMicrotask(() => {
+    const before = drawn;
+    const reduced = matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    drawn = new Map();
+
+    if (reduced || keyed || before.size === 0) return;
+
+    const moving = rows().filter(row => "animate" in row && !row.matches("[data-dnd-dragging], [data-dnd-dropping]"));
+
+    // A row slides once, by its real displacement: a translate still running on it would be read into the distance and added to it.
+    for (const row of moving) if (!row.style.translate) { slides.get(row)?.cancel(); cancelTranslates(row); }
+
+    // A translate that outlived the cancel is not part of the row's place.
+    const tops = moving.map(row => row.getBoundingClientRect().top - translateOf(row).y);
+
+    moving.forEach((row, at) => {
+      const was = before.get(row.dataset.id!);
+      const options = { duration: reorderMs(row), easing: easingOut(row) };
+
+      if (was === undefined) row.animate({ opacity: [0, 1] }, options);
+      // A row the sortable shifted slides itself from that shift; a second translate here would double it.
+      else if (!row.style.translate && Math.abs(was - tops[at]!) >= 1) slides.set(row, row.animate({ translate: [`0 ${was - tops[at]!}px`, "0 0"] }, options));
+    });
+  }), { defer: true }));
+
+  // A row inside a collapsed group is inert and not drawn: it returns by fading in, never by sliding from where the hidden group left it.
+  return (keyboard: boolean) => { keyed = keyboard; drawn = new Map(rows().filter(row => !row.closest("[inert], [hidden]")).map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
+};
+
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, container: Accessor<HTMLElement | undefined> = () => undefined) => {
   const { rail, now } = connected;
   /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
   const [lifted, setLifted] = createSignal<string | null>(null);
+  const keepDrawn = createLiftMotion(container, lifted);
   const collapsed = rail.collapsed;
   const topology = rail.topology;
   const presentSections = createMemo(() => sections.filter(section => topology().section.includes(section.id)));
@@ -188,13 +235,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const dropRules = {
     nests: (id: string) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
     takes: (id: string, parent: string | null) => placeable(placeNodes(), id, parent),
-    // U6550a, M5: a pointer lift or cancel folds through the shared helper; a key one is immediate (M1).
-    onLift: (id: string | null, keyboard = false) => {
-      const scope = container();
-
-      if (keyboard || !scope) setLifted(id);
-      else projectFold(scope, () => setLifted(id));
-    },
+    onLift: (id: string | null, keyboard = false) => { keepDrawn(keyboard); setLifted(id); },
   };
 
   return { topology, sectionRows, rows, collection, settleCollection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };

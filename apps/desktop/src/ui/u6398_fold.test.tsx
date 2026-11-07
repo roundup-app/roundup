@@ -7,7 +7,6 @@ const engine = { animateLayout: vi.fn<FoldEngine["animateLayout"]>(), animate: v
 import { Disclosure } from "./Disclosure";
 import { TreeView } from "./TreeView";
 import { foldMotion } from "./fold";
-import { projectFold } from "./foldProject";
 import type { FoldEngine } from "./fold";
 
 let stop = () => {};
@@ -54,19 +53,6 @@ it("u6398a_a_pointer_press_on_a_fold_starts_one_projection_through_the_fold_help
     fireEvent.click(screen.getByRole("button", { name }), { detail: 1 });
     expect(engine.animateLayout, name).toHaveBeenCalledOnce();
   }
-});
-
-it("u6398a_the_rail_drag_lift_fold_goes_through_the_fold_helper", () => {
-  install();
-  const { container } = render(surfaces);
-  const change = vi.fn();
-  projectFold(container, change);
-  expect(engine.animateLayout).toHaveBeenCalledOnce();
-  expect(change).toHaveBeenCalledOnce();
-  stop();
-  projectFold(container, change);
-  expect(engine.animateLayout).toHaveBeenCalledOnce();
-  expect(change).toHaveBeenCalledTimes(2);
 });
 
 it("u6398a_a_press_on_a_non_fold_control_starts_no_projection", async () => {
