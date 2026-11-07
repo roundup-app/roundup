@@ -274,7 +274,33 @@ async fn u6414a_an_app_named_agent_takes_its_first_prompt_name() {
     let node: RailNode = serde_json::from_value(node).unwrap();
     assert_eq!(node.name, "Import");
     f.submit(&node.id, "fix the build").await;
-    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.name_of(&node.id).await, "Fix Build");
+
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: node.id.clone(),
+        parent: None,
+    };
+    f.agents
+        .call(&ctx, "rail.rename", json!({"id": node.id, "name": "Mine"}))
+        .await
+        .unwrap();
+    assert_eq!(f.name_of(&node.id).await, "Mine");
+
+    let typed = f.spawn_named(Some("Typed"), None).await.unwrap();
+    ctx.actor.id = typed.id.clone();
+    let err = f
+        .agents
+        .call(
+            &ctx,
+            "rail.rename",
+            json!({"id": typed.id, "name": "Theirs"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(err.message, "the user named this row; keep its name");
 }
 
 #[tokio::test]

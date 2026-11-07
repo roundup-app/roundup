@@ -30,8 +30,8 @@ impl Rail {
     /// Delete `id`. Its children (a Workstream or an Agent may have any) move to its own
     /// parent, at its place, in order, first; one transaction, so a failed delete leaves them
     /// still under `id`.
-    pub fn remove(&mut self, id: &str) -> Result<(), RpcError> {
-        let tx = self.db.transaction().map_err(sql)?;
+    pub fn remove(&mut self, id: &str) -> Result<(), StoreError> {
+        let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
         let parent = node.parent.as_deref();
@@ -45,44 +45,40 @@ impl Rail {
         // Reparent before deleting: a child's row still points at `id` until `place` runs, and a
         // delete while one does would fail its foreign key.
         place(&tx, parent, &ids)?;
-        tx.execute("DELETE FROM nodes WHERE id = ?", params![id])
-            .map_err(sql)?;
-        tx.commit().map_err(sql)
+        tx.execute("DELETE FROM nodes WHERE id = ?", params![id])?;
+        Ok(tx.commit()?)
     }
 
     /// A34: Rail, Todo, Pad and Touch rows share one transaction. The callback stages the
     /// external files and Worktrees before any node leaves; its returned guard survives commit.
-    pub fn remove_workstream<T>(
+    pub fn remove_workstream<T, E: Into<StoreError>>(
         &mut self,
         id: &str,
         removal: &mut contracts::agent::Removal,
         retain: Option<(&contracts::Actor, &str)>,
-        apply: impl FnOnce(&Connection, &mut contracts::agent::Removal) -> Result<T, RpcError>,
-    ) -> Result<T, RpcError> {
+        apply: impl FnOnce(&Connection, &mut contracts::agent::Removal) -> Result<T, E>,
+    ) -> Result<T, StoreError> {
         use rusqlite::session::{Session, invert_strm};
-        self.db
-            .pragma_update(None, "foreign_keys", true)
-            .map_err(sql)?;
+        self.db.pragma_update(None, "foreign_keys", true)?;
         let tx = self
             .db
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(sql)?;
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let mut graph = if retain.is_some() {
-            let mut graph = Session::new(&tx).map_err(sql)?;
+            let mut graph = Session::new(&tx)?;
             for table in [
                 "nodes",
                 "instruction_homes",
                 "deliverables",
                 "workstream_queue",
             ] {
-                graph.attach(Some(table)).map_err(sql)?;
+                graph.attach(Some(table))?;
             }
             Some(graph)
         } else {
             None
         };
         let before = load(&tx)?;
-        let out = apply(&tx, removal)?;
+        let out = apply(&tx, removal).map_err(Into::<StoreError>::into)?;
         Self::remove_graph(&tx, id, removal)?;
         if let Some((actor, operation)) = retain {
             let mut graph = graph.take().expect("retained graph");
@@ -96,17 +92,15 @@ impl Rail {
             removed.push(id);
             tx.execute(
                 "DELETE FROM workstream_queue WHERE workstream IN (SELECT value FROM json_each(?))",
-                [serde_json::to_string(&removed).map_err(RpcError::internal)?],
-            )
-            .map_err(sql)?;
+                [serde_json::to_string(&removed)?],
+            )?;
             let mut forward = Vec::new();
-            graph.changeset_strm(&mut forward).map_err(sql)?;
+            graph.changeset_strm(&mut forward)?;
             let mut inverse = Vec::new();
-            invert_strm(&mut forward.as_slice(), &mut inverse).map_err(sql)?;
+            invert_strm(&mut forward.as_slice(), &mut inverse)?;
             drop(graph);
-            let project: String = tx
-                .query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
-                .map_err(sql)?;
+            let project: String =
+                tx.query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))?;
             removal.deletion = Some(contracts::agent::Deletion {
                 project,
                 operation: operation.into(),
@@ -115,15 +109,15 @@ impl Rail {
                 restoration: None,
             });
             tx.execute("INSERT INTO rail_deletions(operation,actor,node,record,graph,boundary) VALUES(?,?,?,?,?,?)", params![
-            operation, serde_json::to_string(actor).map_err(RpcError::internal)?, id,
-            serde_json::to_string(&removal).map_err(RpcError::internal)?, inverse, serde_json::to_string(&Placement { before: before.into_iter().map(Position::from).collect(), after: load(&tx)?.into_iter().map(Position::from).collect() }).map_err(RpcError::internal)?
-        ]).map_err(sql)?;
+            operation, serde_json::to_string(actor)?, id,
+            serde_json::to_string(&removal)?, inverse, serde_json::to_string(&Placement { before: before.into_iter().map(Position::from).collect(), after: load(&tx)?.into_iter().map(Position::from).collect() })?
+        ])?;
         }
         if let Some((_, operation)) = retain {
-            tx.execute("UPDATE rail_deletions SET record=json_set(record,'$.source',(SELECT operation FROM rail_deletions WHERE json_extract(record,'$.redo')=?1),'$.sourceRestoration',(SELECT json_extract(record,'$.deletion.restoration') FROM rail_deletions WHERE json_extract(record,'$.redo')=?1)) WHERE operation=?1 AND EXISTS(SELECT 1 FROM rail_deletions WHERE json_extract(record,'$.redo')=?1)",[operation]).map_err(sql)?;
+            tx.execute("UPDATE rail_deletions SET record=json_set(record,'$.source',(SELECT operation FROM rail_deletions WHERE json_extract(record,'$.redo')=?1),'$.sourceRestoration',(SELECT json_extract(record,'$.deletion.restoration') FROM rail_deletions WHERE json_extract(record,'$.redo')=?1)) WHERE operation=?1 AND EXISTS(SELECT 1 FROM rail_deletions WHERE json_extract(record,'$.redo')=?1)",[operation])?;
         }
         drop(graph);
-        tx.commit().map_err(sql)?;
+        tx.commit()?;
         Ok(out)
     }
 
@@ -131,7 +125,7 @@ impl Rail {
         db: &Connection,
         id: &str,
         removal: &contracts::agent::Removal,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), StoreError> {
         let nodes = load(db)?;
         let node = find(&nodes, id)?;
         let mut selected: Vec<_> = removal
@@ -172,13 +166,12 @@ impl Rail {
             nodes: &[RailNode],
             id: &str,
             selected: &[&str],
-        ) -> Result<(), RpcError> {
+        ) -> Result<(), StoreError> {
             for child in nodes.iter().filter(|n| n.parent.as_deref() == Some(id)) {
                 delete_selected(db, nodes, &child.id, selected)?;
             }
             if selected.contains(&id) {
-                db.execute("DELETE FROM nodes WHERE id=?", [id])
-                    .map_err(sql)?;
+                db.execute("DELETE FROM nodes WHERE id=?", [id])?;
             }
             Ok(())
         }
@@ -192,7 +185,7 @@ impl Rail {
         &self,
         actor: &contracts::Actor,
         operation: &str,
-    ) -> Result<Option<contracts::agent::Removal>, RpcError> {
+    ) -> Result<Option<contracts::agent::Removal>, StoreError> {
         Self::read_deletion(&self.db, actor, operation)
     }
 
@@ -200,23 +193,19 @@ impl Rail {
         db: &Connection,
         actor: &contracts::Actor,
         operation: &str,
-    ) -> Result<Option<contracts::agent::Removal>, RpcError> {
+    ) -> Result<Option<contracts::agent::Removal>, StoreError> {
         let row: Option<(String, String, bool)> = db
             .query_row(
                 "SELECT actor, record, restored FROM rail_deletions WHERE operation=?",
                 [operation],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
-            .optional()
-            .map_err(sql)?;
+            .optional()?;
         row.map(|(author, record, restored)| {
-            if serde_json::from_str::<contracts::Actor>(&author).map_err(RpcError::internal)?
-                != *actor
-            {
-                return Err(RpcError::forbidden("removal belongs to another Actor"));
+            if serde_json::from_str::<contracts::Actor>(&author)? != *actor {
+                return Err(StoreError::forbidden("removal belongs to another Actor"));
             }
-            let mut removal: contracts::agent::Removal =
-                serde_json::from_str(&record).map_err(RpcError::internal)?;
+            let mut removal: contracts::agent::Removal = serde_json::from_str(&record)?;
             removal
                 .deletion
                 .as_mut()
@@ -233,21 +222,20 @@ impl Rail {
         db: &Connection,
         actor: &contracts::Actor,
         p: &contracts::agent::DeletionParams,
-    ) -> Result<contracts::agent::Removal, RpcError> {
+    ) -> Result<contracts::agent::Removal, StoreError> {
         use rusqlite::session::ConflictAction;
         if db.is_autocommit() {
-            return Err(RpcError::internal(
+            return Err(StoreError::internal(
                 "Rail restoration requires a transaction",
             ));
         }
-        let project: String = db
-            .query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
-            .map_err(sql)?;
+        let project: String =
+            db.query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))?;
         if project != p.project {
-            return Err(RpcError::forbidden("removal belongs to another Project"));
+            return Err(StoreError::forbidden("removal belongs to another Project"));
         }
         let mut removal = Self::read_deletion(db, actor, &p.operation)?
-            .ok_or_else(|| RpcError::not_found("Rail removal"))?;
+            .ok_or_else(|| StoreError::not_found("Rail removal"))?;
         if removal
             .deletion
             .as_ref()
@@ -256,22 +244,18 @@ impl Rail {
         {
             return Ok(removal);
         }
-        let boundary: String = db
-            .query_row(
-                "SELECT boundary FROM rail_deletions WHERE operation=?",
-                [&p.operation],
-                |r| r.get(0),
-            )
-            .map_err(sql)?;
+        let boundary: String = db.query_row(
+            "SELECT boundary FROM rail_deletions WHERE operation=?",
+            [&p.operation],
+            |r| r.get(0),
+        )?;
         let current = load(db)?;
-        let graph: Vec<u8> = db
-            .query_row(
-                "SELECT graph FROM rail_deletions WHERE operation=?",
-                [&p.operation],
-                |r| r.get(0),
-            )
-            .map_err(sql)?;
-        let placement: Placement = serde_json::from_str(&boundary).map_err(RpcError::internal)?;
+        let graph: Vec<u8> = db.query_row(
+            "SELECT graph FROM rail_deletions WHERE operation=?",
+            [&p.operation],
+            |r| r.get(0),
+        )?;
+        let placement: Placement = serde_json::from_str(&boundary)?;
         let restored_ids: Vec<_> = removal
             .removed
             .iter()
@@ -295,11 +279,9 @@ impl Rail {
                 if let Some(blocker) = current.iter().find(|live| live.id == node.id) {
                     let removable = actor.kind != contracts::ActorKind::Agent
                         || in_reach(db, &current, &actor.id, &blocker.id)?;
-                    return Err(RpcError::undo_identity(
-                        &blocker.id,
-                        &blocker.name,
-                        removable,
-                    ));
+                    return Err(
+                        RpcError::undo_identity(&blocker.id, &blocker.name, removable).into(),
+                    );
                 }
                 if let Some(parent) = &node.parent
                     && !restored_ids.contains(&parent.as_str())
@@ -311,15 +293,15 @@ impl Rail {
                         .find(|n| n.id == *parent)
                         .map(|n| n.name.as_str())
                         .unwrap_or("Original Home");
-                    return Err(RpcError::undo_parent(parent, name));
+                    return Err(RpcError::undo_parent(parent, name).into());
                 }
             }
         }
         // The changeset already contains every trigger's graph mutation. Replaying
         // triggers would create new instruction revisions or repeat placement effects.
         let config = rusqlite::config::DbConfig::SQLITE_DBCONFIG_ENABLE_TRIGGER;
-        let enabled = db.db_config(config).map_err(sql)?;
-        db.set_db_config(config, false).map_err(sql)?;
+        let enabled = db.db_config(config)?;
+        db.set_db_config(config, false)?;
         let applied = db.apply_strm(
             &mut graph.as_slice(),
             None::<fn(&str) -> bool>,
@@ -340,9 +322,9 @@ impl Rail {
             },
         );
         let reset = db.set_db_config(config, enabled);
-        reset.map_err(sql)?;
+        reset?;
         applied.map_err(|_| {
-            RpcError::conflict("Can't undo this removal because retained work is unavailable. The deletion is retained; undo the later removal first.")
+            StoreError::conflict("Can't undo this removal because retained work is unavailable. The deletion is retained; undo the later removal first.")
         })?;
         let mut affected = Vec::new();
         {
@@ -352,8 +334,7 @@ impl Rail {
                 db.execute(
                     "UPDATE nodes SET parent=?,ord=? WHERE id=?",
                     params![node.parent, node.order, node.id],
-                )
-                .map_err(sql)?;
+                )?;
             }
             let mut reconnect: Vec<_> = placement
                 .before
@@ -409,25 +390,28 @@ impl Rail {
         db.execute(
             "UPDATE rail_deletions SET restored=1 WHERE operation=?",
             [&p.operation],
-        )
-        .map_err(sql)?;
-        let restoration: String = db
-            .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
-            .map_err(sql)?;
+        )?;
+        let restoration: String =
+            db.query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))?;
         let deletion = removal.deletion.as_mut().expect("retained operation");
         deletion.restored = true;
         deletion.restoration = Some(restoration);
         db.execute(
             "UPDATE rail_deletions SET record=json_set(record,'$.deletion',json(?2)) WHERE operation=?1",
-            params![p.operation,serde_json::to_string(&removal.deletion).map_err(RpcError::internal)?],
+            params![p.operation,serde_json::to_string(&removal.deletion)?],
         )
-        .map_err(sql)?;
+        ?;
         Ok(removal)
     }
 }
 
 /// M7: whether `id` is in Agent `agent`'s Reach, read inside the restoring transaction.
-fn in_reach(db: &Connection, nodes: &[RailNode], agent: &str, id: &str) -> Result<bool, RpcError> {
+fn in_reach(
+    db: &Connection,
+    nodes: &[RailNode],
+    agent: &str,
+    id: &str,
+) -> Result<bool, StoreError> {
     let created = Rail::created_by_in(db, agent)?;
     Ok(crate::reach::reach_of(nodes, created, agent).contains(id))
 }
@@ -436,13 +420,13 @@ impl Rail {
     pub(crate) fn acknowledge_restoration_in(
         db: &Connection,
         operation: &str,
-    ) -> Result<(), RpcError> {
+    ) -> Result<(), StoreError> {
         let boundary = Self::restored_boundary(db, operation)?;
-        db.execute("UPDATE rail_deletions SET record=json_set(record,'$.restoredBoundary',json(?2)) WHERE operation=?1",params![operation,serde_json::to_string(&boundary).map_err(RpcError::internal)?]).map_err(sql)?;
+        db.execute("UPDATE rail_deletions SET record=json_set(record,'$.restoredBoundary',json(?2)) WHERE operation=?1",params![operation,serde_json::to_string(&boundary)?])?;
         Ok(())
     }
 
-    fn restored_boundary(db: &Connection, operation: &str) -> Result<Vec<String>, RpcError> {
+    fn restored_boundary(db: &Connection, operation: &str) -> Result<Vec<String>, StoreError> {
         // Read only retained identities. Order normalization is bookkeeping, not user placement.
         let mut result = Vec::new();
         for (table, predicate, ignored) in [
@@ -472,40 +456,33 @@ impl Rail {
                 "",
             ),
         ] {
-            let mut q = db
-                .prepare(&format!("PRAGMA table_info({table})"))
-                .map_err(sql)?;
+            let mut q = db.prepare(&format!("PRAGMA table_info({table})"))?;
             let columns = q
-                .query_map([], |r| r.get::<_, String>(1))
-                .map_err(sql)?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(sql)?;
+                .query_map([], |r| r.get::<_, String>(1))?
+                .collect::<Result<Vec<_>, _>>()?;
             let columns = columns
                 .into_iter()
                 .filter(|c| c != ignored && !(table == "todos" && c == "updated_at"))
                 .map(|c| format!("\"{c}\""))
                 .collect::<Vec<_>>()
                 .join(",");
-            let value: String = db.query_row(&format!("SELECT json_group_array(json_array({columns})) FROM (SELECT * FROM {table} WHERE {predicate} ORDER BY 1,2)"),[operation],|r|r.get(0)).map_err(sql)?;
+            let value: String = db.query_row(&format!("SELECT json_group_array(json_array({columns})) FROM (SELECT * FROM {table} WHERE {predicate} ORDER BY 1,2)"),[operation],|r|r.get(0))?;
             result.push(value);
         }
         Ok(result)
     }
 
-    pub(crate) fn redo_removal<T>(
+    pub(crate) fn redo_removal<T, E: Into<StoreError>>(
         &mut self,
         actor: &contracts::Actor,
         p: &contracts::agent::RedoParams,
-        apply: impl FnOnce(&Connection, &mut contracts::agent::Removal) -> Result<T, RpcError>,
-    ) -> Result<(contracts::agent::Removal, Option<T>), RpcError> {
+        apply: impl FnOnce(&Connection, &mut contracts::agent::Removal) -> Result<T, E>,
+    ) -> Result<(contracts::agent::Removal, Option<T>), StoreError> {
         if p.operation.is_empty() || p.operation.len() > 96 {
-            return Err(RpcError::new(
-                rpc::code::INVALID_PARAMS,
-                "removal needs a key of 1–96 bytes",
-            ));
+            return Err(StoreError::invalid("removal needs a key of 1–96 bytes"));
         }
         if let Some(previous) = Self::read_deletion(&self.db, actor, &p.operation)? {
-            let request:(Option<String>,Option<String>)=self.db.query_row("SELECT json_extract(record,'$.source'),json_extract(record,'$.sourceRestoration') FROM rail_deletions WHERE operation=?",[&p.operation],|r|Ok((r.get(0)?,r.get(1)?))).map_err(sql)?;
+            let request:(Option<String>,Option<String>)=self.db.query_row("SELECT json_extract(record,'$.source'),json_extract(record,'$.sourceRestoration') FROM rail_deletions WHERE operation=?",[&p.operation],|r|Ok((r.get(0)?,r.get(1)?)))?;
             if request != (Some(p.source.clone()), Some(p.restoration.clone()))
                 || previous
                     .deletion
@@ -514,18 +491,18 @@ impl Rail {
                     .project
                     != p.project
             {
-                return Err(RpcError::conflict("Redo key names another operation"));
+                return Err(StoreError::conflict("Redo key names another operation"));
             }
             return Ok((previous, None));
         }
         let mut removal = Self::read_deletion(&self.db, actor, &p.source)?
-            .ok_or_else(|| RpcError::not_found("Rail removal"))?;
+            .ok_or_else(|| StoreError::not_found("Rail removal"))?;
         let source = removal.deletion.as_ref().expect("retained operation");
         if source.project != p.project {
-            return Err(RpcError::forbidden("removal belongs to another Project"));
+            return Err(StoreError::forbidden("removal belongs to another Project"));
         }
         if !source.restored || source.restoration.as_deref() != Some(&p.restoration) {
-            return Err(RpcError::conflict(
+            return Err(StoreError::conflict(
                 "Redo requires the acknowledged Rail restoration",
             ));
         }
@@ -558,14 +535,14 @@ impl Rail {
                 });
             }
         }
-        let out = self.remove_workstream(&id, &mut removal, Some((actor,&p.operation)), |db,removal| {
-            let (expected,successor):(Option<String>,Option<String>) = db.query_row("SELECT json_extract(record,'$.restoredBoundary'),json_extract(record,'$.redo') FROM rail_deletions WHERE operation=?",[&p.source],|r|Ok((r.get(0)?,r.get(1)?))).map_err(sql)?;
-            let current = serde_json::to_string(&Self::restored_boundary(db,&p.source)?).map_err(RpcError::internal)?;
+        let out = self.remove_workstream(&id, &mut removal, Some((actor,&p.operation)), |db,removal| -> Result<_, StoreError> {
+            let (expected,successor):(Option<String>,Option<String>) = db.query_row("SELECT json_extract(record,'$.restoredBoundary'),json_extract(record,'$.redo') FROM rail_deletions WHERE operation=?",[&p.source],|r|Ok((r.get(0)?,r.get(1)?)))?;
+            let current = serde_json::to_string(&Self::restored_boundary(db,&p.source)?)?;
             if successor.is_some() || expected.as_deref()!=Some(current.as_str()) {
-                return Err(RpcError::conflict("Can't redo: retained work changed, moved or was replaced. Restore its previous values and placement before retrying; the operation is retained."));
+                return Err(StoreError::conflict("Can't redo: retained work changed, moved or was replaced. Restore its previous values and placement before retrying; the operation is retained."));
             }
-            let out = apply(db,removal)?;
-            db.execute("UPDATE rail_deletions SET record=json_set(record,'$.redo',?2) WHERE operation=?1",params![p.source,p.operation]).map_err(sql)?;
+            let out = apply(db,removal).map_err(Into::<StoreError>::into)?;
+            db.execute("UPDATE rail_deletions SET record=json_set(record,'$.redo',?2) WHERE operation=?1",params![p.source,p.operation])?;
             Ok(out)
         })?;
         Ok((removal, Some(out)))

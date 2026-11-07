@@ -123,6 +123,19 @@ async fn g2_exclude_worktrees_is_added_once() {
 }
 
 #[tokio::test]
+async fn g2_an_unreadable_exclude_is_left_unchanged() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    set_worktrees(&f, true, None).await;
+    let exclude = f.dir.path().join(".git/info/exclude");
+    std::fs::write(&exclude, [0xff, 0xfe, b'\n']).unwrap();
+
+    let err = f.spawn(None, None).await.unwrap_err();
+
+    assert!(err.message.contains("worktree_failed"), "{}", err.message);
+    assert_eq!(std::fs::read(&exclude).unwrap(), [0xff, 0xfe, b'\n']);
+}
+
+#[tokio::test]
 async fn g2_a_project_whose_git_is_a_file_gets_the_exclude_line_in_the_real_git_dir() {
     let f = Fixture::in_git_project("sleep 30", Git::from_env());
     set_worktrees(&f, true, None).await;

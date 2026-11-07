@@ -198,8 +198,11 @@ impl Shared {
         let agent = node.kind == NodeKind::Agent;
         node.can_make_workstream =
             agent && node.parent.is_none() && rail.has_conversation(&node.id)?;
-        node.can_save_as_mode =
-            agent && Launcher::load_lean(&self.rail_view.data_dir, &node.id).is_some();
+        node.can_save_as_mode = agent
+            && matches!(
+                Launcher::load_lean(&self.rail_view.data_dir, &node.id),
+                Ok(Some(_))
+            );
         node.yolo = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.yolo,
             Some(
@@ -261,7 +264,7 @@ impl Shared {
     /// Every node of `rail` as `tree` presents it, its finish count read with the node.
     pub(super) fn presented_tree(&self, rail: &rail::Rail) -> Result<Vec<RailNode>, RpcError> {
         let runs = self.runs();
-        rail.tree_with(|node, finished| self.present(node, &runs, rail, finished))
+        Ok(rail.tree_with(|node, finished| self.present(node, &runs, rail, finished))?)
     }
 }
 
@@ -282,12 +285,12 @@ impl Agents {
 
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
     pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
-        self.shared.rail().name(id)
+        Ok(self.shared.rail().name(id)?)
     }
 
     /// Preserve canonical Rail identities after their nodes leave the live tree.
     pub fn rail_last_id(&self) -> Result<i64, RpcError> {
-        self.shared.rail().last_id()
+        Ok(self.shared.rail().last_id()?)
     }
 
     /// H21: the Agent a call from process `pid` is by, found by walking its parents to the
