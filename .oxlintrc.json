@@ -82,8 +82,7 @@
         ]
       }
     ],
-    "typescript/switch-exhaustiveness-check": "error",
-    "typescript/no-non-null-assertion": "error"
+    "typescript/switch-exhaustiveness-check": "error"
   },
   "overrides": [
     {
