@@ -264,19 +264,26 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     let reported_after = node(&tree, &reported);
     assert_eq!(reported_after.attempt, reported_before.attempt);
     assert!(reported_after.terminal_id.is_none());
-    let model = project.model.as_ref().unwrap();
+    // The Door's history only grows, so earlier requests keep any earlier snapshot; the start
+    // note is the last message that carries one.
+    let start_note = project
+        .model
+        .as_ref()
+        .unwrap()
+        .journal()
+        .iter()
+        .rev()
+        .flat_map(|entry| entry["body"]["messages"].as_array().unwrap().iter().rev())
+        .map(|message| message.to_string())
+        .find(|message| message.contains("[open jobs]"))
+        .expect("the Door's history holds a start note");
     assert!(
-        model
-            .journal()
-            .iter()
-            .map(|entry| entry["body"]["messages"].to_string())
-            .filter_map(|asked| {
-                // The snapshot ends at the next blank line; later text may name the reported Job.
-                let (_, rest) = asked.split_once("[open jobs]")?;
-                Some(rest.split("\\n\\n").next().unwrap_or(rest).to_owned())
-            })
-            .all(|snapshot| !snapshot.contains(&format!("- {reported} "))),
-        "the start note names the reported Job"
+        start_note.contains(&format!("- {job} ")),
+        "the start note lists the cut-off Job: {start_note}"
+    );
+    assert!(
+        !start_note.contains(&format!("- {reported} ")),
+        "the start note names the reported Job: {start_note}"
     );
 }
 
