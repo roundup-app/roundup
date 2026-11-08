@@ -5,7 +5,6 @@
 mod daemon;
 #[path = "e2e/door_mcp.rs"]
 mod door_mcp;
-use daemon::start_door;
 #[path = "e2e/notes.rs"]
 mod notes;
 #[path = "e2e/public_discovery.rs"]
@@ -23,7 +22,7 @@ use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
 use daemon::{
     Project, TEN_IDLE_BOUND, entry_of, h21_poll, next, next_kind, rail_tree, signal, start,
-    wait_until_idle,
+    start_door, wait_until_idle,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -761,12 +760,12 @@ async fn digest_pushes(client: &rpc::Client, to: &str) -> Vec<(Value, Value)> {
         .unwrap()
         .iter()
         .filter(|message| message["from"]["id"] == "rupd")
-        .map(|message| {
+        .flat_map(|message| {
             let body = message["body"].as_str().unwrap();
-            let entry = body
-                .strip_prefix("[digest] ")
-                .expect("body is [digest] and an entry");
-            (message.clone(), entry_of(entry))
+            daemon::rollup_entries(body)
+                .into_iter()
+                .map(|text| (message.clone(), entry_of(&text)))
+                .collect::<Vec<_>>()
         })
         .collect()
 }
@@ -777,13 +776,14 @@ async fn push_where(
     to: &str,
     want: impl Fn(&Value, &Value) -> bool,
 ) -> (Value, Value) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let (deadline, mut polls) = (Instant::now() + Duration::from_secs(5), 0_u32);
     loop {
         let pushes = digest_pushes(client, to).await;
         if let Some(found) = pushes.iter().rev().find(|(m, e)| want(m, e)) {
             return found.clone();
         }
         assert!(Instant::now() < deadline, "no such push yet: {pushes:?}");
+        notes::carry_quiet_notes(client, to, &mut polls).await;
         tokio::time::sleep(Duration::from_millis(25)).await;
     }
 }

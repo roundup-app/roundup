@@ -1,3 +1,4 @@
+import { CHORDS } from "../keys/chords";
 import { percentile } from "./keystrokes";
 
 /** Samples of each kind thrown away first, and kept after them (`scenarios/perf.md` SP4). */
@@ -10,8 +11,10 @@ type Probe = { samples: () => { open: number[]; switch: number[] }; dropped: () 
 export type Series = { n: number; dropped: number; p50: number; p95: number; p99: number; max: number };
 
 /** Nearest rank over what remains after the warm-up; `dropped` counts only the drops after it. */
-export const summarize = (all: number[], discard: number, dropped: number): Series => {
+export const summarize = (all: number[], discard: number, dropped: number, name: "open" | "switch" = "open"): Series => {
   const sorted = all.slice(discard).sort((a, b) => a - b);
+
+  if (sorted.length === 0) throw new Error(`no ${name} sample was taken after the warm-up`);
 
   return { n: sorted.length, dropped, p50: percentile(sorted, 0.5), p95: percentile(sorted, 0.95), p99: percentile(sorted, 0.99), max: sorted[sorted.length - 1]! };
 };
@@ -30,16 +33,24 @@ const field = () => document.querySelector<HTMLInputElement>(".switcher input");
 
 const items = () => [...document.querySelectorAll<HTMLElement>(".switcher .app-combobox-item")];
 
-/** The chord is the leader `⌘K` and its `K` (U529). */
+/** The key registry's press for opening the Switcher, as a keydown init (`meta+shift+KeyP`), so a rebind moves the probe with it. */
+export const openInit = (press = CHORDS["switcher.open"].presses[0] ?? ""): KeyboardEventInit => {
+  const parts = press.split("+");
+  const code = parts[parts.length - 1] ?? "";
+  const has = (name: string) => parts.includes(name);
+  const letter = code.startsWith("Key") ? code.slice(3) : code;
+
+  return { key: has("shift") ? letter : letter.toLowerCase(), code, metaKey: has("meta"), shiftKey: has("shift"), ctrlKey: has("ctrl"), altKey: has("alt") };
+};
+
 const chord = () => {
-  key(document.body, { key: "k", code: "KeyK", metaKey: true });
-  key(document.body, { key: "k", code: "KeyK" });
+  key(document.body, openInit());
 };
 
 const kindOf = (value: string) => (value.startsWith("action:") ? "action" : value.startsWith("terminal:") ? "terminal" : "agent");
 
 /**
- * SP4: two loops, each step 150 to 250 ms after the last. The open loop presses the chord then `Esc`; the switch loop opens the Switcher and presses `⏎`
+ * SP4: two loops, each step 150 to 250 ms after the last. The open loop presses the registry's Switcher chord then `Esc`; the switch loop opens the Switcher and presses `⏎`
  * onto an Agent and, on the next turn, onto a Terminal. The samples themselves come from the SP2 and SP3 marks of `createSwitchProbe`.
  */
 export const runSwitchWorkload = async ({ probe, sleep, random, until }: Deps) => {
@@ -97,7 +108,7 @@ export const runSwitchWorkload = async ({ probe, sleep, random, until }: Deps) =
   const dropped = probe.dropped();
 
   return {
-    switcher_open: summarize(samples.open, discard.open, dropped.open - after.open),
-    switch: summarize(samples.switch, discard.switch, dropped.switch - after.switch),
+    switcher_open: summarize(samples.open, discard.open, dropped.open - after.open, "open"),
+    switch: summarize(samples.switch, discard.switch, dropped.switch - after.switch, "switch"),
   };
 };
