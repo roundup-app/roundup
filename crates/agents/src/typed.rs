@@ -75,7 +75,7 @@ impl Agents {
         }
         Self::touch_creation(ctx, &node.id, start_attribution.as_ref())?;
         ctx.emit(EventData::RailChanged);
-        shared.node(&node.id)
+        shared.node(crate::rail::agent_id(&node.id)?)
     }
 
     /// `rail.remove`: a Workstream's outcome, `None` for any other node.

@@ -708,7 +708,11 @@ impl super::Agents {
         expected: &contracts::agent::Worktree,
         head: Option<&str>,
     ) -> Option<Facts> {
-        let record = self.shared.node(id).ok()?.worktree?;
+        let record = self
+            .shared
+            .node(crate::rail::agent_id(id).ok()?)
+            .ok()?
+            .worktree?;
         if &record != expected {
             return None;
         }

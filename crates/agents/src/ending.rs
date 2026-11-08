@@ -230,7 +230,7 @@ impl Shared {
                 return Err(err);
             }
             let result = if remove {
-                rail.remove(id)
+                rail.remove(crate::rail::agent_id(id)?)
             } else {
                 rail.detach_terminal(crate::rail::agent_id(id)?)
             };

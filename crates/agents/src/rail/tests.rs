@@ -165,7 +165,13 @@ fn a6_nothing_nests_under_an_agent() {
         let inserted = rail
             .insert(NodeKind::Workstream, "x", Some(&leaf.id), None)
             .unwrap_err();
-        let moved = rail.move_node(&group.id, Some(&leaf.id), 0).unwrap_err();
+        let moved = rail
+            .move_node(
+                crate::rail::agent_id(&group.id).unwrap(),
+                Some(crate::rail::agent_id(&leaf.id).unwrap()),
+                0,
+            )
+            .unwrap_err();
         assert_eq!(
             (code_of(inserted), code_of(moved)),
             (code::CONFLICT, code::CONFLICT),
@@ -255,7 +261,8 @@ fn a6_removing_a_node_closes_the_gap_among_its_siblings() {
                 .id
         })
         .into();
-    rail.remove(&ids[1]).unwrap();
+    rail.remove(crate::rail::agent_id(&ids[1]).unwrap())
+        .unwrap();
     let tree = rail.tree().unwrap();
     let rest: Vec<_> = tree.iter().map(|n| (n.name.as_str(), n.order)).collect();
     assert_eq!(rest, [("a", 0), ("c", 1)]);
@@ -279,7 +286,9 @@ fn a16_a_groups_delete_failing_after_a_successful_move_rolls_both_back() {
         )
         .unwrap();
 
-    let err = rail.remove(&group.id).unwrap_err();
+    let err = rail
+        .remove(crate::rail::agent_id(&group.id).unwrap())
+        .unwrap_err();
 
     assert_eq!(code_of(err), code::INTERNAL);
     let found = rail
@@ -309,7 +318,13 @@ fn u6550c_placement_table_is_check_parent() {
             let (_dir, mut rail) = rail();
             let id = make(&mut rail, kind, "moved");
             let parent = make(&mut rail, parent_kind, "parent");
-            let moved = rail.move_node(&id, Some(&parent), 0).is_ok();
+            let moved = rail
+                .move_node(
+                    crate::rail::agent_id(&id).unwrap(),
+                    Some(crate::rail::agent_id(&parent).unwrap()),
+                    0,
+                )
+                .is_ok();
             let rule = &table[name][parent_name];
             assert_eq!(
                 moved,
@@ -323,9 +338,21 @@ fn u6550c_placement_table_is_check_parent() {
     let workstream = make(&mut rail, NodeKind::Workstream, "holder");
     let group = make(&mut rail, NodeKind::Group, "inner");
     let moved = make(&mut rail, NodeKind::Workstream, "moved");
-    rail.move_node(&group, Some(&workstream), 0).unwrap();
+    rail.move_node(
+        crate::rail::agent_id(&group).unwrap(),
+        Some(crate::rail::agent_id(&workstream).unwrap()),
+        0,
+    )
+    .unwrap();
     assert_eq!(table["workstream"]["group"], "chain");
-    assert!(rail.move_node(&moved, Some(&group), 0).is_err());
+    assert!(
+        rail.move_node(
+            crate::rail::agent_id(&moved).unwrap(),
+            Some(crate::rail::agent_id(&group).unwrap()),
+            0
+        )
+        .is_err()
+    );
 }
 
 fn code_of(error: super::StoreError) -> i64 {

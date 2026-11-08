@@ -444,7 +444,10 @@ impl Shared {
             }
             Effect::ShowOnRail => {
                 if let Some(rail) = rail
-                    && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
+                    && rail.set_visibility(
+                        crate::rail::agent_id(id)?,
+                        contracts::agent::RailVisibility::Shown,
+                    )?
                 {
                     self.bus.emit(actor.clone(), EventData::RailChanged);
                 }

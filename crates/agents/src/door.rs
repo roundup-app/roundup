@@ -151,7 +151,7 @@ impl Agents {
         id: &str,
         bound: Duration,
     ) -> Result<RailNode, RpcError> {
-        let parked = self.shared.node(id)?;
+        let parked = self.shared.node(crate::rail::agent_id(id)?)?;
         let params = StartDoorParams {
             prompt: None,
             id: id.to_owned(),
@@ -210,9 +210,13 @@ impl Agents {
             }
             return Err(RpcError::conflict(cause));
         }
-        self.shared.node(id).map_err(|error| {
-            RpcError::unknown_outcome(format!("fresh Door started but could not be read: {error}"))
-        })
+        self.shared
+            .node(crate::rail::agent_id(id)?)
+            .map_err(|error| {
+                RpcError::unknown_outcome(format!(
+                    "fresh Door started but could not be read: {error}"
+                ))
+            })
     }
 
     /// A7: start a Workstream's Door. A23: a Door with A21 data resumes that conversation exactly as
@@ -273,7 +277,7 @@ impl Agents {
             if own {
                 let parked = self.shared.rail().node(crate::rail::agent_id(id)?)?;
                 self.shared.rail().set_pair(
-                    id,
+                    crate::rail::agent_id(id)?,
                     pair.model.as_deref().or(parked.model.as_deref()),
                     pair.effort.as_deref().or(parked.effort.as_deref()),
                 )?;
@@ -310,7 +314,11 @@ impl Agents {
                     return Err(RpcError::conflict(format!("Door {id} is already active")));
                 }
             }
-            rail.set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
+            rail.set_pair(
+                crate::rail::agent_id(id)?,
+                pair.model.as_deref(),
+                pair.effort.as_deref(),
+            )?;
             let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
             self.shared.events.observed.notify_waiters();
             runs.put(
@@ -354,7 +362,7 @@ impl Agents {
             return Err(err);
         }
         ctx.emit(EventData::RailChanged);
-        self.shared.node(id)
+        self.shared.node(crate::rail::agent_id(id)?)
     }
 }
 

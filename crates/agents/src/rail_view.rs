@@ -57,9 +57,9 @@ fn resume_cleanup_label(pending: bool) -> &'static str {
     }
 }
 
-/// U3566c: the published finishes of the node `id`; an id that parses to no node counts `0`.
-pub(super) fn finished_of(rail: &rail::Rail, id: &str) -> Result<u64, RpcError> {
-    AgentId::parse(id).map_or(Ok(0), |id| Ok(rail.finished(id)?))
+/// U3566c: the published finishes of the node `id`.
+pub(super) fn finished_of(rail: &rail::Rail, id: AgentId) -> Result<u64, RpcError> {
+    Ok(rail.finished(id)?)
 }
 
 impl Shared {
@@ -95,10 +95,10 @@ impl Shared {
         agent_lock(&self.runs).unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    pub(super) fn mark_starting(&self, id: &str, attempt: Ordinal) {
+    pub(super) fn mark_starting(&self, id: AgentId, attempt: Ordinal) {
         let since = (self.clock)();
         self.runs().put(
-            id,
+            &id.to_string(),
             Slot::Starting {
                 attempt,
                 since,
@@ -251,16 +251,11 @@ impl Shared {
         Ok(node)
     }
 
-    pub(super) fn node(&self, id: &str) -> Result<RailNode, RpcError> {
+    pub(super) fn node(&self, id: AgentId) -> Result<RailNode, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
         let finished = finished_of(&rail, id)?;
-        self.present(
-            rail.node(crate::rail::agent_id(id)?)?,
-            &runs,
-            &rail,
-            finished,
-        )
+        self.present(rail.node(id)?, &runs, &rail, finished)
     }
 
     pub(super) fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
@@ -354,7 +349,11 @@ impl Agents {
             ActorKind::User => true,
             // O13: a Door sets the order only of an Agent it, or an Agent under it, spawned.
             ActorKind::Agent => {
-                ctx.actor.id == id || self.shared.rail().spawned_under(&id, &ctx.actor.id)?
+                ctx.actor.id == id
+                    || self
+                        .shared
+                        .rail()
+                        .spawned_under(crate::rail::agent_id(&id)?, &ctx.actor.id)?
             }
             ActorKind::Ext => false,
         };
@@ -369,10 +368,10 @@ impl Agents {
                 self.rail_name(&id)?
             )));
         }
-        let node = self
-            .shared
-            .rail()
-            .set_order(&id, &order, captured.as_ref())?;
+        let node =
+            self.shared
+                .rail()
+                .set_order(crate::rail::agent_id(&id)?, &order, captured.as_ref())?;
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         if ctx.actor.id != id {
@@ -381,7 +380,7 @@ impl Agents {
             let text = order::steer(&order, None);
             if let Some(attempt) = node.attempt.as_deref() {
                 let mut rail = shared.rail();
-                if let Some(revision) = rail.order_revision(&id)? {
+                if let Some(revision) = rail.order_revision(crate::rail::agent_id(&id)?)? {
                     rail.prepare_instruction(&revision, attempt, &text, false)?;
                 }
             }
@@ -402,7 +401,7 @@ impl Agents {
                 eprintln!("agents: the new order of {id} was not sent: {err}");
             }
         }
-        self.shared.node(&node.id)
+        self.shared.node(crate::rail::agent_id(&node.id)?)
     }
 }
 

@@ -15,9 +15,9 @@ pub fn maker_in(db: &Connection, id: &str) -> rusqlite::Result<Option<(String, O
 /// The nearest Workstream or Group at or above node `id`.
 pub fn home_in(db: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
     db.query_row(
-        "WITH RECURSIVE ancestry(id,kind,parent) AS (SELECT id,kind,parent FROM nodes WHERE id=?1 UNION ALL SELECT n.id,n.kind,n.parent FROM nodes n JOIN ancestry a ON n.id=a.parent) SELECT CAST(id AS TEXT) FROM ancestry WHERE kind IN ('workstream','group') LIMIT 1",
+        "WITH RECURSIVE ancestry(id,kind,parent) AS (SELECT id,kind,parent FROM nodes WHERE id=?1 UNION ALL SELECT n.id,n.kind,n.parent FROM nodes n JOIN ancestry a ON n.id=a.parent) SELECT id FROM ancestry WHERE kind IN ('workstream','group') LIMIT 1",
         [AgentId::parse(id).map(AgentId::get)],
-        |r| r.get(0),
+        |r| r.get::<_, i64>(0).map(|home| home.to_string()),
     )
     .optional()
 }

@@ -5,7 +5,7 @@ use contracts::agent::AlertLevel;
 impl Rail {
     pub(crate) fn set_alert_level(
         &mut self,
-        id: &str,
+        id: AgentId,
         level: AlertLevel,
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
@@ -14,7 +14,7 @@ impl Rail {
         let stored = serde_json::to_string(&level)?;
         for node in &nodes {
             if (node.kind == NodeKind::Agent || node.attempt.is_some())
-                && (node.id == id
+                && (node.id == id.to_string()
                     || (target.kind == NodeKind::Workstream && is_within(&nodes, &node.id, id)))
             {
                 tx.execute(
@@ -30,7 +30,7 @@ impl Rail {
 impl Rail {
     pub(crate) fn set_visibility(
         &self,
-        id: &str,
+        id: AgentId,
         visibility: contracts::agent::RailVisibility,
     ) -> Result<bool, StoreError> {
         let value = match visibility {
@@ -41,7 +41,7 @@ impl Rail {
             .db
             .execute(
                 "UPDATE nodes SET visibility=?1 WHERE id=?2 AND visibility<>?1",
-                params![value, id],
+                params![value, id.get()],
             )
             .map(|n| n != 0)?)
     }

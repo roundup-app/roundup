@@ -169,7 +169,7 @@ impl Shared {
                     }
                 }
                 let result = rail.remove_workstream(
-                    &id_owned,
+                    crate::rail::agent_id(&id_owned)?,
                     &mut removal,
                     None,
                     |db, removal| -> Result<_, RpcError> {
@@ -392,7 +392,7 @@ impl Agents {
                 }
             }
             drop(runs);
-            let out=rail.remove_workstream(&id,&mut removal,Some((&actor,&operation)),apply)?;
+            let out=rail.remove_workstream(crate::rail::agent_id(&id)?,&mut removal,Some((&actor,&operation)),apply)?;
             let result=(removal,out);
             // Ended run facts stay in their existing holder so undo recovers their Status.
             // They own no live process, and cannot be addressed while their Rail row is absent.
@@ -574,7 +574,11 @@ mod tests {
 
         assert_eq!(tool_calls(&shared), before);
         assert_eq!(
-            shared.node(&id).unwrap().tool_call.as_ref(),
+            shared
+                .node(crate::rail::agent_id(&id).unwrap())
+                .unwrap()
+                .tool_call
+                .as_ref(),
             Some(&before[&id].call)
         );
     }
@@ -622,9 +626,19 @@ mod tests {
 
         assert!(removal.removed.iter().any(|item| item.id == finished));
         assert!(removal.kept.iter().any(|item| item.id == living));
-        assert_eq!(shared.node(&living).unwrap().parent, None);
         assert_eq!(
-            shared.node(&survivor).unwrap().parent.as_deref(),
+            shared
+                .node(crate::rail::agent_id(&living).unwrap())
+                .unwrap()
+                .parent,
+            None
+        );
+        assert_eq!(
+            shared
+                .node(crate::rail::agent_id(&survivor).unwrap())
+                .unwrap()
+                .parent
+                .as_deref(),
             Some(sibling.as_str())
         );
         let calls = tool_calls(&shared);
@@ -828,7 +842,7 @@ mod tests {
         let err = shared.remove(Actor::daemon(), &id).await.unwrap_err();
 
         assert_eq!(err.code, rpc::code::INTERNAL);
-        let node = shared.node(&id).unwrap();
+        let node = shared.node(crate::rail::agent_id(&id).unwrap()).unwrap();
         assert_eq!(node.status.unwrap().kind, Kind::Done);
         assert_eq!(tool_calls(&shared), before);
 
@@ -891,7 +905,15 @@ mod tests {
             };
             assert_eq!(error.code, rpc::code::INTERNAL);
             assert_eq!(shared.tree().unwrap().len(), if workstream { 2 } else { 1 });
-            assert_eq!(shared.node(&id).unwrap().status.unwrap().kind, Kind::Done);
+            assert_eq!(
+                shared
+                    .node(crate::rail::agent_id(&id).unwrap())
+                    .unwrap()
+                    .status
+                    .unwrap()
+                    .kind,
+                Kind::Done
+            );
             assert_eq!(tool_calls(&shared), before);
             db.execute_batch("DROP TRIGGER fail_delete").unwrap();
             if let Some(ws) = &ws {
@@ -921,7 +943,11 @@ mod tests {
         let error = shared.remove(Actor::user(), &group).await.unwrap_err();
         assert_eq!(error.code, rpc::code::INTERNAL);
         assert_eq!(
-            shared.node(&child).unwrap().parent.as_deref(),
+            shared
+                .node(crate::rail::agent_id(&child).unwrap())
+                .unwrap()
+                .parent
+                .as_deref(),
             Some(group.as_str())
         );
         db.execute_batch("DROP TRIGGER fail_delete").unwrap();

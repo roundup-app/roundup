@@ -396,7 +396,10 @@ impl Intake {
                         },
                     },
                     Err(err) => {
-                        self.agents.shared.rail().remove(&workstream)?;
+                        self.agents
+                            .shared
+                            .rail()
+                            .remove(crate::rail::agent_id(&workstream)?)?;
                         ctx.emit(EventData::RailChanged);
                         part.placement = match part.placement {
                             Place::New { title, project, .. } => Place::New {
@@ -469,7 +472,9 @@ impl Intake {
                 observed.await;
                 continue;
             }
-            let node = self.agents.shared.node(workstream);
+            let node = crate::rail::agent_id(workstream)
+                .map_err(RpcError::from)
+                .and_then(|id| self.agents.shared.node(id));
             let result: Result<(), String> = match node {
                 Err(_) => Err("the Workstream was removed".to_owned()),
                 Ok(node) => {
@@ -507,7 +512,11 @@ impl Intake {
                                 }
                             }
                             Err(err) => {
-                                let reason = if self.agents.shared.node(workstream).is_err() {
+                                let reason = if crate::rail::agent_id(workstream)
+                                    .map_err(RpcError::from)
+                                    .and_then(|id| self.agents.shared.node(id))
+                                    .is_err()
+                                {
                                     "the Workstream was removed".to_owned()
                                 } else {
                                     err.message
@@ -701,7 +710,7 @@ impl Asks {
                     return Ok(ask);
                 }
                 if let Some(id) = &workstream {
-                    let node = shared.agents.shared.node(id)?;
+                    let node = shared.agents.shared.node(crate::rail::agent_id(id)?)?;
                     if node.kind != NodeKind::Workstream {
                         return Err(RpcError::new(
                             code::INVALID_PARAMS,
@@ -863,7 +872,9 @@ impl Asks {
                     if shared
                         .agents
                         .shared
-                        .node(&id)
+                        .node(crate::rail::agent_id(&id).map_err(|_| {
+                            RpcError::new(code::INVALID_PARAMS, "unknown Workstream")
+                        })?)
                         .map_err(|_| RpcError::new(code::INVALID_PARAMS, "unknown Workstream"))?
                         .kind
                         != NodeKind::Workstream
@@ -939,7 +950,12 @@ fn placed_parts(
                 return Err(invalid("placed parts must be spans of the Ask text"));
             }
             if let Place::Routed { workstream, .. } = &part.placement
-                && shared.agents.shared.node(workstream)?.kind != NodeKind::Workstream
+                && shared
+                    .agents
+                    .shared
+                    .node(crate::rail::agent_id(workstream)?)?
+                    .kind
+                    != NodeKind::Workstream
             {
                 return Err(invalid("target must be a Workstream"));
             }

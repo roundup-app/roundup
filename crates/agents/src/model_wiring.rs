@@ -55,7 +55,7 @@ impl Agents {
             NodeKind::Group => return Err(RpcError::conflict("a Group has no model")),
         };
         let pair = models::resolve(&self.project_models()?, role, model, effort);
-        let parked = self.shared.node(id)?;
+        let parked = self.shared.node(crate::rail::agent_id(id)?)?;
         if (&parked.model, &parked.effort) == (&pair.model, &pair.effort) {
             return Ok(parked);
         }
@@ -73,9 +73,11 @@ impl Agents {
         if live {
             self.shared.stop(ctx.actor.clone(), id).await?;
         }
-        self.shared
-            .rail()
-            .set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
+        self.shared.rail().set_pair(
+            crate::rail::agent_id(id)?,
+            pair.model.as_deref(),
+            pair.effort.as_deref(),
+        )?;
         if live {
             let bound = match kind {
                 NodeKind::Workstream => START_DOOR_ACK_BOUND,
@@ -91,6 +93,6 @@ impl Agents {
             .await?;
         }
         ctx.emit(EventData::RailChanged);
-        self.shared.node(id)
+        self.shared.node(crate::rail::agent_id(id)?)
     }
 }

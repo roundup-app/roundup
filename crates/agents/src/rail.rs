@@ -71,7 +71,7 @@ impl Rail {
 
     /// Resource holders may address reserved nodes; user-facing Rail callers cannot.
     pub(super) fn resource_node(&self, id: AgentId) -> Result<RailNode, StoreError> {
-        find(&load_nodes(&self.db, true)?, &id.to_string()).cloned()
+        find(&load_nodes(&self.db, true)?, id).cloned()
     }
 
     /// Append a node under `parent` (`None` is the root); `check_parent` says which kinds fit where.
@@ -124,10 +124,10 @@ impl Rail {
 
     /// O13: whether an Agent's `agent.spawn` started `id` and `door` is above it: the `parent`
     /// chain of `id` reaches `door`.
-    pub fn spawned_under(&self, id: &str, door: &str) -> Result<bool, StoreError> {
+    pub fn spawned_under(&self, id: AgentId, door: &str) -> Result<bool, StoreError> {
         let started: Option<String> = self.db.query_row(
             "SELECT spawner FROM nodes WHERE id = ?",
-            params![id],
+            params![id.get()],
             |row| row.get(0),
         )?;
         if started.is_none() {
@@ -139,7 +139,7 @@ impl Rail {
             if parent == door {
                 return Ok(true);
             }
-            at = find(&nodes, &parent)?.parent.clone();
+            at = find_key(&nodes, &parent)?.parent.clone();
         }
         Ok(false)
     }
@@ -168,7 +168,7 @@ impl Rail {
     /// transaction. Refusal precedes every Touch, Event and Steer.
     pub fn set_order(
         &mut self,
-        id: &str,
+        id: AgentId,
         order: &Order,
         captured: Option<&CapturedOrder>,
     ) -> Result<RailNode, StoreError> {
@@ -185,7 +185,7 @@ impl Rail {
             params![json, node.id],
         )?;
         if matches!(order, Order::Clarification { .. }) {
-            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])?;
+            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id.get()])?;
             node.visibility = contracts::agent::RailVisibility::Shown;
         }
         tx.commit()?;
@@ -193,10 +193,10 @@ impl Rail {
         Ok(node)
     }
 
-    pub(super) fn order_revision(&self, id: &str) -> Result<Option<String>, StoreError> {
+    pub(super) fn order_revision(&self, id: AgentId) -> Result<Option<String>, StoreError> {
         Ok(self.db.query_row(
             "SELECT CAST(max(revision) AS TEXT) FROM instruction_revisions WHERE agent=? AND message IS NULL",
-            [id], |row| row.get(0),
+            [id.to_string()], |row| row.get(0),
         )?)
     }
 
@@ -216,13 +216,13 @@ impl Rail {
 
     pub(super) fn first_instruction(
         &self,
-        agent: &str,
+        agent: AgentId,
         attempt: &str,
     ) -> Result<Option<String>, StoreError> {
         Ok(self.db.query_row(
             "SELECT CAST(d.id AS TEXT) FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision
              WHERE r.agent=? AND d.attempt=? AND d.first=1 ORDER BY d.id DESC LIMIT 1",
-            params![agent, attempt], |row| row.get(0),
+            params![agent.to_string(), attempt], |row| row.get(0),
         ).optional()?)
     }
 
@@ -241,23 +241,24 @@ impl Rail {
 
     pub(super) fn instructions(
         &mut self,
-        id: &str,
+        id: AgentId,
         project: &str,
     ) -> Result<contracts::agent::Instructions, StoreError> {
         use contracts::agent::{
             Instruction, InstructionDelivery, InstructionRevision, Instructions,
         };
+        let key = id.to_string();
         let tx = self.db.transaction()?;
         let home = tx
             .query_row(
                 "SELECT home FROM instruction_homes WHERE agent=?",
-                [id],
+                [&key],
                 |row| row.get(0),
             )
             .optional()?
             .ok_or_else(|| StoreError::not_found(GONE_AGENT))?;
         let rows = tx.prepare("SELECT revision,workstream,work,message,text FROM instruction_revisions WHERE agent=? ORDER BY revision")?
-            .query_map([id], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,Option<String>>(1)?,row.get::<_,Option<String>>(2)?,row.get::<_,Option<u32>>(3)?,row.get::<_,Option<String>>(4)?)))
+            .query_map([&key], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,Option<String>>(1)?,row.get::<_,Option<String>>(2)?,row.get::<_,Option<u32>>(3)?,row.get::<_,Option<String>>(4)?)))
             ?.collect::<Result<Vec<_>,_>>()?;
         let mut revisions = Vec::new();
         let mut current = None;
@@ -275,13 +276,13 @@ impl Rail {
             };
             revisions.push(InstructionRevision {
                 revision,
-                agent: id.to_owned(),
+                agent: key.clone(),
                 workstream,
                 instruction,
             });
         }
         let rows = tx.prepare("SELECT d.id,d.revision,d.attempt,d.text,d.state FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision WHERE r.agent=? ORDER BY d.id")?
-            .query_map([id], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?)))
+            .query_map([&key], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?)))
             ?.collect::<Result<Vec<_>,_>>()?;
         let deliveries = rows
             .into_iter()
@@ -297,7 +298,7 @@ impl Rail {
             .collect::<Result<Vec<_>, StoreError>>()?;
         let present: bool = tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM nodes WHERE id=?)",
-            [AgentId::parse(id).map(AgentId::get)],
+            [id.get()],
             |row| row.get(0),
         )?;
         if !present {
@@ -460,15 +461,15 @@ impl Rail {
     }
 
     pub fn node(&self, id: AgentId) -> Result<RailNode, StoreError> {
-        find(&load(&self.db)?, &id.to_string()).cloned()
+        find(&load(&self.db)?, id).cloned()
     }
 
     pub fn mark_worktree_provisioning(
         &mut self,
-        id: &str,
+        id: AgentId,
         plan: &super::worktree::Provision,
     ) -> Result<(), StoreError> {
-        self.db.execute("UPDATE nodes SET worktree_state='provisioning', worktree_path=?, worktree_branch=?, worktree_base=?, worktree_owner=?, worktree_commit=? WHERE id=?", params![plan.worktree.path.to_string_lossy(), plan.worktree.branch, plan.worktree.base, plan.owner, plan.commit, id])?;
+        self.db.execute("UPDATE nodes SET worktree_state='provisioning', worktree_path=?, worktree_branch=?, worktree_base=?, worktree_owner=?, worktree_commit=? WHERE id=?", params![plan.worktree.path.to_string_lossy(), plan.worktree.branch, plan.worktree.base, plan.owner, plan.commit, id.get()])?;
         Ok(())
     }
 
@@ -618,10 +619,15 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, StoreError> {
     load_nodes(db, false)
 }
 
-fn find<'a>(nodes: &'a [RailNode], id: &str) -> Result<&'a RailNode, StoreError> {
+fn find(nodes: &[RailNode], id: AgentId) -> Result<&RailNode, StoreError> {
+    find_key(nodes, &id.to_string())
+}
+
+/// `find` for a stored `parent` link, which is already a node's key.
+fn find_key<'a>(nodes: &'a [RailNode], key: &str) -> Result<&'a RailNode, StoreError> {
     nodes
         .iter()
-        .find(|node| node.id == id)
+        .find(|node| node.id == key)
         .ok_or_else(|| StoreError::not_found(GONE_AGENT))
 }
 
@@ -642,14 +648,14 @@ fn check_parent(
     kind: NodeKind,
     parent: Option<&str>,
 ) -> Result<(), StoreError> {
-    let Some(parent) = parent.map(|id| find(nodes, id)).transpose()? else {
+    let Some(parent) = parent.map(|id| find_key(nodes, id)).transpose()? else {
         return Ok(());
     };
     match (kind, parent.kind) {
         (NodeKind::Workstream | NodeKind::Group, NodeKind::Group) => {
             let mut at = parent.parent.as_deref();
             while let Some(id) = at {
-                let ancestor = find(nodes, id)?;
+                let ancestor = find_key(nodes, id)?;
                 if kind == NodeKind::Workstream && ancestor.kind != NodeKind::Group {
                     return Err(StoreError::conflict("Workstreams never nest"));
                 }
@@ -667,7 +673,12 @@ fn check_parent(
 }
 
 /// Is `node` the ancestor `id` or a descendant of it?
-fn is_within(nodes: &[RailNode], node: &str, id: &str) -> bool {
+fn is_within(nodes: &[RailNode], node: &str, id: AgentId) -> bool {
+    is_within_key(nodes, node, &id.to_string())
+}
+
+/// `is_within` for a stored node key.
+fn is_within_key(nodes: &[RailNode], node: &str, id: &str) -> bool {
     let mut at = Some(node);
     while let Some(current) = at {
         if current == id {

@@ -47,7 +47,7 @@ impl Agents {
             return Err(error);
         }
         ctx.emit(EventData::RailChanged);
-        self.shared.node(id)
+        self.shared.node(crate::rail::agent_id(id)?)
     }
 
     /// A5214b: a Mode named `name` holding Agent `id`'s first prompt, extras, Model and Effort.
@@ -83,11 +83,15 @@ impl Agents {
             if let Some(id) = crate::id::AgentId::parse(&mode.id) {
                 rail.set_opening_prompt(id, Some(&prompt))?;
             }
-            rail.set_pair(&mode.id, agent.model.as_deref(), agent.effort.as_deref())?;
+            rail.set_pair(
+                crate::rail::agent_id(&mode.id)?,
+                agent.model.as_deref(),
+                agent.effort.as_deref(),
+            )?;
             mode
         };
         Launcher::save_lean(&self.dir, &mode.id, &lean)?;
         ctx.emit(EventData::RailChanged);
-        self.shared.node(&mode.id)
+        self.shared.node(crate::rail::agent_id(&mode.id)?)
     }
 }

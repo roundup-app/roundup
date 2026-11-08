@@ -6,7 +6,7 @@ use contracts::agent::{WorktreeCheckConclusion, WorktreeEvidence, WorktreeRequir
 impl Agents {
     /// G3: how far the Agent's Worktree is from its Base. Reads only.
     pub(super) async fn worktree_state(&self, id: &str) -> Result<WorktreeState, RpcError> {
-        let record = self.shared.node(id)?.worktree;
+        let record = self.shared.node(crate::rail::agent_id(id)?)?.worktree;
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
@@ -20,7 +20,13 @@ impl Agents {
         .await
         .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))??;
         // A local read can outlive replacement: never attach the replacement's facts to it.
-        if self.shared.node(id)?.worktree.as_ref() != Some(&record) {
+        if self
+            .shared
+            .node(crate::rail::agent_id(id)?)?
+            .worktree
+            .as_ref()
+            != Some(&record)
+        {
             return Err(RpcError::new(code::NOT_FOUND, "Worktree identity changed"));
         }
         if let Some(facts) = self.worktree_facts(id, &record, head.as_deref()) {
@@ -50,7 +56,7 @@ impl Agents {
 
     /// U2539a: what the Agent's Worktree changed against its Base. Reads only.
     pub(super) async fn changed_files(&self, id: &str) -> Result<ChangedFiles, RpcError> {
-        let record = self.shared.node(id)?.worktree;
+        let record = self.shared.node(crate::rail::agent_id(id)?)?.worktree;
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
@@ -69,7 +75,7 @@ impl Agents {
     ) -> Result<contracts::agent::FileComparison, RpcError> {
         let record = self
             .shared
-            .node(id)?
+            .node(crate::rail::agent_id(id)?)?
             .worktree
             .ok_or_else(|| RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")))?;
         let git = self.shared.git.bounded();
@@ -82,7 +88,7 @@ impl Agents {
 
     /// G4: land the Agent's branch on its Base, after the Project's `check` passes in the Worktree.
     pub(super) async fn land(&self, id: &str) -> Result<Landed, RpcError> {
-        let record = self.shared.node(id)?.worktree;
+        let record = self.shared.node(crate::rail::agent_id(id)?)?.worktree;
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
@@ -121,7 +127,9 @@ impl Agents {
         let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id))
             .await
             .map_err(RpcError::internal)??;
-        self.shared.rail().mark_worktree_provisioning(id, &plan)?;
+        self.shared
+            .rail()
+            .mark_worktree_provisioning(crate::rail::agent_id(id)?, &plan)?;
         let (git, provisioning_plan) = (self.shared.git.bounded(), plan.clone());
         let made =
             match tokio::task::spawn_blocking(move || git.provision(&project, &provisioning_plan))
@@ -454,7 +462,14 @@ mod tests {
                 .unwrap(),
             ids
         );
-        assert_eq!(agents.shared.node(&ids.1).unwrap().name, "Imported work");
+        assert_eq!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&ids.1).unwrap())
+                .unwrap()
+                .name,
+            "Imported work"
+        );
     }
 
     #[tokio::test]
@@ -572,7 +587,11 @@ mod tests {
         agents
             .shared
             .rail()
-            .move_node(&ids.1, Some(&other.id), 0)
+            .move_node(
+                crate::rail::agent_id(&ids.1).unwrap(),
+                Some(crate::rail::agent_id(&other.id).unwrap()),
+                0,
+            )
             .unwrap();
         let agents = reopen(agents);
         assert_eq!(
@@ -582,11 +601,25 @@ mod tests {
                 .unwrap(),
             ids
         );
-        assert_eq!(agents.shared.node(&ids.0).unwrap().name, "user Workstream");
-        let node = agents.shared.node(&ids.1).unwrap();
+        assert_eq!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&ids.0).unwrap())
+                .unwrap()
+                .name,
+            "user Workstream"
+        );
+        let node = agents
+            .shared
+            .node(crate::rail::agent_id(&ids.1).unwrap())
+            .unwrap();
         assert_eq!(node.name, "user Agent");
         assert_eq!(node.parent, Some(other.id));
-        agents.shared.rail().remove(&ids.1).unwrap();
+        agents
+            .shared
+            .rail()
+            .remove(crate::rail::agent_id(&ids.1).unwrap())
+            .unwrap();
         assert_eq!(
             agents
                 .prepare_closed("same", "replacement", dir.path(), b"invalid", None)
@@ -594,7 +627,12 @@ mod tests {
                 .unwrap(),
             ids
         );
-        assert!(agents.shared.node(&ids.1).is_err());
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&ids.1).unwrap())
+                .is_err()
+        );
         assert_eq!(agents.shared.rail().tree().unwrap().len(), 3);
     }
 
@@ -657,7 +695,12 @@ mod tests {
             )
             .unwrap();
         assert!(agents.shared.rail().publish_closed("unready").is_err());
-        assert!(agents.shared.node(&agent).is_err());
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&agent).unwrap())
+                .is_err()
+        );
         agents
             .shared
             .rail()
@@ -671,7 +714,13 @@ mod tests {
             )
             .unwrap();
         agents.shared.rail().publish_closed("unready").unwrap();
-        assert!(agents.shared.node(&agent).unwrap().can_resume);
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&agent).unwrap())
+                .unwrap()
+                .can_resume
+        );
     }
 
     #[tokio::test]
@@ -694,7 +743,13 @@ mod tests {
                 .is_err()
         );
         let agents = reopen(agents);
-        assert!(agents.shared.node(&published.1).unwrap().can_resume);
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&published.1).unwrap())
+                .unwrap()
+                .can_resume
+        );
         assert!(
             agents
                 .launcher
@@ -793,7 +848,14 @@ mod tests {
                 .unwrap();
             let agents = Arc::new(reopen(agents));
             assert!(agents.shared.terminals.list().await.is_empty());
-            assert!(agents.shared.node(&id).unwrap().attempt.is_none());
+            assert!(
+                agents
+                    .shared
+                    .node(crate::rail::agent_id(&id).unwrap())
+                    .unwrap()
+                    .attempt
+                    .is_none()
+            );
             let ctx = rpc::Ctx {
                 actor: contracts::Actor::user(),
                 bus: Bus::new(),

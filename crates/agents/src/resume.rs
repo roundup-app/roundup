@@ -141,7 +141,7 @@ impl Agents {
             .await?;
         }
         ctx.emit(EventData::RailChanged);
-        self.shared.node(&id)
+        self.shared.node(crate::rail::agent_id(&id)?)
     }
 
     /// A22's launch, acknowledgement, rollback and serialization for an Agent (`agent.resume`) or
@@ -199,7 +199,7 @@ impl Agents {
             ctx.emit(EventData::RailChanged);
         }
         outcome?;
-        self.shared.node(id)
+        self.shared.node(crate::rail::agent_id(id)?)
     }
 
     /// Check the slot, allocate the Attempt and park the old run in `Slot::Resuming`.

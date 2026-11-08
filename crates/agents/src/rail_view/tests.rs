@@ -38,13 +38,23 @@ fn a2681a_stopping_attempt_hides_parts() {
         .launcher
         .refresh_overview(&cwd, conversation);
     assert!(
-        shared.node(&id).unwrap().overview.is_some(),
+        shared
+            .node(crate::rail::agent_id(&id).unwrap())
+            .unwrap()
+            .overview
+            .is_some(),
         "fixture must have visible parts before stopping"
     );
     if let Some(Slot::Running(run)) = shared.runs().slot_mut(&id) {
         run.begin_closing();
     }
-    assert!(shared.node(&id).unwrap().overview.is_none());
+    assert!(
+        shared
+            .node(crate::rail::agent_id(&id).unwrap())
+            .unwrap()
+            .overview
+            .is_none()
+    );
 }
 
 #[test]

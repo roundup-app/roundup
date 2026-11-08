@@ -29,7 +29,10 @@ async fn u2875b_closed_prepared_assignment_is_exclusive_without_launch() {
             .unwrap(),
         Some(id.clone())
     );
-    let node = agents.shared.node(&id).unwrap();
+    let node = agents
+        .shared
+        .node(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     assert!(node.attempt.is_none());
     assert!(node.terminal_id.is_none());
     assert!(node.status_revision.is_none());
@@ -85,7 +88,10 @@ async fn u2875c_retained_closed_worktree_survives_each_commit_boundary() {
             }
             std::fs::write(made.path.join("user-work"), "retained").unwrap();
             let agents = reopen(agents);
-            let node = agents.shared.node(&id).unwrap();
+            let node = agents
+                .shared
+                .node(crate::rail::agent_id(&id).unwrap())
+                .unwrap();
             assert_eq!(node.worktree.unwrap().path, made.path.to_string_lossy());
             assert!(node.attempt.is_none());
             assert!(node.terminal_id.is_none());
@@ -118,12 +124,18 @@ async fn u2875c_interrupted_closed_provisioning_releases_owned_resources_before_
                 plan.worktree.path = path.clone();
             }
             if prepared {
-                assert!(agents.shared.rail().reserve_prepared(&id, &plan).unwrap());
+                assert!(
+                    agents
+                        .shared
+                        .rail()
+                        .reserve_prepared(crate::rail::agent_id(&id).unwrap(), &plan)
+                        .unwrap()
+                );
             } else {
                 agents
                     .shared
                     .rail()
-                    .mark_worktree_provisioning(&id, &plan)
+                    .mark_worktree_provisioning(crate::rail::agent_id(&id).unwrap(), &plan)
                     .unwrap();
             }
             if boundary == 1 {
@@ -179,7 +191,14 @@ async fn u2875c_interrupted_closed_provisioning_releases_owned_resources_before_
             if let Some(path) = path {
                 assert_eq!(made.path, path);
             }
-            assert!(agents.shared.node(&retry.id).unwrap().attempt.is_none());
+            assert!(
+                agents
+                    .shared
+                    .node(crate::rail::agent_id(&retry.id).unwrap())
+                    .unwrap()
+                    .attempt
+                    .is_none()
+            );
         }
     }
 }
@@ -199,8 +218,22 @@ async fn u2875b_missing_mapped_directory_refuses_closed_provisioning() {
             .await
             .unwrap_err();
         assert!(error.message.starts_with("cwd_not_in_worktree"));
-        assert!(agents.shared.node(&id).unwrap().worktree.is_none());
-        assert!(agents.shared.node(&id).unwrap().attempt.is_none());
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&id).unwrap())
+                .unwrap()
+                .worktree
+                .is_none()
+        );
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&id).unwrap())
+                .unwrap()
+                .attempt
+                .is_none()
+        );
         assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
         assert_eq!(
             git(dir.path(), &["for-each-ref", "refs/roundup/provisioning"]),
@@ -221,8 +254,22 @@ async fn u2875b_failed_readiness_releases_closed_assignment_and_requires_prepara
         .await
         .unwrap_err();
     assert!(error.message.contains("phase=readiness"));
-    assert!(agents.shared.node(&id).unwrap().worktree.is_none());
-    assert!(agents.shared.node(&id).unwrap().attempt.is_none());
+    assert!(
+        agents
+            .shared
+            .node(crate::rail::agent_id(&id).unwrap())
+            .unwrap()
+            .worktree
+            .is_none()
+    );
+    assert!(
+        agents
+            .shared
+            .node(crate::rail::agent_id(&id).unwrap())
+            .unwrap()
+            .attempt
+            .is_none()
+    );
     assert!(
         agents
             .shared
@@ -277,7 +324,14 @@ async fn u2875c_prepared_recovery_preserves_user_files_and_changed_ownership() {
                 .unwrap(),
             Some(id.clone())
         );
-        assert!(agents.shared.node(&id).unwrap().attempt.is_none());
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&id).unwrap())
+                .unwrap()
+                .attempt
+                .is_none()
+        );
         if !changed_owner {
             assert_eq!(
                 std::fs::read_to_string(path.join("user-work")).unwrap(),
@@ -362,7 +416,10 @@ async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
             )
             .await
             .unwrap();
-        let node = agents.shared.node(&agent).unwrap();
+        let node = agents
+            .shared
+            .node(crate::rail::agent_id(&agent).unwrap())
+            .unwrap();
         assert_eq!(node.parent.as_ref(), Some(&workstream));
         assert!(node.can_resume);
         assert!(node.attempt.is_none());
@@ -383,7 +440,13 @@ async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
         assert!(agents.shared.terminals.list().await.is_empty());
         assert!(agents.shared.runs().is_empty());
         let agents = reopen(agents);
-        assert!(agents.shared.node(&agent).unwrap().can_resume);
+        assert!(
+            agents
+                .shared
+                .node(crate::rail::agent_id(&agent).unwrap())
+                .unwrap()
+                .can_resume
+        );
         assert_eq!(
             agents
                 .prepare_closed("opaque-source", "replacement", dir.path(), b"invalid", None)

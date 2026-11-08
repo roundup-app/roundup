@@ -30,7 +30,7 @@ impl Rail {
     /// Delete `id`. Its children (a Workstream or an Agent may have any) move to its own
     /// parent, at its place, in order, first; one transaction, so a failed delete leaves them
     /// still under `id`.
-    pub fn remove(&mut self, id: &str) -> Result<(), StoreError> {
+    pub fn remove(&mut self, id: AgentId) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
@@ -38,14 +38,14 @@ impl Rail {
         let mut ids = siblings(&nodes, parent);
         let at = ids
             .iter()
-            .position(|sibling| sibling == id)
+            .position(|sibling| *sibling == id.to_string())
             .ok_or_else(|| StoreError::invalid("Rail row is not among its siblings"))?;
-        let children = siblings(&nodes, Some(id));
+        let children = siblings(&nodes, Some(&id.to_string()));
         ids.splice(at..=at, children);
         // Reparent before deleting: a child's row still points at `id` until `place` runs, and a
         // delete while one does would fail its foreign key.
         place(&tx, parent, &ids)?;
-        tx.execute("DELETE FROM nodes WHERE id = ?", params![id])?;
+        tx.execute("DELETE FROM nodes WHERE id = ?", params![id.get()])?;
         Ok(tx.commit()?)
     }
 
@@ -53,12 +53,13 @@ impl Rail {
     /// external files and Worktrees before any node leaves; its returned guard survives commit.
     pub fn remove_workstream<T, E: Into<StoreError>>(
         &mut self,
-        id: &str,
+        id: AgentId,
         removal: &mut contracts::agent::Removal,
         retain: Option<(&contracts::Actor, &str)>,
         apply: impl FnOnce(&rusqlite::Transaction, &mut contracts::agent::Removal) -> Result<T, E>,
     ) -> Result<T, StoreError> {
         use rusqlite::session::{Session, invert_strm};
+        let id_text = id.to_string();
         self.db.pragma_update(None, "foreign_keys", true)?;
         let tx = self
             .db
@@ -88,7 +89,7 @@ impl Rail {
                 .filter(|item| item.kind == contracts::agent::RemovalKind::Agent)
                 .map(|item| item.id.as_str())
                 .collect();
-            removed.push(id);
+            removed.push(id_text.as_str());
             tx.execute(
                 "DELETE FROM workstream_queue WHERE workstream IN (SELECT value FROM json_each(?))",
                 [serde_json::to_string(&removed)?],
@@ -103,12 +104,12 @@ impl Rail {
             removal.deletion = Some(contracts::agent::Deletion {
                 project,
                 operation: operation.into(),
-                id: id.into(),
+                id: id_text.clone(),
                 restored: false,
                 restoration: None,
             });
             tx.execute("INSERT INTO rail_deletions(operation,actor,node,record,graph,boundary) VALUES(?,?,?,?,?,?)", params![
-            operation, serde_json::to_string(actor)?, id,
+            operation, serde_json::to_string(actor)?, id_text,
             serde_json::to_string(&removal)?, inverse, serde_json::to_string(&Placement { before: before.into_iter().map(Position::from).collect(), after: load(&tx)?.into_iter().map(Position::from).collect() })?
         ])?;
         }
@@ -122,7 +123,7 @@ impl Rail {
 
     fn remove_graph(
         db: &Connection,
-        id: &str,
+        id: AgentId,
         removal: &contracts::agent::Removal,
     ) -> Result<(), StoreError> {
         let nodes = load(db)?;
@@ -163,14 +164,14 @@ impl Rail {
         fn delete_selected(
             db: &Connection,
             nodes: &[RailNode],
-            id: &str,
+            key: &str,
             selected: &[&str],
         ) -> Result<(), StoreError> {
-            for child in nodes.iter().filter(|n| n.parent.as_deref() == Some(id)) {
+            for child in nodes.iter().filter(|n| n.parent.as_deref() == Some(key)) {
                 delete_selected(db, nodes, &child.id, selected)?;
             }
-            if selected.contains(&id) {
-                db.execute("DELETE FROM nodes WHERE id=?", [id])?;
+            if selected.contains(&key) {
+                db.execute("DELETE FROM nodes WHERE id=?", [key])?;
             }
             Ok(())
         }
@@ -256,7 +257,10 @@ impl Rail {
             {
                 if let Some(blocker) = current.iter().find(|live| live.id == node.id) {
                     let removable = actor.kind != contracts::ActorKind::Agent
-                        || in_reach(db, &current, &actor.id, &blocker.id)?;
+                        || match (AgentId::parse(&actor.id), AgentId::parse(&blocker.id)) {
+                            (Some(agent), Some(id)) => in_reach(db, &current, agent, id)?,
+                            _ => false,
+                        };
                     return Err(
                         RpcError::undo_identity(&blocker.id, &blocker.name, removable).into(),
                     );
@@ -406,11 +410,12 @@ fn retained_mut(
 fn in_reach(
     db: &Connection,
     nodes: &[RailNode],
-    agent: &str,
-    id: &str,
+    agent: AgentId,
+    id: AgentId,
 ) -> Result<bool, StoreError> {
-    let created = Rail::created_by_in(db, agent)?;
-    Ok(crate::reach::reach_of(nodes, created, agent).contains(id))
+    let agent = agent.to_string();
+    let created = Rail::created_by_in(db, &agent)?;
+    Ok(crate::reach::reach_of(nodes, created, &agent).contains(&id.to_string()))
 }
 
 impl Rail {
@@ -426,12 +431,22 @@ impl Rail {
     fn restored_boundary(db: &Connection, operation: &str) -> Result<Vec<String>, StoreError> {
         // Read only retained identities. Order normalization is bookkeeping, not user placement.
         let mut result = Vec::new();
+        let mut q = db
+            .prepare("SELECT node FROM rail_deletions WHERE operation=?1 UNION SELECT json_extract(value,'$.id') FROM rail_deletions,json_each(record,'$.removed') WHERE operation=?1 AND json_extract(value,'$.kind')='agent'")?;
+        let retained_nodes = q
+            .query_map([operation], |r| r.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        let nodes_predicate = format!(
+            "id IN ({})",
+            retained_nodes
+                .iter()
+                .filter_map(|id| AgentId::parse(id))
+                .map(|id| id.get().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
         for (table, predicate, ignored) in [
-            (
-                "nodes",
-                "CAST(id AS TEXT) IN (SELECT node FROM rail_deletions WHERE operation=?1 UNION SELECT json_extract(value,'$.id') FROM rail_deletions,json_each(record,'$.removed') WHERE operation=?1 AND json_extract(value,'$.kind')='agent')",
-                "ord",
-            ),
+            ("nodes", nodes_predicate.as_str(), "ord"),
             (
                 "todos",
                 "CAST(id AS TEXT) IN (SELECT id FROM rail_removal_items WHERE operation=?1 AND kind IN ('todo-home','todo-owner') UNION SELECT value FROM todo_deletions,json_each(result,'$.deleted') WHERE operation=(SELECT id FROM rail_removal_items WHERE operation=?1 AND kind='todo-operation'))",
@@ -527,7 +542,7 @@ impl Rail {
                 });
             }
         }
-        let out = self.remove_workstream(&id, &mut removal, Some((actor,&p.operation)), |db,removal| -> Result<_, StoreError> {
+        let out = self.remove_workstream(agent_id(&id)?, &mut removal, Some((actor,&p.operation)), |db,removal| -> Result<_, StoreError> {
             let (expected,successor):(Option<String>,Option<String>) = db.query_row("SELECT json_extract(record,'$.restoredBoundary'),json_extract(record,'$.redo') FROM rail_deletions WHERE operation=?",[&p.source],|r|Ok((r.get(0)?,r.get(1)?)))?;
             let current = serde_json::to_string(&Self::restored_boundary(db,&p.source)?)?;
             if successor.is_some() || expected.as_deref()!=Some(current.as_str()) {

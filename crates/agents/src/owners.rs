@@ -128,7 +128,9 @@ impl Agents {
         let clock = Arc::clone(&self.shared.clock);
         let mut fold = Fold::new(claude_code::starting(move || clock()));
         fold.observe(Observation::Finished(
-            crate::rail_view::finished_of(&self.shared.rail(), id).unwrap_or_default(),
+            crate::rail::agent_id(id).map_or(0, |id| {
+                crate::rail_view::finished_of(&self.shared.rail(), id).unwrap_or_default()
+            }),
         ));
         if let Some(kept) = stored.background {
             fold.observe(Observation::Resumed(kept));

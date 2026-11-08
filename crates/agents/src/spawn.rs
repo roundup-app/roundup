@@ -144,7 +144,10 @@ impl Agents {
                     runs.forget(&id);
                     self.shared.events.observed.notify_waiters();
                     if rail.node(crate::rail::agent_id(&id)?)?.worktree.is_none() {
-                        report_undo("remove the Agent from the Rail", rail.remove(&id));
+                        report_undo(
+                            "remove the Agent from the Rail",
+                            rail.remove(crate::rail::agent_id(&id)?),
+                        );
                     } else if request.start_attribution.is_some() {
                         let path = self.project_dir().to_string_lossy().into_owned();
                         let cause = err.message.clone();
@@ -168,7 +171,7 @@ impl Agents {
             Self::touch_creation(ctx, &id, request.start_attribution.as_ref())?;
         }
         ctx.emit(EventData::RailChanged);
-        self.shared.node(&id)
+        self.shared.node(crate::rail::agent_id(&id)?)
     }
 
     /// Parse `params` and the caller into the values the new Agent starts with, or refuse before
@@ -325,7 +328,8 @@ impl Agents {
             Launcher::save_lean(&self.dir, &node.id, lean)?;
         }
         let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;
-        self.shared.mark_starting(&node.id, attempt.clone());
+        self.shared
+            .mark_starting(crate::rail::agent_id(&node.id)?, attempt.clone());
         if request.by_user_named {
             rail.set_user_named(crate::rail::agent_id(&node.id)?)?;
         }
@@ -456,11 +460,13 @@ impl Agents {
                 first,
                 node.work.as_ref(),
                 spawn_prompt.as_deref(),
-                rail.order_revision(id)?.is_some(),
+                rail.order_revision(crate::rail::agent_id(id)?)?.is_some(),
                 attempt,
             );
 
-            if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(id)?) {
+            if let (Some(text), Some(revision)) =
+                (&prompt, rail.order_revision(crate::rail::agent_id(id)?)?)
+            {
                 rail.prepare_instruction(&revision, attempt, text, true)?;
             }
             (node, prompt)
@@ -651,13 +657,14 @@ impl Agents {
                 first,
                 node.work.as_ref(),
                 rail.spawn_prompt(crate::rail::agent_id(id)?)?.as_deref(),
-                rail.order_revision(id)?.is_some(),
+                rail.order_revision(crate::rail::agent_id(id)?)?.is_some(),
                 &attempt,
             );
             rail.attach_terminal(crate::rail::agent_id(id)?, "fixture")?;
             (attempt, prompt)
         };
-        self.shared.mark_starting(id, attempt.clone());
+        self.shared
+            .mark_starting(crate::rail::agent_id(id)?, attempt.clone());
         let prompts = self.shared.finish_starting(id, &attempt, |named| {
             Run::starting(
                 Arc::clone(&self.shared.clock),
@@ -730,7 +737,9 @@ mod idle_tests {
                 None,
                 node.work.as_ref(),
                 None,
-                rail.order_revision(&node.id).unwrap().is_some(),
+                rail.order_revision(crate::rail::agent_id(&node.id).unwrap())
+                    .unwrap()
+                    .is_some(),
                 if restart { "2" } else { "1" },
             );
             let mut run = Run::starting(

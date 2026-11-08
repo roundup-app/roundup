@@ -360,7 +360,7 @@ impl Shared {
         let delivery = {
             let mut rail = self.rail();
             if first.is_some() {
-                rail.first_instruction(id, &attempt)
+                crate::rail::agent_id(id).and_then(|id| rail.first_instruction(id, &attempt))
             } else if let Some(revision) = record.as_ref().and_then(|r| r.revision.as_deref()) {
                 rail.prepare_instruction(revision, &attempt, text, false)
                     .map(Some)
@@ -665,9 +665,10 @@ mod tests {
                 "closing" => {
                     shared.runs().put("7013", crate::Slot::Closing);
                 }
-                "starting" => {
-                    shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap())
-                }
+                "starting" => shared.mark_starting(
+                    crate::rail::agent_id(&"7013").unwrap(),
+                    contracts::agent::Ordinal::parse("1").unwrap(),
+                ),
                 "ended" => {
                     if let Some(crate::Slot::Running(run)) = shared.runs().slot_mut("7013") {
                         run.exit();

@@ -33,7 +33,10 @@ async fn a2703a_errors_use_rail_names() {
                 shared.runs().put("7013", Slot::Closing);
             }
             "starting" => {
-                shared.mark_starting("7013", contracts::agent::Ordinal::parse("1").unwrap());
+                shared.mark_starting(
+                    crate::rail::agent_id(&"7013").unwrap(),
+                    contracts::agent::Ordinal::parse("1").unwrap(),
+                );
             }
             "resuming" => {
                 shared.runs().put(
@@ -177,7 +180,10 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
         .id;
-    shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
+    shared.mark_starting(
+        crate::rail::agent_id(&id).unwrap(),
+        contracts::agent::Ordinal::parse("1").unwrap(),
+    );
     if let Some(Slot::Starting { parked, .. }) = shared.runs().slot_mut(&id) {
         parked.push_back((
             Actor::daemon(),
@@ -206,7 +212,10 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
         .id;
-    shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
+    shared.mark_starting(
+        crate::rail::agent_id(&id).unwrap(),
+        contracts::agent::Ordinal::parse("1").unwrap(),
+    );
     if let Some(Slot::Starting { parked, .. }) = shared.runs().slot_mut(&id) {
         parked.push_back((
             Actor::daemon(),
@@ -370,7 +379,7 @@ async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
         };
         assert_eq!(status.status_revision, (index + 2).to_string());
         assert_eq!(status.status.since, 0);
-        let node = shared.node(&id).unwrap();
+        let node = shared.node(crate::rail::agent_id(&id).unwrap()).unwrap();
         assert_eq!(node.attempt.as_deref(), Some(status.attempt.as_str()));
         assert_eq!(
             node.status_revision.as_deref(),
@@ -394,7 +403,10 @@ async fn a21_a_failed_save_after_spawn_returned_errors_settles_error_and_stops_t
         "hook_event_name":"SessionStart", "session_id":"11111111-1111-1111-1111-111111111111", "source":"startup"
     })));
     assert!(result.is_err());
-    let node = agents.shared.node(&id).unwrap();
+    let node = agents
+        .shared
+        .node(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     assert_eq!(node.status.as_ref().unwrap().kind, Kind::Error);
     assert!(
         node.status
@@ -435,7 +447,8 @@ async fn u5483c_final_text_protection_follows_attempt_identity() {
                 .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
                 .unwrap();
         }
-        let node = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+        let node = serde_json::to_value(shared.node(crate::rail::agent_id(&id).unwrap()).unwrap())
+            .unwrap();
         let evidence = &node["final_text"];
         assert_eq!(evidence["attempt"], "1");
         assert_eq!(evidence["finished"], node["status"]["finished"]);
@@ -450,7 +463,8 @@ async fn u5483c_final_text_protection_follows_attempt_identity() {
             )
             .unwrap();
         assert_eq!(
-            serde_json::to_value(shared.node(&id).unwrap()).unwrap()["final_text"],
+            serde_json::to_value(shared.node(crate::rail::agent_id(&id).unwrap()).unwrap())
+                .unwrap()["final_text"],
             *evidence
         );
     }
@@ -474,11 +488,13 @@ async fn u5483c_resuming_clears_only_the_previous_turn() {
             .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
             .unwrap();
     }
-    let resumed = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    let resumed =
+        serde_json::to_value(shared.node(crate::rail::agent_id(&id).unwrap()).unwrap()).unwrap();
     assert_eq!(resumed["status"]["kind"], "working");
     assert_eq!(resumed["final_text"]["kind"], "unknown");
     shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"second", "last_assistant_message":""}))).unwrap();
-    let completed = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    let completed =
+        serde_json::to_value(shared.node(crate::rail::agent_id(&id).unwrap()).unwrap()).unwrap();
     assert_eq!(
         completed["final_text"],
         json!({"attempt":"1", "turn":"second", "finished":"2", "kind":"empty"})
@@ -505,7 +521,8 @@ async fn u5483c_final_text_survives_ticks_and_done() {
             .observe(Actor::daemon(), &id, "1", observation)
             .unwrap();
     }
-    let node = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    let node =
+        serde_json::to_value(shared.node(crate::rail::agent_id(&id).unwrap()).unwrap()).unwrap();
     assert_eq!(node["status"]["kind"], "done");
     assert_eq!(
         node["final_text"],
@@ -539,10 +556,10 @@ async fn u5483c_late_final_text_refreshes_rail_without_a_status_change() {
             Observation::Title("✳ idle".into()),
         )
         .unwrap();
-    let before = shared.node(&id).unwrap();
+    let before = shared.node(crate::rail::agent_id(&id).unwrap()).unwrap();
     let mut events = bus.subscribe();
     shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":"Should I publish three pages or five"}))).unwrap();
-    let after = shared.node(&id).unwrap();
+    let after = shared.node(crate::rail::agent_id(&id).unwrap()).unwrap();
     assert_eq!(after.status_revision, before.status_revision);
     assert_eq!(
         serde_json::to_value(after).unwrap()["final_text"]["kind"],
@@ -570,7 +587,13 @@ async fn u5483c_empty_text_without_turn_identity_remains_unknown() {
             Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""})),
         )
         .unwrap();
-    assert!(shared.node(&id).unwrap().final_text.is_none());
+    assert!(
+        shared
+            .node(crate::rail::agent_id(&id).unwrap())
+            .unwrap()
+            .final_text
+            .is_none()
+    );
 }
 
 #[test]
@@ -788,12 +811,18 @@ async fn u5531c_native_attention_promotes_durably() {
                 ),
             )
             .unwrap();
-        shared.rail().set_visibility(&id, Internal).unwrap();
+        shared
+            .rail()
+            .set_visibility(crate::rail::agent_id(&id).unwrap(), Internal)
+            .unwrap();
         shared
             .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
             .unwrap();
         assert_eq!(
-            shared.node(&id).unwrap().visibility,
+            shared
+                .node(crate::rail::agent_id(&id).unwrap())
+                .unwrap()
+                .visibility,
             if promoted { Shown } else { Internal }
         );
         shared
@@ -807,11 +836,17 @@ async fn u5531c_native_attention_promotes_durably() {
             )
             .unwrap();
         assert_eq!(
-            shared.node(&id).unwrap().visibility,
+            shared
+                .node(crate::rail::agent_id(&id).unwrap())
+                .unwrap()
+                .visibility,
             if promoted { Shown } else { Internal }
         );
     }
-    shared.rail().set_visibility(&id, Internal).unwrap();
+    shared
+        .rail()
+        .set_visibility(crate::rail::agent_id(&id).unwrap(), Internal)
+        .unwrap();
     shared
         .observe(
             Actor::daemon(),
@@ -820,7 +855,13 @@ async fn u5531c_native_attention_promotes_durably() {
             Observation::Exit { code: Some(1) },
         )
         .unwrap();
-    assert_eq!(shared.node(&id).unwrap().visibility, Shown);
+    assert_eq!(
+        shared
+            .node(crate::rail::agent_id(&id).unwrap())
+            .unwrap()
+            .visibility,
+        Shown
+    );
 }
 
 #[tokio::test]

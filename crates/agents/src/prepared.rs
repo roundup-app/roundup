@@ -286,7 +286,11 @@ impl Agents {
                 continue;
             }
             // The reservation is durable before any git command touches the directory.
-            if !self.shared.rail().reserve_prepared(id, &plan)? {
+            if !self
+                .shared
+                .rail()
+                .reserve_prepared(crate::rail::agent_id(id)?, &plan)?
+            {
                 reasons.push(format!("{dir}: used by an Agent"));
                 continue;
             }

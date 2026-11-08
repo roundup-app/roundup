@@ -46,7 +46,7 @@ impl Agents {
         }
         self.shared
             .rail()
-            .set_alert_level(&choice.id, choice.level)?;
+            .set_alert_level(crate::rail::agent_id(&choice.id)?, choice.level)?;
         ctx.emit(EventData::RailChanged);
         Ok(())
     }
@@ -254,20 +254,20 @@ impl Agents {
             node,
             &self.shared.runs(),
             &rail,
-            crate::rail_view::finished_of(&rail, &p.id)?,
+            crate::rail_view::finished_of(&rail, crate::rail::agent_id(&p.id)?)?,
         )?;
         if p.visibility == contracts::agent::RailVisibility::Internal
             && let Some(reason) = super::rail_view::visibility_reason(&presented)
         {
             return Err(RpcError::new(code::INVALID_PARAMS, reason));
         }
-        let changed = rail.set_visibility(&p.id, p.visibility)?;
+        let changed = rail.set_visibility(crate::rail::agent_id(&p.id)?, p.visibility)?;
         drop(rail);
         if changed {
             ctx.touch(contracts::Verb::Wrote, &format!("agent:{}", p.id))?;
             ctx.emit(EventData::RailChanged);
         }
-        self.shared.node(&p.id)
+        self.shared.node(crate::rail::agent_id(&p.id)?)
     }
 
     async fn agent_channel_up(
@@ -342,9 +342,10 @@ impl Agents {
             if ctx.actor.kind != ActorKind::User {
                 shared.guard_reach(&ctx.actor, &id, true)?;
             }
-            Ok(shared
-                .rail()
-                .instructions(&id, &shared.project_dir.to_string_lossy())?)
+            Ok(shared.rail().instructions(
+                crate::rail::agent_id(&id)?,
+                &shared.project_dir.to_string_lossy(),
+            )?)
         }
     }
 
@@ -441,7 +442,7 @@ impl Agents {
             };
             Self::touch_rail(ctx, &id)?;
             ctx.emit(EventData::RailChanged);
-            shared.node(&node.id)
+            shared.node(crate::rail::agent_id(&node.id)?)
         }
     }
 
@@ -600,7 +601,11 @@ impl Agents {
         {
             let MoveParams { id, parent, index } = p;
             shared.guard_reach(&ctx.actor, &id, false)?;
-            shared.rail().move_node(&id, parent.as_deref(), index)?;
+            shared.rail().move_node(
+                crate::rail::agent_id(&id)?,
+                parent.as_deref().map(crate::rail::agent_id).transpose()?,
+                index,
+            )?;
             Self::touch_rail(ctx, &id)?;
             ctx.emit(EventData::RailChanged);
             Ok(())

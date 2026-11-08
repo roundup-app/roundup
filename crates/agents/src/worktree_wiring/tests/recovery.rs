@@ -42,14 +42,14 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                         agents
                             .shared
                             .rail()
-                            .reserve_prepared(&agent, &plan)
+                            .reserve_prepared(crate::rail::agent_id(&agent).unwrap(), &plan)
                             .unwrap()
                     );
                 } else {
                     agents
                         .shared
                         .rail()
-                        .mark_worktree_provisioning(&agent, &plan)
+                        .mark_worktree_provisioning(crate::rail::agent_id(&agent).unwrap(), &plan)
                         .unwrap();
                 }
                 if boundary == 2 {
@@ -187,8 +187,18 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                         .reserve_closed("other source", "other")
                         .is_err()
                 );
-                assert!(agents.shared.node(&workstream).is_err());
-                assert!(agents.shared.node(&agent).is_err());
+                assert!(
+                    agents
+                        .shared
+                        .node(crate::rail::agent_id(&workstream).unwrap())
+                        .is_err()
+                );
+                assert!(
+                    agents
+                        .shared
+                        .node(crate::rail::agent_id(&agent).unwrap())
+                        .is_err()
+                );
                 assert!(
                     agents
                         .shared
@@ -305,8 +315,18 @@ async fn u2875c_recovery_refusal_keeps_user_work_hidden_and_blocks_reuse() {
                 _ => unreachable!(),
             }
             let agents = reopen(agents);
-            assert!(agents.shared.node(&workstream).is_err());
-            assert!(agents.shared.node(&agent).is_err());
+            assert!(
+                agents
+                    .shared
+                    .node(crate::rail::agent_id(&workstream).unwrap())
+                    .is_err()
+            );
+            assert!(
+                agents
+                    .shared
+                    .node(crate::rail::agent_id(&agent).unwrap())
+                    .is_err()
+            );
             assert_eq!(agents.shared.rail().tree().unwrap().len(), 1);
             let error = agents
                 .prepare_closed("another", "another", dir.path(), RETAINED, None)
