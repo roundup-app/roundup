@@ -80,6 +80,7 @@ async fn spawn_stubborn_program(client: &mut rpc::Client, cwd: &Path) -> Program
             "trap '' HUP; read go; echo pid=$$; exec sleep 1000".into(),
         ]),
         env: BTreeMap::new(),
+        unset: Vec::new(),
         cols: 80,
         rows: 24,
     };
@@ -146,6 +147,7 @@ async fn d1_attached_daemon_exits_cleanly_when_programs_end_by_themselves_during
             cwd: running._dir.path().to_string_lossy().into_owned(),
             command: Some(vec!["/bin/sh".into(), "-c".into(), "sleep 0.3".into()]),
             env: BTreeMap::new(),
+            unset: Vec::new(),
             cols: 80,
             rows: 24,
         };
