@@ -678,12 +678,18 @@ export const App = (props: {
   })));
 
   onCleanup(shelfFocus.stop);
+
   const rotation = createBenchRotation({
     frame,
-    drawer: () => { const connected = activeConnection(); return connected && !(connected instanceof Error) ? connected.drawer : undefined; },
+    drawer: () => {
+      const connected = activeConnection();
+
+      return connected && !(connected instanceof Error) ? connected.drawer : undefined;
+    },
     overlay: () => document.querySelector<HTMLElement>(".window")?.dataset["shelfMode"] === "overlay",
     toggle: shelfFocus.toggle,
   });
+
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.shelf"], capture: () => {
     const was = rotation.size();
 

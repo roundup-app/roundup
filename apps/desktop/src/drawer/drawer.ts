@@ -35,7 +35,11 @@ export const createDrawer = (): DrawerState => {
     content,
     source,
     size: () => size()?.() ?? null,
-    bindSize: (next) => { setSize(() => next); return () => setSize(null); },
+    bindSize: (next) => {
+      setSize(() => next);
+
+      return () => setSize(null);
+    },
     surface,
     open: (next, from = "pointer", side) => batch(() => { captureFocus(true); setSurface(side ?? null); setSource(from); setContent(() => next); }),
     close: (from = "pointer") => batch(() => { setSource(from); setContent(null); }),
