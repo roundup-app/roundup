@@ -1,6 +1,7 @@
 import type { AppSeam } from "../app/seam";
 import { CHORD_ROWS, recordable } from "../keys/chords";
 import { setFileKeys, setFileLook } from "./configFile";
+import { copy } from "./copy";
 import { checkFilePress } from "./shortcutRules";
 
 /** MC41: why `keys` cannot apply whole, or null; the Daemon already checked each press parses. */
@@ -9,9 +10,9 @@ export const refuseKeys = (keys: Readonly<Record<string, string>>): string | nul
   const taken = new Map<string, string>();
 
   for (const [name, press] of Object.entries(keys)) {
-    if (!names.has(name)) return `${name}: no action has this name`;
+    if (!names.has(name)) return copy.keysUnknownAction(name);
 
-    const refusal = checkFilePress(name, press) ?? (taken.has(press) ? `${press} is also the key of ${taken.get(press)}` : null);
+    const refusal = checkFilePress(name, press) ?? (taken.has(press) ? copy.keysSharedPress(press, taken.get(press) ?? "") : null);
 
     if (refusal) return `${name}: ${refusal}`;
 
