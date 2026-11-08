@@ -90,6 +90,15 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     return null;
   };
 
+  // MC40, MC41: a refused Config file is one Toast; the last good state stays.
+  const stopConfig = events.subscribe((event) => {
+    if (event.name !== "config.problem") return;
+
+    const item = `config:${event.data.file}:${event.data.cause}`;
+
+    push({ key: item, item, kind: "error", name: event.data.file, line: event.data.cause, selected: false, open: () => null });
+  });
+
   const stopEvents = events.subscribe((event) => {
     if (event.name === "agent.status") {
       const { id, status } = event.data;
@@ -147,5 +156,5 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
     }
   });
 
-  return () => { stopEvents(); stopFiltering(); };
+  return () => { stopConfig(); stopEvents(); stopFiltering(); };
 };
