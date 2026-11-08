@@ -15,8 +15,8 @@ impl Agents {
             let node = rail.node(id)?;
             if node.kind != NodeKind::Agent
                 || node.parent.is_some()
-                || !rail.has_conversation(id)?
-                || !rail.convert_kind(id, true)?
+                || !rail.has_conversation(crate::rail::agent_id(id)?)?
+                || !rail.convert_kind(crate::rail::agent_id(id)?, true)?
             {
                 return Err(RpcError::conflict(format!(
                     "{id} is not a root Agent with a saved conversation"
@@ -41,7 +41,9 @@ impl Agents {
                 )
                 .await
         {
-            self.shared.rail().convert_kind(id, false)?;
+            self.shared
+                .rail()
+                .convert_kind(crate::rail::agent_id(id)?, false)?;
             return Err(error);
         }
         ctx.emit(EventData::RailChanged);

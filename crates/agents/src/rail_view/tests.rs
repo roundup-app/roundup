@@ -24,7 +24,11 @@ fn a2681a_stopping_attempt_hides_parts() {
     std::fs::write(path, "{}\n").unwrap();
     shared
         .rail()
-        .save_conversation(&id, conversation, &cwd.to_string_lossy())
+        .save_conversation(
+            crate::rail::agent_id(&id).unwrap(),
+            conversation,
+            &cwd.to_string_lossy(),
+        )
         .unwrap();
     if let Some(Slot::Running(run)) = shared.runs().slot_mut(&id) {
         run.exit();

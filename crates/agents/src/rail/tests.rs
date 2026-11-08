@@ -35,8 +35,12 @@ fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
     let (dir, mut rail) = rail();
     let (workstream, agent) = rail.reserve_closed("failed", "hidden").unwrap();
     rail.closed_copy("failed", b"opaque ownership").unwrap();
-    rail.save_conversation(&agent, "retained", "/project")
-        .unwrap();
+    rail.save_conversation(
+        crate::rail::agent_id(&agent).unwrap(),
+        "retained",
+        "/project",
+    )
+    .unwrap();
     // A deferred FK failure happens at COMMIT, after every publication statement ran.
     rail.db.execute_batch("PRAGMA foreign_keys=ON;
         CREATE TABLE commit_guard (source TEXT REFERENCES closed_sources(source) DEFERRABLE INITIALLY DEFERRED);
@@ -45,7 +49,10 @@ fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
     assert!(rail.publish_closed("failed").is_err());
     assert!(rail.tree().unwrap().is_empty());
     assert!(rail.node(&workstream).is_err());
-    assert!(rail.has_conversation(&agent).is_err());
+    assert!(
+        rail.has_conversation(crate::rail::agent_id(&agent).unwrap())
+            .is_err()
+    );
     // A reopen refuses a schema that differs from the migrations' (N5420a).
     rail.db
         .execute_batch("DROP TRIGGER fail; DROP TABLE commit_guard;")

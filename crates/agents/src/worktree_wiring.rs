@@ -140,7 +140,9 @@ impl Agents {
                     .map_err(RpcError::internal)?
                     .is_ok()
                     {
-                        self.shared.rail().clear_worktree(id)?;
+                        self.shared
+                            .rail()
+                            .clear_worktree(crate::rail::agent_id(id)?)?;
                     }
                     return Err(err);
                 }
@@ -174,7 +176,7 @@ impl Agents {
             let plan =
                 plan.ok_or_else(|| RpcError::from(WorktreeError::Failed(UNPROVEN.to_string())))?;
             self.shared.rail().set_worktree(
-                id,
+                crate::rail::agent_id(id)?,
                 &node
                     .worktree
                     .ok_or_else(|| RpcError::internal("provisioned node has no Worktree"))?,
@@ -183,7 +185,9 @@ impl Agents {
             tokio::task::spawn_blocking(move || git.finish(&project, &plan))
                 .await
                 .map_err(RpcError::internal)??;
-            self.shared.rail().clear_provisioning_owner(id)?;
+            self.shared
+                .rail()
+                .clear_provisioning_owner(crate::rail::agent_id(id)?)?;
         }
         Ok(())
     }
@@ -210,7 +214,7 @@ impl Agents {
         match undone {
             Ok(()) => report_undo(
                 "clear the Agent's worktree",
-                self.shared.rail().clear_worktree(id),
+                crate::rail::agent_id(id).and_then(|id| self.shared.rail().clear_worktree(id)),
             ),
             Err(err) => eprintln!("agents: could not undo Worktree for {id}: {err}"),
         }
@@ -600,8 +604,18 @@ mod tests {
             .prepare_closed("same source", "two", second.path(), RETAINED, None)
             .await
             .unwrap();
-        let one = a.shared.rail().conversation(&one).unwrap().unwrap();
-        let two = b.shared.rail().conversation(&two).unwrap().unwrap();
+        let one = a
+            .shared
+            .rail()
+            .conversation(crate::rail::agent_id(&one).unwrap())
+            .unwrap()
+            .unwrap();
+        let two = b
+            .shared
+            .rail()
+            .conversation(crate::rail::agent_id(&two).unwrap())
+            .unwrap()
+            .unwrap();
         assert_ne!(one.0, two.0);
         assert_ne!(one.1, two.1);
         assert_eq!(a.shared.rail().tree().unwrap().len(), 3);
@@ -630,7 +644,11 @@ mod tests {
         agents
             .shared
             .rail()
-            .save_conversation(&agent, &id, &cwd.to_string_lossy())
+            .save_conversation(
+                crate::rail::agent_id(&agent).unwrap(),
+                &id,
+                &cwd.to_string_lossy(),
+            )
             .unwrap();
         assert!(agents.shared.rail().publish_closed("unready").is_err());
         assert!(agents.shared.node(&agent).is_err());
@@ -638,7 +656,7 @@ mod tests {
             .shared
             .rail()
             .set_worktree(
-                &agent,
+                crate::rail::agent_id(&agent).unwrap(),
                 &contracts::agent::Worktree {
                     path: made.path.to_string_lossy().into_owned(),
                     branch: made.branch,
@@ -660,7 +678,7 @@ mod tests {
         let saved = agents
             .shared
             .rail()
-            .conversation(&published.1)
+            .conversation(crate::rail::agent_id(&published.1).unwrap())
             .unwrap()
             .unwrap();
         assert!(
@@ -761,7 +779,11 @@ mod tests {
             agents
                 .shared
                 .rail()
-                .save_conversation(&id, conversation, cwd.to_str().unwrap())
+                .save_conversation(
+                    crate::rail::agent_id(&id).unwrap(),
+                    conversation,
+                    cwd.to_str().unwrap(),
+                )
                 .unwrap();
             let agents = Arc::new(reopen(agents));
             assert!(agents.shared.terminals.list().await.is_empty());

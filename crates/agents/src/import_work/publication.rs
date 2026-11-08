@@ -83,7 +83,7 @@ impl Agents {
             let effective =
                 if let Some((mapped, made)) = self.provision_worktree(&ids.1, &real_cwd).await? {
                     self.shared.rail().set_worktree(
-                        &ids.1,
+                        crate::rail::agent_id(&ids.1)?,
                         &contracts::agent::Worktree {
                             path: made.path.to_string_lossy().into_owned(),
                             branch: made.branch,
@@ -99,9 +99,11 @@ impl Agents {
                 .prepare_conversation(&effective, conversation)?;
             self.shared.rail().closed_copy(source, &ownership)?;
             self.launcher.write_conversation(&ownership)?;
-            self.shared
-                .rail()
-                .save_conversation(&ids.1, &id, &effective.to_string_lossy())?;
+            self.shared.rail().save_conversation(
+                crate::rail::agent_id(&ids.1)?,
+                &id,
+                &effective.to_string_lossy(),
+            )?;
             self.shared.rail().publish_closed(source)?;
             Ok::<_, RpcError>(effective)
         }

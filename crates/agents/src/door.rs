@@ -259,7 +259,7 @@ impl Agents {
             if rail.node(id)?.kind != NodeKind::Workstream {
                 return Err(RpcError::conflict(format!("{id} is not a Workstream")));
             }
-            rail.has_conversation(id)?
+            rail.has_conversation(crate::rail::agent_id(id)?)?
         };
         let own = model.is_some() || effort.is_some();
         // A5214b: a Mode's Door starts on the Model its Mode parked.
@@ -347,7 +347,7 @@ impl Agents {
             let mut runs = self.shared.runs();
             if runs.slot(id).is_some_and(|slot| slot.attempt() == attempt) {
                 runs.forget(id);
-                rail.detach_terminal(id)?;
+                rail.detach_terminal(crate::rail::agent_id(id)?)?;
             }
             drop((rail, runs));
             ctx.emit(EventData::RailChanged);

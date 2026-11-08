@@ -47,7 +47,7 @@ impl Agents {
         if ctx.actor.kind == contracts::ActorKind::Agent
             && mode.is_none()
             && self.shared.rail().node(id)?.kind == NodeKind::Agent
-            && !self.shared.rail().is_cut_off(id)?
+            && !self.shared.rail().is_cut_off(crate::rail::agent_id(id)?)?
             && !self.shared.runs().agent(id).is_some()
         {
             return Err(RpcError::conflict(format!(
@@ -69,7 +69,7 @@ impl Agents {
                             "{id} is a Workstream whose Door is running"
                         )));
                     }
-                    Some(if rail.conversation_yolo(id)? {
+                    Some(if rail.conversation_yolo(crate::rail::agent_id(id)?)? {
                         contracts::agent::ResumeMode::Yolo
                     } else {
                         contracts::agent::ResumeMode::Normal
@@ -114,7 +114,12 @@ impl Agents {
             Some(_) => return Err(RpcError::conflict(format!("{id} is starting or stopping"))),
             None => false,
         };
-        if live && !self.shared.rail().has_conversation(&id)? {
+        if live
+            && !self
+                .shared
+                .rail()
+                .has_conversation(crate::rail::agent_id(&id)?)?
+        {
             return Err(RpcError::conflict(format!(
                 "{id} has no saved conversation yet to resume with the extras"
             )));
@@ -211,7 +216,7 @@ impl Agents {
         Self::check_slot(&runs, id, mode.is_some())?;
         let saved = match conversation {
             Some((id, cwd)) => Some(((*id).to_owned(), (*cwd).to_owned())),
-            None => rail.conversation(id)?,
+            None => rail.conversation(crate::rail::agent_id(id)?)?,
         };
         let Some((conversation_id, saved_cwd)) = saved else {
             return Err(RpcError::conflict(format!(
@@ -662,7 +667,7 @@ mod tests {
         shared
             .rail()
             .save_conversation(
-                &id,
+                crate::rail::agent_id(&id).unwrap(),
                 "11111111-1111-1111-1111-111111111111",
                 &dir.path().to_string_lossy(),
             )
@@ -703,7 +708,7 @@ mod tests {
             shared
                 .rail()
                 .save_conversation(
-                    &id,
+                    crate::rail::agent_id(&id).unwrap(),
                     "11111111-1111-1111-1111-111111111111",
                     &dir.path().to_string_lossy(),
                 )
