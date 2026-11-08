@@ -587,7 +587,10 @@ mod tests {
             .insert(NodeKind::Workstream, "w", None, None)
             .unwrap()
             .id;
-        shared.rail().allocate_attempt(&ws).unwrap();
+        shared
+            .rail()
+            .allocate_attempt(crate::rail::agent_id(&ws).unwrap())
+            .unwrap();
         shared
             .runs()
             .put(&ws, Slot::Running(Run::fixture(Arc::new(|| 0), true)));
@@ -643,7 +646,10 @@ mod tests {
             .insert(NodeKind::Workstream, "g", None, None)
             .unwrap()
             .id;
-        shared.rail().allocate_attempt(&group).unwrap();
+        shared
+            .rail()
+            .allocate_attempt(crate::rail::agent_id(&group).unwrap())
+            .unwrap();
         shared
             .runs()
             .put(&group, Slot::Running(Run::fixture(Arc::new(|| 0), true)));

@@ -26,6 +26,10 @@ impl Launcher {
         for marker in super::super::MARKERS {
             command.env_remove(marker);
         }
+        // A36: the variable beats `--effort`, so a pinned Effort clears the Daemon's.
+        if request.facts.effort.is_some() {
+            command.env_remove(super::super::models::EFFORT_VARIABLE);
+        }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
             let inherited = std::env::var_os("PATH").unwrap_or_default();
@@ -43,7 +47,7 @@ impl Launcher {
     pub async fn launch_on(
         &self,
         request: &Request<'_>,
-    ) -> Result<(Vec<String>, BTreeMap<String, String>), RpcError> {
+    ) -> Result<(Vec<String>, BTreeMap<String, String>, Vec<String>), RpcError> {
         let Request {
             folders,
             id,
@@ -89,6 +93,12 @@ impl Launcher {
             .chain(command.get_args())
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
+        // Names the launch removes from the Daemon's environment, for the terminal spawn.
+        let unset: Vec<String> = command
+            .get_envs()
+            .filter(|(_, value)| value.is_none())
+            .map(|(key, _)| key.to_string_lossy().into_owned())
+            .collect();
         let mut env: BTreeMap<String, String> = command
             .get_envs()
             .filter_map(|(key, value)| {
@@ -160,7 +170,7 @@ impl Launcher {
             lean.fresh_brief = false;
             Self::save_lean(folders.data, &id_text, &lean)?;
         }
-        Ok((argv, env))
+        Ok((argv, env, unset))
     }
 
     pub(super) fn executable(&self) -> Result<PathBuf, RpcError> {

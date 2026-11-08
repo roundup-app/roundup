@@ -513,6 +513,7 @@ mod tests {
                     format!("stty raw -echo; touch {}; {script}", ready.display()),
                 ]),
                 env: Default::default(),
+                unset: Vec::new(),
                 cols: 80,
                 rows: 24,
             })

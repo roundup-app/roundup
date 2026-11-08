@@ -7,6 +7,10 @@ pub fn snapshot(path: &Path) -> Vec<(PathBuf, Vec<u8>)> {
     fn visit(root: &Path, path: &Path, entries: &mut Vec<(PathBuf, Vec<u8>)>) {
         for entry in std::fs::read_dir(path).unwrap() {
             let path = entry.unwrap().path();
+            // The Config's own AGENTS.md (MC44) is shipped, not data.
+            if path.file_name().is_some_and(|name| name == ".roundup") {
+                continue;
+            }
             entries.push((
                 path.strip_prefix(root).unwrap().to_owned(),
                 if path.is_file() {

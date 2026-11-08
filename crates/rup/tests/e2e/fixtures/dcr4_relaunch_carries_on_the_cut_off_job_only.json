@@ -1,0 +1,113 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_dcr4_report"
+      },
+      "response": {
+        "content": "Finished."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Report the one thing.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_dcr4_report",
+            "name": "Bash",
+            "arguments": "{\"command\": \"python3 report-job.py\", \"description\": \"Report\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_dcl7_resume",
+        "toolResultContains": "open-job"
+      },
+      "response": {
+        "content": "Resumed the open Job."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[digest]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Where do things stand?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_dcl7_resume",
+            "name": "mcp__roundup__agent_resume",
+            "arguments": "{\"id\": \"open-job\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[stopped]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Do the one thing.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Finished."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Answer when asked.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Waiting."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[settled]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    }
+  ]
+}

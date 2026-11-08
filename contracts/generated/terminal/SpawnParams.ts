@@ -4,6 +4,8 @@ export type SpawnParams = {
 	/**  Argv. `None` runs the user's login shell. */
 	command: string[] | null,
 	env: { [key in string]: string },
+	/**  Names of Daemon variables this program must not inherit, for this spawn alone. */
+	unset: string[],
 	cols: number,
 	rows: number,
 };

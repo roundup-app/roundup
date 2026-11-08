@@ -43,6 +43,7 @@ sys.exit(7)
                 socket.to_string_lossy().into_owned(),
             ]),
             env: BTreeMap::new(),
+            unset: Vec::new(),
             cols: 80,
             rows: 24,
         })
