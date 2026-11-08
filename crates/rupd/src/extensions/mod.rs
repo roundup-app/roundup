@@ -134,7 +134,6 @@ impl Host {
             let folder = entry.path();
             let name = entry.file_name().to_string_lossy().into_owned();
             if !name.starts_with('.')
-                && folder.is_dir()
                 && let Some(print) = manifest::fingerprint(&folder)
             {
                 folders.insert(name, (folder, print));
@@ -202,8 +201,8 @@ impl Host {
         folder: PathBuf,
         print: String,
     ) {
-        let manifest = match manifest::read(&folder) {
-            Ok(manifest) => Arc::new(manifest),
+        let (folder, manifest) = match manifest::read(&folder) {
+            Ok((folder, manifest)) => (folder, Arc::new(manifest)),
             Err(cause) => {
                 self.problem(daemon, &folder_name, cause);
                 self.remember_failed(&folder_name, print);
