@@ -81,9 +81,11 @@ fn lc1_each_role_launches_as_its_row() {
             let argv = s.prepare_lean("7", role, &pair, None).unwrap();
             let tools = match (row, mcp) {
                 (Role::Door, true) => {
-                    Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion")
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
                 }
-                (Role::Door, false) => Some("Read,Grep,Glob,Write,Edit,Skill,AskUserQuestion"),
+                (Role::Door, false) => {
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,Skill,AskUserQuestion")
+                }
                 (Role::Scout, true) => {
                     Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion")
                 }
@@ -203,7 +205,9 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
             assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
             let tools = match row {
-                Role::Door => Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion"),
+                Role::Door => {
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
+                }
                 Role::Scout => Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion"),
                 Role::Agent => None,
             };
@@ -256,7 +260,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
         .unwrap();
     assert_eq!(
         Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion")
+        Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert!(!has(&argv, "--setting-sources"));
@@ -660,12 +664,6 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
                 None,
             )
             .unwrap();
-        assert!(
-            !Setup::after(&argv, "--tools")
-                .unwrap()
-                .split(',')
-                .any(|tool| tool == "Agent")
-        );
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
         assert!(settings.get("mcpServers").is_none());
         let allowed = settings["permissions"]["allow"]
@@ -673,7 +671,6 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             .cloned()
             .unwrap_or_default();
         for forbidden in [
-            "Bash",
             "PowerShell",
             "terminal_spawn",
             "terminal_open",
