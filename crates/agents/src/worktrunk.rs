@@ -641,10 +641,11 @@ impl super::Agents {
         gh: &Path,
     ) -> Result<(), String> {
         let shared = &self.shared;
+        let agent = crate::rail::agent_id(id).map_err(|err| format!("bad Agent id: {err:?}"))?;
         shared
             .rail()
             .set_worktree(
-                crate::rail::agent_id(id).unwrap(),
+                agent,
                 &contracts::agent::Worktree {
                     path: path.to_string_lossy().into_owned(),
                     branch: "main".into(),
