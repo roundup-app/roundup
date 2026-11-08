@@ -3,5 +3,5 @@
 @media (prefers-reduced-motion: no-preference) {
   [data-pressed]:not(input, .project-tab *, [role=treeitem], .rail-row, .todo-row, .todo-row-button, .app-toast),
   :is(.app-checkbox, .app-radio, .app-segment):has(input[data-pressed]) { scale: var(--scale-press); }
-  :is(button, [role=button], [role=tab], [role=menuitem], [role=option], .app-checkbox, .app-radio, .app-segment) { transition: scale var(--duration-press) var(--easing-out); }
+  :is(button, a[href], summary, [role=button], [role=tab], [role=menuitem], [role=option], .app-checkbox, .app-radio, .app-segment) { transition: scale var(--duration-press) var(--easing-out); }
 }
