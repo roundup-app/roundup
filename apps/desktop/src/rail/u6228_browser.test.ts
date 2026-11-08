@@ -37,9 +37,11 @@ const saved = () => page.call<{ rail: number; collapsed?: boolean }>(`() => JSON
 
 const collapsed = () => page.call<boolean>(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
 
-// Terminal refits run a frame after layout settles, so wait for the count to hold still.
+// Terminal refits run a frame after a slide ends, so wait for the slides, then for the count to hold still.
 const quiet = async () => {
   let last = -1;
+
+  await page.until(`() => document.getAnimations().length === 0`);
 
   for (let tries = 0; tries < 20; tries += 1) {
     await page.call(`() => new Promise(resolve => setTimeout(resolve, 120))`);
