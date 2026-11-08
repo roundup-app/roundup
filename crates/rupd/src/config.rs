@@ -1,5 +1,6 @@
-//! MC40, MC41: the owner's `look.json` and `keys.json`, read by the Daemon and applied live. A
-//! refused file raises one `config.problem` and leaves the last good state as it was.
+//! MC40, MC41, MC44, MC45: the owner's `look.json` and `keys.json`, read by the Daemon and applied
+//! live, and the `AGENTS.md` written for the owner's own agent. A refused file raises one
+//! `config.problem` and leaves the last good state as it was.
 
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
@@ -13,6 +14,9 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 
 use crate::Daemon;
+
+/// MC44: what the owner's agent reads; written once, then the owner's.
+const AGENTS_MD: &str = include_str!("config_agents.md");
 
 /// How long saves are gathered into one read.
 const SETTLE: Duration = Duration::from_millis(150);
@@ -47,9 +51,25 @@ impl Config {
         self.state.lock().good.clone()
     }
 
+    /// MC44: writes `AGENTS.md` when the Config has none, never over the owner's.
+    fn write_agents_md(&self) {
+        use std::io::Write;
+        if self.dir.as_os_str().is_empty() || std::fs::create_dir_all(&self.dir).is_err() {
+            return;
+        }
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(self.dir.join("AGENTS.md"));
+        if let Ok(mut file) = file {
+            let _ = file.write_all(AGENTS_MD.as_bytes());
+        }
+    }
+
     /// Reads both files once, then again on each save, until the Daemon ends.
     pub(crate) fn start(&self, daemon: &Arc<Daemon>) {
         let daemon = Arc::clone(daemon);
+        daemon.config.write_agents_md();
         tokio::spawn(async move {
             let (changes, mut changed) = mpsc::unbounded_channel();
             let _watcher = daemon.config.watch(changes);
@@ -121,8 +141,14 @@ impl Config {
     }
 }
 
+/// MC45, MC46: a key of an attention rule, a second surface or an interruption refuses the file
+/// before any other key is read.
 fn object(text: &str) -> Result<serde_json::Map<String, Value>, String> {
-    match serde_json::from_str(text) {
+    let value = serde_json::from_str(text);
+    if let Some(cause) = value.as_ref().ok().and_then(crate::attention::refused_key) {
+        return Err(cause);
+    }
+    match value {
         Ok(Value::Object(map)) => Ok(map),
         Ok(_) => Err("the file must hold one JSON object".into()),
         Err(error) => Err(format!("not valid JSON: {error}")),
