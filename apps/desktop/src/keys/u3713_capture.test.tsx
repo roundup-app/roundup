@@ -452,3 +452,32 @@ it("u6845_ready_waits_for_the_state_subscription_and_the_first_snapshot_enables_
   await waitFor(() => expect(button.disabled).toBe(false));
   expect(actions.filter(action => action.kind === "ready")).toHaveLength(1);
 });
+
+it("u6845_a_panel_closed_before_the_subscription_attaches_releases_it_and_sends_no_ready", async () => {
+  const { clearMocks, mockIPC } = await import("@tauri-apps/api/mocks");
+  const { createTauriApp } = await import("../app/tauri");
+  const { CapturePanel } = await import("../todos/CapturePanel");
+  const actions: import("../app/seam").CaptureAction[] = [];
+  const released: unknown[] = [];
+  let attach!: () => void;
+  const attached = new Promise<void>(resolve => { attach = resolve; });
+  vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+  mockIPC(async (command, args) => {
+    if (command === "plugin:event|listen") { await attached;
+
+ return 1; }
+
+    if (command === "plugin:event|unlisten") released.push(args);
+
+    return null;
+  });
+
+  try {
+    const real = createTauriApp().capture!;
+    render(() => <CapturePanel port={{ ...real, act: async action => { actions.push(action); } }} />);
+    cleanup();
+    attach();
+    await waitFor(() => expect(released).toHaveLength(1));
+    expect(actions).toEqual([]);
+  } finally { clearMocks(); vi.restoreAllMocks(); }
+});
