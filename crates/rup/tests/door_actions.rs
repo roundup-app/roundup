@@ -343,7 +343,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             .any(|m| {
                 m["role"] == "user" && m["content"].to_string().contains("B37 child is needs-you")
             }),
-        "Door request sequence: {journal:#?}"
+        "Door request sequence: {:#?}", journal.iter().map(|e| format!("{} stream={} st={} fx={} note={} nmsg={} last={}", e["headers"]["x-claude-code-session-id"], e["body"]["stream"], e["response"]["status"], e["response"]["fixture"], e["body"]["messages"].to_string().contains("B37 child is needs-you"), e["body"]["messages"].as_array().map_or(0,|m|m.len()), e["body"]["messages"].as_array().and_then(|m|m.last()).map(|m|m.to_string().chars().take(160).collect::<String>()).unwrap_or_default())).collect::<Vec<_>>()
     );
 }
 

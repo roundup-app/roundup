@@ -54,7 +54,28 @@ impl Run {
         })
         .await
         .expect("the settled note is delivered");
-        // The turn it starts ends, and the Daemon compares what it changed.
+        // The turn it starts ends, and the Daemon compares what it changed: take the Door's idle
+        // revision from the Rail, then wait for the Daemon's snapshot of that very revision, so
+        // the comparison is counted only once it has begun.
+        let revision = tokio::time::timeout(Duration::from_secs(40), async {
+            loop {
+                let tree = self.user.request("rail.tree", json!({})).await.unwrap();
+                let door = tree
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|n| n["id"] == self.door)
+                    .unwrap()
+                    .clone();
+                if door["status"]["kind"] == "idle" {
+                    break door["status_revision"].as_str().unwrap().parse().unwrap();
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the Door idles after the settled note");
+        self.idle(&self.door, revision).await;
         self.compared().await;
     }
 
