@@ -65,7 +65,7 @@ async fn dcl10d_a_replayed_end_note_wakes_the_door_within_2s() {
     };
     tokio::time::timeout(BOUND, async {
         while find(&inbox(&run).await, "ended-note").is_none() {
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::task::yield_now().await;
         }
     })
     .await
