@@ -27,9 +27,10 @@ struct Args {
     /// Arguments that start a core serving `--socket`.
     #[arg(long, default_value = "serve")]
     serve: String,
-    /// The core's Unix socket; removed before each run.
+    /// The core's Unix socket; removed before each run. Defaults to `default.sock` in the
+    /// core's state folder under the scratch `HOME`.
     #[arg(long)]
-    socket: PathBuf,
+    socket: Option<PathBuf>,
     /// The Terminal's program; a PTY echoes what it is sent, so `cat` suffices.
     #[arg(long, default_value = "cat")]
     agent: String,
@@ -147,16 +148,52 @@ impl Conn {
     }
 }
 
-/// A core started from a clean environment (MC16), killed on drop.
-struct Core(Child);
+/// A scratch `HOME` for the cores of one `perf-herdr` call, removed with it. The caller's own
+/// herdr-core state and config are never read or written.
+struct Scratch(tempfile::TempDir);
+
+impl Scratch {
+    fn new() -> Res<Scratch> {
+        tempfile::Builder::new()
+            .prefix("perf-herdr")
+            .tempdir()
+            .map(Scratch)
+            .map_err(|e| e.to_string())
+    }
+
+    fn socket(&self, a: &Args) -> PathBuf {
+        let default = self.0.path().join(".local/state/herdr-core/default.sock");
+        a.socket.clone().unwrap_or(default)
+    }
+}
+
+/// The pid in a core's identity answer, wherever the answer nests it.
+fn pid_of(v: &Value) -> Option<u32> {
+    match v {
+        Value::Object(m) => m
+            .get("pid")
+            .and_then(Value::as_u64)
+            .and_then(|p| u32::try_from(p).ok())
+            .or_else(|| m.values().find_map(pid_of)),
+        _ => None,
+    }
+}
+
+/// A core started from a clean environment (MC16) with a scratch `HOME`. On macOS `serve`
+/// hands the core to a launchd job and exits, so the core is known by the pid it reports, and
+/// stopped (with its holder and Terminals) on drop.
+struct Core {
+    serve: Child,
+    pid: Option<u32>,
+}
 
 impl Core {
-    fn start(a: &Args) -> Res<Core> {
-        let _ = std::fs::remove_file(&a.socket);
+    fn start(a: &Args, home: &Scratch) -> Res<Core> {
+        let _ = std::fs::remove_file(home.socket(a));
         let path = std::env::var("PATH").unwrap_or_default();
-        let home = std::env::var("HOME").unwrap_or_default();
-        let child = Command::new("env")
-            .args(["-i", &format!("PATH={path}"), &format!("HOME={home}")])
+        let serve = Command::new("env")
+            .args(["-i", &format!("PATH={path}")])
+            .arg(format!("HOME={}", home.0.path().display()))
             .arg(&a.core)
             .args(a.serve.split_whitespace())
             .stdin(Stdio::null())
@@ -164,11 +201,12 @@ impl Core {
             .stderr(Stdio::null())
             .spawn()
             .map_err(|e| e.to_string())?;
-        Ok(Core(child))
+        Ok(Core { serve, pid: None })
     }
 
-    /// Opens the core's socket, retrying on each change in its directory until it answers or 10 s pass.
-    fn dial(&self, socket: &Path) -> Res<Conn> {
+    /// Opens the core's socket, retrying on each change in its directory until it answers or 10 s pass,
+    /// and learns the core's pid from its identity answer.
+    fn dial(&mut self, socket: &Path) -> Res<Conn> {
         use notify::Watcher;
         let dir = socket.parent().unwrap_or(Path::new("."));
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -181,13 +219,45 @@ impl Core {
             .watch(dir, notify::RecursiveMode::NonRecursive)
             .map_err(|e| e.to_string())?;
         let end = Instant::now() + Duration::from_secs(10);
-        loop {
+        let mut conn = loop {
             match Conn::open(socket) {
-                Ok(c) => return Ok(c),
+                Ok(c) => break c,
                 Err(e) if Instant::now() > end => return Err(format!("no core socket: {e}")),
                 Err(_) => {
                     let _ = rx.recv_timeout(end.saturating_duration_since(Instant::now()));
                 }
+            }
+        };
+        if self.pid.is_none() {
+            let id = conn.call("core.identity", json!({}))?;
+            self.pid = Some(pid_of(&id).ok_or_else(|| format!("identity: no pid in {id}"))?);
+        }
+        Ok(conn)
+    }
+
+    /// Stop the core and everything under it, and wait until none is left.
+    fn stop(&mut self) {
+        let _ = self.serve.kill();
+        let _ = self.serve.wait();
+        let Some(root) = self.pid.take() else { return };
+        let mut sys = System::new();
+        sys.refresh_processes(ProcessesToUpdate::All, true);
+        let tree = process_tree(&sys, root);
+        for signal in [sysinfo::Signal::Term, sysinfo::Signal::Kill] {
+            for p in &tree {
+                if let Some(q) = sys.process(*p)
+                    && q.kill_with(signal).is_none()
+                {
+                    q.kill();
+                }
+            }
+            let end = Instant::now() + Duration::from_secs(5);
+            while Instant::now() < end {
+                sys.refresh_processes(ProcessesToUpdate::All, true);
+                if tree.iter().all(|p| sys.process(*p).is_none()) {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(50));
             }
         }
     }
@@ -195,14 +265,12 @@ impl Core {
 
 impl Drop for Core {
     fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        self.stop();
     }
 }
 
-/// Resident MB of `root`'s tree (the core, its serve and hold processes, the Terminals) and of this process.
-fn rss_mb(sys: &mut System, root: u32) -> f64 {
-    sys.refresh_processes(ProcessesToUpdate::All, true);
+/// `root` and every process under it.
+fn process_tree(sys: &System, root: u32) -> Vec<Pid> {
     let mut tree = vec![Pid::from_u32(root)];
     let mut i = 0;
     while let Some(&p) = tree.get(i) {
@@ -214,6 +282,13 @@ fn rss_mb(sys: &mut System, root: u32) -> f64 {
         );
         i += 1;
     }
+    tree
+}
+
+/// Resident MB of `root`'s tree (the core, its serve and hold processes, the Terminals) and of this process.
+fn rss_mb(sys: &mut System, root: u32) -> f64 {
+    sys.refresh_processes(ProcessesToUpdate::All, true);
+    let mut tree = process_tree(sys, root);
     tree.push(Pid::from_u32(std::process::id()));
     let bytes: u64 = tree
         .iter()
@@ -229,10 +304,11 @@ struct Sample {
     rss_extra_mb: f64,
 }
 
-fn one_run(a: &Args) -> Res<Sample> {
+fn one_run(a: &Args, home: &Scratch) -> Res<Sample> {
+    let socket = home.socket(a);
     let t = Instant::now();
-    let core = Core::start(a)?;
-    let mut c = core.dial(&a.socket)?;
+    let mut core = Core::start(a, home)?;
+    let mut c = core.dial(&socket)?;
     c.run("cold", &a.agent)?;
     let ch = c.attach("cold")?;
     c.s.write_all(&frame(ch, 0, b"x"))
@@ -251,17 +327,18 @@ fn one_run(a: &Args) -> Res<Sample> {
     }
 
     let mut sys = System::new();
-    let before = rss_mb(&mut sys, core.0.id());
+    let root = core.pid.ok_or("core: no pid")?;
+    let before = rss_mb(&mut sys, root);
     let mut open = vec![c];
     for n in 0..a.terminals {
-        let mut c = core.dial(&a.socket)?;
+        let mut c = core.dial(&socket)?;
         let name = format!("idle{n}");
         c.run(&name, &a.agent)?;
         c.attach(&name)?;
         c.settle()?;
         open.push(c);
     }
-    let rss_extra_mb = rss_mb(&mut sys, core.0.id()) - before;
+    let rss_extra_mb = rss_mb(&mut sys, root) - before;
     Ok(Sample {
         cold_start_ms,
         keystroke_p95_ms: percentile(&mut ms, 95),
@@ -275,9 +352,16 @@ fn median(mut v: Vec<f64>) -> f64 {
 
 fn main() -> ExitCode {
     let a = Args::parse();
+    let home = match Scratch::new() {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("perf-herdr: {e}");
+            return ExitCode::from(2);
+        }
+    };
     let mut samples = Vec::new();
     for _ in 0..a.runs {
-        match one_run(&a) {
+        match one_run(&a, &home) {
             Ok(s) => samples.push(s),
             Err(e) => {
                 eprintln!("perf-herdr: {e}");
