@@ -317,12 +317,16 @@ async fn reported_job(project: &Project, door: &str) -> String {
         .as_str()
         .unwrap()
         .to_owned();
-    project
+    let report = project
         .model
         .as_ref()
         .unwrap()
         .tool_result("toolu_dcr4_report")
         .await;
+    assert!(
+        report["is_error"] != true,
+        "the Job's report failed: {report}"
+    );
     let user = project.client().await;
     daemon::h21_poll("the reporting Job to finish its turn", async || {
         let tree = project.rail_tree(&user).await;
