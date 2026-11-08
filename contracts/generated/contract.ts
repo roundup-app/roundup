@@ -38,6 +38,7 @@ export const CONTRACT = {
     "ask.pick": "d0407cda8d9f736b",
     "ask.place": "e8b87a2d1a3049f6",
     "ask.send": "153fa70f0447722d",
+    "config.read": "84951d88ed1ee7f2",
     "daemon.getNaming": "0095e9c5bedcd461",
     "daemon.identify": "2a0bf35352bb8646",
     "daemon.methods": "66d25dfb6448c541",
