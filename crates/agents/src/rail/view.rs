@@ -66,37 +66,38 @@ impl Rail {
     }
 
     /// U3566c: the Agent's published finishes; `0` for a node never counted.
-    pub(crate) fn finished(&self, id: &str) -> Result<u64, StoreError> {
+    pub(crate) fn finished(&self, id: AgentId) -> Result<u64, StoreError> {
         Ok(self
             .db
             .query_row(
-                "SELECT finished FROM nodes WHERE CAST(id AS TEXT)=?1",
-                [id],
+                "SELECT finished FROM nodes WHERE id=?1",
+                [id.get()],
                 |row| row.get::<_, i64>(0),
             )
             .optional()
             .map(|finished| finished.unwrap_or_default().cast_unsigned())?)
     }
 
-    pub(crate) fn set_finished(&mut self, id: &str, finished: u64) -> Result<(), StoreError> {
+    pub(crate) fn set_finished(&mut self, id: AgentId, finished: u64) -> Result<(), StoreError> {
         Ok(self
             .db
             .execute(
-                "UPDATE nodes SET finished=?1 WHERE CAST(id AS TEXT)=?2",
-                params![finished.cast_signed(), id],
+                "UPDATE nodes SET finished=?1 WHERE id=?2",
+                params![finished.cast_signed(), id.get()],
             )
             .map(drop)?)
     }
 
     pub(crate) fn set_opening_prompt(
         &mut self,
-        id: &str,
+        id: AgentId,
         prompt: Option<&str>,
     ) -> Result<bool, StoreError> {
-        Ok(self.db
+        Ok(self
+            .db
             .execute(
-                "UPDATE nodes SET opening_prompt=?1 WHERE CAST(id AS TEXT)=?2 AND opening_prompt IS NOT ?1",
-                params![prompt, id],
+                "UPDATE nodes SET opening_prompt=?1 WHERE id=?2 AND opening_prompt IS NOT ?1",
+                params![prompt, id.get()],
             )
             .map(|changed| changed != 0)?)
     }
@@ -109,12 +110,12 @@ impl Rail {
             .map(|_| ())?)
     }
 
-    pub(crate) fn set_auto(&mut self, id: &str, auto: bool) -> Result<bool, StoreError> {
+    pub(crate) fn set_auto(&mut self, id: AgentId, auto: bool) -> Result<bool, StoreError> {
         Ok(self
             .db
             .execute(
-                "UPDATE nodes SET auto=?1 WHERE CAST(id AS TEXT)=?2 AND auto!=?1",
-                params![auto, id],
+                "UPDATE nodes SET auto=?1 WHERE id=?2 AND auto!=?1",
+                params![auto, id.get()],
             )
             .map(|changed| changed != 0)?)
     }
