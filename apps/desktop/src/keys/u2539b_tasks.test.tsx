@@ -333,7 +333,7 @@ it("u5740a_remaining_navigation_preserves_ask_and_terminal", async () => {
   key("Slash", { metaKey: true });
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" })).value).toBe(text);
   expect(terminal.selection()).toBe("exact Terminal selection\n second line");
-  expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "action.userList", "message.list", "todo.listHanded"].includes(call.method))).toEqual([]);
+  expect(daemon.calls.filter(call => !["terminal.resize", "terminal.snapshot", "rail.tree", "terminal.list", "deliverable.list", "ask.list", "todo.unread", "pad.list", "daemon.ping", "terminal.scheme", "agent.changedFiles", "agent.worktreeState", "todo.list", "workstream.queue", "action.userList", "message.list", "todo.listHanded", "config.read"].includes(call.method))).toEqual([]);
 });
 
 it("u4274b_project_menu_omits_navigation_toggles", async () => {
