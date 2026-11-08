@@ -42,6 +42,7 @@ export function pressFeedback(doc: Document): () => void {
 
     const key = (event: KeyboardEvent) => {
       if (pointerDown) return;
+
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       const el = control(event.composedPath()[0] ?? null);
 
