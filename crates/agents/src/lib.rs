@@ -37,6 +37,7 @@ mod asks;
 mod auto;
 pub mod claude_code;
 mod convert;
+pub mod guard;
 mod id;
 mod models;
 pub mod placement;

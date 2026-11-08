@@ -12,7 +12,7 @@ fn x8_reconnecting_keeps_the_original_program() {
         cwd: dir.path().to_string_lossy().into_owned(),
         command: Some(vec!["/bin/sh".into(), "-c".into(),
             "echo launch >> launches; sleep 60 & child=$!; echo \"$$ $child\" > original; trap 'wait \"$child\"; exit' HUP; while read line; do stty size; printf 'reply:%s:%s\\n' \"$line\" \"$$\"; done".into()]),
-        env: BTreeMap::new(), cols: 80, rows: 24,
+        env: BTreeMap::new(), unset: Vec::new(), cols: 80, rows: 24,
     };
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let (records, _owned) = runtime.block_on(async {
@@ -191,6 +191,7 @@ async fn x8_attachment_never_creates_or_substitutes_a_program() {
                     "echo launch >> launches; read line; exit".into(),
                 ]),
                 env: BTreeMap::new(),
+                unset: Vec::new(),
                 cols: 80,
                 rows: 24,
             },
@@ -314,6 +315,7 @@ async fn x8_owned_input_keeps_guards_cancellation_and_queue_order() {
                 "stty -echo; while read line; do printf 'got:%s\\n' \"$line\"; done".into(),
             ]),
             env: BTreeMap::new(),
+            unset: Vec::new(),
             cols: 80,
             rows: 24,
         })
@@ -401,6 +403,7 @@ async fn x8_lost_physical_write_result_is_unknown_and_kill_remains_available() {
                 "stty raw -echo; printf ready; exec sleep 60".into(),
             ]),
             env: BTreeMap::new(),
+            unset: Vec::new(),
             cols: 80,
             rows: 24,
         })
@@ -471,6 +474,7 @@ async fn x19_an_owner_binds_under_a_project_path_longer_than_sun_path() {
             "while read l; do echo got:$l; done".into(),
         ]),
         env: BTreeMap::new(),
+        unset: Vec::new(),
         cols: 80,
         rows: 24,
     };

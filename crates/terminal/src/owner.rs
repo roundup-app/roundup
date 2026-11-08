@@ -54,7 +54,7 @@ impl TerminalOwner {
         params.env.retain(|name, _| !clean_env.contains(name));
         let project = project.canonicalize()?;
         let mut command = Command::new(helper);
-        for marker in clean_env {
+        for marker in clean_env.iter().chain(&params.unset) {
             command.env_remove(marker);
         }
         let mut child = command

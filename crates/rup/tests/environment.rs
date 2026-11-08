@@ -109,6 +109,7 @@ async fn terminal_env(served: &Served, env: BTreeMap<String, String>) -> String 
             format!("env > {}", out.display()),
         ]),
         env,
+        unset: Vec::new(),
         cols: 80,
         rows: 24,
     };

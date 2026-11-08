@@ -13,6 +13,7 @@ async fn x6570a_a_poisoned_remote_table_is_an_error() {
             cwd: dir.path().to_string_lossy().into_owned(),
             command: Some(vec!["/bin/sh".into(), "-c".into(), "sleep 60".into()]),
             env: BTreeMap::new(),
+            unset: Vec::new(),
             cols: 80,
             rows: 24,
         },

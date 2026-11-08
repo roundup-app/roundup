@@ -926,5 +926,10 @@
     "data": "Unit observers open Daemon stores on the explicit project's .roundup directory; no production fallback resolver.",
     "kind": "in-process",
     "sha256": "11470c60774830d2314e6125848a58e0b0c2984c4b7ff27207b2f38b9b99145b"
+  },
+  "crates/rupd/tests/amg3_memory_guard_note.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   }
 }
