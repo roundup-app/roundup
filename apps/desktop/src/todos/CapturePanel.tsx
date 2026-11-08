@@ -1,6 +1,5 @@
-import { createSignal, onCleanup, onMount, untrack, For } from "solid-js";
+import { createSignal, onCleanup, untrack, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
-import { retryRead } from "../app/seam";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import "./capture.styles.css";
@@ -27,8 +26,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     document.documentElement.dataset.mode = snapshot.mode;
     document.documentElement.style.colorScheme = snapshot.mode;
     input?.focus({ preventScroll: true });
-  })));
-  onMount(() => void send({ kind: "ready" }));
+  }, () => void send({ kind: "ready" }))));
 
   const file = (keepOpen: boolean) => {
     const current = state();

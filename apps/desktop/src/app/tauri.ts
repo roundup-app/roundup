@@ -53,8 +53,12 @@ const parsedCommand = <Schema extends v.GenericSchema>(
  * A listener is a read: it retries, and a stop called before the registration resolves releases it once it does.
  * An exhausted retry reaches `fail` once, since no caller can act on it.
  */
-const subscribe = (start: () => Promise<() => void>, fail: (cause: string) => void = cause => console.warn(cause)): Unsubscribe => {
-  const stop = retryRead(() => guarded(start)).catch((error: Error) => {
+const subscribe = (start: () => Promise<() => void>, fail: (cause: string) => void = cause => console.warn(cause), registered?: () => void): Unsubscribe => {
+  const stop = retryRead(() => guarded(start)).then(release => {
+    registered?.();
+
+    return release;
+  }).catch((error: Error) => {
     fail(error.message);
 
     return () => {};
@@ -114,13 +118,13 @@ export const createTauriApp = (): App => {
   const captureControl = (request: CaptureRequest) => command<void>("plugin:capture-panel|control", { request });
 
   const app: App = {
-    onNativeOpen: listener => subscribe(async () => {
+    onNativeOpen: (listener, fail) => subscribe(async () => {
       let active = true;
       const channel = new Channel<unknown>(message => { if (active) listener(v.parse(nativeOpenSchema, message)); });
       await command<void>("native_open", { channel });
 
       return () => { active = false; };
-    }),
+    }, fail),
     capture: /mac/i.test(navigator.platform) ? {
       configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "super+").replace("ctrl+", "control+") ?? null }),
       show: () => captureControl({ kind: "show" }),
@@ -129,7 +133,7 @@ export const createTauriApp = (): App => {
       act: action => captureControl({ kind: "act", action }),
       onRequested: listener => subscribe(() => listen("capture-requested", listener), captureOff),
       onAction: listener => subscribe(() => listen("capture-action", event => listener(v.parse(captureActionSchema, event.payload))), captureOff),
-      onState: listener => subscribe(() => listen("capture-state", event => listener(v.parse(captureStateSchema, event.payload))), captureOff),
+      onState: (listener, registered) => subscribe(() => listen("capture-state", event => listener(v.parse(captureStateSchema, event.payload))), captureOff, registered),
     } : undefined,
     writeClipboardText: (text) => guarded(() => writeText(text)),
     askRemoval: question => parsedCommand(v.picklist(["this", "all", "cancel"]), "ask_removal", { question }),

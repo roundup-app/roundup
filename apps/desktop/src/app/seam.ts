@@ -166,7 +166,8 @@ export type CapturePort = {
   act(action: CaptureAction): Promise<void>;
   onRequested(listener: () => void): Unsubscribe;
   onAction(listener: (action: CaptureAction) => void): Unsubscribe;
-  onState(listener: (snapshot: CaptureState) => void): Unsubscribe;
+  /** `registered` runs once the listener is live, so a snapshot requested then always reaches it. */
+  onState(listener: (snapshot: CaptureState) => void, registered?: () => void): Unsubscribe;
 };
 
 /** A captured system question with complete consequences and named affirmative/cancel buttons. */
@@ -215,7 +216,7 @@ export type App = {
   claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
   /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
   capture?: CapturePort | undefined;
-  onNativeOpen?: ((listener: (request: NativeOpen) => void) => Unsubscribe) | undefined;
+  onNativeOpen?: ((listener: (request: NativeOpen) => void, fail?: (cause: string) => void) => Unsubscribe) | undefined;
   /** R24 measurement builds alone provide this bounded native evidence sink. */
   recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */

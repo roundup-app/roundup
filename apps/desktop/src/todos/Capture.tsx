@@ -263,7 +263,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   if (port) {
     // U6249d F6: the seam retries a subscription, and the user cannot act on its exhaustion, so the App log holds the cause.
     onCleanup(untrack(() => port.onRequested(nativeShow)));
-    onCleanup(port.onAction(action => {
+    onCleanup(untrack(() => port.onAction(action => {
       if (!nativeOpen()) return;
 
       if (action.kind === "ready") {
@@ -286,7 +286,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
       else if (action.kind === "discard") discard();
       else if (action.kind === "dismiss") close();
       else if (action.kind === "retry") void drafts.retry();
-    }));
+    })));
     createEffect(() => { if (nativeOpen()) void publish()?.catch(error => setFailure(String(error))); });
     onCleanup(() => {
       if (untrack(nativeOpen)) { void port.dismiss(); props.onNativeOpen?.(false); }
