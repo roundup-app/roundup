@@ -57,16 +57,22 @@ async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
         .unwrap()
         .to_owned();
     // The Job reads idle until its prompt is submitted, so the Wake request waits for it to work.
-    wait(|| {
-        latest_snapshot(run.dir.path()).is_some_and(|v| {
-            v["nodes"]
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let rail = door.request("rail.tree", json!({})).await.unwrap();
+            if rail
                 .as_array()
                 .unwrap()
                 .iter()
                 .any(|n| n["id"] == job && n["status"]["kind"] == "working")
-        })
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
     })
-    .await;
+    .await
+    .expect("the Job works on its prompt");
     door.request("agent.wake", json!({"ids":[job]}))
         .await
         .unwrap();
