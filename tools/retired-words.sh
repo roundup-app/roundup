@@ -43,6 +43,8 @@ alert_tokens = {
     "apps/desktop/src/state/connectedProject.ts": {"createHeld", "held", "held:"},
     "apps/desktop/src/state/held.ts": {"createHeld", "heldSchema", "roundup:held", "roundup:held:"},
     "apps/desktop/src/terminal/screens.ts": {"held"},
+    "crates/rupd/src/attention.rs": {"held"},
+    "crates/rupd/src/config_tests.rs": {"held"},
     "apps/desktop/src/testing/shardDurations.json": {"u5501_held"},
 }
 

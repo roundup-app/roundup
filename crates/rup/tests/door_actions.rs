@@ -189,7 +189,12 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         })
         .await;
     // DTC2: the child's idle Digest is quiet; it waits in the ledger until a Message reaches the Door.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    daemon::h21_poll("the child's idle Digest in the Door's ledger", async || {
+        let ledger = user.request("message.list", json!({"to":door})).await;
+        let ledger = ledger.ok()?.to_string();
+        (ledger.contains("B37 child is idle") && ledger.contains("open todos: 1")).then_some(())
+    })
+    .await;
     let setup = user
         .request(
             "message.send",
@@ -338,16 +343,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             .any(|m| {
                 m["role"] == "user" && m["content"].to_string().contains("B37 child is needs-you")
             }),
-        "Door request sequence: {:#?}",
-        journal
-            .iter()
-            .filter(|e| &e["headers"]["x-claude-code-session-id"] == identity)
-            .map(
-                |e| json!({"stream": e["body"]["stream"], "response": e["response"],
-                "users": e["body"]["messages"].as_array().unwrap().iter()
-                    .filter(|m| m["role"] == "user").collect::<Vec<_>>()})
-            )
-            .collect::<Vec<_>>()
+        "Door request sequence: {journal:#?}"
     );
 }
 

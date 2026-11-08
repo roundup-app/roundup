@@ -18,6 +18,7 @@ fn standalone_messages(current: &mut Connection, digest: bool) {
         &[
             include_str!("../../messages/migrations/001-digest/up.sql"),
             include_str!("../../messages/migrations/011-digest/up.sql"),
+            include_str!("../../storage/migrations/project/0055-push-intent-waking.sql"),
         ]
     } else {
         &[
@@ -69,7 +70,7 @@ fn pads_standalone(db: &mut Connection, _: &Path) -> rusqlite::Result<()> {
 fn saved_prefix_before_reactions_retire() -> (tempfile::TempDir, Connection, usize) {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let prefix = storage::migrations().len() - 9;
+    let prefix = storage::migrations().len() - 10;
     Migrations::new(storage::migrations()[..prefix].to_vec())
         .to_latest(&mut db)
         .unwrap();

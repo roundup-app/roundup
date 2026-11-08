@@ -20,11 +20,13 @@ let before: Record<string, string>;
 
 const fixtures: StartedDaemon[] = [];
 
-/** Every path under `dir` with its bytes, so a test can prove the folder unchanged. */
+/** Every path under `dir` with its bytes, so a test can prove the folder unchanged. The Config's own AGENTS.md (MC44) is shipped, not data, so `.roundup` is left out. */
 const snapshot = async (dir: string): Promise<Record<string, string>> => {
   const result: Record<string, string> = {};
 
   for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.name === ".roundup") continue;
+
     const path = join(dir, entry.name);
 
     if (entry.isDirectory()) {
