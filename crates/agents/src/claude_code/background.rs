@@ -213,7 +213,7 @@ fn tool_command(process: &Process) -> Option<String> {
         return None;
     }
     let at = args.iter().position(|a| a == "eval")?;
-    let rest = args[at + 1..].join(" ");
+    let rest = args.get(at + 1..)?.join(" ");
     Some(match rest.strip_prefix('\'') {
         Some(quoted) => quoted.split('\'').next().unwrap_or(quoted).to_owned(),
         None => rest,

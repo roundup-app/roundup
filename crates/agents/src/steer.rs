@@ -437,7 +437,8 @@ impl Shared {
             }
             Ok(()) => {
                 if let Some(written) = record.and_then(|r| r.written) {
-                    written(id).expect("announce a physically written Steer");
+                    // The bytes are already in the Terminal: a failed announcement is uncertain.
+                    written(id).map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
                 }
                 match tokio::time::timeout(self.steer_bound, submitted).await {
                     Ok(Ok(())) => {

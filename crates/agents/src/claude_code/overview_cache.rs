@@ -13,6 +13,7 @@ use serde_json::Value;
 use std::sync::Arc;
 
 use super::Launcher;
+use super::conversation::at;
 use super::conversation::{context_limit, context_parts, measured_parts, merge_cards};
 
 /// How often the background path looks at the transcripts it was asked to keep current.
@@ -35,9 +36,10 @@ struct Fold {
 }
 
 impl Fold {
-    fn push(&mut self, record: &Value) {
-        if record["type"] == "assistant" {
-            let content = &record["message"]["content"];
+    fn push(&mut self, record: &Value) -> Result<(), regex::Error> {
+        if *at(record, "type") == "assistant" {
+            let message = at(record, "message");
+            let content = at(message, "content");
             let text = if let Some(text) = content.as_str() {
                 text.to_owned()
             } else {
@@ -45,40 +47,47 @@ impl Fold {
                     .as_array()
                     .into_iter()
                     .flatten()
-                    .filter(|block| block["type"] == "text")
-                    .filter_map(|block| block["text"].as_str())
+                    .filter(|block| *at(block, "type") == "text")
+                    .filter_map(|block| at(block, "text").as_str())
                     .collect::<Vec<_>>()
                     .join("\n")
             };
-            merge_cards(&mut self.card, &text);
-            self.limit = record["message"]["model"].as_str().and_then(context_limit);
-            let usage = &record["message"]["usage"];
-            self.used = usage["input_tokens"].as_u64().and_then(|input| {
+            merge_cards(&mut self.card, &text)?;
+            self.limit = at(message, "model").as_str().and_then(context_limit);
+            let usage = at(message, "usage");
+            self.used = at(usage, "input_tokens").as_u64().and_then(|input| {
                 input
-                    .checked_add(usage["cache_read_input_tokens"].as_u64().unwrap_or(0))?
-                    .checked_add(usage["cache_creation_input_tokens"].as_u64().unwrap_or(0))
+                    .checked_add(at(usage, "cache_read_input_tokens").as_u64().unwrap_or(0))?
+                    .checked_add(
+                        at(usage, "cache_creation_input_tokens")
+                            .as_u64()
+                            .unwrap_or(0),
+                    )
             });
         }
-        if record["type"] == "system"
-            && record["subtype"] == "local_command"
-            && (record["commandRun"]["command"] == "context"
-                || record["contextUsage"]["categories"].is_array())
+        let categories = at(at(record, "contextUsage"), "categories");
+        if *at(record, "type") == "system"
+            && *at(record, "subtype") == "local_command"
+            && (*at(at(record, "commandRun"), "command") == "context" || categories.is_array())
         {
-            self.measured = Some(measured_parts(&record["contextUsage"]["categories"]));
+            self.measured = Some(measured_parts(categories));
         }
-        if record["type"] == "custom-title"
-            && let Some(title) = record["customTitle"]
+        if *at(record, "type") == "custom-title"
+            && let Some(title) = at(record, "customTitle")
                 .as_str()
                 .filter(|s| !s.trim().is_empty())
         {
             self.custom_name = Some(title.to_owned());
         }
-        if record["type"] == "ai-title"
-            && let Some(title) = record["aiTitle"].as_str().filter(|s| !s.trim().is_empty())
+        if *at(record, "type") == "ai-title"
+            && let Some(title) = at(record, "aiTitle")
+                .as_str()
+                .filter(|s| !s.trim().is_empty())
         {
             self.name = Some(title.to_owned());
             self.first_title.get_or_insert_with(|| title.to_owned());
         }
+        Ok(())
     }
 
     fn overview(&self, id: &str) -> ConversationOverview {
@@ -167,7 +176,7 @@ fn read_new(path: &Path, entry: &mut Entry) -> std::io::Result<u64> {
     let replaced = len < entry.offset
         || modified < entry.modified
         || file.read_exact(&mut head).is_err()
-        || head != entry.head[..head.len()];
+        || entry.head.get(..head.len()) != Some(head.as_slice());
     if replaced {
         entry.reset();
     }
@@ -178,16 +187,20 @@ fn read_new(path: &Path, entry: &mut Entry) -> std::io::Result<u64> {
     let complete = bytes
         .iter()
         .rposition(|b| *b == b'\n')
-        .map_or(0, |at| at + 1);
-    for line in bytes[..complete].split(|b| *b == b'\n') {
+        .map_or(0, |end| end + 1);
+    let Some(done) = bytes.get(..complete) else {
+        return Err(std::io::Error::other(
+            "transcript read shorter than its last line",
+        ));
+    };
+    for line in done.split(|b| *b == b'\n') {
         if let Ok(record) = serde_json::from_slice::<Value>(line) {
-            entry.fold.push(&record);
+            entry.fold.push(&record).map_err(std::io::Error::other)?;
         }
     }
     if entry.head.len() < HEAD {
-        entry
-            .head
-            .extend_from_slice(&bytes[..complete.min(HEAD.saturating_sub(entry.head.len()))]);
+        let room = HEAD.saturating_sub(entry.head.len());
+        entry.head.extend(done.iter().take(room));
     }
     entry.offset += complete as u64;
     entry.len = len;
@@ -275,7 +288,12 @@ impl Launcher {
                 };
                 if batch.is_empty() {
                     launcher.overviews.working.store(false, Ordering::Release);
-                    if launcher.overviews.wanted.lock().unwrap().is_empty()
+                    if launcher
+                        .overviews
+                        .wanted
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .is_empty()
                         || launcher.overviews.working.swap(true, Ordering::AcqRel)
                     {
                         return;

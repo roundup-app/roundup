@@ -6,7 +6,7 @@
     clippy::indexing_slicing
 )]
 #![cfg_attr(
-    test,
+    any(test, feature = "test-support"),
     allow(
         clippy::unwrap_used,
         clippy::expect_used,
@@ -347,6 +347,8 @@ pub struct Agents {
     launcher: Launcher,
     /// FOP5978: the data folder is a Fork's.
     forked: bool,
+    /// A setting was changed after the Agents were shared: every call answers an error.
+    misconfigured: bool,
 }
 
 mod dispatch;

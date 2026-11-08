@@ -158,13 +158,17 @@ impl Launcher {
             output_style,
             missing_intent,
             delivery,
-            memory_hooks: guard["hooks"]["PreToolUse"]
-                .as_array()
+            memory_hooks: guard
+                .pointer("/hooks/PreToolUse")
+                .and_then(Value::as_array)
                 .cloned()
-                .unwrap_or_default(),
+                .ok_or_else(|| RpcError::internal("memory hooks lost the state hooks"))?,
             path: self.shell_path(),
             inherited_mode,
-            socket: self.socket_dir().join(format!("{id}.sock")),
+            socket: self
+                .socket_dir()
+                .map_err(RpcError::internal)?
+                .join(format!("{id}.sock")),
         })
     }
 
@@ -190,7 +194,7 @@ impl Launcher {
         }
         self.retained_inboxes
             .lock()
-            .expect("retained inboxes")
+            .unwrap_or_else(PoisonError::into_inner)
             .remove(&id.to_string());
         remove_if_present(&plan.socket)?;
         let mut modes = self.modes.lock().unwrap_or_else(PoisonError::into_inner);

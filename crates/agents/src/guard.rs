@@ -324,7 +324,7 @@ pub fn spawn(
     lock: bool,
     mut tick: impl FnMut() -> bool + Send + 'static,
     mut told: impl FnMut(End) + Send + 'static,
-) -> std::thread::JoinHandle<()> {
+) -> std::io::Result<std::thread::JoinHandle<()>> {
     std::thread::Builder::new()
         .name("memory-guard".into())
         .spawn(move || {
@@ -358,7 +358,6 @@ pub fn spawn(
                 }
             }
         })
-        .expect("a thread starts")
 }
 
 #[cfg(test)]
@@ -524,6 +523,7 @@ mod tests {
             },
             drop,
         )
+        .unwrap()
         .join()
         .unwrap();
         let seen = seen.lock().unwrap();

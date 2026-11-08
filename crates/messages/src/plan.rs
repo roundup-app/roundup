@@ -8,6 +8,9 @@ use agents::claude_code::inbox::Entry;
 
 use super::*;
 
+/// What the receiver's inbox is given for an entry, or why it cannot be named.
+pub(crate) type Rendered = Result<String, contracts::agent::Inbox>;
+
 /// Everything `plan` decides from: the facts `inbox::send` loaded for one idle receiver.
 pub(crate) struct Batch<'a> {
     pub agent: &'a str,
@@ -32,7 +35,7 @@ pub(crate) struct Batch<'a> {
     /// DCL8: the open-Job snapshot due with this batch.
     pub snapshot: Option<String>,
     /// The exact content the Adapter renders for an entry.
-    pub render: Box<dyn Fn(&Entry) -> String + 'a>,
+    pub render: Box<dyn Fn(&Entry) -> Rendered + 'a>,
 }
 
 /// What `inbox::send` does with a batch.
@@ -117,7 +120,13 @@ pub(crate) fn plan(batch: &Batch) -> Plan {
     let mut said = Vec::new();
     let mut empty = Vec::new();
     for entry in entries {
-        let content = (batch.render)(&entry);
+        let Ok(content) = (batch.render)(&entry) else {
+            // The receiver's inbox cannot be named: nothing is written, and every note stays pending.
+            return Plan::Hold {
+                ids: batch.notes.iter().map(|m| m.id).collect(),
+                why: None,
+            };
+        };
         if entry.text.is_empty() {
             empty.push(entry);
         // Questions preserve same-id receipt recovery; distinct reply ids already prevent
@@ -178,8 +187,8 @@ mod tests {
         }
     }
 
-    fn render(entry: &Entry) -> String {
-        entry.text.clone()
+    fn render(entry: &Entry) -> Result<String, contracts::agent::Inbox> {
+        Ok(entry.text.clone())
     }
 
     fn batch(notes: Vec<Message>) -> Batch<'static> {

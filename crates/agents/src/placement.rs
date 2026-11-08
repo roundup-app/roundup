@@ -176,40 +176,36 @@ fn parse_parts(parts: Vec<AskPart>, request: &Request) -> Result<Vec<AskPart>, S
     // partition merely because an earlier part occupied the first occurrence. Bound the search
     // so ambiguous model output becomes unclear instead of blocking the Daemon.
     let mut remaining = 65_536usize;
-    let mut spans: Vec<std::ops::Range<usize>> = Vec::new();
-    let mut next = vec![0; parts.len()];
-    while spans.len() < parts.len() {
-        let index = spans.len();
-        let mut span = None;
-        for (start, _) in request.text[next[index]..].char_indices() {
+    // Each placed span is kept with the offset its part resumes from when backtracked into.
+    let mut placed: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
+    let mut from = 0;
+    while let Some(part) = parts.get(placed.len()) {
+        let tail = request.text.get(from..).ok_or("span search offset")?;
+        let mut found = None;
+        for (offset, first) in tail.char_indices() {
             remaining = remaining.checked_sub(1).ok_or("span search exhausted")?;
-            let start = next[index] + start;
-            let candidate = start..start + parts[index].text.len();
-            if request.text[start..].starts_with(&parts[index].text)
-                && spans
+            let start = from + offset;
+            let candidate = start..start + part.text.len();
+            if tail
+                .get(offset..)
+                .is_some_and(|rest| rest.starts_with(&part.text))
+                && placed
                     .iter()
-                    .all(|used| candidate.end <= used.start || used.end <= candidate.start)
+                    .all(|(used, _)| candidate.end <= used.start || used.end <= candidate.start)
             {
-                span = Some(candidate);
+                found = Some((candidate, start + first.len_utf8()));
                 break;
             }
         }
-        match span {
+        match found {
             Some(span) => {
-                next[index] = span.start
-                    + request.text[span.start..]
-                        .chars()
-                        .next()
-                        .expect("nonempty span")
-                        .len_utf8();
-                spans.push(span);
+                placed.push(span);
+                from = 0;
             }
-            None => {
-                next[index] = 0;
-                if spans.pop().is_none() {
-                    return Err("not a verbatim non-overlapping span".into());
-                }
-            }
+            None => match placed.pop() {
+                Some((_, resume)) => from = resume,
+                None => return Err("not a verbatim non-overlapping span".into()),
+            },
         }
     }
     for part in &parts {

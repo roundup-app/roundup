@@ -17,8 +17,7 @@ impl Store {
         let placement = serde_json::to_string(&Place::Unclear {
             question: "roundup restarted before placing this".into(),
             candidates: vec![],
-        })
-        .expect("serializable placement");
+        })?;
         db.execute(
             "UPDATE ask_parts SET state='waiting', placement=? WHERE state='placing' AND json_extract(placement,'$.kind') != 'routed'",
             [placement],
@@ -192,23 +191,22 @@ impl Store {
             "UPDATE ask_parts SET placement=?,state=?,reason=? WHERE ask=? AND ord=? AND state=?",
             params![
                 serde_json::to_string(&part.placement)?,
-                state(part.state),
+                state(part.state)?,
                 part.reason,
                 id,
                 i64::try_from(ord)?,
-                state(from)
+                state(from)?
             ],
         )?;
         Ok(changed == 1)
     }
 }
 
-fn state(state: State) -> String {
-    serde_json::to_value(state)
-        .expect("serializable state")
+fn state(state: State) -> Result<String, StoreError> {
+    serde_json::to_value(state)?
         .as_str()
-        .expect("string state")
-        .into()
+        .map(str::to_owned)
+        .ok_or_else(|| StoreError::internal("Ask part state is not a string"))
 }
 fn write_part(db: &Connection, id: &str, ord: usize, part: &Part) -> Result<(), StoreError> {
     db.execute(
@@ -218,7 +216,7 @@ fn write_part(db: &Connection, id: &str, ord: usize, part: &Part) -> Result<(), 
             i64::try_from(ord)?,
             part.text,
             serde_json::to_string(&part.placement)?,
-            state(part.state),
+            state(part.state)?,
             part.reason
         ],
     )?;

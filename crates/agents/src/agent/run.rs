@@ -621,11 +621,17 @@ impl Run {
 
     /// Announce `status` as this Run's next Status revision. The caller holds `runs`, so
     /// announcements leave in the order the Status changed; `emit` never blocks.
-    pub(crate) fn publish(&mut self, bus: &Bus, actor: Actor, id: &str, status: Status) {
+    pub(crate) fn publish(
+        &mut self,
+        bus: &Bus,
+        actor: Actor,
+        id: &str,
+        status: Status,
+    ) -> Result<(), RpcError> {
         self.status_revision = self
             .status_revision
             .next()
-            .expect("Status revision exhausted");
+            .ok_or_else(|| RpcError::internal("Status revision exhausted"))?;
         bus.emit(
             actor,
             EventData::AgentStatus(Box::new(StatusEvent {
@@ -636,6 +642,7 @@ impl Run {
                 status,
             })),
         );
+        Ok(())
     }
 
     pub(crate) fn status_revision(&self) -> &Ordinal {

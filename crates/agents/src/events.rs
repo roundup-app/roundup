@@ -262,8 +262,9 @@ impl Shared {
         self.events.observed.notify_waiters();
         if let (Some(status), _) = run.observe(Observation::Failed(format!(
             "cannot save conversation: {err}"
-        ))) {
-            run.publish(&self.bus, actor.clone(), id, status);
+        ))) && let Err(publish) = run.publish(&self.bus, actor.clone(), id, status)
+        {
+            eprintln!("agents: could not announce {id}'s failed save: {publish}");
         }
         self.spawn_kill(run.terminal_id().to_owned());
         err
@@ -431,11 +432,11 @@ impl Shared {
         use fold::Effect;
         match effect {
             Effect::SubmitSteer => {
-                if run
-                    .steer()
-                    .and_then(|steer| steer.slash_written.as_ref())
-                    .is_none_or(|gate| *gate.lock().expect("slash-command write gate"))
-                {
+                let written = match run.steer().and_then(|steer| steer.slash_written.as_ref()) {
+                    None => true,
+                    Some(gate) => slash_gate(gate)?,
+                };
+                if written {
                     // H12 permits a late submission after refusal. Keep that acknowledgement even
                     // after the Steer's timeout so a coordinator retry need not Resume again.
                     run.submit_steer();
@@ -453,12 +454,11 @@ impl Shared {
                 .bus
                 .emit(actor.clone(), EventData::AgentCompleted(completion)),
             Effect::SettleSteer => {
-                if run
-                    .steer()
-                    .and_then(|steer| steer.slash_written.as_ref())
-                    .is_some_and(|gate| *gate.lock().expect("slash-command write gate"))
-                    && let Some(steer) = run.take_steer()
-                {
+                let written = match run.steer().and_then(|steer| steer.slash_written.as_ref()) {
+                    None => false,
+                    Some(gate) => slash_gate(gate)?,
+                };
+                if written && let Some(steer) = run.take_steer() {
                     let _ = steer.submitted.send(());
                 }
             }
@@ -483,7 +483,7 @@ impl Shared {
                     rail.set_finished(id, finished)?;
                 }
             }
-            Effect::Publish(status) => self.publish_status(run, agent_facts, id, actor, status),
+            Effect::Publish(status) => self.publish_status(run, agent_facts, id, actor, status)?,
             Effect::Name(name) => {
                 if let Some(rail) = rail {
                     self.name_from_prompt(rail, run, id, actor, name)?;
@@ -507,15 +507,16 @@ impl Shared {
         id: &str,
         actor: &Actor,
         status: Status,
-    ) {
+    ) -> Result<(), RpcError> {
         // U6248b: the raw Status moves the resume table before it is announced.
         let resume_moved = resume_wait::fold(&mut agent_facts.resume, &status, (self.clock)());
         let status = waiting_on(&status, agent_facts.wait);
         let status = resume_wait::resuming(&status, agent_facts.resume.as_ref());
-        run.publish(&self.bus, actor.clone(), id, status);
+        run.publish(&self.bus, actor.clone(), id, status)?;
         if resume_moved {
             self.bus.emit(Actor::daemon(), EventData::RailChanged);
         }
+        Ok(())
     }
 
     /// A9: Claude Code's first `ai-title` renames the row Automatic naming named, once.
@@ -648,7 +649,7 @@ pub(super) async fn watch(
     let mut tick = match shared.poll_processes(&id, &attempt, None).await {
         Ok(tick_at) => tick_after(&shared, tick_at),
         Err(err) if matches!(err.code, code::NOT_FOUND | code::CONFLICT) => return,
-        Err(err) => panic!("{REGISTERED}: {err}"),
+        Err(err) => return eprintln!("agents: {REGISTERED}: {err}"),
     };
     loop {
         let observation = tokio::select! {
@@ -667,7 +668,7 @@ pub(super) async fn watch(
             // `rail.remove` evicts `id` from `runs` once it deletes the node (A16); an Exit
             // already in flight when that happened has nothing left to watch.
             Err(err) if matches!(err.code, code::NOT_FOUND | code::CONFLICT) => return,
-            Err(err) => panic!("{REGISTERED}: {err}"),
+            Err(err) => return eprintln!("agents: {REGISTERED}: {err}"),
         };
         if exited {
             return;
@@ -675,10 +676,16 @@ pub(super) async fn watch(
         let tick_at = match shared.poll_processes(&id, &attempt, tick_at).await {
             Ok(tick_at) => tick_at,
             Err(err) if matches!(err.code, code::NOT_FOUND | code::CONFLICT) => return,
-            Err(err) => panic!("{REGISTERED}: {err}"),
+            Err(err) => return eprintln!("agents: {REGISTERED}: {err}"),
         };
         tick = tick_after(&shared, tick_at);
     }
+}
+
+fn slash_gate(gate: &Mutex<bool>) -> Result<bool, RpcError> {
+    gate.lock()
+        .map(|written| *written)
+        .map_err(|_| RpcError::internal("slash-command write gate lock is poisoned"))
 }
 
 /// The instant of the adapter's wanted Tick at `tick_at` (Unix milliseconds), if it wants one.
