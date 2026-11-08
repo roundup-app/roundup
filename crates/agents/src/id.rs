@@ -16,6 +16,11 @@ impl AgentId {
         }
         id.parse().ok().map(Self)
     }
+
+    /// The node's row id, which SQLite compares as an integer, so no text cast is needed.
+    pub(crate) fn get(self) -> i64 {
+        self.0.get()
+    }
 }
 
 impl std::fmt::Display for AgentId {
