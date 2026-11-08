@@ -7,6 +7,7 @@ import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { triage } from "../todos/triage";
 import { copy } from "./copy";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
@@ -67,24 +68,20 @@ export const Layout = (props: {
 
   const [shelfFocus, setShelfFocus] = createSignal<Element | null>(null);
 
+  const sync = () => {
+    const focus = document.activeElement;
+
+    setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
+  };
+
   onMount(() => {
-    const sync = () => {
-      const focus = document.activeElement;
-
-      setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
-    };
-
-    document.addEventListener("focusin", sync);
-    document.addEventListener("focusout", sync);
-    onCleanup(() => {
-      document.removeEventListener("focusin", sync);
-      document.removeEventListener("focusout", sync);
-    });
+    makeEventListener(document, "focusin", sync);
+    makeEventListener(document, "focusout", sync);
   });
 
   const placement = () => props.shelfPlacement ?? SETTLED;
 
-  const railShape = () => railView(props.widths, props.railPeeking);
+  const railMode = () => railView(props.widths, props.railPeeking);
 
   let windowElement: HTMLDivElement | undefined;
   const [measured, setMeasured] = createSignal<"reserved" | "overlay">("reserved");
@@ -144,8 +141,8 @@ export const Layout = (props: {
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
-      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={railShape().strip || undefined} data-peek={railShape().peek || undefined} data-slide={props.railSlide} data-layout-panel="rail" aria-label={copy.rail}>
-        <Show when={railShape().strip}>{props.railStrip}</Show>
+      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={railMode().strip || undefined} data-peek={railMode().peek || undefined} data-slide={props.railSlide} data-layout-panel="rail" aria-label={copy.rail}>
+        <Show when={railMode().strip}>{props.railStrip}</Show>
         <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={(props.widths?.collapsed() && !props.railPeeking) || undefined}>{props.rail}</div>
       </section>
       <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>

@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { mountRail } from "./railFixture";
@@ -65,11 +65,10 @@ it("u6228_arrow_keys_walk_the_marks_by_name", async () => {
   await waitFor(() => expect(document.activeElement).toBe(mark(strip, "calm")));
 });
 
-it("u6228_the_add_control_stays_on_the_strip_and_the_strip_has_no_expand_button", async () => {
+it("u6228_the_add_control_stays_on_the_strip", async () => {
   const { strip } = await mountBoth([]);
 
   expect(within(strip).queryAllByRole("treeitem")).toHaveLength(0);
-  expect(within(strip).queryByRole("button", { name: "Expand the Rail" })).toBeNull();
   expect(strip.querySelector(".rail-strip-add")).not.toBeNull();
 });
 

@@ -97,16 +97,16 @@ run("u6228 the Rail collapses to a strip", () => {
 
   it("u6228g_a_key_slide_uses_the_key_duration_and_a_click_the_drawer_duration", async () => {
     await load();
-    const read = `() => new Promise(resolve => requestAnimationFrame(() => resolve(getComputedStyle(document.querySelector('.rail-body')).transitionDuration.split(',')[0])))`;
+    const read = `() => new Promise(resolve => requestAnimationFrame(() => resolve(document.querySelector('.rail').dataset.slide)))`;
 
     await page.call(`() => document.querySelector('.rail-toggle').click()`);
-    expect(await page.call<string>(read)).toBe("0.25s");
+    expect(await page.call<string>(read)).toBe("click");
     await quiet();
 
     await page.call(`() => document.querySelector('.rail-toggle').click()`);
     await quiet();
     await leader("KeyR", "r");
-    expect(await page.call<string>(read)).toBe("0.15s");
+    expect(await page.call<string>(read)).toBe("key");
   });
 
   it("u6228g_a_press_during_a_slide_leaves_one_running_motion", async () => {

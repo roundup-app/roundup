@@ -18,8 +18,10 @@ it("u6228f_the_window_bar_holds_one_toggle_named_for_the_state_open_strip_and_pe
     const toggles = container.querySelectorAll<HTMLButtonElement>('.window-bar button[aria-label$="the Rail"]');
 
     expect(toggles).toHaveLength(1);
-    expect(toggles[0]!.getAttribute("aria-label")).toBe(name);
-    toggles[0]!.click();
+    const [toggle] = toggles;
+
+    expect(toggle?.getAttribute("aria-label")).toBe(name);
+    toggle?.click();
     unmount();
   }
 

@@ -28,7 +28,7 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
     motion,
     set: (collapsed: boolean, source: "click" | "key") => {
       // Without animations (a test DOM) the change is instant and settles at once.
-      const animated = typeof document.querySelector(".rail-body")?.getAnimations === "function";
+      const animated = document.querySelector(".rail-body") !== null && "getAnimations" in Element.prototype;
 
       setMotion(reducedMotion() ? "fade" : source);
       widths.setCollapsed(collapsed, animated);
