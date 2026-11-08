@@ -165,14 +165,14 @@ impl Rail {
         fn delete_selected(
             db: &Connection,
             nodes: &[RailNode],
-            id: &str,
+            node: &str,
             selected: &[&str],
         ) -> Result<(), StoreError> {
-            for child in nodes.iter().filter(|n| n.parent.as_deref() == Some(id)) {
+            for child in nodes.iter().filter(|n| n.parent.as_deref() == Some(node)) {
                 delete_selected(db, nodes, &child.id, selected)?;
             }
-            if selected.contains(&id) {
-                db.execute("DELETE FROM nodes WHERE id=?", [id])?;
+            if selected.contains(&node) {
+                db.execute("DELETE FROM nodes WHERE id=?", [node])?;
             }
             Ok(())
         }
@@ -409,10 +409,10 @@ fn in_reach(
     db: &Connection,
     nodes: &[RailNode],
     agent: &str,
-    id: &str,
+    target: &str,
 ) -> Result<bool, StoreError> {
     let created = Rail::created_by_in(db, agent)?;
-    Ok(crate::reach::reach_of(nodes, created, agent).contains(id))
+    Ok(crate::reach::reach_of(nodes, created, agent).contains(target))
 }
 
 impl Rail {

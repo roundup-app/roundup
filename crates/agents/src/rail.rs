@@ -682,11 +682,11 @@ fn check_parent(
     }
 }
 
-/// Is `node` the ancestor `id` or a descendant of it?
-fn is_within(nodes: &[RailNode], node: &str, id: &str) -> bool {
+/// Is `node` the `ancestor` or a descendant of it?
+fn is_within(nodes: &[RailNode], node: &str, ancestor: &str) -> bool {
     let mut at = Some(node);
     while let Some(current) = at {
-        if current == id {
+        if current == ancestor {
             return true;
         }
         at = nodes

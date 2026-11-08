@@ -21,8 +21,8 @@ static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::I
 
 #[doc(hidden)]
 pub mod schema;
-use crate::id::AgentId;
 use contracts::agent::Ordinal;
+pub use id::AgentId;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};

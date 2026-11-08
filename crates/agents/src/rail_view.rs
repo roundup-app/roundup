@@ -57,9 +57,9 @@ fn resume_cleanup_label(pending: bool) -> &'static str {
     }
 }
 
-/// U3566c: the published finishes of the node `id`; an id that parses to no node counts `0`.
-pub(super) fn finished_of(rail: &rail::Rail, id: &str) -> Result<u64, RpcError> {
-    AgentId::parse(id).map_or(Ok(0), |id| Ok(rail.finished(id)?))
+/// U3566c: the published finishes of the node a wire id names; an id that parses to no node counts `0`.
+pub(super) fn finished_of(rail: &rail::Rail, wire: &str) -> Result<u64, RpcError> {
+    AgentId::parse(wire).map_or(Ok(0), |id| Ok(rail.finished(id)?))
 }
 
 impl Shared {
@@ -95,10 +95,10 @@ impl Shared {
         agent_lock(&self.runs).unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    pub(super) fn mark_starting(&self, id: &str, attempt: Ordinal) {
+    pub(super) fn mark_starting(&self, wire: &str, attempt: Ordinal) {
         let since = (self.clock)();
         self.runs().put(
-            id,
+            wire,
             Slot::Starting {
                 attempt,
                 since,
@@ -251,12 +251,12 @@ impl Shared {
         Ok(node)
     }
 
-    pub(super) fn node(&self, id: &str) -> Result<RailNode, RpcError> {
+    pub(super) fn node(&self, wire: &str) -> Result<RailNode, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
-        let finished = finished_of(&rail, id)?;
+        let finished = finished_of(&rail, wire)?;
         self.present(
-            rail.node(crate::rail::agent_id(id)?)?,
+            rail.node(crate::rail::agent_id(wire)?)?,
             &runs,
             &rail,
             finished,
@@ -276,24 +276,24 @@ impl Shared {
 
 impl Agents {
     /// Whether this Agent's name has already been chosen explicitly or by its first prompt.
-    pub fn naming_settled(&self, id: &str) -> bool {
-        match self.shared.runs().slot(id) {
+    pub fn naming_settled(&self, wire: &str) -> bool {
+        match self.shared.runs().slot(wire) {
             Some(Slot::Running(run)) => run.named(),
             Some(Slot::Starting { named, .. }) => *named,
             _ => true,
         }
     }
 
-    /// U6380c: whether the user named `id`; a row that is gone reads false.
-    pub fn user_named(&self, id: &str) -> bool {
-        crate::rail::agent_id(id)
+    /// U6380c: whether the user named the wire id `wire`; a row that is gone reads false.
+    pub fn user_named(&self, wire: &str) -> bool {
+        crate::rail::agent_id(wire)
             .and_then(|id| self.shared.rail().user_named(id))
             .unwrap_or(false)
     }
 
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
-    pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
-        Ok(self.shared.rail().name_or_gone(id)?)
+    pub fn rail_name(&self, wire: &str) -> Result<String, RpcError> {
+        Ok(self.shared.rail().name_or_gone(wire)?)
     }
 
     /// Preserve canonical Rail identities after their nodes leave the live tree.
