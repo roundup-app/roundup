@@ -7,7 +7,7 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
     let launcher = plugin_launcher(&s);
     for role in [Role::Door, Role::Scout, Role::Agent] {
         for resume in [None, Some("saved-conversation"), None] {
-            let (argv, env) = launcher
+            let (argv, env, _) = launcher
                 .launch_on(&agents::claude_code::Request {
                     folders: folders(&s.dir),
                     id: "7",
@@ -57,7 +57,7 @@ async fn q11_real_claude_loads_three_plugins() {
     let executable = std::env::var("ROUNDUP_CLAUDE").unwrap();
     let launcher = Launcher::new(executable, s.claude_json.clone(), s.rup.clone(), None);
     for role in [Role::Door, Role::Agent] {
-        let (argv, env) = launcher
+        let (argv, env, _) = launcher
             .launch_on(&agents::claude_code::Request {
                 folders: folders(&s.dir),
                 id: "7",
@@ -133,7 +133,7 @@ async fn q11_missing_plugin_is_a_launch_error() {
     for corrupt in [false, true] {
         let s = setup();
         let launcher = plugin_launcher(&s);
-        let (argv, _) = launcher
+        let (argv, _, _) = launcher
             .launch_on(&agents::claude_code::Request {
                 folders: folders(&s.dir),
                 id: "7",

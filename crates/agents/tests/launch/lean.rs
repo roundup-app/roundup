@@ -183,7 +183,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             }
             s.user_file("settings.json", &user.to_string());
             let launcher = plugin_launcher(&s);
-            let (argv, env) = launcher
+            let (argv, env, _) = launcher
                 .launch_on(&agents::claude_code::Request {
                     folders: folders(&s.dir),
                     id: "7",
@@ -246,7 +246,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
     let s = setup();
     s.user_file("CLAUDE.md", "USER GLOBAL RULE");
     let launcher = plugin_launcher(&s);
-    let (argv, _) = launcher
+    let (argv, _, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "7",
@@ -308,7 +308,7 @@ async fn lc5_every_child_gets_the_plugins_and_no_instruction_copy() {
         let s = setup();
         s.user_file("CLAUDE.md", "USER GLOBAL RULE");
         let launcher = plugin_launcher(&s);
-        let (argv, env) = launcher
+        let (argv, env, _) = launcher
             .launch_on(&agents::claude_code::Request {
                 folders: folders(&s.dir),
                 id: "7",
@@ -377,7 +377,7 @@ async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
             } else {
                 launcher
             };
-            let (argv, _) = launcher
+            let (argv, _, _) = launcher
                 .launch_on(&agents::claude_code::Request {
                     folders: folders(&s.dir),
                     id: "7",
@@ -418,7 +418,7 @@ async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
 async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
     let s = setup();
     let launcher = plugin_launcher(&s).without_intent_skill();
-    let (argv, _) = launcher
+    let (argv, _, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "7",
@@ -454,7 +454,7 @@ async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
             .unwrap();
     assert!(!brief.contains("hope:intent"));
     // Only a Door says so; a worker's start is the same.
-    let (worker, _) = launcher
+    let (worker, _, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "8",
@@ -474,7 +474,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     let s = setup();
     s.user_file("settings.json", r#"{"permissions":{"allow":["Read(x)"]}}"#);
     let launcher = plugin_launcher(&s);
-    let (argv, env) = launcher
+    let (argv, env, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "7",
@@ -731,7 +731,7 @@ async fn lc17_every_agent_leaves_claude_md_loading_to_claude_code() {
         s.user_file("CLAUDE.md", "USER_GLOBAL_TOKEN");
         std::fs::write(s.dir.parent().unwrap().join("CLAUDE.md"), "PROJECT_TOKEN").unwrap();
         let launcher = plugin_launcher(&s);
-        let (argv, env) = launcher
+        let (argv, env, _) = launcher
             .launch_on(&agents::claude_code::Request {
                 folders: folders(&s.dir),
                 id: "7",
