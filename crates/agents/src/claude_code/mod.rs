@@ -13,9 +13,7 @@ pub mod inbox;
 mod launch;
 mod launch_files;
 mod launch_lean;
-mod memory;
 mod models;
-pub use memory::memory_guard;
 mod overview_cache;
 mod placement;
 mod profiles;
@@ -630,9 +628,10 @@ pub fn read_start_context(stdout: &str) -> Result<String, String> {
     })?;
     let reply: Value =
         serde_json::from_str(stdout).map_err(|err| format!("cannot read start Context: {err}"))?;
-    let context = reply["hookSpecificOutput"]["additionalContext"]
-        .as_str()
-        .ok_or("start Context has no additionalContext")?;
+    let context = (reply
+        .pointer("/hookSpecificOutput/additionalContext")
+        .and_then(Value::as_str))
+    .ok_or("start Context has no additionalContext")?;
     // P10: only fixed guidance may precede the shared Brief; identity follows its cache prefix.
     let (guidance, context) = match context.strip_suffix(WORKSTREAM_GUIDANCE) {
         Some(context) => (WORKSTREAM_GUIDANCE, context),
@@ -677,15 +676,21 @@ pub(super) fn write_submitted(
     bytes: &[u8],
     accepted: Option<&std::sync::Mutex<bool>>,
 ) -> std::io::Result<()> {
-    let paste = bytes
-        .strip_suffix(b"\r")
-        .expect("a Steer's bytes end with the submitting carriage return");
+    let paste = bytes.strip_suffix(b"\r").ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "a Steer's bytes end with the submitting carriage return",
+        )
+    })?;
     writer.write_all(paste)?;
     writer.flush()?;
     std::thread::sleep(SUBMIT_PAUSE);
     // A hook can arrive before the input thread reports completion to its caller.
     // Only the final write holds this gate, so paste settling never blocks Signals.
-    let mut accepted = accepted.map(|gate| gate.lock().expect("slash-command write gate"));
+    let poisoned = |_| std::io::Error::other("slash-command write gate poisoned");
+    let mut accepted = accepted
+        .map(|gate| gate.lock().map_err(poisoned))
+        .transpose()?;
     writer.write_all(b"\r")?;
     writer.flush()?;
     if let Some(accepted) = &mut accepted {
@@ -704,7 +709,7 @@ pub fn interrupt_bytes() -> Vec<u8> {
 pub(super) fn is_uuid(id: &str) -> bool {
     let bytes = id.as_bytes();
     bytes.len() == 36
-        && [8, 13, 18, 23].iter().all(|&i| bytes[i] == b'-')
+        && [8, 13, 18, 23].iter().all(|&i| bytes.get(i) == Some(&b'-'))
         && bytes
             .iter()
             .enumerate()
@@ -833,14 +838,13 @@ pub fn transient_cause(label: &str) -> Option<&'static str> {
 
 /// The question being asked; else the tool name, with its command when it has one.
 fn permission_label(payload: &Value) -> String {
-    let tool = payload["tool_name"].as_str().unwrap_or("tool");
-    let input = &payload["tool_input"];
-    if let Some(question) = input["questions"][0]["question"].as_str() {
-        return question.to_owned();
-    }
-    match input["command"].as_str() {
-        Some(command) => format!("{tool}: {command}"),
-        None => tool.to_owned(),
+    let text = |pointer: &str| payload.pointer(pointer).and_then(Value::as_str);
+    let tool = text("/tool_name").unwrap_or("tool");
+    let question = text("/tool_input/questions/0/question");
+    match (question, text("/tool_input/command")) {
+        (Some(question), _) => question.to_owned(),
+        (None, Some(command)) => format!("{tool}: {command}"),
+        (None, None) => tool.to_owned(),
     }
 }
 

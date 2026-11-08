@@ -359,7 +359,7 @@ it("u4687c_saved_changes_reach_other_project_tabs", async () => {
 
 const portWith = (configure: (press: string | null) => Promise<void>): import("../app/seam").CapturePort => ({
   configure, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {},
-  onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
+  onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {},
 });
 
 it("u5205_default_settings_call_configure_with_no_chord_and_cmd_shift_t_opens_quick_add", async () => {

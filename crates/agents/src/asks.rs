@@ -69,11 +69,11 @@ impl Intake {
         }
     }
 
-    fn store(&self) -> MutexGuard<'_, Store> {
-        agent_lock(&self.store).expect("Ask store lock")
+    fn store(&self) -> Result<MutexGuard<'_, Store>, RpcError> {
+        lock(&self.store, "Ask store")
     }
     fn emit(&self, id: &str) -> Result<Ask, RpcError> {
-        let ask = self.store().get(id)?;
+        let ask = self.store()?.get(id)?;
         self.bus.emit(
             Actor::user(),
             EventData::AskChanged {
@@ -83,45 +83,52 @@ impl Intake {
         Ok(ask)
     }
 
-    fn enqueue(self: &Arc<Self>, ctx: Ctx) {
-        let mut active = self.placing.lock().expect("Ask placement worker");
+    fn enqueue(self: &Arc<Self>, ctx: Ctx) -> Result<(), RpcError> {
+        let mut active = lock(&self.placing, "Ask placement worker")?;
         if *active {
-            return;
+            return Ok(());
         }
         *active = true;
         let shared = self.clone();
         tokio::spawn(async move {
             loop {
-                let next = {
-                    let mut active = shared.placing.lock().expect("Ask placement worker");
-                    let next = shared.store().next_placing().expect("read pending Ask");
+                let next = (|| {
+                    let mut active = lock(&shared.placing, "Ask placement worker")?;
+                    let next = shared.store()?.next_placing()?;
                     if next.is_none() {
                         *active = false;
                     }
-                    next
-                };
-                let Some(ask) = next else {
-                    return;
+                    Ok::<_, RpcError>(next)
+                })();
+                let ask = match next {
+                    Ok(Some(ask)) => ask,
+                    Ok(None) => return,
+                    Err(err) => {
+                        eprintln!("agents: Ask placement worker: {err}");
+                        return;
+                    }
                 };
                 if let Err(err) = shared.clone().place(user_ctx(&ctx), ask).await {
-                    panic!("Ask placement worker: {err}");
+                    eprintln!("agents: Ask placement worker: {err}");
+                    return;
                 }
             }
         });
+        Ok(())
     }
 
     fn recover(self: &Arc<Self>, ctx: &Ctx) -> Result<(), RpcError> {
         if self.recovered.swap(true, Ordering::SeqCst) {
             return Ok(());
         }
-        let asks = self.store().list()?;
+        let asks = self.store()?.list()?;
         for ask in asks {
             for (ord, part) in ask.parts.iter().enumerate() {
                 if part.state != State::Queued {
                     continue;
                 }
                 match &part.placement {
-                    Place::Routed { workstream, .. } => self.wake(ctx, workstream),
+                    Place::Routed { workstream, .. } => self.wake(ctx, workstream)?,
                     Place::New { .. } => self.start_new(ctx, &ask.id, ord),
                     _ => {}
                 }
@@ -136,10 +143,10 @@ impl Intake {
             Place::Routed {
                 workstream,
                 project,
-            } => Some((workstream.clone(), project.clone())),
+            } => Some((workstream.clone(), project.clone(), part)),
             _ => None,
         });
-        let fixed = self.fixed.lock().expect("fixed Projects").remove(&ask.id);
+        let fixed = lock(&self.fixed, "fixed Projects")?.remove(&ask.id);
         let named = ask
             .text
             .strip_prefix('@')
@@ -164,7 +171,7 @@ impl Intake {
                     })
                     .or_else(|| rest.split_once(' '))
             });
-        let parts = if let Some((workstream, project)) = captured {
+        let parts = if let Some((workstream, project, first)) = captured {
             if !rail
                 .iter()
                 .any(|node| node.id == workstream && node.kind == NodeKind::Workstream)
@@ -172,7 +179,7 @@ impl Intake {
                 return self.fail(
                     &ask.id,
                     0,
-                    ask.parts[0].clone(),
+                    first.clone(),
                     "the Workstream was removed".into(),
                 );
             }
@@ -209,12 +216,12 @@ impl Intake {
                 destination,
             }]
         } else {
-            let mut earlier = self.store().list()?;
+            let mut earlier = self.store()?.list()?;
             // Discard newer sends, including sends whose placement is still pending.
             let at = earlier
                 .iter()
                 .position(|item| item.id == ask.id)
-                .expect("stored Ask");
+                .ok_or_else(|| RpcError::internal("the Ask is not stored"))?;
             earlier.drain(..=at);
             let earlier = earlier
                 .into_iter()
@@ -242,21 +249,22 @@ impl Intake {
             .into_iter()
             .map(|part| stored_part(part, fixed.as_deref()))
             .collect();
-        self.store().replace(&ask.id, &parts)?;
+        self.store()?.replace(&ask.id, &parts)?;
         self.emit(&ask.id)?;
-        self.dispatch(&ctx, &ask.id, parts);
+        self.dispatch(&ctx, &ask.id, parts)?;
         Ok(())
     }
 
     /// Start delivery of every queued part of a stored Ask.
-    fn dispatch(self: &Arc<Self>, ctx: &Ctx, id: &str, parts: Vec<Part>) {
+    fn dispatch(self: &Arc<Self>, ctx: &Ctx, id: &str, parts: Vec<Part>) -> Result<(), RpcError> {
         for (ord, part) in parts.into_iter().enumerate() {
             match part.placement {
-                Place::Routed { workstream, .. } => self.wake(ctx, &workstream),
+                Place::Routed { workstream, .. } => self.wake(ctx, &workstream)?,
                 Place::New { .. } => self.start_new(ctx, id, ord),
                 _ => {}
             }
         }
+        Ok(())
     }
 
     fn start_new(self: &Arc<Self>, ctx: &Ctx, id: &str, ord: usize) {
@@ -265,7 +273,7 @@ impl Intake {
         let id = id.to_owned();
         tokio::spawn(async move {
             if let Err(err) = shared.new_part(&ctx, &id, ord).await {
-                panic!("Ask {id} creation worker: {err}");
+                eprintln!("agents: Ask {id} creation worker: {err}");
             }
         });
     }
@@ -316,7 +324,13 @@ impl Intake {
     }
 
     async fn new_part(&self, ctx: &Ctx, id: &str, ord: usize) -> Result<(), RpcError> {
-        let mut part = self.store().get(id)?.parts[ord].clone();
+        let mut part = self
+            .store()?
+            .get(id)?
+            .parts
+            .get(ord)
+            .ok_or_else(|| RpcError::internal("unknown Ask part"))?
+            .clone();
         let Place::New { title, .. } = &part.placement else {
             return Ok(());
         };
@@ -327,24 +341,26 @@ impl Intake {
         };
         // Claim before creating a Workstream; a crash may lose an effect, never duplicate it.
         part.state = State::Placing;
-        if !self.store().update(id, ord, &part, State::Queued)? {
+        if !self.store()?.update(id, ord, &part, State::Queued)? {
             return Ok(());
         }
         self.emit(id)?;
         let created = self.agents.call(ctx, "rail.createWorkstream", serde_json::json!({"name":title,"parent":null,"order":{"kind":"work","title":title,"ask":part.text,"limits":[]}})).await;
+        let created = created.and_then(|node| {
+            node.get("id")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or_else(|| RpcError::internal("created Workstream has no id"))
+        });
         let result = match created {
             Err(err) => Err(err),
-            Ok(node) => {
-                let workstream = node["id"]
-                    .as_str()
-                    .expect("created Workstream id")
-                    .to_owned();
+            Ok(workstream) => {
                 part.placement = Place::New {
                     title,
                     workstream: Some(workstream.clone()),
                     project,
                 };
-                self.store().update(id, ord, &part, State::Placing)?;
+                self.store()?.update(id, ord, &part, State::Placing)?;
                 self.emit(id)?;
                 let result = self
                     .agents
@@ -365,9 +381,9 @@ impl Intake {
                     )
                     .await;
                 match result {
-                    Ok(node) => {
-                        let attempt = node.attempt.expect("started Door attempt");
-                        match self
+                    Ok(node) => match node.attempt {
+                        None => Err(RpcError::internal("started Door has no attempt")),
+                        Some(attempt) => match self
                             .agents
                             .first_steer_completion(&workstream, &attempt)
                             .await
@@ -377,8 +393,8 @@ impl Intake {
                                 self.type_part(&workstream, &attempt, &part.text).await
                             }
                             _ => Err(RpcError::not_accepted("prompt not accepted")),
-                        }
-                    }
+                        },
+                    },
                     Err(err) => {
                         self.agents.shared.rail().remove(&workstream)?;
                         ctx.emit(EventData::RailChanged);
@@ -388,7 +404,7 @@ impl Intake {
                                 workstream: None,
                                 project,
                             },
-                            _ => unreachable!(),
+                            other => other,
                         };
                         Err(err)
                     }
@@ -402,24 +418,25 @@ impl Intake {
                 part.reason = Some(err.message);
             }
         }
-        self.store().update(id, ord, &part, State::Placing)?;
+        self.store()?.update(id, ord, &part, State::Placing)?;
         self.emit(id)?;
         Ok(())
     }
 
-    fn wake(self: &Arc<Self>, ctx: &Ctx, workstream: &str) {
-        let mut doors = self.doors.lock().expect("Ask workers lock");
+    fn wake(self: &Arc<Self>, ctx: &Ctx, workstream: &str) -> Result<(), RpcError> {
+        let mut doors = lock(&self.doors, "Ask workers")?;
         if !doors.insert(workstream.into()) {
-            return;
+            return Ok(());
         }
         let shared = self.clone();
         let ctx = user_ctx(ctx);
         let workstream = workstream.to_owned();
         tokio::spawn(async move {
             if let Err(err) = shared.deliver(&ctx, &workstream).await {
-                panic!("Ask Door worker {workstream}: {err}");
+                eprintln!("agents: Ask Door worker {workstream}: {err}");
             }
         });
+        Ok(())
     }
 
     async fn deliver(self: &Arc<Self>, ctx: &Ctx, workstream: &str) -> Result<(), RpcError> {
@@ -429,8 +446,8 @@ impl Intake {
             let observed = self.agents.shared.events.observed.notified();
             let pending = {
                 // Same lock order as wake/finish so a concurrent enqueue cannot lose its wake.
-                let mut doors = self.doors.lock().expect("Ask workers lock");
-                let asks = self.store().list()?;
+                let mut doors = lock(&self.doors, "Ask workers")?;
+                let asks = self.store()?.list()?;
                 let next = asks.into_iter().rev().find_map(|ask| ask.parts.into_iter().enumerate().find(|(_,part)| part.state == State::Queued && matches!(&part.placement,Place::Routed { workstream: id, .. } if id == workstream)).map(|(ord,part)|(ask.id,ord,part)));
                 if next.is_none() {
                     doors.remove(workstream);
@@ -502,7 +519,7 @@ impl Intake {
                     }
                     // Claim before prompt. BUSY guarantees no bytes and is the only retry.
                     part.state = State::Typed;
-                    if !self.store().update(&id, ord, &part, State::Queued)? {
+                    if !self.store()?.update(&id, ord, &part, State::Queued)? {
                         continue;
                     }
                     let intake = self.clone();
@@ -527,7 +544,7 @@ impl Intake {
                         Ok(()) => continue,
                         Err(PromptError::Busy { .. }) => {
                             part.state = State::Queued;
-                            self.store().update(&id, ord, &part, State::Typed)?;
+                            self.store()?.update(&id, ord, &part, State::Typed)?;
                             #[cfg(test)]
                             self.before_wait();
                             observed.await;
@@ -550,7 +567,7 @@ impl Intake {
         let from = part.state;
         part.state = State::Failed;
         part.reason = Some(reason);
-        self.store().update(id, ord, &part, from)?;
+        self.store()?.update(id, ord, &part, from)?;
         self.emit(id)?;
         Ok(())
     }
@@ -677,7 +694,7 @@ impl Asks {
                 ));
             }
             let ask = {
-                let mut store = shared.store();
+                let mut store = shared.store()?;
                 if let Some(id) = &submission
                     && let Some(ask) = store.replay(id, &text, workstream.as_deref())?
                 {
@@ -702,21 +719,23 @@ impl Asks {
                     workstream,
                     placed,
                 )?;
-                if let Some(project) = project.filter(|_| ask.parts[0].state == State::Placing) {
-                    shared
-                        .fixed
-                        .lock()
-                        .expect("fixed Projects")
-                        .insert(ask.id.clone(), project);
+                let first_state = ask
+                    .parts
+                    .first()
+                    .map(|part| part.state)
+                    .ok_or_else(|| RpcError::internal("the Ask has no parts"))?;
+                if let Some(project) = project.filter(|_| first_state == State::Placing) {
+                    lock(&shared.fixed, "fixed Projects")?.insert(ask.id.clone(), project);
                 }
-                ask
+                (ask, first_state)
             };
+            let (ask, first_state) = ask;
             shared.recover(ctx)?;
             shared.emit(&ask.id)?;
-            if ask.parts[0].state == State::Placing {
-                shared.enqueue(user_ctx(ctx));
+            if first_state == State::Placing {
+                shared.enqueue(user_ctx(ctx))?;
             } else {
-                shared.dispatch(ctx, &ask.id, ask.parts.clone());
+                shared.dispatch(ctx, &ask.id, ask.parts.clone())?;
             }
             Ok(ask)
         }
@@ -751,7 +770,7 @@ impl Asks {
             ));
         }
         let earlier = shared
-            .store()
+            .store()?
             .list()?
             .into_iter()
             .take(5)
@@ -769,7 +788,10 @@ impl Asks {
                     .map(|node| (node.id.clone(), each.name.clone()))
             })
             .collect();
-        let only = (projects.len() == 1).then(|| projects[0].name.clone());
+        let only = match projects.as_slice() {
+            [only] => Some(only.name.clone()),
+            _ => None,
+        };
         let fixed = project.or(only);
         let request = Request::across(
             text,
@@ -808,7 +830,7 @@ impl Asks {
 
     async fn ask_list(&self, _ctx: &Ctx) -> Result<Vec<contracts::ask::Ask>, RpcError> {
         let shared = &self.shared;
-        Ok(shared.store().list()?)
+        Ok(shared.store()?.list()?)
     }
 
     async fn ask_pick(
@@ -824,7 +846,7 @@ impl Asks {
                 part: ord,
                 target,
             } = p;
-            let mut store = shared.store();
+            let mut store = shared.store()?;
             let ask = store.get(&id)?;
             let mut part = ask
                 .parts
@@ -887,7 +909,7 @@ impl Asks {
             let ask = shared.emit(&id)?;
             match part.placement {
                 Place::Routed { workstream, .. } if part.state == State::Queued => {
-                    shared.wake(ctx, &workstream)
+                    shared.wake(ctx, &workstream)?
                 }
                 Place::New { .. } if part.state == State::Queued => shared.start_new(ctx, &id, ord),
                 _ => {}
@@ -944,6 +966,10 @@ fn placed_parts(
             })
         })
         .collect()
+}
+
+fn lock<'a, T>(mutex: &'a Mutex<T>, what: &str) -> Result<MutexGuard<'a, T>, RpcError> {
+    agent_lock(mutex).map_err(|_| RpcError::internal(format!("{what} lock is poisoned")))
 }
 
 #[cfg(test)]

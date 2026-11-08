@@ -22,12 +22,6 @@
   border-top-color: var(--hairline);
 }
 
-.rail-create-menu [data-part="item"] {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
-}
-
 .rail-create-menu[data-pointer] {
   transform-origin: var(--transform-origin);
   transition: opacity var(--duration-reduced) var(--easing-out), transform var(--duration-reduced) var(--easing-out);
@@ -42,10 +36,6 @@
     transition-property: opacity;
     @starting-style { transform: none; }
   }
-}
-
-.rail-create-menu [data-disabled] {
-  color: var(--disabled);
 }
 
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */
@@ -840,20 +830,4 @@
 .rail-unreachable .reserved-status {
   flex-basis: 100%;
   white-space: normal;
-}
-
-/* U6228: the collapse button has its own head line, so no section chevron sits under it; its centre sits on the chevron column, --space-5 from the inner right edge. */
-.rail-head {
-  position: relative;
-  z-index: 1;
-  height: var(--space-6);
-  flex: none;
-}
-
-.rail-head .rail-collapse {
-  position: absolute;
-  top: 0;
-  right: var(--space-3);
-  width: var(--space-5);
-  height: var(--space-6);
 }

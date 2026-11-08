@@ -13,7 +13,7 @@ afterEach(() => { cleanup(); window.localStorage.clear(); receive = undefined; }
 
 it("u3787f_second_launch_reuses_the_app_opens_the_delivered_project", async () => {
   const app = createFakeApp();
-  app.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = listener => { receive = listener;
 
     return () => {}; };
 
@@ -26,7 +26,7 @@ it("u3787f_second_launch_reuses_the_app_opens_the_delivered_project", async () =
 
 it("u3787f_deep_link_preserves_identity_and_authority_refuses_without_opening_a_path", async () => {
   const app = createFakeApp();
-  app.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = listener => { receive = listener;
 
     return () => {}; };
 
@@ -42,7 +42,7 @@ it("u3787f_deep_link_preserves_identity_and_authority_refuses_without_opening_a_
 it("u3787f_deep_link_preserves_identity_and_authority_reveals_the_exact_terminal", async () => {
   const app = createFakeApp();
   app.add("/project");
-  app.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = listener => { receive = listener;
 
     return () => {}; };
 
@@ -68,7 +68,7 @@ it.each(["agent", "workstream"] as const)("u3787f_deep_link_preserves_identity_a
   app.handlers["link.read"] = () => kind === "agent"
     ? { kind, id: target.id, node: target, digest: null }
     : { kind, id: target.id, node: target, children: [] };
-  app.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = listener => { receive = listener;
 
     return () => {}; };
 

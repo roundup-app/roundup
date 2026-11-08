@@ -2,7 +2,7 @@
 
 use super::Role;
 
-/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14), and `AskUserQuestion` because the user answers the Door's questions natively in its Terminal (A3564a). `Write` and `Edit` are memory-only (LC19). `Bash` and `Agent` are there (LC25). Every other built-in is absent; the MCP servers' tools stay (F1).
+/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14), and `AskUserQuestion` because the user answers the Door's questions natively in its Terminal (A3564a). `Bash` and `Agent` are there (LC25). Every other built-in is absent; the MCP servers' tools stay (F1).
 pub const DOOR_TOOLS: &str =
     "Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion";
 
@@ -23,37 +23,34 @@ pub struct Profile {
     pub bundled_plugins: &'static [&'static str],
 }
 
+static DOOR: Profile = Profile {
+    tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
+    // A41: a `/command` sent to a Door runs there.
+    bundled_plugins: &["hope", "hunch", "hold"],
+};
+
+static SCOUT: Profile = Profile {
+    tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
+    bundled_plugins: &["hope", "hunch", "hold"],
+};
+
+static AGENT: Profile = Profile {
+    tools: None,
+    bundled_plugins: &["hope", "hunch", "hold"],
+};
+
 /// LC1: the one table of launch profiles, a row for each lean Role.
-pub const PROFILES: [(Role, Profile); 3] = [
-    (
-        Role::Door,
-        Profile {
-            tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
-            // A41: a `/command` sent to a Door runs there.
-            bundled_plugins: &["hope", "hunch", "hold"],
-        },
-    ),
-    (
-        Role::Scout,
-        Profile {
-            tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
-            bundled_plugins: &["hope", "hunch", "hold"],
-        },
-    ),
-    (
-        Role::Agent,
-        Profile {
-            tools: None,
-            bundled_plugins: &["hope", "hunch", "hold"],
-        },
-    ),
+pub const PROFILES: [(Role, &Profile); 3] = [
+    (Role::Door, &DOOR),
+    (Role::Scout, &SCOUT),
+    (Role::Agent, &AGENT),
 ];
 
 /// LC1: `role`'s row.
 pub fn profile(role: Role) -> &'static Profile {
-    &PROFILES
-        .iter()
-        .find(|(row, _)| *row == role)
-        .expect("PROFILES has a row for every Role")
-        .1
+    match role {
+        Role::Door => &DOOR,
+        Role::Scout => &SCOUT,
+        Role::Agent => &AGENT,
+    }
 }

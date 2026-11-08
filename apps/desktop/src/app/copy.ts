@@ -29,6 +29,7 @@ export const storageCopy = {
 const openProjectRetry = "Use Open Project to try again.";
 
 export const copy = {
+  captureOff: (cause: string) => `Quick capture could not start. ${cause}`,
   projectMenuLabel: (name: string, fallback: string) => name === "agent.new-with-prompt" ? "New Agent with a Prompt…" : name === "attention.jump" ? "Jump to What Needs You" : name === "leader.changes" ? "Review Changes" : name === "project.choose-folder" ? "Open Folder…" : fallback,
   openProjectRetry,
   openProjectFailed: "Opening failed",

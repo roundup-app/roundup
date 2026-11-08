@@ -35,13 +35,16 @@ impl Agents {
         let body = serde_json::to_vec(&Stored {
             attempt,
             input_started: false,
-            inbox: Some(self.launcher.socket_path(id)),
+            inbox: Some(self.launcher.socket_path(id).map_err(RpcError::internal)?),
             owner,
             socket: rpc::socket_path().ok(),
             background: None,
         })
         .map_err(RpcError::internal)?;
-        std::fs::create_dir_all(file.parent().expect("owners dir")).map_err(RpcError::internal)?;
+        let dir = file
+            .parent()
+            .ok_or_else(|| RpcError::internal("owners file has no directory"))?;
+        std::fs::create_dir_all(dir).map_err(RpcError::internal)?;
         std::fs::write(file, body).map_err(RpcError::internal)
     }
 
@@ -103,7 +106,10 @@ impl Agents {
     async fn reattach(&self, id: &str, stored: Stored) -> bool {
         let (node, conversation) = {
             let rail = self.shared.rail();
-            match (rail.node(id), rail.conversation(id)) {
+            match (
+                rail.node(id),
+                crate::rail::agent_id(id).and_then(|id| rail.conversation(id)),
+            ) {
                 (Ok(node), Ok(conversation)) => (node, conversation),
                 _ => return false,
             }
@@ -139,7 +145,10 @@ impl Agents {
             let mut runs = self.shared.runs();
             if runs.agent(id).is_some() {
                 false
-            } else if rail.attach_terminal(id, &spawned.id).is_ok() {
+            } else if crate::rail::agent_id(id)
+                .and_then(|id| rail.attach_terminal(id, &spawned.id))
+                .is_ok()
+            {
                 runs.put(id, Slot::Running(run));
                 true
             } else {
@@ -220,8 +229,11 @@ impl Shared {
         if stored.attempt != attempt || !change(&mut stored) {
             return Ok(());
         }
-        let mut file = tempfile::NamedTempFile::new_in(path.parent().expect("owners directory"))
-            .map_err(RpcError::internal)?;
+        let mut file = tempfile::NamedTempFile::new_in(
+            path.parent()
+                .ok_or_else(|| RpcError::internal("owners file has no directory"))?,
+        )
+        .map_err(RpcError::internal)?;
         serde_json::to_writer(&mut file, &stored).map_err(RpcError::internal)?;
         file.persist(&path).map_err(RpcError::internal)?;
         Ok(())

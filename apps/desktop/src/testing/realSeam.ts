@@ -159,7 +159,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
   const app: AppSeam = {
     showWindow: async () => {},
     setMenuBar: async () => {},
-    onMenuBarAction: async () => () => {},
+    onMenuBarAction: () => () => {},
     recentProjects: async () => [],
     claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
     writeClipboardText: async () => { throw new RpcError(-32003, "Native clipboard is unavailable in the browser harness. Use the desktop App to copy."); },
@@ -212,7 +212,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     askRemoval: probeRemovalQuestion,
     setDockBadge: async () => {},
     stateAlert: async () => {},
-    onStateAlertClicked: async () => () => {},
+    onStateAlertClicked: () => () => {},
     // The isolated browser has no native window; these calls never move or rename a host window.
     setWindowTitle: async () => {},
     dragWindow: async () => {},
@@ -309,7 +309,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
           }),
       ),
     selectProjectMenu: async (path, items) => { projectMenu.path = path; projectMenu.items = items ?? []; },
-    onProjectPage: async (listener) => {
+    onProjectPage: (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
 
       window.addEventListener("open-project-page", receive);
@@ -318,18 +318,18 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     },
     forkBranch: async () => "fork",
     forkMake: async () => {},
-    onForkSheet: async (listener) => {
+    onForkSheet: (listener) => {
       window.addEventListener("open-fork-sheet", listener);
 
       return () => window.removeEventListener("open-fork-sheet", listener);
     },
-    onAppSettings: async (listener) => {
+    onAppSettings: (listener) => {
       window.addEventListener("open-app-settings", listener);
 
       return () => window.removeEventListener("open-app-settings", listener);
     },
-    onFileDrop: async () => () => {},
-    onDaemonExited: async (listener) => {
+    onFileDrop: () => () => {},
+    onDaemonExited: (listener) => {
       exits.add(listener);
 
       if (exited) listener(exited);

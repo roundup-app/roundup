@@ -7,6 +7,11 @@ impl Module for Agents {
     }
 
     async fn call_reply(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Reply, RpcError> {
+        if self.misconfigured {
+            return Err(RpcError::internal(
+                "the Agents were configured after sharing",
+            ));
+        }
         match method {
             // R3696c: the Rail is the largest reply a keystroke-paced client asks for.
             "rail.tree" => rpc::json(&self.shared.tree()?),
@@ -15,6 +20,11 @@ impl Module for Agents {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
+        if self.misconfigured {
+            return Err(RpcError::internal(
+                "the Agents were configured after sharing",
+            ));
+        }
         contracts::agents_methods!(rpc::dispatch_methods, Agents, self, ctx, method, value)
     }
 }
@@ -348,8 +358,8 @@ impl Agents {
             shared.guard_reach(&ctx.actor, &id, true)?;
             let rail = shared.rail();
             Ok(contracts::agent::SpawnPrompt {
-                prompt: rail.spawn_prompt(&id)?,
-                role: rail.role(&id)?,
+                prompt: rail.spawn_prompt(crate::rail::agent_id(&id)?)?,
+                role: rail.role(crate::rail::agent_id(&id)?)?,
             })
         }
     }

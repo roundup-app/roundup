@@ -62,12 +62,15 @@ pub(crate) fn parse(table: &str) -> Table<'_> {
         .collect();
     rows.sort_unstable_by_key(|row| row.pid);
     let mut children: Vec<_> = (0..rows.len()).collect();
-    children.sort_unstable_by_key(|&index| rows[index].ppid);
+    children.sort_unstable_by_key(|&index| rows.get(index).map(|row| row.ppid));
     #[cfg(test)]
     BUILDS.with(|count| count.set(count.get() + 1));
     let mut parents: Vec<(u32, std::ops::Range<usize>)> = Vec::with_capacity(rows.len());
-    for (at, &index) in children.iter().enumerate() {
-        let parent = rows[index].ppid;
+    for (at, parent) in children
+        .iter()
+        .enumerate()
+        .filter_map(|(at, &index)| Some((at, rows.get(index)?.ppid)))
+    {
         if let Some((last, range)) = parents.last_mut()
             && *last == parent
         {
@@ -118,18 +121,20 @@ pub(crate) fn strays(
     {
         table.edges = 0;
     }
-    for (index, row) in table.rows.iter().enumerate() {
+    for (row, seen) in table.rows.iter().zip(table.seen.iter_mut()) {
         if row.args.contains(marker) {
-            table.seen[index] = true;
+            *seen = true;
             table.pending.push(row.pid);
         }
     }
     for &pid in terminals {
-        if let Ok(index) = table.rows.binary_search_by_key(&pid, |row| row.pid) {
-            if table.seen[index] {
+        if let Ok(index) = table.rows.binary_search_by_key(&pid, |row| row.pid)
+            && let Some(seen) = table.seen.get_mut(index)
+        {
+            if *seen {
                 continue;
             }
-            table.seen[index] = true;
+            *seen = true;
         }
         // Missing Terminal roots still own rows whose parent PID names them.
         table.pending.push(pid);
@@ -142,15 +147,25 @@ pub(crate) fn strays(
         let Ok(at) = table.parents.binary_search_by_key(&parent, |(pid, _)| *pid) else {
             continue;
         };
-        for &index in &table.children[table.parents[at].1.clone()] {
+        let Some(kids) = table
+            .parents
+            .get(at)
+            .and_then(|(_, range)| table.children.get(range.clone()))
+        else {
+            continue;
+        };
+        for &index in kids {
             #[cfg(test)]
             {
                 table.edges += 1;
             }
-            if std::mem::replace(&mut table.seen[index], true) {
+            let (Some(seen), Some(child)) = (table.seen.get_mut(index), table.rows.get(index))
+            else {
+                continue;
+            };
+            if std::mem::replace(seen, true) {
                 continue;
             }
-            let child = &table.rows[index];
             table.pending.push(child.pid);
             if is_program(child, programs) {
                 found.push(Stray {

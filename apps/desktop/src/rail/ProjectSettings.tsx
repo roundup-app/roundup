@@ -14,9 +14,7 @@ const capOf = (text: string): number | null => /^\d+$/.test(text.trim()) && Numb
 /** U3813/U3814: native Project commands share one persistent center-page owner. */
 export const ProjectSettingsView = () => {
   const { app, project, settingsView, importing, rail } = useConnectedProject();
-  let disposed = false;
-  let stop: (() => void) | undefined;
-  void app.onProjectPage(({ path, command }) => {
+  onCleanup(app.onProjectPage(({ path, command }) => {
     if (path !== project.path || (command !== "import-work" && command !== "project-settings")) return;
     const selected = rail.selected();
     batch(() => {
@@ -24,8 +22,7 @@ export const ProjectSettingsView = () => {
 
       if (command === "import-work" && !importing.open()) importing.show();
     });
-  }).then(release => { if (disposed) release(); else stop = release; });
-  onCleanup(() => { disposed = true; stop?.(); });
+  }));
   createEffect(on(importing.open, open => {
     if (open && !settingsView.open()) settingsView.show(document.body, "import-work");
 

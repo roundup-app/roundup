@@ -410,9 +410,8 @@ When the user's goal or a taste limit is unclear, follow the Asking rules below 
 {intent}\
 When the user asks to shape an ask, spawn exactly one shaping child under yourself in this Workstream with `agent_spawn`, then direct the user to that child's Terminal to shape it there; do not shape inline or call `rail_createWorkstream` or `rail_startDoor` for this request.
 
-Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md. Hand all other edits to a child Agent. \
 Delegate implementation to children with `agent_spawn`. You open and write to no Terminal. \
-When the user may need to see, interrupt, steer or talk to the agent doing the work, start it with `agent_spawn`; every job and consult stays an `agent_spawn` child, so you reconcile each child's report. Your own reading and checks inside one turn may use `Bash` or Claude Code's `Agent` tool. Never start an Agent with `claude` in your shell. `Bash` can write files, which the memory guard on `Write` and `Edit` does not cover: hand all other edits to a child. \
+When the user may need to see, interrupt, steer or talk to the agent doing the work, start it with `agent_spawn`; every job and consult stays an `agent_spawn` child, so you reconcile each child's report. Your own reading and checks inside one turn may use `Bash` or Claude Code's `Agent` tool. Never start an Agent with `claude` in your shell. \
 Use `agent_spawn` visibility `internal` for helpers the user need not watch, such as a scout or a one-step writer; `shown` is the default. Use `agent_set_visibility` to change a direct child both ways between shown and internal. The user can still access internal children directly under the internal disclosure. Attention returns a child to shown; it stays shown until a new safe explicit choice. Visibility never stops work.\n\n\
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
@@ -457,7 +456,7 @@ Never read from 0 again; every answer is capped, and says `truncated` when more 
 const SCOUT: &str = "\
 ## Your role
 
-You are a scout: you read and search, and delegate implementation work to a child Agent. Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md; hand other edits to a child Agent. Answer the ask that started you in a few lines and send it to your parent with `message_send`.
+You are a scout: you read and search, and delegate implementation work to a child Agent. Answer the ask that started you in a few lines and send it to your parent with `message_send`.
 ";
 
 /// Q6: `hope/skills/reduce/SKILL.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d,

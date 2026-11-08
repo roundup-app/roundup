@@ -1,0 +1,9 @@
+PROOF q1 plain mode: 2 lines back in 553.052167ms; hello.framed=false generation=1 version="0.1.18" core={"id":"0ca98f5ca26ecce50fffbd04bb627a75","name":"herdr-spike"}
+PROOF q1 plain mode terminal.list reply: {"id":2,"jsonrpc":"2.0","result":{"hidden_finished":0,"terminals":[]}}
+PROOF q1 framed connect+hello in 391.001625ms (ssh spawn, auth, core start, hello)
+PROOF q1 framed hello: generation=1 version="0.1.18" framed=true features=["framed","attach","events","status","shell","resize_notifications","automatic_input"] methods=32
+PROOF q1 server.status over framed channel 0: {"core":{"id":"0ca98f5ca26ecce50fffbd04bb627a75","name":"herdr-spike"},"finished":0,"holder":null,"holders":[],"installed_by":null,"live":0,"pid":1129,"uptime_ms":389305,"version":"0.1.18"}
+PROOF q1 server.status round trip n=30 p50=31.9ms p95=32.8ms
+PROOF q1 error shape: {"code":-32000,"data":{"hint":"see `hc ls --all`","kind":"not_found"},"message":"no terminal \"t999\""}
+PROOF q1 unknown method: {"code":-32601,"data":{"hint":"see `hc schema`","kind":"unknown_method"},"message":"unknown method \"terminal.nope\""}
+PROOF q1 hello generation=2 (future): {"error":{"code":-32000,"data":{"hint":"this core speaks generation 1","kind":"unsupported_generation"},"message":"protocol generation 2 not supported"},"id":34,"jsonrpc":"2.0"}

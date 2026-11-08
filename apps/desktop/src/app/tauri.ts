@@ -9,8 +9,9 @@ import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
-import { actionRequestSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
-import type { App, CaptureAction, CaptureState, OutputMessage } from "./seam";
+import { actionRequestSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, retryRead, rpcFailureSchema, RpcError } from "./seam";
+import { copy } from "./copy";
+import type { App, CaptureAction, CaptureState, OutputMessage, Unsubscribe } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -48,6 +49,31 @@ const parsedCommand = <Schema extends v.GenericSchema>(
   options?: InvokeOptions,
 ): Promise<v.InferOutput<Schema>> => guarded(async () => v.parse(schema, await invoke(name, args, options)));
 
+/**
+ * A listener is a read: it retries, and a stop called before the registration resolves releases it once it does.
+ * An exhausted retry reaches `fail` once, since no caller can act on it.
+ */
+const subscribe = (start: () => Promise<() => void>, fail: (cause: string) => void = cause => console.warn(cause), registered?: () => void): Unsubscribe => {
+  let stopped = false;
+
+  const stop = retryRead(() => guarded(start)).then(release => {
+    if (!stopped) registered?.();
+
+    return release;
+  }).catch((error: Error) => {
+    fail(error.message);
+
+    return () => {};
+  });
+
+  return () => {
+    stopped = true;
+    void stop.then(release => release());
+  };
+};
+
+const captureOff = (cause: string) => console.warn(copy.captureOff(cause));
+
 /** The reset location comes from the invoking webview's native storage configuration. */
 export const webviewDataPath = (): Promise<string> =>
   parsedCommand(v.string(), "plugin:window-bar|webview_data_path", {});
@@ -64,7 +90,7 @@ export const tauriFileDrop = (
   webview: () => Pick<ReturnType<typeof getCurrentWebview>, "onDragDropEvent">,
   ratio: () => number,
 ): App["onFileDrop"] => (listener) =>
-  guarded(() =>
+  subscribe(() =>
     webview().onDragDropEvent(({ payload }) => {
       if (payload.type === "leave") {
         listener({ phase: "leave", paths: [], x: 0, y: 0 });
@@ -97,22 +123,22 @@ export const createTauriApp = (): App => {
   const captureControl = (request: CaptureRequest) => command<void>("plugin:capture-panel|control", { request });
 
   const app: App = {
-    onNativeOpen: listener => guarded(async () => {
+    onNativeOpen: (listener, fail) => subscribe(async () => {
       let active = true;
       const channel = new Channel<unknown>(message => { if (active) listener(v.parse(nativeOpenSchema, message)); });
       await command<void>("native_open", { channel });
 
       return () => { active = false; };
-    }),
+    }, fail),
     capture: /mac/i.test(navigator.platform) ? {
       configure: press => captureControl({ kind: "configure", chord: press?.replace("meta+", "super+").replace("ctrl+", "control+") ?? null }),
       show: () => captureControl({ kind: "show" }),
       dismiss: () => captureControl({ kind: "dismiss" }),
       publish: snapshot => captureControl({ kind: "publish", snapshot }),
       act: action => captureControl({ kind: "act", action }),
-      onRequested: listener => guarded(() => listen("capture-requested", listener)),
-      onAction: listener => guarded(() => listen("capture-action", event => listener(v.parse(captureActionSchema, event.payload)))),
-      onState: listener => guarded(() => listen("capture-state", event => listener(v.parse(captureStateSchema, event.payload)))),
+      onRequested: listener => subscribe(() => listen("capture-requested", listener), captureOff),
+      onAction: listener => subscribe(() => listen("capture-action", event => listener(v.parse(captureActionSchema, event.payload))), captureOff),
+      onState: (listener, registered) => subscribe(() => listen("capture-state", event => listener(v.parse(captureStateSchema, event.payload))), captureOff, registered),
     } : undefined,
     writeClipboardText: (text) => guarded(() => writeText(text)),
     askRemoval: question => parsedCommand(v.picklist(["this", "all", "cancel"]), "ask_removal", { question }),
@@ -137,11 +163,11 @@ export const createTauriApp = (): App => {
       await window.setFocus();
     }),
     setMenuBar: menu => command<void>("set_menu_bar", { menu }),
-    onMenuBarAction: listener => guarded(() => listen("menu-bar-action", event => listener(v.parse(menuBarActionSchema, event.payload)))),
+    onMenuBarAction: listener => subscribe(() => listen("menu-bar-action", event => listener(v.parse(menuBarActionSchema, event.payload)))),
     stateAlert: async (alert) => {
       await command("state_alert", { request: alert });
     },
-    onStateAlertClicked: (listener) => guarded(() => listen("state-alert-clicked", event => listener(v.parse(stateAlertClickedSchema, event.payload).agent))),
+    onStateAlertClicked: (listener) => subscribe(() => listen("state-alert-clicked", event => listener(v.parse(stateAlertClickedSchema, event.payload).agent))),
     setWindowTitle: (title) => command<void>("plugin:window-bar|set_window_title", { title }),
     dragWindow: () => command<void>("plugin:window-bar|drag_window", {}),
     zoomWindow: () => command<void>("plugin:window-bar|zoom_window", {}),
@@ -158,15 +184,15 @@ export const createTauriApp = (): App => {
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
     selectProjectMenu: (path, items) => command("select_project_menu", { path, items }),
-    onProjectPage: (listener) => guarded(() => listen("open-project-page", event => listener(v.parse(projectPageSchema, event.payload)))),
+    onProjectPage: (listener) => subscribe(() => listen("open-project-page", event => listener(v.parse(projectPageSchema, event.payload)))),
     forkBranch: () => parsedCommand(v.string(), "fork_branch", {}),
     forkMake: async (params) => {
       await command("fork_make", params);
     },
-    onForkSheet: (listener) => guarded(() => listen("open-fork-sheet", listener)),
-    onAppSettings: (listener) => guarded(() => listen("open-app-settings", listener)),
+    onForkSheet: (listener) => subscribe(() => listen("open-fork-sheet", listener)),
+    onAppSettings: (listener) => subscribe(() => listen("open-app-settings", listener)),
     onDaemonExited: (listener) =>
-      guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
+      subscribe(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
     forProject: (path) => ({
       ...app,
       rpc: async (method, params) => {

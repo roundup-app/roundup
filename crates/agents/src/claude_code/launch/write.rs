@@ -124,9 +124,7 @@ impl Launcher {
         checked: &Checked,
         role: Role,
     ) -> Result<Facts, RpcError> {
-        let Checked {
-            id, cwd, project, ..
-        } = checked;
+        let Checked { id, project, .. } = checked;
         let delivery = match &request.facts.lean {
             Some(lean) => extras::resolve(&self.extras_sources(project), &lean.extras)?,
             None => extras::Delivery::default(),
@@ -137,16 +135,6 @@ impl Launcher {
             .get("outputStyle")
             .is_none()
             .then(|| "hold:Plain".to_owned());
-        let mut guard = json!({ "hooks": { "PreToolUse": [] } });
-        super::super::memory::hook(
-            &self.rup,
-            &self.conversation_dir,
-            self.home.as_deref(),
-            cwd,
-            role,
-            &carried,
-            &mut guard,
-        )?;
         let inherited_mode = match request.facts.permission {
             Permission::Inherit => {
                 super::super::inbox::default_mode(&self.conversation_dir, project)
@@ -158,13 +146,12 @@ impl Launcher {
             output_style,
             missing_intent,
             delivery,
-            memory_hooks: guard["hooks"]["PreToolUse"]
-                .as_array()
-                .cloned()
-                .unwrap_or_default(),
             path: self.shell_path(),
             inherited_mode,
-            socket: self.socket_dir().join(format!("{id}.sock")),
+            socket: self
+                .socket_dir()
+                .map_err(RpcError::internal)?
+                .join(format!("{id}.sock")),
         })
     }
 
@@ -190,7 +177,7 @@ impl Launcher {
         }
         self.retained_inboxes
             .lock()
-            .expect("retained inboxes")
+            .unwrap_or_else(PoisonError::into_inner)
             .remove(&id.to_string());
         remove_if_present(&plan.socket)?;
         let mut modes = self.modes.lock().unwrap_or_else(PoisonError::into_inner);

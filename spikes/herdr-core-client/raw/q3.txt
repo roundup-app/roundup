@@ -1,0 +1,9 @@
+PROOF q3 banner reached Terminals log: true
+PROOF q3 flood finished: true
+PROOF q3 terminal.read: 27 reads to offset 379671; lines seen=5000 unique=5000 first=Some(1) last=Some(5000) split=0 out_of_order=0
+PROOF q3 terminal.search line 004321 -> offset 327943; read(after=offset) starts Some("line 004321 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+PROOF q3 terminal.screen (100x30) last rows == herdr-core terminal.read text last rows: true ; ours=["ready>", "flood done 5000", "line 005000 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "line 004999 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"] theirs=["ready>", "flood done 5000", "line 005000 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "line 004999 αβγ→🙂 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"] how="screen"
+PROOF q3 Terminals log bytes == herdr-core stream bytes: true (log 379671 B, end offset 379671, stream 379671 B)
+PROOF q3 first stream bytes (the first paint): 181b5b21701b5b3f323032366c1b5b3f396c1b5b3f313030306c1b5b3f313030316c1b5b3f313030326c1b5b3f313030336c1b5b3f313030346c1b5b = "\u{18}\u{1b}[!p\u{1b}[?2026l\u{1b}[?9l\u{1b}[?1000l\u{1b}[?1001l\u{1b}[?1002l\u{1b}[?1003l\u{1b}[?1004l\u{1b}["
+PROOF q3 exit 3 -> Terminals exit_code=Some(3)
+PROOF q3 frames: frames=69 frames_ending_mid_utf8=1 biggest_frame=16384

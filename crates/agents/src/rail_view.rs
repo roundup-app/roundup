@@ -64,7 +64,7 @@ pub(super) fn finished_of(rail: &rail::Rail, id: &str) -> Result<u64, RpcError> 
 
 impl Shared {
     pub(super) fn rail(&self) -> MutexGuard<'_, rail::Rail> {
-        agent_lock(&self.rail).expect("rail lock")
+        agent_lock(&self.rail).unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// A33: replace the blockers Agents wait on. A running Agent whose reading changes gets a
@@ -85,12 +85,14 @@ impl Shared {
             if run.ended() || (before.kind, &before.label) == (after.kind, &after.label) {
                 continue;
             }
-            run.publish(&self.bus, Actor::daemon(), &id.to_string(), after);
+            if let Err(err) = run.publish(&self.bus, Actor::daemon(), &id.to_string(), after) {
+                eprintln!("agents: could not announce {id}'s wait: {err}");
+            }
         }
     }
 
     pub(super) fn runs(&self) -> MutexGuard<'_, HashMap<AgentId, Agent>> {
-        agent_lock(&self.runs).expect("runs lock")
+        agent_lock(&self.runs).unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     pub(super) fn mark_starting(&self, id: &str, attempt: Ordinal) {
@@ -178,7 +180,13 @@ impl Shared {
             finished: finished.to_string(),
         }));
         #[cfg(feature = "test-support")]
-        if let Some(status) = self.rail_view.statuses.lock().unwrap().get(&node.id) {
+        if let Some(status) = self
+            .rail_view
+            .statuses
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(&node.id)
+        {
             node.status = Some(status.clone());
             node.status_revision = Some(Ordinal::first());
         }
@@ -196,8 +204,9 @@ impl Shared {
         node.can_resume &= exited;
         // A5287: the guards of `agent.makeWorkstream` and `agent.saveAsMode`.
         let agent = node.kind == NodeKind::Agent;
-        node.can_make_workstream =
-            agent && node.parent.is_none() && rail.has_conversation(&node.id)?;
+        node.can_make_workstream = agent
+            && node.parent.is_none()
+            && rail.has_conversation(crate::rail::agent_id(&node.id)?)?;
         node.can_save_as_mode = agent
             && matches!(
                 Launcher::load_lean(&self.rail_view.data_dir, &node.id),
@@ -212,7 +221,7 @@ impl Shared {
         };
         if node.can_resume
             && !matches!(slot, Some(Slot::Running(run)) if run.closing())
-            && let Some((id, cwd)) = rail.conversation(&node.id)?
+            && let Some((id, cwd)) = rail.conversation(crate::rail::agent_id(&node.id)?)?
         {
             // RO2: the cache only; a task of its own reads the transcript and announces it.
             node.overview = self.rail_view.launcher.cached_overview(&id);

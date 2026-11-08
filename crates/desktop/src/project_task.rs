@@ -504,18 +504,26 @@ fn exited() -> RpcError {
 }
 
 async fn started(starting: &mut Option<Starting>) -> Result<(Started, u64), RpcError> {
-    starting.as_mut().expect("guarded by is_some").await
+    match starting.as_mut() {
+        Some(starting) => starting.await,
+        None => std::future::pending().await,
+    }
 }
 
 async fn retry_due(at: Option<Instant>) {
-    sleep_until(at.expect("guarded by is_some")).await;
+    match at {
+        Some(at) => sleep_until(at).await,
+        None => std::future::pending().await,
+    }
 }
 
 type Answered =
     Result<Result<Result<(), RpcError>, oneshot::error::RecvError>, tokio::time::error::Elapsed>;
 
 async fn answered(connecting: &mut Option<Connecting>) -> (u64, Answered) {
-    let connecting = connecting.as_mut().expect("guarded by is_some");
+    let Some(connecting) = connecting.as_mut() else {
+        return std::future::pending().await;
+    };
     (
         connecting.run,
         timeout_at(connecting.deadline, &mut connecting.answer).await,

@@ -1,0 +1,13 @@
+PROOF q5 c1 attached 100x30 (non-observe): core says cols x rows = 100 x 30
+PROOF q5 c2 attached 60x20 (non-observe, second): core says cols x rows = 60 x 20
+PROOF q5 program-side `stty size` lines so far (rows cols): ["size rows_cols=30 100", "size rows_cols=30 100", "size rows_cols=20 60"]
+PROOF q5 c1 sent RESIZE 100x30: core says cols x rows = 100 x 30
+PROOF q5 c2 attached 40x10 as observe: core says cols x rows = 100 x 30
+PROOF q5 observer sent RESIZE 30x8: core says cols x rows = 100 x 30
+PROOF q5 c2 typed a byte (back to 60x20?): core says cols x rows = 60 x 20
+PROOF q5 c1 sent FOCUS gained: core says cols x rows = 100 x 30
+PROOF q5 c2 sent AUTOMATIC_INPUT (hello advertises it: true); owner stays c1 if size stays 100x30: core says cols x rows = 100 x 30
+PROOF q5 c2 RESIZE 60x20: core says cols x rows = 60 x 20
+PROOF q5 c1 RESIZE 100x30 again = roundup retakes: core says cols x rows = 100 x 30
+PROOF q5 c2 attach 70x25 with resumed=true (sets size only once active): core says cols x rows = 100 x 30
+PROOF q5 c2(resumed) typed: core says cols x rows = 70 x 25

@@ -439,7 +439,7 @@ impl Agents {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
             // O2, O3: the first Steer is the node's order, whichever way it was set.
-            let spawn_prompt = rail.spawn_prompt(id)?;
+            let spawn_prompt = rail.spawn_prompt(crate::rail::agent_id(id)?)?;
             let prompt = order::first_input(
                 first,
                 node.work.as_ref(),
@@ -593,7 +593,7 @@ impl Agents {
             && let Some(marker) = claude_code::settings_marker(&self.dir, id)
         {
             self.shared
-                .scan_door(id, marker.to_string_lossy().into_owned());
+                .scan_door(id, marker.to_string_lossy().into_owned())?;
         }
         Ok(spawned)
     }
@@ -608,7 +608,10 @@ impl Agents {
     ) -> Result<terminal::Spawned, RpcError> {
         let spawned = self.shared.terminals.spawn(spawn).await?;
         if attach == Attach::Now {
-            let attached = self.shared.rail().attach_terminal(id, &spawned.id);
+            let attached = self
+                .shared
+                .rail()
+                .attach_terminal(crate::rail::agent_id(id)?, &spawned.id);
             let attached = attached
                 .map_err(RpcError::from)
                 .and_then(|()| self.save_owner(id, &spawned.id));
@@ -635,11 +638,11 @@ impl Agents {
             let prompt = order::first_input(
                 first,
                 node.work.as_ref(),
-                rail.spawn_prompt(id)?.as_deref(),
+                rail.spawn_prompt(crate::rail::agent_id(id)?)?.as_deref(),
                 rail.order_revision(id)?.is_some(),
                 &attempt,
             );
-            rail.attach_terminal(id, "fixture")?;
+            rail.attach_terminal(crate::rail::agent_id(id)?, "fixture")?;
             (attempt, prompt)
         };
         self.shared.mark_starting(id, attempt.clone());

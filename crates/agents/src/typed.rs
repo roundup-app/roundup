@@ -67,7 +67,9 @@ impl Agents {
             shared.rail().set_user_named(&node.id)?;
         }
         if ctx.actor.kind == ActorKind::Agent {
-            shared.rail().set_creator(&node.id, &ctx.actor.id)?;
+            shared
+                .rail()
+                .set_creator(crate::rail::agent_id(&node.id)?, &ctx.actor.id)?;
         }
         Self::touch_creation(ctx, &node.id, start_attribution.as_ref())?;
         ctx.emit(EventData::RailChanged);

@@ -1,0 +1,12 @@
+PROOF q10 baseline (0 terminals): spike client RSS 3360 KB, its ssh 6208 KB; remote herdr procs:
+6516 herdr-core
+ 4052 herdr-core
+ 3332 herdr-core
+TOTAL_KB 13900 procs 3
+PROOF q10 10 fake agents, each attached, flooded 200 lines, mirrored in vt100 (1000-line scrollback), 10/10 done: spike client RSS 14352 KB (+10992 KB), its single ssh 7072 KB (+864 KB)
+PROOF q10 remote herdr procs with 10 terminals:
+8808 herdr-core
+ 4548 herdr-core
+ 3332 herdr-core
+TOTAL_KB 16688 procs 3
+PROOF q10 remote free: Mem:            7964         378        6522           0        1301        7585

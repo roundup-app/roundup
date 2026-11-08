@@ -8,17 +8,23 @@ impl Launcher {
     pub fn command_on(&self, request: &Request<'_>) -> Result<std::process::Command, RpcError> {
         let Request { id, cwd, .. } = *request;
         let argv = self.prepare_on(request)?;
-        let mut command = std::process::Command::new(&argv[0]);
-        command.args(&argv[1..]).current_dir(cwd);
+        let (Some((program, args)), Some(settings_path)) = (argv.split_first(), argv.get(2)) else {
+            return Err(RpcError::internal("launch argv lacks the settings path"));
+        };
+        let mut command = std::process::Command::new(program);
+        command.args(args).current_dir(cwd);
         let settings: Value =
-            serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
+            serde_json::from_slice(&std::fs::read(settings_path).map_err(RpcError::internal)?)
                 .map_err(RpcError::internal)?;
         for key in [
             "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS",
             "CLAUDE_CODE_PLUGIN_DIR_WATCH",
         ] {
             if !self.user_defaults.contains(key)
-                && let Some(value) = settings["env"][key].as_str()
+                && let Some(value) = settings
+                    .get("env")
+                    .and_then(|env| env.get(key))
+                    .and_then(Value::as_str)
             {
                 command.env(key, value);
             }
@@ -139,7 +145,10 @@ impl Launcher {
             .command(&delivery.plugins)
             .map_err(RpcError::internal)?;
         let command = command.as_std();
-        argv[0] = command.get_program().to_string_lossy().into_owned();
+        *argv
+            .first_mut()
+            .ok_or_else(|| RpcError::internal("launch argv is empty"))? =
+            command.get_program().to_string_lossy().into_owned();
         // The user's own sources decide, since the launch's settings file holds only roundup's keys.
         let settings =
             user_settings(&self.conversation_dir, folders.project).map_err(RpcError::internal)?;
@@ -147,7 +156,10 @@ impl Launcher {
         // LC5: a user's enabled install takes precedence over the bundled plugin of the same name.
         let args: Vec<_> = command.get_args().collect();
         for pair in args.chunks(2) {
-            let named = Path::new(pair[1]).file_name().and_then(OsStr::to_str);
+            let [_, dir] = pair else {
+                return Err(RpcError::internal("plugin arguments are not pairs"));
+            };
+            let named = Path::new(dir).file_name().and_then(OsStr::to_str);
             if named.is_some_and(|name| {
                 bundled.contains(&name)
                     && enabled_plugin(&settings, name).is_none()

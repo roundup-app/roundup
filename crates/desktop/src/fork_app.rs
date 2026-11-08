@@ -188,23 +188,26 @@ fn shrink(rgba: &[u8], side: usize, factor: usize) -> Vec<u8> {
     let mut small = vec![0u8; out * out * 4];
     for y in 0..out {
         for x in 0..out {
-            let mut sum = [0u64; 4];
+            let mut colour = [0u64; 3];
+            let mut total = 0u64;
             for dy in 0..factor {
                 for dx in 0..factor {
                     let at = ((y * factor + dy) * side + x * factor + dx) * 4;
-                    let alpha = u64::from(rgba[at + 3]);
-                    for c in 0..3 {
-                        sum[c] += u64::from(rgba[at + c]) * alpha;
+                    let byte = |i: usize| rgba.get(i).copied().map_or(0, u64::from);
+                    let alpha = byte(at + 3);
+                    for (c, sum) in colour.iter_mut().enumerate() {
+                        *sum += byte(at + c) * alpha;
                     }
-                    sum[3] += alpha;
+                    total += alpha;
                 }
             }
             let n = (factor * factor) as u64;
-            let at = (y * out + x) * 4;
-            for c in 0..3 {
-                small[at + c] = sum[c].checked_div(sum[3]).unwrap_or(0) as u8;
+            if let Some(pixel) = small.as_chunks_mut::<4>().0.get_mut(y * out + x) {
+                for (byte, sum) in pixel.iter_mut().zip(colour) {
+                    *byte = sum.checked_div(total).unwrap_or(0) as u8;
+                }
+                pixel[3] = (total / n) as u8;
             }
-            small[at + 3] = (sum[3] / n) as u8;
         }
     }
     small

@@ -202,7 +202,7 @@ impl Shared {
             .await
             .map_err(RpcError::internal)?;
             if let Err(err) = removed {
-                self.rail().detach_terminal(id)?;
+                self.rail().detach_terminal(crate::rail::agent_id(id)?)?;
                 self.release_closing(id, true);
                 if publication == RailPublication::Immediate {
                     self.bus.emit(actor, EventData::RailChanged);
@@ -227,7 +227,7 @@ impl Shared {
             let result = if remove {
                 rail.remove(id)
             } else {
-                rail.detach_terminal(id)
+                rail.detach_terminal(crate::rail::agent_id(id)?)
             };
             if remove {
                 // A failed delete keeps the node, so its facts stay with it.

@@ -25,7 +25,7 @@ it("u3787f_deep_link_preserves_identity_and_authority_same_named_pad_in_another_
 
   b.handlers["link.read"] = () => ({ kind: "pad", id: name, pad: secondPad, section: { heading: "Details", text: "Exact second Project section" } });
 
-  app.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = listener => { receive = listener;
 
     return () => {}; };
 
@@ -54,7 +54,7 @@ it("u3787f_deep_link_reports_the_target_failure_without_foreign_project_refusals
 
   b.handlers["link.read"] = () => { throw new RpcError(-32001, "missing Pad"); };
 
-  app.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = listener => { receive = listener;
 
     return () => {}; };
 

@@ -1,0 +1,7 @@
+/* Pointer and key press feedback: pressFeedback.ts sets data-pressed, and data-press-source=pointer on a pointer press only: a key press keeps instant ink (M1); reduced motion shows no scale.
+   Rows and a Project tab keep ink only (U6220b); Toast sets its own scale; the scale eases both ways and ink and opacity stay instant (D4); an input's wrapper scales. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-press-source=pointer]:not(input, .project-tab *, [role=treeitem], .rail-row, .todo-row, .todo-row-button, .app-toast),
+  :is(.app-checkbox, .app-radio, .app-segment):has(input[data-press-source=pointer]) { scale: var(--scale-press); }
+  :where(button, a[href], summary, [role=button], [role=tab], [role=menuitem], [role=option], .app-checkbox, .app-radio, .app-segment) { transition: scale var(--duration-press) var(--easing-out); }
+}

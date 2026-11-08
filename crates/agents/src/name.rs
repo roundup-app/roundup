@@ -138,14 +138,16 @@ pub fn unique<'a>(name: &str, taken: impl IntoIterator<Item = &'a str>) -> Strin
     if !taken.contains(&name) {
         return name.to_owned();
     }
-    (2..)
-        .map(|n| {
-            let suffix = format!(" {n}");
-            let stem: String = name.chars().take(MAX_CHARS - suffix.len()).collect();
-            format!("{}{suffix}", stem.trim_end())
-        })
-        .find(|candidate| !taken.contains(&candidate.as_str()))
-        .expect("an unbounded range always yields a free name")
+    let mut n = 2;
+    loop {
+        let suffix = format!(" {n}");
+        let stem: String = name.chars().take(MAX_CHARS - suffix.len()).collect();
+        let candidate = format!("{}{suffix}", stem.trim_end());
+        if !taken.contains(&candidate.as_str()) {
+            return candidate;
+        }
+        n += 1;
+    }
 }
 
 #[cfg(test)]

@@ -193,7 +193,7 @@ fn read_snapshot(
             if !record.is_object() {
                 return Err(refuse("malformed record"));
             }
-            if record["isSidechain"] == true {
+            if record.get("isSidechain") == Some(&Value::Bool(true)) {
                 return Err(refuse("subagent record"));
             }
             if record
