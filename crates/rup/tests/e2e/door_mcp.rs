@@ -113,11 +113,6 @@ async fn model_saw(project: &Project, needle: &str) {
         }
     })
     .await;
-    if seen.is_err() {
-        let user = project.client().await;
-        eprintln!("DBG tree {:#?}", project.rail_tree(&user).await);
-        eprintln!("DBG msgs {:#?}", user.request("message.list", json!({})).await);
-    }
     assert!(
         seen.is_ok(),
         "the model was never asked {needle:?}: {:#?}",

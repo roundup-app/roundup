@@ -137,14 +137,7 @@ impl Model {
             }
         })
         .await
-        .unwrap_or_else(|_| {
-            for e in self.journal() {
-                let m = e["body"]["messages"].as_array().unwrap();
-                let last = m.last().unwrap().to_string();
-                eprintln!("DBGJ n={} last={} resp={}", m.len(), last.split("cross-session-message from").collect::<Vec<_>>().join("@@").replace("\n", " "), e["response"]["fixture"]["match"]);
-            }
-            panic!("missing tool result {id}")
-        })
+        .unwrap_or_else(|_| panic!("missing tool result {id}: {:#?}", self.journal()))
     }
 }
 
