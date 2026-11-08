@@ -114,10 +114,11 @@
 
 /* U6640b: a long status keeps one line, cut with …. */
 .rail-row .row-status {
-  flex: 1 0 16ch;
+  flex: 1 1 0;
   container-type: inline-size;
   display: flex;
-  min-width: 0;
+  /* Room for a few label words and the age; the name shrinks only when the row is narrower than this. */
+  min-width: 12ch;
   /* The quick-icon slot and a --space-3 gap stay clear, so hover and selection never paint an action over the age. */
   margin-inline-end: var(--rail-slot);
   padding-inline-end: var(--space-3);
@@ -131,7 +132,9 @@
 .rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
 /* pre keeps the separator's leading space, which a flex item would collapse. */
 .rail-row .row-status-age { flex: none; white-space: pre; }
-/* The status reserves room for a few words of label and the age; the name shrinks first, down to a few letters. */
+/* An error row has only the age, so it reserves only that. */
+.rail-row .row-status:not(:has(.row-status-label)) { min-width: 7ch; }
+/* The name keeps its full width while it fits; it shrinks, down to a few letters, only when the status minimum no longer fits. */
 .rail-row:has(.row-status) .name { flex: 0 1 auto; min-width: 6ch; max-width: 70%; }
 /* The label gives way first; the age stays until it no longer fits, then the row stays at the name. */
 @container (max-width: 8ch) { .row-status-label { display: none; } }
