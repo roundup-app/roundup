@@ -2,12 +2,13 @@ import { createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import { createSlideLifetime } from "../ui/slideLifetime";
 import type { Widths } from "../resize/widths";
-import { setRailSliding } from "./sliding";
+import { railSliding, setRailSliding } from "./sliding";
 
 /** U6228g: how the Rail's section reads while it folds or opens: the strip shows through a slide, and an opening Rail is drawn as a peek over the centre until the column widens. */
 export const railView = (widths: Widths | undefined, peeking: boolean | undefined) => {
   const collapsed = widths?.collapsed() === true;
-  const laidOut = widths?.laidOut() === true;
+  // A fold cancelled mid-slide has `collapsed` false while the column is not yet a strip: it still draws as a peek, so it reverses from where it is.
+  const laidOut = widths?.laidOut() === true || railSliding();
 
   return { strip: collapsed || laidOut, peek: peeking === true || (laidOut && !collapsed) };
 };
