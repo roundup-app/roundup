@@ -161,6 +161,7 @@ fn due(
             .any(|c| c.status.as_ref().is_some_and(|s| s.finished != "0"));
         // A stopped Door is told nothing; its changes wait for the start, as B21's entries do.
         let stopped = door.status.as_ref().is_some_and(|s| s.kind == Kind::Done);
+        eprintln!("DBGS finished={finished} stopped={stopped} pending={pending} waiting={:?} busy_door={} busy_children={:?} now={now}", waiting.get(&door.id), busy(door), children.iter().map(|c| busy(c)).collect::<Vec<_>>());
         if !finished
             || stopped
             || pending
