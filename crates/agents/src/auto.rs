@@ -1,5 +1,6 @@
 //! A3308: the persisted Auto choice, changed only by the user.
 use super::*;
+use crate::id::AgentId;
 use contracts::workstream::AutoParams;
 
 impl Agents {
@@ -27,7 +28,9 @@ impl Agents {
         if rail.node(&choice.id)?.kind != NodeKind::Workstream {
             return Err(RpcError::not_found("Workstream"));
         }
-        if rail.set_opening_prompt(&choice.id, text)? {
+        if let Some(id) = AgentId::parse(&choice.id)
+            && rail.set_opening_prompt(id, text)?
+        {
             drop(rail);
             ctx.emit(EventData::RailChanged);
         }
@@ -43,7 +46,9 @@ impl Agents {
         if node.kind != NodeKind::Workstream {
             return Err(RpcError::not_found("Workstream"));
         }
-        if rail.set_auto(&choice.id, choice.auto)? {
+        if let Some(id) = AgentId::parse(&choice.id)
+            && rail.set_auto(id, choice.auto)?
+        {
             ctx.emit(EventData::WorkstreamUpdated(choice));
         }
         Ok(())
