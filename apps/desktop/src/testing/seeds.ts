@@ -280,7 +280,18 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
   app.handlers["agent.spawn"] = ({ parent }) =>
     append(parent, (id, order) => agent(id, "working", "starting", { name: "agent", parent, order, status: statusAt(Date.now(), "working", "starting", 0) }));
-  app.handlers["rail.createWorkstream"] = ({ name, parent }) => append(parent, (id, order) => workstream(id, { name, parent, order }));
+
+  // A26: a Workstream sits at the root or under a Group, as the Daemon's check_parent holds.
+  const refuseNesting = (parent: string | null) => {
+    if (parent !== null && find(parent).kind !== "group") throw new RpcError(CONFLICT, `Workstreams never nest: a Workstream cannot sit under ${parent}`);
+  };
+
+  app.handlers["rail.createWorkstream"] = ({ name, parent }) => {
+    refuseNesting(parent);
+
+    return append(parent, (id, order) => workstream(id, { name, parent, order }));
+  };
+
   app.handlers["workstream.setOpeningPrompt"] = ({ id, prompt }) => {
     changed(Object.assign(find(id), { opening_prompt: prompt }));
 
@@ -315,6 +326,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     // A real Daemon answers a move in a later task than the drop that sent it.
     await new Promise(resolve => setTimeout(resolve, 0));
     const moved = find(id);
+
+    if (moved.kind === "workstream") refuseNesting(parent);
     const siblings = nodes.filter((other) => other.parent === parent && other.id !== id).sort((left, right) => left.order - right.order);
     siblings.splice(index, 0, Object.assign(moved, { parent }));
     siblings.forEach((sibling, order) => Object.assign(sibling, { order }));

@@ -45,10 +45,7 @@ impl Launcher {
             (Some(lean), Role::Agent) if lean.scout => Role::Scout,
             _ => request.role,
         };
-        if role == Role::Door {
-            write_shims(&checked.paths.shims).map_err(RpcError::internal)?;
-        }
-        let facts = self.read_facts(request, &checked, role, lean.is_some())?;
+        let facts = self.read_facts(request, &checked, role)?;
         let spec = Spec {
             launcher: self,
             id: checked.id,
@@ -109,10 +106,8 @@ impl Launcher {
         // link or beside it: the Project's own files are not ours to trust, and a link
         // could land a write anywhere.
         let paths = Paths::new(&dir, id);
-        for folder in [&paths.agents, &paths.shims] {
-            if is_symlink(folder) {
-                return Err(invalid(format!("{} is a symlink", folder.display())));
-            }
+        if is_symlink(&paths.agents) {
+            return Err(invalid(format!("{} is a symlink", paths.agents.display())));
         }
         Ok(Checked {
             id,
@@ -128,24 +123,20 @@ impl Launcher {
         request: &Request<'_>,
         checked: &Checked,
         role: Role,
-        lean: bool,
     ) -> Result<Facts, RpcError> {
         let Checked {
-            id,
-            cwd,
-            project,
-            paths,
+            id, cwd, project, ..
         } = checked;
         let delivery = match &request.facts.lean {
             Some(lean) => extras::resolve(&self.extras_sources(project), &lean.extras)?,
             None => extras::Delivery::default(),
         };
-        let mut carried =
-            user_settings(&self.conversation_dir, project).map_err(RpcError::internal)?;
+        let carried = user_settings(&self.conversation_dir, project).map_err(RpcError::internal)?;
         let missing_intent = self.door_lacks_intent(role, &carried, project);
-        if carried.get("outputStyle").is_none() {
-            carried["outputStyle"] = json!("hold:Plain");
-        }
+        let output_style = carried
+            .get("outputStyle")
+            .is_none()
+            .then(|| "hold:Plain".to_owned());
         let mut guard = json!({ "hooks": { "PreToolUse": [] } });
         super::super::memory::hook(
             &self.rup,
@@ -156,14 +147,6 @@ impl Launcher {
             &carried,
             &mut guard,
         )?;
-        let instructions = if lean || role == Role::Door {
-            std::iter::once(project)
-                .chain((cwd != project).then_some(cwd))
-                .filter_map(|folder| std::fs::read_to_string(folder.join("CLAUDE.md")).ok())
-                .collect()
-        } else {
-            Vec::new()
-        };
         let inherited_mode = match request.facts.permission {
             Permission::Inherit => {
                 super::super::inbox::default_mode(&self.conversation_dir, project)
@@ -172,15 +155,14 @@ impl Launcher {
         };
         Ok(Facts {
             carried,
+            output_style,
             missing_intent,
             delivery,
             memory_hooks: guard["hooks"]["PreToolUse"]
                 .as_array()
                 .cloned()
                 .unwrap_or_default(),
-            path: self.shell_path((role == Role::Door).then_some(paths.shims.as_path())),
-            instructions,
-            global_instructions: self.global_instructions(),
+            path: self.shell_path(),
             inherited_mode,
             socket: self.socket_dir().join(format!("{id}.sock")),
         })

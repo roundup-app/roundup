@@ -1,6 +1,6 @@
 # The Daemon ends the largest Agent process when Agents hold too much memory (AMG)
 
-Module: `crates/agents` (reader, decision, note), `crates/rupd` (starts the sampler). Ids: AMG1–AMG4. Work order: #6759. Adds no RPC method and no public type beyond the guard's own (policy).
+Module: `crates/agents` (reader, decision, note), `crates/rupd` (starts the sampler). Ids: AMG1–AMG5. Work orders: #6759, #6800. Adds no RPC method and no public type beyond the guard's own (policy).
 
 On 2026-11-07 one Agent started 87 `python3.13` processes at once; they held 160 GB on a 64 GB Mac, and the Mac panicked twice. macOS refuses `setrlimit` memory limits (`ulimit -v` fails with EINVAL), Claude Code has no memory control, and an instruction capped by count failed. The Daemon starts every Agent and runs all the time, so the guard lives there (policy).
 
@@ -22,6 +22,8 @@ Tests: `amg2_replays_the_panic_logs_at_64_gb` (`crates/agents/src/`) replays the
 **AMG3 the Agent and its Door are told why.** Given a fake Agent's `sleep` ended by the guard under a test budget, then the Agent and its Door each get one note: the process name, its memory, the reason and the fix, as in "roundup ended dfam_tool.py (22 GB): Agents held over half of this Mac's memory; run fewer at once" (the critical-pressure reason says the Mac's memory ran critical). Each end sends one note to each of the two, never two. The Agent's `claude` keeps running, and the ended process's command fails. Test: `amg3_an_end_notes_the_agent_and_its_door` (`crates/rupd/tests/`) uses a fake Agent, a `sleep` and a test budget, asserts both inboxes and the note's four parts, and runs under 5 s.
 
 **AMG4 the sampler can act while the Mac thrashes.** Given the Daemon started, then the sampler runs on its own thread, locks its memory with `mlockall` (or an equivalent where the platform lacks it), and between readings does no allocation and no I/O beyond reading the process list, environments (AMG1) and memory, and sending the signal. It reads the full process list once a second, never more often. Test: `amg4_sampler_reads_once_a_second_on_its_own_thread` (`crates/agents/src/`), which drives the sampler with a fake clock and a counting reader and asserts one reading per tick, on a thread other than the caller's; the memory lock and the absence of allocation are policy, held by review of the sampler loop, since no CI test can reproduce a thrashing Mac.
+
+**AMG5 a Daemon an Agent started is not that Agent's.** Given a Daemon launched from inside Agent N's shell, so that its environment holds `ROUNDUP_AGENT=N`, when the reader lists processes, then the Daemon and every process descended from the Daemon's pid are unmarked, however large, and the decision (AMG2c) never returns them nor counts them in the sum. A child of that Daemon that passes the budget (such as `rup`) is not ended. A process outside the Daemon's descent that holds `ROUNDUP_AGENT=N` is still N's. Test: `amg5_a_daemon_started_by_an_agent_and_its_children_are_unmarked` (`crates/agents/src/`) feeds the reader a process list through its seam, with the Daemon's pid inheriting the marker and a large child beneath it, and asserts the child is unmarked and absent from the returned pids, while a marked sibling outside the descent stays N's; it starts no process.
 
 ## Observer and regression policy
 

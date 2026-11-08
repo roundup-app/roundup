@@ -15,6 +15,18 @@ use super::wake::{
 };
 use super::{Shim, actor, client_as, rail, socket};
 
+/// DTC2: a quiet note about a child waits for a Message the Door takes, so every eighth poll a
+/// note to `to` and its Stop offer to carry the waiting ones out.
+pub async fn carry_quiet_notes(client: &rpc::Client, to: &str, polls: &mut u32) {
+    *polls += 1;
+    if !(*polls).is_multiple_of(8) {
+        return;
+    }
+    let note = json!({"to":to,"kind":"note","body":"carry the quiet notes"});
+    client.request("message.send", note).await.unwrap();
+    super::signal(client, to, json!({"hook_event_name": "Stop"})).await;
+}
+
 fn env(prompts: &Path) -> [(&str, &str); 1] {
     [("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap())]
 }
@@ -301,6 +313,10 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
             .then_some(())
     })
     .await;
+    // DTC2: carry the setup's quiet notes out before the window.
+    let mut polls = 7;
+    carry_quiet_notes(&user, &door, &mut polls).await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
     let before = turns(&user, &door, &prompts).await;
     for _ in 0..5 {
         drive(&user, &child, STOP).await;
@@ -333,11 +349,16 @@ async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end() {
         name_of(&s.user, &end).await,
     );
     h21_poll("the four notes", async || {
+        // DTC2: the quiet notes ride out in the rollup of the end note.
         let bodies = made(&s.user, &s.door).await;
+        let digests = bodies.iter().filter(|b| b.starts_with("[digest] "));
+        let entries: Vec<String> = digests
+            .flat_map(|b| super::daemon::rollup_entries(b))
+            .collect();
         (count(&bodies, "[wake]") == 1
-            && count(&bodies, &format!("[digest] {e} is error")) == 1
-            && count(&bodies, &format!("[digest] {n} is needs-you")) == 1
-            && count(&bodies, &format!("[digest] {d} is done")) == 1)
+            && count(&entries, &format!("{e} is error")) == 1
+            && count(&entries, &format!("{n} is needs-you")) == 1
+            && count(&entries, &format!("{d} is done")) == 1)
             .then_some(())
     })
     .await;
@@ -432,7 +453,9 @@ async fn b48_the_message_list_and_the_digest_return_equal_state_after_the_same_e
         .find(|node| node.id == s.a)
         .unwrap()
         .name;
+    let mut polls = 0_u32;
     let pushed = h21_poll("the push", async || {
+        carry_quiet_notes(&s.user, &s.door, &mut polls).await;
         let listed = s
             .user
             .request("message.list", json!({ "to": s.door }))
@@ -443,11 +466,9 @@ async fn b48_the_message_list_and_the_digest_return_equal_state_after_the_same_e
             .unwrap()
             .iter()
             .filter(|m| m["from"]["id"] == "rupd")
-            .filter_map(|m| {
-                Some(super::entry_of(
-                    m["body"].as_str().unwrap().strip_prefix("[digest] ")?,
-                ))
-            })
+            .filter(|m| m["body"].as_str().unwrap().starts_with("[digest] "))
+            .flat_map(|m| super::daemon::rollup_entries(m["body"].as_str().unwrap()))
+            .map(|text| super::entry_of(&text))
             .rfind(|e| e["name"] == name.as_str() && e["kind"] == "working" && e["todos"] == 1)
     })
     .await;
@@ -505,10 +526,21 @@ async fn end_note(
         .await
         .unwrap();
     h21_poll("the end note", async || {
-        made(&s.user, &s.door)
-            .await
-            .into_iter()
-            .find(|body| body.starts_with("[digest] finder is done"))
+        made(&s.user, &s.door).await.into_iter().find_map(|body| {
+            // DTC2: the end note rides with the quiet notes before it, as one rollup.
+            let rest = &body[body.find("finder is done")?..];
+            let mut lines = rest.lines();
+            let first = lines.next()?;
+            let own = lines.take_while(|line| line.starts_with("  "));
+            Some(format!(
+                "[digest] {}",
+                [first]
+                    .into_iter()
+                    .chain(own)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ))
+        })
     })
     .await
 }
@@ -540,7 +572,8 @@ async fn b49_a_5000_byte_summary_gives_a_note_of_at_most_600_bytes() {
         "{}",
         last.len()
     );
-    assert!(last.len() > 500, "{}", last.len());
+    // DTC2: quiet notes waiting before the end note make its rollup hold B19's 120-byte `last`.
+    assert!(last.len() >= 100, "{}", last.len());
     assert!(entry_text_of(&note).len() <= 1024, "{}", note.len());
 }
 
