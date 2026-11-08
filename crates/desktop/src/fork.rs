@@ -100,16 +100,18 @@ pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
     };
     let forks = home.join("forks");
 
-    (1..)
-        .map(|n| {
-            forks.join(if n == 1 {
-                slug.to_string()
-            } else {
-                format!("{slug}-{n}")
-            })
-        })
-        .find(|path| !path.exists())
-        .expect("an unused folder name")
+    let mut n = 1;
+    loop {
+        let path = forks.join(if n == 1 {
+            slug.to_string()
+        } else {
+            format!("{slug}-{n}")
+        });
+        if !path.exists() {
+            return path;
+        }
+        n += 1;
+    }
 }
 
 /// The line `just app` prints once everything is built and only the App's launch is left.
@@ -146,8 +148,9 @@ fn start(mut command: Command) -> Result<(), RpcError> {
         .spawn()
         .map_err(|error| RpcError::internal(format!("just: {error}")))?;
     let (tx, rx) = mpsc::channel();
-    let stdout = child.stdout.take().expect("piped stdout");
-    let stderr = child.stderr.take().expect("piped stderr");
+    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err(RpcError::internal("just: its pipes are missing"));
+    };
     let started = tx.clone();
     std::thread::spawn(move || {
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {

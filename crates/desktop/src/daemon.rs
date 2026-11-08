@@ -1,5 +1,6 @@
 //! App access to Daemon launches and global naming preferences.
 
+use crate::Unpoisoned;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
@@ -77,7 +78,7 @@ struct StderrTail(Arc<Mutex<VecDeque<String>>>);
 
 impl StderrTail {
     fn push(&self, line: String) {
-        let mut lines = self.0.lock().expect("stderr tail lock");
+        let mut lines = self.0.lock().unpoisoned();
         if lines.len() == STDERR_LINES_KEPT {
             lines.pop_front();
         }
@@ -85,7 +86,7 @@ impl StderrTail {
     }
 
     fn text(&self) -> String {
-        let lines = self.0.lock().expect("stderr tail lock");
+        let lines = self.0.lock().unpoisoned();
         lines.iter().cloned().collect::<Vec<_>>().join("\n")
     }
 }
@@ -120,9 +121,11 @@ pub async fn start(
             log::warn!(target: "roundup::shell", "start Project Daemon: IO {:?}", err.kind());
             RpcError::internal(format!("cannot start {}: {err}", config.rupd_bin.display()))
         })?;
-    let stdin = child.stdin.take().expect("stdin was requested piped");
-    let stdout = child.stdout.take().expect("stdout was requested piped");
-    let stderr = child.stderr.take().expect("stderr was requested piped");
+    let (Some(stdin), Some(stdout), Some(stderr)) =
+        (child.stdin.take(), child.stdout.take(), child.stderr.take())
+    else {
+        return Err(RpcError::internal("the Project Daemon's pipes are missing"));
+    };
     let owned_socket = OwnedSocket(socket.to_path_buf());
     let tail = StderrTail::default();
     let drain =

@@ -32,10 +32,20 @@ pub struct RpcError {
 
 impl RpcError {
     fn from_value(v: &Value) -> RpcError {
-        let text = |p: &str| v["data"][p].as_str().unwrap_or_default().to_owned();
+        let text = |p: &str| {
+            v.get("data")
+                .and_then(|d| d.get(p))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        };
         RpcError {
-            code: v["code"].as_i64().unwrap_or_default(),
-            message: v["message"].as_str().unwrap_or_default().to_owned(),
+            code: v.get("code").and_then(Value::as_i64).unwrap_or_default(),
+            message: v
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
             kind: text("kind"),
             hint: text("hint"),
         }
@@ -126,6 +136,13 @@ struct Waiting {
 }
 
 type Pending = Arc<Mutex<Waiting>>;
+
+/// The waiting calls hold no invariant a panicking holder could break, so a poisoned lock is used as is.
+fn locked(pending: &Pending) -> std::sync::MutexGuard<'_, Waiting> {
+    pending
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 /// The longest frame payload read; a longer header is a corrupt or hostile stream.
 const MAX_FRAME: usize = 16 << 20;
@@ -231,8 +248,9 @@ impl Conn {
                 Error::Rpc(e)
             });
         }
-        let hello: Hello = serde_json::from_value(msg["result"].clone())
-            .map_err(|e| Error::Protocol(e.to_string()))?;
+        let hello: Hello =
+            serde_json::from_value(msg.get("result").cloned().unwrap_or(Value::Null))
+                .map_err(|e| Error::Protocol(e.to_string()))?;
         if hello.generation != GENERATION {
             let message = format!("core answered generation {}", hello.generation);
             return Err(Error::Refused(RpcError {
@@ -263,18 +281,18 @@ impl Conn {
                     continue;
                 };
                 if let Some(id) = msg.get("id").and_then(Value::as_u64) {
-                    if let Some(tx) = waiting.lock().unwrap().calls.remove(&id) {
+                    if let Some(tx) = locked(&waiting).calls.remove(&id) {
                         let _ = tx.send(msg);
                     }
-                } else if let Some(method) = msg["method"].as_str() {
+                } else if let Some(method) = msg.get("method").and_then(Value::as_str) {
                     let _ = events_tx.send(Event {
                         method: method.to_owned(),
-                        params: msg["params"].clone(),
+                        params: msg.get("params").cloned().unwrap_or(Value::Null),
                     });
                 }
             }
             // Pipe gone: dropping the senders fails every waiter with `Closed`.
-            let mut w = waiting.lock().unwrap();
+            let mut w = locked(&waiting);
             w.closed = true;
             w.calls.clear();
         });
@@ -297,7 +315,7 @@ impl Conn {
     /// Wait for the answer to `id`; `Closed` once the reader has cleared `pending`.
     fn register(&self, id: u64) -> Result<oneshot::Receiver<Value>> {
         let (tx, rx) = oneshot::channel();
-        let mut w = self.pending.lock().unwrap();
+        let mut w = locked(&self.pending);
         if w.closed {
             return Err(Error::Closed);
         }
@@ -313,12 +331,12 @@ impl Conn {
             serde_json::to_vec(&json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))
                 .map_err(|e| Error::Protocol(e.to_string()))?;
         if self.out.send(frame(0, DATA, &body)).is_err() {
-            self.pending.lock().unwrap().calls.remove(&id);
+            locked(&self.pending).calls.remove(&id);
             return Err(Error::Closed);
         }
         let msg = match tokio::time::timeout(self.timeout, rx).await {
             Err(_) => {
-                self.pending.lock().unwrap().calls.remove(&id);
+                locked(&self.pending).calls.remove(&id);
                 return Err(Error::TimedOut);
             }
             Ok(Err(_)) => return Err(Error::Closed),
@@ -326,7 +344,7 @@ impl Conn {
         };
         match msg.get("error") {
             Some(e) => Err(Error::Rpc(RpcError::from_value(e))),
-            None => Ok(msg["result"].clone()),
+            None => Ok(msg.get("result").cloned().unwrap_or(Value::Null)),
         }
     }
 
