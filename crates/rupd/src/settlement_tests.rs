@@ -74,11 +74,17 @@ impl Run {
     async fn pass(&self) {
         // The Door has taken in the Daemon's own digests of the children's changes.
         self.take_in(&self.notes("[digest]").await).await;
+        self.settle().await;
+    }
+
+    /// One settlement pass as `push_changes` runs it, the Door having taken nothing in.
+    async fn settle(&self) {
         let reader = self.daemon.reader();
         let messages = self.daemon.sender.get().unwrap().clone();
         let world = reader.world().await.unwrap();
-        let waiting = messages.waiting_counts().await.unwrap_or_default();
-        settle(&reader, &messages, &self.store, &world, &waiting).await;
+        let waiting = messages.waiting_counts_unquiet().await.unwrap_or_default();
+        let deferred = messages.deferred_digests().await.unwrap_or_default();
+        settle(&reader, &messages, &self.store, &world, &waiting, &deferred).await;
     }
 
     async fn notes(&self, marker: &str) -> Vec<Value> {
@@ -176,4 +182,26 @@ async fn dcl6_open_job_blocks_settlement_until_door_decides() {
         1,
         "settles after the Door chose"
     );
+}
+
+/// DTC2: a digest no inbox write carries waits for a Message that is no quiet digest, so the stop
+/// note is not delayed by it and the Door's next turn holds both.
+#[tokio::test]
+async fn dtc2_a_deferred_digest_does_not_hold_back_the_stop_note() {
+    let run = Run::start().await;
+    let job = run.job().await;
+    run.stop(&job).await;
+    let entry = contracts::agent::DigestEntry {
+        name: "open-job".into(),
+        kind: Kind::Idle,
+        last: String::new(),
+        todos: 0,
+        link: None,
+        pads: vec![],
+    };
+    let messages = run.daemon.sender.get().unwrap().clone();
+    messages.push_digest(&run.door, &job, &entry, true).await;
+    assert_eq!(run.notes("[digest]").await.len(), 1);
+    run.settle().await;
+    assert_eq!(run.notes("[stopped]").await.len(), 1);
 }
