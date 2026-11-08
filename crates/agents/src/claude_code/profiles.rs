@@ -21,8 +21,6 @@ pub struct Profile {
     pub tools: Option<(&'static str, &'static str)>,
     /// The bundled plugins passed with `--plugin-dir`, by name (LC5, LC14).
     pub bundled_plugins: &'static [&'static str],
-    /// The user's global `CLAUDE.md` is appended to the Brief file (LC5).
-    pub global_instructions: bool,
 }
 
 /// LC1: the one table of launch profiles, a row for each lean Role.
@@ -33,7 +31,6 @@ pub const PROFILES: [(Role, Profile); 3] = [
             tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
             // A41: a `/command` sent to a Door runs there.
             bundled_plugins: &["hope", "hunch", "hold"],
-            global_instructions: true,
         },
     ),
     (
@@ -41,7 +38,6 @@ pub const PROFILES: [(Role, Profile); 3] = [
         Profile {
             tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
             bundled_plugins: &["hope", "hunch", "hold"],
-            global_instructions: true,
         },
     ),
     (
@@ -49,7 +45,6 @@ pub const PROFILES: [(Role, Profile); 3] = [
         Profile {
             tools: None,
             bundled_plugins: &["hope", "hunch", "hold"],
-            global_instructions: true,
         },
     ),
 ];

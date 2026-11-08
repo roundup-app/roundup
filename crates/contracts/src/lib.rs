@@ -33,6 +33,7 @@ pub mod export;
 pub mod feedback;
 pub mod github;
 pub mod link;
+pub mod machine;
 pub mod message;
 pub mod methods;
 pub mod pad;

@@ -33,8 +33,7 @@ pub fn efforts() -> &'static [(&'static str, &'static str)] {
     &EFFORTS
 }
 
-/// A36: the variable Claude Code reads before the settings `model`, and the one it reads before
-/// `--effort`. A set value is pinned in both places.
+/// A36: the variables the placement call pins; an Agent launch pins in argv only.
 pub const MODEL_VARIABLE: &str = "ANTHROPIC_MODEL";
 pub const EFFORT_VARIABLE: &str = "CLAUDE_CODE_EFFORT_LEVEL";
 
@@ -88,8 +87,7 @@ pub struct Lean {
 }
 
 impl LaunchFacts {
-    /// A36: the variables that pin a set value above whatever the Daemon's environment holds,
-    /// since Claude Code reads them before the flag and before the settings `model`.
+    /// The variables that pin a set value for the placement call, which is no Agent.
     pub fn env(&self) -> BTreeMap<String, String> {
         [
             (super::models::MODEL_VARIABLE, &self.model),

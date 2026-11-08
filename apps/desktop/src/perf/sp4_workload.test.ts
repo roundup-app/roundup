@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from "vitest";
-import { runSwitchWorkload, summarize } from "./switch_run";
+import { openInit, runSwitchWorkload, summarize } from "./switch_run";
 
 it("sp4_summary_discards_the_warm_up_and_ranks_by_nearest_rank", () => {
   const all = [...Array.from({ length: 10 }, () => 900), ...Array.from({ length: 100 }, (_, index) => index + 1)];
@@ -17,16 +17,13 @@ afterEach(() => {
 const fakeSwitcher = (values: string[]) => {
   const keys: string[] = [];
   const picked: string[] = [];
-  let leader = false;
 
   const close = () => document.querySelector(".switcher")?.remove();
 
   const handler = (event: KeyboardEvent) => {
-    keys.push(event.key === "k" && event.metaKey ? "chord-leader" : event.key);
+    keys.push(event.code === "KeyP" && event.metaKey && event.shiftKey ? "open" : event.key);
 
-    if (event.key === "k" && event.metaKey) leader = true;
-    else if (event.key === "k" && leader) {
-      leader = false;
+    if (event.code === "KeyP" && event.metaKey && event.shiftKey) {
       document.body.insertAdjacentHTML("beforeend", `<div class="switcher"><input />${values.map((value) => `<div class="app-combobox-item" data-value="${value}"></div>`).join("")}</div>`);
       document.querySelector(".app-combobox-item")?.setAttribute("data-highlighted", "");
     } else if (event.key === "ArrowDown") {
@@ -71,7 +68,7 @@ it("sp4_the_loops_press_the_chord_then_escape_and_enter_onto_alternating_kinds",
 
   const report = await runSwitchWorkload(deps(counts));
 
-  expect(fake.keys.slice(0, 3)).toEqual(["chord-leader", "k", "Escape"]);
+  expect(fake.keys.slice(0, 2)).toEqual(["open", "Escape"]);
   expect(fake.picked.length).toBe(110);
   expect(fake.picked.slice(0, 4).map((value) => value.split(":")[0])).toEqual(["agent", "terminal", "agent", "terminal"]);
   expect(report.switcher_open).toMatchObject({ n: 100, dropped: 0 });
@@ -82,4 +79,16 @@ it("sp4_a_project_without_a_terminal_fails_the_run_instead_of_shortening_it", as
   fakeSwitcher(["agent:a1"]);
 
   await expect(runSwitchWorkload(deps(counting()))).rejects.toThrow(/no terminal/);
+});
+
+it("sp4_an_empty_series_names_itself_and_not_the_keystroke_error", () => {
+  expect(() => summarize([1, 2], 10, 0, "switch")).toThrow("no switch sample");
+  expect(() => summarize([], 0, 0, "open")).not.toThrow(/key was echoed/);
+});
+
+it("sp4_the_open_press_is_the_one_the_registry_binds_to_the_switcher", async () => {
+  const { pressOf, CHORDS } = await import("../keys/chords");
+
+  // SAFETY: pressOf reads only the modifier flags and code that openInit sets.
+  expect(pressOf(openInit() as KeyboardEvent)).toBe(CHORDS["switcher.open"].presses[0]);
 });
