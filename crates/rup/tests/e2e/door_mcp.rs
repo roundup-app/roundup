@@ -247,8 +247,13 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
         .tool_result("toolu_dcl7_resume")
         .await;
     assert!(result["is_error"] != true, "{result}");
+    // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
+    daemon::h21_poll("the resumed Job's new Attempt", async || {
+        let tree = project.rail_tree(&user).await;
+        (node(&tree, &job).attempt != job_before.attempt).then_some(())
+    })
+    .await;
     let tree = project.rail_tree(&user).await;
-    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
     let consult_after = node(&tree, &consult);
     assert_eq!(consult_after.attempt, consult_before.attempt);
     assert!(consult_after.terminal_id.is_none());
