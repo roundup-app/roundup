@@ -319,6 +319,8 @@ const PadRows = (props: {
     </Sortable.Root>
 );
 
+const selectedPad = (selection: Parameters<typeof PadRows>[0]["selection"], incarnation: string, name: string) => (selection.focused() ?? selection.selected()[0]) === incarnation ? name : undefined;
+
 const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
@@ -348,7 +350,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
     open("key");
 
     return true;
-  }, () => (props.selection.focused() ?? props.selection.selected()[0]) === pad.incarnation ? pad.name : undefined));
+  }, selectedPad.bind(undefined, props.selection, pad.incarnation, pad.name)));
 
   const rename = () => { setEditing(true); };
 
