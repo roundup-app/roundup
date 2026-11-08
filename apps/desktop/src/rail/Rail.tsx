@@ -48,7 +48,13 @@ const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
+/** U6829b: a row key acts on the focused row, or on the clicked (selected) row while a click has left focus on the page body. */
+const rowIdAt = (focus: Element | null, selected: string | null | undefined): string | undefined => focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id
+  : focus === document.body && !modalOpen() ? selected ?? undefined : undefined;
+
 /** `collapse` is the Rail head's button: it folds the Rail to the strip, or, when `peeked` over the strip, opens it again (U6228). */
+const keyedRowIdAt = (press: KeyboardEvent, selected: string | null | undefined): string | undefined => focusedRowId(press) ?? (strandedFocus(press) && !press.repeat ? rowIdAt(document.body, selected) : undefined);
+
 export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
@@ -562,20 +568,16 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     onCleanup(() => document.removeEventListener("click", clear, true));
   });
 
-  /** U6829b: a row key acts on the focused row, or on the clicked (selected) row while a click has left focus on the page body. */
-  const idAt = (focus: Element | null): string | undefined => focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id
-    : focus === document.body && !modalOpen() ? rail.selected() ?? undefined : undefined;
-
-  const keyedRowId = (press: KeyboardEvent): string | undefined => focusedRowId(press) ?? (strandedFocus(press) && !press.repeat ? idAt(document.body) : undefined);
+  const idAt = (focus: Element | null) => rowIdAt(focus, rail.selected());
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
-    { action: CHORDS["rail.move"], when: press => moveAgent.available(keyedRowId(press)), capture: focus => {
+    { action: CHORDS["rail.move"], when: press => moveAgent.available(keyedRowIdAt(press, rail.selected())), capture: focus => {
       const id = idAt(focus);
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
-    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === keyedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
+    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === keyedRowIdAt(press, rail.selected()) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
       const id = idAt(focus);
 
       return {
@@ -605,10 +607,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const rename = (when?: (press: KeyboardEvent) => boolean) => ({ action: CHORDS["rail.rename"], ...when && { when }, capture: (focus: Element | null) => {
     const id = idAt(focus);
 
-    return {
-      available: () => !!id && !!focus?.isConnected && !focus?.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
-      invoke: () => { if (id) setEditingName(id); },
-    };
+    return { available: () => !!id && !!focus?.isConnected && !focus?.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id), invoke: () => { if (id) setEditingName(id); } };
   } });
 
   registerKeys({ kind: "region", element: container }, [rename()]);
