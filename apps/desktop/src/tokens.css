@@ -148,6 +148,7 @@
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-instant: 0s;
   --duration-drawer: 250ms;
+  --duration-key: 150ms;
   --duration-crossfade: 120ms;
   --duration-reorder: 180ms;
   --duration-layout: 200ms;

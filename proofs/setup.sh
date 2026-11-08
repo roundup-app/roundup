@@ -3,7 +3,7 @@
 # The download's sha256 must match proofs/BEND_SHA256 (one `<sha256>  <asset>` line per platform);
 # the installed `bend version` must equal the pin. Usage: proofs/setup.sh
 # Test hooks: PROOFS_DIR (holds the pin files and .tools), BEND_BASE_URL (download directory), BEND_ASSET_PLATFORM,
-# PROOFS_RETRY_DELAY (seconds between Lean install attempts).
+# PROOFS_RETRY_DELAY (seconds before a download's first retry; it doubles after each).
 set -euo pipefail
 
 dir=${PROOFS_DIR:-$(cd "$(dirname "$0")" && pwd)}
@@ -19,6 +19,18 @@ verify_bend() {
   got=$("$1" version 2>&1) || fail "bend: installed version failed: $got; expected $version"
   [ "$got" = "bend $version" ] || fail "bend: installed version is '$got', expected $version"
 }
+# GitHub's release downloads and releases.lean-lang.org drop or refuse requests at times; try five times before failing.
+retry() {
+  local what=$1 delay=${PROOFS_RETRY_DELAY:-10} attempt
+  shift
+  for attempt in 1 2 3 4 5; do
+    "$@" && return 0
+    [ "$attempt" -lt 5 ] || return 1
+    echo "proofs setup: $what attempt $attempt failed; retrying" >&2
+    sleep "$delay"
+    delay=$((delay * 2))
+  done
+}
 sha() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
 
 if [ -x "$tools/bend/bin/bend" ]; then
@@ -32,7 +44,7 @@ else
 
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
-  curl -fsSL -o "$work/$asset" "$base/$asset" || { echo "bend: cannot download $base/$asset" >&2; exit 1; }
+  retry "Bend download" curl -fsSL -o "$work/$asset" "$base/$asset" || { echo "bend: cannot download $base/$asset" >&2; exit 1; }
   [ "$(sha "$work/$asset")" = "$want" ] || { echo "bend: checksum of $asset does not match proofs/BEND_SHA256" >&2; exit 1; }
   mkdir "$work/x"
   tar -xzf "$work/$asset" -C "$work/x"
@@ -56,19 +68,13 @@ if [ ! -x "$elan" ]; then
   need_curl Lean
   installer=$(mktemp)
   trap 'rm -f "$installer"' EXIT
-  curl -fsSL https://elan.lean-lang.org/elan-init.sh -o "$installer" || fail "elan: cannot download installer"
-  sh "$installer" -y --no-modify-path --default-toolchain none || fail "elan: installation failed"
+  retry "elan installer download" curl -fsSL https://elan.lean-lang.org/elan-init.sh -o "$installer" || fail "elan: cannot download installer"
+  retry "elan installation" sh "$installer" -y --no-modify-path --default-toolchain none || fail "elan: installation failed"
   rm -f "$installer"
   trap - EXIT
 fi
 [ -x "$elan" ] || fail "elan: executable missing after installation"
-# releases.lean-lang.org drops some TLS connects; retry before failing the lane.
-for attempt in 1 2 3 4; do
-  "$elan" toolchain install "$lean_toolchain" && break
-  [ "$attempt" -lt 4 ] || fail "Lean: toolchain $lean_toolchain installation failed"
-  echo "proofs setup: Lean download attempt $attempt failed; retrying" >&2
-  sleep "${PROOFS_RETRY_DELAY:-10}"
-done
+retry "Lean download" "$elan" toolchain install "$lean_toolchain" || fail "Lean: toolchain $lean_toolchain installation failed"
 lean=$(ELAN_TOOLCHAIN=$lean_toolchain "$elan" which lean) || fail "Lean: executable missing for $lean_toolchain"
 [ -x "$lean" ] || fail "Lean: executable missing at $lean"
 got=$("$lean" --version 2>&1) || fail "Lean: version check failed: $got"

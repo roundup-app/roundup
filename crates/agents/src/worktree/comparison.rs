@@ -292,10 +292,10 @@ fn changed_name<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<Change
         None
     };
     let path = fields.next()?.to_owned();
-    let status = match letter.as_bytes()[0] {
-        b'A' => ChangedStatus::Added,
-        b'D' => ChangedStatus::Deleted,
-        b'R' | b'C' => ChangedStatus::Renamed,
+    let status = match letter.as_bytes().first() {
+        Some(b'A') => ChangedStatus::Added,
+        Some(b'D') => ChangedStatus::Deleted,
+        Some(b'R' | b'C') => ChangedStatus::Renamed,
         _ => ChangedStatus::Modified,
     };
     Some(ChangedFile {

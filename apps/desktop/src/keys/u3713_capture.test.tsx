@@ -448,3 +448,49 @@ it("u6249d_a_capture_subscription_that_fails_twice_is_retried_and_shows_no_failu
   await waitFor(() => expect(capture.show).toHaveBeenCalledTimes(1));
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+const slowPanelPort = () => {
+  const actions: import("../app/seam").CaptureAction[] = [];
+
+  const release = vi.fn();
+
+  let attach: (stop: () => void) => void = () => {};
+
+  let deliver: (snapshot: import("../app/seam").CaptureState) => void = () => {};
+
+  const port: import("../app/seam").CapturePort = {
+    configure: async () => {}, show: async () => {}, dismiss: async () => {}, publish: async () => {},
+    act: async action => { actions.push(action); },
+    onRequested: async () => () => {}, onAction: async () => () => {},
+    onState: listener => new Promise(resolve => {
+      deliver = listener;
+      attach = resolve;
+    }),
+  };
+
+  return { port, actions, release, attach: () => attach(release), deliver: (snapshot: import("../app/seam").CaptureState) => deliver(snapshot) };
+};
+
+it("u6845_ready_waits_for_the_state_subscription_and_the_first_snapshot_enables_filing", async () => {
+  const { CapturePanel } = await import("../todos/CapturePanel");
+  const slow = slowPanelPort();
+  render(() => <CapturePanel port={slow.port} />);
+  await Promise.resolve();
+  expect(slow.actions).toEqual([]);
+  slow.attach();
+  await waitFor(() => expect(slow.actions).toEqual([{ kind: "ready" }]));
+  slow.deliver({ session: "s", sequence: 0, text: "draft", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" });
+  const button = await screen.findByText<HTMLButtonElement>("Capture a Todo", { selector: "button" });
+  await waitFor(() => expect(button.disabled).toBe(false));
+  expect(slow.actions.filter(action => action.kind === "ready")).toHaveLength(1);
+});
+
+it("u6845_a_panel_closed_before_the_subscription_attaches_releases_it_and_sends_no_ready", async () => {
+  const { CapturePanel } = await import("../todos/CapturePanel");
+  const slow = slowPanelPort();
+  render(() => <CapturePanel port={slow.port} />);
+  cleanup();
+  slow.attach();
+  await waitFor(() => expect(slow.release).toHaveBeenCalledTimes(1));
+  expect(slow.actions).toEqual([]);
+});

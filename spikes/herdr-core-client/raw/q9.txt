@@ -1,0 +1,5 @@
+PROOF q9 n=200 interleaved. baseline `ssh cat` echo: p50=34.552ms p95=51.439ms | through herdr-core attach stream: p50=34.706ms p95=45.895ms
+PROOF q9 added by herdr-core (core-minus-baseline): p50 of pairwise difference=0.561ms p95=7.224ms; difference of p50s=0.154ms; difference of p95s=-5.545ms
+PROOF q9 baseline min=24.257ms; core min=26.115ms (the quiet-path floor)
+PROOF q9 on the machine, no ssh: herdr-core attach echo (DATA frame -> PTY -> fake-agent -> DATA frame), local socket n=500 p50=0.0894ms p95=0.1113ms max=0.2967ms
+PROOF q9 on the machine, no ssh: plain cat on pipes, local n=500 p50=0.0094ms p95=0.0103ms max=0.3799ms

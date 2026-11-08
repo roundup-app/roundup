@@ -7,12 +7,14 @@ import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { triage } from "../todos/triage";
 import { copy } from "./copy";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
 import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
+import { railView } from "../rail/slide";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
 export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
@@ -34,6 +36,8 @@ export const Layout = (props: {
   railStrip?: JSX.Element;
   /** U6228: the collapsed Rail is slid out over the centre; it reserves no width. */
   railPeeking?: boolean;
+  /** U6228g: how the Rail slides now: a click's drawer motion, a key's, or the reduced-motion fade. */
+  railSlide?: "click" | "key" | "fade" | undefined;
   railOpen?: boolean;
   centre: JSX.Element;
   shelf: JSX.Element;
@@ -64,22 +68,20 @@ export const Layout = (props: {
 
   const [shelfFocus, setShelfFocus] = createSignal<Element | null>(null);
 
+  const sync = () => {
+    const focus = document.activeElement;
+
+    setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
+  };
+
   onMount(() => {
-    const sync = () => {
-      const focus = document.activeElement;
-
-      setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
-    };
-
-    document.addEventListener("focusin", sync);
-    document.addEventListener("focusout", sync);
-    onCleanup(() => {
-      document.removeEventListener("focusin", sync);
-      document.removeEventListener("focusout", sync);
-    });
+    makeEventListener(document, "focusin", sync);
+    makeEventListener(document, "focusout", sync);
   });
 
   const placement = () => props.shelfPlacement ?? SETTLED;
+
+  const railMode = () => railView(props.widths, props.railPeeking);
 
   let windowElement: HTMLDivElement | undefined;
   const [measured, setMeasured] = createSignal<"reserved" | "overlay">("reserved");
@@ -139,8 +141,8 @@ export const Layout = (props: {
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
-      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={props.widths?.collapsed() || undefined} data-peek={props.railPeeking || undefined} data-layout-panel="rail" aria-label={copy.rail}>
-        <Show when={props.widths?.collapsed()}>{props.railStrip}</Show>
+      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={railMode().strip || undefined} data-peek={railMode().peek || undefined} data-slide={props.railSlide} data-layout-panel="rail" aria-label={copy.rail}>
+        <Show when={railMode().strip}>{props.railStrip}</Show>
         <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={(props.widths?.collapsed() && !props.railPeeking) || undefined}>{props.rail}</div>
       </section>
       <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>

@@ -25,7 +25,9 @@ impl Shared {
             )));
         }
         let Some(Slot::Starting { named, parked, .. }) = runs.take(id) else {
-            unreachable!("spawn marks {id} Starting before run_agent runs")
+            return Err(RpcError::internal(format!(
+                "{id} is not Starting although it was just checked"
+            )));
         };
         let mut run = build(named);
         if run.input_started()
@@ -56,7 +58,13 @@ impl Shared {
             // with it. `rail.node(id)` itself cannot be `NOT_FOUND` (a Starting id's Rail node is
             // removed only by its own failed spawn, which never reaches here), but the write a
             // parked rename makes can still fail on its own account.
-            let agent_facts = &mut runs.agent_mut(id).expect("taken, not removed").facts;
+            let Some(agent) = runs.agent_mut(id) else {
+                runs.put(id, Slot::Running(run));
+                return Err(RpcError::internal(format!(
+                    "{id} is not in runs while it starts"
+                )));
+            };
+            let agent_facts = &mut agent.facts;
             match self.apply(
                 Some(&mut *rail),
                 &mut run,
@@ -105,31 +113,38 @@ impl Shared {
             done,
         }) = runs.take(id)
         else {
-            unreachable!("observe matched a Resuming slot for {id}");
+            return Err(RpcError::internal(format!("{id} is not Resuming")));
         };
-        if !is_resume_ack(&payload, &conversation_id, self.git.is_forked()) || terminal_id.is_none()
-        {
-            hold(id, &mut parked, actor, payload);
-            runs.put(
-                id,
-                Slot::Resuming {
-                    mode,
-                    attempt,
-                    since,
-                    old,
-                    conversation_id,
-                    cwd,
-                    prompt,
-                    starred,
-                    terminal_id,
-                    parked,
-                    done,
-                },
-            );
-            return Ok((None, None));
-        }
-        let terminal_id = terminal_id.expect("checked above");
-        let rail = rail.expect("rail locked for a conversation Signal");
+        let ack = is_resume_ack(&payload, &conversation_id, self.git.is_forked());
+        let (terminal_id, rail) = match (terminal_id, rail) {
+            (Some(terminal_id), Some(rail)) if ack => (terminal_id, rail),
+            (terminal_id, rail) => {
+                // An ack without the locked Rail is a fault, not a wait: report it, hold nothing.
+                let fault = (ack && terminal_id.is_some() && rail.is_none()).then(|| {
+                    RpcError::internal(format!("{id} resume ack arrived without the Rail locked"))
+                });
+                if fault.is_none() {
+                    hold(id, &mut parked, actor, payload);
+                }
+                runs.put(
+                    id,
+                    Slot::Resuming {
+                        mode,
+                        attempt,
+                        since,
+                        old,
+                        conversation_id,
+                        cwd,
+                        prompt,
+                        starred,
+                        terminal_id,
+                        parked,
+                        done,
+                    },
+                );
+                return fault.map_or(Ok((None, None)), Err);
+            }
+        };
         self.promote_resuming(
             rail,
             runs,
@@ -155,17 +170,22 @@ impl Shared {
     pub(super) fn promote_parked_resume_ack(&self, id: &str) {
         let mut rail = self.rail();
         let mut runs = self.runs();
-        let found = match runs.slot(id) {
+        let git_forked = self.git.is_forked();
+        let ack = match runs.slot_mut(id) {
             Some(Slot::Resuming {
                 conversation_id,
                 parked,
+                terminal_id: Some(_),
                 ..
-            }) => parked.iter().position(|(_, payload)| {
-                is_resume_ack(payload, conversation_id, self.git.is_forked())
-            }),
+            }) => parked
+                .iter()
+                .position(|(_, payload)| is_resume_ack(payload, conversation_id, git_forked))
+                .and_then(|position| parked.remove(position)),
             _ => None,
         };
-        let Some(position) = found else { return };
+        let Some((ack_actor, ack_payload)) = ack else {
+            return;
+        };
         let Some(Slot::Resuming {
             mode,
             attempt,
@@ -173,18 +193,15 @@ impl Shared {
             cwd,
             prompt,
             starred,
-            terminal_id,
-            mut parked,
+            terminal_id: Some(terminal_id),
+            parked,
             done,
             ..
         }) = runs.take(id)
         else {
-            unreachable!("checked above, under the same lock")
+            eprintln!("agents: {id}'s Resuming slot vanished under the lock that checked it");
+            return;
         };
-        let (ack_actor, ack_payload) = parked
-            .remove(position)
-            .expect("position came from this parked, under the same lock");
-        let terminal_id = terminal_id.expect("promote_parked_resume_ack only runs once it is Some");
         let promoted = self.promote_resuming(
             &mut rail,
             &mut runs,
@@ -210,6 +227,30 @@ impl Shared {
                 eprintln!("agents: could not promote {id}'s already-parked resume ack: {err}")
             }
         }
+    }
+
+    fn abandon_resume(
+        &self,
+        runs: &mut HashMap<AgentId, Agent>,
+        id: &str,
+        attempt: Ordinal,
+        old: Option<Box<Run>>,
+        terminal_id: String,
+        done: oneshot::Sender<Result<(), RpcError>>,
+    ) -> RpcError {
+        let error = RpcError::internal(format!("{id} is not in runs while it resumes"));
+        self.fail_resume(
+            runs,
+            id,
+            attempt,
+            Abandoned {
+                old,
+                terminal_id: Some(terminal_id),
+                done,
+            },
+            error.clone(),
+        );
+        error
     }
 
     /// A22's ack confirmed for `id`: attach the Terminal `agent.resume` started (never before
@@ -291,7 +332,10 @@ impl Shared {
             let first_prompt = claude_code::see(&parked_payload)
                 .prompt
                 .map(name::from_prompt);
-            let agent_facts = &mut runs.agent_mut(id).expect("taken, not removed").facts;
+            let Some(agent) = runs.agent_mut(id) else {
+                return Err(self.abandon_resume(runs, id, attempt, old, terminal_id, done));
+            };
+            let agent_facts = &mut agent.facts;
             if let Err(err) = self.apply(
                 Some(rail),
                 &mut run,
@@ -334,7 +378,10 @@ impl Shared {
         if starred {
             run.note_star();
         }
-        let agent_facts = &mut runs.agent_mut(id).expect("taken, not removed").facts;
+        let Some(agent) = runs.agent_mut(id) else {
+            return Err(self.abandon_resume(runs, id, attempt, old, terminal_id, done));
+        };
+        let agent_facts = &mut agent.facts;
         let applied = self.apply(
             Some(rail),
             &mut run,

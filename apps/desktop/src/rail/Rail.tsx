@@ -47,7 +47,6 @@ const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
-/** `collapse` is the Rail head's button: it folds the Rail to the strip, or, when `peeked` over the strip, opens it again (U6228). */
 export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
@@ -624,7 +623,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   return (
     <>
-    <Show when={props.collapse}>{collapse => <div class="rail-head"><IconButton class="rail-collapse" aria-label={props.peeked ? copy.expandRail : copy.collapseRail} onClick={collapse()}><Icon name={props.peeked ? "right" : "left"} /></IconButton></div>}</Show>
     <MovePicker replacement={rowElement} target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
     <div class="rail-scroll" onContextMenu={(press: MouseEvent) => {

@@ -173,9 +173,12 @@ impl Agents {
         if let Some((node, plan, _)) = pending {
             let plan =
                 plan.ok_or_else(|| RpcError::from(WorktreeError::Failed(UNPROVEN.to_string())))?;
-            self.shared
-                .rail()
-                .set_worktree(id, &node.worktree.expect("provisioned Worktree"))?;
+            self.shared.rail().set_worktree(
+                id,
+                &node
+                    .worktree
+                    .ok_or_else(|| RpcError::internal("provisioned node has no Worktree"))?,
+            )?;
             let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
             tokio::task::spawn_blocking(move || git.finish(&project, &plan))
                 .await

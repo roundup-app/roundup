@@ -70,3 +70,17 @@ Observer: `u6545c_a_bare_text_field_fails_the_check` in `tools/oxlint/` runs the
 Observer: `u6545b_workstream_default_name_is_numbered` in `apps/desktop/src/rail/` (an empty Rail, then `Workstream` taken, then `Workstream` and `Workstream 2` taken, give the next name) and `u6380b_a_door_names_its_workstream` in `crates/agents/tests/scenarios/naming.rs`, extended so a Workstream named `New Workstream` still takes the Door's task name. Update the `u167_` tests in `apps/desktop/src/rail/u167_default_name.test.tsx` and `WORKSTREAM_STEM` in `crates/agents/src/name.rs`, and cut any test these make redundant (rule 10).
 
 Regression checks on main: `scenarios/ui-form-controls.md`, heading U4382a, and `apps/desktop/src/ui/Field.css` hold the frame; `docs/design-system.md`, heading “The checks”, and `apps/desktop/src/testing/checks.ts`, functions `d2`, `d5` and `d6`, hold the Checks U6545a moves. Scope (policy): `apps/desktop/src/`, `tools/oxlint/`.
+
+## Menu rows match the Select list
+
+Acceptance for #6870. Specification only; the implementation is built from the Issue once this scenario is on `main`. Progress and engineering questions belong on the Issue. Extends U4382a: its Select list row holds for every menu built on `ui/Menu`.
+
+**U6870a A menu draws the Select list's surface, rows and highlight.** Given the App at 1512×950, when the user opens the Rail's + menu (Agent, Workstream, Mode, each with a key chip) and a Rail row's context menu, and highlights a row by pointer and then by arrow key, then in dark and light:
+
+1. The surface and rows of every menu built on `ui/Menu` take the Select list's metrics: surface padding `--space-1`; rows `--space-1` block by `--space-2` inline, min-height `--space-5`, `--radius-control`.
+2. A highlighted row, by pointer or by arrow key, draws the Select list's `--selected` wash and `--text` ink, and its key chip brightens with it. A disabled row draws no wash.
+3. The highlight changes with no transition. The menu's open and close motion, items, order and keys are as before.
+4. In a menu with key chips, the chips form one right-aligned column, at least `--space-5` after the widest label.
+5. `ui/Menu.css` holds these rules once; no menu keeps a copy of them, `.rail-create-menu`'s grid gap included. No Token is added.
+
+Observer: the design critic judges `just capture U6870a` against D2, D5 and D6 (policy): dark and light, 1512×950, the + menu and the Rail row context menu, each at rest, with a pointer-highlighted row and with a key-highlighted row, beside main's. No test checks padding, gap or colour (rule 10); the existing menu behaviour tests stay unchanged and pass (policy).

@@ -28,3 +28,22 @@ it("u6228_collapse_is_kept_per_project_and_keeps_the_last_width", async () => {
   });
 
 });
+
+it("u6228g_the_column_keeps_its_width_through_a_slide_and_takes_the_strip_once_at_its_end", () => {
+  createRoot((dispose) => {
+    const widths = createWidths(() => "/a");
+
+    widths.setCollapsed(true, true);
+    expect(widths.collapsed()).toBe(true);
+    expect(widths.rail.now()).toBe(288);
+
+    widths.settleLayout();
+    expect(widths.rail.now()).toBe(STRIP_WIDTH);
+
+    widths.setCollapsed(false, true);
+    expect(widths.rail.now()).toBe(STRIP_WIDTH);
+    widths.settleLayout();
+    expect(widths.rail.now()).toBe(288);
+    dispose();
+  });
+});

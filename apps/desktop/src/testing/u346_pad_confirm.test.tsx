@@ -123,6 +123,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       const app = { ...served, ask: async () => true, closeProject: async () => {}, chooseProjectPath: async () => ${JSON.stringify(real.dir)} };
       document.body.replaceChildren();
       const root = document.createElement('div');
+      root.style.height = '100vh';
       document.body.append(root);
       render(() => App({ app, initialShelfOpen: true, reducedMotion: () => true, clock: Date.now }), root);
       return true;
