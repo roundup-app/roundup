@@ -27,7 +27,7 @@ struct Args {
     /// Arguments that start a core serving `--socket`.
     #[arg(long, default_value = "serve")]
     serve: String,
-    /// The core's Unix socket; removed before each run. Defaults to `default.sock` in the
+    /// The core's Unix socket; removed before each run. Defaults to `default/default.sock` in the
     /// core's state folder under the scratch `HOME`.
     #[arg(long)]
     socket: Option<PathBuf>,
@@ -149,25 +149,29 @@ impl Conn {
 }
 
 /// A scratch `HOME` for the cores of one `perf-herdr` call, removed with it. The caller's own
-/// herdr-core state and config are never read or written.
+/// herdr-core state and config are never read or written. It lives in `/tmp`, because the core's
+/// socket under macOS's long `TMPDIR` passes the 104-byte limit of a Unix socket path.
 struct Scratch(tempfile::TempDir);
 
 impl Scratch {
     fn new() -> Res<Scratch> {
         tempfile::Builder::new()
             .prefix("perf-herdr")
-            .tempdir()
+            .tempdir_in("/tmp")
             .map(Scratch)
             .map_err(|e| e.to_string())
     }
 
     fn socket(&self, a: &Args) -> PathBuf {
-        let default = self.0.path().join(".local/state/herdr-core/default.sock");
+        let default = self
+            .0
+            .path()
+            .join(".local/state/herdr-core/default/default.sock");
         a.socket.clone().unwrap_or(default)
     }
 }
 
-/// The pid in a core's identity answer, wherever the answer nests it.
+/// The pid in a core's `server.status` answer, wherever the answer nests it.
 fn pid_of(v: &Value) -> Option<u32> {
     match v {
         Value::Object(m) => m
@@ -205,7 +209,7 @@ impl Core {
     }
 
     /// Opens the core's socket, retrying on each change in its directory until it answers or 10 s pass,
-    /// and learns the core's pid from its identity answer.
+    /// and learns the core's pid from its `server.status` answer.
     fn dial(&mut self, socket: &Path) -> Res<Conn> {
         use notify::Watcher;
         let dir = socket.parent().unwrap_or(Path::new("."));
@@ -229,8 +233,8 @@ impl Core {
             }
         };
         if self.pid.is_none() {
-            let id = conn.call("core.identity", json!({}))?;
-            self.pid = Some(pid_of(&id).ok_or_else(|| format!("identity: no pid in {id}"))?);
+            let id = conn.call("server.status", json!({}))?;
+            self.pid = Some(pid_of(&id).ok_or_else(|| format!("server.status: no pid in {id}"))?);
         }
         Ok(conn)
     }
