@@ -1,0 +1,7 @@
+PROOF q13 before: terminal t36 pid 6208 state="live"; 0abdb293-024c-46a7-a3df-1d130577a655 | 256877.57 | Sat Nov  7 17:17:21 2026       6 | 1794071848 | 1508 /home/boxd/.local/bin/herdr-core serve | 1517 /home/boxd/.local/bin/herdr-core hold --socket /run/user/1000/herdr-core/default.holder.4836cf57.sock | 6204 herdr-core connect
+PROOF q13 boxd machine hibernate -> {"name":"herdr-spike","status":"hibernating"}    A new version of boxd is available (v0.3.3). Update with:     curl -fsSL https://boxd.sh/downloads/install.sh | sh in 560.094958ms
+PROOF q13 while hibernated: "status": "hibernated",   "delete_after": "in 2h 11m (2026-11-07T19:29:28Z)",
+PROOF q13 wake by `ssh herdr-spike.boxd herdr-core connect`: hello after 774.566333ms
+PROOF q13 after wake: "status": "running",   "delete_after": "in 2h 11m (2026-11-07T19:29:28Z)",
+PROOF q13 after: terminal t36 pid 6208 state="live" exit_code=null reason=null; 0abdb293-024c-46a7-a3df-1d130577a655 | 256908.95 | Sat Nov  7 17:17:21 2026      37 | 1794071879 | 1508 /home/boxd/.local/bin/herdr-core serve | 1517 /home/boxd/.local/bin/herdr-core hold --socket /run/user/1000/herdr-core/default.holder.4836cf57.sock | 6229 herdr-core connect
+PROOF q13 last tick seen before hibernate=5; ticks after wake (paint + live)=Some(1)..Some(12) (n=12); program counting on = true

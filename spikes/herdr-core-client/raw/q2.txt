@@ -1,0 +1,52 @@
+PROOF q2 core restarted with CLAUDECODE=1 CLAUDE_CODE_SESSION_ID=leaked SPIKE_MARK=from-core-start in the starting ssh session; core pid 1508
+PROOF q2 run reply keys: state="live" cwd="/tmp/q2cwd" argv=["fake-agent","--flag","two words"] pid=1525
+PROOF q2 env-passed: argv=["--flag", "two words"]
+PROOF q2 env-passed: env ROUNDUP_AGENT=Some("7")
+PROOF q2 env-passed: env ROUNDUP_AGENT_ID=None
+PROOF q2 env-passed: env RUPD_SOCKET=Some("/home/boxd/rupd.sock")
+PROOF q2 env-passed: env CLAUDECODE=Some("1")
+PROOF q2 env-passed: env CLAUDE_CODE_SESSION_ID=Some("leaked")
+PROOF q2 env-passed: env SPIKE_MARK=Some("from-core-start")
+PROOF q2 env-passed: env HC_TERMINAL_ID=Some("t1")
+PROOF q2 env-passed: env HC_SESSION=None
+PROOF q2 env-passed: env TERM=Some("xterm-256color")
+PROOF q2 env-passed: env PATH[0]=Some("/usr/local/sbin")
+PROOF q2 env-passed: size rows_cols=30 100
+PROOF q2 env-empty-string: argv=[]
+PROOF q2 env-empty-string: env ROUNDUP_AGENT=None
+PROOF q2 env-empty-string: env ROUNDUP_AGENT_ID=None
+PROOF q2 env-empty-string: env RUPD_SOCKET=None
+PROOF q2 env-empty-string: env CLAUDECODE=Some("")
+PROOF q2 env-empty-string: env CLAUDE_CODE_SESSION_ID=Some("leaked")
+PROOF q2 env-empty-string: env SPIKE_MARK=Some("")
+PROOF q2 env-empty-string: env HC_TERMINAL_ID=Some("t2")
+PROOF q2 env-empty-string: env HC_SESSION=None
+PROOF q2 env-empty-string: env TERM=Some("xterm-256color")
+PROOF q2 env-empty-string: env PATH[0]=Some("/usr/local/sbin")
+PROOF q2 env-empty-string: size rows_cols=30 100
+PROOF q2 env-u-wrapper: argv=[]
+PROOF q2 env-u-wrapper: env ROUNDUP_AGENT=Some("8")
+PROOF q2 env-u-wrapper: env ROUNDUP_AGENT_ID=None
+PROOF q2 env-u-wrapper: env RUPD_SOCKET=None
+PROOF q2 env-u-wrapper: env CLAUDECODE=None
+PROOF q2 env-u-wrapper: env CLAUDE_CODE_SESSION_ID=None
+PROOF q2 env-u-wrapper: env SPIKE_MARK=None
+PROOF q2 env-u-wrapper: env HC_TERMINAL_ID=Some("t3")
+PROOF q2 env-u-wrapper: env HC_SESSION=None
+PROOF q2 env-u-wrapper: env TERM=Some("xterm-256color")
+PROOF q2 env-u-wrapper: env PATH[0]=Some("/usr/local/sbin")
+PROOF q2 env-u-wrapper: size rows_cols=30 100
+PROOF q2 env-i-wrapper: argv=[]
+PROOF q2 env-i-wrapper: env ROUNDUP_AGENT=Some("9")
+PROOF q2 env-i-wrapper: env ROUNDUP_AGENT_ID=None
+PROOF q2 env-i-wrapper: env RUPD_SOCKET=None
+PROOF q2 env-i-wrapper: env CLAUDECODE=None
+PROOF q2 env-i-wrapper: env CLAUDE_CODE_SESSION_ID=None
+PROOF q2 env-i-wrapper: env SPIKE_MARK=None
+PROOF q2 env-i-wrapper: env HC_TERMINAL_ID=None
+PROOF q2 env-i-wrapper: env HC_SESSION=None
+PROOF q2 env-i-wrapper: env TERM=Some("xterm-256color")
+PROOF q2 env-i-wrapper: env PATH[0]=Some("/usr/local/bin")
+PROOF q2 env-i-wrapper: size rows_cols=30 100
+PROOF q2 bad cwd reply: {"error":{"code":-32000,"data":{"hint":"check the program name and cwd","kind":"spawn_failed"},"message":"cannot start \"fake-agent\": No such file or directory (os error 2)"},"id":10,"jsonrpc":"2.0"}
+PROOF q2 bad program reply: {"error":{"code":-32000,"data":{"hint":"check the program name and cwd","kind":"spawn_failed"},"message":"cannot start \"no-such-program\": No such file or directory (os error 2)"},"id":11,"jsonrpc":"2.0"}
