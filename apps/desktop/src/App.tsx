@@ -47,6 +47,7 @@ import type { StateAlerts } from "./rail/stateAlerts";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
+import { createRailSlide } from "./rail/slide";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
@@ -560,16 +561,13 @@ export const App = (props: {
   const widths = createWidths(projects.active);
 
   // U6228: the Rail folds to a strip of Workstream marks; focus follows the control the user pressed, and `⌘K R` toggles it.
-  const setRailCollapsed = (collapsed: boolean, focus = true) => {
-    widths.setCollapsed(collapsed);
-
-    if (focus) queueMicrotask(() => document.querySelector<HTMLElement>(collapsed ? ".rail-strip-expand" : ".rail-collapse")?.focus());
-  };
+  const railSlide = createRailSlide(widths, () => props.reducedMotion());
 
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.rail"], capture: () => ({
     available: () => activeConnection() != null,
-    invoke: () => setRailCollapsed(!widths.collapsed(), false),
+    invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
+  const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
@@ -729,6 +727,7 @@ export const App = (props: {
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), peeking: frame.peeking(), covering: frame.covering(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
+            railToggle={railToggle()}
             app={props.app}
             onFailure={setWindowFailure}
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
@@ -749,7 +748,8 @@ export const App = (props: {
           </WindowBar>
         }
         railPeeking={railPeeking()}
-        railStrip={<InProject open={activeConnection()}>{() => <RailStrip expand={() => setRailCollapsed(false)} />}</InProject>}
+        railSlide={railSlide.motion()}
+        railStrip={<InProject open={activeConnection()}>{() => <RailStrip />}</InProject>}
         rail={
           <>
             <ReservedLine overlay message={railLine.message()} dismiss={railLine.dismiss} recover={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => void projects.reload() } : undefined} action={<>
@@ -760,7 +760,7 @@ export const App = (props: {
                 {() => (
                   <>
                     <AttentionKey />
-                    <Rail collapse={() => setRailCollapsed(!railPeeking())} peeked={railPeeking()} />
+                    <Rail />
                   </>
                 )}
               </InProject>

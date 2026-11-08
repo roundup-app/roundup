@@ -1,0 +1,8 @@
+PROOF q4 history=0: truth had ticks up to Some(79) at join; attach reply keys terminal.state="live"; first frame Some(643) B; paint+300ms: 4483 B, flood lines in paint=0, ticks in first frame=Some((52, 80))
+PROOF q4 history=0: late viewer saw ticks Some(52)..Some(400) (n=349, in paint+300ms: Some(52)..Some(400)); missing between=0 repeated/out-of-order steps=0
+PROOF q4 history=0: last 1500 B of late stream == last 1500 B of from-byte-0 stream: true
+PROOF q4 history=0: late stream total 4483 B; from-byte-0 stream total 28093 B (late is NOT a suffix of the history; paint is a re-render); tail found in truth: true
+PROOF q4 history=1000: truth had ticks up to Some(79) at join; attach reply keys terminal.state="live"; first frame Some(16384) B; paint+300ms: 32999 B, flood lines in paint=300, ticks in first frame=None
+PROOF q4 history=1000: late viewer saw ticks Some(1)..Some(400) (n=800, in paint+300ms: Some(1)..Some(400)); missing between=0 repeated/out-of-order steps=1
+PROOF q4 history=1000: last 1500 B of late stream == last 1500 B of from-byte-0 stream: true
+PROOF q4 history=1000: late stream total 32999 B; from-byte-0 stream total 4899 B (late is NOT a suffix of the history; paint is a re-render); tail found in truth: true

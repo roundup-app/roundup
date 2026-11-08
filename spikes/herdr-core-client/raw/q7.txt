@@ -1,0 +1,13 @@
+PROOF q7 exit 7: stream CLOSE reason = {"exit_code":7,"finished_ms":1794071071582,"reason":"exited","signal":null}
+PROOF q7 exit 7: terminal.wait = {"children":[],"ended":true,"exit_code":null,"reason":"status","signal":null,"status":"idle","terminal":"t27","turn":0}
+PROOF q7 exit 7: terminal.get state="finished" exit_code=7 reason="exited" signal=null
+PROOF q7 terminal.kill: state="finished" exit_code=null reason="killed" signal=1
+PROOF q7 [short outage 2s, 100ms ticks, history=0] ground truth (second ssh, never cut) saw ticks Some(1)..Some(91) n=91, breaks (prev,next)=[] (regex artefacts, not loss)
+PROOF q7 [short outage 2s, 100ms ticks, history=0] same terminal after reconnect: pid 2305 -> 2305 state="live"; ssh was dead 5.093354792s
+PROOF q7 [short outage 2s, 100ms ticks, history=0] ticks seen before kill: ..40; first paint+live after reattach: 36..Some(89) (n=54); missing (never delivered)=0; repeated (already seen)=5; breaks inside the after-reattach sequence (prev,next)=[]
+PROOF q7 [long outage 5s, 10ms ticks, history=0] ground truth (second ssh, never cut) saw ticks Some(1)..Some(846) n=846, breaks (prev,next)=[] (regex artefacts, not loss)
+PROOF q7 [long outage 5s, 10ms ticks, history=0] same terminal after reconnect: pid 2325 -> 2325 state="live"; ssh was dead 8.081086s
+PROOF q7 [long outage 5s, 10ms ticks, history=0] ticks seen before kill: ..41; first paint+live after reattach: 563..Some(837) (n=275); missing (never delivered)=521; repeated (already seen)=0; breaks inside the after-reattach sequence (prev,next)=[]
+PROOF q7 [long outage 5s, 10ms ticks, history=5000] ground truth (second ssh, never cut) saw ticks Some(1)..Some(842) n=842, breaks (prev,next)=[] (regex artefacts, not loss)
+PROOF q7 [long outage 5s, 10ms ticks, history=5000] same terminal after reconnect: pid 2344 -> 2344 state="live"; ssh was dead 8.013767167s
+PROOF q7 [long outage 5s, 10ms ticks, history=5000] ticks seen before kill: ..40; first paint+live after reattach: 1..Some(833) (n=833); missing (never delivered)=0; repeated (already seen)=40; breaks inside the after-reattach sequence (prev,next)=[]

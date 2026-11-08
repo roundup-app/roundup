@@ -814,3 +814,34 @@ async fn mc45_an_extension_cannot_reach_the_alert_or_message_calls() {
         );
     }
 }
+
+#[tokio::test]
+async fn mc46_a_finished_action_raises_no_alert_of_its_own() {
+    let js = "export function register(on) { on('action', { name: 'user.touch', label: 'Touch' }, async ($) => { const tried = []; for (const ping of [() => $.ui.toast({ text: 'done' }), () => $.bus.publish({ topic: 'alert.finished' }), () => $.ui.notification({ text: 'done' })]) { try { await ping(); } catch (error) { tried.push(error.message); } } return { deny: tried.join('|') }; }); }";
+    let mut fx = with(|root| ext(root, "pinger", &["ui", "bus"], js)).await;
+    fx.listed(&["user.touch"]).await;
+    while fx.events.try_recv().is_ok() {}
+    let reply = fx
+        .user()
+        .await
+        .call("action.run", json!({"name":"user.touch"}))
+        .await;
+    assert_eq!(
+        reply["error"]["message"]
+            .as_str()
+            .unwrap()
+            .matches("not customisable")
+            .count(),
+        3,
+        "{reply}"
+    );
+    while let Ok(event) = fx.events.try_recv() {
+        let shown = format!("{:?}", event.data).to_lowercase();
+        assert!(
+            !["alert", "toast", "notification", "problem"]
+                .iter()
+                .any(|word| shown.contains(word)),
+            "{shown}"
+        );
+    }
+}
