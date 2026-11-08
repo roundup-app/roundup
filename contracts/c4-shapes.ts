@@ -252,7 +252,10 @@ type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 // U5558 adds commit notifications; every existing Event and payload remains exact.
 type AutomaticChanges = { name: "deliverable.changed" }
   | { name: "agent.completed"; data: { maker: string; attempt: string; turn: string } }
-  | { name: "deliverable.published"; data: { record: Before["deliverable/Deliverable"]; completion: { maker: string; attempt: string; turn: string } | null } };
+  | { name: "deliverable.published"; data: { record: Before["deliverable/Deliverable"]; completion: { maker: string; attempt: string; turn: string } | null } }
+  // MC40, MC41 add the Config's two Events.
+  | { name: "config.changed" }
+  | { name: "config.problem"; data: { file: string; cause: string } };
 
 // A5765b removes only open Events and replaces open's null result with completion.
 type RenameRequest = Extract<Before["project/Requested"], { kind: "rename" }>;
@@ -266,6 +269,7 @@ type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwn
       : K extends "project/Requested" ? RenameRequest
       : K extends "RpcErrorData" ? Before[K] | { kind: "start-failed"; path: string; id: string; cause: string }
       : K extends "agent/StartDoorParams" ? Before[K] & { prompt?: string }
+      : K extends "terminal/SpawnParams" ? Before[K] & { unset: string[] }
       : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
@@ -273,6 +277,7 @@ type SelectorMethods = "todo.assign" | "todo.create";
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
   : K extends "rail.startDoor" ? { params: BeforeRpcMethods[K]["params"] & { prompt?: string }; result: BeforeRpcMethods[K]["result"] }
+  : K extends "terminal.spawn" ? { params: BeforeRpcMethods[K]["params"] & { unset: string[] }; result: BeforeRpcMethods[K]["result"] }
   : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"]; result: { path: string } }
   : BeforeRpcMethods[K] };
 

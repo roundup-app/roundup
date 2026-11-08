@@ -12,6 +12,9 @@ pub struct SpawnParams {
     /// Argv. `None` runs the user's login shell.
     pub command: Option<Vec<String>>,
     pub env: BTreeMap<String, String>,
+    /// Names of Daemon variables this program must not inherit, for this spawn alone.
+    #[serde(default)]
+    pub unset: Vec<String>,
     pub cols: u16,
     pub rows: u16,
 }

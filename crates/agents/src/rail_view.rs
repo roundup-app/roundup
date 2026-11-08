@@ -57,6 +57,11 @@ fn resume_cleanup_label(pending: bool) -> &'static str {
     }
 }
 
+/// U3566c: the published finishes of the node `id`; an id that parses to no node counts `0`.
+pub(super) fn finished_of(rail: &rail::Rail, id: &str) -> Result<u64, RpcError> {
+    AgentId::parse(id).map_or(Ok(0), |id| Ok(rail.finished(id)?))
+}
+
 impl Shared {
     pub(super) fn rail(&self) -> MutexGuard<'_, rail::Rail> {
         agent_lock(&self.rail).expect("rail lock")
@@ -240,7 +245,7 @@ impl Shared {
     pub(super) fn node(&self, id: &str) -> Result<RailNode, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
-        let finished = rail.finished(id)?;
+        let finished = finished_of(&rail, id)?;
         self.present(rail.node(id)?, &runs, &rail, finished)
     }
 

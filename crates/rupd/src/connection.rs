@@ -45,6 +45,7 @@ pub async fn serve(
 ) -> io::Result<()> {
     let mut running = watchers.spawn(&daemon);
     daemon.extensions.start(&daemon);
+    daemon.config.start(&daemon);
     tokio::select! {
         accepted = accept(listener, daemon) => accepted,
         Some(ended) = running.join_next() => Err(io::Error::other(match ended {
