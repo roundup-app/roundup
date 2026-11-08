@@ -101,7 +101,7 @@ button:hover:not([aria-disabled="true"]),
 :is(button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="treeitem"])[data-pressed="true"]:not(input, :disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
   color: var(--ink-pressed);
   opacity: var(--press-opacity);
-  transition: scale var(--duration-press) var(--easing-out);
+  transition: none;
 }
 
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
@@ -203,7 +203,7 @@ button[aria-disabled="true"] {
 /* Native visible inputs retain their own hit area and activation. */
 input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-disabled="true"]) {
   opacity: var(--press-opacity);
-  transition: scale var(--duration-press) var(--easing-out);
+  transition: none;
 }
 
 /* U5557c: action captions share mono; content rows and names retain UI type. */
