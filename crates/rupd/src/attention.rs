@@ -3,7 +3,7 @@
 //! interrupted or what sits in the centre.
 
 /// Words of an attention rule: the centre, who may ask the user, alerts, the shelf.
-const ATTENTION: [&str; 12] = [
+const ATTENTION: [&str; 11] = [
     "alert",
     "alerts",
     "alertlevel",
@@ -12,7 +12,6 @@ const ATTENTION: [&str; 12] = [
     "route",
     "routes",
     "held",
-    "takeover",
     "centre",
     "center",
     "shelf",

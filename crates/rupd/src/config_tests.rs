@@ -155,7 +155,6 @@ fn mc45_a_file_naming_an_attention_key_is_refused_whole() {
         "rail.setAlertLevel",
         "message.send",
         "route.set",
-        "takeover.start",
         "held.release",
     ] {
         let file = format!(r#"{{"todo.add":"meta+KeyT","{name}":"meta+KeyY"}}"#);

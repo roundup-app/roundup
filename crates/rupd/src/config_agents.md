@@ -26,7 +26,7 @@ Plain text added to the Door's instructions after roundup's own. It shapes how t
 
 Both kinds are refused whole, in every file and in every Extension call:
 
-- **The attention rules.** Which matter sits in the centre, who may ask the owner (Messages, Routes, Held, Takeover), alert settings (`alertLevel`, a Project's alerts), and the shelf following the Rail's selection. roundup owns these.
+- **The attention rules.** Which matter sits in the centre, who may ask the owner (Messages and Routes), alert settings (`alertLevel`, a Project's alerts), and the shelf following the Rail's selection. roundup owns these.
 - **A second surface or an interruption.** A panel beside the centre, a machine sidebar or Rail level, a dispatch or PR panel, a bell, an OS notification, a Toast or a badge outside the alerts the owner turned on. Only those alerts interrupt.
 
 A side-by-side diff of two Agents' results is one matter in the centre and needs no file.
