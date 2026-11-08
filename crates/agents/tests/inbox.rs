@@ -62,7 +62,7 @@ fn listed_for(
     pid: u32,
     edit: impl FnOnce(String) -> String,
 ) -> UnixListener {
-    let socket = launcher.socket_path(agent);
+    let socket = launcher.socket_path(agent).unwrap();
     let listener = UnixListener::bind(&socket).unwrap();
     let sessions = config.join("sessions");
     std::fs::create_dir_all(&sessions).unwrap();
@@ -417,7 +417,7 @@ impl messages::NoteInbox for RecordedInbox {
     fn session(&self, _: &str) -> Option<String> {
         Some("recorded-session".into())
     }
-    fn content(&self, _: &str, entry: &Entry) -> String {
+    fn content(&self, _: &str, entry: &Entry) -> Result<String, Inbox> {
         let envelope = &self.envelopes[entry.id as usize - 1];
         let recorded = envelope["message"]["content"].as_str().unwrap();
         let name = recorded
@@ -436,7 +436,7 @@ impl messages::NoteInbox for RecordedInbox {
         }
         .content(envelope["from"].as_str().unwrap(), "default");
         assert_eq!(rendered, recorded);
-        rendered
+        Ok(rendered)
     }
     fn write(&self, _: &str, entries: &[Entry]) -> Result<(), Inbox> {
         self.written

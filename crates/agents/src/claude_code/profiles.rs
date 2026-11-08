@@ -23,37 +23,34 @@ pub struct Profile {
     pub bundled_plugins: &'static [&'static str],
 }
 
+static DOOR: Profile = Profile {
+    tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
+    // A41: a `/command` sent to a Door runs there.
+    bundled_plugins: &["hope", "hunch", "hold"],
+};
+
+static SCOUT: Profile = Profile {
+    tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
+    bundled_plugins: &["hope", "hunch", "hold"],
+};
+
+static AGENT: Profile = Profile {
+    tools: None,
+    bundled_plugins: &["hope", "hunch", "hold"],
+};
+
 /// LC1: the one table of launch profiles, a row for each lean Role.
-pub const PROFILES: [(Role, Profile); 3] = [
-    (
-        Role::Door,
-        Profile {
-            tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
-            // A41: a `/command` sent to a Door runs there.
-            bundled_plugins: &["hope", "hunch", "hold"],
-        },
-    ),
-    (
-        Role::Scout,
-        Profile {
-            tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
-            bundled_plugins: &["hope", "hunch", "hold"],
-        },
-    ),
-    (
-        Role::Agent,
-        Profile {
-            tools: None,
-            bundled_plugins: &["hope", "hunch", "hold"],
-        },
-    ),
+pub const PROFILES: [(Role, &Profile); 3] = [
+    (Role::Door, &DOOR),
+    (Role::Scout, &SCOUT),
+    (Role::Agent, &AGENT),
 ];
 
 /// LC1: `role`'s row.
 pub fn profile(role: Role) -> &'static Profile {
-    &PROFILES
-        .iter()
-        .find(|(row, _)| *row == role)
-        .expect("PROFILES has a row for every Role")
-        .1
+    match role {
+        Role::Door => &DOOR,
+        Role::Scout => &SCOUT,
+        Role::Agent => &AGENT,
+    }
 }

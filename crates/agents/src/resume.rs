@@ -580,10 +580,13 @@ impl Shared {
                 )),
             },
         );
-        let shared = self
-            .me
-            .upgrade()
-            .expect("Agents owns Shared while resolving Resume");
+        let Some(shared) = self.me.upgrade() else {
+            // The Agents are gone: the cleanup stays pending in its slot; tell the caller so.
+            let _ = done.send(Err(RpcError::unknown_outcome(format!(
+                "{error}; Terminal {terminal_id} cleanup pending; do not retry Resume"
+            ))));
+            return;
+        };
         tokio::spawn(Self::finish_cleanup(
             shared,
             id.to_owned(),

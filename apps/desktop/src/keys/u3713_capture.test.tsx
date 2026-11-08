@@ -423,3 +423,31 @@ it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholde
 
   expect(app.calls.some(call => JSON.stringify(call.params).includes('"id":-'))).toBe(false);
 });
+
+it("u6845_ready_waits_for_the_state_subscription_and_the_first_snapshot_enables_filing", async () => {
+  const { CapturePanel } = await import("../todos/CapturePanel");
+  const actions: import("../app/seam").CaptureAction[] = [];
+  let deliver: (snapshot: import("../app/seam").CaptureState) => void = () => {};
+  let registered: (() => void) | undefined;
+
+  const port: import("../app/seam").CapturePort = {
+    configure: async () => {}, show: async () => {}, dismiss: async () => {}, publish: async () => {},
+    act: async action => { actions.push(action); },
+    onRequested: () => () => {}, onAction: () => () => {},
+    onState: (listener, ready) => {
+      deliver = listener;
+      registered = ready;
+
+      return () => {};
+    },
+  };
+
+  render(() => <CapturePanel port={port} />);
+  expect(actions).toEqual([]);
+  registered?.();
+  await waitFor(() => expect(actions).toEqual([{ kind: "ready" }]));
+  deliver({ session: "s", sequence: 0, text: "draft", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" });
+  const button = await screen.findByText<HTMLButtonElement>("Capture a Todo", { selector: "button" });
+  await waitFor(() => expect(button.disabled).toBe(false));
+  expect(actions.filter(action => action.kind === "ready")).toHaveLength(1);
+});

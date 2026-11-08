@@ -14,6 +14,7 @@ use contracts::message::MessageKind;
 use serde_json::{Value, json};
 
 use super::Launcher;
+use super::conversation::at;
 
 /// The `peerProtocol` a session lists in `<config>/sessions/<pid>.json` when it speaks the wire
 /// format of `inbox_write`; the fixtures of 2.1.300 and 2.1.302 both list it. A session listing
@@ -36,7 +37,7 @@ pub(super) fn default_mode(config: &Path, cwd: &Path) -> String {
     .iter()
     .find_map(|file| {
         let settings: Value = serde_json::from_slice(&std::fs::read(file).ok()?).ok()?;
-        settings["permissions"]["defaultMode"]
+        at(at(&settings, "permissions"), "defaultMode")
             .as_str()
             .map(str::to_owned)
     })
@@ -124,20 +125,29 @@ struct Session {
 
 impl Launcher {
     /// The socket Agent `agent` is launched to make.
-    pub fn socket_path(&self, agent: impl std::fmt::Display) -> PathBuf {
-        self.retained_inboxes
+    pub fn socket_path(&self, agent: impl std::fmt::Display) -> std::io::Result<PathBuf> {
+        let retained = self
+            .retained_inboxes
             .lock()
-            .expect("retained inboxes")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get(&agent.to_string())
-            .cloned()
-            .unwrap_or_else(|| self.socket_dir().join(format!("{agent}.sock")))
+            .cloned();
+        match retained {
+            Some(path) => Ok(path),
+            None => Ok(self.socket_dir()?.join(format!("{agent}.sock"))),
+        }
+    }
+
+    /// The origin `rupd` names itself with on the messaging socket.
+    fn peer_origin(&self) -> std::io::Result<String> {
+        Ok(format!("uds:{}", self.socket_dir()?.join("rupd").display()))
     }
 
     /// Restore only the messaging endpoint of a verified surviving owner.
     pub(crate) fn reattach_inbox(&self, agent: &str, socket: &Path) {
         self.retained_inboxes
             .lock()
-            .expect("retained inboxes")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(agent.to_owned(), socket.to_owned());
     }
 
@@ -152,21 +162,22 @@ impl Launcher {
             let name = file.file_name().into_string().ok()?;
             let pid = name.strip_suffix(".json")?;
             let session: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
-            let listening = Path::new(session["messagingSocketPath"].as_str()?)
+            let listening = Path::new(at(&session, "messagingSocketPath").as_str()?)
                 .canonicalize()
                 .ok()?;
-            let alive = rustix::process::Pid::from_raw(session["pid"].as_i64()?.try_into().ok()?)
-                .is_some_and(|pid| rustix::process::test_kill_process(pid).is_ok());
-            let id = session["sessionId"].as_str()?.to_owned();
+            let alive =
+                rustix::process::Pid::from_raw(at(&session, "pid").as_i64()?.try_into().ok()?)
+                    .is_some_and(|pid| rustix::process::test_kill_process(pid).is_ok());
+            let id = at(&session, "sessionId").as_str()?.to_owned();
             (listening == socket && alive)
-                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64(), id))
+                .then(|| (pid.to_owned(), at(&session, "peerProtocol").as_u64(), id))
         })?;
         let token = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
             name.strip_prefix(&format!("{pid}."))?
                 .strip_suffix(".key")?;
             let key: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
-            key["peerToken"].as_str().map(str::to_owned)
+            at(&key, "peerToken").as_str().map(str::to_owned)
         })?;
         Some(Session {
             id,
@@ -178,7 +189,10 @@ impl Launcher {
     /// B51: the state of Agent `agent`'s inbox: `missing` when its session is not listening on
     /// its socket; `mismatch` when the session lists a `peerProtocol` other than `PEER_PROTOCOL`.
     pub fn inbox_check(&self, agent: &str) -> Inbox {
-        match self.session(&self.socket_path(agent)) {
+        let Ok(socket) = self.socket_path(agent) else {
+            return Inbox::Missing;
+        };
+        match self.session(&socket) {
             None => Inbox::Missing,
             Some(session) if session.protocol == Some(PEER_PROTOCOL) => Inbox::Ok,
             Some(_) => Inbox::Mismatch,
@@ -187,14 +201,14 @@ impl Launcher {
 
     /// B5763b: the actual peer session, independent of Daemon restart or Agent labels.
     pub fn inbox_session(&self, agent: &str) -> Option<String> {
-        self.session(&self.socket_path(agent))
+        self.session(&self.socket_path(agent).ok()?)
             .map(|session| session.id)
     }
 
     /// B5763c: only the live receiving session and rupd's own peer origin establish history.
     pub fn inbox_previous(&self, agent: &str, path: &Path) -> Result<Option<String>, Inbox> {
         let session = self.inbox_session(agent).ok_or(Inbox::Missing)?;
-        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        let from = self.peer_origin().map_err(|_| Inbox::Missing)?;
         previous(path, &session, &from).map_err(|error| {
             eprintln!("inbox: cannot recover {}: {error}", path.display());
             Inbox::Missing
@@ -202,9 +216,9 @@ impl Launcher {
     }
 
     /// B5763b: use exactly the renderer and permission mode of the physical inbox write.
-    pub fn inbox_content(&self, agent: &str, note: &Entry, yolo: bool) -> String {
-        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
-        note.content(&from, &self.inbox_mode(agent, yolo))
+    pub fn inbox_content(&self, agent: &str, note: &Entry, yolo: bool) -> Result<String, Inbox> {
+        let from = self.peer_origin().map_err(|_| Inbox::Missing)?;
+        Ok(note.content(&from, &self.inbox_mode(agent, yolo)))
     }
 
     fn inbox_mode(&self, agent: &str, yolo: bool) -> String {
@@ -225,13 +239,13 @@ impl Launcher {
     /// drops a `msg_id` it has taken up.
     pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
         let permission_mode = self.inbox_mode(agent, yolo);
-        let socket = self.socket_path(agent);
+        let socket = self.socket_path(agent).map_err(|_| Inbox::Missing)?;
         let token = self.session(&socket).ok_or(Inbox::Missing)?.token;
         let mut stream = UnixStream::connect(&socket).map_err(|_| Inbox::Missing)?;
         stream
             .set_write_timeout(Some(WRITE_BOUND))
             .map_err(|_| Inbox::Missing)?;
-        let from = format!("uds:{}", self.socket_dir().join("rupd").display());
+        let from = self.peer_origin().map_err(|_| Inbox::Missing)?;
         let mut lines = vec![json!({ "type": "auth", "token": token })];
         for note in notes {
             let content = note.content(&from, &permission_mode);
@@ -482,6 +496,18 @@ struct ReceiptLine<R> {
     pending: std::cell::RefCell<([u8; 256], usize, usize)>,
 }
 
+fn scratch_error() -> std::io::Error {
+    std::io::Error::other("receipt scratch range out of bounds")
+}
+
+/// Copy `bytes` into `out` at `at`, or fail when the scratch is too short.
+fn store(out: &mut [u8], at: usize, bytes: &[u8]) -> std::io::Result<()> {
+    out.get_mut(at..at + bytes.len())
+        .ok_or_else(scratch_error)?
+        .copy_from_slice(bytes);
+    Ok(())
+}
+
 impl<R: BufRead> ReceiptLine<R> {
     fn byte(&self) -> std::io::Result<Option<u8>> {
         let mut reader = self.reader.borrow_mut();
@@ -499,7 +525,7 @@ impl<R: BufRead> ReceiptLine<R> {
 
     fn string(&self, out: &mut [u8]) -> std::io::Result<usize> {
         let mut length = 1;
-        out[0] = b'"';
+        store(out, 0, b"\"")?;
         let mut overflow = false;
         let mut high_surrogate = false;
         loop {
@@ -515,7 +541,8 @@ impl<R: BufRead> ReceiptLine<R> {
                     self.valid.set(false);
                 }
                 if !overflow && length + run < out.len() {
-                    out[length..length + run].copy_from_slice(&buffer[..run]);
+                    let chunk = buffer.get(..run).ok_or_else(scratch_error)?;
+                    store(out, length, chunk)?;
                     length += run;
                 } else {
                     overflow = true;
@@ -537,10 +564,10 @@ impl<R: BufRead> ReceiptLine<R> {
                         self.valid.set(false);
                     }
                     if overflow {
-                        out[..3].copy_from_slice(b"\"~\"");
+                        store(out, 0, b"\"~\"")?;
                         return Ok(3);
                     }
-                    out[length] = b'"';
+                    store(out, length, b"\"")?;
                     return Ok(length + 1);
                 }
                 b'\\' => {
@@ -551,7 +578,7 @@ impl<R: BufRead> ReceiptLine<R> {
                     count = 2;
                     if escape == b'u' {
                         let mut value = 0u16;
-                        for slot in &mut unit[2..6] {
+                        for slot in unit.iter_mut().skip(2).take(4) {
                             let Some(hex) = self.byte()? else {
                                 return Ok(0);
                             };
@@ -595,13 +622,16 @@ impl<R: BufRead> ReceiptLine<R> {
                         0xf0..=0xf4 => 4,
                         _ => 1,
                     };
-                    for slot in &mut unit[1..count] {
+                    for slot in unit.iter_mut().skip(1).take(count - 1) {
                         let Some(next) = self.byte()? else {
                             return Ok(0);
                         };
                         *slot = next;
                     }
-                    if std::str::from_utf8(&unit[..count]).is_err() {
+                    if unit
+                        .get(..count)
+                        .is_none_or(|bytes| std::str::from_utf8(bytes).is_err())
+                    {
                         self.valid.set(false);
                     }
                 }
@@ -610,7 +640,8 @@ impl<R: BufRead> ReceiptLine<R> {
                 }
             }
             if !overflow && length + count < out.len() {
-                out[length..length + count].copy_from_slice(&unit[..count]);
+                let piece = unit.get(..count).ok_or_else(scratch_error)?;
+                store(out, length, piece)?;
                 length += count;
             } else {
                 overflow = true;
@@ -646,7 +677,11 @@ impl<R: BufRead> Read for &ReceiptLine<R> {
             };
         }
         let count = out.len().min(*length - *offset);
-        out[..count].copy_from_slice(&buffer[*offset..*offset + count]);
+        let (Some(to), Some(from)) = (out.get_mut(..count), buffer.get(*offset..*offset + count))
+        else {
+            return Err(scratch_error());
+        };
+        to.copy_from_slice(from);
         *offset += count;
         Ok(count)
     }
@@ -704,18 +739,20 @@ impl<'de> serde::Deserialize<'de> for Skipped {
 
 /// The transcript file a hook payload names.
 pub fn transcript_of(payload: &Value) -> Option<PathBuf> {
-    payload["transcript_path"].as_str().map(PathBuf::from)
+    at(payload, "transcript_path").as_str().map(PathBuf::from)
 }
 
 impl Launcher {
     /// The private folder Agents' messaging sockets are made in.
-    pub(super) fn socket_dir(&self) -> &Path {
+    pub(super) fn socket_dir(&self) -> std::io::Result<&Path> {
+        if self.sockets.get().is_none() {
+            // A caller that lost the race drops its extra folder.
+            let _ = self.sockets.set(super::launch_files::socket_folder()?);
+        }
         self.sockets
-            .get_or_init(|| {
-                super::launch_files::socket_folder()
-                    .expect("a private folder for messaging sockets")
-            })
-            .path()
+            .get()
+            .map(tempfile::TempDir::path)
+            .ok_or_else(|| std::io::Error::other("messaging socket folder missing"))
     }
 }
 

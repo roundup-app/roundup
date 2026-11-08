@@ -95,7 +95,10 @@ impl Rail {
         }
         let mut selected = Vec::new();
         walk(&nodes, None, &chosen, &mut selected);
-        let first = find(&nodes, &selected[0])?;
+        let Some(first_id) = selected.first() else {
+            return Err(StoreError::invalid("select at least two Rail rows"));
+        };
+        let first = find(&nodes, first_id)?;
         let mut destination = first.parent.as_deref();
         while let Some(id) = destination {
             if !chosen.contains(id)
@@ -111,7 +114,10 @@ impl Rail {
         // The destination is a strict unselected ancestor, so this cannot create a cycle.
         let mut branch = first;
         while branch.parent.as_deref() != destination {
-            branch = find(&nodes, branch.parent.as_deref().expect("common ancestor"))?;
+            let Some(up) = branch.parent.as_deref() else {
+                return Err(StoreError::invalid("no common ancestor"));
+            };
+            branch = find(&nodes, up)?;
         }
         let siblings_before = siblings(&nodes, destination);
         let index = siblings_before
@@ -126,8 +132,8 @@ impl Rail {
         let group = tx.last_insert_rowid().to_string();
         let mut parents: std::collections::HashSet<Option<&str>> = selected
             .iter()
-            .map(|id| find(&nodes, id).expect("selected node").parent.as_deref())
-            .collect();
+            .map(|id| find(&nodes, id).map(|node| node.parent.as_deref()))
+            .collect::<Result<_, _>>()?;
         parents.insert(destination);
         for parent in parents {
             let mut remaining: Vec<_> = siblings(&nodes, parent)
