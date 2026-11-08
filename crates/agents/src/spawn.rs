@@ -372,6 +372,7 @@ impl Agents {
                     cwd,
                     command: Some(command),
                     env: BTreeMap::new(),
+                    unset: Vec::new(),
                     cols: size.cols,
                     rows: size.rows,
                 },
@@ -553,7 +554,7 @@ impl Agents {
             lean: Launcher::load_lean(&self.dir, id)?,
         };
         let started = attempt.to_owned();
-        let (argv, env) = self
+        let (argv, env, unset) = self
             .launcher
             .launch_on(&claude_code::Request {
                 folders: claude_code::Folders {
@@ -570,7 +571,7 @@ impl Agents {
             .await?;
         self.retain_worktree(id).await?;
         let spawned = match self
-            .spawn_behind(id, cwd, Some(argv), env, attach, size)
+            .spawn_behind(id, cwd, Some(argv), env, unset, attach, size)
             .await
         {
             Ok(spawned) => spawned,
@@ -594,6 +595,7 @@ impl Agents {
         cwd: &Path,
         command: Option<Vec<String>>,
         env: BTreeMap<String, String>,
+        unset: Vec<String>,
         attach: Attach,
         size: (u16, u16),
     ) -> Result<terminal::Spawned, RpcError> {
@@ -604,6 +606,7 @@ impl Agents {
                 cwd: cwd.to_string_lossy().into_owned(),
                 command,
                 env,
+                unset,
                 cols: size.0,
                 rows: size.1,
             })

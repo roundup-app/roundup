@@ -442,7 +442,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 async fn i5_launch_sets_roundup_agent_in_the_claude_environment() {
     let s = setup();
     let launcher = plugin_launcher(&s);
-    let (_, env) = launcher
+    let (_, env, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "7",
@@ -759,7 +759,7 @@ async fn a3516a_user_launches_have_no_restart_restricting_flags() {
         "#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; else printf '%s\\n' \"$@\"; fi\n").unwrap();
     for resume in [None, Some("00000000-0000-4000-8000-000000003516")] {
         for mcp_off in [false, true] {
-            let (argv, env) = launcher
+            let (argv, env, _) = launcher
                 .launch_on(&agents::claude_code::Request {
                     folders: folders(&s.dir),
                     id: "7",

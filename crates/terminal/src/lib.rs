@@ -380,6 +380,7 @@ impl Terminals {
                 cwd: cwd.to_owned(),
                 command: Some(command),
                 env: start.env,
+                unset: Vec::new(),
                 cols: size.0,
                 rows: size.1,
             },
