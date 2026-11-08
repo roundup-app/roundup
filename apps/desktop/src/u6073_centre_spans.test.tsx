@@ -15,7 +15,12 @@ const mount = async (nativeFails = false) => {
 
   if (nativeFails) {
     app.handlers["link.read"] = () => { throw new Error("native open failed"); };
-    app.onNativeOpen = listener => { setTimeout(() => listener({ kind: "link", url: "roundup://x" }), 50); return () => {}; };
+
+    app.onNativeOpen = listener => {
+      setTimeout(() => listener({ kind: "link", url: "roundup://x" }), 50);
+
+      return () => {};
+    };
   }
 
   app.add("/a");

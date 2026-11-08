@@ -125,6 +125,7 @@ export const watchMenuBar = (options: {
 
     void options.app.setMenuBar(menu).then(() => options.fail(failure), error => options.hide(String(error)));
   });
+
   const stop = options.app.onMenuBarAction(action => {
     if (action.kind === "failure") { options.hide(action.message);
 
@@ -144,5 +145,6 @@ export const watchMenuBar = (options: {
 
     void options.app.showWindow().catch(error => options.hide(String(error)));
   });
+
   onCleanup(stop);
 };

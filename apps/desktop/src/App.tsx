@@ -421,6 +421,7 @@ export const App = (props: {
     const owner = getOwner();
     nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
     const stop = props.app.onNativeOpen?.(routeNativeOpen);
+
     if (stop) onCleanup(stop);
   });
 
