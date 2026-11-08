@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
+import { RequestedApp } from "../testing/requestedApp";
+import { showEverythingInApp } from "../testing/showEverything";
 
 afterEach(async () => {
   batch(cleanup);
@@ -23,8 +25,10 @@ const mount = async (shelfOpen: boolean) => {
 
 // SAFETY: the mounted App always renders its one window and Drawer.
 const windowOf = () => document.querySelector<HTMLElement>(".window") as HTMLElement;
+
 // SAFETY: DrawerHost renders its aside whether or not it is open.
 const drawer = () => document.querySelector<HTMLElement>(".drawer") as HTMLElement;
+
 const press = () => leaderKey("KeyB", {}, document.body);
 
 /** The Bench's size as the user sees it: the window's and the Drawer's own marks. */
@@ -74,16 +78,15 @@ describe("U3721a", () => {
   });
 
   it("u3721a_the_leader_b_opens_the_focused_row_then_maximises_it_then_closes", async () => {
-    await mount(false);
-    await steps(["list"]);
-    const rowsOf = () => [...document.querySelectorAll<HTMLButtonElement>(".todos-tab [data-shelf-row] .row-head .todo-row-button")].filter(each => each.closest("[hidden], [inert]") === null);
+    const { app } = seedApp("tree-40", 0);
+    const tree = await app.handlers["rail.tree"]?.(null) ?? [];
 
-    // The seeded Todos all sit in the Unassigned group, which starts folded.
-    await waitFor(() => expect(document.querySelector('.todos-tab [aria-expanded="false"]')).not.toBeNull());
-    fireEvent.click(document.querySelector('.todos-tab [aria-expanded="false"]') as HTMLElement);
-    await waitFor(() => expect(rowsOf().length).toBeGreaterThan(0));
-    const row = rowsOf()[0] as HTMLButtonElement;
-
+    app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend");
+    render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+    await showEverythingInApp();
+    await waitFor(() => expect(document.querySelector(".shelf .todo-row-button[aria-pressed]")).not.toBeNull());
+    // SAFETY: the waitFor above found this row.
+    const row = document.querySelector<HTMLButtonElement>(".shelf .todo-row-button[aria-pressed]") as HTMLButtonElement;
 
     row.focus();
     leaderKey("KeyB", {}, row);
