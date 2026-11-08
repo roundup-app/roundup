@@ -269,10 +269,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     return hit === undefined || (hit !== null && body.contains(hit));
   };
 
-  let unlistenDrop: (() => void) | undefined;
-  let closed = false;
-
-  void connected.app.onFileDrop((drop) => {
+  const unlistenDrop = connected.app.onFileDrop((drop) => {
     const id = takesDrop();
 
     if (drop.phase === "leave" || id === null || !inBody(drop.x, drop.y)) {
@@ -287,17 +284,11 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       screens.emulatorFor(id).focus();
       screens.pastePaths(id, drop.paths);
     }
-  }).then((stop) => {
-    if (closed) stop();
-    else unlistenDrop = stop;
   });
 
   createEffect(on(terminalId, () => setDropOver(false)));
   createEffect(() => { if (takesDrop() === null) setDropOver(false); });
-  onCleanup(() => {
-    closed = true;
-    unlistenDrop?.();
-  });
+  onCleanup(unlistenDrop);
 
   // A Card appearing, growing or going changes the Terminal's room without a window resize.
   const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : makeResizeObserver(refitNextFrame);

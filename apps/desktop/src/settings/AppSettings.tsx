@@ -1,5 +1,5 @@
 import fuzzysort from "fuzzysort";
-import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, untrack, type JSX } from "solid-js";
 import type { App } from "../app/seam";
 import { copy, stateLabel } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -94,19 +94,14 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     props.onOpenChange?.(true);
   };
 
-  let disposed = false;
-  let stop: (() => void) | undefined;
-  let stopProject: (() => void) | undefined;
-
-  void props.app.onAppSettings(show).then(unsubscribe => { if (disposed) unsubscribe(); else stop = unsubscribe; });
-  void props.app.onProjectPage(({ path }) => {
+  onCleanup(untrack(() => props.app.onAppSettings(show)));
+  onCleanup(untrack(() => props.app.onProjectPage(({ path }) => {
     setForward(false);
 
     if (path !== props.project() || !view.open()) return;
     props.onOpenChange?.(false);
     view.close();
-  }).then(unsubscribe => { if (disposed) unsubscribe(); else stopProject = unsubscribe; });
-  onCleanup(() => { disposed = true; stop?.(); stopProject?.(); });
+  })));
   registerKeys({ kind: "app" }, [
     { chords: ["Meta+Comma"], run: show },
     { chords: ["Meta+BracketLeft"], when: () => view.open(), run: event => { event.preventDefault(); back(); } },

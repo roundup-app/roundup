@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
 import type { RailState } from "../state/rail";
-import type { App, AppSeam, FileDrop } from "./seam";
+import type { App, AppSeam, FileDrop, Unsubscribe } from "./seam";
 
 /** U348: how long a drag holds over a Rail row or a Project tab before it opens; policy, above a pass at drag speed and below a wait that reads as stuck. */
 export const HOLD_MS = 600;
@@ -137,7 +137,7 @@ export const createDropTargets = (
 
       return {
         ...calls,
-        onFileDrop: async (listener) => {
+        onFileDrop: (listener) => {
           feed.add(listener);
 
           return () => feed.delete(listener);
@@ -146,5 +146,5 @@ export const createDropTargets = (
     },
   };
 
-  return { app: routed, start: () => app.onFileDrop(handle) };
+  return { app: routed, start: (): Unsubscribe => app.onFileDrop(handle) };
 };

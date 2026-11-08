@@ -43,7 +43,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
 
   if (native) app.capture = {
     configure: async () => {}, show: nativeShow, dismiss: async () => {}, publish: async () => {}, act: async () => {},
-    onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
+    onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {},
   };
   const nodes = [workstream("home"), agent("a1", "idle", "ready", { parent: "home" })];
   const shells = [info("existing", { owner: "home", title: "existing" })];
