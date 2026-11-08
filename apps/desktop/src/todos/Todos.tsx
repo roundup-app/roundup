@@ -22,7 +22,7 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import * as v from "valibot";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
-import { registerOpener, registerSelectedRow } from "../shelf/openItem";
+import { registerOpener } from "../shelf/openItem";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
@@ -442,10 +442,7 @@ export const Todos = (props: {
     connected.drawer.open(content, source, { kind: "todo", project: connected.project.path });
   };
 
-  // U3721a: `⌘K B` opens the focused row, or the first selected one, in the Drawer.
-  onCleanup(registerSelectedRow("todo", () => selection.focused() ?? selection.selected()[0]));
-
-  // U5240b: the Switcher opens a Todo through its Rail row, so the row reads as selected.
+  // U5240b: the Switcher opens a Todo through its Rail row, so the row reads as selected. U3721a: `⌘K B` opens the focused row, or the first selected one.
   onCleanup(registerOpener("todo", id => {
     const todo = todos.byId().get(Number(id));
 
@@ -453,7 +450,7 @@ export const Todos = (props: {
     show(todo, "key");
 
     return true;
-  }));
+  }, () => selection.focused() ?? selection.selected()[0]));
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {
     const focus = captureFocus();

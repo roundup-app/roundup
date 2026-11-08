@@ -15,7 +15,7 @@ import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { changeFailureOf, failureOf } from "../todos/failureOf";
 import { Icon } from "../ink/Icon";
-import { registerOpener, registerSelectedRow } from "../shelf/openItem";
+import { registerOpener } from "../shelf/openItem";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
@@ -148,13 +148,6 @@ export const Pads = (props: {
   const shown = shownPads(connected, list);
   const groups = createMemo(() => padGroups(connected, shown()));
   const selection = createSelection(() => shown().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
-
-  // U3721a: `⌘K B` opens the focused row, or the first selected one, in the Drawer.
-  onCleanup(registerSelectedRow("pad", () => {
-    const incarnation = selection.focused() ?? selection.selected()[0];
-
-    return shown().find(pad => pad.incarnation === incarnation)?.name;
-  }));
 
   const bulk = createBulkDelete({
     app: connected.app,
@@ -348,14 +341,14 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
     connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message, copy.openDraft)} onFailureCleared={() => props.onItemFailure(pad, null, copy.openDraft)} />, source, { kind: "pad", project: connected.project.path });
   };
 
-  // U5240b: the Switcher opens a Pad through its Rail row, as a click then Enter on it does.
+  // U5240b: the Switcher opens a Pad through its Rail row, as a click then Enter on it does. U3721a: the focused or first selected row answers `⌘K B`.
   onCleanup(registerOpener("pad", name => {
     if (name !== pad.name) return false;
     props.selection.replace([pad.incarnation]);
     open("key");
 
     return true;
-  }));
+  }, () => (props.selection.focused() ?? props.selection.selected()[0]) === pad.incarnation ? pad.name : undefined));
 
   const rename = () => { setEditing(true); };
 

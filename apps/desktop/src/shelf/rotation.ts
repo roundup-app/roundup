@@ -1,5 +1,6 @@
 import type { ActivationSource } from "../keys/registry";
 import type { DrawerState } from "../drawer/drawer";
+import type { ConnectedProject } from "../state/connectedProject";
 import type { ShelfFrame } from "./frame";
 import { openSelectedRow } from "./openItem";
 
@@ -9,15 +10,22 @@ export type BenchSize = "closed" | "list" | "item" | "full";
 /** U3721a: closed → list → list with the open item → full → closed; the cycle skips full in overlay mode (U371) and the list steps straight to full with no selected row. */
 export const createBenchRotation = (props: {
   frame: ShelfFrame;
-  drawer: () => DrawerState | undefined;
-  overlay: () => boolean;
+  connection?: () => ConnectedProject | Error | undefined;
   toggle: (source: ActivationSource) => void;
 }) => {
-  const size = (): BenchSize => {
-    const drawer = props.drawer();
-    const fills = !props.overlay();
+  const drawer = (): DrawerState | undefined => {
+    const connected = props.connection?.();
 
-    if (drawer?.content()) return fills && drawer.size()?.maximised ? "full" : "item";
+    return connected && !(connected instanceof Error) ? connected.drawer : undefined;
+  };
+
+  const overlay = () => document.querySelector<HTMLElement>(".window")?.dataset["shelfMode"] === "overlay";
+
+  const size = (): BenchSize => {
+    const open = drawer();
+    const fills = !overlay();
+
+    if (open?.content()) return fills && open.size()?.maximised ? "full" : "item";
 
     if (!props.frame.open()) return "closed";
 
@@ -25,25 +33,28 @@ export const createBenchRotation = (props: {
   };
 
   const close = () => {
-    props.drawer()?.close("key");
+    drawer()?.close("key");
 
     if (props.frame.maximised()) props.frame.toggleMaximise("key");
 
     if (props.frame.open()) props.toggle("key");
   };
 
+  const step = (open: DrawerState | undefined) => {
+    if (openSelectedRow()) {
+      if (!overlay() && open?.size()?.maximised) open.size()?.toggle("key");
+    } else if (overlay()) close();
+    else props.frame.toggleMaximise("key");
+  };
+
   const rotate = () => {
-    const drawer = props.drawer();
+    const open = drawer();
     const current = size();
 
-    if (props.frame.peeking()) props.toggle("key");
-    else if (current === "closed") props.toggle("key");
-    else if (current === "full" || current === "item" && props.overlay()) close();
-    else if (current === "item") drawer?.size()?.toggle("key");
-    else if (openSelectedRow()) {
-      if (!props.overlay() && drawer?.size()?.maximised) drawer.size()?.toggle("key");
-    } else if (props.overlay()) close();
-    else props.frame.toggleMaximise("key");
+    if (props.frame.peeking() || current === "closed") props.toggle("key");
+    else if (current === "full" || current === "item" && overlay()) close();
+    else if (current === "item") open?.size()?.toggle("key");
+    else step(open);
   };
 
   return { size, rotate };

@@ -29,7 +29,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
 import type { OpenRequest } from "./app/nativeOpen";
 import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
-import { createBenchRotation } from "./shelf/rotation";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -571,7 +570,7 @@ export const App = (props: {
   const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
-  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
+  const shelfFocus = shelfKeys({ frame, shelf: shelfElement, connection: activeConnection });
   // U6224: the bar tabs promote through their own click; counting their press as use would let that click close what it just opened.
   createEdgePeek({ edge: "trailing", region: shelfElement, state: frame, promote: (target) => { if (!target.closest(".shelf-tabs")) frame.promote(); } });
 
@@ -679,23 +678,12 @@ export const App = (props: {
 
   onCleanup(shelfFocus.stop);
 
-  const rotation = createBenchRotation({
-    frame,
-    drawer: () => {
-      const connected = activeConnection();
-
-      return connected && !(connected instanceof Error) ? connected.drawer : undefined;
-    },
-    overlay: () => document.querySelector<HTMLElement>(".window")?.dataset["shelfMode"] === "overlay",
-    toggle: shelfFocus.toggle,
-  });
-
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.shelf"], capture: () => {
-    const was = rotation.size();
+    const was = shelfFocus.size();
 
     return {
       available: () => activeConnection() != null,
-      invoke: () => { if (rotation.size() === was) rotation.rotate(); },
+      invoke: () => { if (shelfFocus.size() === was) shelfFocus.rotate(); },
     };
   } }]);
 
