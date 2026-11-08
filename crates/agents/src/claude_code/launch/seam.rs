@@ -32,6 +32,10 @@ impl Launcher {
         for marker in super::super::MARKERS {
             command.env_remove(marker);
         }
+        // A36: the variable beats `--effort`, so a pinned Effort clears the Daemon's.
+        if request.facts.effort.is_some() {
+            command.env_remove(super::super::models::EFFORT_VARIABLE);
+        }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
             let inherited = std::env::var_os("PATH").unwrap_or_default();

@@ -19,6 +19,7 @@
 )]
 
 mod actions;
+mod attention;
 mod auto;
 #[cfg(test)]
 mod auto_tests;

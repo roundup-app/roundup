@@ -218,7 +218,7 @@ impl Agents {
                 "{id} has no saved conversation"
             )));
         };
-        let attempt = rail.allocate_attempt(id)?;
+        let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
         self.shared.events.observed.notify_waiters();
         let old = match runs.take(id) {
             Some(Slot::Running(run)) => Some(Box::new(run)),
@@ -655,7 +655,10 @@ mod tests {
     async fn a2693a_stop_failure_launches_nothing() {
         let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let id = running_agent(&shared, None);
-        shared.rail().allocate_attempt(&id).unwrap();
+        shared
+            .rail()
+            .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+            .unwrap();
         shared
             .rail()
             .save_conversation(
@@ -693,7 +696,10 @@ mod tests {
         for remove in [false, true] {
             let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
             let id = running_agent(&shared, None);
-            shared.rail().allocate_attempt(&id).unwrap();
+            shared
+                .rail()
+                .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+                .unwrap();
             shared
                 .rail()
                 .save_conversation(
