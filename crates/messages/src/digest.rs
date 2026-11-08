@@ -122,6 +122,7 @@ impl TellMap {
         key: (String, String),
         told: Told,
         entry: &DigestEntry,
+        waking: bool,
     ) -> rusqlite::Result<Option<Told>> {
         if let Some(db) = &self.db {
             let to_sql = |err| rusqlite::Error::ToSqlConversionFailure(Box::new(err));
@@ -133,9 +134,10 @@ impl TellMap {
                 rusqlite::params![key.0, key.1, json],
             )?;
             tx.execute(
-                "INSERT INTO push_intents (door, child, entry, weight) VALUES (?1, ?2, ?3, 1) \
-                 ON CONFLICT (door, child) DO UPDATE SET entry = ?3, weight = weight + 1",
-                rusqlite::params![key.0, key.1, entry],
+                "INSERT INTO push_intents (door, child, entry, weight, waking) VALUES (?1, ?2, ?3, 1, ?4) \
+                 ON CONFLICT (door, child) DO UPDATE SET entry = ?3, weight = weight + 1, \
+                 waking = waking OR ?4",
+                rusqlite::params![key.0, key.1, entry, waking],
             )?;
             tx.commit()?;
         }
@@ -144,10 +146,15 @@ impl TellMap {
 
     /// Records `told`, logging a refused write once, naming the Door and child (DCL10a); with
     /// `push`, the change is also queued for the Door in the same transaction (DCL4).
-    fn record(&mut self, key: (String, String), told: Told, push: Option<&DigestEntry>) -> bool {
+    fn record(
+        &mut self,
+        key: (String, String),
+        told: Told,
+        push: Option<(&DigestEntry, bool)>,
+    ) -> bool {
         let at = format!("{}/{}", key.0, key.1);
         let result = match push {
-            Some(entry) => self.insert_queued(key, told, entry),
+            Some((entry, waking)) => self.insert_queued(key, told, entry, waking),
             None => self.insert(key, told),
         };
         let Err(err) = result else {
@@ -208,6 +215,8 @@ pub struct Intent {
     pub entry: DigestEntry,
     /// How many changes it stands for.
     pub weight: u32,
+    /// DTC2: whether the change woke the Door when told.
+    pub waking: bool,
 }
 
 #[derive(Default)]
@@ -434,7 +443,8 @@ impl Seen {
                 };
                 let before = (after, book.told.get(&key).cloned());
                 // DCL10a: a refused write leaves the change untold, to be offered again.
-                let queued = (!repeated).then_some(&pushed);
+                let waking = ends && is_end(child);
+                let queued = (!repeated).then_some((&pushed, waking));
                 if !book.told.record(key.clone(), now.clone(), queued) {
                     match noted {
                         Some(kind) => book.noted.insert(key, kind),
@@ -452,7 +462,7 @@ impl Seen {
                     key,
                     meta: meta.id.clone(),
                     entry: pushed,
-                    waking: ends && is_end(child),
+                    waking,
                     told: now,
                     before,
                     gone: false,
@@ -470,7 +480,7 @@ impl Seen {
         let Some(db) = &book.db else {
             return Vec::new();
         };
-        db.prepare("SELECT door, child, entry, weight FROM push_intents ORDER BY rowid")
+        db.prepare("SELECT door, child, entry, weight, waking FROM push_intents ORDER BY rowid")
             .and_then(|mut stmt| {
                 stmt.query_map([], |row| {
                     Ok((
@@ -478,18 +488,20 @@ impl Seen {
                         row.get::<_, String>(1)?,
                         row.get::<_, String>(2)?,
                         row.get::<_, u32>(3)?,
+                        row.get::<_, bool>(4)?,
                     ))
                 })?
                 .collect::<rusqlite::Result<Vec<_>>>()
             })
             .unwrap_or_default()
             .into_iter()
-            .filter_map(|(door, child, entry, weight)| {
+            .filter_map(|(door, child, entry, weight, waking)| {
                 Some(Intent {
                     door,
                     child,
                     entry: serde_json::from_str(&entry).ok()?,
                     weight,
+                    waking,
                 })
             })
             .collect()
