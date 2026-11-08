@@ -173,9 +173,10 @@ async fn mc45_the_refusal_is_loud_and_applies_nothing() {
     daemon.config.start(&daemon);
     std::fs::write(dir.path().join("look.json"), r#"{"mode":"light"}"#).unwrap();
     let applied = async {
-        while daemon.config.state().look.is_empty() {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
+        while !matches!(
+            events.recv().await.map(|e| e.data),
+            Ok(EventData::ConfigChanged)
+        ) {}
     };
     tokio::time::timeout(Duration::from_secs(2), applied)
         .await
