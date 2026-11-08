@@ -49,6 +49,7 @@ mod github;
 mod group_tests;
 mod link;
 mod machines;
+mod memory_guard;
 #[cfg(test)]
 mod naming_tests;
 mod observers;

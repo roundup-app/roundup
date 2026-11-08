@@ -399,7 +399,9 @@ async fn b5763d_all_inbox_producers_share_the_repeat_rule() {
     // A B22 push and the B43 attention producer both enter the same rendered history.
     h.clock.store(200_000, Ordering::SeqCst);
     let entry = digest("done: result");
-    h.messages.push_digest("receiver", "child", &entry).await;
+    h.messages
+        .push_digest("receiver", "child", &entry, true)
+        .await;
     let pushed = h.all().await.last().unwrap()["id"].as_u64().unwrap() as u32;
     h.messages.note_attention("receiver", &entry).await.unwrap();
     let repeated = h.all().await.last().unwrap()["id"].as_u64().unwrap() as u32;
