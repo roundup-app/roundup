@@ -134,12 +134,13 @@ struct Due {
 }
 
 /// DCL6: every Door to settle. `open` holds the Jobs with no report of their current Attempt and
-/// `waiting` what each Door has not yet been sent.
+/// `waiting` what each Door has not yet been sent. `held` are the pending digests no inbox write
+/// carries until a Message that is no quiet digest comes, so they are no delivery to wait for.
 fn due(
     nodes: &[RailNode],
     sent: &[Message],
     open: &HashSet<String>,
-    waiting: &HashMap<String, u32>,
+    (waiting, held): (&HashMap<String, u32>, &HashSet<u32>),
     store: &Settlements,
     now: i64,
     quiet: &mut Option<i64>,
@@ -152,9 +153,11 @@ fn due(
             .map(|c| c.id.as_str())
             .chain([door.id.as_str()])
             .collect();
-        let pending = sent
-            .iter()
-            .any(|m| m.status == MessageStatus::Pending && ids.contains(m.to.as_str()));
+        let pending = sent.iter().any(|m| {
+            m.status == MessageStatus::Pending
+                && !held.contains(&m.id)
+                && ids.contains(m.to.as_str())
+        });
         // A child that never finished a turn changed nothing worth settling.
         let finished = children
             .iter()
@@ -243,6 +246,7 @@ pub(crate) async fn settle(
     store: &Settlements,
     world: &World,
     waiting: &HashMap<String, u32>,
+    held: &HashSet<u32>,
 ) -> Option<std::time::Duration> {
     let agents = reader.agents()?;
     let open: HashSet<String> = match agents.open_jobs(|id| {
@@ -263,7 +267,7 @@ pub(crate) async fn settle(
         world.nodes(),
         world.messages(),
         &open,
-        waiting,
+        (waiting, held),
         store,
         provenance::now_ms(),
         &mut quiet,
