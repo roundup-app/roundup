@@ -428,6 +428,7 @@ it("u6845_ready_waits_for_the_state_subscription_and_the_first_snapshot_enables_
   const { CapturePanel } = await import("../todos/CapturePanel");
   const actions: import("../app/seam").CaptureAction[] = [];
   let deliver: (snapshot: import("../app/seam").CaptureState) => void = () => {};
+
   let registered: (() => void) | undefined;
 
   const port: import("../app/seam").CapturePort = {
