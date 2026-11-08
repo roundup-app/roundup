@@ -133,7 +133,7 @@ export const copy = {
   commentRetry: "Retry comments",
   padRefsHeading: (count: number) => `Pads · ${count}`,
   padRefMissingState: " · Missing",
-  padRefHeading: (heading: string) => ` · ${heading}`,
+  padRefHeading: sharedCopy.dottedAfter,
   removePadRef: (name: string) => `Unlink ${name}`,
   padRefRetry: "Retry Pads",
   retryHistory: "Retry history",

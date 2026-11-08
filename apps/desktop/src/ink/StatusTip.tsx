@@ -22,7 +22,7 @@ export const Reveal = (props: { status: Status; label?: string; live?: boolean; 
   const label = () => props.label ?? props.status.label;
 
   // U6640b: split, the label is its own cut span and the age keeps its width.
-  return <>{props.label === undefined && props.status.kind === "error" ? age() : props.split ? <><span class="row-status-label">{label()}</span><span class="row-status-age">{copy.statusReveal(label(), age()).slice(label().length)}</span></> : copy.statusReveal(label(), age())}</>;
+  return <>{props.label === undefined && props.status.kind === "error" ? age() : props.split ? <><span class="row-status-label">{label()}</span><span class="row-status-age">{copy.statusAfterLabel(age())}</span></> : copy.statusReveal(label(), age())}</>;
 };
 
 /** Only the handlers and description link: the row keeps its own id, `data-scope` and `data-part`, which the trigger's would overwrite. Merge them with the row's own props by zag's `mergeProps`, which chains handlers. */

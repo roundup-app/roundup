@@ -9,6 +9,7 @@ export const copy = {
     weeks: (value: number) => `${value} w`,
   },
   statusReveal: sharedCopy.dotted,
+  statusAfterLabel: sharedCopy.dottedAfter,
   error: sharedCopy.error,
   retry: sharedCopy.retry,
   dismissFailure: sharedCopy.dismissFailure,

@@ -128,6 +128,8 @@
   container-type: inline-size;
   display: flex;
   min-width: 0;
+  /* The quick-icon slot and a --space-3 gap stay clear, so hover and selection never paint an action over the age. */
+  margin-inline-end: calc(var(--rail-slot) + var(--space-3));
   overflow: hidden;
   white-space: nowrap;
   color: var(--grey);
@@ -135,7 +137,7 @@
   line-height: 1.15;
 }
 
-.rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
 /* pre keeps the separator's leading space, which a flex item would collapse. */
 .rail-row .row-status-age { flex: none; white-space: pre; }
 /* The name keeps its width first, up to most of the row; the status is the only part that shrinks. */

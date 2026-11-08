@@ -27,7 +27,7 @@ it("u6640a_a_rail_row_holds_its_status_and_its_mark_has_no_tooltip", async () =>
     const row = find(`.rail-row[data-id="${kind}"]`);
     const mark = find(".row-state", row);
 
-    expect(find(".row-status", row).textContent).toBe(copy.statusReveal(`${kind} label`, copy.statusAge.minutes(15)));
+    expect(find(".row-status", row).textContent).toBe(kind === "error" ? copy.statusAge.minutes(15) : copy.statusReveal(`${kind} label`, copy.statusAge.minutes(15)));
     fireEvent.pointerMove(mark, { pointerType: "mouse" });
     fireEvent.focusIn(mark);
     row.focus();

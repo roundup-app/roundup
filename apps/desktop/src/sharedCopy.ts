@@ -48,6 +48,7 @@ export const copy = {
   now: "now",
   you: "You",
   dotted: (first: string, second: string) => `${first} · ${second}`,
+  dottedAfter: (value: string) => ` · ${value}`,
   move: "Move",
   comment: "Comment",
   bold: "Bold",
