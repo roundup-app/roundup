@@ -248,7 +248,11 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
         .await;
     assert!(result["is_error"] != true, "{result}");
     let tree = project.rail_tree(&user).await;
-    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
+    assert_ne!(
+        node(&tree, &job).attempt,
+        job_before.attempt,
+        "the Door's resume left the Job on its Attempt: {result}"
+    );
     let consult_after = node(&tree, &consult);
     assert_eq!(consult_after.attempt, consult_before.attempt);
     assert!(consult_after.terminal_id.is_none());
