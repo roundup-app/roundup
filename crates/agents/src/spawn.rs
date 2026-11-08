@@ -315,7 +315,7 @@ impl Agents {
         if let Some(lean) = &request.lean {
             Launcher::save_lean(&self.dir, &node.id, lean)?;
         }
-        let attempt = rail.allocate_attempt(&node.id)?;
+        let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;
         self.shared.mark_starting(&node.id, attempt.clone());
         if request.by_user_named {
             rail.set_user_named(&node.id)?;
@@ -631,7 +631,7 @@ impl Agents {
         let (attempt, prompt) = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
-            let attempt = rail.allocate_attempt(id)?;
+            let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
             let prompt = order::first_input(
                 first,
                 node.work.as_ref(),
