@@ -270,8 +270,12 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
             .journal()
             .iter()
             .map(|entry| entry["body"]["messages"].to_string())
-            .filter(|asked| asked.contains("[open jobs]"))
-            .all(|asked| !asked.contains(&format!("- {reported} "))),
+            .filter_map(|asked| {
+                // The snapshot ends at the next blank line; later text may name the reported Job.
+                let (_, rest) = asked.split_once("[open jobs]")?;
+                Some(rest.split("\\n\\n").next().unwrap_or(rest).to_owned())
+            })
+            .all(|snapshot| !snapshot.contains(&format!("- {reported} "))),
         "the start note names the reported Job"
     );
 }
