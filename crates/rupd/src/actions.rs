@@ -288,6 +288,15 @@ impl Daemon {
         Ok(self.extensions.rows())
     }
 
+    pub(super) async fn config_read(
+        &self,
+        conn: &mut Conn,
+    ) -> Result<contracts::config::ConfigState, RpcError> {
+        self.ctx(conn.actor.clone())
+            .touch(Verb::Read, "config:read")?;
+        Ok(self.config.state())
+    }
+
     pub(super) async fn action_list(&self, conn: &mut Conn) -> Result<ListedRows, RpcError> {
         let mut rows = self.app_list().await?;
         self.ctx(conn.actor.clone())

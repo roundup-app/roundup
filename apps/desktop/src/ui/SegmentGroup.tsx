@@ -8,6 +8,7 @@ export type Segment<V extends string> = { value: V; label: string; content?: JSX
 export const SegmentGroup = <V extends string>(props: {
   label: string;
   description?: string;
+  disabled?: boolean;
   segments: readonly Segment<V>[];
   value: V;
   onValueChange: (value: V) => void;
@@ -15,7 +16,7 @@ export const SegmentGroup = <V extends string>(props: {
   const hint = createUniqueId();
 
   return (
-  <ArkSegmentGroup.Root class="app-segments" aria-describedby={props.description ? hint : undefined} value={props.value} onValueChange={(details) => props.onValueChange(props.segments.find((segment) => segment.value === details.value)?.value ?? props.value)}>
+  <ArkSegmentGroup.Root class="app-segments" aria-describedby={props.description ? hint : undefined} value={props.value} disabled={props.disabled} onValueChange={(details) => props.onValueChange(props.segments.find((segment) => segment.value === details.value)?.value ?? props.value)}>
     <ArkSegmentGroup.Label class="app-segments-label">{props.label}</ArkSegmentGroup.Label>
     <div class="app-segments-track">
       <For each={props.segments}>{(segment) => (

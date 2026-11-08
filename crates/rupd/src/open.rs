@@ -24,7 +24,9 @@ impl Daemon {
         let (daemon, watchers) = Self::open_stores(project, &dir, observers, |agents| agents)?;
         Ok(match home {
             Some(home) => (
-                daemon.with_extensions(&home.join(".roundup/extensions")),
+                daemon
+                    .with_extensions(&home.join(".roundup/extensions"))
+                    .with_config(&home.join(".roundup")),
                 watchers,
             ),
             None => (daemon, watchers),
@@ -118,6 +120,7 @@ impl Daemon {
             prompt_effect_gate: observers.prompt_effect_gate.clone(),
             actions: Default::default(),
             extensions: extensions::Host::new(dir.join("extensions")),
+            config: crate::config::Config::new(dir.to_path_buf()),
             machine_core: Default::default(),
         };
         let services_at = begun.elapsed();

@@ -89,20 +89,22 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (changedOnly && holder?.resizeSize?.cols === size.cols && holder.resizeSize.rows === size.rows) return;
 
-    if (holder) { holder.shownSize = size; holder.resizeSize = size; }
+    if (holder) holder.shownSize = size;
 
-    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => {
-      // A refused size was never delivered; the next host notification can retry it without hiding its failure.
-      if (!delivered && holder?.resizeSize === size) holder.resizeSize = null;
-    });
+    // U6418c: only a size sent to the Daemon is recorded as the PTY's; one that landed while it was down is sent after it returns.
+    if (exited(id) || daemonExit() !== null) return;
+
+    if (holder) holder.resizeSize = size;
+
+    // A refused size was never delivered; the next host notification can retry it without hiding its failure.
+    void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => { if (!delivered && holder?.resizeSize === size) holder.resizeSize = null; });
   };
 
   const reflow = (id: string, holder: Holder): void => {
     if (disposed || !holder.ready || !holder.shownSize) return;
 
-    const fitted = holder.emulator.fit();
-
-    if (fitted.cols !== holder.shownSize.cols || fitted.rows !== holder.shownSize.rows) resize(id, fitted);
+    // U6418c: `resize` compares with the size the PTY holds, which a restore or snapshot may have left narrower than the fit.
+    resize(id, holder.emulator.fit());
   };
 
   const pump = createPump({ connected, failures, watches, viewed, shownTo, exited: (id) => exited(id), acknowledge: (agentId) => connected.held.acknowledge(agentId), reflow });

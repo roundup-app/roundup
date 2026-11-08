@@ -52,6 +52,7 @@ import type { SubscribeParams as common_SubscribeParams } from "./SubscribeParam
 import type { SubscribeResult as common_SubscribeResult } from "./SubscribeResult";
 import type { Touch as common_Touch } from "./Touch";
 import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
+import type { ConfigState as config_ConfigState } from "./config/ConfigState";
 import type { ForkParams as data_ForkParams } from "./data/ForkParams";
 import type { ForkResult as data_ForkResult } from "./data/ForkResult";
 import type { Deliverable as deliverable_Deliverable } from "./deliverable/Deliverable";
@@ -319,6 +320,7 @@ export type RpcMethods = {
   "action.serve": { params: null; result: null };
   "action.list": { params: null; result: action_ActionRow[] };
   "action.userList": { params: null; result: action_ActionRow[] };
+  "config.read": { params: null; result: config_ConfigState };
   "action.run": { params: action_RunParams; result: action_RunResult };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };

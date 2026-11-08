@@ -801,3 +801,47 @@ async fn a3516a_user_launches_have_no_restart_restricting_flags() {
         }
     }
 }
+
+fn door_brief(s: &Setup, door_md: &Path) -> String {
+    s.launcher()
+        .with_door_file(door_md.to_owned())
+        .prepare(folders(&s.dir), "7", "1", &s.cwd, None, Role::Door)
+        .unwrap();
+    std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap()
+}
+
+#[test]
+fn mc43_door_instructions_end_with_the_file() {
+    let s = setup();
+    let plain = door_brief(&s, &s.root.path().join("none.md"));
+    let file = s.root.path().join("door.md");
+    std::fs::write(&file, "Answer in one short line.\n").unwrap();
+    let text = door_brief(&s, &file);
+    assert!(text.starts_with(&plain), "roundup's own text stays first");
+    assert!(text.trim_end().ends_with("Answer in one short line."));
+}
+
+#[test]
+fn mc43_saving_applies_from_the_next_turn_only() {
+    let s = setup();
+    let file = s.root.path().join("door.md");
+    std::fs::write(&file, "First wording.").unwrap();
+    assert!(door_brief(&s, &file).contains("First wording."));
+    std::fs::write(&file, "Second wording.").unwrap();
+    let launched = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+    assert!(launched.contains("First wording.") && !launched.contains("Second wording."));
+    let next = door_brief(&s, &file);
+    assert!(next.contains("Second wording.") && !next.contains("First wording."));
+}
+
+#[test]
+fn mc43_no_file_changes_nothing() {
+    let s = setup();
+    let none = door_brief(&s, &s.root.path().join("none.md"));
+    s.prepare_as("7", Role::Door).unwrap();
+    let default = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+    assert_eq!(none, default);
+    let empty = s.root.path().join("empty.md");
+    std::fs::write(&empty, "  \n").unwrap();
+    assert_eq!(door_brief(&s, &empty), default);
+}

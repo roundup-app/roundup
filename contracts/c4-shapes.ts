@@ -252,7 +252,10 @@ type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 // U5558 adds commit notifications; every existing Event and payload remains exact.
 type AutomaticChanges = { name: "deliverable.changed" }
   | { name: "agent.completed"; data: { maker: string; attempt: string; turn: string } }
-  | { name: "deliverable.published"; data: { record: Before["deliverable/Deliverable"]; completion: { maker: string; attempt: string; turn: string } | null } };
+  | { name: "deliverable.published"; data: { record: Before["deliverable/Deliverable"]; completion: { maker: string; attempt: string; turn: string } | null } }
+  // MC40, MC41 add the Config's two Events.
+  | { name: "config.changed" }
+  | { name: "config.problem"; data: { file: string; cause: string } };
 
 // A5765b removes only open Events and replaces open's null result with completion.
 type RenameRequest = Extract<Before["project/Requested"], { kind: "rename" }>;
