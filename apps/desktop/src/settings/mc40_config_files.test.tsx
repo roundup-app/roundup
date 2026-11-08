@@ -1,10 +1,13 @@
+import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { RequestedApp as App } from "../testing/requestedApp";
+import { createFakeApp } from "../testing/fakeApp";
 import { CHORDS } from "../keys/chords";
 import { refuseKeys } from "./configApply";
 import { lookColours, setByFile, setFileKeys, setFileLook } from "./configFile";
 import { appSettings, saveAppSettings, storedSettings } from "./preferences";
 
-afterEach(async () => { setFileLook({}); setFileKeys({}); await saveAppSettings({ quickAdd: "meta+shift+KeyT" }); });
+afterEach(async () => { cleanup(); setFileLook({}); setFileKeys({}); await saveAppSettings({ quickAdd: "meta+shift+KeyT" }); });
 
 it("mc40_saved_look_applies_without_restart", () => {
   const chosen = appSettings().mode;
@@ -54,4 +57,21 @@ it("mc41_unknown_name_or_bad_press_refuses_the_file", async () => {
 it("mc41_terminal_keys_stay_with_the_terminal", () => {
   expect(refuseKeys({ "todo.add": "ctrl+KeyC" })).toMatch(/^todo\.add/);
   expect(refuseKeys({ "todo.add": "meta+KeyQ" })).toMatch(/^todo\.add/);
+});
+
+it("mc40_a_token_the_file_names_shows_read_only_in_app_settings", async () => {
+  setFileLook({ mode: "light", interfaceScale: "large", fontFamily: "Menlo", fontSize: "14" });
+  render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);
+  await screen.findByRole("button", { name: /Choose/ });
+  fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
+  const view = await screen.findByRole("region", { name: "Settings" });
+  fireEvent.click(within(view).getByRole("tab", { name: "Terminal" }));
+
+  expect((await within(view).findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).disabled).toBe(true);
+  expect(within(view).getByRole<HTMLButtonElement>("combobox", { name: "Font family" }).disabled).toBe(true);
+  expect(within(view).getAllByText(/look\.json/).length).toBeGreaterThanOrEqual(2);
+
+  fireEvent.click(within(view).getByRole("tab", { name: "Appearance" }));
+
+  for (const radio of await within(view).findAllByRole<HTMLInputElement>("radio")) expect(radio.disabled).toBe(true);
 });

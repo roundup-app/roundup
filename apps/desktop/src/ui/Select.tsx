@@ -24,6 +24,7 @@ export const Select = (props: {
   description?: string;
   choices: SelectChoice[];
   value: string;
+  disabled?: boolean;
   onValueChange: (value: string) => void;
 }): JSX.Element => {
   const collection = createMemo(() => createListCollection({ items: props.choices, itemToValue: (choice) => choice.value, itemToString: (choice) => choice.label }));
@@ -62,7 +63,7 @@ export const Select = (props: {
   const service = useMachine(machine, () => ({
     id, collection: collection(), value: [props.value],
     ids: { label: field?.().ids.label, hiddenSelect: field?.().ids.control },
-    disabled: field?.().disabled ?? false, readOnly: field?.().readOnly ?? false, invalid: field?.().invalid ?? false, required: field?.().required ?? false,
+    disabled: props.disabled ?? field?.().disabled ?? false, readOnly: field?.().readOnly ?? false, invalid: field?.().invalid ?? false, required: field?.().required ?? false,
     dir: locale().dir, getRootNode: environment().getRootNode,
     onValueChange: details => props.onValueChange(details.value[0] ?? props.value),
     open: control.open(), onOpenChange: control.change, positioning: { strategy: "fixed" as const, sameWidth: true },

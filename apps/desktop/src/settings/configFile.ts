@@ -41,4 +41,4 @@ export const lookColours = (): Record<string, string> =>
   Object.fromEntries(Object.entries(look()).filter(([key]) => key.startsWith("color.")).map(([key, value]) => [`--${key.slice(6)}`, value]));
 
 /** MC40: a setting the file names shows as set by the file, read-only. */
-export const setByFile = (name: "mode" | "interfaceScale" | "fontFamily" | "fontSize"): boolean => name in look();
+export const setByFile = (name: string): boolean => name in look() && ["mode", "interfaceScale", "fontFamily", "fontSize"].includes(name);
