@@ -28,7 +28,7 @@ impl Agents {
         let Some(owner) = self.shared.terminals.terminal_owner(terminal_id)? else {
             return Ok(());
         };
-        let Some(attempt) = self.shared.rail().node(id)?.attempt else {
+        let Some(attempt) = self.shared.rail().node(crate::rail::agent_id(id)?)?.attempt else {
             return Ok(());
         };
         let file = self.shared.owner_file(id);
@@ -107,7 +107,7 @@ impl Agents {
         let (node, conversation) = {
             let rail = self.shared.rail();
             match (
-                rail.node(id),
+                crate::rail::agent_id(id).and_then(|id| rail.node(id)),
                 crate::rail::agent_id(id).and_then(|id| rail.conversation(id)),
             ) {
                 (Ok(node), Ok(conversation)) => (node, conversation),

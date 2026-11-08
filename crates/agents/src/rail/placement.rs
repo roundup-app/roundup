@@ -9,8 +9,10 @@ impl Rail {
         parent: Option<&str>,
         index: u32,
     ) -> Result<(), StoreError> {
-        let name = self.name(id)?;
-        let parent_name = parent.map(|id| self.name(id)).transpose()?;
+        let name = self.name(crate::rail::agent_id(id)?)?;
+        let parent_name = parent
+            .map(|id| self.name(crate::rail::agent_id(id)?))
+            .transpose()?;
         let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
@@ -158,6 +160,6 @@ impl Rail {
             }
         }
         tx.commit()?;
-        self.node(&group)
+        self.node(crate::rail::agent_id(&group)?)
     }
 }

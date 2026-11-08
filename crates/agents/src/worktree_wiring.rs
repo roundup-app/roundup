@@ -113,7 +113,9 @@ impl Agents {
         }
         let project = self.project_dir().to_owned();
         let (real_project, real_cwd) = real_paths(&project, cwd)?;
-        self.shared.rail().resource_node(id)?;
+        self.shared
+            .rail()
+            .resource_node(crate::rail::agent_id(id)?)?;
         let (git, plan_project, plan_id) =
             (self.shared.git.bounded(), project.clone(), id.to_owned());
         let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id))
@@ -243,7 +245,7 @@ pub(super) fn reconcile_closed(
         if let Some(copy) = copy {
             launcher.discard_conversation(&copy)?;
         }
-        let node = rail.resource_node(&agent)?;
+        let node = rail.resource_node(crate::rail::agent_id(&agent)?)?;
         if node.worktree.is_some() {
             let plan = rail
                 .provisioning()?
@@ -560,9 +562,13 @@ mod tests {
         agents
             .shared
             .rail()
-            .rename(&ids.0, "user Workstream")
+            .rename(crate::rail::agent_id(&ids.0).unwrap(), "user Workstream")
             .unwrap();
-        agents.shared.rail().rename(&ids.1, "user Agent").unwrap();
+        agents
+            .shared
+            .rail()
+            .rename(crate::rail::agent_id(&ids.1).unwrap(), "user Agent")
+            .unwrap();
         agents
             .shared
             .rail()

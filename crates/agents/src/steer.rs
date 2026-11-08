@@ -60,9 +60,8 @@ impl Shared {
         attempt: Option<&str>,
         text: String,
     ) -> Result<(), SteerError> {
-        let name = self
-            .rail()
-            .name(id)
+        let name = crate::rail::agent_id(id)
+            .and_then(|id| self.rail().name(id))
             .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         match self.runs().slot(id) {
             Some(Slot::Running(run))
@@ -98,10 +97,8 @@ impl Agents {
         id: &str,
         attempt: &str,
     ) -> Result<FirstSteerCompletion, PromptError> {
-        let name = self
-            .shared
-            .rail()
-            .name(id)
+        let name = crate::rail::agent_id(id)
+            .and_then(|id| self.shared.rail().name(id))
             .map_err(|error| PromptError::Rail(error.into()))?;
         let missing = || PromptError::NotFound {
             id: id.to_owned(),
@@ -260,9 +257,8 @@ impl Shared {
         verbatim: bool,
         record: Option<PromptRecord>,
     ) -> Result<(), SteerError> {
-        let name = self
-            .rail()
-            .name(id)
+        let name = crate::rail::agent_id(id)
+            .and_then(|id| self.rail().name(id))
             .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         let not_found = |name: &str| PromptError::NotFound {
             id: id.to_owned(),
@@ -414,9 +410,8 @@ impl Shared {
         }
         let failure = match effect {
             Err(err) if err.code == code::NOT_FOUND => {
-                let name = self
-                    .rail()
-                    .name(id)
+                let name = crate::rail::agent_id(id)
+                    .and_then(|id| self.rail().name(id))
                     .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
                 return Err(SteerError::Refused(not_found(&name)));
             }
@@ -424,9 +419,8 @@ impl Shared {
                 eprintln!("agents: could not write the prompt to terminal {terminal_id}: {err}");
                 let reason = PromptError::NotAccepted {
                     id: id.to_owned(),
-                    name: self
-                        .rail()
-                        .name(id)
+                    name: crate::rail::agent_id(id)
+                        .and_then(|id| self.rail().name(id))
                         .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?,
                 };
                 if err.code == code::UNKNOWN_OUTCOME {
@@ -456,16 +450,17 @@ impl Shared {
                     }
                     _ => SteerError::Uncertain(PromptError::NotAccepted {
                         id: id.to_owned(),
-                        name: self.rail().name(id).map_err(|error| {
-                            SteerError::Uncertain(PromptError::Rail(error.into()))
-                        })?,
+                        name: crate::rail::agent_id(id)
+                            .and_then(|id| self.rail().name(id))
+                            .map_err(|error| {
+                                SteerError::Uncertain(PromptError::Rail(error.into()))
+                            })?,
                     }),
                 }
             }
         };
-        let name = self
-            .rail()
-            .name(id)
+        let name = crate::rail::agent_id(id)
+            .and_then(|id| self.rail().name(id))
             .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?;
         let mut runs = self.runs();
         let ended = match runs.slot_mut(id) {
@@ -491,7 +486,7 @@ impl Shared {
     /// working (`Kind::Idle`) or a question's Kind leaves `needs-you` (H4702a). Physical completion precedes the title timeout; `NOT_ACKED`
     /// means the Escape was written but its outcome is uncertain. Nothing is retried.
     pub(super) async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
-        let name = self.rail().name(id)?;
+        let name = crate::rail::agent_id(id).and_then(|id| self.rail().name(id))?;
         let not_found = || RpcError::not_found(format!("{name} is not running"));
         let (terminal_id, acked) = {
             let mut runs = self.runs();
@@ -544,7 +539,7 @@ impl Shared {
             .await;
         let error = match written {
             Err(err) => {
-                let name = self.rail().name(id)?;
+                let name = crate::rail::agent_id(id).and_then(|id| self.rail().name(id))?;
                 eprintln!("agents: could not write the interrupt to terminal {terminal_id}: {err}");
                 if err.code == code::UNKNOWN_OUTCOME {
                     RpcError::unknown_outcome(format!(
@@ -560,7 +555,7 @@ impl Shared {
             Ok(()) => match tokio::time::timeout(self.steer.interrupt_bound, acked).await {
                 Ok(Ok(())) => return Ok(()),
                 _ => {
-                    let name = self.rail().name(id)?;
+                    let name = crate::rail::agent_id(id).and_then(|id| self.rail().name(id))?;
                     eprintln!("agents: {id}: the title did not change after the interrupt");
                     RpcError::new(
                         code::NOT_ACKED,

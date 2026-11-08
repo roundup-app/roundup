@@ -70,8 +70,8 @@ impl Rail {
     }
 
     /// Resource holders may address reserved nodes; user-facing Rail callers cannot.
-    pub(super) fn resource_node(&self, id: &str) -> Result<RailNode, StoreError> {
-        find(&load_nodes(&self.db, true)?, id).cloned()
+    pub(super) fn resource_node(&self, id: AgentId) -> Result<RailNode, StoreError> {
+        find(&load_nodes(&self.db, true)?, &id.to_string()).cloned()
     }
 
     /// Append a node under `parent` (`None` is the root); `check_parent` says which kinds fit where.
@@ -119,7 +119,7 @@ impl Rail {
         )?;
         let id = tx.last_insert_rowid().to_string();
         tx.commit()?;
-        self.node(&id)
+        self.node(agent_id(&id)?)
     }
 
     /// O13: whether an Agent's `agent.spawn` started `id` and `door` is above it: the `parent`
@@ -146,7 +146,7 @@ impl Rail {
 
     /// DCL9: the role stored for `id`; `None` for the user's own Agents. `NOT_FOUND` for an unknown id.
     pub fn role(&self, id: AgentId) -> Result<Option<contracts::agent::SpawnRole>, StoreError> {
-        self.node(&id.to_string())?;
+        self.node(id)?;
         Ok(self.db.query_row(
             "SELECT role FROM nodes WHERE id = ?",
             params![id.get()],
@@ -156,7 +156,7 @@ impl Rail {
 
     /// O8: the prompt kept for `id`, `None` when it has none; `NOT_FOUND` for an unknown id.
     pub fn spawn_prompt(&self, id: AgentId) -> Result<Option<String>, StoreError> {
-        self.node(&id.to_string())?;
+        self.node(id)?;
         Ok(self.db.query_row(
             "SELECT spawn_prompt FROM nodes WHERE id = ?",
             params![id.get()],
@@ -313,7 +313,7 @@ impl Rail {
         })
     }
 
-    pub fn rename(&mut self, id: &str, name: &str) -> Result<RailNode, StoreError> {
+    pub fn rename(&mut self, id: AgentId, name: &str) -> Result<RailNode, StoreError> {
         // SQLite would match "01" to node 1; only the exact id names a node.
         let node = self.node(id)?;
         self.db.execute(
@@ -324,7 +324,7 @@ impl Rail {
     }
 
     /// U6380c: mark node `id` as named by the user, so no automatic rename takes its name.
-    pub fn set_user_named(&mut self, id: &str) -> Result<(), StoreError> {
+    pub fn set_user_named(&mut self, id: AgentId) -> Result<(), StoreError> {
         let node = self.node(id)?;
         self.db.execute(
             "UPDATE nodes SET user_named = 1 WHERE id = ?",
@@ -334,7 +334,7 @@ impl Rail {
     }
 
     /// U6380c: whether the user named node `id`.
-    pub fn user_named(&self, id: &str) -> Result<bool, StoreError> {
+    pub fn user_named(&self, id: AgentId) -> Result<bool, StoreError> {
         let node = self.node(id)?;
         Ok(self.db.query_row(
             "SELECT user_named FROM nodes WHERE id = ?",
@@ -347,7 +347,7 @@ impl Rail {
         &mut self,
         id: AgentId,
     ) -> Result<contracts::agent::Ordinal, StoreError> {
-        let next = match self.node(&id.to_string())?.attempt {
+        let next = match self.node(id)?.attempt {
             Some(previous) => previous
                 .next()
                 .ok_or_else(|| StoreError::internal("Attempt exhausted"))?,
@@ -372,7 +372,7 @@ impl Rail {
 
     /// DCR1: whether a quit cut `id` off mid-turn and nothing has started it since.
     pub fn is_cut_off(&self, id: AgentId) -> Result<bool, StoreError> {
-        self.node(&id.to_string())?;
+        self.node(id)?;
         Ok(self.db.query_row(
             "SELECT cut_off FROM nodes WHERE id = ?",
             params![id.get()],
@@ -439,11 +439,11 @@ impl Rail {
     }
 
     /// Current Rail name for prose; an absent node has no machine identity to display.
-    pub fn name(&self, id: &str) -> Result<String, StoreError> {
+    pub fn name(&self, id: AgentId) -> Result<String, StoreError> {
         Ok(self.db
             .query_row(
                 "SELECT name FROM nodes WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (agent=nodes.id OR workstream=nodes.id))",
-                [AgentId::parse(id).map(AgentId::get)],
+                [id.get()],
                 |row| row.get::<_, String>(0),
             )
             .optional()?
@@ -459,8 +459,8 @@ impl Rail {
         )?)
     }
 
-    pub fn node(&self, id: &str) -> Result<RailNode, StoreError> {
-        find(&load(&self.db)?, id).cloned()
+    pub fn node(&self, id: AgentId) -> Result<RailNode, StoreError> {
+        find(&load(&self.db)?, &id.to_string()).cloned()
     }
 
     pub fn mark_worktree_provisioning(

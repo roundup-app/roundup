@@ -239,11 +239,12 @@ impl Agents {
     ) -> Result<contracts::agent::RailNode, RpcError> {
         let p: contracts::agent::SetVisibilityParams = p;
         let rail = self.shared.rail();
-        let node = rail.node(&p.id)?;
+        let node = rail.node(crate::rail::agent_id(&p.id)?)?;
         if node.kind != NodeKind::Agent
             || (ctx.actor.kind == ActorKind::Agent
                 && (node.parent.as_deref() != Some(&ctx.actor.id)
-                    || rail.node(&ctx.actor.id)?.kind != NodeKind::Workstream))
+                    || rail.node(crate::rail::agent_id(&ctx.actor.id)?)?.kind
+                        != NodeKind::Workstream))
         {
             return Err(RpcError::forbidden(
                 "only a Door may choose visibility for its direct Agent children",
@@ -413,15 +414,15 @@ impl Agents {
                 let mut rail = shared.rail();
                 let user = ctx.actor.kind == ActorKind::User;
                 // U6380c: only the user renames a row the user named.
-                if !user && rail.user_named(&id)? {
+                if !user && rail.user_named(crate::rail::agent_id(&id)?)? {
                     return Err(RpcError::forbidden(
                         "the user named this row; keep its name",
                     ));
                 }
-                let before = rail.node(&id)?.name;
-                let node = rail.rename(&id, &name)?;
+                let before = rail.node(crate::rail::agent_id(&id)?)?.name;
+                let node = rail.rename(crate::rail::agent_id(&id)?, &name)?;
                 if user {
-                    rail.set_user_named(&id)?;
+                    rail.set_user_named(crate::rail::agent_id(&id)?)?;
                 }
                 // Publish before releasing Rail: both producers follow its commit order.
                 if node.name != before {

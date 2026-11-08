@@ -48,7 +48,10 @@ fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
         BEGIN INSERT INTO commit_guard VALUES('absent'); END;").unwrap();
     assert!(rail.publish_closed("failed").is_err());
     assert!(rail.tree().unwrap().is_empty());
-    assert!(rail.node(&workstream).is_err());
+    assert!(
+        rail.node(crate::rail::agent_id(&workstream).unwrap())
+            .is_err()
+    );
     assert!(
         rail.has_conversation(crate::rail::agent_id(&agent).unwrap())
             .is_err()
@@ -68,12 +71,28 @@ fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
 fn a2703a_rail_resolves_current_names_and_gone_agents() {
     let (_dir, mut rail) = rail();
     let node = rail.insert(NodeKind::Agent, "sad", None, None).unwrap();
-    assert_eq!(rail.name(&node.id).unwrap(), "sad");
-    rail.rename(&node.id, "glad").unwrap();
-    assert_eq!(rail.name(&node.id).unwrap(), "glad");
-    assert_eq!(rail.name("7013").unwrap(), "an Agent that is gone");
+    assert_eq!(
+        rail.name(crate::rail::agent_id(&node.id).unwrap()).unwrap(),
+        "sad"
+    );
+    rail.rename(crate::rail::agent_id(&node.id).unwrap(), "glad")
+        .unwrap();
+    assert_eq!(
+        rail.name(crate::rail::agent_id(&node.id).unwrap()).unwrap(),
+        "glad"
+    );
+    assert_eq!(
+        rail.name(crate::rail::agent_id("7013").unwrap()).unwrap(),
+        "an Agent that is gone"
+    );
     rail.db.execute_batch("DROP TABLE nodes").unwrap();
-    assert_eq!(code_of(rail.name(&node.id).unwrap_err()), code::INTERNAL);
+    assert_eq!(
+        code_of(
+            rail.name(crate::rail::agent_id(&node.id).unwrap())
+                .unwrap_err()
+        ),
+        code::INTERNAL
+    );
 }
 
 #[test]
@@ -106,7 +125,11 @@ fn r16_loaded_rail_keeps_complete_conversation_availability_in_tree_order() {
             (second.id.as_str(), false),
         ]
     );
-    assert!(rail.node(&child.id).unwrap().can_resume);
+    assert!(
+        rail.node(crate::rail::agent_id(&child.id).unwrap())
+            .unwrap()
+            .can_resume
+    );
 }
 
 #[test]
@@ -118,7 +141,7 @@ fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
     rail.db
         .execute("UPDATE nodes SET attempt = ?", [i64::MAX])
         .unwrap();
-    let before = rail.node(&node.id).unwrap();
+    let before = rail.node(crate::rail::agent_id(&node.id).unwrap()).unwrap();
     assert_eq!(
         code_of(
             rail.allocate_attempt(crate::rail::agent_id(&node.id).unwrap())
@@ -126,7 +149,10 @@ fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
         ),
         code::INTERNAL
     );
-    assert_eq!(rail.node(&node.id).unwrap(), before);
+    assert_eq!(
+        rail.node(crate::rail::agent_id(&node.id).unwrap()).unwrap(),
+        before
+    );
 }
 
 #[test]
@@ -152,7 +178,7 @@ fn a6_nothing_nests_under_an_agent() {
 fn a6_rename_needs_the_exact_id() {
     let (_dir, mut rail) = rail();
     let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-    let err = rail.rename(&format!("0{}", group.id), "other").unwrap_err();
+    let err = crate::rail::agent_id(&format!("0{}", group.id)).unwrap_err();
     assert_eq!(code_of(err), code::NOT_FOUND);
     assert_eq!(rail.tree().unwrap()[0].name, "g");
 }
@@ -256,7 +282,9 @@ fn a16_a_groups_delete_failing_after_a_successful_move_rolls_both_back() {
     let err = rail.remove(&group.id).unwrap_err();
 
     assert_eq!(code_of(err), code::INTERNAL);
-    let found = rail.node(&child.id).unwrap();
+    let found = rail
+        .node(crate::rail::agent_id(&child.id).unwrap())
+        .unwrap();
     assert_eq!(found.parent.as_deref(), Some(group.id.as_str()));
 }
 

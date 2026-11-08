@@ -27,7 +27,7 @@ impl Shared {
         apply: impl FnOnce(&rusqlite::Transaction, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let _lifecycle = self.door_lifecycle.write().await;
-        let door = self.rail().node(id)?;
+        let door = self.rail().node(crate::rail::agent_id(id)?)?;
         if scope == RemoveScope::This
             && let Some(worktree) = &door.worktree
         {
