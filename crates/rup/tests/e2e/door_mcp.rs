@@ -248,11 +248,15 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
         .await;
     assert!(result["is_error"] != true, "{result}");
     let tree = project.rail_tree(&user).await;
-    assert_ne!(
-        node(&tree, &job).attempt,
-        job_before.attempt,
-        "the Door's resume left the Job on its Attempt: {result}"
+    let job_after = node(&tree, &job);
+    // The Job had no Terminal after the restart and has one now, with one more finished turn: the
+    // Door's call launched it.
+    assert!(
+        job_after.terminal_id.is_some(),
+        "the Door's resume left the Job stopped: {result}"
     );
+    let finished = |n: &RailNode| n.status.as_ref().map(|s| s.finished.clone());
+    assert_ne!(finished(&job_after), finished(&job_before), "{result}");
     let consult_after = node(&tree, &consult);
     assert_eq!(consult_after.attempt, consult_before.attempt);
     assert!(consult_after.terminal_id.is_none());
