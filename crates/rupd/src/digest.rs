@@ -281,7 +281,9 @@ async fn push_once(
     }
     // DTC2: a quiet note waits for the Message that settles the Workstream, so it is no wait.
     let waiting = messages.waiting_counts_unquiet().await.unwrap_or_default();
-    let quiet = crate::settlement::settle(reader, messages, settlements, &world, &waiting).await;
+    let deferred = messages.deferred_digests().await.unwrap_or_default();
+    let quiet =
+        crate::settlement::settle(reader, messages, settlements, &world, &waiting, &deferred).await;
     facts.publish(reader, &world).await;
     reader.observed(&world);
     Ok(quiet)
