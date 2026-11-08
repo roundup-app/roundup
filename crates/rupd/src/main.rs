@@ -64,7 +64,7 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
         begun.elapsed().as_secs_f64() * 1e3
     );
     let daemon = Arc::new(daemon);
-    daemon.start_memory_guard();
+    daemon.start_memory_guard()?;
     // A12a, S1: retained programs still call the socket of the run that started them.
     for old in daemon.reattach_owners().await.map_err(io::Error::other)? {
         if old == path {

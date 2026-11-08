@@ -156,6 +156,19 @@ struct State {
     lanes: [Lane; 2],
     facts: BTreeMap<Identity, Cached>,
 }
+impl State {
+    fn lane(&mut self, full: bool) -> &mut Lane {
+        let [local, forge] = &mut self.lanes;
+        if full { forge } else { local }
+    }
+}
+
+/// The cache, or `None` once a panicking holder poisoned it: this enrichment is optional, so a
+/// poisoned cache admits no collection and serves no facts rather than serving state a panic cut
+/// short.
+fn lock(state: &Mutex<State>) -> Option<std::sync::MutexGuard<'_, State>> {
+    state.lock().ok()
+}
 
 /// A single holder lives in `Shared`. Workers own no Agents/Project reference;
 /// dropping the holder cancels both groups, even while a forge CLI is stalled.
@@ -222,8 +235,10 @@ impl Collector {
     }
 
     fn admit(&self, full: bool, now: Instant) -> bool {
-        let mut state = self.state.lock().expect("worktrunk cache poisoned");
-        let lane = &mut state.lanes[usize::from(full)];
+        let Some(mut state) = lock(&self.state) else {
+            return false;
+        };
+        let lane = state.lane(full);
         let interval = if full { FULL_INTERVAL } else { LOCAL_INTERVAL };
         if lane.running
             || lane
@@ -244,7 +259,7 @@ impl Collector {
         now: Instant,
         head: Option<&str>,
     ) -> Option<Facts> {
-        let mut state = self.state.lock().expect("worktrunk cache poisoned");
+        let mut state = lock(&self.state)?;
         let cached = state.facts.get_mut(identity)?;
         let moved = cached
             .facts
@@ -269,7 +284,7 @@ impl Collector {
         if moved {
             // Bypass the minute-long cooldown after a local commit/push; collection
             // remains in the background, so no forge read blocks local state.
-            state.lanes[1].since = None;
+            state.lane(true).since = None;
         }
         Some(facts)
     }
@@ -342,8 +357,10 @@ fn publish(
     cancelled: &AtomicBool,
     now: Instant,
 ) {
-    let mut state = state.lock().expect("worktrunk cache poisoned");
-    let lane = &mut state.lanes[usize::from(full)];
+    let Some(mut state) = lock(state) else {
+        return;
+    };
+    let lane = state.lane(full);
     lane.running = false;
     // Git preflight can delay the actual spawn. Cooling down from completion
     // also bounds process start spacing, rather than only request admission.
@@ -541,7 +558,11 @@ fn execute_until(
         .process_group(0)
         .spawn()
         .map_err(|err| err.to_string())?;
-    let mut stdout = child.stdout.take().expect("piped collector stdout");
+    let Some(mut stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("worktrunk stdout was not piped".into());
+    };
     let mut bytes = Vec::new();
     let configured = rustix::fs::fcntl_setfl(&stdout, rustix::fs::OFlags::NONBLOCK)
         .map_err(|err| err.to_string());
@@ -596,7 +617,10 @@ fn drain(
                 if u64::try_from(bytes.len() + count).unwrap_or(u64::MAX) > LIMIT {
                     return Err("worktrunk stdout exceeded 8 MiB".into());
                 }
-                bytes.extend_from_slice(&buffer[..count]);
+                let Some(read) = buffer.get(..count) else {
+                    return Err("worktrunk read overran its buffer".into());
+                };
+                bytes.extend_from_slice(read);
             }
             Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => return Ok(()),
             Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
@@ -610,7 +634,12 @@ fn drain(
 /// required checks with `gh`, so `agent.worktreeState` serves that evidence.
 #[cfg(feature = "test-support")]
 impl super::Agents {
-    pub async fn set_evidence_from_gh(&self, id: &str, path: &Path, gh: &Path) {
+    pub async fn set_evidence_from_gh(
+        &self,
+        id: &str,
+        path: &Path,
+        gh: &Path,
+    ) -> Result<(), String> {
         let shared = &self.shared;
         shared
             .rail()
@@ -622,35 +651,39 @@ impl super::Agents {
                     base: "base".into(),
                 },
             )
-            .unwrap();
-        for lane in &mut shared.worktrunk.state.lock().unwrap().lanes {
+            .map_err(|err| format!("cannot set Worktree: {err:?}"))?;
+        for lane in &mut lock(&shared.worktrunk.state)
+            .ok_or("Worktrunk state poisoned")?
+            .lanes
+        {
             lane.since = Some(Instant::now());
         }
         // `publish` ends each in-flight collection. Let it finish before installing
         // fixture evidence, so its late result cannot overwrite this observation.
         let deadline = Instant::now() + TIMEOUT;
-        while shared
-            .worktrunk
-            .state
-            .lock()
-            .unwrap()
+        while lock(&shared.worktrunk.state)
+            .ok_or("Worktrunk state poisoned")?
             .lanes
             .iter()
             .any(|lane| lane.running)
         {
-            assert!(
-                Instant::now() < deadline,
-                "fixture collector did not finish"
-            );
+            if Instant::now() >= deadline {
+                return Err("fixture collector did not finish".into());
+            }
             tokio::task::yield_now().await;
         }
-        let ids = identities(shared).unwrap();
-        let path = &ids.iter().find(|i| i.agent == id).unwrap().path;
-        let row = serde_json::json!({"branch":"main","worktree":{"path":path},"checks":{"status":"passed","source":"pr","stale":false},"pr":{"number":23}});
-        let bytes = serde_json::to_vec(&serde_json::json!({"schema":2,"repo":{},"collected":{"ci":true,"summary":false},"items":[row]})).unwrap();
-        let recorded = parse(&bytes).unwrap();
-        let identity = ids.iter().find(|i| i.agent == id).unwrap().clone();
-        let mut results = BTreeMap::from([(identity, recorded.items[0].facts())]);
+        let ids = identities(shared).ok_or("no Worktree identities")?;
+        let identity = ids
+            .iter()
+            .find(|i| i.agent == id)
+            .ok_or("Agent has no Worktree identity")?
+            .clone();
+        let row = serde_json::json!({"branch":"main","worktree":{"path":identity.path},"checks":{"status":"passed","source":"pr","stale":false},"pr":{"number":23}});
+        let bytes = serde_json::to_vec(&serde_json::json!({"schema":2,"repo":{},"collected":{"ci":true,"summary":false},"items":[row]}))
+            .map_err(|err| err.to_string())?;
+        let recorded = parse(&bytes).map_err(|err| format!("{err:?}"))?;
+        let facts = recorded.items.first().ok_or("no recorded item")?.facts();
+        let mut results = BTreeMap::from([(identity, facts)]);
         attach_evidence(gh, &mut results, &shared.worktrunk.cancelled);
         publish(
             &shared.worktrunk.state,
@@ -660,6 +693,7 @@ impl super::Agents {
             &shared.worktrunk.cancelled,
             Instant::now(),
         );
+        Ok(())
     }
 }
 

@@ -109,8 +109,8 @@ F
 chmod +x "$scratch/h/bin/curl"
 # Hide any host elan; preserve the platform tools and intercept only curl.
 real_curl=$(command -v curl)
-bootstrap() { PATH=$scratch/h/bin:$scratch/nocurl REAL_CURL=$real_curl FAKE_ELAN=$scratch/h/fake-elan ELAN_HOME=$scratch/h/elan PROOFS_DIR=$scratch/h/proofs BEND_BASE_URL=file://$scratch/h/dl BEND_ASSET_PLATFORM=test-x64 "$root/proofs/setup.sh" 2>&1; }
-for t in sh cp chmod gzip; do ln -sf "$(command -v "$t")" "$scratch/nocurl/$t"; done
+bootstrap() { PATH=$scratch/h/bin:$scratch/nocurl PROOFS_RETRY_DELAY=0 REAL_CURL=$real_curl FAKE_ELAN=$scratch/h/fake-elan ELAN_HOME=$scratch/h/elan PROOFS_DIR=$scratch/h/proofs BEND_BASE_URL=file://$scratch/h/dl BEND_ASSET_PLATFORM=test-x64 "$root/proofs/setup.sh" 2>&1; }
+for t in sh cp chmod gzip sleep; do ln -sf "$(command -v "$t")" "$scratch/nocurl/$t"; done
 out=$(FAKE_ELAN_INSTALL_RC=1 bootstrap)
 expect "v1 elan installation failure names elan" 1 "elan: installation failed" "$?" "$out"
 out=$(PATH=$scratch/nocurl ELAN_HOME=$scratch/h/elan PROOFS_DIR=$scratch/h/proofs "$root/proofs/setup.sh" 2>&1)

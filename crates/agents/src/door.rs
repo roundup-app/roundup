@@ -2,14 +2,14 @@ use super::*;
 
 impl Shared {
     /// F5: scan Door `id`, whose program's arguments hold `marker`, from the next tick on.
-    pub(super) fn scan_door(self: &Arc<Self>, id: &str, marker: String) {
+    pub(super) fn scan_door(self: &Arc<Self>, id: &str, marker: String) -> Result<(), RpcError> {
         self.scan
             .doors
             .lock()
-            .expect("scan doors lock")
+            .map_err(|_| RpcError::internal("scan doors lock is poisoned"))?
             .insert(id.to_owned(), marker);
         if self.scan.started.swap(true, Ordering::SeqCst) {
-            return;
+            return Ok(());
         }
         let (me, interval) = (self.me.clone(), self.scan.interval);
         tokio::spawn(async move {
@@ -19,13 +19,16 @@ impl Shared {
                 shared.scan_once().await;
             }
         });
+        Ok(())
     }
 
     /// F5: read the process table once if a Door runs, and announce each Door whose strays changed.
     pub(super) async fn scan_once(&self) {
         let live: Vec<(String, String)> = {
             let runs = self.runs();
-            let mut doors = self.scan.doors.lock().expect("scan doors lock");
+            let Ok(mut doors) = self.scan.doors.lock() else {
+                return eprintln!("agents: the scan doors lock is poisoned");
+            };
             doors.retain(|id, _| {
                 matches!(runs.slot(id), Some(Slot::Running(run)) if !run.ended() && !run.closing())
             });

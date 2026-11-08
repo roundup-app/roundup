@@ -326,7 +326,8 @@ fn commit(
         if !said.is_empty() {
             // What the receiver was last given is the content of the last entry written.
             if let Some(last) = said.last() {
-                let previous = (batch.render)(last);
+                let previous =
+                    (batch.render)(last).map_err(|_| Error::internal("inbox content"))?;
                 store.record_inbox(agent, session, &previous)?;
             }
             for entry in said {

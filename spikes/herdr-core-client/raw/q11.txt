@@ -1,0 +1,12 @@
+PROOF q11 ssh -R <unix socket>: Error: remote port forwarding failed for listen path /home/boxd/rupd.sock | debug1: Local version string SSH-2.0-OpenSSH_10.0 | debug1: Remote protocol version 2.0, remote software version russh_0.64.1 | debug1: remote forward failure for: listen /home/boxd/rupd.sock:-2, connect /tmp/hs/rupd.sock:-2
+PROOF q11 ssh -R 127.0.0.1:19999 (TCP), checked from inside the machine while the ssh session lives: listeners-on-19999=0 | bash: connect: Connection refused | connect-exit=0
+PROOF q11 server banner: debug1: Remote protocol version 2.0, remote software version russh_0.64.1
+PROOF q11 stdio shim (fake rup mcp) one call through fqueue + bridge: {"id":1,"jsonrpc":"2.0","result":"pong"}
+PROOF q11 on machine, JSON-RPC stdio shim, live ping through ssh bridge: shim ping n=300 p50=28.963ms p95=38.581ms max=56.334ms
+PROOF q11 on machine, fake rup signal, queued report, to the durable ack: queued report connect+send+durable-ack n=300 p50=0.386ms p95=1.082ms max=18.001ms
+PROOF q11 fsignal direct (live, to rupd and back) as a process n=100 p50=30.63ms p95=47.85ms
+PROOF q11 fsignal send (queued, fsync) as a process n=100 p50=1.23ms p95=1.87ms
+PROOF q11 reference: new ssh session running `true` takes 427.749047ms each (includes connect + auth)
+PROOF q11 agent started by herdr-core terminal.run, live reports to rupd via bridge: 5 receipts: ["agent-1:1", "agent-1:2", "agent-1:3", "agent-1:4", "agent-1:5"]
+PROOF q11 agent-side lines: ["reported 002 Ok(ExitStatus(unix_wait_status(0)))", "reported 003 Ok(ExitStatus(unix_wait_status(0)))", "reported 004 Ok(ExitStatus(unix_wait_status(0)))", "reported 005 Ok(ExitStatus(unix_wait_status(0)))"]
+PROOF q11 bridge killed, live call from machine: fsignal: {"error":"away"} | exit=1

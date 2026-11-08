@@ -138,7 +138,7 @@ impl std::fmt::Display for WriteError {
 impl std::error::Error for WriteError {}
 
 enum Action {
-    Write(PathBuf, Vec<u8>),
+    Write(PathBuf, Result<Vec<u8>, String>),
     RemoveSkill(PathBuf),
 }
 
@@ -153,12 +153,14 @@ impl Plan {
     pub fn apply(&self) -> Result<Vec<Planned>, WriteError> {
         for action in &self.actions {
             match action {
-                Action::Write(path, bytes) => {
-                    write_atomic(path, bytes).map_err(|source| WriteError {
+                Action::Write(path, bytes) => bytes
+                    .as_ref()
+                    .map_err(|reason| io::Error::other(reason.clone()))
+                    .and_then(|bytes| write_atomic(path, bytes))
+                    .map_err(|source| WriteError {
                         path: path.clone(),
                         source,
-                    })?
-                }
+                    })?,
                 Action::RemoveSkill(file) => remove_skill(file).map_err(|source| WriteError {
                     path: file.clone(),
                     source,
@@ -188,7 +190,11 @@ impl Install {
             (None, None) => return Err("neither CLAUDE_CONFIG_DIR nor HOME is set".into()),
         };
         let claude_found = var("PATH").is_some_and(|path| {
-            std::env::split_paths(&path).any(|dir| dir.join(super::programs()[0]).is_file())
+            std::env::split_paths(&path).any(|dir| {
+                super::programs()
+                    .first()
+                    .is_some_and(|program| dir.join(program).is_file())
+            })
         });
         Ok(Self {
             config,
@@ -205,8 +211,12 @@ impl Install {
         self
     }
 
+    fn skill_dir(&self) -> PathBuf {
+        self.config.join("skills/roundup")
+    }
+
     fn skill_file(&self) -> PathBuf {
-        self.config.join("skills/roundup/SKILL.md")
+        self.skill_dir().join("SKILL.md")
     }
 
     fn settings_file(&self) -> PathBuf {
@@ -269,8 +279,8 @@ impl Install {
                 }
             }
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                let dir = file.parent().expect("skill file has a folder");
-                let occupied = match std::fs::read_dir(dir) {
+                let dir = self.skill_dir();
+                let occupied = match std::fs::read_dir(&dir) {
                     Ok(mut entries) => entries.next().is_some(),
                     Err(_) => dir.exists(),
                 };
@@ -309,7 +319,9 @@ impl Install {
             if !groups.is_empty() {
                 marked += 1;
             }
-            if groups.len() == 1 && *groups[0] == self.group(matcher, args) {
+            if groups.len() == 1
+                && matches!(groups.as_slice(), [only] if **only == self.group(matcher, args))
+            {
                 current += 1;
             }
         }
@@ -339,7 +351,10 @@ impl Install {
             ItemState::Unsupported => Outcome::Unsupported,
         };
         if matches!(skill_outcome, Outcome::Installed | Outcome::Updated) {
-            actions.push(Action::Write(self.skill_file(), skill_text().into_bytes()));
+            actions.push(Action::Write(
+                self.skill_file(),
+                Ok(skill_text().into_bytes()),
+            ));
         }
 
         let hook_outcome = match hook {
@@ -353,8 +368,8 @@ impl Install {
         };
         if matches!(hook_outcome, Outcome::Installed | Outcome::Updated) {
             let mut doc = doc.unwrap_or_default();
-            self.add_hooks(&mut doc);
-            actions.push(Action::Write(self.settings_file(), render(&doc)));
+            let bytes = self.add_hooks(&mut doc).and_then(|()| render(&doc));
+            actions.push(Action::Write(self.settings_file(), bytes));
         }
 
         Plan {
@@ -412,20 +427,28 @@ impl Install {
         }
     }
 
-    fn add_hooks(&self, doc: &mut Map<String, Value>) {
+    fn add_hooks(&self, doc: &mut Map<String, Value>) -> Result<(), String> {
         let hooks = doc.entry("hooks").or_insert_with(|| json!({}));
-        let hooks = hooks.as_object_mut().expect("checked by hook_state");
+        let hooks = hooks
+            .as_object_mut()
+            .ok_or("settings hooks is not an object")?;
         for (event, matcher, args) in HOOKS {
             let list = hooks.entry(event).or_insert_with(|| json!([]));
-            let list = list.as_array_mut().expect("checked by hook_state");
+            let list = list
+                .as_array_mut()
+                .ok_or("settings hook event is not a list")?;
             let expected = self.group(matcher, args);
-            let marked: Vec<&Value> = list.iter().filter(|g| group_marked(g)).collect();
-            if marked.len() == 1 && *marked[0] == expected {
+            let current = {
+                let marked: Vec<&Value> = list.iter().filter(|g| group_marked(g)).collect();
+                matches!(marked.as_slice(), [only] if **only == expected)
+            };
+            if current {
                 continue;
             }
             strip_marked(list);
             list.push(expected);
         }
+        Ok(())
     }
 }
 
@@ -556,10 +579,10 @@ fn remove_hooks(doc: &mut Map<String, Value>) {
     }
 }
 
-fn render(doc: &Map<String, Value>) -> Vec<u8> {
-    let mut text = serde_json::to_string_pretty(doc).expect("a JSON map serializes");
+fn render(doc: &Map<String, Value>) -> Result<Vec<u8>, String> {
+    let mut text = serde_json::to_string_pretty(doc).map_err(|e| format!("settings: {e}"))?;
     text.push('\n');
-    text.into_bytes()
+    Ok(text.into_bytes())
 }
 
 /// A temporary file in the target's folder, then a rename. A symbolic link is written through to
@@ -570,7 +593,9 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     } else {
         path.to_owned()
     };
-    let dir = target.parent().expect("a file has a folder");
+    let dir = target
+        .parent()
+        .ok_or_else(|| io::Error::other("a file has a folder"))?;
     std::fs::create_dir_all(dir)?;
     let mut tmp = NamedTempFile::new_in(dir)?;
     tmp.write_all(bytes)?;
@@ -585,6 +610,8 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
 fn remove_skill(file: &Path) -> io::Result<()> {
     std::fs::remove_file(file)?;
     // Extra files keep the folder.
-    let _ = std::fs::remove_dir(file.parent().expect("skill file has a folder"));
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::remove_dir(dir);
+    }
     Ok(())
 }

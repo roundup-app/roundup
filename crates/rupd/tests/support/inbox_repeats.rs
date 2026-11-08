@@ -37,8 +37,8 @@ impl messages::NoteInbox for Peer {
     fn session(&self, _: &str) -> Option<String> {
         Some(self.session.lock().clone())
     }
-    fn content(&self, _: &str, entry: &Entry) -> String {
-        entry.content("uds:/probe/service", "default")
+    fn content(&self, _: &str, entry: &Entry) -> Result<String, Inbox> {
+        Ok(entry.content("uds:/probe/service", "default"))
     }
     fn previous(&self, _: &str) -> Result<Option<String>, Inbox> {
         agents::claude_code::inbox::previous(
