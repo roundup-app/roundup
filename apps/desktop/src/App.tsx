@@ -558,12 +558,13 @@ export const App = (props: {
   const widths = createWidths(projects.active);
 
   // U6228: the Rail folds to a strip of Workstream marks; focus follows the control the user pressed, and `⌘K R` toggles it.
-  const railSlide = createRailSlide(widths, props.reducedMotion);
+  const railSlide = createRailSlide(widths, () => props.reducedMotion());
 
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.rail"], capture: () => ({
     available: () => activeConnection() != null,
     invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
+  const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
@@ -732,7 +733,7 @@ export const App = (props: {
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), peeking: frame.peeking(), covering: frame.covering(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
-            railToggle={projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined}
+            railToggle={railToggle()}
             app={props.app}
             onFailure={setWindowFailure}
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}

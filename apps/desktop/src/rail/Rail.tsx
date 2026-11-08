@@ -47,7 +47,7 @@ const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
-export const Rail = () => {
+export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
 
