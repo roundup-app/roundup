@@ -29,7 +29,7 @@ impl Run {
 
     /// The setup's own settled note (DCL6) is a Door turn that carries quiet notes out; it comes
     /// 2 s after the child rests, so it is let pass before the quiet window is counted.
-    async fn let_settled_pass(&self) {
+    pub(super) async fn let_settled_pass(&self) {
         let _ = tokio::time::timeout(Duration::from_secs(8), async {
             let mut tick = tokio::time::interval(Duration::from_millis(50));
             loop {
