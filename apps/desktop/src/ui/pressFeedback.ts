@@ -5,6 +5,7 @@ import "./press.css";
 /** Ends feedback before the existing drag owner measures and lifts its source. */
 export function clearPress(element: Element): void {
   element.removeAttribute("data-pressed");
+  element.removeAttribute("data-press-source");
 }
 
 /** Adds transient feedback only; the platform and Ark retain all activation semantics. */
@@ -14,7 +15,7 @@ export function pressFeedback(doc: Document): () => void {
     let pointerDown = false;
 
     const clear = () => {
-      pressing?.removeAttribute("data-pressed"); pressing = null;
+      pressing?.removeAttribute("data-pressed"); pressing?.removeAttribute("data-press-source"); pressing = null;
       pointerDown = false;
     };
 
@@ -38,6 +39,7 @@ export function pressFeedback(doc: Document): () => void {
       pressing = el;
       pointerDown = el !== null;
       el?.setAttribute("data-pressed", "true");
+      el?.setAttribute("data-press-source", "pointer");
     };
 
     const key = (event: KeyboardEvent) => {
