@@ -185,6 +185,7 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
       });
     };
 
+    // listener-owner: a capture-phase press must run before the control's own handler; the cleanup below removes it.
     doc.addEventListener("click", press, true);
 
     return () => { doc.removeEventListener("click", press, true); running = null; dispose(); };

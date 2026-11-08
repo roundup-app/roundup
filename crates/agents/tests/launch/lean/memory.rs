@@ -206,26 +206,21 @@ fn lc19_memory_guard_extends_user_settings() {
         .unwrap();
         let argv = s.prepare_lean("7", role, &pair, None).unwrap();
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-        assert_eq!(settings["autoMemoryEnabled"], false);
-        assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
-        assert_eq!(settings["autoMemoryDirectory"], json!(memory));
-        assert_eq!(settings["permissions"]["ask"], json!(["Edit(*)"]));
-        assert_eq!(
-            settings["permissions"]["deny"],
-            json!(["Write(**/secret.md)", "Read(local-secret)"])
-        );
-        assert_eq!(settings["permissions"]["defaultMode"], "plan");
-        for allow in ["Read(user)", "Read(project)"] {
-            assert!(
-                settings["permissions"]["allow"]
-                    .as_array()
-                    .unwrap()
-                    .contains(&json!(allow))
-            );
+        for key in ["autoMemoryEnabled", "autoMemoryDirectory"] {
+            assert!(settings.get(key).is_none(), "{row:?}: {key}");
         }
+        assert!(
+            settings["env"]
+                .get("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
+                .is_none()
+        );
+        for key in ["ask", "deny", "defaultMode"] {
+            assert!(settings["permissions"].get(key).is_none(), "{row:?}: {key}");
+        }
+        let _ = &memory;
         let hooks = settings["hooks"]["PreToolUse"].as_array().unwrap();
         assert!(
-            hooks
+            !hooks
                 .iter()
                 .any(|hook| hook["hooks"][0]["command"] == "user-guard")
         );

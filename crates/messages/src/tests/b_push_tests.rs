@@ -94,7 +94,9 @@ impl Pushes {
     }
 
     async fn push(&self, entry: &DigestEntry) {
-        self.messages.push_digest("top", &entry.name, entry).await;
+        self.messages
+            .push_digest("top", &entry.name, entry, true)
+            .await;
     }
 
     /// The Daemon's clock reads `ms`, and the window's end is acted on.
@@ -554,7 +556,12 @@ async fn b21_stopped_changes_compact_by_subagent_and_keep_weight_after_failed_st
     door_terminal(&h, None);
     for n in 1..=100 {
         h.messages
-            .push_digest("top", "stable-child", &entry(&format!("renamed-{n}"), n))
+            .push_digest(
+                "top",
+                "stable-child",
+                &entry(&format!("renamed-{n}"), n),
+                true,
+            )
             .await;
         h.at(i64::from(n) * 60_000).await;
     }
@@ -619,7 +626,12 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].entry.todos, id);
         h.messages
-            .push_digest(&changes[0].meta, changes[0].subagent(), &changes[0].entry)
+            .push_digest(
+                &changes[0].meta,
+                changes[0].subagent(),
+                &changes[0].entry,
+                true,
+            )
             .await;
     }
     h.at(60_000).await;
@@ -713,10 +725,10 @@ async fn b21_same_named_subagents_keep_separate_waiting_entries() {
     let h = Pushes::new(dir.path());
     door_terminal(&h, None);
     h.messages
-        .push_digest("top", "first-id", &entry("same-name", 1))
+        .push_digest("top", "first-id", &entry("same-name", 1), true)
         .await;
     h.messages
-        .push_digest("top", "second-id", &entry("same-name", 2))
+        .push_digest("top", "second-id", &entry("same-name", 2), true)
         .await;
     door_terminal(&h, Some("started"));
     h.at(1).await;
@@ -869,3 +881,6 @@ async fn b6506_a_user_note_that_starts_with_digest_is_a_note() {
             .all(|m| m.status != MessageStatus::Dropped)
     );
 }
+
+#[path = "dtc2_tests.rs"]
+mod dtc2_tests;
