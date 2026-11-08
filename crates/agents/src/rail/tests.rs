@@ -113,7 +113,10 @@ fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
         .unwrap();
     let before = rail.node(&node.id).unwrap();
     assert_eq!(
-        code_of(rail.allocate_attempt(&node.id).unwrap_err()),
+        code_of(
+            rail.allocate_attempt(crate::rail::agent_id(&node.id).unwrap())
+                .unwrap_err()
+        ),
         code::INTERNAL
     );
     assert_eq!(rail.node(&node.id).unwrap(), before);
