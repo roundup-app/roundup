@@ -64,6 +64,7 @@ export const copy = {
   quickAddAnywhere: "Quick add from any app",
   quickAddAnywhereHint: "Open quick add in every app. Off until you pick a shortcut.",
   none: "None",
+  setByFile: (file: string) => `Set by ${file}; edit the file to change it.`,
   modeHint: "Use a light, dark or system appearance.",
   model: "Model",
   reset: "Reset",
@@ -97,6 +98,10 @@ export const copy = {
   recordingMark: "●",
   recordShortcut: "Press a shortcut",
   shortcutRefusal: (chord: string, action: string) => `${chord} is already ${action}.`,
+  /** @prose */
+  keysUnknownAction: (name: string) => `${name} is not an action.`,
+  /** @prose */
+  keysSharedPress: (press: string, other: string) => `${press} is also the key of ${other}.`,
   shortcutModifier: "Use one key with ⌘ or ⌃.",
   findKey: "Find a key",
   saveToFile: "Save to file…",
