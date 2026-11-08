@@ -66,34 +66,55 @@ impl Config {
         }
     }
 
-    /// Reads both files once, then again on each save, until the Daemon ends.
+    /// Reads both files once, then again on each save, until the Daemon ends. A folder made after
+    /// startup is watched from the first event on its nearest existing parent.
     pub(crate) fn start(&self, daemon: &Arc<Daemon>) {
         let daemon = Arc::clone(daemon);
         daemon.config.write_agents_md();
         tokio::spawn(async move {
             let (changes, mut changed) = mpsc::unbounded_channel();
-            let _watcher = daemon.config.watch(changes);
+            let mut watcher = daemon.config.watcher(changes);
+            let mut inside = daemon.config.watch_dir(watcher.as_mut(), true);
             daemon.config.reload(&daemon);
             while changed.recv().await.is_some() {
                 while let Ok(Some(())) = tokio::time::timeout(SETTLE, changed.recv()).await {}
+                if !inside {
+                    inside = daemon.config.watch_dir(watcher.as_mut(), false);
+                }
                 daemon.config.reload(&daemon);
             }
         });
     }
 
-    fn watch(&self, changes: mpsc::UnboundedSender<()>) -> Option<notify::RecommendedWatcher> {
+    fn watcher(&self, changes: mpsc::UnboundedSender<()>) -> Option<notify::RecommendedWatcher> {
+        notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+            if event.is_ok() {
+                let _ = changes.send(());
+            }
+        })
+        .ok()
+    }
+
+    /// Watches the folder; when it does not exist yet (and `fallback`), its nearest existing parent
+    /// instead. Returns whether the folder itself is watched.
+    fn watch_dir(&self, watcher: Option<&mut notify::RecommendedWatcher>, fallback: bool) -> bool {
         use notify::Watcher;
-        let mut watcher =
-            notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                if event.is_ok() {
-                    let _ = changes.send(());
-                }
-            })
-            .ok()?;
-        watcher
+        let Some(watcher) = watcher else {
+            return true;
+        };
+        if watcher
             .watch(&self.dir, notify::RecursiveMode::NonRecursive)
-            .ok()?;
-        Some(watcher)
+            .is_ok()
+        {
+            return true;
+        }
+        if let Some(parent) = fallback
+            .then(|| self.dir.ancestors().skip(1).find(|p| p.is_dir()))
+            .flatten()
+        {
+            let _ = watcher.watch(parent, notify::RecursiveMode::NonRecursive);
+        }
+        false
     }
 
     fn reload(&self, daemon: &Daemon) {

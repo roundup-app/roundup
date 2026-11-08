@@ -212,3 +212,23 @@ fn mc46_a_request_for_a_second_surface_or_interrupt_is_refused() {
         );
     }
 }
+
+#[tokio::test]
+async fn mc40_a_folder_made_after_startup_is_watched_once_it_exists() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join("later");
+    let config = Config::new(dir.clone());
+    let (changes, mut changed) = mpsc::unbounded_channel();
+    let mut watcher = config.watcher(changes);
+    assert!(!config.watch_dir(watcher.as_mut(), true));
+    std::fs::create_dir(&dir).unwrap();
+    tokio::time::timeout(Duration::from_secs(10), changed.recv())
+        .await
+        .unwrap();
+    assert!(config.watch_dir(watcher.as_mut(), false));
+    while changed.try_recv().is_ok() {}
+    std::fs::write(dir.join("look.json"), r#"{"mode":"light"}"#).unwrap();
+    tokio::time::timeout(Duration::from_secs(10), changed.recv())
+        .await
+        .unwrap();
+}
