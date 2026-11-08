@@ -692,6 +692,11 @@
     "kind": "real",
     "sha256": "844d889e51d7ef3bffc389fe22e0f41ec3f803d87d68760db828b4dbf1ca2bb8"
   },
+  "crates/rupd/tests/support/dtc3_one_turn.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rupd/tests/support/schema_tests.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",

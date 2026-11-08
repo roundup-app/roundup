@@ -58,7 +58,9 @@ async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
         .to_owned();
     // The Job reads idle until its prompt is submitted, so the Wake request waits for it to work.
     tokio::time::timeout(BOUND, async {
+        let mut poll = tokio::time::interval(Duration::from_millis(50));
         loop {
+            poll.tick().await;
             let rail = door.request("rail.tree", json!({})).await.unwrap();
             if rail
                 .as_array()
@@ -68,7 +70,6 @@ async fn dtc3_one_job_three_own_todos_and_a_wake_cost_one_turn() {
             {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
         }
     })
     .await
