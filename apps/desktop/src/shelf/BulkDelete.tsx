@@ -47,11 +47,13 @@ export const createBulkDelete = <Id,>(props: {
   const [question, setQuestion] = createSignal<Question<Id> | null>(null);
   // P3557c: a failure shows while its row is a target and a selection or question is open.
   const failures = createItemFailures<Id>(() => props.selected().length > 0 || question() !== null ? props.targets().map(target => target.id) : []);
+
   const failed = () => props.targets().flatMap(target => {
     const message = failures.failure(target.id);
 
     return message === undefined ? [] : [{ target, message }];
   });
+
   const clearFailures = () => props.targets().forEach(target => failures.clear(target.id));
   const [readFailure, setReadFailure] = createSignal<string | null>(null);
   let readback: (() => Promise<void>) | undefined;
@@ -125,6 +127,7 @@ export const createBulkDelete = <Id,>(props: {
     const mine = revision;
     const targets = kept.targets;
     setQuestion({ ...kept, kind: "pending", targets });
+
     for (const target of targets) failures.clear(target.id);
     const result = await props.remove(targets.map(target => target.id));
 

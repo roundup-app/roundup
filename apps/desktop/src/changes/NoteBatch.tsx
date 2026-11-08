@@ -108,17 +108,21 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
   const older = (id: string, comparison: FileComparison) => olderComparison(comparisons().get(`${id}:${comparison.newPath}`), comparison);
 
   const [editing, setEditing] = createWritableMemo<{ id: string; form: NoteFormDraft } | undefined>(previous => props.open ? previous : undefined);
+
   // P3557c: a copy failure leaves with its record; a Daemon-side problem keeps every one.
   const revisions = createMemo(() => [...props.notes.entries().flatMap(([, value]) => [
     ...value.forms.map(form => form.revision), ...value.notes.map(note => note.revision),
     ...value.recovered.map(record => record.revision), ...value.submissions.map(submission => submission.revision),
   ]), ...props.notes.invalid().map(record => record.revision)]);
+
   const failures = createItemFailures<string>(() => props.notes.problem() ? "unknown" : revisions());
+
   const failed = () => revisions().flatMap(key => {
     const text = failures.failure(key);
 
     return text === undefined ? [] : [[key, text] as const];
   });
+
   const clear = failures.clear;
   const close = () => { props.onOpenChange(false); setEditing(undefined); };
 

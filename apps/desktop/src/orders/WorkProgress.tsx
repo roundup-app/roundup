@@ -56,19 +56,23 @@ const ProgressContent = (props: { id: string }) => {
   const [phase, setPhase] = createSignal<Phase>("idle");
   const [cause, setCause] = createSignal("");
   const [diagnostic, setDiagnostic] = createSignal("");
+
   // P3557c: a report's failure leaves with the report; while the read has none, or the Rail is faulted, every failure stays.
   const failures = createItemFailures<string>(() => {
     const each = loaded();
 
     return each ? each.progress.results.map(result => result.report.report) : "unknown";
   });
+
   const [dismissedRead, setDismissedRead] = createSignal<Read>();
   const resumes = createItemFailures<string, "failed" | "unknown">(() => rail.failure() !== null ? "unknown" : rail.nodes.map(node => node.id));
   const resumeFailure = (): "failed" | "unknown" | null => resumes.failure(props.id) ?? null;
+
   const setResumeFailure = (value: "failed" | "unknown" | null): void => {
     if (value === null) resumes.clear(props.id);
     else resumes.fail(props.id, value);
   };
+
   const resumeMessage = () => resumeFailure() === "unknown" ? copy.resumeUnknown : resumeFailure() === "failed" ? cause() : undefined;
 
   const clearReport = failures.clear;

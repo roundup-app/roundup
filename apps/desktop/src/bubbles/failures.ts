@@ -11,6 +11,7 @@ const keyOf = (terminal: BubbleTerminal): string => `${terminal.id}:${terminal.i
 export const createCopyFailure = (revisions: Accessor<readonly string[]>) => {
   const failures = createItemFailures<string>(revisions);
   const [latest, setLatest] = createSignal<string | null>(null);
+
   const failure = (): string | undefined => {
     const revision = latest();
 
@@ -40,6 +41,7 @@ export const createBubbleFailure = (present: Accessor<readonly BubbleTerminal[] 
 
     return terminals === "unknown" ? terminals : terminals.map(keyOf);
   });
+
   const [general, setGeneral] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal<BubbleTerminal | null>(null);
 

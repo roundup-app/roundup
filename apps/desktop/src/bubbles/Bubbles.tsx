@@ -91,6 +91,7 @@ export const Bubbles = (props: {
     rail.commandFailure.acknowledgeTerminal(terminal);
     failures.clearTerminal(terminal);
   };
+
   const [opening, setOpening] = createSignal(false);
   const [reserved, setReserved] = createSignal<Record<string, string | null>>({});
   const bubbleMenus = new Map<string, (event: MouseEvent) => void>();
