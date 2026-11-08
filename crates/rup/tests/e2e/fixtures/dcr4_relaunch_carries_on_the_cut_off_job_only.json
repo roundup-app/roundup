@@ -51,7 +51,7 @@
     },
     {
       "match": {
-        "userMessage": "[open jobs]",
+        "userMessage": "Where do things stand?",
         "hasToolResult": false
       },
       "response": {

@@ -54,13 +54,12 @@ impl Run {
         })
         .await;
         // The turn it starts ends, and the Daemon compares what it changed.
-        tokio::time::sleep(Duration::from_secs(3)).await;
         self.compared().await;
     }
 
     /// A live Door's Daemon has had time to compare and push: it attempted no push and no send.
     async fn settle_quiet(&self) {
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        self.compared().await;
         let attempts =
             std::fs::read_to_string(self.dir.path().join("attempts")).unwrap_or_default();
         assert!(

@@ -19,16 +19,7 @@
     },
     {
       "match": {
-        "userMessage": "[digest]",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "Noted."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "[open jobs]",
+        "userMessage": "Where do things stand?",
         "hasToolResult": false
       },
       "response": {
@@ -44,6 +35,15 @@
     {
       "match": {
         "userMessage": "[stopped]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[digest]",
         "hasToolResult": false
       },
       "response": {
