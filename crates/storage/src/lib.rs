@@ -65,11 +65,17 @@ fn reidentified() -> std::io::Result<Vec<(usize, [u8; 32])>> {
     for (placeholder, bytes) in IDENTITIES.iter().zip(random.chunks(16)) {
         let mut id = [0u8; 32];
         for (pair, byte) in id.chunks_mut(2).zip(bytes) {
-            pair.copy_from_slice(&[HEX[(byte >> 4) as usize], HEX[(byte & 15) as usize]]);
+            let hex = format!("{byte:02x}");
+            for (slot, digit) in pair.iter_mut().zip(hex.bytes()) {
+                *slot = digit;
+            }
         }
         let before = patches.len();
         for &(start, end) in added::ID_REGIONS {
-            for offset in memchr::memmem::find_iter(&FRESH[start..end], &placeholder[..]) {
+            let region = FRESH
+                .get(start..end)
+                .ok_or_else(|| std::io::Error::other("the image region is out of range"))?;
+            for offset in memchr::memmem::find_iter(region, &placeholder[..]) {
                 patches.push((start + offset, id));
             }
         }
@@ -81,18 +87,22 @@ fn reidentified() -> std::io::Result<Vec<(usize, [u8; 32])>> {
     Ok(patches)
 }
 
-const HEX: &[u8; 16] = b"0123456789abcdef";
-
 /// The image with each id in `patches` written over its placeholder.
 fn write_image(file: &mut std::fs::File, patches: &[(usize, [u8; 32])]) -> std::io::Result<()> {
     use std::io::Write;
     let mut done = 0;
     for (at, id) in patches {
-        file.write_all(&FRESH[done..*at])?;
+        file.write_all(patch_gap(done, *at)?)?;
         file.write_all(id)?;
         done = at + id.len();
     }
-    file.write_all(&FRESH[done..])
+    file.write_all(patch_gap(done, FRESH.len())?)
+}
+
+fn patch_gap(from: usize, to: usize) -> std::io::Result<&'static [u8]> {
+    FRESH
+        .get(from..to)
+        .ok_or_else(|| std::io::Error::other("the image patch is out of range"))
 }
 
 /// A Project without `project.db` starts from the migrated image: a first start skips replaying every migration.
@@ -163,10 +173,12 @@ fn reference() -> rusqlite::Result<Connection> {
 
 fn image(read_only: bool) -> rusqlite::Result<Connection> {
     let mut db = Connection::open_in_memory()?;
-    let image = std::io::Read::chain(
-        std::io::Read::chain(&FRESH[..18], &[1u8, 1][..]),
-        &FRESH[20..],
-    );
+    let (Some(head), Some(tail)) = (FRESH.get(..18), FRESH.get(20..)) else {
+        return Err(rusqlite::Error::ToSqlConversionFailure(
+            "the image is shorter than its header".into(),
+        ));
+    };
+    let image = std::io::Read::chain(std::io::Read::chain(head, &[1u8, 1][..]), tail);
     db.deserialize_read_exact(rusqlite::MAIN_DB, image, FRESH.len(), read_only)?;
     Ok(db)
 }
@@ -202,7 +214,11 @@ fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
         reference()?
     } else {
         let mut reference = Connection::open_in_memory()?;
-        apply(&mut reference, migrations()[..stored as usize].to_vec())?;
+        let known_migrations = migrations();
+        let Some(applied) = known_migrations.get(..stored as usize) else {
+            return Err(error("Local data is incompatible with this build."));
+        };
+        apply(&mut reference, applied.to_vec())?;
         reference
     };
     if let Some(difference) = crate::migration::difference(db, &reference)? {
