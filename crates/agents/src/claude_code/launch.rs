@@ -80,6 +80,8 @@ pub struct Launcher {
     user_defaults: BTreeSet<&'static str>,
     /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
     lacks_intent: bool,
+    /// MC43: the user's `door.md`, read at each Door launch and added after roundup's Brief.
+    door_file: Option<PathBuf>,
     pub(crate) fork_session: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
@@ -186,6 +188,7 @@ impl Launcher {
             import_observer: None,
             bin: bin.into(),
             claude_json,
+            door_file: home.as_ref().map(|home| home.join(".roundup/door.md")),
             rup,
             home,
             user_defaults: BTreeSet::new(),
@@ -197,6 +200,13 @@ impl Launcher {
             modes: Arc::default(),
             overviews: Arc::default(),
         }
+    }
+
+    /// MC43: this Launcher reading the Door's extra instructions from `file`.
+    #[must_use]
+    pub fn with_door_file(mut self, file: PathBuf) -> Self {
+        self.door_file = Some(file);
+        self
     }
 
     /// LC14: this Launcher for a bundle without `hope`'s `intent` skill. The pinned bundle holds

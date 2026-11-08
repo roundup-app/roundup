@@ -21,6 +21,7 @@ async fn r3696c_ten_quiet_terminals_retain_under_800_kb() {
                     cwd: dir.path().to_string_lossy().into_owned(),
                     command: Some(vec!["/bin/cat".into()]),
                     env: BTreeMap::new(),
+                    unset: Vec::new(),
                     cols: 80,
                     rows: 24,
                 })
