@@ -477,7 +477,9 @@ impl Shared {
                 self.save_background(id, run.attempt(), background)?;
             }
             Effect::SaveFinished(finished) => {
-                if let Some(rail) = rail {
+                if let Some(rail) = rail
+                    && let Some(id) = crate::id::AgentId::parse(id)
+                {
                     rail.set_finished(id, finished)?;
                 }
             }

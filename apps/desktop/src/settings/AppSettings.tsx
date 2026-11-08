@@ -14,6 +14,7 @@ import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
 import { createSettingsView, type SettingsViewState } from "../state/settingsView";
+import { setByFile } from "./configFile";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 
@@ -212,7 +213,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const numericControl = (name: Numeric, label: string, hint: string) => <>
         <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
           <Field.Label>{label}</Field.Label>
-          <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
+          <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root disabled={setByFile(name)} value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
             const range = terminalRanges[name];
 
             if (value !== field(name) && value.trim() !== "" && Number.isFinite(valueAsNumber) && valueAsNumber >= range.min && valueAsNumber <= range.max)
@@ -222,7 +223,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
               onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
               onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
           </module.NumberInput.Root>}</Deferred>
-          <Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show>
+          <Show when={setByFile(name) ? copy.setByFile("look.json") : hint}>{text => <Field.HelperText>{text()}</Field.HelperText>}</Show>
           <ReservedLine status={numericFailure()[name]} />
         </Field.Root>
   </>;
@@ -261,7 +262,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         onValueChange={codeEditor => void save({ codeEditor })} />;
     },
     fontFamily: () => <>
-        <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
+        <Select label={copy.fontFamily} description={setByFile("fontFamily") ? copy.setByFile("look.json") : copy.fontFamilyHint} disabled={setByFile("fontFamily")} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
           onValueChange={value => chooseType({ fontFamily: value })} />
         <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
@@ -278,11 +279,11 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     quickAdd: () => <Deferred load={() => import("./ShortcutSetting")} label={copy.quickAddTodo}>{module => <module.ShortcutSetting field="quickAdd" capture={props.app.capture} onFailure={setFailure} />}</Deferred>,
     quickAddAnywhere: () => <Deferred load={() => import("./ShortcutSetting")} label={copy.quickAddAnywhere}>{module => <module.ShortcutSetting field="quickAddAnywhere" capture={props.app.capture} onFailure={setFailure} />}</Deferred>,
     mode: () => (
-        <SegmentGroup description={copy.modeHint} label={copy.settingsAppearance} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
+        <SegmentGroup description={setByFile("mode") ? copy.setByFile("look.json") : copy.modeHint} disabled={setByFile("mode")} label={copy.settingsAppearance} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => void chooseAppearance({ mode })} />
     ),
     interfaceScale: () => (
-        <SegmentGroup label={copy.interfaceScale} description={copy.interfaceScaleHint} value={appSettings().interfaceScale} segments={[
+        <SegmentGroup label={copy.interfaceScale} description={setByFile("interfaceScale") ? copy.setByFile("look.json") : copy.interfaceScaleHint} disabled={setByFile("interfaceScale")} value={appSettings().interfaceScale} segments={[
           { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
           { value: "default", label: copy.settingsDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },

@@ -239,9 +239,12 @@ impl Agents {
                 "only a Door may choose visibility for its direct Agent children",
             ));
         }
-        let presented =
-            self.shared
-                .present(node, &self.shared.runs(), &rail, rail.finished(&p.id)?)?;
+        let presented = self.shared.present(
+            node,
+            &self.shared.runs(),
+            &rail,
+            crate::rail_view::finished_of(&rail, &p.id)?,
+        )?;
         if p.visibility == contracts::agent::RailVisibility::Internal
             && let Some(reason) = super::rail_view::visibility_reason(&presented)
         {

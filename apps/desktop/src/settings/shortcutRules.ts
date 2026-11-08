@@ -1,6 +1,6 @@
 import { CHORDS, LEADER, defaultPress, pressOf, shortcutLabel, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
 import { copy } from "./copy";
-import { appSettings } from "./preferences";
+import { appSettings, storedSettings } from "./preferences";
 
 const fallbackQuickAdd = "meta+shift+KeyT";
 
@@ -37,7 +37,16 @@ export const checkRecorded = (name: string, event: KeyboardEvent): { press: stri
 
 /** The saved overrides with `name` moved to `press`, or back to its default for `null`. */
 export const shortcutsWith = (name: string, press: string | null): Record<string, string> => {
-  const { [name]: _gone, ...rest } = appSettings().shortcuts;
+  const { [name]: _gone, ...rest } = storedSettings().shortcuts;
 
   return press === null || press === defaultPress(name) ? rest : { ...rest, [name]: press };
+};
+
+/** MC41: why a press from `keys.json` cannot be the key of action `name`, or null (U5239b's refusals, without a recorded event). */
+export const checkFilePress = (name: string, press: string): string | null => {
+  const holder = holderOf(press, name);
+
+  if (holder) return copy.shortcutRefusal(shortcutLabel(press), holder);
+
+  return appScope().has(press) ? null : copy.shortcutTerminal(shortcutLabel(press));
 };
