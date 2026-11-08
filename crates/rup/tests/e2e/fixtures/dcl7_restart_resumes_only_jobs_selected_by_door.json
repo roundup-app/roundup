@@ -19,7 +19,7 @@
     },
     {
       "match": {
-        "userMessage": "[open jobs]",
+        "userMessage": "Where do things stand?",
         "hasToolResult": false
       },
       "response": {
@@ -34,7 +34,7 @@
     },
     {
       "match": {
-        "userMessage": "[digest]",
+        "userMessage": "[stopped]",
         "hasToolResult": false
       },
       "response": {
@@ -43,7 +43,7 @@
     },
     {
       "match": {
-        "userMessage": "[stopped]",
+        "userMessage": "[digest]",
         "hasToolResult": false
       },
       "response": {

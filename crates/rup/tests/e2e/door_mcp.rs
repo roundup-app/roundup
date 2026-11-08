@@ -223,8 +223,13 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
     model_saw(&project, "[open jobs]").await;
     model_saw(&project, &format!("- {job} open-job (attempt 1)")).await;
     resume_result(&project).await;
+    // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
+    daemon::h21_poll("the resumed Job's new Attempt", async || {
+        let tree = project.rail_tree(&user).await;
+        (node(&tree, &job).attempt != job_before.attempt).then_some(())
+    })
+    .await;
     let tree = project.rail_tree(&user).await;
-    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
     let consult_after = node(&tree, &consult);
     assert_eq!(consult_after.attempt, consult_before.attempt);
     assert!(consult_after.terminal_id.is_none());
@@ -248,8 +253,13 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     start_door_again(&user, &door).await;
     model_saw(&project, "[open jobs]").await;
     resume_result(&project).await;
+    // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
+    daemon::h21_poll("the resumed Job's new Attempt", async || {
+        let tree = project.rail_tree(&user).await;
+        (node(&tree, &job).attempt != job_before.attempt).then_some(())
+    })
+    .await;
     let tree = project.rail_tree(&user).await;
-    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
     // The reported Job is not launched again and the start note never names it.
     let reported_after = node(&tree, &reported);
     assert_eq!(reported_after.attempt, reported_before.attempt);

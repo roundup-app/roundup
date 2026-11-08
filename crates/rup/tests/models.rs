@@ -342,11 +342,8 @@ async fn a36_a_set_effort_beats_the_daemons_variable() {
     let launch = run.launches_after(1).remove(0);
     assert!(argv_has(&launch, "--model", "sonnet"), "{launch}");
     assert!(argv_has(&launch, "--effort", "max"), "{launch}");
-    // The Daemon's variables are the user's default and pass through; roundup names none.
-    assert_eq!(
-        launch["env"],
-        json!({ "ANTHROPIC_MODEL": "other", "CLAUDE_CODE_EFFORT_LEVEL": "low" })
-    );
+    // The Effort variable beats `--effort`, so it is removed; the flag beats `ANTHROPIC_MODEL`.
+    assert_eq!(launch["env"], json!({ "ANTHROPIC_MODEL": "other" }));
 }
 
 #[tokio::test]
