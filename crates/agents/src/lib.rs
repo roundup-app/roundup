@@ -6,7 +6,7 @@
     clippy::indexing_slicing
 )]
 #![cfg_attr(
-    any(test, feature = "test-support"),
+    test,
     allow(
         clippy::unwrap_used,
         clippy::expect_used,
@@ -442,7 +442,7 @@ impl Agents {
             .rail_view
             .statuses
             .lock()
-            .unwrap()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
             .insert(id.to_owned(), status.clone());
         self.shared.bus.emit(
             Actor::daemon(),

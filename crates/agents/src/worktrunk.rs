@@ -634,7 +634,12 @@ fn drain(
 /// required checks with `gh`, so `agent.worktreeState` serves that evidence.
 #[cfg(feature = "test-support")]
 impl super::Agents {
-    pub async fn set_evidence_from_gh(&self, id: &str, path: &Path, gh: &Path) {
+    pub async fn set_evidence_from_gh(
+        &self,
+        id: &str,
+        path: &Path,
+        gh: &Path,
+    ) -> Result<(), String> {
         let shared = &self.shared;
         shared
             .rail()
@@ -646,35 +651,39 @@ impl super::Agents {
                     base: "base".into(),
                 },
             )
-            .unwrap();
-        for lane in &mut shared.worktrunk.state.lock().unwrap().lanes {
+            .map_err(|err| format!("cannot set Worktree: {err:?}"))?;
+        for lane in &mut lock(&shared.worktrunk.state)
+            .ok_or("Worktrunk state poisoned")?
+            .lanes
+        {
             lane.since = Some(Instant::now());
         }
         // `publish` ends each in-flight collection. Let it finish before installing
         // fixture evidence, so its late result cannot overwrite this observation.
         let deadline = Instant::now() + TIMEOUT;
-        while shared
-            .worktrunk
-            .state
-            .lock()
-            .unwrap()
+        while lock(&shared.worktrunk.state)
+            .ok_or("Worktrunk state poisoned")?
             .lanes
             .iter()
             .any(|lane| lane.running)
         {
-            assert!(
-                Instant::now() < deadline,
-                "fixture collector did not finish"
-            );
+            if Instant::now() >= deadline {
+                return Err("fixture collector did not finish".into());
+            }
             tokio::task::yield_now().await;
         }
-        let ids = identities(shared).unwrap();
-        let path = &ids.iter().find(|i| i.agent == id).unwrap().path;
-        let row = serde_json::json!({"branch":"main","worktree":{"path":path},"checks":{"status":"passed","source":"pr","stale":false},"pr":{"number":23}});
-        let bytes = serde_json::to_vec(&serde_json::json!({"schema":2,"repo":{},"collected":{"ci":true,"summary":false},"items":[row]})).unwrap();
-        let recorded = parse(&bytes).unwrap();
-        let identity = ids.iter().find(|i| i.agent == id).unwrap().clone();
-        let mut results = BTreeMap::from([(identity, recorded.items[0].facts())]);
+        let ids = identities(shared).ok_or("no Worktree identities")?;
+        let identity = ids
+            .iter()
+            .find(|i| i.agent == id)
+            .ok_or("Agent has no Worktree identity")?
+            .clone();
+        let row = serde_json::json!({"branch":"main","worktree":{"path":identity.path},"checks":{"status":"passed","source":"pr","stale":false},"pr":{"number":23}});
+        let bytes = serde_json::to_vec(&serde_json::json!({"schema":2,"repo":{},"collected":{"ci":true,"summary":false},"items":[row]}))
+            .map_err(|err| err.to_string())?;
+        let recorded = parse(&bytes).map_err(|err| format!("{err:?}"))?;
+        let facts = recorded.items.first().ok_or("no recorded item")?.facts();
+        let mut results = BTreeMap::from([(identity, facts)]);
         attach_evidence(gh, &mut results, &shared.worktrunk.cancelled);
         publish(
             &shared.worktrunk.state,
@@ -684,6 +693,7 @@ impl super::Agents {
             &shared.worktrunk.cancelled,
             Instant::now(),
         );
+        Ok(())
     }
 }
 

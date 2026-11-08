@@ -630,9 +630,10 @@ pub fn read_start_context(stdout: &str) -> Result<String, String> {
     })?;
     let reply: Value =
         serde_json::from_str(stdout).map_err(|err| format!("cannot read start Context: {err}"))?;
-    let context = reply["hookSpecificOutput"]["additionalContext"]
-        .as_str()
-        .ok_or("start Context has no additionalContext")?;
+    let context = (reply
+        .pointer("/hookSpecificOutput/additionalContext")
+        .and_then(Value::as_str))
+    .ok_or("start Context has no additionalContext")?;
     // P10: only fixed guidance may precede the shared Brief; identity follows its cache prefix.
     let (guidance, context) = match context.strip_suffix(WORKSTREAM_GUIDANCE) {
         Some(context) => (WORKSTREAM_GUIDANCE, context),
@@ -839,14 +840,13 @@ pub fn transient_cause(label: &str) -> Option<&'static str> {
 
 /// The question being asked; else the tool name, with its command when it has one.
 fn permission_label(payload: &Value) -> String {
-    let tool = payload["tool_name"].as_str().unwrap_or("tool");
-    let input = &payload["tool_input"];
-    if let Some(question) = input["questions"][0]["question"].as_str() {
-        return question.to_owned();
-    }
-    match input["command"].as_str() {
-        Some(command) => format!("{tool}: {command}"),
-        None => tool.to_owned(),
+    let text = |pointer: &str| payload.pointer(pointer).and_then(Value::as_str);
+    let tool = text("/tool_name").unwrap_or("tool");
+    let question = text("/tool_input/questions/0/question");
+    match (question, text("/tool_input/command")) {
+        (Some(question), _) => question.to_owned(),
+        (None, Some(command)) => format!("{tool}: {command}"),
+        (None, None) => tool.to_owned(),
     }
 }
 

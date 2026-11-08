@@ -180,7 +180,13 @@ impl Shared {
             finished: finished.to_string(),
         }));
         #[cfg(feature = "test-support")]
-        if let Some(status) = self.rail_view.statuses.lock().unwrap().get(&node.id) {
+        if let Some(status) = self
+            .rail_view
+            .statuses
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(&node.id)
+        {
             node.status = Some(status.clone());
             node.status_revision = Some(Ordinal::first());
         }
