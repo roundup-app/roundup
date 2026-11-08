@@ -237,7 +237,6 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     let mut project = daemon::start_real("dcr4_relaunch_carries_on_the_cut_off_job_only", &[]);
     let (door, job, _) = door_with_children(&project, false).await;
     let reported = reported_job(&project, &door).await;
-    eprintln!("DBG {:#?}", project.rail_tree(&project.client().await).await.iter().map(|n| (n.id.clone(), n.name.clone(), n.status.clone(), n.terminal_id.clone())).collect::<Vec<_>>());
     model_saw(&project, "[stopped]").await;
     begin_second_turn(&project, &job).await;
     quit_and_relaunch(&mut project).await;
@@ -328,7 +327,12 @@ async fn reported_job(project: &Project, door: &str) -> String {
     daemon::h21_poll("the reporting Job to finish its turn", async || {
         let tree = project.rail_tree(&user).await;
         tree.iter()
-            .any(|n| n.id == id && n.status.as_ref().is_some_and(|s| s.kind == contracts::Kind::Idle))
+            .any(|n| {
+                n.id == id
+                    && n.status
+                        .as_ref()
+                        .is_some_and(|s| s.kind == contracts::Kind::Idle)
+            })
             .then_some(())
     })
     .await;
