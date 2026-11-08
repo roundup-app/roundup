@@ -54,7 +54,11 @@ const parsedCommand = <Schema extends v.GenericSchema>(
  * An exhausted retry reaches `fail` once, since no caller can act on it.
  */
 const subscribe = (start: () => Promise<() => void>, fail: (cause: string) => void = cause => console.warn(cause)): Unsubscribe => {
-  const stop = retryRead(() => guarded(start)).catch((error: Error) => { fail(error.message); return () => {}; });
+  const stop = retryRead(() => guarded(start)).catch((error: Error) => {
+    fail(error.message);
+
+    return () => {};
+  });
 
   return () => void stop.then(release => release());
 };

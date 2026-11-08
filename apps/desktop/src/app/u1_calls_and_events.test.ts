@@ -329,6 +329,7 @@ describe("u1 calls and events", () => {
 
   it("fs5979a_a_stop_called_before_listen_resolves_releases_the_listener", async () => {
     let finish: () => void = () => {};
+
     const unlistened: unknown[] = [];
     mockIPC((command, args) => {
       if (command === "plugin:event|listen") return new Promise<number>(resolve => { finish = () => resolve(7); });

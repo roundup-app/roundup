@@ -13,6 +13,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
   const [failure, setFailure] = createSignal<string | null>(null);
   let sequence = 0;
   let input: HTMLTextAreaElement | undefined;
+
   const send: CapturePort["act"] = async action => {
     try { await props.port.act(action); setFailure(null); }
     catch (error) { setFailure(String(error)); }
