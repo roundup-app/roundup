@@ -630,10 +630,8 @@ pub fn read_start_context(stdout: &str) -> Result<String, String> {
     })?;
     let reply: Value =
         serde_json::from_str(stdout).map_err(|err| format!("cannot read start Context: {err}"))?;
-    let context = reply
-        .get("hookSpecificOutput")
-        .and_then(|output| output.get("additionalContext"))
-        .and_then(Value::as_str)
+    let context = reply["hookSpecificOutput"]["additionalContext"]
+        .as_str()
         .ok_or("start Context has no additionalContext")?;
     // P10: only fixed guidance may precede the shared Brief; identity follows its cache prefix.
     let (guidance, context) = match context.strip_suffix(WORKSTREAM_GUIDANCE) {
@@ -690,11 +688,9 @@ pub(super) fn write_submitted(
     std::thread::sleep(SUBMIT_PAUSE);
     // A hook can arrive before the input thread reports completion to its caller.
     // Only the final write holds this gate, so paste settling never blocks Signals.
+    let poisoned = |_| std::io::Error::other("slash-command write gate poisoned");
     let mut accepted = accepted
-        .map(|gate| {
-            gate.lock()
-                .map_err(|_| std::io::Error::other("slash-command write gate poisoned"))
-        })
+        .map(|gate| gate.lock().map_err(poisoned))
         .transpose()?;
     writer.write_all(b"\r")?;
     writer.flush()?;
@@ -845,11 +841,7 @@ pub fn transient_cause(label: &str) -> Option<&'static str> {
 fn permission_label(payload: &Value) -> String {
     let tool = payload["tool_name"].as_str().unwrap_or("tool");
     let input = &payload["tool_input"];
-    if let Some(question) = input["questions"]
-        .as_array()
-        .and_then(|questions| questions.first())
-        .and_then(|first| first["question"].as_str())
-    {
+    if let Some(question) = input["questions"][0]["question"].as_str() {
         return question.to_owned();
     }
     match input["command"].as_str() {
