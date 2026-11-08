@@ -285,7 +285,7 @@ impl Agents {
             let release = |why: String| {
                 report_undo(
                     "release the prepared directory",
-                    self.shared.rail().clear_worktree(id),
+                    crate::rail::agent_id(id).and_then(|id| self.shared.rail().clear_worktree(id)),
                 );
                 why
             };
@@ -356,7 +356,7 @@ impl Agents {
         match tokio::task::spawn_blocking(move || git.recover(&project, &plan)).await {
             Ok(Ok(())) => report_undo(
                 "release the prepared directory",
-                self.shared.rail().clear_worktree(id),
+                crate::rail::agent_id(id).and_then(|id| self.shared.rail().clear_worktree(id)),
             ),
             Ok(Err(err)) => eprintln!("agents: prepared directory for {id} kept: {err}"),
             Err(err) => eprintln!("agents: prepared directory for {id} kept: {err}"),

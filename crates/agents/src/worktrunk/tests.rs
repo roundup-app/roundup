@@ -340,14 +340,20 @@ fn u2556b_late_results_do_not_cross_identity() {
             branch: "main".into(),
             base: "main".into(),
         };
-        shared.rail().set_worktree(&node.id, &record).unwrap();
+        shared
+            .rail()
+            .set_worktree(crate::rail::agent_id(&node.id).unwrap(), &record)
+            .unwrap();
         let original = identities(&shared).unwrap().remove(0);
         let agents = super::super::store::tests::owner_agents(shared.clone(), dir.path());
         match mutation {
             "remove" => shared.rail().remove(&node.id).unwrap(),
             "branch" => {
                 record.branch = "replacement".into();
-                shared.rail().set_worktree(&node.id, &record).unwrap();
+                shared
+                    .rail()
+                    .set_worktree(crate::rail::agent_id(&node.id).unwrap(), &record)
+                    .unwrap();
             }
             "path" => {
                 record.path = dir
@@ -355,11 +361,17 @@ fn u2556b_late_results_do_not_cross_identity() {
                     .join("replacement")
                     .to_string_lossy()
                     .into_owned();
-                shared.rail().set_worktree(&node.id, &record).unwrap();
+                shared
+                    .rail()
+                    .set_worktree(crate::rail::agent_id(&node.id).unwrap(), &record)
+                    .unwrap();
             }
             "base" => {
                 record.base = "replacement".into();
-                shared.rail().set_worktree(&node.id, &record).unwrap();
+                shared
+                    .rail()
+                    .set_worktree(crate::rail::agent_id(&node.id).unwrap(), &record)
+                    .unwrap();
             }
             _ => unreachable!(),
         }
@@ -557,7 +569,7 @@ async fn u2556b_117_worktrees_share_collectors_without_blocking_git_and_close_ca
             )
             .unwrap();
         rail.set_worktree(
-            &node.id,
+            crate::rail::agent_id(&node.id).unwrap(),
             &contracts::agent::Worktree {
                 path: path.to_string_lossy().into_owned(),
                 branch,
@@ -669,7 +681,7 @@ async fn u2556a_base_state_is_authoritative_with_optional_wire_facts() {
     shared
         .rail()
         .set_worktree(
-            &node.id,
+            crate::rail::agent_id(&node.id).unwrap(),
             &contracts::agent::Worktree {
                 path: repo.path().to_string_lossy().into_owned(),
                 branch: "main".into(),
@@ -771,7 +783,7 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     shared
         .rail()
         .set_worktree(
-            &node.id,
+            crate::rail::agent_id(&node.id).unwrap(),
             &contracts::agent::Worktree {
                 path: repo.path().to_string_lossy().into_owned(),
                 branch: "main".into(),

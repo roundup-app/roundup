@@ -103,7 +103,10 @@ impl Agents {
     async fn reattach(&self, id: &str, stored: Stored) -> bool {
         let (node, conversation) = {
             let rail = self.shared.rail();
-            match (rail.node(id), rail.conversation(id)) {
+            match (
+                rail.node(id),
+                crate::rail::agent_id(id).and_then(|id| rail.conversation(id)),
+            ) {
                 (Ok(node), Ok(conversation)) => (node, conversation),
                 _ => return false,
             }
@@ -139,7 +142,10 @@ impl Agents {
             let mut runs = self.shared.runs();
             if runs.agent(id).is_some() {
                 false
-            } else if rail.attach_terminal(id, &spawned.id).is_ok() {
+            } else if crate::rail::agent_id(id)
+                .and_then(|id| rail.attach_terminal(id, &spawned.id))
+                .is_ok()
+            {
                 runs.put(id, Slot::Running(run));
                 true
             } else {

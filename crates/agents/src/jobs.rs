@@ -46,7 +46,7 @@ impl Agents {
         let rail = self.shared.rail();
         let mut open = Vec::new();
         for node in rail.tree()? {
-            if rail.role(&node.id)? != Some(SpawnRole::Job) {
+            if rail.role(crate::rail::agent_id(&node.id)?)? != Some(SpawnRole::Job) {
                 continue;
             }
             let attempt = node.attempt.as_deref().unwrap_or_default().to_owned();

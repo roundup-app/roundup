@@ -51,11 +51,12 @@ impl Agents {
         if let Some(unavailable) = provider.unavailable() {
             return unavailable;
         }
-        let saved = match self.shared.rail().conversation(id) {
-            Ok(Some(saved)) => saved,
-            Ok(None) => return Outcome::Failed("it has no saved conversation yet".into()),
-            Err(error) => return Outcome::Failed(RpcError::from(error).message),
-        };
+        let saved =
+            match crate::rail::agent_id(id).and_then(|id| self.shared.rail().conversation(id)) {
+                Ok(Some(saved)) => saved,
+                Ok(None) => return Outcome::Failed("it has no saved conversation yet".into()),
+                Err(error) => return Outcome::Failed(RpcError::from(error).message),
+            };
         match self
             .launcher
             .rewind_files(&saved.0, std::path::Path::new(&saved.1), turn)

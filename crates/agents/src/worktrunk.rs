@@ -615,7 +615,7 @@ impl super::Agents {
         shared
             .rail()
             .set_worktree(
-                id,
+                crate::rail::agent_id(id).unwrap(),
                 &contracts::agent::Worktree {
                     path: path.to_string_lossy().into_owned(),
                     branch: "main".into(),

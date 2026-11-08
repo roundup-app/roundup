@@ -145,21 +145,21 @@ impl Rail {
     }
 
     /// DCL9: the role stored for `id`; `None` for the user's own Agents. `NOT_FOUND` for an unknown id.
-    pub fn role(&self, id: &str) -> Result<Option<contracts::agent::SpawnRole>, StoreError> {
-        self.node(id)?;
-        Ok(self
-            .db
-            .query_row("SELECT role FROM nodes WHERE id = ?", params![id], |row| {
-                Ok(row.get::<_, Option<row::Word<_>>>(0)?.map(|role| role.0))
-            })?)
+    pub fn role(&self, id: AgentId) -> Result<Option<contracts::agent::SpawnRole>, StoreError> {
+        self.node(&id.to_string())?;
+        Ok(self.db.query_row(
+            "SELECT role FROM nodes WHERE id = ?",
+            params![id.get()],
+            |row| Ok(row.get::<_, Option<row::Word<_>>>(0)?.map(|role| role.0)),
+        )?)
     }
 
     /// O8: the prompt kept for `id`, `None` when it has none; `NOT_FOUND` for an unknown id.
-    pub fn spawn_prompt(&self, id: &str) -> Result<Option<String>, StoreError> {
-        self.node(id)?;
+    pub fn spawn_prompt(&self, id: AgentId) -> Result<Option<String>, StoreError> {
+        self.node(&id.to_string())?;
         Ok(self.db.query_row(
             "SELECT spawn_prompt FROM nodes WHERE id = ?",
-            params![id],
+            params![id.get()],
             |row| row.get(0),
         )?)
     }
@@ -371,28 +371,28 @@ impl Rail {
     }
 
     /// DCR1: whether a quit cut `id` off mid-turn and nothing has started it since.
-    pub fn is_cut_off(&self, id: &str) -> Result<bool, StoreError> {
-        self.node(id)?;
+    pub fn is_cut_off(&self, id: AgentId) -> Result<bool, StoreError> {
+        self.node(&id.to_string())?;
         Ok(self.db.query_row(
             "SELECT cut_off FROM nodes WHERE id = ?",
-            params![id],
+            params![id.get()],
             |row| row.get(0),
         )?)
     }
 
-    pub fn detach_terminal(&mut self, id: &str) -> Result<(), StoreError> {
+    pub fn detach_terminal(&mut self, id: AgentId) -> Result<(), StoreError> {
         self.db.execute(
             "UPDATE nodes SET terminal_id = NULL WHERE id = ?",
-            params![id],
+            params![id.get()],
         )?;
         Ok(())
     }
 
     /// Record which Terminal runs the Agent `id`.
-    pub fn attach_terminal(&mut self, id: &str, terminal_id: &str) -> Result<(), StoreError> {
+    pub fn attach_terminal(&mut self, id: AgentId, terminal_id: &str) -> Result<(), StoreError> {
         let changed = self.db.execute(
             "UPDATE nodes SET terminal_id = ? WHERE id = ?",
-            params![terminal_id, id],
+            params![terminal_id, id.get()],
         )?;
         if changed == 0 {
             return Err(StoreError::not_found(GONE_AGENT));
@@ -401,17 +401,17 @@ impl Rail {
     }
 
     /// M7: record that Agent `creator` created node `id`; it goes with the node.
-    pub fn set_creator(&mut self, id: &str, creator: &str) -> Result<(), StoreError> {
+    pub fn set_creator(&mut self, id: AgentId, creator: &str) -> Result<(), StoreError> {
         self.db.execute(
             "UPDATE nodes SET creator = ? WHERE id = ?",
-            params![creator, id],
+            params![creator, id.get()],
         )?;
         Ok(())
     }
 
     /// A5214a: turn root Agent `id` into a Workstream in place; `Ok(false)` when it is not a root
     /// Agent. `to_workstream = false` undoes it.
-    pub fn convert_kind(&mut self, id: &str, to_workstream: bool) -> Result<bool, StoreError> {
+    pub fn convert_kind(&mut self, id: AgentId, to_workstream: bool) -> Result<bool, StoreError> {
         let (from, to) = if to_workstream {
             ("agent", "workstream")
         } else {
@@ -419,7 +419,7 @@ impl Rail {
         };
         let changed = self.db.execute(
             "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
-            params![to, id, from],
+            params![to, id.get(), from],
         )?;
         Ok(changed == 1)
     }
@@ -505,33 +505,33 @@ impl Rail {
         Ok(records)
     }
 
-    pub fn clear_provisioning_owner(&mut self, id: &str) -> Result<(), StoreError> {
+    pub fn clear_provisioning_owner(&mut self, id: AgentId) -> Result<(), StoreError> {
         self.db.execute(
             "UPDATE nodes SET worktree_owner=NULL, worktree_commit=NULL WHERE id=?",
-            [id],
+            [id.get()],
         )?;
         Ok(())
     }
 
     /// Record a Worktree Provisioning made for `id`, just before its Terminal starts.
-    pub fn set_worktree(&mut self, id: &str, worktree: &Worktree) -> Result<(), StoreError> {
+    pub fn set_worktree(&mut self, id: AgentId, worktree: &Worktree) -> Result<(), StoreError> {
         let path = worktree.path.as_str();
         self.db.execute(
             "UPDATE nodes SET worktree_path = ?, worktree_branch = ?, worktree_base = ?,
                     worktree_state = 'ready' WHERE id = ?",
-            params![path, worktree.branch, worktree.base, id],
+            params![path, worktree.branch, worktree.base, id.get()],
         )?;
         Ok(())
     }
 
     /// Undo `mark_worktree_provisioning`/`set_worktree` for a node that keeps its place on the
     /// Rail (`rail.startDoor`'s own failure path; a failed `agent.spawn` deletes the node outright).
-    pub fn clear_worktree(&mut self, id: &str) -> Result<(), StoreError> {
+    pub fn clear_worktree(&mut self, id: AgentId) -> Result<(), StoreError> {
         self.db
             .execute(
                 "UPDATE nodes SET worktree_path = NULL, worktree_branch = NULL,
                     worktree_base = NULL, worktree_state = NULL, worktree_owner=NULL, worktree_commit=NULL WHERE id = ?",
-                params![id],
+                params![id.get()],
             )
             ?;
         Ok(())
@@ -541,13 +541,13 @@ impl Rail {
     /// any earlier save. `id` must already name a node.
     pub fn save_conversation(
         &mut self,
-        id: &str,
+        id: AgentId,
         conversation_id: &str,
         cwd: &str,
     ) -> Result<(), StoreError> {
         let changed = self.db.execute(
             "UPDATE nodes SET conversation_id = ?, conversation_cwd = ? WHERE id = ?",
-            params![conversation_id, cwd, id],
+            params![conversation_id, cwd, id.get()],
         )?;
         if changed == 0 {
             return Err(StoreError::not_found(GONE_AGENT));
@@ -556,20 +556,20 @@ impl Rail {
     }
 
     /// A5213: the permission mode the saved conversation's Attempt last ran in, beside A21's data.
-    pub fn save_conversation_yolo(&mut self, id: &str, yolo: bool) -> Result<(), StoreError> {
+    pub fn save_conversation_yolo(&mut self, id: AgentId, yolo: bool) -> Result<(), StoreError> {
         self.db.execute(
             "UPDATE nodes SET conversation_yolo = ? WHERE id = ?",
-            params![yolo, id],
+            params![yolo, id.get()],
         )?;
         Ok(())
     }
 
     /// A5213: whether the saved conversation last ran in YOLO.
-    pub fn conversation_yolo(&self, id: &str) -> Result<bool, StoreError> {
+    pub fn conversation_yolo(&self, id: AgentId) -> Result<bool, StoreError> {
         self.db
             .query_row(
                 "SELECT conversation_yolo FROM nodes WHERE id = ?",
-                [id],
+                [id.get()],
                 |row| row.get(0),
             )
             .optional()?
@@ -577,13 +577,13 @@ impl Rail {
     }
 
     /// The saved conversation id and cwd (A21), if any.
-    pub fn conversation(&self, id: &str) -> Result<Option<(String, String)>, StoreError> {
+    pub fn conversation(&self, id: AgentId) -> Result<Option<(String, String)>, StoreError> {
         let found: (Option<String>, Option<String>) = self
             .db
             .query_row(
                 "SELECT conversation_id, conversation_cwd FROM nodes WHERE id = ?
                     AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))",
-                [id],
+                [id.get()],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()
@@ -596,7 +596,7 @@ impl Rail {
     }
 
     /// Whether `id` has A21 data; used to compute `can_resume` without exposing the id itself.
-    pub fn has_conversation(&self, id: &str) -> Result<bool, StoreError> {
+    pub fn has_conversation(&self, id: AgentId) -> Result<bool, StoreError> {
         Ok(self.conversation(id)?.is_some())
     }
 }

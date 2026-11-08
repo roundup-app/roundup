@@ -348,8 +348,8 @@ impl Agents {
             shared.guard_reach(&ctx.actor, &id, true)?;
             let rail = shared.rail();
             Ok(contracts::agent::SpawnPrompt {
-                prompt: rail.spawn_prompt(&id)?,
-                role: rail.role(&id)?,
+                prompt: rail.spawn_prompt(crate::rail::agent_id(&id)?)?,
+                role: rail.role(crate::rail::agent_id(&id)?)?,
             })
         }
     }

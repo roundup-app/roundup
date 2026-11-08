@@ -60,7 +60,12 @@ impl Agents {
             return Ok(parked);
         }
         let live = parked.channel.is_some();
-        if live && !self.shared.rail().has_conversation(id)? {
+        if live
+            && !self
+                .shared
+                .rail()
+                .has_conversation(crate::rail::agent_id(id)?)?
+        {
             return Err(RpcError::conflict(format!(
                 "{id} has no saved conversation yet to resume on the new model"
             )));
