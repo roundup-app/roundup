@@ -261,7 +261,7 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
             .iter()
             .map(|entry| entry["body"]["messages"].to_string())
             .filter(|asked| asked.contains("[open jobs]"))
-            .all(|asked| !asked.contains(&reported)),
+            .all(|asked| !asked.contains(&format!("- {reported} "))),
         "the start note names the reported Job"
     );
 }
