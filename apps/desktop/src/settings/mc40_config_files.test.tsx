@@ -74,7 +74,8 @@ it("mc40_a_token_the_file_names_shows_read_only_in_app_settings", async () => {
 
   fireEvent.click(within(view).getByRole("tab", { name: "Appearance" }));
 
-  await within(view).findAllByRole("radio");
+  // The Terminal panel stays until the Appearance panel renders; wait for the group itself.
+  await within(view).findByRole("radiogroup", { name: copy.settingsAppearance });
 
   for (const label of [copy.settingsAppearance, copy.interfaceScale]) {
     const radios = within(within(view).getByRole("radiogroup", { name: label })).getAllByRole<HTMLInputElement>("radio");
