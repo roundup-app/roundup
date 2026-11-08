@@ -78,7 +78,9 @@ impl Agents {
                 _ => agent.name.clone(),
             };
             let mode = rail.insert_ordered(NodeKind::Workstream, name, None, None, None, None)?;
-            rail.set_opening_prompt(&mode.id, Some(&prompt))?;
+            if let Some(id) = crate::id::AgentId::parse(&mode.id) {
+                rail.set_opening_prompt(id, Some(&prompt))?;
+            }
             rail.set_pair(&mode.id, agent.model.as_deref(), agent.effort.as_deref())?;
             mode
         };
