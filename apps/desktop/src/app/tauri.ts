@@ -10,7 +10,7 @@ import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
 import { actionRequestSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, retryRead, rpcFailureSchema, RpcError } from "./seam";
-import { copy } from "../todos/copy";
+import { copy } from "./copy";
 import type { App, CaptureAction, CaptureState, OutputMessage, Unsubscribe } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
