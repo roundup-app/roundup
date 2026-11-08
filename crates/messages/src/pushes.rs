@@ -4,7 +4,7 @@
 //! a weight, kept in its payload, and a rollup or a merge weighs what it holds.
 
 use crate::Error;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use contracts::Actor;
@@ -591,17 +591,24 @@ pub(crate) async fn waiting_counts(
     with_quiet: bool,
 ) -> Result<HashMap<String, u32>, Error> {
     let ledger = inner.pushes.lock().await;
-    let (pending, payloads) = {
+    let (pending, payloads, deferred) = {
         let store = lock(&inner.store);
         let pending = store.pending_all()?;
         let payloads = store.payloads(&pending)?;
-        (pending, payloads)
+        let deferred = if with_quiet {
+            HashSet::new()
+        } else {
+            deferred_digests_in(&store, &pending, &payloads)?
+        };
+        (pending, payloads, deferred)
     };
     let mut counts: HashMap<String, u32> = HashMap::new();
     let mut digested: HashMap<&str, Vec<DigestEntry>> = HashMap::new();
     for message in &pending {
         let payload = payloads.of(message);
-        *counts.entry(message.to.clone()).or_default() += payload.weight();
+        if !deferred.contains(&message.id) {
+            *counts.entry(message.to.clone()).or_default() += payload.weight();
+        }
         if payload.is_digest() {
             digested
                 .entry(&message.to)
@@ -623,7 +630,32 @@ pub(crate) async fn waiting_counts(
     Ok(counts)
 }
 
+/// DTC2: the pending digests no inbox write carries, which a Door at rest takes only with a
+/// Message that is no quiet digest (B5168f); the Message that settles a Workstream is such a one.
+fn deferred_digests_in(
+    store: &crate::store::Store,
+    pending: &[Message],
+    payloads: &Payloads,
+) -> Result<HashSet<u32>, Error> {
+    let mut deferred = HashSet::new();
+    for message in pending {
+        if payloads.of(message).is_digest() && !store.in_flight(message.id)? {
+            deferred.insert(message.id);
+        }
+    }
+    Ok(deferred)
+}
+
 impl Messages {
+    /// DTC2: the pending digests that wait for a Message to ride with, so that Message may be
+    /// sent without waiting for them.
+    pub async fn deferred_digests(&self) -> Result<HashSet<u32>, Error> {
+        let store = lock(&self.inner.store);
+        let pending = store.pending_all()?;
+        let payloads = store.payloads(&pending)?;
+        deferred_digests_in(&store, &pending, &payloads)
+    }
+
     /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
     /// not its mutable display name. Waiting changes compact to the newest entry per id while
     /// retaining their weight. A stopped Door waits until a successful start; a removed Door's
