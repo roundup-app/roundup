@@ -253,7 +253,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
 
   if (port) {
     // U6249d F6: the seam retries a subscription, and the user cannot act on its exhaustion, so the App log holds the cause.
-    onCleanup(port.onRequested(nativeShow));
+    onCleanup(untrack(() => port.onRequested(nativeShow)));
     onCleanup(port.onAction(action => {
       if (!nativeOpen()) return;
 

@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, For } from "solid-js";
+import { createSignal, onCleanup, untrack, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
 import { retryRead } from "../app/seam";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -19,7 +19,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     catch (error) { setFailure(String(error)); }
   };
 
-  onCleanup(props.port.onState(snapshot => {
+  onCleanup(untrack(() => props.port.onState(snapshot => {
     if (snapshot.session !== state()?.session) sequence = 0;
 
     if (snapshot.sequence >= sequence) setText(snapshot.text);
@@ -27,7 +27,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     document.documentElement.dataset.mode = snapshot.mode;
     document.documentElement.style.colorScheme = snapshot.mode;
     input?.focus({ preventScroll: true });
-  }));
+  })));
   void send({ kind: "ready" });
 
   const file = (keepOpen: boolean) => {

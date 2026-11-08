@@ -637,7 +637,7 @@ export const App = (props: {
   };
 
   createEffect(() => { nativeMenu(); void writeMenu(); });
-  onCleanup(props.app.onProjectPage(({ path, command }) => {
+  onCleanup(untrack(() => props.app.onProjectPage(({ path, command }) => {
     if (path !== projects.active()) return;
     const open = connectionOf(path);
 
@@ -648,12 +648,12 @@ export const App = (props: {
 
       if (views.some(([id]) => id === view) && (view !== "resources" || open.rail.nodes.some(node => node.id === open.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null)))) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
     } else captureActions(menuFocus()).find(action => action.value === command && action.available())?.run();
-  }));
+  })));
 
   // FS5979a: one sheet, and only with a Project open; a second request while it is open changes nothing.
   const [forkOpen, setForkOpen] = createSignal(false);
   const [forkAsked, setForkAsked] = createSignal(false);
-  onCleanup(props.app.onForkSheet(() => { if (projects.tabs().length > 0) { setForkAsked(true); setForkOpen(true); } }));
+  onCleanup(untrack(() => props.app.onForkSheet(() => { if (projects.tabs().length > 0) { setForkAsked(true); setForkOpen(true); } })));
   const forkSources = () => projects.tabs().map(tab => ({ path: tab.project.path, name: tab.project.name, nodes: railOf(tab.project.path)?.nodes ?? [] }));
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
@@ -669,14 +669,14 @@ export const App = (props: {
 
 
   // U5232e: a click on a State alert opens that Agent in its Project, as a click on its Rail row does.
-  onCleanup(props.app.onStateAlertClicked(agent => {
+  onCleanup(untrack(() => props.app.onStateAlertClicked(agent => {
     const path = [...connections().keys()].find(each => railOf(each)?.nodes.some(node => node.id === agent));
 
     if (path === undefined) return;
 
     railOf(path)?.select(agent, "open");
     projects.select(path);
-  }));
+  })));
 
   onCleanup(shelfFocus.stop);
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.shelf"], capture: () => {
