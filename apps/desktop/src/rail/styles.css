@@ -129,7 +129,8 @@
   display: flex;
   min-width: 0;
   /* The quick-icon slot and a --space-3 gap stay clear, so hover and selection never paint an action over the age. */
-  margin-inline-end: calc(var(--rail-slot) + var(--space-3));
+  margin-inline-end: var(--rail-slot);
+  padding-inline-end: var(--space-3);
   overflow: hidden;
   white-space: nowrap;
   color: var(--grey);
@@ -142,8 +143,9 @@
 .rail-row .row-status-age { flex: none; white-space: pre; }
 /* The name keeps its width first, up to most of the row; the status is the only part that shrinks. */
 .rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 70%; }
-/* Too narrow for a few label characters beside the whole age: the row stays at the name. */
-@container (max-width: 12ch) { .row-status-label, .row-status-age { display: none; } }
+/* The label gives way first; the age stays until it no longer fits, then the row stays at the name. */
+@container (max-width: 8ch) { .row-status-label { display: none; } }
+@container (max-width: 4ch) { .row-status-age { display: none; } }
 
 [data-part="branch-control"].rail-row .name {
   font-weight: 600;
