@@ -144,7 +144,10 @@ impl Agents {
                     runs.forget(&id);
                     self.shared.events.observed.notify_waiters();
                     if rail.node(crate::rail::agent_id(&id)?)?.worktree.is_none() {
-                        report_undo("remove the Agent from the Rail", rail.remove(crate::rail::agent_id(&id)?));
+                        report_undo(
+                            "remove the Agent from the Rail",
+                            rail.remove(crate::rail::agent_id(&id)?),
+                        );
                     } else if request.start_attribution.is_some() {
                         let path = self.project_dir().to_string_lossy().into_owned();
                         let cause = err.message.clone();
@@ -234,7 +237,11 @@ impl Agents {
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
         if ctx.actor.kind == ActorKind::Agent {
-            let agent = self.shared.rail().node(crate::rail::agent_id(&ctx.actor.id)?).is_ok();
+            let agent = self
+                .shared
+                .rail()
+                .node(crate::rail::agent_id(&ctx.actor.id)?)
+                .is_ok();
             if !agent {
                 return Err(RpcError::forbidden(format!(
                     "{} is not an Agent and may not start an Agent",
@@ -243,7 +250,12 @@ impl Agents {
             }
             params.parent = Some(ctx.actor.id.clone());
         } else if let Some(parent) = &params.parent
-            && self.shared.rail().node(crate::rail::agent_id(parent)?)?.kind == NodeKind::Agent
+            && self
+                .shared
+                .rail()
+                .node(crate::rail::agent_id(parent)?)?
+                .kind
+                == NodeKind::Agent
         {
             return Err(RpcError::conflict(format!(
                 "{parent} is an Agent: only an Agent's own start nests under it"
@@ -395,7 +407,10 @@ impl Agents {
         let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         let owner = match workstream {
             Some(workstream) => {
-                let node = self.shared.rail().node(crate::rail::agent_id(&workstream)?)?;
+                let node = self
+                    .shared
+                    .rail()
+                    .node(crate::rail::agent_id(&workstream)?)?;
                 if node.kind != NodeKind::Workstream {
                     return Err(RpcError::new(
                         code::INVALID_PARAMS,
@@ -448,7 +463,9 @@ impl Agents {
                 attempt,
             );
 
-            if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(crate::rail::agent_id(id)?)?) {
+            if let (Some(text), Some(revision)) =
+                (&prompt, rail.order_revision(crate::rail::agent_id(id)?)?)
+            {
                 rail.prepare_instruction(&revision, attempt, text, true)?;
             }
             (node, prompt)
@@ -719,7 +736,9 @@ mod idle_tests {
                 None,
                 node.work.as_ref(),
                 None,
-                rail.order_revision(crate::rail::agent_id(&node.id).unwrap()).unwrap().is_some(),
+                rail.order_revision(crate::rail::agent_id(&node.id).unwrap())
+                    .unwrap()
+                    .is_some(),
                 if restart { "2" } else { "1" },
             );
             let mut run = Run::starting(

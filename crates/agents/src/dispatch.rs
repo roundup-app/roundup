@@ -243,7 +243,8 @@ impl Agents {
         if node.kind != NodeKind::Agent
             || (ctx.actor.kind == ActorKind::Agent
                 && (node.parent.as_deref() != Some(&ctx.actor.id)
-                    || rail.node(crate::rail::agent_id(&ctx.actor.id)?)?.kind != NodeKind::Workstream))
+                    || rail.node(crate::rail::agent_id(&ctx.actor.id)?)?.kind
+                        != NodeKind::Workstream))
         {
             return Err(RpcError::forbidden(
                 "only a Door may choose visibility for its direct Agent children",
@@ -341,9 +342,10 @@ impl Agents {
             if ctx.actor.kind != ActorKind::User {
                 shared.guard_reach(&ctx.actor, &id, true)?;
             }
-            Ok(shared
-                .rail()
-                .instructions(crate::rail::agent_id(&id)?, &shared.project_dir.to_string_lossy())?)
+            Ok(shared.rail().instructions(
+                crate::rail::agent_id(&id)?,
+                &shared.project_dir.to_string_lossy(),
+            )?)
         }
     }
 

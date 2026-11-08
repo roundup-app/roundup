@@ -444,7 +444,10 @@ impl Shared {
             }
             Effect::ShowOnRail => {
                 if let Some(rail) = rail
-                    && rail.set_visibility(crate::rail::agent_id(id)?, contracts::agent::RailVisibility::Shown)?
+                    && rail.set_visibility(
+                        crate::rail::agent_id(id)?,
+                        contracts::agent::RailVisibility::Shown,
+                    )?
                 {
                     self.bus.emit(actor.clone(), EventData::RailChanged);
                 }
@@ -527,7 +530,9 @@ impl Shared {
         id: &str,
         actor: &Actor,
     ) -> Result<(), RpcError> {
-        if !self.wiring.naming()?.automatic_renaming || rail.user_named(crate::rail::agent_id(id)?)? {
+        if !self.wiring.naming()?.automatic_renaming
+            || rail.user_named(crate::rail::agent_id(id)?)?
+        {
             run.set_title_pending(false);
             return Ok(());
         }

@@ -97,7 +97,10 @@ impl Agents {
             }));
         drop(rail);
         if ctx.actor.kind == ActorKind::Agent {
-            let node = self.shared.rail().node(crate::rail::agent_id(&ctx.actor.id)?)?;
+            let node = self
+                .shared
+                .rail()
+                .node(crate::rail::agent_id(&ctx.actor.id)?)?;
             let directory = self.dir.join("import-lists");
             std::fs::create_dir_all(&directory).map_err(RpcError::internal)?;
             let mut file =

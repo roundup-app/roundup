@@ -83,7 +83,11 @@ impl Agents {
             if let Some(id) = crate::id::AgentId::parse(&mode.id) {
                 rail.set_opening_prompt(id, Some(&prompt))?;
             }
-            rail.set_pair(crate::rail::agent_id(&mode.id)?, agent.model.as_deref(), agent.effort.as_deref())?;
+            rail.set_pair(
+                crate::rail::agent_id(&mode.id)?,
+                agent.model.as_deref(),
+                agent.effort.as_deref(),
+            )?;
             mode
         };
         Launcher::save_lean(&self.dir, &mode.id, &lean)?;

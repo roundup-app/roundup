@@ -15,7 +15,8 @@ impl Rail {
         for node in &nodes {
             if (node.kind == NodeKind::Agent || node.attempt.is_some())
                 && (AgentId::parse(&node.id) == Some(id)
-                    || (target.kind == NodeKind::Workstream && is_within(&nodes, &node.id, &id.to_string())))
+                    || (target.kind == NodeKind::Workstream
+                        && is_within(&nodes, &node.id, &id.to_string())))
             {
                 tx.execute(
                     "UPDATE nodes SET alert_level=? WHERE id=?",

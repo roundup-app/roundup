@@ -310,7 +310,11 @@ impl Agents {
                     return Err(RpcError::conflict(format!("Door {id} is already active")));
                 }
             }
-            rail.set_pair(crate::rail::agent_id(id)?, pair.model.as_deref(), pair.effort.as_deref())?;
+            rail.set_pair(
+                crate::rail::agent_id(id)?,
+                pair.model.as_deref(),
+                pair.effort.as_deref(),
+            )?;
             let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
             self.shared.events.observed.notify_waiters();
             runs.put(

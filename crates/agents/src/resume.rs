@@ -285,7 +285,11 @@ impl Agents {
 
     /// FOP5978d and A21: the Worktree or folder the saved conversation continues in is usable.
     async fn verify_resume_cwd(&self, id: &str, saved_cwd: &str) -> Result<(), RpcError> {
-        let worktree = self.shared.rail().node(crate::rail::agent_id(id)?)?.worktree;
+        let worktree = self
+            .shared
+            .rail()
+            .node(crate::rail::agent_id(id)?)?
+            .worktree;
         match &worktree {
             // FOP5978d: continuing in a Worktree of the live Project folder is not a Fork's to do.
             Some(_) if self.forked => Err(RpcError::new(
@@ -750,13 +754,26 @@ mod tests {
             assert_eq!(error.code, code::CONFLICT);
             assert!(error.message.contains("stopping"), "{error}");
             assert_eq!(
-                agents.shared.rail().node(crate::rail::agent_id(&id).unwrap()).unwrap().attempt.as_deref(),
+                agents
+                    .shared
+                    .rail()
+                    .node(crate::rail::agent_id(&id).unwrap())
+                    .unwrap()
+                    .attempt
+                    .as_deref(),
                 Some("1")
             );
             assert!(agents.shared.terminals.list().await.is_empty());
             release.notify_one();
             ending.await.unwrap();
-            assert_eq!(agents.shared.rail().node(crate::rail::agent_id(&id).unwrap()).is_err(), remove);
+            assert_eq!(
+                agents
+                    .shared
+                    .rail()
+                    .node(crate::rail::agent_id(&id).unwrap())
+                    .is_err(),
+                remove
+            );
         }
     }
 }

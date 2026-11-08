@@ -73,9 +73,11 @@ impl Agents {
         if live {
             self.shared.stop(ctx.actor.clone(), id).await?;
         }
-        self.shared
-            .rail()
-            .set_pair(crate::rail::agent_id(id)?, pair.model.as_deref(), pair.effort.as_deref())?;
+        self.shared.rail().set_pair(
+            crate::rail::agent_id(id)?,
+            pair.model.as_deref(),
+            pair.effort.as_deref(),
+        )?;
         if live {
             let bound = match kind {
                 NodeKind::Workstream => START_DOOR_ACK_BOUND,

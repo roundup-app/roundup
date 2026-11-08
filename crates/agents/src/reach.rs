@@ -198,7 +198,10 @@ impl crate::Agents {
             })
         };
         if let Some(agent) = waiting {
-            let name = self.shared.rail().name(crate::rail::agent_id(&agent.to_string())?)?;
+            let name = self
+                .shared
+                .rail()
+                .name(crate::rail::agent_id(&agent.to_string())?)?;
             return Err(RpcError::forbidden(format!(
                 "{name} waits on the user in its Terminal"
             )));

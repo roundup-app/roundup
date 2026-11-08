@@ -255,7 +255,12 @@ impl Shared {
         let rail = self.rail();
         let runs = self.runs();
         let finished = finished_of(&rail, id)?;
-        self.present(rail.node(crate::rail::agent_id(id)?)?, &runs, &rail, finished)
+        self.present(
+            rail.node(crate::rail::agent_id(id)?)?,
+            &runs,
+            &rail,
+            finished,
+        )
     }
 
     pub(super) fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
@@ -351,7 +356,10 @@ impl Agents {
             ActorKind::Agent => {
                 ctx.actor.id == id
                     || match crate::rail::agent_id(&ctx.actor.id) {
-                        Ok(door) => self.shared.rail().spawned_under(crate::rail::agent_id(&id)?, door)?,
+                        Ok(door) => self
+                            .shared
+                            .rail()
+                            .spawned_under(crate::rail::agent_id(&id)?, door)?,
                         Err(_) => false,
                     }
             }
@@ -368,10 +376,10 @@ impl Agents {
                 self.rail_name(&id)?
             )));
         }
-        let node = self
-            .shared
-            .rail()
-            .set_order(crate::rail::agent_id(&id)?, &order, captured.as_ref())?;
+        let node =
+            self.shared
+                .rail()
+                .set_order(crate::rail::agent_id(&id)?, &order, captured.as_ref())?;
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         if ctx.actor.id != id {

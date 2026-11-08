@@ -177,7 +177,10 @@ impl Rail {
         Ok(())
     }
 
-    pub(crate) fn closed_recovery_ready(&self, preparing: Option<AgentId>) -> Result<(), StoreError> {
+    pub(crate) fn closed_recovery_ready(
+        &self,
+        preparing: Option<AgentId>,
+    ) -> Result<(), StoreError> {
         let cause: Option<String> = self
             .db
             .query_row(

@@ -396,7 +396,10 @@ impl Intake {
                         },
                     },
                     Err(err) => {
-                        self.agents.shared.rail().remove(crate::rail::agent_id(&workstream)?)?;
+                        self.agents
+                            .shared
+                            .rail()
+                            .remove(crate::rail::agent_id(&workstream)?)?;
                         ctx.emit(EventData::RailChanged);
                         part.placement = match part.placement {
                             Place::New { title, project, .. } => Place::New {
