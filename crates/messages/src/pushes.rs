@@ -351,11 +351,28 @@ pub(crate) fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> (String, Pa
     )
 }
 
+tokio::task_local! {
+    /// Set while this task holds the ledger, so a nested `release` does not wait on its holder.
+    static LEDGER_HELD: ();
+}
+
 /// B21, B22: accepts one changed entry, retaining it until its Door can receive it.
 ///
 /// DTC2: a quiet entry (`waking` false) is stored and starts no turn; a waking one, the report or
 /// end note of a child, is never made quiet, whatever Wake request the Door holds; `release_quiet` writes it with the next Message the Door takes.
 pub(crate) async fn push(
+    inner: &Arc<Inner>,
+    meta: &str,
+    subagent: &str,
+    entry: &DigestEntry,
+    waking: bool,
+) {
+    LEDGER_HELD
+        .scope((), push_held(inner, meta, subagent, entry, waking))
+        .await;
+}
+
+async fn push_held(
     inner: &Arc<Inner>,
     meta: &str,
     subagent: &str,
@@ -407,9 +424,22 @@ pub(crate) fn release_quiet<'a>(
 }
 
 async fn release(inner: &Arc<Inner>, door: &str, turn_start: bool) {
-    let Ok(mut ledger) = inner.pushes.try_lock() else {
-        return;
+    // A call beneath a ledger holder in this task is that holder's own rollup being delivered: it
+    // sends its own. Any other call waits for a concurrent push, whose entries it then carries out.
+    let mut ledger = if LEDGER_HELD.try_with(|()| ()).is_ok() {
+        let Ok(ledger) = inner.pushes.try_lock() else {
+            return;
+        };
+        ledger
+    } else {
+        inner.pushes.lock().await
     };
+    LEDGER_HELD
+        .scope((), release_held(inner, door, turn_start, &mut ledger))
+        .await;
+}
+
+async fn release_held(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger: &mut Ledger) {
     let Some(slot) = ledger.metas.get_mut(door) else {
         return;
     };
@@ -437,6 +467,10 @@ async fn release(inner: &Arc<Inner>, door: &str, turn_start: bool) {
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
 pub(crate) async fn flush(inner: &Arc<Inner>) {
+    LEDGER_HELD.scope((), flush_held(inner)).await;
+}
+
+async fn flush_held(inner: &Arc<Inner>) {
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
     for slot in ledger.metas.values_mut() {
