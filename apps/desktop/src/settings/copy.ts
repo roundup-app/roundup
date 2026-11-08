@@ -98,8 +98,10 @@ export const copy = {
   recordingMark: "●",
   recordShortcut: "Press a shortcut",
   shortcutRefusal: (chord: string, action: string) => `${chord} is already ${action}.`,
-  keysUnknownAction: (name: string) => `${name}: no action has this name`,
-  keysSharedPress: (press: string, other: string) => `${press} is also the key of ${other}`,
+  /** @prose */
+  keysUnknownAction: (name: string) => `${name} is not an action.`,
+  /** @prose */
+  keysSharedPress: (press: string, other: string) => `${press} is also the key of ${other}.`,
   shortcutModifier: "Use one key with ⌘ or ⌃.",
   findKey: "Find a key",
   saveToFile: "Save to file…",
