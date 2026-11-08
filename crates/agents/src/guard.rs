@@ -135,6 +135,53 @@ pub fn marker(environ: &[OsString]) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// One process of the machine's list, before any marker is read.
+pub struct Proc {
+    pub pid: u32,
+    pub parent: Option<u32>,
+    pub start: u64,
+    pub name: String,
+    pub memory: u64,
+}
+
+/// AMG5: the Agents' processes among `procs`. A Daemon an Agent started inherits the Agent's
+/// marker, so `own` and every process descended from it is unmarked, whatever its environment.
+pub fn read(
+    procs: &[Proc],
+    own: u32,
+    claudes: &HashSet<u32>,
+    mut mark: impl FnMut(&Proc) -> Option<String>,
+) -> Vec<Reading> {
+    let parents: HashMap<u32, Option<u32>> = procs.iter().map(|p| (p.pid, p.parent)).collect();
+    let in_daemon = |mut pid: u32| {
+        // The step bound keeps a cyclic parent table from looping.
+        for _ in 0..parents.len() {
+            if pid == own {
+                return true;
+            }
+            match parents.get(&pid) {
+                Some(Some(parent)) => pid = *parent,
+                _ => return false,
+            }
+        }
+        false
+    };
+    procs
+        .iter()
+        .filter(|p| !in_daemon(p.pid))
+        .filter_map(|p| {
+            let agent = mark(p)?;
+            Some(Reading {
+                pid: p.pid,
+                agent: Some(agent),
+                memory: p.memory,
+                protected: claudes.contains(&p.pid) || p.name == "claude",
+                name: p.name.clone(),
+            })
+        })
+        .collect()
+}
+
 /// The real machine: `sysinfo` for processes and environments, `pidrusage` for macOS footprints.
 pub struct Live {
     system: System,
@@ -163,29 +210,27 @@ impl Source for Live {
         );
         let claudes = (self.claudes)();
         let own = std::process::id();
-        let mut live = HashSet::new();
-        let mut readings = Vec::new();
-        let found: Vec<(Pid, u64, String, u64)> = self
+        let found: Vec<Proc> = self
             .system
             .processes()
             .iter()
             // Linux lists each thread as a process sharing its process's RSS; counting them
             // would charge one Agent's memory once per thread.
             .filter(|(_, p)| p.thread_kind().is_none())
-            .map(|(pid, p)| {
-                (
-                    *pid,
-                    p.start_time(),
-                    p.name().to_string_lossy().into_owned(),
-                    p.memory(),
-                )
+            .map(|(pid, p)| Proc {
+                pid: pid.as_u32(),
+                parent: p.parent().map(Pid::as_u32),
+                start: p.start_time(),
+                name: p.name().to_string_lossy().into_owned(),
+                memory: p.memory(),
             })
             .collect();
-        for (pid, start, name, rss) in found {
-            let id = pid.as_u32();
-            live.insert((id, start));
-            let system = &mut self.system;
-            let agent = self.marks.agent(id, start, || {
+        let live: HashSet<(u32, u64)> = found.iter().map(|p| (p.pid, p.start)).collect();
+        let marks = &mut self.marks;
+        let system = &mut self.system;
+        let mut readings = read(&found, own, &claudes, |p| {
+            marks.agent(p.pid, p.start, || {
+                let pid = Pid::from_u32(p.pid);
                 system.refresh_processes_specifics(
                     ProcessesToUpdate::Some(&[pid]),
                     false,
@@ -195,17 +240,12 @@ impl Source for Live {
                     .process(pid)
                     .map(|p| p.environ().to_vec())
                     .unwrap_or_default()
-            });
-            if agent.is_none() {
-                continue;
+            })
+        });
+        for r in &mut readings {
+            if let Some(f) = footprint(r.pid) {
+                r.memory = f;
             }
-            readings.push(Reading {
-                pid: id,
-                agent,
-                memory: footprint(id).unwrap_or(rss),
-                protected: id == own || claudes.contains(&id) || name == "claude",
-                name,
-            });
         }
         self.marks.keep(&live);
         Sample {
@@ -431,6 +471,27 @@ mod tests {
         );
         assert_eq!(reads, 2);
         assert_eq!(marker(&[OsString::from("ROUNDUP_AGENT_ID=3")]), None);
+    }
+
+    #[test]
+    fn amg5_a_daemon_started_by_an_agent_and_its_children_are_unmarked() {
+        let proc = |pid, parent, name: &str, memory| Proc {
+            pid,
+            parent: Some(parent),
+            start: 1,
+            name: name.into(),
+            memory,
+        };
+        let procs = vec![
+            proc(10, 1, "rupd", GB),
+            proc(11, 10, "rup", 40 * GB),
+            proc(12, 11, "helper", 40 * GB),
+            proc(20, 1, "python3", 40 * GB),
+        ];
+        let got = read(&procs, 10, &HashSet::new(), |_| Some("N".into()));
+        assert_eq!(got.iter().map(|r| r.pid).collect::<Vec<_>>(), vec![20]);
+        assert_eq!(got[0].agent.as_deref(), Some("N"));
+        assert_eq!(decide(&got, 32 * GB, 1), vec![20]);
     }
 
     struct Counting(Arc<Mutex<(usize, Vec<std::thread::ThreadId>)>>);
