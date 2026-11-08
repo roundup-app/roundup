@@ -16,7 +16,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
 import { CHORDS, type ActionValue } from "../keys/chords";
-import { captureActions, registerKeys } from "../keys/registry";
+import { captureActions, modalOpen, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
@@ -28,6 +28,7 @@ import { createRailMenu } from "./menu/model";
 import { ancestorsOf, descendantsOf, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW, type RowActions } from "./rows";
+import { strandedFocus } from "../keys/stranded";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
@@ -561,15 +562,21 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     onCleanup(() => document.removeEventListener("click", clear, true));
   });
 
+  /** U6829b: a row key acts on the focused row, or on the clicked (selected) row while a click has left focus on the page body. */
+  const idAt = (focus: Element | null): string | undefined => focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id
+    : focus === document.body && !modalOpen() ? rail.selected() ?? undefined : undefined;
+
+  const keyedRowId = (press: KeyboardEvent): string | undefined => focusedRowId(press) ?? (strandedFocus(press) && !press.repeat ? idAt(document.body) : undefined);
+
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
-    { action: CHORDS["rail.move"], when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
-      const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+    { action: CHORDS["rail.move"], when: press => moveAgent.available(keyedRowId(press)), capture: focus => {
+      const id = idAt(focus);
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
-    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
-      const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === keyedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
+      const id = idAt(focus);
 
       return {
         available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "workstream" && !!node.opening_prompt?.trim()),
@@ -595,14 +602,17 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     { action: CHORDS["rail.remove"], capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
-  registerKeys({ kind: "region", element: container }, [{ action: CHORDS["rail.rename"], capture: focus => {
-    const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+  const rename = (when?: (press: KeyboardEvent) => boolean) => ({ action: CHORDS["rail.rename"], ...when && { when }, capture: (focus: Element | null) => {
+    const id = idAt(focus);
 
     return {
-      available: () => !!id && !!focus?.isConnected && !focus.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
+      available: () => !!id && !!focus?.isConnected && !focus?.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
       invoke: () => { if (id) setEditingName(id); },
     };
-  } }]);
+  } });
+
+  registerKeys({ kind: "region", element: container }, [rename()]);
+  registerKeys({ kind: "app" }, [rename(press => strandedFocus(press) && !press.repeat)]);
 
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(

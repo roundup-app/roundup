@@ -1,8 +1,9 @@
 import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
-import { CHORDS, TEXT_FIELDS } from "../keys/chords";
+import { CHORDS, TEXT_FIELDS, chordsOf } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
+import { strandedFocus } from "../keys/stranded";
 import type { ActivationSource, KeyScope } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
 
@@ -17,7 +18,28 @@ export const shelfRowKeys = <Id,>(props: {
   focused: () => Id | undefined;
   remove: (id: Id) => void;
   exportPad?: (id: Id) => void;
+  /** U6829a: the clicked row while focus is stranded on the page body, and the row's own arrow handler. */
+  clicked?: () => Id | undefined;
+  move?: (id: Id, event: KeyboardEvent) => void;
 }) => {
+  registerKeys({ kind: "app" }, [
+    { chords: chordsOf(CHORDS["todo.delete"]), when: event => canShelfKey(event) && strandedFocus(event, ".shelf") && props.clicked?.() !== undefined, run: () => {
+      const id = props.clicked?.();
+
+      if (id !== undefined) props.remove(id);
+    } },
+    { chords: chordsOf(CHORDS["todo.export"]), when: event => canShelfKey(event) && strandedFocus(event, ".shelf") && props.clicked?.() !== undefined && props.exportPad !== undefined, run: () => {
+      const id = props.clicked?.();
+
+      if (id !== undefined) props.exportPad?.(id);
+    } },
+    { chords: ["ArrowUp", "ArrowDown"], when: event => canShelfKey(event) && strandedFocus(event, ".shelf") && props.clicked?.() !== undefined, run: event => {
+      const id = props.clicked?.();
+
+      if (id !== undefined) props.move?.(id, event);
+    } },
+  ]);
+
   registerKeys(shelfKeyScope, ["D", "E"].map(keys => {
     const capture = (focus: Element | null) => {
       const id = props.focused();

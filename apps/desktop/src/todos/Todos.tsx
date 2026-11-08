@@ -218,7 +218,7 @@ export const Todos = (props: {
     reveal: () => setUnfolded(true),
   });
 
-  shelfRowKeys({ focused: selection.focused, remove: id => bulk.ask(false, id) });
+  shelfRowKeys({ focused: selection.focused, clicked: selection.clicked, move: (id, event) => { if (!bulk.pending()) selection.move(id, event); }, remove: id => bulk.ask(false, id) });
 
   const selectionKey = (todo: Todo, event: KeyboardEvent) => {
     bulk.key(event);

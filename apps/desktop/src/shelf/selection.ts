@@ -121,6 +121,14 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   return {
     afterRemoval,
     focused: () => ids().find(id => rowOf(id) === document.activeElement),
+    /** U6829a: the row a click chose when the webview left focus off it. */
+    clicked: () => {
+      const [only, ...more] = selected();
+      const row = only === undefined || more.length > 0 ? undefined : rowOf(only);
+
+      return row?.isConnected && !row.closest("[hidden], [inert]") ? only : undefined;
+    },
+    move: (id: Id, event: KeyboardEvent) => key(id, event),
     selected, clear, click, key, toggle,
     cancel: () => { const row = rowOf(selected()[0]!); clear(); row?.focus(); },
     replace: (values: readonly Id[]) => setSelected([...new Set(values)]),

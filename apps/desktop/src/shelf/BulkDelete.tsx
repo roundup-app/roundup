@@ -9,18 +9,13 @@ import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
+import { strandedFocus } from "../keys/stranded";
 
 export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean>; /** U3730: the scope line, where the tab's one add control sits. */ scope: Accessor<HTMLElement | undefined> }>();
 
 type Target<Id> = { id: Id; label: string; owner?: Actor | null | undefined };
 
 type Question<Id> = { kind: "question" | "pending"; targets: readonly Target<Id>[]; done: boolean };
-
-/** A click can leave focus on the page body or a Shelf control rather than the row (the webview does not focus a clicked button). */
-const strandedFocus = (event: KeyboardEvent): boolean => event.target instanceof Element && !event.isComposing
-  && (event.target === document.body || event.target.closest(".shelf") !== null)
-  && !event.target.closest("input, textarea, select, [contenteditable], .todo-blocker, .drawer, [role=dialog], [role=alertdialog], [role=menu]")
-  && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]');
 
 /** U3787a: dispatch the frozen set immediately; retain failed rows after readback. */
 export const createBulkDelete = <Id,>(props: {
@@ -167,7 +162,7 @@ export const createBulkDelete = <Id,>(props: {
     }
   };
 
-  registerKeys({ kind: "app" }, [{ chords: ["Backspace"], when: event => props.selected().length > 0 && strandedFocus(event), run: key }]);
+  registerKeys({ kind: "app" }, [{ chords: ["Backspace"], when: event => props.selected().length > 0 && strandedFocus(event, ".shelf"), run: key }]);
   registerKeys(shelfKeyScope, [
     { chords: ["Escape"], when: event => props.selected().length > 0 && !(event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")), run: key },
     { chords: ["Backspace"], when: event => props.selected().length > 0 && event.target instanceof Element && event.target.closest(".shelf-bulk") !== null, run: key },
