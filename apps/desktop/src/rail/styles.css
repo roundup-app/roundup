@@ -136,7 +136,8 @@
 }
 
 .rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.rail-row .row-status-age { flex: none; }
+/* pre keeps the separator's leading space, which a flex item would collapse. */
+.rail-row .row-status-age { flex: none; white-space: pre; }
 /* The name keeps its width first, up to most of the row; the status is the only part that shrinks. */
 .rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 70%; }
 /* Too narrow for a few label characters beside the whole age: the row stays at the name. */
