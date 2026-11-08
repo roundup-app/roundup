@@ -315,7 +315,7 @@ impl Agents {
         if let Some(lean) = &request.lean {
             Launcher::save_lean(&self.dir, &node.id, lean)?;
         }
-        let attempt = rail.allocate_attempt(&node.id)?;
+        let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;
         self.shared.mark_starting(&node.id, attempt.clone());
         if request.by_user_named {
             rail.set_user_named(&node.id)?;
@@ -372,6 +372,7 @@ impl Agents {
                     cwd,
                     command: Some(command),
                     env: BTreeMap::new(),
+                    unset: Vec::new(),
                     cols: size.cols,
                     rows: size.rows,
                 },
@@ -553,7 +554,7 @@ impl Agents {
             lean: Launcher::load_lean(&self.dir, id)?,
         };
         let started = attempt.to_owned();
-        let (argv, env) = self
+        let (argv, env, unset) = self
             .launcher
             .launch_on(&claude_code::Request {
                 folders: claude_code::Folders {
@@ -570,7 +571,18 @@ impl Agents {
             .await?;
         self.retain_worktree(id).await?;
         let spawned = match self
-            .spawn_behind(id, cwd, Some(argv), env, attach, size)
+            .spawn_behind(
+                id,
+                TerminalSpawn {
+                    cwd: cwd.to_string_lossy().into_owned(),
+                    command: Some(argv),
+                    env,
+                    unset,
+                    cols: size.0,
+                    rows: size.1,
+                },
+                attach,
+            )
             .await
         {
             Ok(spawned) => spawned,
@@ -591,23 +603,10 @@ impl Agents {
     pub(super) async fn spawn_behind(
         &self,
         id: &str,
-        cwd: &Path,
-        command: Option<Vec<String>>,
-        env: BTreeMap<String, String>,
+        spawn: TerminalSpawn,
         attach: Attach,
-        size: (u16, u16),
     ) -> Result<terminal::Spawned, RpcError> {
-        let spawned = self
-            .shared
-            .terminals
-            .spawn(TerminalSpawn {
-                cwd: cwd.to_string_lossy().into_owned(),
-                command,
-                env,
-                cols: size.0,
-                rows: size.1,
-            })
-            .await?;
+        let spawned = self.shared.terminals.spawn(spawn).await?;
         if attach == Attach::Now {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
             let attached = attached
@@ -632,7 +631,7 @@ impl Agents {
         let (attempt, prompt) = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
-            let attempt = rail.allocate_attempt(id)?;
+            let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
             let prompt = order::first_input(
                 first,
                 node.work.as_ref(),

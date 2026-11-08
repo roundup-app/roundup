@@ -143,6 +143,10 @@ async fn apply_status(
     label: &str,
 ) -> Result<(), Error> {
     let at = (attempt.get(), revision.get());
+    if kind == Kind::Working {
+        // DTC2: a turn the user's prompt starts takes the quiet notes waiting for it.
+        crate::pushes::release_quiet(inner, agent, true).await;
+    }
     // StopFailure ends a turn, not its Terminal. Read authoritative liveness so a late
     // error cannot reopen an exited Attempt or close a resumed one.
     // A Door's pending Messages outlive its Attempts: read the Rail where an ending or a new
@@ -289,6 +293,7 @@ async fn on_idle(
     at: store::Binding,
     pick: Pick,
 ) -> Result<(), Error> {
+    crate::pushes::release_quiet(inner, agent, false).await;
     // Preserve physical write order through comparison, inbox write and durable history.
     let _delivery = inner.delivery.write().await;
     let state = match inner.inbox.get() {

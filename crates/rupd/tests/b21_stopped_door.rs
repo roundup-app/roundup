@@ -226,7 +226,8 @@ impl Run {
         .await;
     }
 
-    async fn assert_silent(&self) {
+    /// Every comparison the Daemon has begun is complete, and so is each push it made.
+    async fn compared(&self) {
         // Consume stderr through the same comparison acknowledgement before asserting absence.
         wait(|| {
             self.log
@@ -241,6 +242,10 @@ impl Run {
                     .count()
         })
         .await;
+    }
+
+    async fn assert_silent(&self) {
+        self.compared().await;
         let attempts =
             std::fs::read_to_string(self.dir.path().join("attempts")).unwrap_or_default();
         assert!(
@@ -495,13 +500,12 @@ fn weight(message: &Value) -> u32 {
     }
 }
 
-fn advance(run: &Run, milliseconds: i64) {
-    let next = run.dir.path().join("clock.next");
-    std::fs::write(&next, milliseconds.to_string()).unwrap();
-    std::fs::rename(next, run.dir.path().join("clock")).unwrap();
+async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
+    accounted_when(run, after, |kept| kept == expected).await
 }
 
-async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
+/// The Digests after `after` once the changes they keep satisfy `enough`.
+async fn accounted_when(run: &Run, after: u64, enough: impl Fn(u32) -> bool) -> Vec<Value> {
     tokio::time::timeout(BOUND, async {
         loop {
             let messages: Vec<_> = run
@@ -515,7 +519,7 @@ async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
                 .filter(|m| m["status"] != "dropped")
                 .map(weight)
                 .sum();
-            if kept == expected {
+            if enough(kept) {
                 return messages;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -549,6 +553,8 @@ async fn delivered(events: &mut Client, id: u64) {
 /// B5168f: these changes are only new open Todos, so their Digests are held until a Message is
 /// delivered; a note to the Door delivers them with it.
 async fn release(run: &Run, events: &mut Client) {
+    // A quiet change still being compared would miss this Message's rollup.
+    run.compared().await;
     let note = run
         .user
         .request(
@@ -602,27 +608,10 @@ async fn changed_children_under_caps() {
         run.change(&format!("setup {i}")).await;
     }
     eprintln!("B21/B22: setup changes compared");
-    advance(&run, 60_000);
-    // message.sent is emitted after the fake-clock flush records the setup rollup.
-    let setup = tokio::time::timeout(BOUND, async {
-        loop {
-            let event = events
-                .next_event()
-                .await
-                .expect("Daemon event connection open");
-            if let EventData::MessageSent(message) = event.data
-                && message.to == run.door
-                && message.at == 60_000
-                && message.body.starts_with("[digest]")
-            {
-                break u64::from(message.id);
-            }
-        }
-    })
-    .await
-    .expect("setup rollup sent at the fake-clock window's end");
-    let _ = setup;
+    // DTC2: the changes are quiet; the Message the Door takes carries them out as one rollup.
     release(&run, &mut events).await;
+    // The setup's own spawns are changes too, so the rollup keeps at least the twenty Todos.
+    accounted_when(&run, 0, |kept| kept >= 20).await;
     let base = run
         .digests()
         .await
@@ -631,8 +620,6 @@ async fn changed_children_under_caps() {
         .max()
         .unwrap();
     eprintln!("B21/B22: setup rollup observed");
-    advance(&run, 120_000);
-    // Eight pushes use up this window before the Door is stopped.
     for i in 0..8 {
         let todo = children[0]
             .1
@@ -649,9 +636,9 @@ async fn changed_children_under_caps() {
             })
         })
         .await;
-        accounted(&run, base, i + 1).await;
     }
     release(&run, &mut events).await;
+    accounted(&run, base, 8).await;
     eprintln!("B21/B22: eight live pushes delivered");
     run.stop_door().await;
     for i in 0..10 {
@@ -678,14 +665,21 @@ async fn changed_children_under_caps() {
             .iter()
             .filter(|m| m["id"].as_u64().unwrap() > base)
             .count(),
-        8
+        1
     );
     run.start_door().await;
-    // The full window still caps the restart. Only advancing time releases its newest entries.
-    advance(&run, 180_000);
+    // The stopped Door's quiet notes wait for its next Message; one rollup carries them out.
+    release(&run, &mut events).await;
     let messages = accounted(&run, base, 18).await;
     eprintln!("B21/B22: stopped changes released");
-    let rollup = messages.iter().find(|m| m["at"] == 180_000).unwrap();
+    let rollup = messages
+        .iter()
+        .find(|m| {
+            m["body"]
+                .as_str()
+                .is_some_and(|b| b.starts_with("[digest] [10 updates kept back]"))
+        })
+        .unwrap();
     assert!(
         rollup["body"]
             .as_str()
@@ -702,10 +696,8 @@ async fn changed_children_under_caps() {
                 .any(|line| line == format!("  open todos: {count}"))
         );
     }
-    let mut all = messages;
-    // Bring the total to B22(c)'s 100 changes; each tick ends the preceding cap window.
+    // Bring the total to B22(c)'s 100 changes, all quiet until the next Message.
     for i in 0..82 {
-        advance(&run, 240_000 + i64::from(i) * 60_000);
         let todo = children[i as usize % 4]
             .1
             .request("todo.create", json!({"title":format!("burst {i}")}))
@@ -721,10 +713,9 @@ async fn changed_children_under_caps() {
             })
         })
         .await;
-        all = accounted(&run, base, 19 + i).await;
-        eprintln!("B21/B22: {} changes accounted", 19 + i);
-        assert!(all.iter().filter(|m| m["status"] == "pending").count() <= 20);
     }
+    release(&run, &mut events).await;
+    let all = accounted(&run, base, 100).await;
     assert_eq!(
         all.iter()
             .filter(|m| m["status"] != "dropped")
@@ -733,15 +724,6 @@ async fn changed_children_under_caps() {
         100
     );
     for message in &all {
-        let at = message["at"].as_i64().unwrap();
-        assert!(
-            all.iter()
-                .filter(
-                    |m| m["at"].as_i64().unwrap() > at - 60_000 && m["at"].as_i64().unwrap() <= at
-                )
-                .count()
-                <= 8
-        );
         run.user
             .request("message.get", json!({"id":message["id"]}))
             .await
@@ -988,3 +970,11 @@ async fn subscribe(run: &Run) -> Client {
     events.request("events.subscribe", json!({})).await.unwrap();
     events
 }
+
+#[path = "support/dcl10d_waking_replay.rs"]
+mod dcl10d_waking_replay;
+#[path = "support/dtc2_quiet_notes.rs"]
+mod dtc2_quiet_notes;
+
+#[path = "support/dtc3_one_turn.rs"]
+mod dtc3_one_turn;

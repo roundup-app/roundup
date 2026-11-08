@@ -435,7 +435,10 @@ async fn u3787a_coordinator_rollback_keeps_the_original_operation_retryable() {
     let mut db = rusqlite::Connection::open(w._dir.path().join("project.db")).unwrap();
     {
         let tx = db.transaction().unwrap();
-        let id: contracts::pad::DeletionId = serde_json::from_value(deletion_id(&receipt)).unwrap();
+        let mut id: contracts::pad::DeletionId =
+            serde_json::from_value(deletion_id(&receipt)).unwrap();
+        // The ledger stores a client's key in its own half (P9b).
+        id.operation = format!("client:{}", id.operation);
         let (restored, changed) = pads::restore(&tx, &contracts::Actor::user(), &id).unwrap();
         assert!(changed);
         assert_eq!(serde_json::to_value(restored.pad).unwrap(), pad);

@@ -206,18 +206,9 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
     let mut project = daemon::start_real("dcl7_restart_resumes_only_jobs_selected_by_door", &[]);
     let (door, job, consult) = door_with_children(&project, true).await;
     model_saw(&project, "[stopped]").await;
+    begin_second_turn(&project, &job).await;
     let before = project.model.as_ref().unwrap().journal().len();
-
-    let claude = daemon::aimock::routed_claude(project.dir.path());
-    let home = project.dir.path().join("home");
-    let url = project.model.as_ref().unwrap().url.clone();
-    project.crash();
-    project.restart(&[
-        ("ROUNDUP_CLAUDE_BIN", claude.to_str().unwrap()),
-        ("HOME", home.to_str().unwrap()),
-        ("CLAUDE_CODE_OAUTH_TOKEN", ""),
-        ("AIMOCK_URL", &url),
-    ]);
+    quit_and_relaunch(&mut project).await;
     let user = project.client().await;
     let tree = project.rail_tree(&user).await;
     let node = |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).cloned().unwrap();
@@ -226,20 +217,192 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
     assert!(job_before.terminal_id.is_none() && consult_before.terminal_id.is_none());
     assert_eq!(project.model.as_ref().unwrap().journal().len(), before);
 
+    start_door_again(&user, &door).await;
+    // (b) The Door's start text holds the open-Job snapshot, and only the Job is resumed, by the
+    // Door's own call.
+    model_saw(&project, "[open jobs]").await;
+    model_saw(&project, &format!("- {job} open-job (attempt 1)")).await;
+    resume_result(&project).await;
+    // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
+    daemon::h21_poll("the resumed Job's new Attempt", async || {
+        let tree = project.rail_tree(&user).await;
+        (node(&tree, &job).attempt != job_before.attempt).then_some(())
+    })
+    .await;
+    let tree = project.rail_tree(&user).await;
+    let consult_after = node(&tree, &consult);
+    assert_eq!(consult_after.attempt, consult_before.attempt);
+    assert!(consult_after.terminal_id.is_none());
+}
+
+/// DCR4: a quit cuts off one Job mid-turn while another has reported; after the relaunch the Door
+/// calls `agent_resume` without `mode` and only the cut-off Job carries on.
+#[tokio::test]
+async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
+    let mut project = daemon::start_real("dcr4_relaunch_carries_on_the_cut_off_job_only", &[]);
+    let (door, job, _) = door_with_children(&project, false).await;
+    let reported = reported_job(&project, &door).await;
+    model_saw(&project, "[stopped]").await;
+    begin_second_turn(&project, &job).await;
+    quit_and_relaunch(&mut project).await;
+    let user = project.client().await;
+    let node = |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).cloned().unwrap();
+    let tree = project.rail_tree(&user).await;
+    let (job_before, reported_before) = (node(&tree, &job), node(&tree, &reported));
+
+    start_door_again(&user, &door).await;
+    model_saw(&project, "[open jobs]").await;
+    resume_result(&project).await;
+    // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
+    daemon::h21_poll("the resumed Job's new Attempt", async || {
+        let tree = project.rail_tree(&user).await;
+        (node(&tree, &job).attempt != job_before.attempt).then_some(())
+    })
+    .await;
+    let tree = project.rail_tree(&user).await;
+    // The reported Job is not launched again and the start note never names it.
+    let reported_after = node(&tree, &reported);
+    assert_eq!(reported_after.attempt, reported_before.attempt);
+    assert!(reported_after.terminal_id.is_none());
+    // The Door's history only grows, so earlier requests keep any earlier snapshot; the start
+    // note is the last message that carries one.
+    let start_note = project
+        .model
+        .as_ref()
+        .unwrap()
+        .journal()
+        .iter()
+        .rev()
+        .flat_map(|entry| entry["body"]["messages"].as_array().unwrap().iter().rev())
+        .map(|message| message.to_string())
+        .find(|message| message.contains("[open jobs]"))
+        .expect("the Door's history holds a start note");
+    assert!(
+        start_note.contains(&format!("- {job} ")),
+        "the start note lists the cut-off Job: {start_note}"
+    );
+    assert!(
+        !start_note.contains(&format!("- {reported} ")),
+        "the start note names the reported Job: {start_note}"
+    );
+}
+
+/// DCR4: the Job's own process reports from inside its Claude tree, the only place the Daemon
+/// takes a report from.
+const JOB_REPORT: &str = r#"import hashlib,json,os,socket,time
+id=os.environ['ROUNDUP_AGENT']
+s=socket.socket(socket.AF_UNIX);s.settimeout(10);s.connect(os.environ['RUPD_SOCKET']);f=s.makefile('rb')
+n=0
+def call(method,p):
+ global n
+ n+=1;s.sendall((json.dumps({'jsonrpc':'2.0','id':n,'method':method,'params':p})+'\n').encode())
+ while True:
+  r=json.loads(f.readline())
+  if r.get('id')==n:
+   assert 'result' in r,r
+   return r['result']
+call('daemon.identify',{'actor':{'kind':'agent','id':id,'parent':None}})
+end=time.monotonic()+10
+while True:
+ ins=call('agent.instructions',{'id':id})
+ ds=[d for d in ins['deliveries'] if d['state']=='submitted']
+ if ds:break
+ assert time.monotonic()<end,'no submitted instruction'
+ time.sleep(.05)
+text=b'job output'
+open(os.path.join(ins['project'],'output.txt'),'wb').write(text)
+pub=call('deliverable.publish',{'key':'out','title':'Output','target':{'kind':'file','path':'output.txt'}})
+call('message.report',{'project':ins['project'],'id':id,'key':'out','delivery':ds[-1]['id'],'target':{'id':'out','revision':'v1'},'output':{'project':pub['project'],'id':pub['id']},'result':'Done.','next':'','state':'reported','check':{'kind':'publication','sha256':hashlib.sha256(text).hexdigest()}})
+"#;
+
+/// DCR4: a Job that sent its report: it finished a turn and published its output.
+async fn reported_job(project: &Project, door: &str) -> String {
+    let as_door = client_as(project, actor(ActorKind::Agent, door)).await;
+    std::fs::write(project.dir.path().join("report-job.py"), JOB_REPORT).unwrap();
+    // The Project's settings pin the permission mode; allow only the reporting script.
+    std::fs::write(
+        project.dir.path().join(".claude/settings.json"),
+        json!({"permissions": {"defaultMode": "default", "allow": ["Bash(python3 report-job.py)"]}})
+            .to_string(),
+    )
+    .unwrap();
+    let id = as_door
+        .request(
+            "agent.spawn",
+            json!({"name": "reported-job", "parent": door, "cwd": project.dir.path(),
+                "role": "job", "prompt": "Report the one thing.",
+                "order": {"kind": "work", "ask": "Report the one thing.", "limits": []}}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let report = project
+        .model
+        .as_ref()
+        .unwrap()
+        .tool_result("toolu_dcr4_report")
+        .await;
+    assert!(
+        report["is_error"] != true,
+        "the Job's report failed: {report}"
+    );
+    let user = project.client().await;
+    daemon::h21_poll("the reporting Job to finish its turn", async || {
+        let tree = project.rail_tree(&user).await;
+        tree.iter()
+            .any(|n| {
+                n.id == id
+                    && n.status
+                        .as_ref()
+                        .is_some_and(|s| s.kind == contracts::Kind::Idle)
+            })
+            .then_some(())
+    })
+    .await;
+    id
+}
+
+/// DCL7a, DCR4: the Job begins a second turn that the quit interrupts.
+async fn begin_second_turn(project: &Project, job: &str) {
+    daemon::signal(
+        &project.client().await,
+        job,
+        json!({"hook_event_name": "UserPromptSubmit"}),
+    )
+    .await;
+}
+
+/// DCL7a, DCR4: the App quits and relaunches with the routed fake Claude.
+async fn quit_and_relaunch(project: &mut Project) {
+    let claude = daemon::aimock::routed_claude(project.dir.path());
+    let home = project.dir.path().join("home");
+    let url = project.model.as_ref().unwrap().url.clone();
+    project.close().await;
+    project.restart(&[
+        ("ROUNDUP_CLAUDE_BIN", claude.to_str().unwrap()),
+        ("HOME", home.to_str().unwrap()),
+        ("CLAUDE_CODE_OAUTH_TOKEN", ""),
+        ("AIMOCK_URL", &url),
+    ]);
+}
+
+/// DCL7a, DCR4: the Door starts again; its first batch carries the snapshot.
+async fn start_door_again(user: &::rpc::Client, door: &str) {
     user.request("rail.startDoor", json!({ "id": door }))
         .await
         .unwrap();
-    // The first batch of the new Attempt carries the snapshot.
     user.request(
         "message.send",
         json!({"to": door, "kind": "note", "body": "Where do things stand?"}),
     )
     .await
     .unwrap();
-    // (b) The Door's start text holds the open-Job snapshot, and only the Job is resumed, by the
-    // Door's own call.
-    model_saw(&project, "[open jobs]").await;
-    model_saw(&project, &format!("- {job} open-job (attempt 1)")).await;
+}
+
+/// DCL7a, DCR4: the Door's own `agent_resume` call, with no `mode`, was accepted.
+async fn resume_result(project: &Project) {
     let result = project
         .model
         .as_ref()
@@ -247,9 +410,4 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
         .tool_result("toolu_dcl7_resume")
         .await;
     assert!(result["is_error"] != true, "{result}");
-    let tree = project.rail_tree(&user).await;
-    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
-    let consult_after = node(&tree, &consult);
-    assert_eq!(consult_after.attempt, consult_before.attempt);
-    assert!(consult_after.terminal_id.is_none());
 }

@@ -3,6 +3,7 @@ import type { Ask } from "./ask/Ask";
 import type { AutoParams } from "./workstream/AutoParams";
 import type { ChannelEvent } from "./agent/ChannelEvent";
 import type { Completion } from "./Completion";
+import type { ConfigProblem } from "./config/ConfigProblem";
 import type { Deliverable } from "./deliverable/Deliverable";
 import type { ExitedEvent } from "./terminal/ExitedEvent";
 import type { ExtensionProblem } from "./action/ExtensionProblem";
@@ -66,5 +67,9 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 /**  UA7: the User actions changed (a load, reload or removal); read `action.userList`. */
 { "name": "action.userChanged" } | 
 /**  UA2, UA6, UA8: an Extension failed; the App shows one Toast. */
-{ "name": "extension.problem", "data": ExtensionProblem };
+{ "name": "extension.problem", "data": ExtensionProblem } | 
+/**  MC40, MC41: the Config's look or keys changed; read `config.read`. */
+{ "name": "config.changed" } | 
+/**  MC40, MC41: a Config file was refused; the App shows one Toast. */
+{ "name": "config.problem", "data": ConfigProblem };
 

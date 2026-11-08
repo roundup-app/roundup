@@ -14,7 +14,6 @@ use std::sync::{Arc, Mutex, PoisonError};
 use super::vendor_list::Sidecar;
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
-use shlex::try_quote;
 use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
@@ -30,9 +29,6 @@ use super::profiles::profile;
 /// LC14: the one line a Door shows when its bundle lacks the `intent` skill.
 pub const INTENT_MISSING: &str =
     "roundup: hope's intent skill is missing; this Door runs without it.";
-
-/// F4: what the shim for a vendor program prints on stderr before it exits 1.
-const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
 
 /// The hook events that carry state. Notification and SubagentStop are left out on purpose: the
 /// first arrives about 6 s late, the second fires spuriously (ADR 0006). H15's replay rule would
@@ -84,6 +80,8 @@ pub struct Launcher {
     user_defaults: BTreeSet<&'static str>,
     /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
     lacks_intent: bool,
+    /// MC43: the user's `door.md`, read at each Door launch and added after roundup's Brief.
+    door_file: Option<PathBuf>,
     pub(crate) fork_session: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
@@ -190,6 +188,7 @@ impl Launcher {
             import_observer: None,
             bin: bin.into(),
             claude_json,
+            door_file: home.as_ref().map(|home| home.join(".roundup/door.md")),
             rup,
             home,
             user_defaults: BTreeSet::new(),
@@ -201,6 +200,13 @@ impl Launcher {
             modes: Arc::default(),
             overviews: Arc::default(),
         }
+    }
+
+    /// MC43: this Launcher reading the Door's extra instructions from `file`.
+    #[must_use]
+    pub fn with_door_file(mut self, file: PathBuf) -> Self {
+        self.door_file = Some(file);
+        self
     }
 
     /// LC14: this Launcher for a bundle without `hope`'s `intent` skill. The pinned bundle holds
@@ -293,7 +299,7 @@ impl Launcher {
             Err(err) if err.kind() != ErrorKind::NotFound => return Err(err),
             _ => {}
         }
-        remove_shims(dir, id)
+        Ok(())
     }
 
     /// The names LC7 resolves against, for a Project at `project`.

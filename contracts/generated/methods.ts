@@ -52,6 +52,7 @@ import type { SubscribeParams as common_SubscribeParams } from "./SubscribeParam
 import type { SubscribeResult as common_SubscribeResult } from "./SubscribeResult";
 import type { Touch as common_Touch } from "./Touch";
 import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
+import type { ConfigState as config_ConfigState } from "./config/ConfigState";
 import type { ForkParams as data_ForkParams } from "./data/ForkParams";
 import type { ForkResult as data_ForkResult } from "./data/ForkResult";
 import type { Deliverable as deliverable_Deliverable } from "./deliverable/Deliverable";
@@ -73,6 +74,8 @@ import type { SetBodyParams as github_SetBodyParams } from "./github/SetBodyPara
 import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { ShortcutFileExport as link_ShortcutFileExport } from "./link/ShortcutFileExport";
+import type { AddParams as machine_AddParams } from "./machine/AddParams";
+import type { Machine as machine_Machine } from "./machine/Machine";
 import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
 import type { ListParams as message_ListParams } from "./message/ListParams";
 import type { Message as message_Message } from "./message/Message";
@@ -291,6 +294,8 @@ export type RpcMethods = {
   "daemon.getNaming": { params: null; result: project_NamingSettings };
   "daemon.setNaming": { params: project_NamingSettings; result: null };
   "data.fork": { params: data_ForkParams; result: data_ForkResult };
+  "machine.list": { params: null; result: machine_Machine[] };
+  "machine.add": { params: machine_AddParams; result: machine_Machine[] };
   "skill.status": { params: null; result: skill_SkillFiles };
   "skill.setup": { params: null; result: skill_SkillFiles };
   "skill.remove": { params: null; result: skill_SkillFiles };
@@ -315,6 +320,7 @@ export type RpcMethods = {
   "action.serve": { params: null; result: null };
   "action.list": { params: null; result: action_ActionRow[] };
   "action.userList": { params: null; result: action_ActionRow[] };
+  "config.read": { params: null; result: config_ConfigState };
   "action.run": { params: action_RunParams; result: action_RunResult };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };

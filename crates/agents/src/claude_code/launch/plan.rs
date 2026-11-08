@@ -20,18 +20,16 @@ use brief::Role;
 
 /// The facts of one launch that `write` reads before the plan is made.
 pub(super) struct Facts {
-    /// The user's and Project's settings, with the output style defaulted.
+    /// The user's and Project's settings, read to decide roundup's own keys, never written.
     pub carried: Value,
+    /// The `outputStyle` roundup defaults when no source sets one.
+    pub output_style: Option<String>,
     pub missing_intent: bool,
     pub delivery: extras::Delivery,
     /// The Write|Edit guard a Door or Scout adds to `PreToolUse`.
     pub memory_hooks: Vec<Value>,
     /// The Agent's `PATH`.
     pub path: OsString,
-    /// The Project's `CLAUDE.md` files a lean Brief carries, as read.
-    pub instructions: Vec<String>,
-    /// LC5: the user's global `CLAUDE.md`, as read.
-    pub global_instructions: Option<String>,
     /// The mode Claude Code takes when none is chosen.
     pub inherited_mode: String,
     pub socket: PathBuf,
@@ -100,13 +98,6 @@ fn settings(spec: &Spec<'_>, facts: &Facts) -> Result<Value, RpcError> {
                 .collect::<Vec<_>>()
         );
     }
-    if spec.lean.is_some() {
-        // LC17: the Brief carries each `CLAUDE.md` as LC1 lists it; Claude Code loads none.
-        own["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] = json!("1");
-    }
-    for (key, value) in spec.facts.env() {
-        own["env"][key] = json!(value);
-    }
     if spec.lean.is_none() {
         let command = own["hooks"]["SessionStart"][0]["hooks"][1]["command"]
             .as_str()
@@ -120,8 +111,11 @@ fn settings(spec: &Spec<'_>, facts: &Facts) -> Result<Value, RpcError> {
             try_quote(brief).map_err(RpcError::internal)?
         ));
     }
-    let mut settings = facts.carried.clone();
-    super::super::launch_files::merge_settings(&mut settings, own);
+    // A3507b: only roundup's own keys; Claude Code loads the user's sources itself.
+    let mut settings = own;
+    if let Some(style) = &facts.output_style {
+        settings["outputStyle"] = json!(style);
+    }
     if spec.facts.permission == Permission::Bypass {
         settings["skipDangerousModePermissionPrompt"] = json!(true);
         // Roundup has already checked its Route and actor authority. Claude's
@@ -222,16 +216,17 @@ fn brief(spec: &Spec<'_>, facts: &Facts) -> String {
     if facts.missing_intent {
         brief = brief::without_intent(&brief);
     }
-    if profile(spec.role).global_instructions
-        && let Some(text) = &facts.global_instructions
+    // MC43: the file only adds after roundup's own text; an unreadable or empty one adds nothing.
+    if spec.role == Role::Door
+        && let Some(text) = spec
+            .launcher
+            .door_file
+            .as_ref()
+            .and_then(|file| std::fs::read_to_string(file).ok())
+            .filter(|text| !text.trim().is_empty())
     {
-        brief.push_str("\n## The user's global instructions (read-only)\n\n");
-        brief.push_str(text);
-        brief.push('\n');
-    }
-    for text in &facts.instructions {
-        brief.push_str("\n## The Project's instructions (read-only)\n\n");
-        brief.push_str(text);
+        brief.push_str("\n\n");
+        brief.push_str(text.trim_end());
         brief.push('\n');
     }
     brief

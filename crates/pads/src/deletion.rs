@@ -55,6 +55,20 @@ fn operation(
 /// existing Project write transaction. No event or file effect is started here.
 /// Rail coordination must retain before removing the row and commit its file guard last.
 pub fn retain(db: &Transaction, actor: &Actor, p: &DeleteParams) -> Result<Deletion, Error> {
+    retain_as(db, actor, p, p.operation.as_str())
+}
+
+/// A client's key lives in its own half of the ledger: P9b, so it never meets a cascade key.
+fn client_key(operation: &str) -> String {
+    format!("client:{operation}")
+}
+
+fn retain_as(
+    db: &Transaction,
+    actor: &Actor,
+    p: &DeleteParams,
+    key: &str,
+) -> Result<Deletion, Error> {
     name::validate(&p.name)?;
     let pad = source(db, &p.name)
         .map_err(Error::internal)?
@@ -89,7 +103,7 @@ pub fn retain(db: &Transaction, actor: &Actor, p: &DeleteParams) -> Result<Delet
             serde_json::from_str(&names).map_err(Error::internal)?,
         );
     db.execute("INSERT INTO pad_deletions(operation,actor,request,record,incarnation,pad_key) VALUES(?1,?2,?3,?4,?5,(SELECT key FROM pads WHERE key=?6))",
-        rusqlite::params![receipt.operation, serde_json::to_string(actor).map_err(Error::internal)?,
+        rusqlite::params![key, serde_json::to_string(actor).map_err(Error::internal)?,
             serde_json::to_string(p).map_err(Error::internal)?, serde_json::to_string(&record).map_err(Error::internal)?,
             pad.incarnation.parse::<i64>().map_err(Error::internal)?, store::key(&pad.name)]).map_err(Error::internal)?;
     Ok(receipt)
@@ -181,9 +195,10 @@ impl Pads {
         let (receipt, changed) = store.atomically(|tx| {
             let actor = serde_json::to_string(&ctx.actor).map_err(Error::internal)?;
             let request = serde_json::to_string(&p).map_err(Error::internal)?;
-            match ledger::retain(tx, Ledger::Pads, &actor, &p.operation, &request) {
+            let key = client_key(&p.operation);
+            match ledger::retain(tx, Ledger::Pads, &actor, &key, &request) {
                 Ok(Retained::Replay(_)) => {
-                    let (receipt, _) = operation(tx, &p.operation, &ctx.actor)?
+                    let (receipt, _) = operation(tx, &key, &ctx.actor)?
                         .ok_or_else(|| Error::internal("deletion receipt vanished"))?;
                     return Ok((receipt, false));
                 }
@@ -198,7 +213,7 @@ impl Pads {
                 }
                 Err(Refusal::Sql(error)) => return Err(Error::internal(error)),
             }
-            let receipt = retain(tx, &ctx.actor, &p)?;
+            let receipt = retain_as(tx, &ctx.actor, &p, &key)?;
             let pad = &receipt.pad;
             store
                 .record_deletion(&pad.name, cause)
@@ -228,7 +243,9 @@ impl Pads {
                 return Err(Error::forbidden("deletion belongs to another Project"));
             }
             let request = serde_json::to_string(&p).map_err(Error::internal)?;
-            if let Some((receipt, previous)) = operation(&store.db, &p.operation, &ctx.actor)? {
+            if let Some((receipt, previous)) =
+                operation(&store.db, &client_key(&p.operation), &ctx.actor)?
+            {
                 if previous != request {
                     return Err(Error::conflict(
                         "deletion operation already used with different targets",
@@ -241,7 +258,7 @@ impl Pads {
                 &ctx.actor,
                 &DeletionId {
                     project: p.project.clone(),
-                    operation: p.restored_operation.clone(),
+                    operation: client_key(&p.restored_operation),
                 },
             )?;
             if !prior.restored || prior.pad.incarnation != p.expected_incarnation {
@@ -275,7 +292,8 @@ impl Pads {
                     "Pad mirror has external edits; import them before retrying Redo",
                 ));
             }
-            let receipt = retain(
+            let key = client_key(&p.operation);
+            let receipt = retain_as(
                 tx,
                 &ctx.actor,
                 &DeleteParams {
@@ -283,12 +301,13 @@ impl Pads {
                     operation: OperationKey::new(p.operation.as_str()).map_err(Error::internal)?,
                     expected_incarnation: Some(current.incarnation),
                 },
+                &key,
             )?;
             store
                 .db
                 .execute(
                     "UPDATE pad_deletions SET request=?1 WHERE operation=?2",
-                    rusqlite::params![request, p.operation],
+                    rusqlite::params![request, key],
                 )
                 .map_err(Error::internal)?;
             store
@@ -313,7 +332,7 @@ impl Pads {
         id: GetDeletionParams,
     ) -> Result<Deletion, Error> {
         let store = self.store()?;
-        let receipt = operation(&store.db, &id.operation, &ctx.actor)?
+        let receipt = operation(&store.db, &client_key(&id.operation), &ctx.actor)?
             .map(|(receipt, _)| receipt)
             .ok_or_else(|| Error::not_found("Pad deletion operation"))?;
         Ok(receipt)
@@ -324,6 +343,10 @@ impl Pads {
         let store = self.store()?;
         let mut mirror = None;
         let (receipt, changed) = store.atomically(|tx| {
+            let id = DeletionId {
+                operation: client_key(&id.operation),
+                ..id.clone()
+            };
             let (receipt, changed) = restore(tx, &ctx.actor, &id)?;
             if changed && store.files().map_err(Error::internal)? {
                 mirror = Some(super::files::restore(

@@ -188,25 +188,13 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             _ => None,
         })
         .await;
-    // Bind the receipt to the final idle Digest, not an earlier status of the child.
-    let idle_digest = project
-        .next_named(
-            "the Digest B37 child is idle queued for the Door",
-            &mut events,
-            |data| match data {
-                EventData::MessageSent(m)
-                    if m.to == door
-                        && m.body.contains("[digest] B37 child is idle")
-                        && m.body.contains("open todos: 1") =>
-                {
-                    Some(m)
-                }
-                _ => None,
-            },
-        )
-        .await;
-    // B5168f: if an earlier idle Digest was already delivered, this one is quiet. Explicit
-    // setup input carries it without requiring that routine progress start another model turn.
+    // DTC2: the child's idle Digest is quiet; it waits in the ledger until a Message reaches the Door.
+    daemon::h21_poll("the child's idle Digest in the Door's ledger", async || {
+        let ledger = user.request("message.list", json!({"to":door})).await;
+        let ledger = ledger.ok()?.to_string();
+        (ledger.contains("B37 child is idle") && ledger.contains("open todos: 1")).then_some(())
+    })
+    .await;
     let setup = user
         .request(
             "message.send",
@@ -215,17 +203,32 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         .await
         .unwrap();
     let setup_id: u32 = serde_json::from_value(setup["id"].clone()).unwrap();
-    for id in [idle_digest.id, setup_id] {
-        project
-            .next_named(
-                "the idle Digest and setup input's transcript receipts",
-                &mut events,
-                |data| match data {
-                    EventData::MessageDelivered(m) if m.id == id => Some(()),
-                    _ => None,
-                },
-            )
-            .await;
+    // Bind the receipt to the final idle Digest, not an earlier status of the child.
+    let idle_digest = project
+        .next_named(
+            "the Digest B37 child is idle queued for the Door",
+            &mut events,
+            |data| match data {
+                EventData::MessageSent(m)
+                    if m.to == door
+                        && m.body.contains("B37 child is idle")
+                        && m.body.contains("open todos: 1") =>
+                {
+                    Some(m)
+                }
+                _ => None,
+            },
+        )
+        .await;
+    // DTC2: the setup note has the lower id, so take the two receipts in either order.
+    let mut awaited = vec![idle_digest.id, setup_id];
+    while !awaited.is_empty() {
+        let found = project.next_named("receipts", &mut events, |data| match data {
+            EventData::MessageDelivered(m) if awaited.contains(&m.id) => Some(m.id),
+            _ => None,
+        });
+        let got = found.await;
+        awaited.retain(|id| *id != got);
     }
     // B50(c): transcript receipts can follow the turn's idle edge, so poll the Rail instead
     // of waiting for another idle event that may never follow.
@@ -340,16 +343,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             .any(|m| {
                 m["role"] == "user" && m["content"].to_string().contains("B37 child is needs-you")
             }),
-        "Door request sequence: {:#?}",
-        journal
-            .iter()
-            .filter(|e| &e["headers"]["x-claude-code-session-id"] == identity)
-            .map(
-                |e| json!({"stream": e["body"]["stream"], "response": e["response"],
-                "users": e["body"]["messages"].as_array().unwrap().iter()
-                    .filter(|m| m["role"] == "user").collect::<Vec<_>>()})
-            )
-            .collect::<Vec<_>>()
+        "Door request sequence: {journal:#?}"
     );
 }
 

@@ -12,6 +12,7 @@ mod removal;
 mod row;
 mod settings;
 mod view;
+use crate::id::AgentId;
 use error::StoreError;
 pub use lookup::{home_in, is_home_in, maker_in, registered_in};
 pub(crate) use row::NewAgent;
@@ -25,6 +26,11 @@ use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 
 const GONE_AGENT: &str = "an Agent that is gone";
+
+/// The one parse of a wire id; a string that is no `AgentId` names no node.
+pub(crate) fn agent_id(id: &str) -> Result<AgentId, StoreError> {
+    AgentId::parse(id).ok_or_else(|| StoreError::not_found(GONE_AGENT))
+}
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
 pub struct Rail {
@@ -290,8 +296,8 @@ impl Rail {
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
         let present: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=?)",
-            [id],
+            "SELECT EXISTS(SELECT 1 FROM nodes WHERE id=?)",
+            [AgentId::parse(id).map(AgentId::get)],
             |row| row.get(0),
         )?;
         if !present {
@@ -337,8 +343,11 @@ impl Rail {
         )?)
     }
 
-    pub fn allocate_attempt(&mut self, id: &str) -> Result<contracts::agent::Ordinal, StoreError> {
-        let next = match self.node(id)?.attempt {
+    pub fn allocate_attempt(
+        &mut self,
+        id: AgentId,
+    ) -> Result<contracts::agent::Ordinal, StoreError> {
+        let next = match self.node(&id.to_string())?.attempt {
             Some(previous) => previous
                 .next()
                 .ok_or_else(|| StoreError::internal("Attempt exhausted"))?,
@@ -346,7 +355,7 @@ impl Rail {
         };
         self.db.execute(
             "UPDATE nodes SET attempt = ?, cut_off = 0 WHERE id = ?",
-            params![next.get(), id],
+            params![next.get(), id.get()],
         )?;
         Ok(next)
     }
@@ -433,8 +442,8 @@ impl Rail {
     pub fn name(&self, id: &str) -> Result<String, StoreError> {
         Ok(self.db
             .query_row(
-                "SELECT name FROM nodes WHERE id = ?1 AND CAST(id AS TEXT) = ?1 AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (agent=nodes.id OR workstream=nodes.id))",
-                [id],
+                "SELECT name FROM nodes WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (agent=nodes.id OR workstream=nodes.id))",
+                [AgentId::parse(id).map(AgentId::get)],
                 |row| row.get::<_, String>(0),
             )
             .optional()?

@@ -19,7 +19,22 @@
     },
     {
       "match": {
-        "userMessage": "[digest]",
+        "userMessage": "Where do things stand?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_dcl7_resume",
+            "name": "mcp__roundup__agent_resume",
+            "arguments": "{\"id\": \"open-job\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[stopped]",
         "hasToolResult": false
       },
       "response": {
@@ -28,22 +43,7 @@
     },
     {
       "match": {
-        "userMessage": "[open jobs]",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "toolu_dcl7_resume",
-            "name": "mcp__roundup__agent_resume",
-            "arguments": "{\"id\": \"open-job\", \"mode\": \"normal\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "[stopped]",
+        "userMessage": "[digest]",
         "hasToolResult": false
       },
       "response": {

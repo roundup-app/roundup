@@ -5,7 +5,6 @@
 mod daemon;
 #[path = "e2e/door_mcp.rs"]
 mod door_mcp;
-use daemon::start_door;
 #[path = "e2e/notes.rs"]
 mod notes;
 #[path = "e2e/public_discovery.rs"]
@@ -23,7 +22,7 @@ use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
 use daemon::{
     Project, TEN_IDLE_BOUND, entry_of, h21_poll, next, next_kind, rail_tree, signal, start,
-    wait_until_idle,
+    start_door, wait_until_idle,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -761,12 +760,12 @@ async fn digest_pushes(client: &rpc::Client, to: &str) -> Vec<(Value, Value)> {
         .unwrap()
         .iter()
         .filter(|message| message["from"]["id"] == "rupd")
-        .map(|message| {
+        .flat_map(|message| {
             let body = message["body"].as_str().unwrap();
-            let entry = body
-                .strip_prefix("[digest] ")
-                .expect("body is [digest] and an entry");
-            (message.clone(), entry_of(entry))
+            daemon::rollup_entries(body)
+                .into_iter()
+                .map(|text| (message.clone(), entry_of(&text)))
+                .collect::<Vec<_>>()
         })
         .collect()
 }
@@ -777,13 +776,14 @@ async fn push_where(
     to: &str,
     want: impl Fn(&Value, &Value) -> bool,
 ) -> (Value, Value) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let (deadline, mut polls) = (Instant::now() + Duration::from_secs(5), 0_u32);
     loop {
         let pushes = digest_pushes(client, to).await;
         if let Some(found) = pushes.iter().rev().find(|(m, e)| want(m, e)) {
             return found.clone();
         }
         assert!(Instant::now() < deadline, "no such push yet: {pushes:?}");
+        notes::carry_quiet_notes(client, to, &mut polls).await;
         tokio::time::sleep(Duration::from_millis(25)).await;
     }
 }
@@ -2238,28 +2238,28 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     assert_eq!(d8_listing(project.dir.path()), files_before);
 }
 
-/// Threads and CPU seconds the Daemon has used, from `/proc`.
+/// Threads and CPU ticks the Daemon has used, less AMG4's once-a-second sampler thread.
 #[cfg(target_os = "linux")]
 fn d8_daemon_work(pid: u32) -> (u64, u64) {
-    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).unwrap();
-    let threads = status
-        .lines()
-        .find_map(|l| l.strip_prefix("Threads:"))
+    let (mut threads, mut ticks) = (0, 0);
+    for task in std::fs::read_dir(format!("/proc/{pid}/task"))
         .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
-    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
-    let fields: Vec<u64> = stat
-        .rsplit_once(')')
-        .unwrap()
-        .1
-        .split_whitespace()
-        .skip(11)
-        .take(2)
-        .map(|f| f.parse().unwrap())
-        .collect();
-    (threads, fields[0] + fields[1])
+        .flatten()
+    {
+        let read = |f: &str| std::fs::read_to_string(task.path().join(f));
+        let (Ok(name), Ok(stat)) = (read("comm"), read("stat")) else {
+            continue;
+        };
+        let fields = stat.rsplit_once(')').unwrap().1.split_whitespace().skip(11);
+        if name.trim() != "memory-guard" {
+            threads += 1;
+            ticks += fields
+                .take(2)
+                .map(|f| f.parse::<u64>().unwrap())
+                .sum::<u64>();
+        }
+    }
+    (threads, ticks)
 }
 
 #[cfg(target_os = "linux")]

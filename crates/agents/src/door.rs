@@ -308,7 +308,7 @@ impl Agents {
                 }
             }
             rail.set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
-            let attempt = rail.allocate_attempt(id)?;
+            let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
             self.shared.events.observed.notify_waiters();
             runs.put(
                 id,

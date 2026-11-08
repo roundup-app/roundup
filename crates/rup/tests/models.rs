@@ -325,10 +325,7 @@ async fn a36_a_calls_pair_beats_the_projects() {
     let launch = run.launches_after(1).remove(0);
     assert!(argv_has(&launch, "--model", "opus"), "{launch}");
     assert!(argv_has(&launch, "--effort", "low"), "{launch}");
-    assert_eq!(
-        launch["env"],
-        json!({ "ANTHROPIC_MODEL": "opus", "CLAUDE_CODE_EFFORT_LEVEL": "low" })
-    );
+    assert_eq!(launch["env"], json!({}), "a pin goes in argv only");
 }
 
 #[tokio::test]
@@ -343,10 +340,10 @@ async fn a36_a_set_effort_beats_the_daemons_variable() {
         .await;
 
     let launch = run.launches_after(1).remove(0);
-    assert_eq!(
-        launch["env"],
-        json!({ "ANTHROPIC_MODEL": "sonnet", "CLAUDE_CODE_EFFORT_LEVEL": "max" })
-    );
+    assert!(argv_has(&launch, "--model", "sonnet"), "{launch}");
+    assert!(argv_has(&launch, "--effort", "max"), "{launch}");
+    // The Effort variable beats `--effort`, so it is removed; the flag beats `ANTHROPIC_MODEL`.
+    assert_eq!(launch["env"], json!({ "ANTHROPIC_MODEL": "other" }));
 }
 
 #[tokio::test]
@@ -361,9 +358,10 @@ async fn a36_an_unset_value_leaves_the_daemons_variable() {
 
     let launch = run.launches_after(1).remove(0);
     assert!(argv_lacks(&launch, "--effort"));
+    assert!(argv_has(&launch, "--model", "sonnet"), "{launch}");
     assert_eq!(
         launch["env"],
-        json!({ "ANTHROPIC_MODEL": "sonnet", "CLAUDE_CODE_EFFORT_LEVEL": "low" })
+        json!({ "ANTHROPIC_MODEL": "other", "CLAUDE_CODE_EFFORT_LEVEL": "low" })
     );
 }
 
@@ -539,7 +537,7 @@ async fn a37_a_confirmed_change_makes_one_launch_with_resume_and_the_new_model()
         "00000000-0000-4000-8000-000000000036"
     ));
     assert!(argv_has(resumed, "--model", "opus"));
-    assert_eq!(resumed["env"]["ANTHROPIC_MODEL"], "opus");
+    assert_eq!(resumed["env"], json!({}));
 }
 
 #[tokio::test]

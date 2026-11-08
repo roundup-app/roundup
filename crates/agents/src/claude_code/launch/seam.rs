@@ -6,16 +6,10 @@ use super::*;
 impl Launcher {
     /// A3507a: process-free Agent launch construction, shared by starts and resumes.
     pub fn command_on(&self, request: &Request<'_>) -> Result<std::process::Command, RpcError> {
-        let Request {
-            id,
-            cwd,
-            role,
-            facts: pair,
-            ..
-        } = *request;
+        let Request { id, cwd, .. } = *request;
         let argv = self.prepare_on(request)?;
         let mut command = std::process::Command::new(&argv[0]);
-        command.args(&argv[1..]).current_dir(cwd).envs(pair.env());
+        command.args(&argv[1..]).current_dir(cwd);
         let settings: Value =
             serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
                 .map_err(RpcError::internal)?;
@@ -32,8 +26,9 @@ impl Launcher {
         for marker in super::super::MARKERS {
             command.env_remove(marker);
         }
-        if lean_of(role, pair).is_some() {
-            command.env("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
+        // A36: the variable beats `--effort`, so a pinned Effort clears the Daemon's.
+        if request.facts.effort.is_some() {
+            command.env_remove(super::super::models::EFFORT_VARIABLE);
         }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
@@ -52,7 +47,7 @@ impl Launcher {
     pub async fn launch_on(
         &self,
         request: &Request<'_>,
-    ) -> Result<(Vec<String>, BTreeMap<String, String>), RpcError> {
+    ) -> Result<(Vec<String>, BTreeMap<String, String>, Vec<String>), RpcError> {
         let Request {
             folders,
             id,
@@ -98,6 +93,12 @@ impl Launcher {
             .chain(command.get_args())
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect::<Vec<_>>();
+        // Names the launch removes from the Daemon's environment, for the terminal spawn.
+        let unset: Vec<String> = command
+            .get_envs()
+            .filter(|(_, value)| value.is_none())
+            .map(|(key, _)| key.to_string_lossy().into_owned())
+            .collect();
         let mut env: BTreeMap<String, String> = command
             .get_envs()
             .filter_map(|(key, value)| {
@@ -139,9 +140,9 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
-        let settings: Value =
-            serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
-                .map_err(RpcError::internal)?;
+        // The user's own sources decide, since the launch's settings file holds only roundup's keys.
+        let settings =
+            user_settings(&self.conversation_dir, folders.project).map_err(RpcError::internal)?;
         let missing_intent = self.door_lacks_intent(role, &settings, folders.project);
         // LC5: a user's enabled install takes precedence over the bundled plugin of the same name.
         let args: Vec<_> = command.get_args().collect();
@@ -169,7 +170,7 @@ impl Launcher {
             lean.fresh_brief = false;
             Self::save_lean(folders.data, &id_text, &lean)?;
         }
-        Ok((argv, env))
+        Ok((argv, env, unset))
     }
 
     pub(super) fn executable(&self) -> Result<PathBuf, RpcError> {

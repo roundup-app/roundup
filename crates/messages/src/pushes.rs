@@ -4,7 +4,7 @@
 //! a weight, kept in its payload, and a rollup or a merge weighs what it holds.
 
 use crate::Error;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use contracts::Actor;
@@ -37,6 +37,9 @@ struct Slot {
     sent: VecDeque<i64>,
     /// The entries of the changes kept back, oldest first.
     waiting: Vec<(String, DigestEntry, u32)>,
+    /// DTC2: every waiting entry is quiet, so no clock sends it; the Door's next turn does.
+    #[serde(default)]
+    all_quiet: bool,
 }
 
 impl Ledger {
@@ -348,8 +351,35 @@ pub(crate) fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> (String, Pa
     )
 }
 
+tokio::task_local! {
+    /// Set while this task holds the ledger, so a nested `release` does not wait on its holder.
+    static IN_LEDGER: ();
+}
+
 /// B21, B22: accepts one changed entry, retaining it until its Door can receive it.
-pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: &DigestEntry) {
+///
+/// DTC2: a quiet entry (`waking` false) is stored and starts no turn; a waking one, the report or
+/// end note of a child, is never made quiet, whatever Wake request the Door holds; `release_quiet` writes it with the next Message the Door takes.
+pub(crate) async fn push(
+    inner: &Arc<Inner>,
+    meta: &str,
+    subagent: &str,
+    entry: &DigestEntry,
+    waking: bool,
+) {
+    IN_LEDGER
+        .scope((), push_locked(inner, meta, subagent, entry, waking))
+        .await;
+}
+
+async fn push_locked(
+    inner: &Arc<Inner>,
+    meta: &str,
+    subagent: &str,
+    entry: &DigestEntry,
+    waking: bool,
+) {
+    let quiet = !waking;
     // DCL4's observer ends the Daemon here, after the change was recorded as told and before it is
     // queued; the hook refuses nothing.
     let _ = crate::trip(inner, "push.queue");
@@ -358,6 +388,11 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
     slot.expire(now);
     let plain = slot.waiting.is_empty() && slot.sent.len() < PUSHES;
+    if slot.waiting.is_empty() {
+        slot.all_quiet = quiet;
+    } else if !quiet {
+        slot.all_quiet = false;
+    }
     let weight = slot
         .waiting
         .iter()
@@ -366,6 +401,9 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
     slot.waiting
         .push((subagent.to_owned(), entry.clone(), weight));
     ledger.persist(inner, Some((meta, subagent)));
+    if quiet {
+        return;
+    }
     let slot = ledger.metas.entry(meta.to_owned()).or_default();
     match crate::load_rail_nodes(inner).await {
         Ok(nodes) => roll_up(inner, meta, slot, now, plain, &nodes).await,
@@ -374,18 +412,80 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
     ledger.persist(inner, Some((meta, subagent)));
 }
 
+/// DTC2: a Door is about to take Messages, so the quiet entries waiting for it go out with them, as
+/// one rollup (B22) in the same inbox write. A busy ledger is a push in progress that sends its own.
+pub(crate) fn release_quiet<'a>(
+    inner: &'a Arc<Inner>,
+    door: &'a str,
+    turn_start: bool,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
+    // Boxed: the rollup it sends is delivered through `on_idle`, which calls this again.
+    Box::pin(release(inner, door, turn_start))
+}
+
+async fn release(inner: &Arc<Inner>, door: &str, turn_start: bool) {
+    // A call beneath a ledger holder in this task is that holder's own rollup being delivered: it
+    // sends its own. Any other call waits for a concurrent push, whose entries it then carries out.
+    let mut ledger = if IN_LEDGER.try_with(|()| ()).is_ok() {
+        let Ok(ledger) = inner.pushes.try_lock() else {
+            return;
+        };
+        ledger
+    } else {
+        inner.pushes.lock().await
+    };
+    IN_LEDGER
+        .scope((), release_locked(inner, door, turn_start, &mut ledger))
+        .await;
+}
+
+async fn release_locked(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger: &mut Ledger) {
+    let Some(slot) = ledger.metas.get_mut(door) else {
+        return;
+    };
+    if !slot.all_quiet || slot.waiting.is_empty() {
+        return;
+    }
+    // A Door turn the user's prompt starts takes the quiet notes though nothing else waits; a Door at
+    // rest takes them only with a Message, so quiet notes alone start no turn. A turn that starts
+    // with a Message pending is that Message's turn, already written: a quiet note arriving after
+    // the write stays stored, since a second Message would cost the Door a second turn.
+    let pending = lock(&inner.store)
+        .list_pending_to(door)
+        .is_ok_and(|pending| !pending.is_empty());
+    if turn_start == pending {
+        return;
+    }
+    slot.all_quiet = false;
+    let now = (inner.clock)();
+    slot.expire(now);
+    match crate::load_rail_nodes(inner).await {
+        Ok(nodes) => roll_up(inner, door, slot, now, false, &nodes).await,
+        Err(err) => crate::log_failure("push", &format!("{door}: {err}")),
+    }
+    ledger.persist(inner, None);
+}
+
 /// B22(a): at the window's end, the changes kept back go out as one Message.
 pub(crate) async fn flush(inner: &Arc<Inner>) {
+    IN_LEDGER.scope((), flush_locked(inner)).await;
+}
+
+async fn flush_locked(inner: &Arc<Inner>) {
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
     for slot in ledger.metas.values_mut() {
         slot.expire(now);
     }
-    if ledger.metas.values().any(|slot| !slot.waiting.is_empty()) {
+    if ledger
+        .metas
+        .values()
+        .any(|slot| !slot.waiting.is_empty() && !slot.all_quiet)
+    {
         match crate::load_rail_nodes(inner).await {
             Ok(nodes) => {
                 for (meta, slot) in &mut ledger.metas {
-                    if !slot.waiting.is_empty() {
+                    if !slot.waiting.is_empty() && !slot.all_quiet {
                         roll_up(inner, meta, slot, now, false, &nodes).await;
                     }
                 }
@@ -433,6 +533,7 @@ async fn roll_up(
         Ok(()) => {
             slot.sent.push_back(now);
             slot.waiting.clear();
+            slot.all_quiet = false;
         }
         Err(err) => crate::log_failure("push", &format!("{meta}: {}", err)),
     }
@@ -485,19 +586,29 @@ async fn send_digest(
 /// DCL10: per Door, the changes it has not received, read from storage: pending Messages
 /// (a pushed digest standing for its weight) plus the ledger's waiting entries, a change counted
 /// once when a pending digest already holds its entry.
-pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String, u32>, Error> {
+pub(crate) async fn waiting_counts(
+    inner: &Arc<Inner>,
+    with_quiet: bool,
+) -> Result<HashMap<String, u32>, Error> {
     let ledger = inner.pushes.lock().await;
-    let (pending, payloads) = {
+    let (pending, payloads, deferred) = {
         let store = lock(&inner.store);
         let pending = store.pending_all()?;
         let payloads = store.payloads(&pending)?;
-        (pending, payloads)
+        let deferred = if with_quiet {
+            HashSet::new()
+        } else {
+            deferred_digests_in(&store, &pending, &payloads)?
+        };
+        (pending, payloads, deferred)
     };
     let mut counts: HashMap<String, u32> = HashMap::new();
     let mut digested: HashMap<&str, Vec<DigestEntry>> = HashMap::new();
     for message in &pending {
         let payload = payloads.of(message);
-        *counts.entry(message.to.clone()).or_default() += payload.weight();
+        if !deferred.contains(&message.id) {
+            *counts.entry(message.to.clone()).or_default() += payload.weight();
+        }
         if payload.is_digest() {
             digested
                 .entry(&message.to)
@@ -506,6 +617,9 @@ pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String,
         }
     }
     for (door, slot) in &ledger.metas {
+        if slot.all_quiet && !with_quiet {
+            continue;
+        }
         let digested = digested.get(door.as_str());
         for (_, entry, weight) in &slot.waiting {
             if !digested.is_some_and(|digested| digested.contains(entry)) {
@@ -516,7 +630,32 @@ pub(crate) async fn waiting_counts(inner: &Arc<Inner>) -> Result<HashMap<String,
     Ok(counts)
 }
 
+/// DTC2: the pending digests no inbox write carries, which a Door at rest takes only with a
+/// Message that is no quiet digest (B5168f); the Message that settles a Workstream is such a one.
+fn deferred_digests_in(
+    store: &crate::store::Store,
+    pending: &[Message],
+    payloads: &Payloads,
+) -> Result<HashSet<u32>, Error> {
+    let mut deferred = HashSet::new();
+    for message in pending {
+        if payloads.of(message).is_digest() && !store.in_flight(message.id)? {
+            deferred.insert(message.id);
+        }
+    }
+    Ok(deferred)
+}
+
 impl Messages {
+    /// DTC2: the pending digests that wait for a Message to ride with, so that Message may be
+    /// sent without waiting for them.
+    pub async fn deferred_digests(&self) -> Result<HashSet<u32>, Error> {
+        let store = lock(&self.inner.store);
+        let pending = store.pending_all()?;
+        let payloads = store.payloads(&pending)?;
+        deferred_digests_in(&store, &pending, &payloads)
+    }
+
     /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
     /// not its mutable display name. Waiting changes compact to the newest entry per id while
     /// retaining their weight. A stopped Door waits until a successful start; a removed Door's
@@ -527,13 +666,20 @@ impl Messages {
         meta: &str,
         subagent: &str,
         entry: &contracts::agent::DigestEntry,
+        waking: bool,
     ) {
-        pushes::push(&self.inner, meta, subagent, entry).await
+        pushes::push(&self.inner, meta, subagent, entry, waking).await
     }
 
     /// DCL10: per Door, how many changes it has not received, read from the stored backlog.
     pub async fn waiting_counts(&self) -> Result<HashMap<String, u32>, Error> {
-        waiting_counts(&self.inner).await
+        waiting_counts(&self.inner, true).await
+    }
+
+    /// DTC2: `waiting_counts` without the quiet notes, which wait for a Message the Door takes
+    /// and so cannot be waited on by the Message that settles a Workstream.
+    pub async fn waiting_counts_unquiet(&self) -> Result<HashMap<String, u32>, Error> {
+        waiting_counts(&self.inner, false).await
     }
 }
 
@@ -562,6 +708,7 @@ mod tests {
             } else {
                 vec![]
             },
+            all_quiet: false,
         }
     }
 
@@ -614,8 +761,8 @@ mod tests {
         let mut stopped = live("stopped");
         stopped.terminal_id = None;
         lock(&rail.nodes).push(stopped);
-        push(&messages.inner, "stopped", "child-id", &entry()).await;
-        push(&messages.inner, "stopped", "child-id", &entry()).await;
+        push(&messages.inner, "stopped", "child-id", &entry(), true).await;
+        push(&messages.inner, "stopped", "child-id", &entry(), true).await;
         drop(messages);
         let (messages, _, _) = setup(dir.path());
         let ledger = messages.inner.pushes.lock().await;

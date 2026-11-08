@@ -134,7 +134,6 @@ impl Host {
             let folder = entry.path();
             let name = entry.file_name().to_string_lossy().into_owned();
             if !name.starts_with('.')
-                && folder.is_dir()
                 && let Some(print) = manifest::fingerprint(&folder)
             {
                 folders.insert(name, (folder, print));
@@ -202,8 +201,8 @@ impl Host {
         folder: PathBuf,
         print: String,
     ) {
-        let manifest = match manifest::read(&folder) {
-            Ok(manifest) => Arc::new(manifest),
+        let (folder, manifest) = match manifest::read(&folder) {
+            Ok((folder, manifest)) => (folder, Arc::new(manifest)),
             Err(cause) => {
                 self.problem(daemon, &folder_name, cause);
                 self.remember_failed(&folder_name, print);
@@ -378,6 +377,21 @@ impl Host {
         params: Value,
     ) -> Result<Value, RpcError> {
         let (permission, function) = path.split_once('.').unwrap_or((path, ""));
+        // MC45, MC46: no permission reaches an alert, a Message topic or a way to interrupt.
+        let topic = params
+            .as_str()
+            .or_else(|| params.get("topic").and_then(Value::as_str));
+        let refused = crate::attention::refusal(path).or_else(|| {
+            topic
+                .and_then(crate::attention::refusal)
+                .filter(|_| permission == "bus")
+        });
+        if let Some(cause) = refused {
+            return Err(RpcError::forbidden(format!(
+                "$.{path} of {}: {cause}",
+                manifest.name
+            )));
+        }
         if !manifest
             .permissions
             .iter()
