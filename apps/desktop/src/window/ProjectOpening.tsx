@@ -2,9 +2,9 @@ import "./ProjectOpening.css";
 import { createComputed, createSignal, Show } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import type { ProjectsState } from "../state/projects";
-import { RpcError, type ActionRequest, type ActionReply, type AppSeam } from "./seam";
+import { RpcError, type ActionRequest, type ActionReply, type AppSeam } from "../app/seam";
 import { withAppSettings } from "../settings/preferences";
-import { copy } from "./copy";
+import { copy } from "../app/copy";
 
 type ProjectRequest = Extract<ActionRequest, { method: "project.open" | "project.start" }>;
 

@@ -1,10 +1,10 @@
-import { copy as appCopy } from "./copy";
+import { copy as appCopy } from "../app/copy";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Pane } from "../terminal/Pane";
-import { RpcError } from "./seam";
+import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, node } from "../testing/nodes";
 

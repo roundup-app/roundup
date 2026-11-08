@@ -33,3 +33,29 @@ for (const [name, files, status, config] of [
     }
   });
 }
+
+for (const [name, files, baseline, status] of [
+  ['one-way directories', { 'a/x.ts': 'import { y } from "../b/y"; export const x = y;', 'b/y.ts': 'export const y = 0;' }, [], 0],
+  ['a new two-way pair', { 'a/x.ts': 'import { y } from "../b/y"; export const x = y;', 'b/y.ts': 'import { w } from "../a/w"; export const y = w;', 'a/w.ts': 'export const w = 0;' }, [], 1],
+  ['a baseline pair', { 'a/x.ts': 'import { y } from "../b/y"; export const x = y;', 'b/y.ts': 'import { w } from "../a/w"; export const y = w;', 'a/w.ts': 'export const w = 0;' }, ['a<>b'], 0],
+  ['a repaired baseline pair', { 'a/x.ts': 'export const x = 0;' }, ['a<>b'], 1],
+  ['a test crossing directories', { 'a/x.ts': 'import { y } from "../b/y.test"; export const x = y;', 'b/y.test.ts': 'import { w } from "../a/w"; export const y = w;', 'a/w.ts': 'export const w = 0;' }, [], 0],
+]) {
+  test(`t6497_directory_pairs_only_shrink: ${name}`, () => {
+    const root = mkdtempSync(join(tmpdir(), 'lint-dirs-'));
+
+    try {
+      mkdirSync(join(root, 'apps/desktop/src/a'), { recursive: true });
+      mkdirSync(join(root, 'apps/desktop/src/b'), { recursive: true });
+      mkdirSync(join(root, 'tools/lint'), { recursive: true });
+      writeFileSync(join(root, 'apps/desktop/tsconfig.json'), JSON.stringify({ compilerOptions: { jsx: 'preserve' } }));
+      writeFileSync(join(root, 'tools/lint/directory-pairs.json'), JSON.stringify(baseline));
+
+      for (const [path, source] of Object.entries(files)) writeFileSync(join(root, 'apps/desktop/src', path), source);
+      const result = spawnSync(process.execPath, [new URL('./cycles.mjs', import.meta.url).pathname, root], { encoding: 'utf8', timeout: 10000 });
+      assert.equal(result.status, status, result.stdout + result.stderr);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}

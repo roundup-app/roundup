@@ -5,7 +5,7 @@ import { DrawerHost } from "../drawer/DrawerHost";
 import { drawerSliding } from "../drawer/sliding";
 import { mountPane } from "../terminal/paneHarness";
 import { info, node } from "./nodes";
-import { Layout } from "../app/Layout";
+import { Layout } from "../window/Layout";
 import { createShelfTabs, ShelfTabs } from "../shelf/Shelf";
 import { Tabs } from "../ui/Tabs";
 import { createShelfFrame, type ShelfFrame } from "../shelf/frame";

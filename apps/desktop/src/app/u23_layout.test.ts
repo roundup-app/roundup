@@ -44,7 +44,7 @@ beforeAll(async () => {
       // replacing Layout, its children, width controls or Terminal implementation.
       enforce: "pre",
       resolveId: (id, importer) => {
-        if (id === "./app/Layout" && importer?.endsWith("/src/App.tsx")) return "\0u507-bound-layout.js";
+        if (id === "./window/Layout" && importer?.endsWith("/src/App.tsx")) return "\0u507-bound-layout.js";
 
         if (id === "./seeds" && importer?.endsWith("/src/testing/harness.tsx")) return "\0u507-seeds.js";
       },
@@ -61,7 +61,7 @@ export const seedApp = (...args) => {
 };` : id === "\0u507-bound-layout.js" ? `
 import { createComponent, mergeProps } from 'solid-js';
 import { useSplitter } from '@ark-ui/solid/splitter';
-import { Layout as RealLayout } from '/src/app/Layout.tsx';
+import { Layout as RealLayout } from '/src/window/Layout.tsx';
 export const Layout = (props) => {
   const bound = new URL(location.href).searchParams.has('bound');
   const api = useSplitter(() => ({ id: 'u507-app', panels: [{id:'rail'}, {id:'centre'}, {id:'shelf'}], defaultSize: [22.5,52.5,25] }));

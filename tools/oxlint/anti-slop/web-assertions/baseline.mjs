@@ -44,7 +44,11 @@ export function baselineErrors(root) {
   const object = base.stdout.trim() + ":" + baselinePath;
   const present = spawnSync("git", ["cat-file", "-e", object], { cwd: root, encoding: "utf8" });
   if (present.status === 0) {
-    const original = new Set(readBaseline(execFileSync("git", ["show", object], { cwd: root, encoding: "utf8" })).map(assertionKey));
+    // A test file the PR renamed keeps its entry at the new path.
+    const renames = new Map(execFileSync("git", ["diff", "--name-status", "-M", base.stdout.trim()], { cwd: root, encoding: "utf8" }).split("\n")
+      .filter(line => line.startsWith("R")).map(line => line.split("\t").slice(1)));
+    const original = new Set(readBaseline(execFileSync("git", ["show", object], { cwd: root, encoding: "utf8" }))
+      .map(entry => assertionKey({ ...entry, file: renames.get(entry.file) ?? entry.file })));
     for (const key of keys) if (!original.has(key)) errors.push("Added or broadened assertion baseline entry: " + key);
   }
   return errors;

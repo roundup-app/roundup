@@ -1,7 +1,7 @@
 import { KeyChip } from "../keys/KeyChip";
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { EmptyRail, ChooseProject } from "../app/FirstRun";
+import { EmptyRail, ChooseProject } from "../window/FirstRun";
 import { ariaChord, CHORDS, leaderKeys, LEADER, SHELF_KEYS, LEADER_ROWS } from "../keys/chords";
 import { createFakeApp } from "../testing/fakeApp";
 import { appSettings, saveAppSettings } from "../settings/preferences";

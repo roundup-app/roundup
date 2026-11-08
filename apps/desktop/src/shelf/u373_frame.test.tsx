@@ -2,7 +2,7 @@ import { batch } from "solid-js";
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
-import { Layout } from "../app/Layout";
+import { Layout } from "../window/Layout";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";

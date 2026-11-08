@@ -1,5 +1,5 @@
 import pRetry from "p-retry";
-import { createProjectOpening, ProjectOpening } from "./app/ProjectOpening";
+import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { historyRegion, returnFocus } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
@@ -20,14 +20,17 @@ import { copy } from "./app/copy";
 import "./buttons.css";
 import { batch, lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
-import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
-import { Layout } from "./app/Layout";
+import { ChooseProject, EmptyRail, EmptyShelf } from "./window/FirstRun";
+import { Layout } from "./window/Layout";
+import { createWindowFocus } from "./window/focus";
+import { createMenuWriter, projectMenuItems, TEXT_FIELD, undoAction, watchMenuBar } from "./window/menuBar";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tabs } from "./ui/Tabs";
-import { Reopen } from "./app/Reopen";
-import { createDropTargets } from "./app/dropTargets";
+import { Reopen } from "./window/Reopen";
+import { createDropTargets } from "./window/dropTargets";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
-import type { OpenRequest } from "./app/nativeOpen";
+import type { OpenRequest } from "./window/nativeOpen";
 import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
@@ -287,15 +290,9 @@ export const App = (props: {
     if (!textTarget(event.target)) event.preventDefault();
   };
 
-  onMount(() => {
-    onCleanup(documentMotion(props.reducedMotion));
-    window.addEventListener("contextmenu", suppressBrowserMenu);
-    window.addEventListener("pointerdown", clearBrowserSelection, true);
-  });
-  onCleanup(() => {
-    window.removeEventListener("contextmenu", suppressBrowserMenu);
-    window.removeEventListener("pointerdown", clearBrowserSelection, true);
-  });
+  onMount(() => onCleanup(documentMotion(props.reducedMotion)));
+  makeEventListener(window, "contextmenu", suppressBrowserMenu);
+  makeEventListener(window, "pointerdown", clearBrowserSelection, true);
 
   applyAppAppearance();
   const projects = createProjectsState(props.app);
@@ -304,44 +301,21 @@ export const App = (props: {
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
     action: CHORDS[keys === "⌘Z" ? "edit.undo" : "edit.redo"],
-    when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
+    when: () => !document.activeElement?.closest(TEXT_FIELD),
     capture: focus => {
       const path = projects.active();
-      const undo = path ? drafts(path).todoUndo : null;
-      const region = historyRegion(focus);
-      const redo = keys === "⇧⌘Z";
+      const undo = undoAction(path ? drafts(path).todoUndo : null, keys === "⇧⌘Z", focus);
 
       return {
-        available: () => path !== null && projects.active() === path && undo !== null && (redo ? undo.redoAvailable(region) : undo.available(region)) && !undo.pending()
-          && !focus?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
-        label: undo ? (redo ? undo.redoLabel(region) : undo.undoLabel(region)) : redo ? copy.redo : copy.todoUndo,
-        invoke: () => { void (redo ? undo!.redo(region) : undo!.undo(region)); },
+        available: () => path !== null && projects.active() === path && undo.available && !focus?.closest(TEXT_FIELD),
+        label: undo.label,
+        invoke: undo.run,
       };
     },
   })));
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
-  const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
-  const onVisibility = () => setVisible(document.visibilityState !== "hidden");
-  document.addEventListener("visibilitychange", onVisibility);
-  onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
-  // U3566: the window's focus, which `document.hasFocus()` alone does not announce.
-  const [focus, setFocus] = createSignal<"blurred" | "focused" | "menu">(document.hasFocus() ? "focused" : "blurred");
-  // Opening the window from its menu preserves unread results until direct interaction.
-  const onFocus = () => setFocus(previous => previous === "menu" ? previous : "focused");
-  const onBlur = () => setFocus("blurred");
-  const onInteract = () => { if (document.hasFocus()) setFocus("focused"); };
-
-  window.addEventListener("click", onInteract);
-  window.addEventListener("keydown", onInteract);
-  window.addEventListener("focus", onFocus);
-  window.addEventListener("blur", onBlur);
-  onCleanup(() => {
-    window.removeEventListener("focus", onFocus);
-    window.removeEventListener("blur", onBlur);
-    window.removeEventListener("click", onInteract);
-    window.removeEventListener("keydown", onInteract);
-  });
+  const { focus, setFocus, menuFocus, visible } = createWindowFocus();
 
   const isWorking = () => projects.tabs().some((tab) => {
     const connection = connections().get(tab.project.path);
@@ -433,19 +407,13 @@ export const App = (props: {
   const routeNativeOpen = (request: OpenRequest) => void nativeHandler?.then(handle => handle(request)).catch(error => failNative(String(error)));
   onMount(() => {
     const owner = getOwner();
-    nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
+    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
     const stop = props.app.onNativeOpen?.(routeNativeOpen, cause => failNative(cause));
 
     if (stop) onCleanup(stop);
   });
 
-  const [menuBar] = createResource(() => import("./app/menuBar").catch(error => {
-    hide(String(error));
-
-    return null;
-  }));
-
-  createEffect(() => menuBar()?.watchMenuBar({
+  untrack(() => watchMenuBar({
     solid: { createEffect, createSignal, onCleanup }, app: props.app, tabs: projects.tabs,
     connection: connectionOf, open: () => setFocus("menu"),
     select: (path, agent) => batch(() => {
@@ -574,67 +542,21 @@ export const App = (props: {
   // U6224: the bar tabs promote through their own click; counting their press as use would let that click close what it just opened.
   createEdgePeek({ edge: "trailing", region: shelfElement, state: frame, promote: (target) => { if (!target.closest(".shelf-tabs")) frame.promote(); } });
 
-  const [menuFocus, setMenuFocus] = createSignal<Element | null>(null);
-  const recordFocus = () => setMenuFocus(document.activeElement);
-  document.addEventListener("focusin", recordFocus);
-  onCleanup(() => document.removeEventListener("focusin", recordFocus));
-
   const views = [
     ["resources", copy.resources],
     ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const menuItems = createMemo(() => {
+  const nativeMenu = createMemo(() => {
     menuFocus();
-    const actions = captureActions(menuFocus());
     const connected = activeConnection();
-    const available = connected !== undefined && !(connected instanceof Error);
+    const path = projects.active();
 
-    return [
-      ...(!menuFocus()?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]") ? ["⌘Z", "⇧⌘Z"].map(keys => {
-        const history = projects.active() ? drafts(projects.active()!).todoUndo : null;
-        const region = historyRegion(menuFocus());
-        const redo = keys === "⇧⌘Z";
-
-        return { id: `action:chord:${keys}`, label: history ? (redo ? history.redoLabel(region) : history.undoLabel(region)) : redo ? copy.redo : copy.todoUndo, shortcut: keys, group: "edit" as const, enabled: available && !!history && !history.pending() && (redo ? history.redoAvailable(region) : history.available(region)) };
-      }) : []),
-      ...[
-        ...(["agent.new", "agent.new-with-prompt", "workstream.new", "mode.new", "terminal.new", "todo.capture", "attention.jump"] as const).map(name => CHORDS[name]),
-        ...[LEADER["leader.changes"], LEADER["leader.project"]],
-        CHORDS["project.choose-folder"],
-      ].map((row, index): MenuItem => {
-        const action = actions.find(action => action.name === row.name && action.available());
-
-        return {
-          id: action?.value ?? `action:${"press" in row ? "leader" : "chord"}:${row.keys}`,
-          label: copy.projectMenuLabel(row.name, row.what),
-          shortcut: "press" in row ? leaderKeys(row) : action?.press ? shortcutLabel(action.press) : row.keys,
-          group: index < 6 ? "create" : "navigate",
-          enabled: available && action !== undefined,
-        };
-      }),
-    ];
+    return { path, items: projectMenuItems(menuFocus(), connected !== undefined && !(connected instanceof Error), path ? drafts(path).todoUndo : null) };
   });
+  const writeMenu = untrack(() => createMenuWriter(props.app, setWindowFailure));
 
-  let menuWriting = false;
-  let menuWritten: unknown;
-  const nativeMenu = createMemo(() => ({ path: projects.active(), items: menuItems() }));
-
-  const writeMenu = async () => {
-    if (menuWriting) return;
-    menuWriting = true;
-
-    try {
-      while (menuWritten !== nativeMenu()) {
-        const next = nativeMenu();
-        menuWritten = next;
-        await props.app.selectProjectMenu(next.path, next.items);
-      }
-    } catch (error) { setWindowFailure(error instanceof Error ? error.message : String(error)); }
-    finally { menuWriting = false; }
-  };
-
-  createEffect(() => { nativeMenu(); void writeMenu(); });
+  createEffect(() => { nativeMenu(); void writeMenu(nativeMenu); });
   onCleanup(untrack(() => props.app.onProjectPage(({ path, command }) => {
     if (path !== projects.active()) return;
     const open = connectionOf(path);

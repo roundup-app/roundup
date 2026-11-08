@@ -3,8 +3,8 @@ import { createResource, For, Show } from "solid-js";
 import { registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
 import { EmptyState } from "../ink/EmptyState";
-import type { App } from "./seam";
-import { copy } from "./copy";
+import type { App } from "../app/seam";
+import { copy } from "../app/copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */

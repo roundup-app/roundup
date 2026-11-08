@@ -3,7 +3,7 @@ import { usePadList } from "./pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
-import { EmptyRail } from "../app/FirstRun";
+import { EmptyRail } from "../window/FirstRun";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
