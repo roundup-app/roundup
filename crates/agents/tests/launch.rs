@@ -319,7 +319,7 @@ fn f2_a_door_starts_with_the_tool_allowlist_once() {
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
     assert_eq!(
         door[at + 1],
-        "Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion"
+        "Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion"
     );
     assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
 }
@@ -587,7 +587,7 @@ fn m2219_off_keeps_the_hooks_and_the_tools_without_toolsearch() {
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
     assert_eq!(
         door[at + 1],
-        "Read,Grep,Glob,Write,Edit,Skill,AskUserQuestion"
+        "Read,Grep,Glob,Bash,Write,Edit,Agent,Skill,AskUserQuestion"
     );
     let hooks = &read(Path::new(&door[2]))["hooks"];
     for event in EVENTS {
