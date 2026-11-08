@@ -25,7 +25,7 @@ impl Agents {
             ));
         }
         let mut rail = self.shared.rail();
-        if rail.node(&choice.id)?.kind != NodeKind::Workstream {
+        if rail.node(crate::rail::agent_id(&choice.id)?)?.kind != NodeKind::Workstream {
             return Err(RpcError::not_found("Workstream"));
         }
         if let Some(id) = AgentId::parse(&choice.id)
@@ -42,7 +42,7 @@ impl Agents {
             return Err(RpcError::forbidden("only the user changes Auto"));
         }
         let mut rail = self.shared.rail();
-        let node = rail.node(&choice.id)?;
+        let node = rail.node(crate::rail::agent_id(&choice.id)?)?;
         if node.kind != NodeKind::Workstream {
             return Err(RpcError::not_found("Workstream"));
         }

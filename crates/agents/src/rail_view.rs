@@ -255,7 +255,7 @@ impl Shared {
         let rail = self.rail();
         let runs = self.runs();
         let finished = finished_of(&rail, id)?;
-        self.present(rail.node(id)?, &runs, &rail, finished)
+        self.present(rail.node(crate::rail::agent_id(id)?)?, &runs, &rail, finished)
     }
 
     pub(super) fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
@@ -281,12 +281,14 @@ impl Agents {
 
     /// U6380c: whether the user named `id`; a row that is gone reads false.
     pub fn user_named(&self, id: &str) -> bool {
-        self.shared.rail().user_named(id).unwrap_or(false)
+        crate::rail::agent_id(id)
+            .and_then(|id| self.shared.rail().user_named(id))
+            .unwrap_or(false)
     }
 
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
     pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
-        Ok(self.shared.rail().name(id)?)
+        Ok(self.shared.rail().name_or_gone(id)?)
     }
 
     /// Preserve canonical Rail identities after their nodes leave the live tree.
@@ -342,12 +344,16 @@ impl Agents {
             captured,
         } = params;
         valid_explicit_order(&order)?;
-        self.shared.rail().node(&id)?;
+        self.shared.rail().node(crate::rail::agent_id(&id)?)?;
         let allowed = match ctx.actor.kind {
             ActorKind::User => true,
             // O13: a Door sets the order only of an Agent it, or an Agent under it, spawned.
             ActorKind::Agent => {
-                ctx.actor.id == id || self.shared.rail().spawned_under(&id, &ctx.actor.id)?
+                ctx.actor.id == id
+                    || match crate::rail::agent_id(&ctx.actor.id) {
+                        Ok(door) => self.shared.rail().spawned_under(crate::rail::agent_id(&id)?, door)?,
+                        Err(_) => false,
+                    }
             }
             ActorKind::Ext => false,
         };
@@ -365,7 +371,7 @@ impl Agents {
         let node = self
             .shared
             .rail()
-            .set_order(&id, &order, captured.as_ref())?;
+            .set_order(crate::rail::agent_id(&id)?, &order, captured.as_ref())?;
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         if ctx.actor.id != id {
@@ -374,7 +380,7 @@ impl Agents {
             let text = order::steer(&order, None);
             if let Some(attempt) = node.attempt.as_deref() {
                 let mut rail = shared.rail();
-                if let Some(revision) = rail.order_revision(&id)? {
+                if let Some(revision) = rail.order_revision(crate::rail::agent_id(&id)?)? {
                     rail.prepare_instruction(&revision, attempt, &text, false)?;
                 }
             }

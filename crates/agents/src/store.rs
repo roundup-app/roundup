@@ -106,7 +106,7 @@ impl Agents {
                 recovery.recover(project, &plan).and_then(|()| {
                     Launcher::discard(dir, &node.id).map_err(RpcError::internal)?;
                     if node.kind == NodeKind::Agent {
-                        Ok(rail.remove(&node.id)?)
+                        Ok(rail.remove(crate::rail::agent_id(&node.id)?)?)
                     } else {
                         Ok(rail.clear_worktree(crate::rail::agent_id(&node.id)?)?)
                     }

@@ -46,7 +46,7 @@ impl Agents {
         }
         self.shared
             .rail()
-            .set_alert_level(&choice.id, choice.level)?;
+            .set_alert_level(crate::rail::agent_id(&choice.id)?, choice.level)?;
         ctx.emit(EventData::RailChanged);
         Ok(())
     }
@@ -239,11 +239,11 @@ impl Agents {
     ) -> Result<contracts::agent::RailNode, RpcError> {
         let p: contracts::agent::SetVisibilityParams = p;
         let rail = self.shared.rail();
-        let node = rail.node(&p.id)?;
+        let node = rail.node(crate::rail::agent_id(&p.id)?)?;
         if node.kind != NodeKind::Agent
             || (ctx.actor.kind == ActorKind::Agent
                 && (node.parent.as_deref() != Some(&ctx.actor.id)
-                    || rail.node(&ctx.actor.id)?.kind != NodeKind::Workstream))
+                    || rail.node(crate::rail::agent_id(&ctx.actor.id)?)?.kind != NodeKind::Workstream))
         {
             return Err(RpcError::forbidden(
                 "only a Door may choose visibility for its direct Agent children",
@@ -260,7 +260,7 @@ impl Agents {
         {
             return Err(RpcError::new(code::INVALID_PARAMS, reason));
         }
-        let changed = rail.set_visibility(&p.id, p.visibility)?;
+        let changed = rail.set_visibility(crate::rail::agent_id(&p.id)?, p.visibility)?;
         drop(rail);
         if changed {
             ctx.touch(contracts::Verb::Wrote, &format!("agent:{}", p.id))?;
@@ -343,7 +343,7 @@ impl Agents {
             }
             Ok(shared
                 .rail()
-                .instructions(&id, &shared.project_dir.to_string_lossy())?)
+                .instructions(crate::rail::agent_id(&id)?, &shared.project_dir.to_string_lossy())?)
         }
     }
 
@@ -413,15 +413,15 @@ impl Agents {
                 let mut rail = shared.rail();
                 let user = ctx.actor.kind == ActorKind::User;
                 // U6380c: only the user renames a row the user named.
-                if !user && rail.user_named(&id)? {
+                if !user && rail.user_named(crate::rail::agent_id(&id)?)? {
                     return Err(RpcError::forbidden(
                         "the user named this row; keep its name",
                     ));
                 }
-                let before = rail.node(&id)?.name;
-                let node = rail.rename(&id, &name)?;
+                let before = rail.node(crate::rail::agent_id(&id)?)?.name;
+                let node = rail.rename(crate::rail::agent_id(&id)?, &name)?;
                 if user {
-                    rail.set_user_named(&id)?;
+                    rail.set_user_named(crate::rail::agent_id(&id)?)?;
                 }
                 // Publish before releasing Rail: both producers follow its commit order.
                 if node.name != before {
@@ -599,7 +599,11 @@ impl Agents {
         {
             let MoveParams { id, parent, index } = p;
             shared.guard_reach(&ctx.actor, &id, false)?;
-            shared.rail().move_node(&id, parent.as_deref(), index)?;
+            shared.rail().move_node(
+                crate::rail::agent_id(&id)?,
+                parent.as_deref().map(crate::rail::agent_id).transpose()?,
+                index,
+            )?;
             Self::touch_rail(ctx, &id)?;
             ctx.emit(EventData::RailChanged);
             Ok(())

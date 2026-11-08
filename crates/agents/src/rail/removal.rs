@@ -30,10 +30,11 @@ impl Rail {
     /// Delete `id`. Its children (a Workstream or an Agent may have any) move to its own
     /// parent, at its place, in order, first; one transaction, so a failed delete leaves them
     /// still under `id`.
-    pub fn remove(&mut self, id: &str) -> Result<(), StoreError> {
+    pub fn remove(&mut self, id: AgentId) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
+        let id = node.id.as_str();
         let parent = node.parent.as_deref();
         let mut ids = siblings(&nodes, parent);
         let at = ids
@@ -53,7 +54,7 @@ impl Rail {
     /// external files and Worktrees before any node leaves; its returned guard survives commit.
     pub fn remove_workstream<T, E: Into<StoreError>>(
         &mut self,
-        id: &str,
+        id: AgentId,
         removal: &mut contracts::agent::Removal,
         retain: Option<(&contracts::Actor, &str)>,
         apply: impl FnOnce(&rusqlite::Transaction, &mut contracts::agent::Removal) -> Result<T, E>,
@@ -88,7 +89,8 @@ impl Rail {
                 .filter(|item| item.kind == contracts::agent::RemovalKind::Agent)
                 .map(|item| item.id.as_str())
                 .collect();
-            removed.push(id);
+            let id = id.to_string();
+            removed.push(&id);
             tx.execute(
                 "DELETE FROM workstream_queue WHERE workstream IN (SELECT value FROM json_each(?))",
                 [serde_json::to_string(&removed)?],
@@ -103,12 +105,12 @@ impl Rail {
             removal.deletion = Some(contracts::agent::Deletion {
                 project,
                 operation: operation.into(),
-                id: id.into(),
+                id: id.to_string(),
                 restored: false,
                 restoration: None,
             });
             tx.execute("INSERT INTO rail_deletions(operation,actor,node,record,graph,boundary) VALUES(?,?,?,?,?,?)", params![
-            operation, serde_json::to_string(actor)?, id,
+            operation, serde_json::to_string(actor)?, id.to_string(),
             serde_json::to_string(&removal)?, inverse, serde_json::to_string(&Placement { before: before.into_iter().map(Position::from).collect(), after: load(&tx)?.into_iter().map(Position::from).collect() })?
         ])?;
         }
@@ -122,7 +124,7 @@ impl Rail {
 
     fn remove_graph(
         db: &Connection,
-        id: &str,
+        id: AgentId,
         removal: &contracts::agent::Removal,
     ) -> Result<(), StoreError> {
         let nodes = load(db)?;
@@ -429,7 +431,7 @@ impl Rail {
         for (table, predicate, ignored) in [
             (
                 "nodes",
-                "CAST(id AS TEXT) IN (SELECT node FROM rail_deletions WHERE operation=?1 UNION SELECT json_extract(value,'$.id') FROM rail_deletions,json_each(record,'$.removed') WHERE operation=?1 AND json_extract(value,'$.kind')='agent')",
+                "id IN (SELECT node FROM rail_deletions WHERE operation=?1 UNION SELECT json_extract(value,'$.id') FROM rail_deletions,json_each(record,'$.removed') WHERE operation=?1 AND json_extract(value,'$.kind')='agent')",
                 "ord",
             ),
             (
@@ -527,7 +529,7 @@ impl Rail {
                 });
             }
         }
-        let out = self.remove_workstream(&id, &mut removal, Some((actor,&p.operation)), |db,removal| -> Result<_, StoreError> {
+        let out = self.remove_workstream(agent_id(&id)?, &mut removal, Some((actor,&p.operation)), |db,removal| -> Result<_, StoreError> {
             let (expected,successor):(Option<String>,Option<String>) = db.query_row("SELECT json_extract(record,'$.restoredBoundary'),json_extract(record,'$.redo') FROM rail_deletions WHERE operation=?",[&p.source],|r|Ok((r.get(0)?,r.get(1)?)))?;
             let current = serde_json::to_string(&Self::restored_boundary(db,&p.source)?)?;
             if successor.is_some() || expected.as_deref()!=Some(current.as_str()) {

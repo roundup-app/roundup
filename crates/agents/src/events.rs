@@ -191,11 +191,11 @@ impl Shared {
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent
     /// runs, and a second call while the Channel is `up` emits nothing.
     pub(super) fn channel_up(&self, actor: &Actor, id: &str) -> Result<(), RpcError> {
-        self.rail().node(id)?;
+        self.rail().node(crate::rail::agent_id(id)?)?;
         if actor.kind != ActorKind::Agent || actor.id != id {
             return Err(RpcError::forbidden(format!(
                 "only {} may report its Channel",
-                self.rail().name(id)?
+                self.rail().name_or_gone(id)?
             )));
         }
         let attempt = self.runs().slot(id).map(|slot| slot.attempt().to_owned());
@@ -280,7 +280,7 @@ impl Shared {
         attempt: &str,
         observation: Observation,
     ) -> Result<Option<i64>, RpcError> {
-        let name = self.rail().name(id)?;
+        let name = self.rail().name_or_gone(id)?;
         let first_prompt = fold::first_prompt(&observation);
         // Taken before `runs`, as every other path does, so a rename and a prompt cannot deadlock.
         // U3566c: any Observation may end a turn, and the finish count is saved with its Status.
@@ -444,7 +444,7 @@ impl Shared {
             }
             Effect::ShowOnRail => {
                 if let Some(rail) = rail
-                    && rail.set_visibility(id, contracts::agent::RailVisibility::Shown)?
+                    && rail.set_visibility(crate::rail::agent_id(id)?, contracts::agent::RailVisibility::Shown)?
                 {
                     self.bus.emit(actor.clone(), EventData::RailChanged);
                 }
@@ -527,7 +527,7 @@ impl Shared {
         id: &str,
         actor: &Actor,
     ) -> Result<(), RpcError> {
-        if !self.wiring.naming()?.automatic_renaming || rail.user_named(id)? {
+        if !self.wiring.naming()?.automatic_renaming || rail.user_named(crate::rail::agent_id(id)?)? {
             run.set_title_pending(false);
             return Ok(());
         }
@@ -552,14 +552,14 @@ impl Shared {
         actor: &Actor,
         name: String,
     ) -> Result<(), RpcError> {
-        let parent = rail.node(id)?.parent;
+        let parent = rail.node(crate::rail::agent_id(id)?)?.parent;
         let siblings = rail.tree()?;
         let taken = siblings
             .iter()
             .filter(|node| node.id != id && node.parent == parent)
             .map(|node| node.name.as_str());
-        let before = rail.node(id)?.name;
-        let node = rail.rename(id, &name::unique(&name, taken))?;
+        let before = rail.node(crate::rail::agent_id(id)?)?.name;
+        let node = rail.rename(crate::rail::agent_id(id)?, &name::unique(&name, taken))?;
         // The Rail lock also orders publication against RPC renames.
         if node.name != before {
             self.bus.emit(
@@ -585,11 +585,11 @@ impl Shared {
     ) -> Result<(), RpcError> {
         if run.claim_name()
             && self.wiring.naming()?.automatic_renaming
-            && let node = rail.node(id)?
+            && let node = rail.node(crate::rail::agent_id(id)?)?
             && (node.kind == NodeKind::Agent
                 || (node.kind == NodeKind::Workstream
                     && name::is_workstream_placeholder(&node.name)))
-            && !rail.user_named(id)?
+            && !rail.user_named(crate::rail::agent_id(id)?)?
         {
             // A9: whether or not the prompt had words, Claude Code's title may still name the row.
             run.set_title_pending(true);

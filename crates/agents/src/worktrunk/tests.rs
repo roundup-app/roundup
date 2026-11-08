@@ -347,7 +347,7 @@ fn u2556b_late_results_do_not_cross_identity() {
         let original = identities(&shared).unwrap().remove(0);
         let agents = super::super::store::tests::owner_agents(shared.clone(), dir.path());
         match mutation {
-            "remove" => shared.rail().remove(&node.id).unwrap(),
+            "remove" => shared.rail().remove(crate::rail::agent_id(&node.id).unwrap()).unwrap(),
             "branch" => {
                 record.branch = "replacement".into();
                 shared

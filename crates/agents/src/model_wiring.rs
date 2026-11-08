@@ -48,7 +48,7 @@ impl Agents {
         }
         let id = id.as_str();
         models::check_listed(model.as_deref(), effort.as_deref())?;
-        let kind = self.shared.rail().node(id)?.kind;
+        let kind = self.shared.rail().node(crate::rail::agent_id(id)?)?.kind;
         let role = match kind {
             NodeKind::Workstream => Role::Door,
             NodeKind::Agent => Role::Agent,
@@ -75,7 +75,7 @@ impl Agents {
         }
         self.shared
             .rail()
-            .set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
+            .set_pair(crate::rail::agent_id(id)?, pair.model.as_deref(), pair.effort.as_deref())?;
         if live {
             let bound = match kind {
                 NodeKind::Workstream => START_DOOR_ACK_BOUND,

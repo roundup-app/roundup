@@ -177,7 +177,7 @@ impl Rail {
         Ok(())
     }
 
-    pub(crate) fn closed_recovery_ready(&self, preparing: Option<&str>) -> Result<(), StoreError> {
+    pub(crate) fn closed_recovery_ready(&self, preparing: Option<AgentId>) -> Result<(), StoreError> {
         let cause: Option<String> = self
             .db
             .query_row(
@@ -192,8 +192,8 @@ impl Rail {
             )));
         }
         let pending: Option<String> = self.db.query_row(
-            "SELECT source FROM closed_sources WHERE published=0 AND (?1 IS NULL OR CAST(agent AS TEXT)!=?1) LIMIT 1",
-            [preparing], |row|row.get(0)
+            "SELECT source FROM closed_sources WHERE published=0 AND (?1 IS NULL OR agent!=?1) LIMIT 1",
+            [preparing.map(AgentId::get)], |row|row.get(0)
         ).optional()?;
         if pending.is_some() {
             return Err(StoreError::conflict(

@@ -118,12 +118,12 @@ async fn u2875c_interrupted_closed_provisioning_releases_owned_resources_before_
                 plan.worktree.path = path.clone();
             }
             if prepared {
-                assert!(agents.shared.rail().reserve_prepared(&id, &plan).unwrap());
+                assert!(agents.shared.rail().reserve_prepared(crate::rail::agent_id(&id).unwrap(), &plan).unwrap());
             } else {
                 agents
                     .shared
                     .rail()
-                    .mark_worktree_provisioning(&id, &plan)
+                    .mark_worktree_provisioning(crate::rail::agent_id(&id).unwrap(), &plan)
                     .unwrap();
             }
             if boundary == 1 {

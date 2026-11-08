@@ -48,7 +48,7 @@ fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
         BEGIN INSERT INTO commit_guard VALUES('absent'); END;").unwrap();
     assert!(rail.publish_closed("failed").is_err());
     assert!(rail.tree().unwrap().is_empty());
-    assert!(rail.node(&workstream).is_err());
+    assert!(rail.node(crate::rail::agent_id(&workstream).unwrap()).is_err());
     assert!(
         rail.has_conversation(crate::rail::agent_id(&agent).unwrap())
             .is_err()
@@ -68,12 +68,12 @@ fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
 fn a2703a_rail_resolves_current_names_and_gone_agents() {
     let (_dir, mut rail) = rail();
     let node = rail.insert(NodeKind::Agent, "sad", None, None).unwrap();
-    assert_eq!(rail.name(&node.id).unwrap(), "sad");
-    rail.rename(&node.id, "glad").unwrap();
-    assert_eq!(rail.name(&node.id).unwrap(), "glad");
-    assert_eq!(rail.name("7013").unwrap(), "an Agent that is gone");
+    assert_eq!(rail.name(crate::rail::agent_id(&node.id).unwrap()).unwrap(), "sad");
+    rail.rename(crate::rail::agent_id(&node.id).unwrap(), "glad").unwrap();
+    assert_eq!(rail.name(crate::rail::agent_id(&node.id).unwrap()).unwrap(), "glad");
+    assert_eq!(rail.name_or_gone("7013").unwrap(), "an Agent that is gone");
     rail.db.execute_batch("DROP TABLE nodes").unwrap();
-    assert_eq!(code_of(rail.name(&node.id).unwrap_err()), code::INTERNAL);
+    assert_eq!(code_of(rail.name(crate::rail::agent_id(&node.id).unwrap()).unwrap_err()), code::INTERNAL);
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn r16_loaded_rail_keeps_complete_conversation_availability_in_tree_order() {
             (second.id.as_str(), false),
         ]
     );
-    assert!(rail.node(&child.id).unwrap().can_resume);
+    assert!(rail.node(crate::rail::agent_id(&child.id).unwrap()).unwrap().can_resume);
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
     rail.db
         .execute("UPDATE nodes SET attempt = ?", [i64::MAX])
         .unwrap();
-    let before = rail.node(&node.id).unwrap();
+    let before = rail.node(crate::rail::agent_id(&node.id).unwrap()).unwrap();
     assert_eq!(
         code_of(
             rail.allocate_attempt(crate::rail::agent_id(&node.id).unwrap())
@@ -126,7 +126,7 @@ fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
         ),
         code::INTERNAL
     );
-    assert_eq!(rail.node(&node.id).unwrap(), before);
+    assert_eq!(rail.node(crate::rail::agent_id(&node.id).unwrap()).unwrap(), before);
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn a6_nothing_nests_under_an_agent() {
         let inserted = rail
             .insert(NodeKind::Workstream, "x", Some(&leaf.id), None)
             .unwrap_err();
-        let moved = rail.move_node(&group.id, Some(&leaf.id), 0).unwrap_err();
+        let moved = rail.move_node(crate::rail::agent_id(&group.id).unwrap(), Some(crate::rail::agent_id(&leaf.id).unwrap()), 0).unwrap_err();
         assert_eq!(
             (code_of(inserted), code_of(moved)),
             (code::CONFLICT, code::CONFLICT),
@@ -152,7 +152,7 @@ fn a6_nothing_nests_under_an_agent() {
 fn a6_rename_needs_the_exact_id() {
     let (_dir, mut rail) = rail();
     let group = rail.insert(NodeKind::Workstream, "g", None, None).unwrap();
-    let err = rail.rename(&format!("0{}", group.id), "other").unwrap_err();
+    let err = crate::rail::agent_id(&format!("0{}", group.id)).unwrap_err();
     assert_eq!(code_of(err), code::NOT_FOUND);
     assert_eq!(rail.tree().unwrap()[0].name, "g");
 }
@@ -229,7 +229,7 @@ fn a6_removing_a_node_closes_the_gap_among_its_siblings() {
                 .id
         })
         .into();
-    rail.remove(&ids[1]).unwrap();
+    rail.remove(crate::rail::agent_id(&ids[1]).unwrap()).unwrap();
     let tree = rail.tree().unwrap();
     let rest: Vec<_> = tree.iter().map(|n| (n.name.as_str(), n.order)).collect();
     assert_eq!(rest, [("a", 0), ("c", 1)]);
@@ -253,10 +253,10 @@ fn a16_a_groups_delete_failing_after_a_successful_move_rolls_both_back() {
         )
         .unwrap();
 
-    let err = rail.remove(&group.id).unwrap_err();
+    let err = rail.remove(crate::rail::agent_id(&group.id).unwrap()).unwrap_err();
 
     assert_eq!(code_of(err), code::INTERNAL);
-    let found = rail.node(&child.id).unwrap();
+    let found = rail.node(crate::rail::agent_id(&child.id).unwrap()).unwrap();
     assert_eq!(found.parent.as_deref(), Some(group.id.as_str()));
 }
 
@@ -281,7 +281,7 @@ fn u6550c_placement_table_is_check_parent() {
             let (_dir, mut rail) = rail();
             let id = make(&mut rail, kind, "moved");
             let parent = make(&mut rail, parent_kind, "parent");
-            let moved = rail.move_node(&id, Some(&parent), 0).is_ok();
+            let moved = rail.move_node(crate::rail::agent_id(&id).unwrap(), Some(crate::rail::agent_id(&parent).unwrap()), 0).is_ok();
             let rule = &table[name][parent_name];
             assert_eq!(
                 moved,
@@ -295,9 +295,9 @@ fn u6550c_placement_table_is_check_parent() {
     let workstream = make(&mut rail, NodeKind::Workstream, "holder");
     let group = make(&mut rail, NodeKind::Group, "inner");
     let moved = make(&mut rail, NodeKind::Workstream, "moved");
-    rail.move_node(&group, Some(&workstream), 0).unwrap();
+    rail.move_node(crate::rail::agent_id(&group).unwrap(), Some(crate::rail::agent_id(&workstream).unwrap()), 0).unwrap();
     assert_eq!(table["workstream"]["group"], "chain");
-    assert!(rail.move_node(&moved, Some(&group), 0).is_err());
+    assert!(rail.move_node(crate::rail::agent_id(&moved).unwrap(), Some(crate::rail::agent_id(&group).unwrap()), 0).is_err());
 }
 
 fn code_of(error: super::StoreError) -> i64 {

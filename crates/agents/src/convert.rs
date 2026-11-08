@@ -12,7 +12,7 @@ impl Agents {
         let _lifecycle = self.shared.door_lifecycle.read().await;
         let live = {
             let mut rail = self.shared.rail();
-            let node = rail.node(id)?;
+            let node = rail.node(crate::rail::agent_id(id)?)?;
             if node.kind != NodeKind::Agent
                 || node.parent.is_some()
                 || !rail.has_conversation(crate::rail::agent_id(id)?)?
@@ -71,7 +71,7 @@ impl Agents {
         };
         let mode = {
             let mut rail = self.shared.rail();
-            let agent = rail.node(&id)?;
+            let agent = rail.node(crate::rail::agent_id(&id)?)?;
             if agent.kind != NodeKind::Agent {
                 return Err(RpcError::conflict(format!("{id} is not an Agent")));
             }
@@ -83,7 +83,7 @@ impl Agents {
             if let Some(id) = crate::id::AgentId::parse(&mode.id) {
                 rail.set_opening_prompt(id, Some(&prompt))?;
             }
-            rail.set_pair(&mode.id, agent.model.as_deref(), agent.effort.as_deref())?;
+            rail.set_pair(crate::rail::agent_id(&mode.id)?, agent.model.as_deref(), agent.effort.as_deref())?;
             mode
         };
         Launcher::save_lean(&self.dir, &mode.id, &lean)?;
