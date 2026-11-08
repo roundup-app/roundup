@@ -216,14 +216,26 @@ impl Launcher {
         getrandom::fill(&mut random).map_err(RpcError::internal)?;
         random[6] = (random[6] & 0x0f) | 0x40;
         random[8] = (random[8] & 0x3f) | 0x80;
-        let hex: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
+        let [
+            b0,
+            b1,
+            b2,
+            b3,
+            b4,
+            b5,
+            b6,
+            b7,
+            b8,
+            b9,
+            b10,
+            b11,
+            b12,
+            b13,
+            b14,
+            b15,
+        ] = random;
         let id = format!(
-            "{}-{}-{}-{}-{}",
-            &hex[..8],
-            &hex[8..12],
-            &hex[12..16],
-            &hex[16..20],
-            &hex[20..]
+            "{b0:02x}{b1:02x}{b2:02x}{b3:02x}-{b4:02x}{b5:02x}-{b6:02x}{b7:02x}-{b8:02x}{b9:02x}-{b10:02x}{b11:02x}{b12:02x}{b13:02x}{b14:02x}{b15:02x}"
         );
         let path = self.storage_path(
             serde_json::json!({"op":"destination", "sessionId":id, "dir":cwd, "prepare":true}),
@@ -237,11 +249,12 @@ impl Launcher {
             .iter()
             .rposition(|b| *b == b'\n')
             .map_or(0, |at| at + 1);
-        if end == 0 {
+        let complete = mark.get(..end).filter(|complete| !complete.is_empty());
+        let Some(complete) = complete else {
             return Err(RpcError::internal("conversation has no complete records"));
-        }
+        };
         let mut bytes = Vec::new();
-        for line in mark[..end]
+        for line in complete
             .split(|b| *b == b'\n')
             .filter(|line| !line.is_empty())
         {
@@ -391,15 +404,24 @@ pub(super) fn context_limit(model: &str) -> Option<u64> {
 }
 
 // Same pattern as moo.md hunch/hooks/tend.tsx CARD_RE, with multiline ^ instead of lookbehind.
-static CARD_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^```card[^\S\n]*\n([\s\S]*?)\n```[^\S\n]*\n?").expect("card fence pattern")
-});
+static CARD_RE: LazyLock<Result<Regex, regex::Error>> =
+    LazyLock::new(|| Regex::new(r"(?m)^```card[^\S\n]*\n([\s\S]*?)\n```[^\S\n]*\n?"));
 
-pub(super) fn merge_cards(card: &mut ConversationCard, text: &str) {
+/// `value[key]` without the panic: a missing key or a non-object reads as `null`.
+pub(super) fn at<'a>(value: &'a Value, key: &str) -> &'a Value {
+    static NULL: Value = Value::Null;
+    value.get(key).unwrap_or(&NULL)
+}
+
+pub(super) fn merge_cards(card: &mut ConversationCard, text: &str) -> Result<(), regex::Error> {
+    let card_re = CARD_RE.as_ref().map_err(Clone::clone)?;
     // Forward overwrite is equivalent to latestCard's reverse first-write: absent/invalid
     // keys do nothing, and a present [] replaces the old facts before omission on the wire.
-    for block in CARD_RE.captures_iter(text) {
-        let Ok(Value::Object(fields)) = serde_json::from_str::<Value>(&block[1]) else {
+    for block in card_re.captures_iter(text) {
+        let Some(body) = block.get(1) else {
+            continue;
+        };
+        let Ok(Value::Object(fields)) = serde_json::from_str::<Value>(body.as_str()) else {
             continue;
         };
         for (key, target) in [
@@ -426,6 +448,7 @@ pub(super) fn merge_cards(card: &mut ConversationCard, text: &str) {
             );
         }
     }
+    Ok(())
 }
 
 /// A2681d: the parts Claude Code listed in a `/context` record, by the category names observed

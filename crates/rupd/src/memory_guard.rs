@@ -13,7 +13,7 @@ use crate::digest::Reader;
 impl Daemon {
     /// Start the sampler on its own thread, and a task that sends each end's note. The thread
     /// lives as long as the Daemon process.
-    pub fn start_memory_guard(&self) {
+    pub fn start_memory_guard(&self) -> std::io::Result<()> {
         let (ends, mut ended) = tokio::sync::mpsc::unbounded_channel::<End>();
         let agents = std::sync::Arc::clone(&self.agents);
         let source = Live::new(move || {
@@ -31,13 +31,14 @@ impl Daemon {
             move |end| {
                 let _ = ends.send(end);
             },
-        );
+        )?;
         let reader = self.reader();
         tokio::spawn(async move {
             while let Some(end) = ended.recv().await {
                 tell(&reader, &end).await;
             }
         });
+        Ok(())
     }
 }
 

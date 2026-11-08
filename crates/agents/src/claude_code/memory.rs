@@ -82,7 +82,7 @@ pub(super) fn hook(
     }
     let mut effective = user_settings(config, cwd).map_err(rpc::RpcError::internal)?;
     merge_settings(&mut effective, carried.clone());
-    if effective["disableAllHooks"] == true {
+    if effective.get("disableAllHooks") == Some(&Value::Bool(true)) {
         return Err(rpc::RpcError::not_accepted(
             "memory-only file tools require hooks; disableAllHooks is enabled",
         ));
@@ -100,7 +100,11 @@ pub(super) fn hook(
         .map(|value| value.into_owned())
         .map_err(rpc::RpcError::internal)
     };
-    own["hooks"]["PreToolUse"].as_array_mut().expect("state hooks").push(json!({
+    let hooks = own
+        .pointer_mut("/hooks/PreToolUse")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| rpc::RpcError::internal("settings lack the state hooks"))?;
+    hooks.push(json!({
         "matcher": "Write|Edit",
         "hooks": [{
             "type": "command",
@@ -124,8 +128,10 @@ fn memory_root(
     settings: &Value,
 ) -> Result<PathBuf, String> {
     let env = |name: &str| {
-        settings["env"][name]
-            .as_str()
+        settings
+            .get("env")
+            .and_then(|env| env.get(name))
+            .and_then(Value::as_str)
             .map(str::to_owned)
             .or_else(|| std::env::var(name).ok())
             .filter(|value| !value.is_empty())
@@ -188,7 +194,12 @@ fn project_slug(path: &Path) -> String {
         let mut number = hash.unsigned_abs();
         let mut digits = Vec::new();
         loop {
-            digits.push(char::from_digit(number % 36, 36).expect("base 36 digit"));
+            let digit = (number % 36) as u8;
+            digits.push(char::from(if digit < 10 {
+                b'0' + digit
+            } else {
+                b'a' + (digit - 10)
+            }));
             number /= 36;
             if number == 0 {
                 break;

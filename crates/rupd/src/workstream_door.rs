@@ -329,7 +329,7 @@ impl IdleDoor {
             .unwrap();
             db.last_insert_rowid().to_string()
         };
-        let socket = self.launcher.socket_path(&id);
+        let socket = self.launcher.socket_path(&id).unwrap();
         let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
         listener.set_nonblocking(true).unwrap();
         let pid = std::process::id();

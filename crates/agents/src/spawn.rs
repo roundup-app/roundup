@@ -593,7 +593,7 @@ impl Agents {
             && let Some(marker) = claude_code::settings_marker(&self.dir, id)
         {
             self.shared
-                .scan_door(id, marker.to_string_lossy().into_owned());
+                .scan_door(id, marker.to_string_lossy().into_owned())?;
         }
         Ok(spawned)
     }
