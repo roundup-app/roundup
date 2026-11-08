@@ -926,5 +926,10 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "tools/retired-words.sh": {
+    "cleanup": "Reads source files only; starts no process.",
+    "data": "Names committed rupd source paths as retired-word allowances; no Daemon launch.",
+    "kind": "reference"
   }
 }
