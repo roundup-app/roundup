@@ -198,7 +198,8 @@ it.each(["B", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
     if (byAction) { await show(); await chooseAction(key === "B" ? "Step the Bench through its sizes" : "Needs you elsewhere", "enter"); }
     else leaderKey("Key" + (key === "B" ? "B" : "J"), { shiftKey: key === "⇧J" });
 
-    if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
+    // U3721a: `B` steps the Bench from closed to the list, and from the open list to full.
+    if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset[beforeShelf === "open" ? "shelfMaximised" : "shelf"]).toBe(beforeShelf === "open" ? "true" : "open"));
     else await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
     batch(cleanup);
   }

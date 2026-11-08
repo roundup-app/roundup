@@ -6,8 +6,10 @@ import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 
-afterEach(() => {
+afterEach(async () => {
   batch(cleanup);
+  // The frame's last write is asynchronous; clearing first would let it land in the next test's storage.
+  await new Promise(done => setTimeout(done, 100));
   localStorage.clear();
 });
 
@@ -64,7 +66,10 @@ describe("U3721a", () => {
     await waitFor(() => expect(size()).toBe("closed"));
     await waitFor(() => expect(stored()).toMatchObject({ open: false, maximised: false }));
     await steps(["list"]);
-    fireEvent.keyDown(document.body, { key: "Escape" });
+    // SAFETY: the open Shelf renders its Todos tab.
+    const tab = [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(each => each.textContent?.startsWith("Todos")) as HTMLElement;
+
+    fireEvent.keyDown(tab, { key: "Escape" });
     await waitFor(() => expect(size()).toBe("closed"));
   });
 });
