@@ -203,29 +203,141 @@ async fn dcl7_update_reconciles_todos_and_pads_through_mcp() {
 
 #[tokio::test]
 async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
-    quit_and_relaunch("dcl7_restart_resumes_only_jobs_selected_by_door").await;
-}
-
-#[tokio::test]
-async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
-    quit_and_relaunch("dcr4_relaunch_carries_on_the_cut_off_job_only").await;
-}
-
-/// DCL7a and DCR4: the Job is mid-turn and the Consult has finished when the App quits; after the
-/// relaunch the Door's own `agent_resume` without `mode` carries on the Job and nothing else.
-async fn quit_and_relaunch(fixture: &str) {
-    let mut project = daemon::start_real(fixture, &[]);
+    let mut project = daemon::start_real("dcl7_restart_resumes_only_jobs_selected_by_door", &[]);
     let (door, job, consult) = door_with_children(&project, true).await;
     model_saw(&project, "[stopped]").await;
-    // The Job begins a second turn that the quit interrupts.
+    begin_second_turn(&project, &job).await;
+    let before = project.model.as_ref().unwrap().journal().len();
+    quit_and_relaunch(&mut project).await;
+    let user = project.client().await;
+    let tree = project.rail_tree(&user).await;
+    let node = |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).cloned().unwrap();
+    let (job_before, consult_before) = (node(&tree, &job), node(&tree, &consult));
+    // (c) Nothing is launched or resumed by the restart itself.
+    assert!(job_before.terminal_id.is_none() && consult_before.terminal_id.is_none());
+    assert_eq!(project.model.as_ref().unwrap().journal().len(), before);
+
+    start_door_again(&user, &door).await;
+    // (b) The Door's start text holds the open-Job snapshot, and only the Job is resumed, by the
+    // Door's own call.
+    model_saw(&project, "[open jobs]").await;
+    model_saw(&project, &format!("- {job} open-job (attempt 1)")).await;
+    resume_result(&project).await;
+    let tree = project.rail_tree(&user).await;
+    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
+    let consult_after = node(&tree, &consult);
+    assert_eq!(consult_after.attempt, consult_before.attempt);
+    assert!(consult_after.terminal_id.is_none());
+}
+
+/// DCR4: a quit cuts off one Job mid-turn while another has reported; after the relaunch the Door
+/// calls `agent_resume` without `mode` and only the cut-off Job carries on.
+#[tokio::test]
+async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
+    let mut project = daemon::start_real("dcr4_relaunch_carries_on_the_cut_off_job_only", &[]);
+    let (door, job, _) = door_with_children(&project, false).await;
+    let reported = reported_job(&project, &door).await;
+    model_saw(&project, "[stopped]").await;
+    begin_second_turn(&project, &job).await;
+    quit_and_relaunch(&mut project).await;
+    let user = project.client().await;
+    let node = |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).cloned().unwrap();
+    let tree = project.rail_tree(&user).await;
+    let (job_before, reported_before) = (node(&tree, &job), node(&tree, &reported));
+
+    start_door_again(&user, &door).await;
+    model_saw(&project, "[open jobs]").await;
+    resume_result(&project).await;
+    let tree = project.rail_tree(&user).await;
+    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
+    // The reported Job is not launched again and the start note never names it.
+    let reported_after = node(&tree, &reported);
+    assert_eq!(reported_after.attempt, reported_before.attempt);
+    assert!(reported_after.terminal_id.is_none());
+    let model = project.model.as_ref().unwrap();
+    assert!(
+        model
+            .journal()
+            .iter()
+            .map(|entry| entry["body"]["messages"].to_string())
+            .filter(|asked| asked.contains("[open jobs]"))
+            .all(|asked| !asked.contains(&reported)),
+        "the start note names the reported Job"
+    );
+}
+
+/// DCR4: a Job that sent its report: it finished a turn and published its output.
+async fn reported_job(project: &Project, door: &str) -> String {
+    let user = project.client().await;
+    let as_door = client_as(project, actor(ActorKind::Agent, door)).await;
+    let id = as_door
+        .request(
+            "agent.spawn",
+            json!({"name": "reported-job", "parent": door, "cwd": project.dir.path(),
+                "role": "job", "prompt": "Do the one thing.",
+                "order": {"kind": "work", "ask": "Do the one thing.", "limits": []}}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    daemon::h21_poll("the reporting Job to finish a turn", async || {
+        let tree = project.rail_tree(&user).await;
+        tree.iter()
+            .any(|n| n.id == id && n.status.as_ref().is_some_and(|s| s.finished != "0"))
+            .then_some(())
+    })
+    .await;
+    let as_job = client_as(project, actor(ActorKind::Agent, &id)).await;
+    let delivery = daemon::h21_poll("the Job's submitted instruction", async || {
+        let instructions = as_job
+            .request("agent.instructions", json!({ "id": id }))
+            .await
+            .unwrap();
+        instructions["deliveries"]
+            .as_array()?
+            .iter()
+            .rfind(|d| d["state"] == "submitted")
+            .map(|d| (instructions["project"].clone(), d["id"].clone()))
+    })
+    .await;
+    std::fs::write(project.dir.path().join("output.txt"), "job output").unwrap();
+    let published = as_job
+        .request(
+            "deliverable.publish",
+            json!({"key": "out", "title": "Output",
+                "target": {"kind": "file", "path": "output.txt"}}),
+        )
+        .await
+        .unwrap();
+    as_job
+        .request(
+            "message.report",
+            json!({"project": delivery.0, "id": id, "key": "out", "delivery": delivery.1,
+                "target": {"id": "out", "revision": "v1"},
+                "output": {"project": published["project"], "id": published["id"]},
+                "result": "Done.", "next": "", "state": "reported",
+                "check": {"kind": "publication", "sha256":
+                    "cf3dffc7c4eff44c176d1fc2e258e303298edd50eba6ee0b93ba741af99cfdef"}}),
+        )
+        .await
+        .unwrap();
+    id
+}
+
+/// DCL7a, DCR4: the Job begins a second turn that the quit interrupts.
+async fn begin_second_turn(project: &Project, job: &str) {
     daemon::signal(
         &project.client().await,
-        &job,
+        job,
         json!({"hook_event_name": "UserPromptSubmit"}),
     )
     .await;
-    let before = project.model.as_ref().unwrap().journal().len();
+}
 
+/// DCL7a, DCR4: the App quits and relaunches with the routed fake Claude.
+async fn quit_and_relaunch(project: &mut Project) {
     let claude = daemon::aimock::routed_claude(project.dir.path());
     let home = project.dir.path().join("home");
     let url = project.model.as_ref().unwrap().url.clone();
@@ -236,28 +348,23 @@ async fn quit_and_relaunch(fixture: &str) {
         ("CLAUDE_CODE_OAUTH_TOKEN", ""),
         ("AIMOCK_URL", &url),
     ]);
-    let user = project.client().await;
-    let tree = project.rail_tree(&user).await;
-    let node = |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).cloned().unwrap();
-    let (job_before, consult_before) = (node(&tree, &job), node(&tree, &consult));
-    // (c) Nothing is launched or resumed by the restart itself.
-    assert!(job_before.terminal_id.is_none() && consult_before.terminal_id.is_none());
-    assert_eq!(project.model.as_ref().unwrap().journal().len(), before);
+}
 
+/// DCL7a, DCR4: the Door starts again; its first batch carries the snapshot.
+async fn start_door_again(user: &::rpc::Client, door: &str) {
     user.request("rail.startDoor", json!({ "id": door }))
         .await
         .unwrap();
-    // The first batch of the new Attempt carries the snapshot.
     user.request(
         "message.send",
         json!({"to": door, "kind": "note", "body": "Where do things stand?"}),
     )
     .await
     .unwrap();
-    // (b) The Door's start text holds the open-Job snapshot, and only the Job is resumed, by the
-    // Door's own call.
-    model_saw(&project, "[open jobs]").await;
-    model_saw(&project, &format!("- {job} open-job (attempt 1)")).await;
+}
+
+/// DCL7a, DCR4: the Door's own `agent_resume` call, with no `mode`, was accepted.
+async fn resume_result(project: &Project) {
     let result = project
         .model
         .as_ref()
@@ -265,9 +372,4 @@ async fn quit_and_relaunch(fixture: &str) {
         .tool_result("toolu_dcl7_resume")
         .await;
     assert!(result["is_error"] != true, "{result}");
-    let tree = project.rail_tree(&user).await;
-    assert_ne!(node(&tree, &job).attempt, job_before.attempt);
-    let consult_after = node(&tree, &consult);
-    assert_eq!(consult_after.attempt, consult_before.attempt);
-    assert!(consult_after.terminal_id.is_none());
 }
