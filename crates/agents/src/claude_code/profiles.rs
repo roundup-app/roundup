@@ -2,12 +2,12 @@
 
 use super::Role;
 
-/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14), and `AskUserQuestion` because the user answers the Door's questions natively in its Terminal (A3564a). `Write` and `Edit` are memory-only (LC19). Every other built-in, including `Bash`
-/// and `Agent`, is absent; the MCP servers' tools stay (F1).
-pub const DOOR_TOOLS: &str = "Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion";
+/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14), and `AskUserQuestion` because the user answers the Door's questions natively in its Terminal (A3564a). `Write` and `Edit` are memory-only (LC19). `Bash` and `Agent` are there (LC25). Every other built-in is absent; the MCP servers' tools stay (F1).
+pub const DOOR_TOOLS: &str =
+    "Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion";
 
 /// M2219: a Door's tools with no roundup server; its Brief no longer tells it to load tools, so `ToolSearch` goes.
-pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Write,Edit,Skill,AskUserQuestion";
+pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Bash,Write,Edit,Agent,Skill,AskUserQuestion";
 
 /// LC1: a scout's tools; it reads, searches and saves memory; `Bash` searches a repository.
 pub const SCOUT_TOOLS: &str = "Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion";
