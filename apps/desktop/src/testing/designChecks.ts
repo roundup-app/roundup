@@ -9,6 +9,14 @@ const visible = (el: Element) => !el.closest('[hidden], [aria-hidden=true]') && 
 
 const nameOf = (el: Element) => `${el.tagName.toLowerCase()}.${el.classList[0] ?? ""}`;
 
+/** Press feedback times scale only: every other transitioned property has zero duration. */
+function scaleOnly(style: CSSStyleDeclaration) {
+  const durations = style.transitionDuration.split(",").map(value => parseFloat(value));
+  const properties = style.transitionProperty.split(",").map(value => value.trim());
+
+  return properties.every((property, index) => property === "scale" || (durations[index % durations.length] ?? 0) === 0);
+}
+
 /** U133: inspect the instant Token recipe without dispatching input or changing the page. */
 export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
   const view = doc.defaultView!;
@@ -27,7 +35,7 @@ export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
       if (owner !== el && !rule.selectorText.includes(":has(input")) return false;
       const selector = rule.selectorText.replaceAll('[data-pressed="true"]', ":where(*)").replaceAll(":active", ":where(*)");
 
-      try { return owner.matches(selector) && (rule.style.transition === "none" || view.getComputedStyle(owner).transitionDuration.split(",").every(value => parseFloat(value) === 0)); } catch { return false; }
+      try { return owner.matches(selector) && (rule.style.transition === "none" || scaleOnly(view.getComputedStyle(owner))); } catch { return false; }
     });
 
     if (!covered) return result({ pressFeedback: "missing" }, nameOf(owner), false);

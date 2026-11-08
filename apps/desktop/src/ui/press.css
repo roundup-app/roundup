@@ -1,7 +1,7 @@
 /* Pointer and key press feedback: pressFeedback.ts sets data-pressed; reduced motion shows no scale.
-   Rows and a Project tab keep ink only (U6220b); Toast sets its own scale; the scale eases back on release only, so press ink stays instant (D4); an input's wrapper scales. */
+   Rows and a Project tab keep ink only (U6220b); Toast sets its own scale; the scale eases both ways and ink and opacity stay instant (D4); an input's wrapper scales. */
 @media (prefers-reduced-motion: no-preference) {
   [data-pressed]:not(input, .project-tab *, [role=treeitem], .rail-row, .todo-row, .todo-row-button, .app-toast),
   :is(.app-checkbox, .app-radio, .app-segment):has(input[data-pressed]) { scale: var(--scale-press); }
-  :where(button, a[href], summary, [role=button], [role=tab], [role=menuitem], [role=option], .app-checkbox, .app-radio, .app-segment):where(:not([data-pressed])) { transition: scale var(--duration-press) var(--easing-out); }
+  :where(button, a[href], summary, [role=button], [role=tab], [role=menuitem], [role=option], .app-checkbox, .app-radio, .app-segment) { transition: scale var(--duration-press) var(--easing-out); }
 }
