@@ -13,7 +13,7 @@ import { markKind, rowAttention, rowKind, rowUnread } from "./rollup";
 import "./strip.css";
 
 /** U6228: the collapsed Rail (its marks carry names for assistive technology only; the peek shows them, so no tooltips): one mark per Workstream, in the Rail's order, each with the state glyph and needs-you count its row rolls up from its Agents. */
-export const RailStrip = (props: { expand: () => void }) => {
+export const RailStrip = () => {
   const { rail, unseen } = useConnectedProject();
   const dismissed = (node: Parameters<typeof rail.dismissed>[0]) => rail.dismissed(node);
 
@@ -30,7 +30,6 @@ export const RailStrip = (props: { expand: () => void }) => {
 
   return (
     <nav class="rail-strip" aria-label={copy.railStrip}>
-      <IconButton bare class="rail-strip-expand" aria-label={copy.expandRail} onClick={props.expand}><Icon name="right" /></IconButton>
       <div class="rail-strip-scroll">
         <TreeView.Root collection={collection()} selectedValue={current() === null ? [] : [current()!]} expandOnClick={false}>
           <TreeView.Tree aria-label={copy.railStrip}>

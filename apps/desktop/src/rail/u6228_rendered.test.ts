@@ -8,8 +8,8 @@ beforeAll(async () => { lane = await openLane(1512, "dark", "u6228"); }, 60_000)
 afterAll(async () => { await lane?.close(); });
 
 it("u6228_rendered_strip_collapsed_and_worst_case", async () => {
-  await lane.until("!!document.querySelector('.rail-collapse')");
-  await lane.browser("click", ".rail-collapse");
+  await lane.until("!!document.querySelector('.rail-toggle')");
+  await lane.browser("click", ".rail-toggle");
   await lane.until("document.querySelector('.rail').dataset.collapsed === 'true' && !!document.querySelector('.rail-mark')");
   await lane.capture("U6228a", "collapsed");
 

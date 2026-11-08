@@ -51,8 +51,12 @@ export type Widths = {
   rail: Side;
   /** U6228: whether the Rail is the strip of Workstream marks. */
   collapsed: Accessor<boolean>;
-  /** U6228: collapse or expand the Rail, keeping its last width for the expand. */
-  setCollapsed: (collapsed: boolean) => void;
+  /** U6228g: the Rail's column is a strip. It follows `collapsed` at once, or after a slide when `setCollapsed` kept it. */
+  laidOut: Accessor<boolean>;
+  /** U6228: collapse or expand the Rail, keeping its last width for the expand. With `slide`, the column keeps its width until `settleLayout`, so the centre changes once (U6228g). */
+  setCollapsed: (collapsed: boolean, slide?: boolean) => void;
+  /** U6228g: the slide is over; the column takes the collapsed state's width. */
+  settleLayout: () => void;
   shelf: Side;
   /** The two widths in px as CSS values, for the window's style. */
   style: () => Record<string, string>;
@@ -68,6 +72,10 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
   const [collapsed, setCollapsedSignal] = createSignal(false);
 
+  const [laidOut, setLaidOut] = createSignal(false);
+
+  const setBoth = (next: boolean) => { setCollapsedSignal(next); setLaidOut(next); };
+
   let element: HTMLElement | undefined;
 
   createComputed(
@@ -76,11 +84,11 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
       setRail(stored?.rail ?? RAIL.fallback);
       setShelf(stored?.shelf ?? SHELF.fallback);
-      setCollapsedSignal(stored?.collapsed ?? false);
+      setBoth(stored?.collapsed ?? false);
     }),
   );
 
-  const railNow = () => collapsed() ? STRIP_WIDTH : railEffective(rail());
+  const railNow = () => laidOut() ? STRIP_WIDTH : railEffective(rail());
 
   const shelfNow = () => shelfEffective(shelf());
 
@@ -97,10 +105,14 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
   return {
     collapsed,
-    setCollapsed: (next) => {
-      setCollapsedSignal(next);
+    laidOut,
+    setCollapsed: (next, slide = false) => {
+      if (slide) setCollapsedSignal(next);
+      else setBoth(next);
+
       save();
     },
+    settleLayout: () => setLaidOut(collapsed()),
     rail: {
       label: copy.resizeRail,
       direction: 1,
@@ -111,9 +123,9 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       collapsedAt: STRIP_WIDTH,
       preview: (px) => write(px <= STRIP_WIDTH ? STRIP_WIDTH : railEffective(px), shelfEffective(shelf())),
       commit: (px) => {
-        if (px <= STRIP_WIDTH) setCollapsedSignal(true);
+        if (px <= STRIP_WIDTH) setBoth(true);
         else {
-          setCollapsedSignal(false);
+          setBoth(false);
           setRail(limited(px, RAIL));
         }
 
