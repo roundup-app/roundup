@@ -31,6 +31,7 @@ pub fn sh(cwd: &Path, script: &str) -> SpawnParams {
         cwd: cwd.to_string_lossy().into_owned(),
         command: Some(vec!["/bin/sh".into(), "-c".into(), script.into()]),
         env: BTreeMap::new(),
+        unset: Vec::new(),
         cols: 80,
         rows: 24,
     }

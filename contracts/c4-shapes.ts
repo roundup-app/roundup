@@ -269,6 +269,7 @@ type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwn
       : K extends "project/Requested" ? RenameRequest
       : K extends "RpcErrorData" ? Before[K] | { kind: "start-failed"; path: string; id: string; cause: string }
       : K extends "agent/StartDoorParams" ? Before[K] & { prompt?: string }
+      : K extends "terminal/SpawnParams" ? Before[K] & { unset: string[] }
       : Before[K] };
 
 type SelectorMethods = "todo.assign" | "todo.create";
@@ -276,6 +277,7 @@ type SelectorMethods = "todo.assign" | "todo.create";
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
   : K extends "rail.startDoor" ? { params: BeforeRpcMethods[K]["params"] & { prompt?: string }; result: BeforeRpcMethods[K]["result"] }
+  : K extends "terminal.spawn" ? { params: BeforeRpcMethods[K]["params"] & { unset: string[] }; result: BeforeRpcMethods[K]["result"] }
   : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"]; result: { path: string } }
   : BeforeRpcMethods[K] };
 

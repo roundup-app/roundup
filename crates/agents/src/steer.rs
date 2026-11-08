@@ -627,6 +627,7 @@ mod tests {
                 cwd: watched._dir.path().to_string_lossy().into_owned(),
                 command: Some(vec!["sh".into(), "-c".into(), "sleep 30".into()]),
                 env: Default::default(),
+                unset: Vec::new(),
                 cols: 80,
                 rows: 24,
             })
