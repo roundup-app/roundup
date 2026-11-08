@@ -571,7 +571,18 @@ impl Agents {
             .await?;
         self.retain_worktree(id).await?;
         let spawned = match self
-            .spawn_behind(id, cwd, Some(argv), env, unset, attach, size)
+            .spawn_behind(
+                id,
+                TerminalSpawn {
+                    cwd: cwd.to_string_lossy().into_owned(),
+                    command: Some(argv),
+                    env,
+                    unset,
+                    cols: size.0,
+                    rows: size.1,
+                },
+                attach,
+            )
             .await
         {
             Ok(spawned) => spawned,
@@ -592,25 +603,10 @@ impl Agents {
     pub(super) async fn spawn_behind(
         &self,
         id: &str,
-        cwd: &Path,
-        command: Option<Vec<String>>,
-        env: BTreeMap<String, String>,
-        unset: Vec<String>,
+        spawn: TerminalSpawn,
         attach: Attach,
-        size: (u16, u16),
     ) -> Result<terminal::Spawned, RpcError> {
-        let spawned = self
-            .shared
-            .terminals
-            .spawn(TerminalSpawn {
-                cwd: cwd.to_string_lossy().into_owned(),
-                command,
-                env,
-                unset,
-                cols: size.0,
-                rows: size.1,
-            })
-            .await?;
+        let spawned = self.shared.terminals.spawn(spawn).await?;
         if attach == Attach::Now {
             let attached = self.shared.rail().attach_terminal(id, &spawned.id);
             let attached = attached
