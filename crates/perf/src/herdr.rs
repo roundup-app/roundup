@@ -257,7 +257,7 @@ impl Core {
                 if tree.iter().all(|p| sys.process(*p).is_none()) {
                     return;
                 }
-                std::thread::sleep(Duration::from_millis(50));
+                std::thread::park_timeout(Duration::from_millis(50));
             }
         }
     }
