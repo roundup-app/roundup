@@ -2,6 +2,29 @@
   "fixtures": [
     {
       "match": {
+        "toolCallId": "toolu_dcr4_report"
+      },
+      "response": {
+        "content": "Finished."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Report the one thing.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_dcr4_report",
+            "name": "Bash",
+            "arguments": "{\"command\": \"python3 report-job.py\", \"description\": \"Report\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
       },
       "response": {

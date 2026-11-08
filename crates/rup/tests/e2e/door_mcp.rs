@@ -237,6 +237,7 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     let mut project = daemon::start_real("dcr4_relaunch_carries_on_the_cut_off_job_only", &[]);
     let (door, job, _) = door_with_children(&project, false).await;
     let reported = reported_job(&project, &door).await;
+    eprintln!("DBG {:#?}", project.rail_tree(&project.client().await).await.iter().map(|n| (n.id.clone(), n.name.clone(), n.status.clone(), n.terminal_id.clone())).collect::<Vec<_>>());
     model_saw(&project, "[stopped]").await;
     begin_second_turn(&project, &job).await;
     quit_and_relaunch(&mut project).await;
@@ -266,63 +267,71 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     );
 }
 
+/// DCR4: the Job's own process reports from inside its Claude tree, the only place the Daemon
+/// takes a report from.
+const JOB_REPORT: &str = r#"import hashlib,json,os,socket,time
+id=os.environ['ROUNDUP_AGENT']
+s=socket.socket(socket.AF_UNIX);s.settimeout(10);s.connect(os.environ['RUPD_SOCKET']);f=s.makefile('rb')
+n=0
+def call(method,p):
+ global n
+ n+=1;s.sendall((json.dumps({'jsonrpc':'2.0','id':n,'method':method,'params':p})+'\n').encode())
+ while True:
+  r=json.loads(f.readline())
+  if r.get('id')==n:
+   assert 'result' in r,r
+   return r['result']
+call('daemon.identify',{'actor':{'kind':'agent','id':id,'parent':None}})
+end=time.monotonic()+10
+while True:
+ ins=call('agent.instructions',{'id':id})
+ ds=[d for d in ins['deliveries'] if d['state']=='submitted']
+ if ds:break
+ assert time.monotonic()<end,'no submitted instruction'
+ time.sleep(.05)
+text=b'job output'
+open(os.path.join(ins['project'],'output.txt'),'wb').write(text)
+pub=call('deliverable.publish',{'key':'out','title':'Output','target':{'kind':'file','path':'output.txt'}})
+call('message.report',{'project':ins['project'],'id':id,'key':'out','delivery':ds[-1]['id'],'target':{'id':'out','revision':'v1'},'output':{'project':pub['project'],'id':pub['id']},'result':'Done.','next':'','state':'reported','check':{'kind':'publication','sha256':hashlib.sha256(text).hexdigest()}})
+"#;
+
 /// DCR4: a Job that sent its report: it finished a turn and published its output.
 async fn reported_job(project: &Project, door: &str) -> String {
-    let user = project.client().await;
     let as_door = client_as(project, actor(ActorKind::Agent, door)).await;
+    std::fs::write(project.dir.path().join("report-job.py"), JOB_REPORT).unwrap();
+    // The Project's settings pin the permission mode; allow only the reporting script.
+    std::fs::write(
+        project.dir.path().join(".claude/settings.json"),
+        json!({"permissions": {"defaultMode": "default", "allow": ["Bash(python3 report-job.py)"]}})
+            .to_string(),
+    )
+    .unwrap();
     let id = as_door
         .request(
             "agent.spawn",
             json!({"name": "reported-job", "parent": door, "cwd": project.dir.path(),
-                "role": "job", "prompt": "Do the one thing.",
-                "order": {"kind": "work", "ask": "Do the one thing.", "limits": []}}),
+                "role": "job", "prompt": "Report the one thing.",
+                "order": {"kind": "work", "ask": "Report the one thing.", "limits": []}}),
         )
         .await
         .unwrap()["id"]
         .as_str()
         .unwrap()
         .to_owned();
-    daemon::h21_poll("the reporting Job to finish a turn", async || {
+    project
+        .model
+        .as_ref()
+        .unwrap()
+        .tool_result("toolu_dcr4_report")
+        .await;
+    let user = project.client().await;
+    daemon::h21_poll("the reporting Job to finish its turn", async || {
         let tree = project.rail_tree(&user).await;
         tree.iter()
-            .any(|n| n.id == id && n.status.as_ref().is_some_and(|s| s.finished != "0"))
+            .any(|n| n.id == id && n.status.as_ref().is_some_and(|s| s.kind == contracts::Kind::Idle))
             .then_some(())
     })
     .await;
-    let as_job = client_as(project, actor(ActorKind::Agent, &id)).await;
-    let delivery = daemon::h21_poll("the Job's submitted instruction", async || {
-        let instructions = as_job
-            .request("agent.instructions", json!({ "id": id }))
-            .await
-            .unwrap();
-        instructions["deliveries"]
-            .as_array()?
-            .iter()
-            .rfind(|d| d["state"] == "submitted")
-            .map(|d| (instructions["project"].clone(), d["id"].clone()))
-    })
-    .await;
-    std::fs::write(project.dir.path().join("output.txt"), "job output").unwrap();
-    let published = as_job
-        .request(
-            "deliverable.publish",
-            json!({"key": "out", "title": "Output",
-                "target": {"kind": "file", "path": "output.txt"}}),
-        )
-        .await
-        .unwrap();
-    as_job
-        .request(
-            "message.report",
-            json!({"project": delivery.0, "id": id, "key": "out", "delivery": delivery.1,
-                "target": {"id": "out", "revision": "v1"},
-                "output": {"project": published["project"], "id": published["id"]},
-                "result": "Done.", "next": "", "state": "reported",
-                "check": {"kind": "publication", "sha256":
-                    "cf3dffc7c4eff44c176d1fc2e258e303298edd50eba6ee0b93ba741af99cfdef"}}),
-        )
-        .await
-        .unwrap();
     id
 }
 
