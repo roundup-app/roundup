@@ -1,0 +1,8 @@
+# removal proof 2026-11-07T17:19:15Z
+## before
+['herdr-spike', 'roundup-ci-control', 'roundup-ci-128471230355', 'roundup-ci-128471230371']
+destroyed herdr-spike
+  A new version of boxd is available (v0.3.3). Update with:
+## after
+['roundup-ci-control', 'roundup-ci-128471230355', 'roundup-ci-128471230371']
+herdr-spike present: False
