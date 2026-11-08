@@ -1,10 +1,12 @@
 import { EmptyState } from "../ink/EmptyState";
 import { captureFocus } from "../keys/focus";
+import { createItemFailures } from "../ink/itemFailures";
 import { clipboardFailure } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
 import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "./copy";
-import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createWritableMemo } from "@solid-primitives/memo";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { modalOutside } from "../keys/registry";
@@ -105,26 +107,19 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 
   const older = (id: string, comparison: FileComparison) => olderComparison(comparisons().get(`${id}:${comparison.newPath}`), comparison);
 
-  const [editing, setEditing] = createSignal<{ id: string; form: NoteFormDraft }>();
-  const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
+  const [editing, setEditing] = createWritableMemo<{ id: string; form: NoteFormDraft } | undefined>(previous => props.open ? previous : undefined);
+  // P3557c: a copy failure leaves with its record; a Daemon-side problem keeps every one.
+  const revisions = createMemo(() => [...props.notes.entries().flatMap(([, value]) => [
+    ...value.forms.map(form => form.revision), ...value.notes.map(note => note.revision),
+    ...value.recovered.map(record => record.revision), ...value.submissions.map(submission => submission.revision),
+  ]), ...props.notes.invalid().map(record => record.revision)]);
+  const failures = createItemFailures<string>(() => props.notes.problem() ? "unknown" : revisions());
+  const failed = () => revisions().flatMap(key => {
+    const text = failures.failure(key);
 
-  const clear = (key: string) => setFailures(previous => {
-    const next = new Map(previous);
-
-    next.delete(key);
-
-    return next;
+    return text === undefined ? [] : [[key, text] as const];
   });
-
-  createEffect(() => {
-    const keys = new Set([...props.notes.entries().flatMap(([, value]) => [
-      ...value.forms.map(form => form.revision), ...value.notes.map(note => note.revision),
-      ...value.recovered.map(record => record.revision), ...value.submissions.map(submission => submission.revision),
-    ]), ...props.notes.invalid().map(record => record.revision)]);
-
-    if (props.notes.problem()) return;
-    setFailures(previous => new Map([...previous].filter(([key]) => keys.has(key))));
-  });
+  const clear = failures.clear;
   const close = () => { props.onOpenChange(false); setEditing(undefined); };
 
   const entries = () => props.notes.entries().filter(([, value]) => value.forms.length || value.notes.length || value.submissions.length || value.recovered.length);
@@ -132,7 +127,6 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 
   const problemLine = dismissable(() => props.notes.problem());
 
-  createEffect(() => { if (!props.open) setEditing(undefined); });
   createEffect(() => { if (props.open && element() && modalOutside(element())) close(); });
 
   return <Dialog.Root instant modal={false} trapFocus={false} closeOnInteractOutside={false} open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
@@ -141,7 +135,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" onClick={close}>{copy.close}</button></header>
       <Show when={!retained()}><EmptyState art="clumsy" {...{ title: copy.noNoteDrafts }} line={copy.emptyNotesLine} /></Show>
       <Show when={props.notes.problem()}><ReservedLine message={problemLine.message()} dismiss={problemLine.dismiss} recover={{ run: props.notes.retry }} /></Show>
-      <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text} dismiss={() => clear(key)} />}</For>
+      <For each={failed()}>{([key, text]) => <ReservedLine message={text} dismiss={() => clear(key)} />}</For>
 
       <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={comparisons().get(`${value.id}:${value.form.comparison.newPath}`) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>
       <For each={entries()}>{([id, value]) => <section class="note-batch">
@@ -149,19 +143,19 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
         <ReservedLine status={!props.available(id) ? copy.originalRecipientUnavailable : null} />
         <For each={value.forms}>{form => <div class="note-recovered-batch">
           <p class="note-path">{form.comparison.newPath}<Show when={older(id, form.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(form.side, Number(form.start) === Number(form.end) ? `${Number(form.start)}` : `${Number(form.start)}–${Number(form.end)}`, Number(form.start) === Number(form.end))}</p><p class="note-text">{form.text}</p>
-          <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, form }, null, 2)} identity={form.revision} onSuccess={() => clear(form.revision)} onFailure={error => setFailures(previous => new Map(previous).set(form.revision, clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><Show when={props.available(id)}><button type="button" data-note-action="resume" onClick={() => setEditing({ id, form })}>{copy.resumeNote}</button></Show><button type="button" onClick={() => { props.notes.discardForm(id, form.revision); setEditing(undefined); }}>{copy.discardDraft}</button></div>
+          <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, form }, null, 2)} identity={form.revision} onSuccess={() => clear(form.revision)} onFailure={error => failures.fail(form.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><Show when={props.available(id)}><button type="button" data-note-action="resume" onClick={() => setEditing({ id, form })}>{copy.resumeNote}</button></Show><button type="button" onClick={() => { props.notes.discardForm(id, form.revision); setEditing(undefined); }}>{copy.discardDraft}</button></div>
         </div>}</For>
         <For each={value.notes}>{note => <div class="note-recovered-batch">
           <p class="note-path">{note.comparison.newPath}<Show when={older(id, note.comparison)}>{copy.originalContext}</Show></p><p>{copy.selectedLines(note.side, note.start === note.end ? `${note.start}` : `${note.start}–${note.end}`, note.start === note.end)}</p><p class="note-text">{note.text}</p>
-          <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, note }, null, 2)} identity={note.revision} onSuccess={() => clear(note.revision)} onFailure={error => setFailures(previous => new Map(previous).set(note.revision, clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.remove(id, note.id)}>{copy.discardDraft}</button></div>
+          <div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, note }, null, 2)} identity={note.revision} onSuccess={() => clear(note.revision)} onFailure={error => failures.fail(note.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.remove(id, note.id)}>{copy.discardDraft}</button></div>
         </div>}</For>
-        <For each={value.recovered}>{recovered => <div class="note-recovered-batch"><RecordPreview older={comparison => older(id, comparison)} rows={[...recovered.data.forms, ...recovered.data.notes, ...recovered.data.submissions.flatMap(submission => submission.notes)]} /><div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, ...recovered }, null, 2)} identity={recovered.revision} onSuccess={() => clear(recovered.revision)} onFailure={error => setFailures(previous => new Map(previous).set(recovered.revision, clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.discardRecovered(id, recovered.revision)}>{copy.discardDraft}</button></div></div>}</For>
+        <For each={value.recovered}>{recovered => <div class="note-recovered-batch"><RecordPreview older={comparison => older(id, comparison)} rows={[...recovered.data.forms, ...recovered.data.notes, ...recovered.data.submissions.flatMap(submission => submission.notes)]} /><div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify({ project: props.notes.project, recipient: id, ...recovered }, null, 2)} identity={recovered.revision} onSuccess={() => clear(recovered.revision)} onFailure={error => failures.fail(recovered.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.discardRecovered(id, recovered.revision)}>{copy.discardDraft}</button></div></div>}</For>
         <For each={value.submissions}>{submission => <div class="note-recovered-batch">
           <ReservedLine status={`${copy.noteDraftStatus(props.name(id), submission.status)} ${submission.text}`} /><RecordPreview older={comparison => older(id, comparison)} rows={submission.notes} />
-          <div class="diff-actions"><CopyButton data-button={null} app={app} text={submission.body} identity={submission.revision} onSuccess={() => clear(submission.revision)} onFailure={error => setFailures(previous => new Map(previous).set(submission.revision, clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><Show when={submission.status === "unknown"}><button type="button" onClick={() => void props.notes.reconcile(id)}>{copy.checkMessageHistory}</button></Show><Show when={submission.status !== "pending"}><button type="button" onClick={() => props.notes.discardSubmission(id, submission.revision)}>{copy.discardSubmission}</button></Show></div>
+          <div class="diff-actions"><CopyButton data-button={null} app={app} text={submission.body} identity={submission.revision} onSuccess={() => clear(submission.revision)} onFailure={error => failures.fail(submission.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><Show when={submission.status === "unknown"}><button type="button" onClick={() => void props.notes.reconcile(id)}>{copy.checkMessageHistory}</button></Show><Show when={submission.status !== "pending"}><button type="button" onClick={() => props.notes.discardSubmission(id, submission.revision)}>{copy.discardSubmission}</button></Show></div>
         </div>}</For>
       </section>}</For>
-      <For each={props.notes.invalid()}>{draft => <div><RecordPreview rows={draft.preview} /><div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify(draft)} identity={draft.revision} onSuccess={() => clear(draft.revision)} onFailure={error => setFailures(previous => new Map(previous).set(draft.revision, clipboardFailure("copy", error)))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.discardInvalid(draft.revision)}>{copy.discardDraft}</button></div></div>}</For>
+      <For each={props.notes.invalid()}>{draft => <div><RecordPreview rows={draft.preview} /><div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify(draft)} identity={draft.revision} onSuccess={() => clear(draft.revision)} onFailure={error => failures.fail(draft.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.discardInvalid(draft.revision)}>{copy.discardDraft}</button></div></div>}</For>
     </Dialog.Content></Dialog.Positioner>
   </Dialog.Root>;
 };

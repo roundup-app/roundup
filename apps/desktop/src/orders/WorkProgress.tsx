@@ -1,6 +1,7 @@
 import "./styles.css";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
+import { createItemFailures } from "../ink/itemFailures";
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { ContinuationAction } from "@contracts/message/ContinuationAction";
 import type { Progress } from "@contracts/message/Progress";
@@ -55,34 +56,22 @@ const ProgressContent = (props: { id: string }) => {
   const [phase, setPhase] = createSignal<Phase>("idle");
   const [cause, setCause] = createSignal("");
   const [diagnostic, setDiagnostic] = createSignal("");
-  const [failures, setFailures] = createSignal<Record<string, string>>({});
-  const [dismissedRead, setDismissedRead] = createSignal<Read>();
-  const [resumeFailure, setResumeFailure] = createSignal<"failed" | "unknown" | null>(null);
-  const resumeMessage = () => resumeFailure() === "unknown" ? copy.resumeUnknown : resumeFailure() === "failed" ? cause() : undefined;
-  let wasPresent = rail.nodes.some(node => node.id === props.id);
-  createEffect(() => {
-    if (rail.failure() !== null) return;
-    const present = rail.nodes.some(node => node.id === props.id);
-
-    if (wasPresent && !present) setResumeFailure(null);
-    wasPresent = present;
-  });
-
-  const clearReport = (report: string) => setFailures(previous => {
-    const next = { ...previous };
-    delete next[report];
-
-    return next;
-  });
-
-  createEffect(() => {
+  // P3557c: a report's failure leaves with the report; while the read has none, or the Rail is faulted, every failure stays.
+  const failures = createItemFailures<string>(() => {
     const each = loaded();
 
-    if (each) {
-      const reports = new Set(each.progress.results.map(result => result.report.report));
-      setFailures(previous => Object.fromEntries(Object.entries(previous).filter(([report]) => reports.has(report))));
-    }
+    return each ? each.progress.results.map(result => result.report.report) : "unknown";
   });
+  const [dismissedRead, setDismissedRead] = createSignal<Read>();
+  const resumes = createItemFailures<string, "failed" | "unknown">(() => rail.failure() !== null ? "unknown" : rail.nodes.map(node => node.id));
+  const resumeFailure = (): "failed" | "unknown" | null => resumes.failure(props.id) ?? null;
+  const setResumeFailure = (value: "failed" | "unknown" | null): void => {
+    if (value === null) resumes.clear(props.id);
+    else resumes.fail(props.id, value);
+  };
+  const resumeMessage = () => resumeFailure() === "unknown" ? copy.resumeUnknown : resumeFailure() === "failed" ? cause() : undefined;
+
+  const clearReport = failures.clear;
   const [opening, setOpening] = createSignal<string | null>(null);
 
   let request: string | null = null;
@@ -113,12 +102,12 @@ const ProgressContent = (props: { id: string }) => {
 
       if (!disposed) {
         if (unavailable === null) clearReport(report);
-        else setFailures(previous => ({ ...previous, [report]: unavailable }));
+        else failures.fail(report, unavailable);
       }
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      if (!disposed) setFailures(previous => ({ ...previous, [report]: error.message }));
+      if (!disposed) failures.fail(report, error.message);
     } finally {
       if (!disposed) setOpening(null);
     }
@@ -234,7 +223,7 @@ const ProgressContent = (props: { id: string }) => {
         <For each={noteOf(result, plan)}>{(note) => <div class="progress-note" role="note"><p>{note.cause}</p><p>{note.action}</p></div>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
-        <ReservedLine message={failures()[result.report.report]} dismiss={() => clearReport(result.report.report)} />
+        <ReservedLine message={failures.failure(result.report.report)} dismiss={() => clearReport(result.report.report)} />
       </li>
     );
   };

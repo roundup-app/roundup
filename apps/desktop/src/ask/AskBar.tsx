@@ -5,6 +5,8 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { Presence } from "@ark-ui/solid/presence";
 import { captureFocus, queueFocus } from "../keys/focus";
 import type { JSX } from "solid-js";
+import { createItemFailures } from "../ink/itemFailures";
+import { createWritableMemo } from "@solid-primitives/memo";
 import { batch, untrack, createEffect, createMemo, createSignal, For, Index, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
@@ -134,29 +136,30 @@ export const AskBar = (props: {
     });
   };
 
-  const [failure, setFailure] = createSignal<{ revision: string; message: string } | null>(null);
+  // P3557c: a refused send belongs to its draft and leaves with it.
+  const refusals = createItemFailures<string>(() => records().map(draft => draft.revision));
+  const failure = (): string | undefined => records().flatMap(draft => refusals.failure(draft.revision) ?? []).at(-1);
   const [dismissed, setDismissed] = createSignal(false);
 
   const dismissSend = () => {
-    setFailure(null);
+    records().forEach(draft => refusals.clear(draft.revision));
 
     const intake = asks.intakeFailure();
 
     if (intake) asks.dismiss(intake);
   };
 
-  const sendLine = dismissable(() => problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure()));
+  const sendLine = dismissable(() => problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure() ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure()));
 
   const dismissSendLine = () => {
     const listed = asks.listFailure() ?? asks.intakeFailure();
 
     if (problem()) sendLine.dismiss();
-    else if (failure()) dismissSend();
+    else if (failure() !== undefined) dismissSend();
     else if (listed) asks.dismiss(listed);
     else sendLine.dismiss();
   };
 
-  const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
 
@@ -202,11 +205,11 @@ export const AskBar = (props: {
     return dismissed() || typed === null ? [] : names().filter((item) => item.label.toLowerCase().includes(typed.toLowerCase()));
   });
 
-  createEffect(() => {
+  const [highlighted, setHighlighted] = createWritableMemo<string | null>(previous => {
     const list = matching();
 
-    if (!list.some((item) => item.value === highlighted())) setHighlighted(list[0]?.value ?? null);
-  });
+    return list.some((item) => item.value === previous) ? previous : list[0]?.value ?? null;
+  }, null);
 
   const close = (restore: boolean): void => {
     if (optionalViews.some(connected.hasView)) optionalViews.forEach(connected.hideView);
@@ -268,7 +271,7 @@ export const AskBar = (props: {
     const placement = projectPick.request();
 
     if (!draft || !(await drafts.submit(draft.revision))) return;
-    setFailure(null);
+    refusals.clear(draft.revision);
     const workstream = v.safeParse(v.string(), draft.value.workstream);
     const request: AskSubmission = { text: value, submission: draft.revision };
 
@@ -279,7 +282,7 @@ export const AskBar = (props: {
     void asks.send(request).then((outcome) => {
       drafts.settle(draft.revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
-      if (outcome.kind === "refused") setFailure({ revision: draft.revision, message: copy.askNotSent + outcome.error.message });
+      if (outcome.kind === "refused") refusals.fail(draft.revision, copy.askNotSent + outcome.error.message);
     });
   };
 
@@ -359,7 +362,7 @@ export const AskBar = (props: {
                 drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
                 if (outcome.kind === "unknown") setCause(outcome.message);
-                else setFailure(previous => previous?.revision === revision ? null : previous);
+                else refusals.clear(revision);
               });
             }}>{copy.askCheckAcceptance}</button>
           </div>;

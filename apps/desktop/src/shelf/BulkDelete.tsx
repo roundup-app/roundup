@@ -4,6 +4,7 @@ import { captureFocus } from "../keys/focus";
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
 import { copy } from "./copy";
+import { createItemFailures } from "../ink/itemFailures";
 import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -44,7 +45,14 @@ export const createBulkDelete = <Id,>(props: {
 }) => {
   const host = useContext(ShelfActions);
   const [question, setQuestion] = createSignal<Question<Id> | null>(null);
-  const [failures, setFailures] = createSignal<readonly { target: Target<Id>; message: string }[]>([]);
+  // P3557c: a failure shows while its row is a target and a selection or question is open.
+  const failures = createItemFailures<Id>(() => props.selected().length > 0 || question() !== null ? props.targets().map(target => target.id) : []);
+  const failed = () => props.targets().flatMap(target => {
+    const message = failures.failure(target.id);
+
+    return message === undefined ? [] : [{ target, message }];
+  });
+  const clearFailures = () => props.targets().forEach(target => failures.clear(target.id));
   const [readFailure, setReadFailure] = createSignal<string | null>(null);
   let readback: (() => Promise<void>) | undefined;
   let revision = 0;
@@ -55,16 +63,13 @@ export const createBulkDelete = <Id,>(props: {
   const reset = () => {
     revision += 1;
     setQuestion(null);
-    setFailures([]);
+    clearFailures();
     setReadFailure(null);
     props.clear();
   };
 
   createEffect(on(() => `${props.context()}:${host?.open()}`, reset, { defer: true }));
   onCleanup(() => { revision += 1; });
-  createEffect(on(props.targets, targets => {
-    setFailures(current => current.filter(({ target }) => targets.some(row => row.id === target.id)));
-  }));
 
   let returnRegion: HTMLElement | null = null;
 
@@ -120,14 +125,10 @@ export const createBulkDelete = <Id,>(props: {
     const mine = revision;
     const targets = kept.targets;
     setQuestion({ ...kept, kind: "pending", targets });
-    setFailures(current => current.filter(({ target }) => !targets.some(row => row.id === target.id)));
+    for (const target of targets) failures.clear(target.id);
     const result = await props.remove(targets.map(target => target.id));
 
-    const failed = result.flatMap(item => {
-      const target = targets.find(target => target.id === item.id);
-
-      return target ? [{ target, message: item.message }] : [];
-    });
+    const refused = result.filter(item => targets.some(target => target.id === item.id));
 
     // A lost response can follow a committed delete; readback precedes retry.
     readback = async () => {
@@ -138,10 +139,11 @@ export const createBulkDelete = <Id,>(props: {
 
       if (message !== null) return;
 
-      if (kept.done && failed.length > 0) props.reveal?.();
-      const remaining = [...failures(), ...failed].filter(({ target }) => props.targets().some((row) => row.id === target.id));
+      if (kept.done && refused.length > 0) props.reveal?.();
+
+      for (const item of refused) if (props.targets().some(row => row.id === item.id)) failures.fail(item.id, item.message);
+      const remaining = failed();
       props.replace(remaining.map(({ target }) => target.id));
-      setFailures(remaining);
       setQuestion(null);
       readback = undefined;
       queueMicrotask(() => focus(() => focusAfter()?.focus()));
@@ -159,7 +161,7 @@ export const createBulkDelete = <Id,>(props: {
       event.preventDefault();
       event.stopPropagation();
 
-      if (!question()) { props.cancelSelection(); setFailures([]); }
+      if (!question()) { props.cancelSelection(); clearFailures(); }
     } else if (event.key === "Backspace" && !event.repeat && props.selected().length > 0) {
       event.preventDefault();
       event.stopPropagation();
@@ -174,10 +176,6 @@ export const createBulkDelete = <Id,>(props: {
   ]);
 
   registerKeys({ kind: "region", element: () => host ? document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined : undefined }, [{ chords: ["Escape"], when: () => props.selected().length > 0, run: key }]);
-
-  createEffect(() => {
-    if (props.selected().length === 0 && question() === null) setFailures([]);
-  });
 
   const owners = createMemo(() => {
     const kept = question();
@@ -196,19 +194,19 @@ export const createBulkDelete = <Id,>(props: {
 
   const labelOf = (target: Target<Id>) => `${target.label}${props.noun === "Todos" ? ` #${String(target.id)}` : ""}`;
 
-  const shown = () => (readFailure() === null ? failures() : []);
+  const shown = () => (readFailure() === null ? failed() : []);
   const failureText = (failure: { target: Target<Id>; message: string }) => `${copy.couldNotDelete} ${labelOf(failure.target)}${copy.colon}${failure.message}`;
 
-  const clearFailure = (failure: { target: Target<Id> }) => setFailures(current => current.filter(other => other.target.id !== failure.target.id));
+  const clearFailure = (failure: { target: Target<Id> }) => failures.clear(failure.target.id);
 
   const bar = () => (
-    <Show when={props.selected().length > 1 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
+    <Show when={props.selected().length > 1 || failed().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
       <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
         <Show when={props.selected().length > 0}>
           <div class="shelf-bulk-line" hidden={question()?.kind === "question"}>
             <span>{props.selected().length}{copy.selected}</span>
             <button data-button="quiet" type="button" ref={(button) => { deleteButton = button; }} disabled={question()?.kind === "pending"} onClick={() => ask()}>{copy.deleteWord}{props.selected().length}</button>
-            <button data-button="quiet" type="button" disabled={question()?.kind === "pending"} onClick={() => { props.cancelSelection(); setFailures([]); }}>{copy.clear}</button>
+            <button data-button="quiet" type="button" disabled={question()?.kind === "pending"} onClick={() => { props.cancelSelection(); clearFailures(); }}>{copy.clear}</button>
           </div>
         </Show>
         <Show when={owners().length > 0}>

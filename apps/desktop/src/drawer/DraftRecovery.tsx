@@ -7,6 +7,7 @@ import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "./copy";
+import { createItemFailures } from "../ink/itemFailures";
 import { lazy, createEffect, createSignal, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
@@ -46,14 +47,9 @@ const DraftRecoveryPanel = () => {
   const pads = usePadList();
   const todos = useTodoList();
   const work = useUnfinishedWork();
-  const [failures, setFailures] = createSignal<Record<string, string>>({});
-
-  const clear = (revision: string) => setFailures(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== revision)));
-
-  createEffect(() => {
-    const revisions = new Set(drafts.list().map(draft => draft.revision));
-    setFailures(current => Object.fromEntries(Object.entries(current).filter(([key]) => revisions.has(key))));
-  });
+  // P3557c: a copy failure leaves with its draft.
+  const failures = createItemFailures<string>(() => drafts.list().map(draft => draft.revision));
+  const clear = failures.clear;
 
   type Row = ReturnType<typeof work.rows>[number];
 
@@ -77,7 +73,7 @@ const DraftRecoveryPanel = () => {
       const pad = pads.pads().find(pad => object === `pad:${pad.incarnation}`);
 
       return () => drawer.open(() => <NameField object={object} name={todo?.title ?? pad?.name ?? String(row.draft.value.base)}
-        version={async () => null} close={() => drawer.close("key")} fail={message => { if (message) setFailures(current => ({ ...current, [row.draft.revision]: message })); }}
+        version={async () => null} close={() => drawer.close("key")} fail={message => { if (message) failures.fail(row.draft.revision, message); }}
         commit={async (text, base, version) => {
           if (todo) await applied(() => app.rpc("todo.update", { id: todo.id, title: text, body: null, expected_change: Number(version) }));
           else if (pad) await applied(() => app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: pad.incarnation }));
@@ -120,12 +116,12 @@ const DraftRecoveryPanel = () => {
             <div class="draft-text">
               <span class="draft-name">{copy.draftTitle(title(row).place, title(row).name)}</span>
               <span class="draft-cause">{copy.riskLine(copy.riskCause[row.cause], copy.riskTime(Math.floor((Date.now() - row.since) / 60000)))}</span>
-              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()} dismiss={() => clear(row.draft.revision)} />}</Show>
+              <Show when={failures.failure(row.draft.revision)}>{message => <ReservedLine message={message()} dismiss={() => clear(row.draft.revision)} />}</Show>
             </div>
           </div>
           <div class="draft-actions">
             <Show when={row.draft.destination.surface === "orders" || row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
-              <CopyButton app={app} identity={row.draft.revision} text={typedText(row.draft).join("\n")} onSuccess={() => clear(row.draft.revision)} onFailure={error => setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error.message) }))}>{copy.copyDraft}</CopyButton>
+              <CopyButton app={app} identity={row.draft.revision} text={typedText(row.draft).join("\n")} onSuccess={() => clear(row.draft.revision)} onFailure={error => failures.fail(row.draft.revision, copy.copyDraftFailure(error.message))}>{copy.copyDraft}</CopyButton>
             </Show>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(row.draft.revision)}>{copy.discardRow}</button>
           </div>

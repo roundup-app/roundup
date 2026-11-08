@@ -7,6 +7,7 @@ import { queueFocus } from "../keys/focus";
 import { LEADER } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
+import { createItemFailures } from "../ink/itemFailures";
 import { failureOf } from "../todos/failureOf";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { CopyButton } from "../ui/CopyButton";
@@ -58,7 +59,8 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [openKey, setOpenKey] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal<ReadonlySet<string>>(new Set());
-  const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
+  // P3557c: a row's failure leaves with its Agent or Terminal.
+  const failures = createItemFailures<string>(() => [...rail.nodes.map((node) => `a:${node.id}`), ...rail.terminals().map((terminal) => `a:terminal:${terminal.id}`)]);
   const heads = new Map<string, HTMLElement>();
   let alive = true;
   let live = false;
@@ -133,20 +135,10 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
     return next;
   });
 
-  createEffect(() => {
-    const keys = new Set([...rail.nodes.map((node) => `a:${node.id}`), ...rail.terminals().map((terminal) => `a:terminal:${terminal.id}`)]);
-
-    setFailures((current) => [...current.keys()].some((key) => !keys.has(key))
-      ? new Map([...current].filter(([key]) => keys.has(key))) : current);
-  });
-
-  const fail = (key: string, message: string | null) => setFailures((current) => {
-    const next = new Map(current);
-
-    if (message === null) next.delete(key); else next.set(key, message);
-
-    return next;
-  });
+  const fail = (key: string, message: string | null): void => {
+    if (message === null) failures.clear(key);
+    else failures.fail(key, message);
+  };
 
   const actions: RowActions = {
     retry: (row) => void (async () => {
@@ -177,7 +169,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
       } else rail.select(row.node.id);
     },
     busy: (row) => busy().has(row.key),
-    failure: (row) => failures().get(row.key) ?? null,
+    failure: (row) => failures.failure(row.key) ?? null,
     dismiss: (row) => { fail(row.key, null); heads.get(row.key)?.focus(); },
   };
 
