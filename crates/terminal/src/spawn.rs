@@ -64,6 +64,9 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
+        for name in &params.unset {
+            command.env_remove(name);
+        }
         claim_only_this_emulator(&mut command);
         // SK7.2: `rup skill report` writes only where this is set; a caller's value never stands.
         command.env("ROUNDUP_TERMINAL", number.to_string());
