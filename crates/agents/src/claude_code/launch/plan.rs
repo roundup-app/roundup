@@ -6,6 +6,7 @@
 use crate::id::AgentId;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use std::sync::PoisonError;
 
 use rpc::RpcError;
 use serde_json::{Map, Value, json};
@@ -217,19 +218,32 @@ fn brief(spec: &Spec<'_>, facts: &Facts) -> String {
         brief = brief::without_intent(&brief);
     }
     // MC43: the file only adds after roundup's own text; an unreadable or empty one adds nothing.
+    // MC49: a refused one leaves the last accepted text.
     if spec.role == Role::Door
-        && let Some(text) = spec
-            .launcher
-            .door_file
-            .as_ref()
-            .and_then(|file| std::fs::read_to_string(file).ok())
-            .filter(|text| !text.trim().is_empty())
+        && let Some(text) = door_text(spec.launcher)
     {
         brief.push_str("\n\n");
         brief.push_str(text.trim_end());
         brief.push('\n');
     }
     brief
+}
+
+fn door_text(launcher: &Launcher) -> Option<String> {
+    let text = launcher
+        .door_file
+        .as_ref()
+        .and_then(|file| std::fs::read_to_string(file).ok())
+        .filter(|text| !text.trim().is_empty());
+    let mut accepted = launcher
+        .door_accepted
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    match text {
+        Some(text) if (launcher.door_refusal)(&text).is_some() => {}
+        other => *accepted = other,
+    }
+    accepted.clone()
 }
 
 /// A note names the same selected or inherited mode as this launch.
