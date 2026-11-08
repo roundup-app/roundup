@@ -11,6 +11,7 @@ import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
 import { createSettingsView } from "./state/settingsView";
+import { applyConfig } from "./settings/configApply";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
@@ -187,8 +188,20 @@ const Connection = (props: {
 
     if (!open || open instanceof Error) return;
 
+    // MC40, MC41: the owner's look and keys files, read on connect and on each save; the App's own refusal of keys shows as the Daemon's problems do.
+    const toasts = props.toasts;
+
+    const config = () => void applyConfig(open.app, (file, cause) => {
+      const item = `config:${file}:${cause}`;
+
+      toasts.push({ key: item, item, kind: "error", name: file, line: cause, selected: false, open: () => null, project: path });
+    });
+
+    config();
+
     const stop = open.events.subscribe((event) => {
       if (event.name === "project.requested") props.onRequested(event.data);
+      else if (event.name === "config.changed") config();
     });
 
     onCleanup(stop);

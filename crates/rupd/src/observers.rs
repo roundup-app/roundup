@@ -21,6 +21,8 @@ pub struct Observers {
     /// for its Daemon; without it, Terminals stay children of the Daemon and a reopen reports
     /// Agents `done`.
     pub(crate) terminal_owner: Option<PathBuf>,
+    /// AMG2: bytes Agents may hold, from `RUPD_MEMORY_BUDGET`; half the machine's RAM when unset.
+    pub(crate) memory_budget: Option<u64>,
 }
 
 impl Observers {
@@ -45,6 +47,9 @@ impl Observers {
             prompt_effect_gate: path("RUPD_PROMPT_EFFECT_GATE"),
             digest_observer: path("RUPD_DIGEST_OBSERVER"),
             terminal_owner: path("RUPD_TERMINAL_OWNER"),
+            memory_budget: std::env::var("RUPD_MEMORY_BUDGET")
+                .ok()
+                .and_then(|bytes| bytes.parse().ok()),
         }
     }
 }

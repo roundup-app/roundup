@@ -81,6 +81,7 @@ for line in sys.stdin:
         prompt_effect_gate: None,
         actions: Default::default(),
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
+        config: crate::config::Config::new(std::path::PathBuf::new()),
         machine_core: Default::default(),
         agents: agents.clone(),
         rail: agents.clone(),
@@ -517,6 +518,7 @@ async fn a5556b_automatic_delivery_waits_for_first_user_input() {
                     link: None,
                     pads: vec![],
                 },
+                true,
             )
             .await;
         pending.push(produced(&mut observed, "[digest]").await);

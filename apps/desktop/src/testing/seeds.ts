@@ -326,6 +326,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     // A real Daemon answers a move in a later task than the drop that sent it.
     await new Promise(resolve => setTimeout(resolve, 0));
     const moved = find(id);
+
+    if (moved.kind === "workstream") refuseNesting(parent);
     const siblings = nodes.filter((other) => other.parent === parent && other.id !== id).sort((left, right) => left.order - right.order);
     siblings.splice(index, 0, Object.assign(moved, { parent }));
     siblings.forEach((sibling, order) => Object.assign(sibling, { order }));

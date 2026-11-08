@@ -544,3 +544,14 @@ The existing `u3021c_open_restores_exact_revision_without_rpc_todos_creation` as
 Main reached 439,961 gzip bytes (1,354,353 raw) against the 439,900 ceiling, 61 over. Deferring the Settings page's heavy controls with the existing `Deferred` helper gives **435,380 gzip bytes** (1,336,627 raw), saving **4,581 bytes** and leaving 4,520 under the ceiling (macOS build, `pnpm --filter desktop build && pnpm --filter desktop check:startup`).
 
 Moved out of the entry: `ui/SegmentGroup` with Ark's segment-group and radio-group machine (four Settings rows), `settings/ShortcutSetting`, `settings/NamingSettings` and `settings/SkillSetting`, now loaded when the Settings page shows one of them. `Switch`, `Select` and `Combobox` stay eager (other eager surfaces use them). The `Deferred` loading line shows while a chunk loads; the Settings tests wait for it to clear. No budget, observer, compression, dependency or bundler configuration changed.
+
+## herdr-core arm (MC11)
+
+`perf-herdr` measures the same three rule 7 rows with the Terminals hosted by a local herdr-core: `cold_start_ms` (spawn of the core to the first echoed byte of a Terminal), `write_to_output_p95_ms` (200 one-byte DATA frames in, echoed DATA frame out, over the attach stream) and `rss_extra_mb` (growth of the core's process tree plus this client with ten attached Terminals; the herdr processes count toward the 150 MB). The core starts from `env -i` (MC16). It reports the median of 11 fresh cores, writes `target/perf-herdr.json` and exits 1 on a limit miss, 2 on a harness failure. Run on this Mac beside `just perf`, which stays the PTY arm:
+
+```
+cargo build --release -p perf
+./target/release/perf-herdr --core <path to herdr-core> --serve "<args that serve --socket>" --socket <path>
+```
+
+Recorded numbers: none yet; the Mac reading is a comment on #6713. No Terminal is switched and no budget changes.

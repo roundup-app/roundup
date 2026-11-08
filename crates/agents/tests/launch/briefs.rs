@@ -84,7 +84,7 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
     for instruction in [
         "The user types to you in your own Terminal",
         "Delegate implementation to children with `agent_spawn`",
-        "You cannot execute commands or open or write to a Terminal",
+        "You open and write to no Terminal",
         "Report the outcome directly in your Terminal",
         "follow the Asking rules below",
         "`order`",
@@ -137,7 +137,7 @@ fn a28_a_doors_brief_says_to_name_each_child() {
 }
 
 #[test]
-fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
+fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_opens_no_terminal() {
     let s = setup();
 
     let door = brief(&s, "7", Role::Door);
@@ -145,9 +145,9 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
 
     assert!(door.contains("- `agent_spawn`:"));
     assert!(door.contains("`message_send`"));
-    assert!(door.contains("You cannot execute commands or open or write to a Terminal"));
+    assert!(door.contains("You open and write to no Terminal"));
     assert!(agent.contains("- `agent_spawn`:"));
-    assert!(!agent.contains("You cannot execute commands or open or write to a Terminal"));
+    assert!(!agent.contains("You open and write to no Terminal"));
 }
 
 #[test]
