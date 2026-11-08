@@ -71,7 +71,9 @@ it("u6829c_switcher_and_project_tab_keys_work_after_a_click (tab arrows)", async
   await openTabs({ api: [], web: [] });
   fireEvent.click(tab("api"));
   await new Promise(resolve => setTimeout(resolve, 50));
-  (document.activeElement as HTMLElement | null)?.blur();
+
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
   expect(document.activeElement).toBe(document.body);
   fireEvent.keyDown(document.body, { key: "ArrowRight" });
   await waitFor(() => expect(document.activeElement).toBe(tab("web")));
