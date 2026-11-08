@@ -11,3 +11,5 @@ cc 9b36ce4d9d7329dd25291da7f498bf7a3a69ca920875576e355d503c26922c9d # shrinks to
 cc ff0d2bc250712c2b2e3dbeea5f90c55a44f57ee2278d7c72adbb19b23f3abc1f # shrinks to steps = [Clock, Enqueue, Background(false), Hook(0, "PreToolUse"), DeliveryFails, DeliveryFails, Clock, DeliveryLands, Background(true)]
 cc 3ea8dee62bdfbd54eede704841aaca4622978e91e5a82129c0a9e8508a9c37b5 # shrinks to steps = [Dequeue, Clock, Enqueue]
 cc f0f9d4b9eebe6b51eaed60acf865fcd321dc917cbc853f3f603447a8b6076b37 # shrinks to steps = [Clock, Clock, Background(true), Hook(2, "UserPromptSubmit"), DeliveryLands, Clock, Hook(1, "PreToolUse"), DeliveryFails]
+cc 2275a0026fe0f8e49a12941998826c885a1aabd2b9b6a00ca935e250e250c780 # shrinks to steps = [Background(true), Background(false), Enqueue]
+cc e3fa133e4c1240de6809e5e381078d67dacf34a447e2f3146ac47e281cf9c823 # shrinks to steps = [DeliveryFails, Dequeue, Dequeue, Clock, Background(true), DeliveryLands, Enqueue, Enqueue, Enqueue]

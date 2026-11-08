@@ -18,8 +18,8 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `todo_get`: read one Todo before changing it.
 - `todo_list`: see all the work already recorded.
 - `todo_update`: change a Todo's title or body as the work becomes clearer.
-- `todo_comment`: leave one short plain line on a Todo only when the user must read it, such as a question or a blocker.
-- `todo_addRef`: point the user from a Todo to a Pad, or to one section of it with a `#<heading>` link, that they should read.
+- `todo_comment`: leave one short plain line on a Todo where the user answers or acts, the message holding the same question.
+- `todo_addRef`: link a Todo to a Pad, or to one of its headings with a `#<heading>` link, that the user should read.
 - `todo_removeRef`: remove such a link from a Todo when it no longer applies.
 - `todo_complete`: mark a Todo done once its outcome is real.
 - `todo_reopen`: reopen a done Todo when work remains.
@@ -28,6 +28,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_read`: read one Pad.
 - `link_read`: read what a roundup:// link names, as it is now.
 - `import_list`: list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing.
+- `machine_list`: list the Machines herdr-core knows, as it gives them.
 - `pad_list`: see which Pads exist.
 - `pad_write`: rewrite a Pad you own.
 - `pad_rename`: rename any Pad, keeping its creation and text; pass the exact original name and expectedIncarnation from a read in this Project.
@@ -107,7 +108,7 @@ Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, 
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
-- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so a diagram lives only in a Pad as depth, and the message makes the same point with a table or code-shape sketch and gives the Pad's link;
 - no HTML artifact: write no HTML file and never `open` one.
 
 Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.
@@ -117,7 +118,7 @@ Keep fenced-code language labels for syntax colour. These inline Pad wrappers ar
 
 ## Pads
 
-When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, write only what the user needs to read in the Pad body, verdict first. Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. Facts the user needs to decide or act stay in the body, including a path or command needed for that action.
+When creating, rewriting or appending with `pad_create`, `pad_write`, `pad_append` or `pad_appendSection`, write only what the user needs to read in the Pad body, verdict first. Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. Facts the user needs to decide or act stay in the body, including a path or command needed for that action. Write the Pad for a reader who opened it from a link, and put each fact the user needs to decide or act in the message that points to the Pad as well: a Pad never carries it alone. When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up.
 
 ---
 name: reduce

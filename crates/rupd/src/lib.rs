@@ -48,6 +48,8 @@ mod github;
 #[cfg(test)]
 mod group_tests;
 mod link;
+mod machines;
+mod memory_guard;
 #[cfg(test)]
 mod naming_tests;
 mod observers;
@@ -153,6 +155,8 @@ pub struct Daemon {
     actions: actions::Answerer,
     /// UA1: the owner's Extensions, started once the socket is served.
     extensions: extensions::Host,
+    /// MC1: how a call reaches herdr-core; a connection opens only when a Machine method asks.
+    machine_core: machines::Core,
 }
 
 /// What `rail.remove` left dangling.

@@ -1,4 +1,4 @@
-//! The pieces of a launch: trust, PATH and global instructions.
+//! The pieces of a launch: trust, and PATH.
 #![deny(clippy::fn_params_excessive_bools)]
 
 use super::*;
@@ -31,27 +31,20 @@ impl Launcher {
         .map_err(RpcError::internal)
     }
 
-    /// A43: the folder of `rup`, then (F4) a Door's `shims`, then the `PATH` this process has.
-    pub(super) fn shell_path(&self, shims: Option<&Path>) -> OsString {
+    /// A43: the folder of `rup`, then the `PATH` this process has.
+    pub(super) fn shell_path(&self) -> OsString {
         let mut path = self
             .rup
             .parent()
             .map_or_else(OsString::new, |dir| dir.as_os_str().to_owned());
-        for next in shims.map(Path::as_os_str).into_iter().chain(
-            std::env::var_os("PATH")
-                .as_deref()
-                .filter(|p| !p.is_empty()),
-        ) {
+        if let Some(next) = std::env::var_os("PATH")
+            .as_deref()
+            .filter(|p| !p.is_empty())
+        {
             path.push(":");
             path.push(next);
         }
         path
-    }
-
-    /// LC5: the user's global `CLAUDE.md`, when it holds text.
-    pub(super) fn global_instructions(&self) -> Option<String> {
-        let text = std::fs::read_to_string(self.conversation_dir.join("CLAUDE.md")).ok()?;
-        (!text.trim().is_empty()).then(|| text.trim_end().to_owned())
     }
 
     pub(super) fn unreadable(&self, err: impl std::fmt::Display) -> RpcError {

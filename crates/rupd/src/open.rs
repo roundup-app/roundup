@@ -118,6 +118,7 @@ impl Daemon {
             prompt_effect_gate: observers.prompt_effect_gate.clone(),
             actions: Default::default(),
             extensions: extensions::Host::new(dir.join("extensions")),
+            machine_core: Default::default(),
         };
         let services_at = begun.elapsed();
         daemon.register(todos);

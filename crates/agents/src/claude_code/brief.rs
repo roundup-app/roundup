@@ -71,11 +71,11 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "todo_comment",
-        "leave one short plain line on a Todo only when the user must read it, such as a question or a blocker",
+        "leave one short plain line on a Todo where the user answers or acts, the message holding the same question",
     ),
     (
         "todo_addRef",
-        "point the user from a Todo to a Pad, or to one section of it with a `#<heading>` link, that they should read",
+        "link a Todo to a Pad, or to one of its headings with a `#<heading>` link, that the user should read",
     ),
     (
         "todo_removeRef",
@@ -99,6 +99,10 @@ const TOOLS: &[(&str, &str)] = &[
     (
         "import_list",
         "list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing",
+    ),
+    (
+        "machine_list",
+        "list the Machines herdr-core knows, as it gives them",
     ),
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
@@ -407,7 +411,8 @@ When the user's goal or a taste limit is unclear, follow the Asking rules below 
 When the user asks to shape an ask, spawn exactly one shaping child under yourself in this Workstream with `agent_spawn`, then direct the user to that child's Terminal to shape it there; do not shape inline or call `rail_createWorkstream` or `rail_startDoor` for this request.
 
 Memory is the only files you write yourself: use `Write` and `Edit` only in Claude Code's memory directory, including MEMORY.md. Hand all other edits to a child Agent. \
-Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
+Delegate implementation to children with `agent_spawn`. You open and write to no Terminal. \
+When the user may need to see, interrupt, steer or talk to the agent doing the work, start it with `agent_spawn`; every job and consult stays an `agent_spawn` child, so you reconcile each child's report. Your own reading and checks inside one turn may use `Bash` or Claude Code's `Agent` tool. Never start an Agent with `claude` in your shell. `Bash` can write files, which the memory guard on `Write` and `Edit` does not cover: hand all other edits to a child. \
 Use `agent_spawn` visibility `internal` for helpers the user need not watch, such as a scout or a one-step writer; `shown` is the default. Use `agent_set_visibility` to change a direct child both ways between shown and internal. The user can still access internal children directly under the internal disclosure. Attention returns a child to shown; it stays shown until a new safe explicit choice. Visibility never stops work.\n\n\
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
@@ -492,7 +497,7 @@ When the text explains structure, a flow or a comparison, pick the smallest view
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: \
-a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so a diagram lives only in a Pad as depth, and the message makes the same point with a table or code-shape sketch and gives the Pad's link;
 - no HTML artifact: write no HTML file and never `open` one.
 
 Pad formatting: use GitHub callouts for information the user must not miss: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION], followed by quoted body lines.
@@ -511,15 +516,27 @@ write only what the user needs to read in the Pad body, verdict first. \
 Put details needed only by Agents (paths, commands, ids, logs and raw evidence) in one final folded section named `For Agents`: \
 use `<details><summary>For Agents</summary>`, blank lines around its Markdown content and closing `</details>`, without `open`. \
 On subsequent edits, keep Agent-only details inside the same trailing section rather than adding them after it. \
-Facts the user needs to decide or act stay in the body, including a path or command needed for that action.
+Facts the user needs to decide or act stay in the body, including a path or command needed for that action. \
+Write the Pad for a reader who opened it from a link, and put each fact the user needs to decide or act in the message that points to the Pad as well: a Pad never carries it alone. \
+When you point the user to a Pad, a Pad section or a Todo, give its clickable link, copied from the reply's `link` and never made up.
 
 ";
 
 /// Q9: B24's additions for a Door's own questions to `you`.
 const DOOR_QUESTIONS: &str = "\
 Open a question with the question. State a guess once, as a choice to confirm. \
-Write a list as the choices and nothing around them. \
+Write a list as the choices and nothing around them; each choice may carry its sketch or rows. \
 Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.
+";
+
+/// Q12: a Door message stands on its own. Door only: the Agent Brief holds none of it.
+const DOOR_STANDS_ALONE: &str = "\
+Every message you write for the user stands on its own. It holds (a) each fact the user needs to follow it, and to answer it when it asks; \
+(b) each choice shown as what the user would see or get, a sketch, a wireframe or rows, never a bare title; \
+(c) plain words for each term the user has not used; (d) what each answer starts. \
+It may lean only on what you and the user already said to each other in this conversation, or on a place the user chose to read. \
+A Pad, Todo, Issue, PR, child Terminal or link adds depth or is where the act happens; it never carries a fact the user needs. \
+Give the link of a Pad or Todo you point to, and keep the whole question in the message.
 ";
 
 /// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and the two ref tools are `rup todo ref add|remove`.
@@ -623,7 +640,9 @@ fn with_tools(role: Role, mcp: bool) -> String {
                 "deliverable_publish" => {
                     "publish a deliberate result with its exact file, Pad revision or external URL"
                 }
-                "todo_comment" => "leave a short question or blocker the user needs to read",
+                "todo_comment" => {
+                    "leave a short question or blocker where the user answers or acts, the message holding the same question"
+                }
                 "todo_addRef" => "link a Todo to a Pad or one of its headings",
                 "pad_rename" => "rename a Pad after reading its exact name and incarnation",
                 "pad_redoDelete" => {
@@ -686,6 +705,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
         text.push('\n');
         text.push_str(&DOOR.replace("{intent}", INTENT));
         text.push_str(DOOR_QUESTIONS);
+        text.push_str(DOOR_STANDS_ALONE);
     }
     if role == Role::Scout {
         text.push('\n');

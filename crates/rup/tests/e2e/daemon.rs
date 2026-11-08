@@ -503,3 +503,25 @@ pub fn entry_of(text: &str) -> Value {
     }
     json!({"name": name, "kind": kind, "link": link, "last": last, "todos": todos, "pads": pads})
 }
+
+/// DTC2: the entry texts of a `[digest]` body; a rollup states its count first, then one entry per
+/// unindented line group.
+pub fn rollup_entries(body: &str) -> Vec<String> {
+    let body = body
+        .strip_prefix("[digest] ")
+        .expect("body is [digest] and an entry");
+    let mut texts: Vec<String> = Vec::new();
+    for line in body.lines() {
+        match texts.last_mut() {
+            Some(last) if line.starts_with("  ") => {
+                last.push('\n');
+                last.push_str(line);
+            }
+            _ => texts.push(line.to_owned()),
+        }
+    }
+    if body.starts_with('[') {
+        texts.retain(|text| !text.starts_with('['));
+    }
+    texts
+}

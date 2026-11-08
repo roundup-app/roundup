@@ -33,7 +33,9 @@ fn q7_brief_names_each_view_and_its_place() {
         assert!(text.contains(view), "{view}");
     }
     assert!(text.contains("only in a Pad"));
-    assert!(text.contains("write the diagram in a Pad and send the Pad's name"));
+    assert!(text.contains("a diagram lives only in a Pad as depth"));
+    assert!(text.contains("a table or code-shape sketch and gives the Pad's link"));
+    assert!(!text.contains("send the Pad's name"));
 }
 
 #[test]
@@ -56,9 +58,9 @@ fn lines(name: &str) -> Vec<String> {
     fixture(name).lines().map(str::to_owned).collect()
 }
 
-/// Q8 (b): the facts missing from `text`.
-fn missing_facts(text: &str) -> Vec<String> {
-    lines("door-question.facts")
+/// Q8 (b), Q12 (a): the facts of fixture `name` missing from `text`.
+fn missing_facts(name: &str, text: &str) -> Vec<String> {
+    lines(&format!("{name}.facts"))
         .into_iter()
         .filter(|fact| !text.contains(fact.as_str()))
         .collect()
@@ -74,8 +76,8 @@ fn q8_reduced_is_shorter() {
 
 #[test]
 fn q8_every_fact_survives() {
-    assert!(missing_facts(&fixture("door-question.md")).is_empty());
-    assert!(missing_facts(&fixture("door-question.reduced.md")).is_empty());
+    assert!(missing_facts("door-question", &fixture("door-question.md")).is_empty());
+    assert!(missing_facts("door-question", &fixture("door-question.reduced.md")).is_empty());
 }
 
 #[test]
@@ -93,7 +95,7 @@ fn q8_no_padding_phrase_survives() {
 #[test]
 fn q8_the_check_rejects_a_dropped_fact() {
     let dropped = fixture("door-question.reduced.md").replace("Friday 14 Nov", "");
-    assert_eq!(missing_facts(&dropped), ["Friday 14 Nov"]);
+    assert_eq!(missing_facts("door-question", &dropped), ["Friday 14 Nov"]);
 }
 
 #[test]
@@ -103,7 +105,7 @@ fn q9_door_guidance_names_the_four_paddings() {
     for rule in [
         "Open a question with the question.",
         "State a guess once, as a choice to confirm.",
-        "Write a list as the choices and nothing around them.",
+        "Write a list as the choices and nothing around them; each choice may carry its sketch or rows.",
         "Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.",
     ] {
         assert!(text.contains(rule), "{rule}");
@@ -178,11 +180,9 @@ fn q11_the_users_output_style_replaces_plain() {
                     .launcher()
                     .prepare(folders(&s.dir), "7", "1", &s.cwd, resume, role)
                     .unwrap();
+                // A source sets the style, so the file leaves it to Claude Code's own loading.
                 let settings = read(Path::new(&argv[2]));
-                assert_eq!(
-                    settings["outputStyle"],
-                    if local { "Personal" } else { "Learning" }
-                );
+                assert!(settings.get("outputStyle").is_none(), "{local}");
             }
         }
     }
@@ -311,5 +311,103 @@ fn q5561_pad_guidance_reaches_each_writer() {
                 assert!(text.contains(&name), "{role:?} {mcp}: {name}");
             }
         }
+    }
+}
+
+#[test]
+fn q12_door_brief_says_a_message_stands_on_its_own() {
+    let s = setup();
+    let door = brief(&s, "7", Role::Door);
+    for part in [
+        "stands on its own",
+        "(a) each fact the user needs to follow it, and to answer it when it asks",
+        "(b) each choice shown as what the user would see or get, a sketch, a wireframe or rows, never a bare title",
+        "(c) plain words for each term the user has not used",
+        "(d) what each answer starts",
+        "it never carries a fact the user needs",
+        "Give the link of a Pad or Todo you point to",
+    ] {
+        assert!(door.contains(part), "{part}");
+        assert!(!brief(&s, "7", Role::Agent).contains(part), "{part}");
+    }
+    assert!(door.contains("where the user answers or acts, the message holding the same question"));
+    assert!(door.contains("link a Todo to a Pad"));
+}
+
+#[test]
+fn al7_brief_says_to_copy_pad_and_todo_links() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        assert!(
+            text.contains(
+                "give its clickable link, copied from the reply's `link` and never made up"
+            ),
+            "{role:?}"
+        );
+    }
+}
+
+fn stand_alone(name: &str) -> String {
+    std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/stand-alone")
+            .join(name),
+    )
+    .unwrap()
+}
+
+fn stand_alone_cases() -> Vec<String> {
+    (1..=5).map(|n| format!("case-{n}")).collect()
+}
+
+fn stand_alone_missing(case: &str, text: &str) -> Vec<String> {
+    stand_alone(&format!("{case}.facts"))
+        .lines()
+        .filter(|fact| !text.contains(fact))
+        .map(str::to_owned)
+        .collect()
+}
+
+#[test]
+fn q12_fixed_reply_holds_every_fact() {
+    for case in stand_alone_cases() {
+        let fixed = stand_alone(&format!("{case}.fixed.md"));
+        assert!(stand_alone_missing(&case, &fixed).is_empty(), "{case}");
+    }
+}
+
+#[test]
+fn q12_original_shows_the_gap() {
+    for case in stand_alone_cases() {
+        let original = stand_alone(&format!("{case}.md"));
+        assert!(!stand_alone_missing(&case, &original).is_empty(), "{case}");
+    }
+}
+
+#[test]
+fn q12_fixed_reply_links_each_pad_and_todo() {
+    for case in stand_alone_cases() {
+        for line in stand_alone(&format!("{case}.fixed.md")).lines() {
+            if line.contains("Pad") || line.contains("Todo") {
+                assert!(
+                    line.contains("roundup://pad/") || line.contains("roundup://todo/"),
+                    "{case}: {line}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn q12_the_check_rejects_a_dropped_fact() {
+    for case in stand_alone_cases() {
+        let facts = stand_alone(&format!("{case}.facts"));
+        let fact = facts.lines().next().unwrap();
+        let dropped = stand_alone(&format!("{case}.fixed.md")).replace(fact, "");
+        assert!(
+            stand_alone_missing(&case, &dropped).contains(&fact.to_owned()),
+            "{case}"
+        );
     }
 }

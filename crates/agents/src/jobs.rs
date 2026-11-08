@@ -28,6 +28,13 @@ impl Agents {
             .is_ok_and(|node| node.kind == contracts::agent::NodeKind::Workstream)
     }
 
+    /// DCR3: whether `job` is in the Reach of `door` (M7).
+    pub fn in_reach(&self, door: &str, job: &str) -> bool {
+        self.shared
+            .reach(door)
+            .is_ok_and(|reach| reach.contains(job))
+    }
+
     /// DCL9: every Job whose current Attempt has no report, as the Door's open-Job snapshot.
     /// `reported_attempts` gives the Attempt of each retained report of an Agent; a question
     /// is no report, and a report of an earlier Attempt does not close this one. Reads stored

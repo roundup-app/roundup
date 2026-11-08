@@ -2,6 +2,36 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "ship b",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u177b_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"ship b\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship a",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u177a_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"ship a\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nWhat is this Workstream for?",
         "hasToolResult": false
       },
@@ -48,36 +78,6 @@
       },
       "response": {
         "content": "Status noted."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "ship a",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "toolu_u177a_0",
-            "name": "mcp__roundup__todo_create",
-            "arguments": "{\"title\": \"ship a\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "ship b",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "toolu_u177b_0",
-            "name": "mcp__roundup__todo_create",
-            "arguments": "{\"title\": \"ship b\"}"
-          }
-        ]
       }
     }
   ]
