@@ -9,7 +9,8 @@ const NAME: &str = "CARGO_PKG_NAME";
 async fn program_sees(terminals: &Terminals, unset: Vec<String>) -> String {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("seen");
-    let script = format!("printf '%s' \"${{{NAME}-absent}}\" > seen.tmp; mv seen.tmp seen; read line");
+    let script =
+        format!("printf '%s' \"${{{NAME}-absent}}\" > seen.tmp; mv seen.tmp seen; read line");
     let spawned = terminals
         .spawn(SpawnParams {
             cwd: dir.path().to_string_lossy().into_owned(),
