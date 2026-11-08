@@ -52,7 +52,6 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 const rowIdAt = (focus: Element | null, selected: string | null | undefined): string | undefined => focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id
   : focus === document.body && !modalOpen() ? selected ?? undefined : undefined;
 
-/** `collapse` is the Rail head's button: it folds the Rail to the strip, or, when `peeked` over the strip, opens it again (U6228). */
 const keyedRowIdAt = (press: KeyboardEvent, selected: string | null | undefined): string | undefined => focusedRowId(press) ?? (strandedFocus(press) && !press.repeat ? rowIdAt(document.body, selected) : undefined);
 
 export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
@@ -652,7 +651,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   return (
     <>
-    <Show when={props.collapse}>{collapse => <div class="rail-head"><IconButton class="rail-collapse" aria-label={props.peeked ? copy.expandRail : copy.collapseRail} onClick={collapse()}><Icon name={props.peeked ? "right" : "left"} /></IconButton></div>}</Show>
     <MovePicker replacement={rowElement} target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(topology(), parent).length }); }} />
     <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
     <div class="rail-scroll" onContextMenu={(press: MouseEvent) => {

@@ -28,12 +28,18 @@ impl Drop for Group {
 fn tail(text: &[u8]) -> String {
     let text = String::from_utf8_lossy(text);
     let lines: Vec<&str> = text.lines().collect();
-    let kept = lines[lines.len().saturating_sub(TAIL_LINES)..].join("\n");
+    let skip = lines.len().saturating_sub(TAIL_LINES);
+    let kept = lines
+        .iter()
+        .skip(skip)
+        .copied()
+        .collect::<Vec<_>>()
+        .join("\n");
     let start = kept.len().saturating_sub(TAIL_BYTES);
-    let start = (start..=kept.len())
-        .find(|at| kept.is_char_boundary(*at))
-        .unwrap_or(kept.len());
-    kept[start..].to_owned()
+    kept.char_indices()
+        .skip_while(|(at, _)| *at < start)
+        .map(|(_, c)| c)
+        .collect()
 }
 
 /// Run `command` with `sh -c` in `dir`. The error names the phase, path, exit status when there

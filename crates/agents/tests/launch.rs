@@ -845,3 +845,60 @@ fn mc43_no_file_changes_nothing() {
     std::fs::write(&empty, "  \n").unwrap();
     assert_eq!(door_brief(&s, &empty), default);
 }
+
+fn refuse_alerts(text: &str) -> Option<String> {
+    text.contains("alertLevel")
+        .then(|| "attention rules are not customisable".into())
+}
+
+fn door_brief_refusing(s: &Setup, launcher: &Launcher) -> String {
+    launcher
+        .prepare(folders(&s.dir), "7", "1", &s.cwd, None, Role::Door)
+        .unwrap();
+    std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap()
+}
+
+#[test]
+fn mc49_a_refused_door_file_keeps_the_last_accepted_text() {
+    let s = setup();
+    let file = s.root.path().join("door.md");
+    let launcher = s
+        .launcher()
+        .with_door_file(file.clone())
+        .with_door_refusal(refuse_alerts);
+    std::fs::write(&file, "Accepted wording.").unwrap();
+    assert!(door_brief_refusing(&s, &launcher).contains("Accepted wording."));
+    std::fs::write(&file, "Set alertLevel to off.").unwrap();
+    let next = door_brief_refusing(&s, &launcher);
+    assert!(next.trim_end().ends_with("Accepted wording.") && !next.contains("alertLevel"));
+}
+
+#[test]
+fn mc49_a_later_accepted_save_replaces_it() {
+    let s = setup();
+    let file = s.root.path().join("door.md");
+    let launcher = s
+        .launcher()
+        .with_door_file(file.clone())
+        .with_door_refusal(refuse_alerts);
+    std::fs::write(&file, "First.").unwrap();
+    door_brief_refusing(&s, &launcher);
+    std::fs::write(&file, "alertLevel").unwrap();
+    door_brief_refusing(&s, &launcher);
+    std::fs::write(&file, "Second.").unwrap();
+    let next = door_brief_refusing(&s, &launcher);
+    assert!(next.contains("Second.") && !next.contains("First."));
+}
+
+#[test]
+fn mc49_a_restart_with_only_a_refused_file_adds_nothing() {
+    let s = setup();
+    let file = s.root.path().join("door.md");
+    std::fs::write(&file, "alertLevel").unwrap();
+    let launcher = s
+        .launcher()
+        .with_door_file(file)
+        .with_door_refusal(refuse_alerts);
+    let plain = door_brief(&s, &s.root.path().join("none.md"));
+    assert_eq!(door_brief_refusing(&s, &launcher), plain);
+}

@@ -1,0 +1,9 @@
+PROOF q6 A terminal.send awaited x100: intact=100 in 34.451241666s; reply={"started":true,"status":"idle","turn":0}
+PROOF q6 B terminal.send pipelined x100: intact=100 in-order=true in 20.68413975s
+PROOF q6 C channel DATA paste + separate \r frame, pipelined x100: intact=100
+PROOF q6 D channel DATA paste + RPC terminal.keys enter, pipelined x100: intact=0
+PROOF q6 E channel DATA paste then awaited RPC terminal.keys enter x20: intact=20 in 62.176956583s (each keys call waits out the viewer's quiet period)
+PROOF q6 F echo already on the stream within 1-3 ms of the keys reply: 30/30 (not yet: 0/30)
+PROOF q6 terminal.keys reply: {"status":"idle","turn":450}
+PROOF q6 terminal.send if=working while status unreported: {"error":{"code":-32000,"data":{"hint":"nothing was typed","kind":"status_mismatch"},"message":"t10 is idle, not working"},"id":387,"jsonrpc":"2.0"}
+exit=0

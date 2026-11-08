@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { mountRail } from "./railFixture";
@@ -21,11 +21,9 @@ const TREE = [
 const mountBoth = async (tree = TREE) => {
   const mounted = await mountRail(tree);
 
-  const expand = vi.fn();
+  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><RailStrip /></ConnectedProjectContext.Provider>);
 
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><RailStrip expand={expand} /></ConnectedProjectContext.Provider>);
-
-  return { ...mounted, expand, strip: document.querySelector<HTMLElement>(".rail-strip")! };
+  return { ...mounted, strip: document.querySelector<HTMLElement>(".rail-strip")! };
 };
 
 const mark = (strip: HTMLElement, id: string) => strip.querySelector<HTMLElement>(`[role=treeitem][data-id="${id}"]`)!;
@@ -67,11 +65,16 @@ it("u6228_arrow_keys_walk_the_marks_by_name", async () => {
   await waitFor(() => expect(document.activeElement).toBe(mark(strip, "calm")));
 });
 
-it("u6228_the_expand_and_add_controls_stay_on_the_strip", async () => {
-  const { strip, expand } = await mountBoth([]);
+it("u6228_the_add_control_stays_on_the_strip", async () => {
+  const { strip } = await mountBoth([]);
 
   expect(within(strip).queryAllByRole("treeitem")).toHaveLength(0);
-  fireEvent.click(strip.querySelector(".rail-strip-expand")!);
-  expect(expand).toHaveBeenCalledOnce();
   expect(strip.querySelector(".rail-strip-add")).not.toBeNull();
+});
+
+it("u6228f_the_rail_has_no_head_and_the_strip_no_expand_button", async () => {
+  const { strip } = await mountBoth();
+
+  expect(document.querySelector(".rail-head")).toBeNull();
+  expect(within(strip).queryAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual([copy.addWorkstreamWord.trim()]);
 });

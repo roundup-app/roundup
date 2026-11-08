@@ -6,6 +6,7 @@
 use crate::id::AgentId;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use std::sync::PoisonError;
 
 use rpc::RpcError;
 use serde_json::{Map, Value, json};
@@ -86,41 +87,59 @@ pub(super) fn plan(spec: &Spec<'_>, facts: Facts) -> Result<Plan, RpcError> {
 
 fn settings(spec: &Spec<'_>, facts: &Facts) -> Result<Value, RpcError> {
     let mut own = settings_json(spec, facts)?;
-    own["hooks"]["PreToolUse"]
-        .as_array_mut()
-        .expect("state hooks")
+    own.pointer_mut("/hooks/PreToolUse")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| RpcError::internal("settings lack the state hooks"))?
         .extend(facts.memory_hooks.iter().cloned());
     if spec.role == Role::Door && spec.mcp() {
-        own["permissions"]["allow"] = json!(
-            brief::door_tools()
-                .filter(|name| *name != "terminal_write")
-                .map(|name| format!("mcp__roundup__{name}"))
-                .collect::<Vec<_>>()
-        );
+        own.pointer_mut("/permissions")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| RpcError::internal("settings lack the permissions"))?
+            .insert(
+                "allow".into(),
+                json!(
+                    brief::door_tools()
+                        .filter(|name| *name != "terminal_write")
+                        .map(|name| format!("mcp__roundup__{name}"))
+                        .collect::<Vec<_>>()
+                ),
+            );
     }
     if spec.lean.is_none() {
-        let command = own["hooks"]["SessionStart"][0]["hooks"][1]["command"]
-            .as_str()
-            .expect("context command");
+        let hook = own
+            .pointer_mut("/hooks/SessionStart/0/hooks/1")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| RpcError::internal("settings lack the context hook"))?;
+        let command = hook
+            .get("command")
+            .and_then(Value::as_str)
+            .ok_or_else(|| RpcError::internal("context hook has no command"))?
+            .to_owned();
         let brief =
             spec.paths.brief.to_str().ok_or_else(|| {
                 RpcError::new(rpc::code::INVALID_PARAMS, "Brief path is not UTF-8")
             })?;
-        own["hooks"]["SessionStart"][0]["hooks"][1]["command"] = json!(format!(
-            "ROUNDUP_BRIEF_FILE={} {command}",
-            try_quote(brief).map_err(RpcError::internal)?
-        ));
+        hook.insert(
+            "command".into(),
+            json!(format!(
+                "ROUNDUP_BRIEF_FILE={} {command}",
+                try_quote(brief).map_err(RpcError::internal)?
+            )),
+        );
     }
     // A3507b: only roundup's own keys; Claude Code loads the user's sources itself.
     let mut settings = own;
+    let fields = settings
+        .as_object_mut()
+        .ok_or_else(|| RpcError::internal("settings are not an object"))?;
     if let Some(style) = &facts.output_style {
-        settings["outputStyle"] = json!(style);
+        fields.insert("outputStyle".into(), json!(style));
     }
     if spec.facts.permission == Permission::Bypass {
-        settings["skipDangerousModePermissionPrompt"] = json!(true);
+        fields.insert("skipDangerousModePermissionPrompt".into(), json!(true));
         // Roundup has already checked its Route and actor authority. Claude's
         // inbox class vocabulary differs from the launch-mode label on our notes.
-        settings["crossSessionInbound"] = json!("accept");
+        fields.insert("crossSessionInbound".into(), json!("accept"));
     }
     Ok(settings)
 }
@@ -137,15 +156,16 @@ fn settings_json(spec: &Spec<'_>, facts: &Facts) -> Result<Value, RpcError> {
             .ok_or_else(|| RpcError::internal("rup path is not UTF-8"))?,
     )
     .map_err(RpcError::internal)?;
-    let id = try_quote(&agent_id).expect("numeric Agent id");
+    let id = try_quote(&agent_id).map_err(RpcError::internal)?;
     let attempt = try_quote(spec.attempt).map_err(RpcError::internal)?;
-    let signal = json!([{ "hooks": [{
+    let signal_hook = json!({
         "type": "command",
         "command": format!("ROUNDUP_ATTEMPT={attempt} {rup} signal {id}"),
         "timeout": 5,
-    }] }]);
+    });
+    let signal = json!([{ "hooks": [signal_hook.clone()] }]);
     let session_start = json!([{ "hooks": [
-        signal[0]["hooks"][0].clone(),
+        signal_hook,
         { "type": "command", "command": format!("{rup} context {id}"), "timeout": 5 },
     ] }]);
     let hooks: Map<String, Value> = STATE_EVENTS
@@ -159,19 +179,26 @@ fn settings_json(spec: &Spec<'_>, facts: &Facts) -> Result<Value, RpcError> {
             ((*event).to_owned(), hook.clone())
         })
         .collect();
-    let mut settings = json!({ "hooks": hooks });
+    let mut settings = Map::new();
+    settings.insert("hooks".into(), Value::Object(hooks));
     if spec.mcp() {
-        settings["permissions"] = json!({ "allow": ["mcp__roundup__*"] });
+        settings.insert(
+            "permissions".into(),
+            json!({ "allow": ["mcp__roundup__*"] }),
+        );
     }
     // LC14: Claude Code's status line keeps the one line on screen for the whole session.
     if facts.missing_intent {
-        settings["statusLine"] = json!({
-            "type": "command",
-            "command": format!("printf %s {}", try_quote(INTENT_MISSING).expect("status line has no NUL")),
-        });
+        settings.insert(
+            "statusLine".into(),
+            json!({
+                "type": "command",
+                "command": format!("printf %s {}", try_quote(INTENT_MISSING).map_err(RpcError::internal)?),
+            }),
+        );
     }
-    settings["env"] = Value::Object(env(spec, facts, agent_id));
-    Ok(settings)
+    settings.insert("env".into(), Value::Object(env(spec, facts, agent_id)));
+    Ok(Value::Object(settings))
 }
 
 /// User env wins over defaults; identity, PATH and the named lean exclusion are explicit.
@@ -182,7 +209,13 @@ fn env(spec: &Spec<'_>, facts: &Facts, agent_id: String) -> Map<String, Value> {
         ("CLAUDE_CODE_PLUGIN_DIR_WATCH", "0"),
         ("ENABLE_TOOL_SEARCH", "true"),
     ] {
-        if facts.carried["env"].get(key).is_none() && !spec.launcher.user_defaults.contains(key) {
+        if facts
+            .carried
+            .get("env")
+            .and_then(|env| env.get(key))
+            .is_none()
+            && !spec.launcher.user_defaults.contains(key)
+        {
             env.insert(key.into(), default.into());
         }
     }
@@ -195,17 +228,14 @@ fn env(spec: &Spec<'_>, facts: &Facts, agent_id: String) -> Map<String, Value> {
 fn mcp_config(spec: &Spec<'_>, facts: &Facts) -> Option<Value> {
     let mut servers = Map::new();
     if spec.mcp() {
-        servers.insert(
-            "roundup".into(),
-            json!({
-                "type": "stdio",
-                "command": spec.launcher.rup.to_string_lossy(),
-                "args": ["mcp", spec.id.to_string()],
-            }),
-        );
+        let mut server = Map::new();
+        server.insert("type".into(), json!("stdio"));
+        server.insert("command".into(), json!(spec.launcher.rup.to_string_lossy()));
+        server.insert("args".into(), json!(["mcp", spec.id.to_string()]));
         if let Some(guide) = &spec.facts.naming_guide {
-            servers["roundup"]["env"] = json!({"ROUNDUP_NAMING_GUIDE": guide});
+            server.insert("env".into(), json!({"ROUNDUP_NAMING_GUIDE": guide}));
         }
+        servers.insert("roundup".into(), Value::Object(server));
     }
     servers.extend(facts.delivery.servers.clone());
     (!servers.is_empty()).then(|| json!({ "mcpServers": servers }))
@@ -217,19 +247,32 @@ fn brief(spec: &Spec<'_>, facts: &Facts) -> String {
         brief = brief::without_intent(&brief);
     }
     // MC43: the file only adds after roundup's own text; an unreadable or empty one adds nothing.
+    // MC49: a refused one leaves the last accepted text.
     if spec.role == Role::Door
-        && let Some(text) = spec
-            .launcher
-            .door_file
-            .as_ref()
-            .and_then(|file| std::fs::read_to_string(file).ok())
-            .filter(|text| !text.trim().is_empty())
+        && let Some(text) = door_text(spec.launcher)
     {
         brief.push_str("\n\n");
         brief.push_str(text.trim_end());
         brief.push('\n');
     }
     brief
+}
+
+fn door_text(launcher: &Launcher) -> Option<String> {
+    let text = launcher
+        .door_file
+        .as_ref()
+        .and_then(|file| std::fs::read_to_string(file).ok())
+        .filter(|text| !text.trim().is_empty());
+    let mut accepted = launcher
+        .door_accepted
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    match text {
+        Some(text) if (launcher.door_refusal)(&text).is_some() => {}
+        other => *accepted = other,
+    }
+    accepted.clone()
 }
 
 /// A note names the same selected or inherited mode as this launch.

@@ -867,6 +867,7 @@ async fn u504_native_permission_resumption_preserves_completion_identity() {
         dir: dir.path().to_owned(),
         launcher: shared.rail_view.launcher.clone(),
         forked: false,
+        misconfigured: false,
     };
     let mut events = bus.subscribe();
     let mut observed_turns = Vec::new();
@@ -914,6 +915,7 @@ async fn u504_a_turn_without_prompt_identity_does_not_reuse_the_previous_complet
             dir: dir.path().to_owned(),
             launcher: shared.rail_view.launcher.clone(),
             forked: false,
+            misconfigured: false,
         };
         let mut events = bus.subscribe();
         for payload in [

@@ -447,7 +447,7 @@ impl Agents {
             let mut rail = shared.rail();
             let source = rail.deletion(&actor,&p.source)?.ok_or_else(||RpcError::not_found("Rail removal"))?;
             if rail.deletion(&actor,&p.operation)?.is_none() {
-                let id=&source.deletion.as_ref().expect("retained operation").id;
+                let id=&source.deletion.as_ref().ok_or_else(||RpcError::internal("retained operation has no deletion"))?.id;
                 let tree=rail.tree()?;
                 let runs=shared.runs();
                 for node in tree.iter().filter(|n|n.id==*id || source.removed.iter().any(|i|i.kind==RemovalKind::Agent && i.id==n.id)) {

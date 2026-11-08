@@ -43,6 +43,7 @@ async fn u177_a_door_attempt_awaits_its_channel_until_it_is_up_or_missing() {
                 None,
             ),
             forked: false,
+            misconfigured: false,
         };
         assert_eq!(
             agents.awaiting_channel(&id),

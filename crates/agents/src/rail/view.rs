@@ -149,19 +149,29 @@ struct Walk {
     topology: Vec<Topology>,
     slots: Vec<usize>,
     pending: Vec<usize>,
+    broken: bool,
+}
+
+fn corrupt() -> StoreError {
+    StoreError::internal("stored Rail topology is inconsistent")
 }
 
 fn topology(flat: &[(RailNode, u64)]) -> Walk {
+    // These ids originate as SQLite integers in load_with, never arbitrary RPC text; one that
+    // is not marks the walk `broken`, which `walk` reports before it reads any payload.
+    let mut broken = false;
+    let mut id = |text: &str| {
+        text.parse().unwrap_or_else(|_| {
+            broken = true;
+            0
+        })
+    };
     let mut topology: Vec<_> = flat
         .iter()
         .enumerate()
         .map(|(payload, (node, _))| Topology {
-            // These ids originate as SQLite integers in load_with, never arbitrary RPC text.
-            id: node.id.parse().expect("stored Rail id"),
-            parent: node
-                .parent
-                .as_ref()
-                .map(|id| id.parse().expect("stored Rail parent")),
+            id: id(&node.id),
+            parent: node.parent.as_deref().map(&mut id),
             order: node.order,
             payload,
             children: 0..0,
@@ -169,16 +179,24 @@ fn topology(flat: &[(RailNode, u64)]) -> Walk {
         .collect();
     topology.sort_unstable_by_key(|row| (row.parent, row.order));
     for at in 0..topology.len() {
-        let parent = Some(topology[at].id);
+        let Some(parent) = topology.get(at).map(|row| Some(row.id)) else {
+            broken = true;
+            break;
+        };
         let start = topology.partition_point(|row| row.parent < parent);
         let end = topology.partition_point(|row| row.parent <= parent);
-        topology[at].children = start..end;
+        if let Some(row) = topology.get_mut(at) {
+            row.children = start..end;
+        }
     }
     // R5636e: reuse the loaded payload allocation instead of allocating another
     // node-sized output buffer. slots keeps moved payload locations current.
     let mut slots = vec![0; flat.len()];
     for (index, row) in topology.iter().enumerate() {
-        slots[row.payload] = index;
+        match slots.get_mut(row.payload) {
+            Some(slot) => *slot = index,
+            None => broken = true,
+        }
     }
     let mut pending = Vec::with_capacity(flat.len());
     pending.extend((0..topology.partition_point(|row| row.parent.is_none())).rev());
@@ -186,6 +204,7 @@ fn topology(flat: &[(RailNode, u64)]) -> Walk {
         topology,
         slots,
         pending,
+        broken,
     }
 }
 
@@ -198,19 +217,27 @@ fn walk(
         mut topology,
         mut slots,
         mut pending,
+        broken,
     } = prepared;
+    if broken {
+        return Err(corrupt());
+    }
     let mut emitted = 0;
     while let Some(index) = pending.pop() {
         #[cfg(test)]
         WALKED.with(|count| count.set(count.get() + 1));
-        let source = topology[index].payload;
-        let displaced = slots[emitted];
+        let source = topology.get(index).ok_or_else(corrupt)?.payload;
+        let displaced = *slots.get(emitted).ok_or_else(corrupt)?;
+        if source >= flat.len() {
+            return Err(corrupt());
+        }
         flat.swap(source, emitted);
         slots.swap(source, emitted);
-        topology[displaced].payload = source;
-        topology[index].payload = emitted;
+        topology.get_mut(displaced).ok_or_else(corrupt)?.payload = source;
+        let row = topology.get_mut(index).ok_or_else(corrupt)?;
+        row.payload = emitted;
         emitted += 1;
-        pending.extend(topology[index].children.clone().rev());
+        pending.extend(row.children.clone().rev());
     }
     flat.truncate(emitted);
     flat.into_iter()
