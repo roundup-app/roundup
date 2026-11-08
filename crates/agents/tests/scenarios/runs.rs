@@ -284,6 +284,7 @@ async fn x12_close_on_an_ownerless_terminal_is_refused_and_leaves_it() {
             cwd: f.dir.path().to_string_lossy().into_owned(),
             command: Some(vec!["/bin/sh".into(), "-c".into(), "sleep 30".into()]),
             env: Default::default(),
+            unset: Vec::new(),
             cols: 80,
             rows: 24,
         })

@@ -735,3 +735,57 @@ async fn c5461b_unsupported_event_fails_load() {
         );
     }
 }
+
+#[tokio::test]
+async fn mc42_single_file_action_loads_with_the_narrow_permissions() {
+    let fx = with(|root| {
+        std::fs::create_dir_all(extensions(root)).unwrap();
+        std::fs::write(
+            extensions(root).join("quick.js"),
+            todo_js("$.todos.create({ title: 'from a file' })"),
+        )
+        .unwrap();
+    })
+    .await;
+    fx.listed(&["user.touch"]).await;
+    let mut user = fx.user().await;
+    assert_eq!(
+        user.call("action.run", json!({"name":"user.touch"})).await["result"]["status"],
+        "done"
+    );
+    let todos = user.call("todo.list", Value::Null).await["result"].clone();
+    assert_eq!(todos[0]["title"], "from a file");
+    // Saving applies live (UA7).
+    std::fs::write(
+        extensions(fx.root.path()).join("quick.js"),
+        action("user.other", "return { done: true };"),
+    )
+    .unwrap();
+    fx.listed(&["user.other"]).await;
+}
+
+#[tokio::test]
+async fn mc42_a_call_outside_the_narrow_permissions_is_denied() {
+    let fx = with(|root| {
+        std::fs::create_dir_all(extensions(root)).unwrap();
+        std::fs::write(
+            extensions(root).join("wide.mjs"),
+            todo_js("$.agents.context({ id: '1' })"),
+        )
+        .unwrap();
+    })
+    .await;
+    fx.listed(&["user.touch"]).await;
+    let reply = fx
+        .user()
+        .await
+        .call("action.run", json!({"name":"user.touch"}))
+        .await;
+    assert!(
+        reply["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("permission `agents`"),
+        "{reply}"
+    );
+}

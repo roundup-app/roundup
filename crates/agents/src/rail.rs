@@ -12,6 +12,7 @@ mod removal;
 mod row;
 mod settings;
 mod view;
+use crate::id::AgentId;
 use error::StoreError;
 pub use lookup::{home_in, is_home_in, maker_in, registered_in};
 pub(crate) use row::NewAgent;

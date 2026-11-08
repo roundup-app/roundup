@@ -81,9 +81,11 @@ fn lc1_each_role_launches_as_its_row() {
             let argv = s.prepare_lean("7", role, &pair, None).unwrap();
             let tools = match (row, mcp) {
                 (Role::Door, true) => {
-                    Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion")
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
                 }
-                (Role::Door, false) => Some("Read,Grep,Glob,Write,Edit,Skill,AskUserQuestion"),
+                (Role::Door, false) => {
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,Skill,AskUserQuestion")
+                }
                 (Role::Scout, true) => {
                     Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion")
                 }
@@ -181,7 +183,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             }
             s.user_file("settings.json", &user.to_string());
             let launcher = plugin_launcher(&s);
-            let (argv, env) = launcher
+            let (argv, env, _) = launcher
                 .launch_on(&agents::claude_code::Request {
                     folders: folders(&s.dir),
                     id: "7",
@@ -203,7 +205,9 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
             assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
             let tools = match row {
-                Role::Door => Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion"),
+                Role::Door => {
+                    Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
+                }
                 Role::Scout => Some("Read,Grep,Glob,Write,Edit,Bash,ToolSearch,AskUserQuestion"),
                 Role::Agent => None,
             };
@@ -242,7 +246,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
     let s = setup();
     s.user_file("CLAUDE.md", "USER GLOBAL RULE");
     let launcher = plugin_launcher(&s);
-    let (argv, _) = launcher
+    let (argv, _, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "7",
@@ -256,7 +260,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
         .unwrap();
     assert_eq!(
         Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,Write,Edit,ToolSearch,Skill,AskUserQuestion")
+        Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert!(!has(&argv, "--setting-sources"));
@@ -304,7 +308,7 @@ async fn lc5_every_child_gets_the_plugins_and_no_instruction_copy() {
         let s = setup();
         s.user_file("CLAUDE.md", "USER GLOBAL RULE");
         let launcher = plugin_launcher(&s);
-        let (argv, env) = launcher
+        let (argv, env, _) = launcher
             .launch_on(&agents::claude_code::Request {
                 folders: folders(&s.dir),
                 id: "7",
@@ -373,7 +377,7 @@ async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
             } else {
                 launcher
             };
-            let (argv, _) = launcher
+            let (argv, _, _) = launcher
                 .launch_on(&agents::claude_code::Request {
                     folders: folders(&s.dir),
                     id: "7",
@@ -414,7 +418,7 @@ async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
 async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
     let s = setup();
     let launcher = plugin_launcher(&s).without_intent_skill();
-    let (argv, _) = launcher
+    let (argv, _, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "7",
@@ -450,7 +454,7 @@ async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
             .unwrap();
     assert!(!brief.contains("hope:intent"));
     // Only a Door says so; a worker's start is the same.
-    let (worker, _) = launcher
+    let (worker, _, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "8",
@@ -470,7 +474,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     let s = setup();
     s.user_file("settings.json", r#"{"permissions":{"allow":["Read(x)"]}}"#);
     let launcher = plugin_launcher(&s);
-    let (argv, env) = launcher
+    let (argv, env, _) = launcher
         .launch_on(&agents::claude_code::Request {
             folders: folders(&s.dir),
             id: "7",
@@ -660,12 +664,6 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
                 None,
             )
             .unwrap();
-        assert!(
-            !Setup::after(&argv, "--tools")
-                .unwrap()
-                .split(',')
-                .any(|tool| tool == "Agent")
-        );
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
         assert!(settings.get("mcpServers").is_none());
         let allowed = settings["permissions"]["allow"]
@@ -673,7 +671,6 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             .cloned()
             .unwrap_or_default();
         for forbidden in [
-            "Bash",
             "PowerShell",
             "terminal_spawn",
             "terminal_open",
@@ -734,7 +731,7 @@ async fn lc17_every_agent_leaves_claude_md_loading_to_claude_code() {
         s.user_file("CLAUDE.md", "USER_GLOBAL_TOKEN");
         std::fs::write(s.dir.parent().unwrap().join("CLAUDE.md"), "PROJECT_TOKEN").unwrap();
         let launcher = plugin_launcher(&s);
-        let (argv, env) = launcher
+        let (argv, env, _) = launcher
             .launch_on(&agents::claude_code::Request {
                 folders: folders(&s.dir),
                 id: "7",

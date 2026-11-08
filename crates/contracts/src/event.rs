@@ -105,6 +105,12 @@ pub enum EventData {
     /// UA2, UA6, UA8: an Extension failed; the App shows one Toast.
     #[serde(rename = "extension.problem")]
     ExtensionProblem(crate::action::ExtensionProblem),
+    /// MC40, MC41: the Config's look or keys changed; read `config.read`.
+    #[serde(rename = "config.changed")]
+    ConfigChanged,
+    /// MC40, MC41: a Config file was refused; the App shows one Toast.
+    #[serde(rename = "config.problem")]
+    ConfigProblem(crate::config::ConfigProblem),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]

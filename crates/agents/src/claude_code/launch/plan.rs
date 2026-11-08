@@ -216,6 +216,19 @@ fn brief(spec: &Spec<'_>, facts: &Facts) -> String {
     if facts.missing_intent {
         brief = brief::without_intent(&brief);
     }
+    // MC43: the file only adds after roundup's own text; an unreadable or empty one adds nothing.
+    if spec.role == Role::Door
+        && let Some(text) = spec
+            .launcher
+            .door_file
+            .as_ref()
+            .and_then(|file| std::fs::read_to_string(file).ok())
+            .filter(|text| !text.trim().is_empty())
+    {
+        brief.push_str("\n\n");
+        brief.push_str(text.trim_end());
+        brief.push('\n');
+    }
     brief
 }
 
