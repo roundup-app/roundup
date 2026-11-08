@@ -789,3 +789,28 @@ async fn mc42_a_call_outside_the_narrow_permissions_is_denied() {
         "{reply}"
     );
 }
+
+#[tokio::test]
+async fn mc45_an_extension_cannot_reach_the_alert_or_message_calls() {
+    for (permission, call) in [
+        (
+            "agents",
+            "$.agents.setAlertLevel({ id: '1', level: 'all' })",
+        ),
+        ("bus", "$.bus.publish({ topic: 'message.sent' })"),
+        ("ui", "$.ui.toast({ text: 'done' })"),
+    ] {
+        let fx = with(|root| ext(root, "pinger", &[permission], &todo_js(call))).await;
+        fx.listed(&["user.touch"]).await;
+        let reply = fx
+            .user()
+            .await
+            .call("action.run", json!({"name":"user.touch"}))
+            .await;
+        let message = reply["error"]["message"].as_str().unwrap();
+        assert!(
+            message.contains("not customisable") && message.contains("pinger"),
+            "{call}: {reply}"
+        );
+    }
+}

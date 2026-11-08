@@ -341,7 +341,10 @@ async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
 async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
     let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
-    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .rail()
+        .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     let mut events = bus.subscribe();
     for (index, event) in [
         "UserPromptSubmit",
@@ -414,7 +417,10 @@ async fn a21_a_failed_save_after_spawn_returned_errors_settles_error_and_stops_t
 async fn u5483c_final_text_protection_follows_attempt_identity() {
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
-    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .rail()
+        .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     for (text, expected) in [
         (json!("Should I publish three pages or five"), "present"),
         (json!("All done"), "present"),
@@ -454,7 +460,10 @@ async fn u5483c_final_text_protection_follows_attempt_identity() {
 async fn u5483c_resuming_clears_only_the_previous_turn() {
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
-    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .rail()
+        .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     for payload in [
         json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"}),
         json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"A long statement\nShould I publish three pages or five"}),
@@ -480,7 +489,10 @@ async fn u5483c_resuming_clears_only_the_previous_turn() {
 async fn u5483c_final_text_survives_ticks_and_done() {
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
-    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .rail()
+        .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     for observation in [
         Observation::Signal(json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"})),
         Observation::Signal(
@@ -505,7 +517,10 @@ async fn u5483c_final_text_survives_ticks_and_done() {
 async fn u5483c_late_final_text_refreshes_rail_without_a_status_change() {
     let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
-    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .rail()
+        .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     shared
         .observe(
             Actor::daemon(),
@@ -543,7 +558,10 @@ async fn u5483c_late_final_text_refreshes_rail_without_a_status_change() {
 async fn u5483c_empty_text_without_turn_identity_remains_unknown() {
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
-    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .rail()
+        .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     shared
         .observe(
             Actor::daemon(),
@@ -741,7 +759,10 @@ async fn u5531c_native_attention_promotes_durably() {
     use contracts::agent::RailVisibility::{Internal, Shown};
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
-    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .rail()
+        .allocate_attempt(crate::rail::agent_id(&id).unwrap())
+        .unwrap();
     for (payload, promoted) in [
         (
             json!({"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"true"}}),

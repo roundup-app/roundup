@@ -971,5 +971,10 @@ async fn subscribe(run: &Run) -> Client {
     events
 }
 
+#[path = "support/dcl10d_waking_replay.rs"]
+mod dcl10d_waking_replay;
 #[path = "support/dtc2_quiet_notes.rs"]
 mod dtc2_quiet_notes;
+
+#[path = "support/dtc3_one_turn.rs"]
+mod dtc3_one_turn;
