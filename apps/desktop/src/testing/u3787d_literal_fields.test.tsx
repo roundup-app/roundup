@@ -217,8 +217,8 @@ it("u3787d_each_field_keeps_literal_input native CapturePanel request", async ()
   const port: import("../app/seam").CapturePort = {
     configure: async () => {}, show: async () => {}, dismiss: async () => {}, publish: async () => {},
     act: async action => { actions.push(action); },
-    onRequested: async () => () => {}, onAction: async () => () => {},
-    onState: async listener => {
+    onRequested: () => () => {}, onAction: () => () => {},
+    onState: listener => {
       listener({ session: "original", sequence: 0, text: "", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" });
 
       return () => {};

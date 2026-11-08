@@ -93,19 +93,14 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     props.onOpenChange?.(true);
   };
 
-  let disposed = false;
-  let stop: (() => void) | undefined;
-  let stopProject: (() => void) | undefined;
-
-  void props.app.onAppSettings(show).then(unsubscribe => { if (disposed) unsubscribe(); else stop = unsubscribe; });
-  void props.app.onProjectPage(({ path }) => {
+  onCleanup(props.app.onAppSettings(show));
+  onCleanup(props.app.onProjectPage(({ path }) => {
     setForward(false);
 
     if (path !== props.project() || !view.open()) return;
     props.onOpenChange?.(false);
     view.close();
-  }).then(unsubscribe => { if (disposed) unsubscribe(); else stopProject = unsubscribe; });
-  onCleanup(() => { disposed = true; stop?.(); stopProject?.(); });
+  }));
   registerKeys({ kind: "app" }, [
     { chords: ["Meta+Comma"], run: show },
     { chords: ["Meta+BracketLeft"], when: () => view.open(), run: event => { event.preventDefault(); back(); } },

@@ -237,16 +237,16 @@ it("u3787f_global_capture_uses_the_existing_owner_once_per_press", async () => {
   const capture: import("../app/seam").CapturePort = {
     configure: vi.fn(async () => {}), show: vi.fn(async () => {}), dismiss: vi.fn(async () => {}),
     publish: async state => { snapshots.push(state); }, act: async () => {},
-    onRequested: async listener => {
+    onRequested: listener => {
       requested = listener;
 
       return () => { requested = () => {}; };
     },
-    onAction: async listener => {
+    onAction: listener => {
       action = listener;
 
       return () => {};
-    }, onState: async () => () => {},
+    }, onState: () => () => {},
   };
 
   const { app, connected } = await mount(undefined, undefined, capture);
@@ -276,16 +276,16 @@ it("u3787f_native_dismiss_retains_exact_work_and_refuses_the_previous_session", 
   const capture: import("../app/seam").CapturePort = {
     configure: async () => {}, show: async () => {}, dismiss: async () => {},
     publish: async state => { snapshots.push(state); }, act: async () => {},
-    onRequested: async listener => {
+    onRequested: listener => {
       requested = listener;
 
       return () => {};
     },
-    onAction: async listener => {
+    onAction: listener => {
       action = listener;
 
       return () => {};
-    }, onState: async () => () => {},
+    }, onState: () => () => {},
   };
 
   const { app, connected } = await mount(undefined, undefined, capture);
@@ -308,7 +308,7 @@ it("u3787f_shortcut_collision_preserves_the_acknowledged_setting_and_shows_the_c
   const { appSettings } = await import("../settings/preferences");
   const before = appSettings().quickAddAnywhere;
   const causes: (string | null)[] = [];
-  render(() => <ShortcutSettings capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {} }} onFailure={cause => causes.push(cause)} />);
+  render(() => <ShortcutSettings capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {} }} onFailure={cause => causes.push(cause)} />);
   fireEvent.click(screen.getByRole("button", { name: /Quick add from any app/ }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", metaKey: true, altKey: true });
   await waitFor(() => expect(causes.at(-1)).toContain("already registered"));
@@ -422,29 +422,4 @@ it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholde
   }
 
   expect(app.calls.some(call => JSON.stringify(call.params).includes('"id":-'))).toBe(false);
-});
-
-it("u6249d_a_capture_subscription_that_fails_twice_is_retried_and_shows_no_failure", async () => {
-  let requested = () => {};
-
-  const subscribe = vi.fn<import("../app/seam").CapturePort["onRequested"]>()
-    .mockRejectedValueOnce(new Error("bridge not ready"))
-    .mockRejectedValueOnce(new Error("bridge not ready"))
-    .mockImplementation(async listener => {
-      requested = listener;
-
-      return () => {};
-    });
-
-  const capture: import("../app/seam").CapturePort = {
-    configure: async () => {}, show: vi.fn(async () => {}), dismiss: async () => {}, publish: async () => {}, act: async () => {},
-    onRequested: subscribe, onAction: async () => () => {}, onState: async () => () => {},
-  };
-
-  const { connected } = await mount(undefined, undefined, capture);
-  connected.rail.select("w");
-  await waitFor(() => expect(subscribe).toHaveBeenCalledTimes(3));
-  requested();
-  await waitFor(() => expect(capture.show).toHaveBeenCalledTimes(1));
-  expect(screen.queryByRole("alert")).toBeNull();
 });

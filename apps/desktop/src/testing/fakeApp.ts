@@ -165,7 +165,7 @@ export const createFakeApp = (): FakeApp => {
     menuBar: null,
     showWindow: async () => {},
     setMenuBar: async menu => { app.menuBar = menu; },
-    onMenuBarAction: async listener => {
+    onMenuBarAction: listener => {
       menuBarListeners.add(listener);
 
       return () => { menuBarListeners.delete(listener); };
@@ -173,7 +173,7 @@ export const createFakeApp = (): FakeApp => {
     menuBarAction: action => menuBarListeners.forEach(listener => listener(action)),
     recentProjects: async () => [],
     claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
-    onNativeOpen: async listener => {
+    onNativeOpen: listener => {
       nativeListeners.add(listener);
 
       return () => { nativeListeners.delete(listener); };
@@ -405,7 +405,7 @@ export const createFakeApp = (): FakeApp => {
 
       if (app.stateAlertFailure) throw app.stateAlertFailure;
     },
-    onStateAlertClicked: async (listener) => {
+    onStateAlertClicked: (listener) => {
       alertClicks.add(listener);
 
       return () => alertClicks.delete(listener);
@@ -485,13 +485,13 @@ export const createFakeApp = (): FakeApp => {
 
       return app.savedImagePath;
     },
-    onFileDrop: async (listener) => {
+    onFileDrop: (listener) => {
       dropListeners.add(listener);
 
       return () => dropListeners.delete(listener);
     },
     selectProjectMenu: async (path, items) => { projectMenu.path = path; projectMenu.items = items ?? []; },
-    onProjectPage: async (listener) => {
+    onProjectPage: (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
 
       window.addEventListener("open-project-page", receive);
@@ -500,17 +500,17 @@ export const createFakeApp = (): FakeApp => {
     },
     forkBranch: async () => "fork",
     forkMake: async () => {},
-    onForkSheet: async (listener) => {
+    onForkSheet: (listener) => {
       window.addEventListener("open-fork-sheet", listener);
 
       return () => window.removeEventListener("open-fork-sheet", listener);
     },
-    onAppSettings: async (listener) => {
+    onAppSettings: (listener) => {
       window.addEventListener("open-app-settings", listener);
 
       return () => window.removeEventListener("open-app-settings", listener);
     },
-    onDaemonExited: async (listener) => {
+    onDaemonExited: (listener) => {
       exitListeners.add(listener);
 
       return () => exitListeners.delete(listener);

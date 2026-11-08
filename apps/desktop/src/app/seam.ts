@@ -164,9 +164,9 @@ export type CapturePort = {
   dismiss(): Promise<void>;
   publish(snapshot: CaptureState): Promise<void>;
   act(action: CaptureAction): Promise<void>;
-  onRequested(listener: () => void): Promise<Unsubscribe>;
-  onAction(listener: (action: CaptureAction) => void): Promise<Unsubscribe>;
-  onState(listener: (snapshot: CaptureState) => void): Promise<Unsubscribe>;
+  onRequested(listener: () => void): Unsubscribe;
+  onAction(listener: (action: CaptureAction) => void): Unsubscribe;
+  onState(listener: (snapshot: CaptureState) => void): Unsubscribe;
 };
 
 /** A captured system question with complete consequences and named affirmative/cancel buttons. */
@@ -215,7 +215,7 @@ export type App = {
   claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
   /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
   capture?: CapturePort | undefined;
-  onNativeOpen?: ((listener: (request: NativeOpen) => void) => Promise<Unsubscribe>) | undefined;
+  onNativeOpen?: ((listener: (request: NativeOpen) => void) => Unsubscribe) | undefined;
   /** R24 measurement builds alone provide this bounded native evidence sink. */
   recordIdleEvidence?: ((record: IdleEvidence) => Promise<void>) | undefined;
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
@@ -244,11 +244,11 @@ export type App = {
   /** Restores and focuses the window after its menu selection has been applied. */
   showWindow(): Promise<void>;
   /** U5502/U5503: native actions request opening; native failures only report their cause. */
-  onMenuBarAction(listener: (action: MenuBarAction) => void): Promise<Unsubscribe>;
+  onMenuBarAction(listener: (action: MenuBarAction) => void): Unsubscribe;
   /** U5232f: shows one macOS banner naming the Agent when `alert`, plays one system sound when `sound`; both false rejects INVALID_PARAMS, a refused permission rejects FORBIDDEN with its cause (and a sound still plays). */
   stateAlert(alert: StateAlert): Promise<void>;
   /** U5232e: a click on a State alert's banner; the window is already in front. */
-  onStateAlertClicked(listener: (agent: string) => void): Promise<Unsubscribe>;
+  onStateAlertClicked(listener: (agent: string) => void): Unsubscribe;
   /** Writes the full native title of the current window; a native failure rejects as RpcError. */
   setWindowTitle(title: string): Promise<void>;
   /** Requests a native drag of the current window; rejects as RpcError on failure. */
@@ -268,20 +268,20 @@ export type App = {
   /** Pops the macOS system menu at `x`, `y` (window CSS pixels) and resolves the chosen item's id, or `null` when it closes with no choice (U2694a). */
   showContextMenu(items: MenuItem[], x: number, y: number): Promise<string | null>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
-  onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
+  onFileDrop(listener: (drop: FileDrop) => void): Unsubscribe;
   /** Synchronizes native Project-menu availability with the selected tab. */
   selectProjectMenu(path: string | null, items?: MenuItem[]): Promise<void>;
   /** Native commands carry the selected Project captured by the host at activation. */
-  onProjectPage(listener: (page: { path: string; command: string }) => void): Promise<Unsubscribe>;
+  onProjectPage(listener: (page: { path: string; command: string }) => void): Unsubscribe;
   /** FS5979: the name of the branch the live App's source checkout is on, or `fork`. */
   forkBranch(): Promise<string>;
   /** FS5979: makes the Fork and opens the branch's App on it; rejects with the failure's text. */
   forkMake(params: { name: string; colour: ForkColour; projects: ForkPick[] }): Promise<void>;
   /** FS5979a: the application menu's `Fork for development…`; no payload. */
-  onForkSheet(listener: () => void): Promise<Unsubscribe>;
+  onForkSheet(listener: () => void): Unsubscribe;
   /** Opens the app-wide center settings view; no payload. */
-  onAppSettings(listener: () => void): Promise<Unsubscribe>;
-  onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;
+  onAppSettings(listener: () => void): Unsubscribe;
+  onDaemonExited(listener: (exit: DaemonExited) => void): Unsubscribe;
   /** The calls into that Project's Daemon, with its path filled in. */
   forProject(path: string): AppSeam;
 };

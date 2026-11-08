@@ -2,7 +2,7 @@
 import { Channel } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { Todo } from "@contracts/todo/Todo";
 import { createFakeApp } from "../testing/fakeApp";
@@ -27,6 +27,8 @@ const TODO: Todo = {
 };
 
 const NOT_FOUND = -32001;
+
+const attached = () => new Promise(resolve => setTimeout(resolve, 0));
 
 const created = (id: number): DaemonEvent => ({
   actor: { kind: "user", id: "you", parent: null },
@@ -150,7 +152,8 @@ describe("u1 calls and events", () => {
     mockIPC(() => null, { shouldMockEvents: true });
     const exits: unknown[] = [];
 
-    await createTauriApp().onDaemonExited((exit) => exits.push(exit));
+    createTauriApp().onDaemonExited((exit) => exits.push(exit));
+    await attached();
 
     const notifications = [
       { path: "/p", code: 1, recovery: "waiting" },
@@ -167,8 +170,10 @@ describe("u1 calls and events", () => {
     mockIPC(() => null, { shouldMockEvents: true });
     const exits: unknown[] = [];
 
-    const unsubscribe = await createTauriApp().onDaemonExited((exit) => exits.push(exit));
+    const unsubscribe = createTauriApp().onDaemonExited((exit) => exits.push(exit));
+    await attached();
     unsubscribe();
+    await attached();
     await emit("daemon-exited", { path: "/p", code: 1 });
 
     expect(exits).toEqual([]);
@@ -213,7 +218,8 @@ describe("u1 calls and events", () => {
       return null;
     }, { shouldMockEvents: true });
     const app = createTauriApp();
-    await app.onStateAlertClicked(agent => heard.push(agent));
+    app.onStateAlertClicked(agent => heard.push(agent));
+    await attached();
 
     await app.stateAlert({ agent: "a1", title: "Ada", body: "Done", alert: true, sound: false });
     await emit("state-alert-clicked", { agent: "a1" });
@@ -302,25 +308,50 @@ describe("u1 calls and events", () => {
     await expect(createTauriApp().projects()).rejects.toMatchObject({ name: "RpcError", code: -32603 });
   });
 
-  it("u1_a_daemon_exited_listener_that_cannot_attach_rejects_with_internal_and_the_string", async () => {
+  it("u6249d_a_failed_listen_reaches_the_log_once", async () => {
+    let attempts = 0;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockIPC((command) => {
-      if (command === "plugin:event|listen") throw "no event channel";
+      if (command === "plugin:event|listen") { attempts += 1; throw "no event channel"; }
 
       return null;
     });
 
-    await expect(createTauriApp().onDaemonExited(() => {})).rejects.toMatchObject({
-      name: "RpcError",
-      code: -32603,
-      message: "no event channel",
+    createTauriApp().onDaemonExited(() => {});
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+    await attached();
+
+    expect(attempts).toBe(5);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]![0])).toContain("no event channel");
+    warn.mockRestore();
+  });
+
+  it("fs5979a_a_stop_called_before_listen_resolves_releases_the_listener", async () => {
+    let finish: () => void = () => {};
+    const unlistened: unknown[] = [];
+    mockIPC((command, args) => {
+      if (command === "plugin:event|listen") return new Promise<number>(resolve => { finish = () => resolve(7); });
+
+      if (command === "plugin:event|unlisten") unlistened.push(args);
+
+      return null;
     });
+
+    const stop = createTauriApp().onForkSheet(() => {});
+    await attached();
+    stop();
+    expect(unlistened).toEqual([]);
+    finish();
+    await vi.waitFor(() => expect(unlistened).toHaveLength(1));
   });
 
   it("u1_a_daemon_exited_payload_that_is_not_a_code_never_reaches_the_listener", async () => {
     mockIPC(() => null, { shouldMockEvents: true });
     const exits: unknown[] = [];
 
-    await createTauriApp().onDaemonExited((exit) => exits.push(exit));
+    createTauriApp().onDaemonExited((exit) => exits.push(exit));
+    await attached();
     await emit("daemon-exited", { path: "/p", code: "x" }).catch(() => {});
 
     expect(exits).toEqual([]);

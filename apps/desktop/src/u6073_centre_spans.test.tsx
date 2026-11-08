@@ -14,14 +14,8 @@ const mount = async (nativeFails = false) => {
   const app = createFakeApp();
 
   if (nativeFails) {
-    const subscription = Promise.resolve(() => {});
-    // The App reports a failed subscription through `catch` and releases through `then`.
-    vi.spyOn(subscription, "catch").mockImplementation(report => {
-      void report?.(new Error("native open failed"));
-
-      return subscription;
-    });
-    app.onNativeOpen = () => subscription;
+    app.handlers["link.read"] = () => { throw new Error("native open failed"); };
+    app.onNativeOpen = listener => { setTimeout(() => listener({ kind: "link", url: "roundup://x" }), 50); return () => {}; };
   }
 
   app.add("/a");
