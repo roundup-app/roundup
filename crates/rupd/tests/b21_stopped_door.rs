@@ -973,3 +973,6 @@ async fn subscribe(run: &Run) -> Client {
 
 #[path = "support/dtc2_quiet_notes.rs"]
 mod dtc2_quiet_notes;
+
+#[path = "support/dtc3_one_turn.rs"]
+mod dtc3_one_turn;
