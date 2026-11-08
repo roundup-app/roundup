@@ -122,6 +122,14 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
     );
 }
 
+fn has_note(entry: &serde_json::Value) -> bool {
+    entry["body"]["messages"].as_array().is_some_and(|ms| {
+        ms.iter().any(|m| {
+            m["role"] == "user" && m["content"].to_string().contains("B37 child is needs-you")
+        })
+    })
+}
+
 #[tokio::test]
 async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     let hour = [("ROUNDUP_RESUME_DELAY_MS", "3600000")];
@@ -306,6 +314,12 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     })
     .await
     .expect("the Door went idle with a new status revision after the needs-you note");
+    // The note reaches the model in a later request, so wait for that request in the journal.
+    let model = project.model.as_ref().unwrap();
+    daemon::h21_poll("the Door's model request carrying the note", async || {
+        model.journal().iter().any(has_note).then_some(())
+    })
+    .await;
     // This observer expects one failed model request; the shared success-only Drop check does not.
     let model = project.model.take().unwrap();
     let journal = model.journal();
@@ -331,20 +345,12 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         .iter()
         .skip(failed_request + 1)
         .find(|e| {
-            &e["headers"]["x-claude-code-session-id"] == identity && e["body"]["stream"] == true
+            &e["headers"]["x-claude-code-session-id"] == identity
+                && e["body"]["stream"] == true
+                && has_note(e)
         })
-        .expect("the Door makes its next model request");
+        .unwrap_or_else(|| panic!("the Door's next model request carries the note: {journal:#?}"));
     assert_eq!(following["response"]["status"], 200);
-    assert!(
-        following["body"]["messages"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|m| {
-                m["role"] == "user" && m["content"].to_string().contains("B37 child is needs-you")
-            }),
-        "Door request sequence: {:#?}", journal.iter().map(|e| format!("{} stream={} st={} fx={} note={} nmsg={} last={}", e["headers"]["x-claude-code-session-id"], e["body"]["stream"], e["response"]["status"], e["response"]["fixture"], e["body"]["messages"].to_string().contains("B37 child is needs-you"), e["body"]["messages"].as_array().map_or(0,|m|m.len()), e["body"]["messages"].as_array().and_then(|m|m.last()).map(|m|m.to_string().chars().take(160).collect::<String>()).unwrap_or_default())).collect::<Vec<_>>()
-    );
 }
 
 #[tokio::test]
