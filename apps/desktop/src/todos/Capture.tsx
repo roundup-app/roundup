@@ -251,6 +251,15 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     });
   };
 
+  const recoveredAction = (kind: "copy" | "discard-revision", revision: string) => {
+    const draft = recovered().find(draft => draft.revision === revision);
+
+    if (!draft) return;
+
+    if (kind === "discard-revision") drafts.discard(draft.revision);
+    else void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
+  };
+
   if (port) {
     // U6249d F6: the seam retries a subscription, and the user cannot act on its exhaustion, so the App log holds the cause.
     onCleanup(untrack(() => port.onRequested(nativeShow)));
@@ -271,14 +280,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
         setText(action.text);
       }
 
-      if (action.kind === "copy" || action.kind === "discard-revision") {
-        const draft = recovered().find(draft => draft.revision === action.revision);
-
-        if (!draft) return;
-
-        if (action.kind === "discard-revision") drafts.discard(draft.revision);
-        else void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
-      }
+      if (action.kind === "copy" || action.kind === "discard-revision") recoveredAction(action.kind, action.revision);
 
       if (action.kind === "file") void file(action.keepOpen);
       else if (action.kind === "discard") discard();
