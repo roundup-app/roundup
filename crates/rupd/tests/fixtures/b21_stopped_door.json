@@ -1,6 +1,11 @@
 {
   "fixtures": [
     {
+      "match": {"userMessage": "Do the slow thing", "hasToolResult": false},
+      "response": {"content": "Done."},
+      "latency": 4000
+    },
+    {
       "match": {"userMessage": "release held digests", "hasToolResult": false},
       "response": {"content": "Released."}
     },
@@ -35,6 +40,10 @@
     {
       "match": {"userMessage": "[digest]", "hasToolResult": false},
       "response": {"content": "Digest noted."}
+    },
+    {
+      "match": {"userMessage": "from-name=\"rupd\"", "hasToolResult": false},
+      "response": {"content": "Noted."}
     }
   ]
 }

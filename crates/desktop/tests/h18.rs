@@ -176,6 +176,10 @@ fn tree(root: &Path) -> std::collections::BTreeMap<PathBuf, Option<Vec<u8>>> {
     while let Some(dir) = pending.pop() {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
+            // The Config's own AGENTS.md (MC44) is shipped, not data.
+            if path.file_name().is_some_and(|name| name == ".roundup") {
+                continue;
+            }
             let bytes = if path.is_dir() {
                 pending.push(path.clone());
                 None
