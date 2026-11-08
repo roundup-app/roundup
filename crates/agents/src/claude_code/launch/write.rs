@@ -124,9 +124,7 @@ impl Launcher {
         checked: &Checked,
         role: Role,
     ) -> Result<Facts, RpcError> {
-        let Checked {
-            id, cwd, project, ..
-        } = checked;
+        let Checked { id, project, .. } = checked;
         let delivery = match &request.facts.lean {
             Some(lean) => extras::resolve(&self.extras_sources(project), &lean.extras)?,
             None => extras::Delivery::default(),
@@ -137,16 +135,6 @@ impl Launcher {
             .get("outputStyle")
             .is_none()
             .then(|| "hold:Plain".to_owned());
-        let mut guard = json!({ "hooks": { "PreToolUse": [] } });
-        super::super::memory::hook(
-            &self.rup,
-            &self.conversation_dir,
-            self.home.as_deref(),
-            cwd,
-            role,
-            &carried,
-            &mut guard,
-        )?;
         let inherited_mode = match request.facts.permission {
             Permission::Inherit => {
                 super::super::inbox::default_mode(&self.conversation_dir, project)
@@ -158,11 +146,6 @@ impl Launcher {
             output_style,
             missing_intent,
             delivery,
-            memory_hooks: guard
-                .pointer("/hooks/PreToolUse")
-                .and_then(Value::as_array)
-                .cloned()
-                .ok_or_else(|| RpcError::internal("memory hooks lost the state hooks"))?,
             path: self.shell_path(),
             inherited_mode,
             socket: self
