@@ -219,7 +219,7 @@ pub async fn push_changes(
     for intent in seen.intents() {
         for _ in 0..intent.weight {
             messages
-                .push_digest(&intent.door, &intent.child, &intent.entry, false)
+                .push_digest(&intent.door, &intent.child, &intent.entry, intent.waking)
                 .await;
         }
     }
