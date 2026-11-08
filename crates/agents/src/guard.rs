@@ -483,7 +483,7 @@ mod tests {
             memory,
         };
         let procs = vec![
-            proc(10, 1, "rupd", GB),
+            proc(10, 1, "daemon", GB),
             proc(11, 10, "rup", 40 * GB),
             proc(12, 11, "helper", 40 * GB),
             proc(20, 1, "python3", 40 * GB),
