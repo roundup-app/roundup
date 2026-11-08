@@ -2238,28 +2238,28 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     assert_eq!(d8_listing(project.dir.path()), files_before);
 }
 
-/// Threads and CPU seconds the Daemon has used, from `/proc`.
+/// Threads and CPU ticks the Daemon has used, less AMG4's once-a-second sampler thread.
 #[cfg(target_os = "linux")]
 fn d8_daemon_work(pid: u32) -> (u64, u64) {
-    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).unwrap();
-    let threads = status
-        .lines()
-        .find_map(|l| l.strip_prefix("Threads:"))
+    let (mut threads, mut ticks) = (0, 0);
+    for task in std::fs::read_dir(format!("/proc/{pid}/task"))
         .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
-    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
-    let fields: Vec<u64> = stat
-        .rsplit_once(')')
-        .unwrap()
-        .1
-        .split_whitespace()
-        .skip(11)
-        .take(2)
-        .map(|f| f.parse().unwrap())
-        .collect();
-    (threads, fields[0] + fields[1])
+        .flatten()
+    {
+        let read = |f: &str| std::fs::read_to_string(task.path().join(f));
+        let (Ok(name), Ok(stat)) = (read("comm"), read("stat")) else {
+            continue;
+        };
+        let fields = stat.rsplit_once(')').unwrap().1.split_whitespace().skip(11);
+        if name.trim() != "memory-guard" {
+            threads += 1;
+            ticks += fields
+                .take(2)
+                .map(|f| f.parse::<u64>().unwrap())
+                .sum::<u64>();
+        }
+    }
+    (threads, ticks)
 }
 
 #[cfg(target_os = "linux")]
