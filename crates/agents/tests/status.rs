@@ -1,5 +1,11 @@
 //! A1 replays the hooks-state spike fixtures, so re-recording the spike after a Claude Code
 //! payload change re-tests the adapter against it. A3 exits are hand-built.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};

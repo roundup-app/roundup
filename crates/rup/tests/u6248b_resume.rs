@@ -1,4 +1,10 @@
 //! U6248b: a scripted server error reaches a real Claude, and roundup resumes it.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;

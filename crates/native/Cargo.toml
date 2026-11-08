@@ -34,6 +34,10 @@ unused = { level = "deny", priority = -1 }
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
 
 [target.'cfg(target_vendor = "apple")'.dev-dependencies]
 objc2-app-kit = { version = "0.3", default-features = false, features = ["NSResponder"] }

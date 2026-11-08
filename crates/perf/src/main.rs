@@ -1,7 +1,3 @@
-#![deny(clippy::unwrap_used, clippy::expect_used)]
-#![deny(clippy::panic, clippy::indexing_slicing)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::ExitCode;

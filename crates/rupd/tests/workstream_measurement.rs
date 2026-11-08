@@ -1,5 +1,11 @@
 // T4902 removes the retired T29 migration; the same non-duration upgrade boundary is retained.
 //! U4454c, U4454d: no Time or Timeline reads or stores measurements.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use rpc::{Client, code};
 use serde_json::json;
 use std::sync::Arc;

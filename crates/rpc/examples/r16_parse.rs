@@ -1,4 +1,10 @@
 //! R16 exploratory parser profile; complete values, no Daemon or socket work.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::fmt;
 use std::hint::black_box;
 use std::time::Instant;

@@ -1,5 +1,11 @@
 //! LC4, LC6, LC7, LC8: what a child's start holds, read from the arguments the fake `claude`
 //! records, and what the Door's extras do to a running one.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 
 #[path = "e2e/daemon.rs"]

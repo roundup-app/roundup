@@ -1,6 +1,10 @@
 //! Scenarios S1 to S5, S8 and S10 (`scenarios/app.md`, `scenarios/project-tabs.md`). A fake `rupd` is a state script; the real Daemon runs
 //! in-process on a socket the script links to the one the App chose.
-
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::panic, clippy::indexing_slicing)]
+use desktop::{AppState, Config, build, handle_run_event};
+use rpc::code;
+use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::os::unix::fs::PermissionsExt;
@@ -9,10 +13,6 @@ use std::process::Command;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-
-use desktop::{AppState, Config, build, handle_run_event};
-use rpc::code;
-use serde_json::{Value, json};
 use tauri::ipc::{Channel, InvokeBody, InvokeResponseBody};
 use tauri::test::{
     INVOKE_KEY, MockRuntime, get_ipc_response, mock_builder, mock_context, noop_assets,

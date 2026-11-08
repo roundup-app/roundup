@@ -1,3 +1,9 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use agents::placement::{AskPart, Destination, Placement, Request, place};
 use async_trait::async_trait;
 use std::sync::Mutex;

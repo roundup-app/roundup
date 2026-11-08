@@ -1,4 +1,10 @@
 //! I9: `rup events` follows the Event log, exactly once. The built `rup` against an in-process Daemon on a temp socket.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;

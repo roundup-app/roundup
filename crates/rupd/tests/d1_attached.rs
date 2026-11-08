@@ -1,4 +1,10 @@
 //! D1 attached: the Daemon exits with its stdin, and takes its Terminals' programs with it.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::collections::BTreeMap;
 use std::path::Path;

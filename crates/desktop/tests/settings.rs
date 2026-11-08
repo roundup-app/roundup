@@ -1,4 +1,10 @@
 //! U3799: probe the built application's native menu and its event, without a webview.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use desktop::{Config, build, handle_menu_event};
 use std::sync::{
     Arc,

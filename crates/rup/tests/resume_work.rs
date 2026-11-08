@@ -1,4 +1,10 @@
 //! U3078d-h, j: explicit Resume of unfinished work through the real Daemon and public callers.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "evidence_support/mod.rs"]
 #[allow(dead_code)]
 mod evidence_support;
