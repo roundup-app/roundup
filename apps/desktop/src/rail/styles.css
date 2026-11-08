@@ -22,12 +22,6 @@
   border-top-color: var(--hairline);
 }
 
-.rail-create-menu [data-part="item"] {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
-}
-
 .rail-create-menu[data-pointer] {
   transform-origin: var(--transform-origin);
   transition: opacity var(--duration-reduced) var(--easing-out), transform var(--duration-reduced) var(--easing-out);
@@ -42,10 +36,6 @@
     transition-property: opacity;
     @starting-style { transform: none; }
   }
-}
-
-.rail-create-menu [data-disabled] {
-  color: var(--disabled);
 }
 
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */

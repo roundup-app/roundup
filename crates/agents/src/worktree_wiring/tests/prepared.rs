@@ -71,7 +71,7 @@ async fn u2875c_retained_closed_worktree_survives_each_commit_boundary() {
                     .shared
                     .rail()
                     .set_worktree(
-                        &id,
+                        crate::rail::agent_id(&id).unwrap(),
                         &contracts::agent::Worktree {
                             path: made.path.to_string_lossy().into_owned(),
                             branch: made.branch.clone(),
@@ -369,7 +369,12 @@ async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
         assert!(node.terminal_id.is_none());
         assert!(node.status_revision.is_none());
         assert_eq!(node.worktree.is_some(), mode != 0);
-        let saved = agents.shared.rail().conversation(&agent).unwrap().unwrap();
+        let saved = agents
+            .shared
+            .rail()
+            .conversation(crate::rail::agent_id(&agent).unwrap())
+            .unwrap()
+            .unwrap();
         let bytes = agents
             .launcher
             .record_conversation(Path::new(&saved.1), &saved.0)

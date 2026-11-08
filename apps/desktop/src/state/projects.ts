@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
@@ -141,10 +141,10 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
   void reload();
 
-  void app.onDaemonExited(({ path, ...exit }) => update(path, (tab) => ({
+  onCleanup(app.onDaemonExited(({ path, ...exit }) => update(path, (tab) => ({
     ...tab, exit, reopenFailure: null,
     generation: exit.recovery === "connecting" ? tab.generation + 1 : tab.generation,
-  })));
+  }))));
 
   const openPath = async (path: string) => {
     const project = await app.openProject(path);

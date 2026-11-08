@@ -1,7 +1,7 @@
 import { applied } from "../app/pending";
 import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
-import { outcomeOf, retryRead } from "../app/seam";
+import { outcomeOf } from "../app/seam";
 import { queueFocus, returnFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
@@ -251,13 +251,19 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     });
   };
 
+  const recoveredAction = (kind: "copy" | "discard-revision", revision: string) => {
+    const draft = recovered().find(draft => draft.revision === revision);
+
+    if (!draft) return;
+
+    if (kind === "discard-revision") drafts.discard(draft.revision);
+    else void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
+  };
+
   if (port) {
-    let stopped = false;
-    const stops: (() => void)[] = [];
-    // U6249d F6: a subscription is a read; the seam retries it, and the user cannot act on its exhaustion, so the App log holds the cause.
-    const own = (subscribe: () => Promise<() => void>) => void retryRead(subscribe).then(stop => { if (stopped) stop(); else stops.push(stop); }).catch(error => console.warn(copy.captureOff(String(error))));
-    own(() => port.onRequested(nativeShow));
-    own(() => port.onAction(action => {
+    // U6249d F6: the seam retries a subscription, and the user cannot act on its exhaustion, so the App log holds the cause.
+    onCleanup(untrack(() => port.onRequested(nativeShow)));
+    onCleanup(untrack(() => port.onAction(action => {
       if (!nativeOpen()) return;
 
       if (action.kind === "ready") {
@@ -274,26 +280,15 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
         setText(action.text);
       }
 
-      if (action.kind === "copy" || action.kind === "discard-revision") {
-        const draft = recovered().find(draft => draft.revision === action.revision);
-
-        if (!draft) return;
-
-        if (action.kind === "discard-revision") drafts.discard(draft.revision);
-        else void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
-      }
+      if (action.kind === "copy" || action.kind === "discard-revision") recoveredAction(action.kind, action.revision);
 
       if (action.kind === "file") void file(action.keepOpen);
       else if (action.kind === "discard") discard();
       else if (action.kind === "dismiss") close();
       else if (action.kind === "retry") void drafts.retry();
-    }));
+    })));
     createEffect(() => { if (nativeOpen()) void publish()?.catch(error => setFailure(String(error))); });
     onCleanup(() => {
-      stopped = true;
-
-      for (const stop of stops) stop();
-
       if (untrack(nativeOpen)) { void port.dismiss(); props.onNativeOpen?.(false); }
     });
   }
