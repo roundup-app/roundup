@@ -470,7 +470,7 @@ impl Shared {
             Effect::Exit => {
                 run.exit();
                 if let Some(rail) = rail {
-                    rail.detach_terminal(id)?;
+                    rail.detach_terminal(crate::rail::agent_id(id)?)?;
                 }
             }
             Effect::SaveBackground(background) => {
@@ -531,7 +531,7 @@ impl Shared {
             run.set_title_pending(false);
             return Ok(());
         }
-        let Some((conversation, cwd)) = rail.conversation(id)? else {
+        let Some((conversation, cwd)) = rail.conversation(crate::rail::agent_id(id)?)? else {
             return Ok(());
         };
         let launcher = &self.rail_view.launcher;

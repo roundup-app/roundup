@@ -80,7 +80,7 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                         .shared
                         .rail()
                         .set_worktree(
-                            &agent,
+                            crate::rail::agent_id(&agent).unwrap(),
                             &contracts::agent::Worktree {
                                 path: plan.worktree.path.to_string_lossy().into_owned(),
                                 branch: plan.worktree.branch.clone(),
@@ -109,7 +109,11 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                     agents
                         .shared
                         .rail()
-                        .save_conversation(&agent, &id, &effective.to_string_lossy())
+                        .save_conversation(
+                            crate::rail::agent_id(&agent).unwrap(),
+                            &id,
+                            &effective.to_string_lossy(),
+                        )
                         .unwrap();
                 }
                 if boundary == 6 {
@@ -160,7 +164,7 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                 agents
                     .shared
                     .rail()
-                    .clear_provisioning_owner(&agent)
+                    .clear_provisioning_owner(crate::rail::agent_id(&agent).unwrap())
                     .unwrap();
             }
             let before = agents.shared.rail().tree().unwrap();
@@ -185,7 +189,13 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                 );
                 assert!(agents.shared.node(&workstream).is_err());
                 assert!(agents.shared.node(&agent).is_err());
-                assert!(agents.shared.rail().has_conversation(&agent).is_err());
+                assert!(
+                    agents
+                        .shared
+                        .rail()
+                        .has_conversation(crate::rail::agent_id(&agent).unwrap())
+                        .is_err()
+                );
             }
             let agents = reopen(agents);
             let after = agents.shared.rail().tree().unwrap();

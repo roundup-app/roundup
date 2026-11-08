@@ -99,16 +99,16 @@ impl Agents {
                 continue;
             };
             let settled = if ready {
-                recovery
-                    .finish(project, &plan)
-                    .and_then(|()| Ok(rail.clear_provisioning_owner(&node.id)?))
+                recovery.finish(project, &plan).and_then(|()| {
+                    Ok(rail.clear_provisioning_owner(crate::rail::agent_id(&node.id)?)?)
+                })
             } else {
                 recovery.recover(project, &plan).and_then(|()| {
                     Launcher::discard(dir, &node.id).map_err(RpcError::internal)?;
                     if node.kind == NodeKind::Agent {
                         Ok(rail.remove(&node.id)?)
                     } else {
-                        Ok(rail.clear_worktree(&node.id)?)
+                        Ok(rail.clear_worktree(crate::rail::agent_id(&node.id)?)?)
                     }
                 })
             };
