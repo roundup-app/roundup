@@ -34,9 +34,5 @@
 }
 
 .app-menu .key-chip {
-  color: var(--grey);
-}
-
-.app-menu [data-part="item"][data-highlighted]:not([data-disabled]) .key-chip {
-  color: var(--text);
+  color: inherit;
 }
