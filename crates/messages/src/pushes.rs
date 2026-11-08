@@ -556,22 +556,22 @@ pub(crate) async fn waiting_counts(
     with_quiet: bool,
 ) -> Result<HashMap<String, u32>, Error> {
     let ledger = inner.pushes.lock().await;
-    let (pending, payloads, held) = {
+    let (pending, payloads, deferred) = {
         let store = lock(&inner.store);
         let pending = store.pending_all()?;
         let payloads = store.payloads(&pending)?;
-        let held = if with_quiet {
+        let deferred = if with_quiet {
             HashSet::new()
         } else {
-            held_digests_in(&store, &pending, &payloads)?
+            deferred_digests_in(&store, &pending, &payloads)?
         };
-        (pending, payloads, held)
+        (pending, payloads, deferred)
     };
     let mut counts: HashMap<String, u32> = HashMap::new();
     let mut digested: HashMap<&str, Vec<DigestEntry>> = HashMap::new();
     for message in &pending {
         let payload = payloads.of(message);
-        if !held.contains(&message.id) {
+        if !deferred.contains(&message.id) {
             *counts.entry(message.to.clone()).or_default() += payload.weight();
         }
         if payload.is_digest() {
@@ -597,28 +597,28 @@ pub(crate) async fn waiting_counts(
 
 /// DTC2: the pending digests no inbox write carries, which a Door at rest takes only with a
 /// Message that is no quiet digest (B5168f); the Message that settles a Workstream is such a one.
-fn held_digests_in(
+fn deferred_digests_in(
     store: &crate::store::Store,
     pending: &[Message],
     payloads: &Payloads,
 ) -> Result<HashSet<u32>, Error> {
-    let mut held = HashSet::new();
+    let mut deferred = HashSet::new();
     for message in pending {
         if payloads.of(message).is_digest() && !store.in_flight(message.id)? {
-            held.insert(message.id);
+            deferred.insert(message.id);
         }
     }
-    Ok(held)
+    Ok(deferred)
 }
 
 impl Messages {
     /// DTC2: the pending digests that wait for a Message to ride with, so that Message may be
     /// sent without waiting for them.
-    pub async fn held_digests(&self) -> Result<HashSet<u32>, Error> {
+    pub async fn deferred_digests(&self) -> Result<HashSet<u32>, Error> {
         let store = lock(&self.inner.store);
         let pending = store.pending_all()?;
         let payloads = store.payloads(&pending)?;
-        held_digests_in(&store, &pending, &payloads)
+        deferred_digests_in(&store, &pending, &payloads)
     }
 
     /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,

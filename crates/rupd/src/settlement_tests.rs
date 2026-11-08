@@ -83,8 +83,8 @@ impl Run {
         let messages = self.daemon.sender.get().unwrap().clone();
         let world = reader.world().await.unwrap();
         let waiting = messages.waiting_counts_unquiet().await.unwrap_or_default();
-        let held = messages.held_digests().await.unwrap_or_default();
-        settle(&reader, &messages, &self.store, &world, &waiting, &held).await;
+        let deferred = messages.deferred_digests().await.unwrap_or_default();
+        settle(&reader, &messages, &self.store, &world, &waiting, &deferred).await;
     }
 
     async fn notes(&self, marker: &str) -> Vec<Value> {
@@ -185,9 +185,9 @@ async fn dcl6_open_job_blocks_settlement_until_door_decides() {
 }
 
 /// DTC2: a digest no inbox write carries waits for a Message that is no quiet digest, so the stop
-/// note is not held back by it and the Door's next turn holds both.
+/// note is not delayed by it and the Door's next turn holds both.
 #[tokio::test]
-async fn dtc2_a_held_digest_does_not_hold_back_the_stop_note() {
+async fn dtc2_a_deferred_digest_does_not_hold_back_the_stop_note() {
     let run = Run::start().await;
     let job = run.job().await;
     run.stop(&job).await;
