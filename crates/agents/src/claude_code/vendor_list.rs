@@ -241,9 +241,12 @@ impl Sidecar {
                     node.display()
                 ))
             })?;
-        let stdin = child.stdin.take().expect("piped stdin");
-        let stdout = tokio::io::BufReader::new(child.stdout.take().expect("piped stdout"));
-        let mut stderr = child.stderr.take().expect("piped stderr");
+        let (Some(stdin), Some(stdout), Some(mut stderr)) =
+            (child.stdin.take(), child.stdout.take(), child.stderr.take())
+        else {
+            return Err(RpcError::internal("Node runtime pipes missing"));
+        };
+        let stdout = tokio::io::BufReader::new(stdout);
         let notices = tokio::spawn(async move {
             let mut text = Vec::new();
             let _ = (&mut stderr)

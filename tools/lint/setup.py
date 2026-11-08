@@ -1,5 +1,6 @@
 """Install pinned release binaries without changing the runner or its global PATH."""
 import hashlib
+import http.client
 import io
 import json
 import os
@@ -8,9 +9,24 @@ import platform
 import shutil
 import sys
 import tarfile
+import time
+import urllib.error
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
+
+
+def fetch(url, tries=5):
+    """The bytes at `url`. A timeout, a dropped connection or a 429 or 5xx answer is tried again after 5, 10, 20 and 40 s;
+    any other HTTP answer fails at once."""
+    for attempt in range(1, tries + 1):
+        try:
+            return urllib.request.urlopen(url, timeout=60).read()
+        except (OSError, http.client.HTTPException) as error:
+            if attempt == tries or (isinstance(error, urllib.error.HTTPError) and error.code != 429 and error.code < 500):
+                raise
+            print(f'lint setup: {url}: {error}; try {attempt + 1} of {tries}', file=sys.stderr, flush=True)
+        time.sleep(5 * 2 ** (attempt - 1))
 
 
 def install(lane):
@@ -24,7 +40,7 @@ def install(lane):
         if destination.is_file():
             continue
         print(f'Installing {tool}: {release["url"]}', flush=True)
-        data = urllib.request.urlopen(release['url'], timeout=120).read()
+        data = fetch(release['url'])
         if hashlib.sha256(data).hexdigest() != release['sha256']:
             raise ValueError(f'{tool}: release checksum mismatch')
         destination.parent.mkdir(parents=True, exist_ok=True)

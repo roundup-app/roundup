@@ -1,4 +1,19 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing
+    )
+)]
 
 #[cfg(test)]
 #[global_allocator]
@@ -332,6 +347,8 @@ pub struct Agents {
     launcher: Launcher,
     /// FOP5978: the data folder is a Fork's.
     forked: bool,
+    /// A setting was changed after the Agents were shared: every call answers an error.
+    misconfigured: bool,
 }
 
 mod dispatch;
@@ -425,7 +442,7 @@ impl Agents {
             .rail_view
             .statuses
             .lock()
-            .unwrap()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
             .insert(id.to_owned(), status.clone());
         self.shared.bus.emit(
             Actor::daemon(),

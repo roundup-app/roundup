@@ -21,8 +21,8 @@ pub trait NoteInbox: Send + Sync {
         None
     }
     /// B5763b: exact Adapter-rendered peer content, including labels and question identity.
-    fn content(&self, _agent: &str, entry: &Entry) -> String {
-        entry.content("", "")
+    fn content(&self, _agent: &str, entry: &Entry) -> Result<String, Inbox> {
+        Ok(entry.content("", ""))
     }
     /// B5763c: last admitted entry in the current peer transcript, for history recovery.
     fn previous(&self, _agent: &str) -> Result<Option<String>, Inbox> {
@@ -65,7 +65,7 @@ impl NoteInbox for agents::Agents {
         self.inbox_session(agent)
     }
 
-    fn content(&self, agent: &str, entry: &Entry) -> String {
+    fn content(&self, agent: &str, entry: &Entry) -> Result<String, Inbox> {
         self.inbox_content(agent, entry)
     }
 

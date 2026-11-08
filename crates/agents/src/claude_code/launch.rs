@@ -82,6 +82,10 @@ pub struct Launcher {
     lacks_intent: bool,
     /// MC43: the user's `door.md`, read at each Door launch and added after roundup's Brief.
     door_file: Option<PathBuf>,
+    /// MC49: names the cause when the Config refuses a `door.md` text; none by default.
+    door_refusal: fn(&str) -> Option<String>,
+    /// MC49: the last accepted `door.md` text, in memory only, shared by every clone.
+    door_accepted: Arc<Mutex<Option<String>>>,
     pub(crate) fork_session: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
@@ -189,6 +193,8 @@ impl Launcher {
             bin: bin.into(),
             claude_json,
             door_file: home.as_ref().map(|home| home.join(".roundup/door.md")),
+            door_refusal: |_| None,
+            door_accepted: Arc::default(),
             rup,
             home,
             user_defaults: BTreeSet::new(),
@@ -206,6 +212,14 @@ impl Launcher {
     #[must_use]
     pub fn with_door_file(mut self, file: PathBuf) -> Self {
         self.door_file = Some(file);
+        self
+    }
+
+    /// MC49: this Launcher asking `refusal` of each `door.md` text; a text it names a cause for
+    /// is not used, and the last accepted text stays.
+    #[must_use]
+    pub fn with_door_refusal(mut self, refusal: fn(&str) -> Option<String>) -> Self {
+        self.door_refusal = refusal;
         self
     }
 

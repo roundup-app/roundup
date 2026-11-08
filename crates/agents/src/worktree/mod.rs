@@ -470,7 +470,13 @@ impl Git {
         if !output.status.success() {
             let text = String::from_utf8_lossy(&output.stdout);
             let lines: Vec<&str> = text.lines().collect();
-            let tail = lines[lines.len().saturating_sub(20)..].join("\n");
+            let skip = lines.len().saturating_sub(20);
+            let tail = lines
+                .iter()
+                .skip(skip)
+                .copied()
+                .collect::<Vec<_>>()
+                .join("\n");
             return Err(undo(RpcError::conflict(format!("check_failed: {tail}"))));
         }
         if self.dirty(worktree).map_err(undo)? {
@@ -806,10 +812,10 @@ impl Removal {
                 Ok(())
             })();
             if let Err(err) = result {
-                if moved_back {
+                if moved_back && let Some(kept) = backup.as_ref() {
                     // A git-registration repair can fail after the files moved back. Retain
                     // those files again so the reported backup remains directly recoverable.
-                    let saved = backup.as_ref().unwrap().path().join("worktree");
+                    let saved = kept.path().join("worktree");
                     if let Err(retain) = retain_directory(&worktree.path, &saved, rename_directory)
                     {
                         errors.push(format!(

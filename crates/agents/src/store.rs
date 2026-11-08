@@ -99,16 +99,16 @@ impl Agents {
                 continue;
             };
             let settled = if ready {
-                recovery
-                    .finish(project, &plan)
-                    .and_then(|()| Ok(rail.clear_provisioning_owner(&node.id)?))
+                recovery.finish(project, &plan).and_then(|()| {
+                    Ok(rail.clear_provisioning_owner(crate::rail::agent_id(&node.id)?)?)
+                })
             } else {
                 recovery.recover(project, &plan).and_then(|()| {
                     Launcher::discard(dir, &node.id).map_err(RpcError::internal)?;
                     if node.kind == NodeKind::Agent {
                         Ok(rail.remove(&node.id)?)
                     } else {
-                        Ok(rail.clear_worktree(&node.id)?)
+                        Ok(rail.clear_worktree(crate::rail::agent_id(&node.id)?)?)
                     }
                 })
             };
@@ -161,6 +161,7 @@ impl Agents {
             dir: dir.to_owned(),
             launcher,
             forked,
+            misconfigured: false,
         })
     }
 
@@ -208,7 +209,14 @@ impl Agents {
     /// Change a setting before any call has shared the Agents: the only holder of `shared` is
     /// `self`, plus its own `me`.
     pub(super) fn configure(mut self, set: impl FnOnce(&mut Shared)) -> Self {
-        let mut shared = Arc::into_inner(self.shared).expect("the Agents are not shared yet");
+        let mut shared = match Arc::try_unwrap(self.shared) {
+            Ok(shared) => shared,
+            Err(shared) => {
+                self.shared = shared;
+                self.misconfigured = true;
+                return self;
+            }
+        };
         set(&mut shared);
         self.shared = Arc::new_cyclic(|me| {
             shared.me = me.clone();
@@ -287,7 +295,11 @@ impl Agents {
     }
 
     /// B5763b: the exact content the current receiving permission mode will write.
-    pub fn inbox_content(&self, id: &str, note: &claude_code::inbox::Entry) -> String {
+    pub fn inbox_content(
+        &self,
+        id: &str,
+        note: &claude_code::inbox::Entry,
+    ) -> Result<String, contracts::agent::Inbox> {
         let runs = self.shared.runs();
         let yolo = matches!(runs.slot(id), Some(Slot::Running(run)) if run.yolo());
         self.launcher.inbox_content(id, note, yolo)
@@ -324,14 +336,19 @@ impl Agents {
         if let Some(Slot::Running(run)) = runs.slot_mut(id)
             && !run.input_started()
         {
-            self.shared
-                .save_input_started(id, run.attempt())
-                .expect("persist explicit inbox input");
+            // The `submitted` seam cannot carry an error: a failed save is logged and the input
+            // is not admitted, so nothing treats it as started.
+            if let Err(err) = self.shared.save_input_started(id, run.attempt()) {
+                eprintln!("agents: could not persist explicit inbox input for {id}: {err}");
+                return;
+            }
             run.start_input();
             let Some(status) = run.view().status.as_ref().cloned() else {
                 return;
             };
-            run.publish(&self.shared.bus, Actor::daemon(), id, status);
+            if let Err(err) = run.publish(&self.shared.bus, Actor::daemon(), id, status) {
+                eprintln!("agents: could not announce {id}'s admitted input: {err}");
+            }
         }
     }
 
@@ -506,6 +523,7 @@ pub(super) mod tests {
                 None,
             ),
             forked: false,
+            misconfigured: false,
         }
     }
 

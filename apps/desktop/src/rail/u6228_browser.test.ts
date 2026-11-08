@@ -37,12 +37,12 @@ const saved = () => page.call<{ rail: number; collapsed?: boolean }>(`() => JSON
 
 const collapsed = () => page.call<boolean>(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
 
-// Terminal refits run a frame after layout settles, so wait for the count to hold still.
+// The Terminal refits a frame after a slide ends (250 ms), so wait for the count to hold still across longer than a slide.
 const quiet = async () => {
   let last = -1;
 
   for (let tries = 0; tries < 20; tries += 1) {
-    await page.call(`() => new Promise(resolve => setTimeout(resolve, 120))`);
+    await page.call(`() => new Promise(resolve => setTimeout(resolve, 400))`);
     const now = await resizes();
 
     if (now === last) return now;
@@ -70,19 +70,84 @@ const dragEdge = async (to: number) => {
 run("u6228 the Rail collapses to a strip", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
-  it("u6228_the_head_button_collapses_and_expands_with_one_terminal_resize_each", async () => {
+  it("u6228_the_toggle_collapses_and_expands_with_one_terminal_resize_each", async () => {
     await load();
     const before = await quiet();
 
-    await page.call(`() => document.querySelector('.rail-collapse').click()`);
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
     expect(await quiet()).toBe(before + 1);
     expect(await saved()).toMatchObject({ collapsed: true });
 
-    await page.call(`() => document.querySelector('.rail-strip-expand').click()`);
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
     expect(await quiet()).toBe(before + 2);
     expect(await saved()).toMatchObject({ rail: 288, collapsed: false });
+  });
+
+  it("u6228f_a_press_changes_the_collapsed_state_with_one_terminal_resize", async () => {
+    await load();
+    const before = await quiet();
+
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true' && document.querySelector('.rail-toggle').getAttribute('aria-label') === 'Expand the Rail'`);
+    expect(await quiet()).toBe(before + 1);
+    expect(await page.call<number>(`() => document.querySelectorAll('.window-bar [aria-label$="the Rail"]').length`)).toBe(1);
+  });
+
+  it("u6228g_a_key_slide_uses_the_key_duration_and_a_click_the_drawer_duration", async () => {
+    await load();
+    const read = `() => new Promise(resolve => requestAnimationFrame(() => resolve(document.querySelector('.rail').dataset.slide)))`;
+
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    expect(await page.call<string>(read)).toBe("click");
+    await quiet();
+
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await quiet();
+    await leader("KeyR", "r");
+    expect(await page.call<string>(read)).toBe("key");
+  });
+
+  it("u6228g_a_press_during_a_slide_leaves_one_running_motion", async () => {
+    await load();
+    await quiet();
+
+    const running = await page.call<number>(`() => new Promise(resolve => {
+      const toggle = document.querySelector('.rail-toggle');
+      toggle.click();
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        toggle.click();
+        requestAnimationFrame(() => resolve(document.querySelector('.rail-body').getAnimations().filter(motion => motion.transitionProperty === 'transform' && motion.playState === 'running').length));
+      }));
+    })`);
+
+    expect(running).toBeLessThanOrEqual(1);
+  });
+
+  it("u6228g_reduced_motion_fades_and_sends_one_terminal_resize", async () => {
+    await page.scheme("dark", undefined, "motion");
+    await load();
+
+    const fade = `() => new Promise(resolve => requestAnimationFrame(() => {
+      const body = document.querySelector('.rail-body');
+      const moving = body.getAnimations().map(motion => motion.transitionProperty);
+
+      resolve({ slide: document.querySelector('.rail').dataset.slide, transform: moving.includes('transform') });
+    }))`;
+
+    let before = await quiet();
+
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    expect(await page.call(fade)).toEqual({ slide: "fade", transform: false });
+    expect(await quiet()).toBe(before + 1);
+
+    before = await quiet();
+    await page.call(`() => document.activeElement?.blur()`);
+    await leader("KeyR", "r");
+    expect(await page.call(fade)).toEqual({ slide: "fade", transform: false });
+    expect(await quiet()).toBe(before + 1);
+    await page.scheme("dark");
   });
 
   it("u6228_the_leader_chord_toggles_and_a_restart_keeps_it", async () => {
@@ -130,7 +195,7 @@ const awayFromRail = async () => {
 };
 
 const collapseByButton = async () => {
-  await page.call(`() => document.querySelector('.rail-collapse').click()`);
+  await page.call(`() => document.querySelector('.rail-toggle').click()`);
   await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
   await awayFromRail();
 };
@@ -192,7 +257,7 @@ run("u6228 the collapsed Rail peeks", () => {
 
     await hover(".rail-mark");
     await page.until(`() => document.querySelector('.rail').dataset.peek === 'true'`);
-    await page.call(`() => document.querySelector('.rail-collapse').click()`);
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
     expect(await quiet()).toBe(before + 1);
     expect(await saved()).toMatchObject({ collapsed: false });

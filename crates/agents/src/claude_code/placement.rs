@@ -19,11 +19,14 @@ const OUTPUT_CAP: u64 = 1024 * 1024;
 
 fn schema() -> String {
     let variants = [
-        ("routed", json!({"workstream": {"type":"string"}}), vec!["workstream"]),
-        ("new", json!({"title": {"type":"string", "minLength":1}}), vec!["title"]),
-        ("unclear", json!({"question": {"type":"string"}, "candidates":{"type":"array", "maxItems":3, "items":{"type":"string"}}}), vec!["question", "candidates"]),
+        ("routed", vec![("workstream", json!({"type":"string"}))], vec!["workstream"]),
+        ("new", vec![("title", json!({"type":"string", "minLength":1}))], vec!["title"]),
+        ("unclear", vec![("question", json!({"type":"string"})), ("candidates", json!({"type":"array", "maxItems":3, "items":{"type":"string"}}))], vec!["question", "candidates"]),
     ].into_iter().map(|(kind, fields, mut required)| {
-        let mut properties = fields.as_object().expect("literal object").clone();
+        let mut properties = serde_json::Map::new();
+        for (name, shape) in fields {
+            properties.insert(name.into(), shape);
+        }
         properties.insert("text".into(), json!({"type":"string", "minLength":1}));
         if kind != "unclear" {
             properties.insert("project".into(), json!({"type":"string", "minLength":1}));
@@ -67,7 +70,16 @@ impl Call {
             ..Default::default()
         };
         for (key, value) in pair.env() {
-            settings["env"][key] = json!(value);
+            let root = settings
+                .as_object_mut()
+                .ok_or("settings is not an object")?;
+            let env = root.entry("env").or_insert(serde_json::Value::Null);
+            if env.is_null() {
+                *env = json!({});
+            }
+            env.as_object_mut()
+                .ok_or("settings env is not an object")?
+                .insert(key, json!(value));
         }
         let mut file = tempfile::Builder::new()
             .prefix("roundup-placement-")
@@ -120,8 +132,9 @@ impl Placement for Call {
             .map_err(|e| format!("working folder: {e}"))?;
         let (mut command, _settings) = self.command(dir.path())?;
         let mut child = command.spawn().map_err(|e| format!("start: {e}"))?;
-        let mut stdin = child.stdin.take().expect("piped stdin");
-        let stdout = child.stdout.take().expect("piped stdout");
+        let (Some(mut stdin), Some(stdout)) = (child.stdin.take(), child.stdout.take()) else {
+            return Err("start: child pipes missing".into());
+        };
         let input = serde_json::to_vec(request).map_err(|e| format!("input: {e}"))?;
         let result = tokio::time::timeout(BOUND, async {
             let write = async move {
@@ -136,7 +149,7 @@ impl Placement for Call {
                 Ok::<_, std::io::Error>(bytes)
             };
             let ((), bytes) = tokio::try_join!(write, read).map_err(|e| format!("output: {e}"))?;
-            if bytes.len() > usize::try_from(OUTPUT_CAP).expect("output cap fits usize") {
+            if u64::try_from(bytes.len()).map_or(true, |len| len > OUTPUT_CAP) {
                 return Err("output exceeds bound".into());
             }
             let status = child.wait().await.map_err(|e| format!("wait: {e}"))?;
@@ -148,20 +161,16 @@ impl Placement for Call {
                 .map_err(|e| format!("absent or invalid structured output: {e}"))
         })
         .await;
-        match result {
-            Ok(Ok(parts)) => Ok(parts),
-            failure => {
-                // kill() also waits: no unclear result can race a still-live Placement call.
-                child
-                    .kill()
-                    .await
-                    .map_err(|e| format!("kill and reap: {e}"))?;
-                match failure {
-                    Ok(Err(cause)) => Err(cause),
-                    Err(_) => Err("timed out after 60 seconds".into()),
-                    Ok(Ok(_)) => unreachable!(),
-                }
-            }
-        }
+        let cause = match result {
+            Ok(Ok(parts)) => return Ok(parts),
+            Ok(Err(cause)) => cause,
+            Err(_) => "timed out after 60 seconds".into(),
+        };
+        // kill() also waits: no unclear result can race a still-live Placement call.
+        child
+            .kill()
+            .await
+            .map_err(|e| format!("kill and reap: {e}"))?;
+        Err(cause)
     }
 }

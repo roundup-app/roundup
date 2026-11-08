@@ -77,11 +77,10 @@ fn preview(value: &Value) -> String {
     let mut sink = Cleaned::new(Limit::Preview, false);
     match value {
         Value::Null => {}
-        Value::String(text) => {
-            std::io::Write::write_all(&mut sink, text.as_bytes()).expect("infallible sink");
-        }
+        Value::String(text) => sink.push_bytes(text.as_bytes()),
         other => {
-            serde_json::to_writer_pretty(&mut sink, other).expect("JSON values serialize");
+            // The sink never fails, so streaming keeps the allocation bounded.
+            let _ = serde_json::to_writer_pretty(&mut sink, other);
         }
     }
     sink.finish_preview()
@@ -112,7 +111,7 @@ fn relative<'a>(path: &'a str, root: &str) -> &'a str {
 
 fn cleaned(text: &str, max: usize, whitespace: bool) -> String {
     let mut sink = Cleaned::new(Limit::Characters(max), whitespace);
-    std::io::Write::write_all(&mut sink, text.as_bytes()).expect("infallible sink");
+    sink.push_bytes(text.as_bytes());
     sink.text
 }
 
@@ -222,16 +221,15 @@ impl Cleaned {
                 end -= 1;
             }
             self.text.truncate(end);
-            use std::fmt::Write;
-            write!(&mut self.text, "… (cut, {} bytes more)", self.total - end)
-                .expect("String write");
+            let more = self.total - end;
+            self.text.push_str(&format!("… (cut, {more} bytes more)"));
         }
         self.text
     }
 }
 
-impl std::io::Write for Cleaned {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+impl Cleaned {
+    fn push_bytes(&mut self, bytes: &[u8]) {
         if self.used == 0
             && self.escape == 0
             && matches!(self.limit, Limit::Preview)
@@ -241,9 +239,9 @@ impl std::io::Write for Cleaned {
         {
             let keep = bytes.len().min(PAYLOAD_MAX.saturating_sub(self.total));
             self.text
-                .push_str(std::str::from_utf8(&bytes[..keep]).expect("ASCII"));
+                .extend(bytes.iter().take(keep).map(|&b| char::from(b)));
             self.total += bytes.len();
-            return Ok(bytes.len());
+            return;
         }
         if self.used == 0
             && let Ok(text) = std::str::from_utf8(bytes)
@@ -254,17 +252,28 @@ impl std::io::Write for Cleaned {
                     break;
                 }
             }
-            return Ok(bytes.len());
+            return;
         }
         for &byte in bytes {
-            self.utf8[self.used] = byte;
+            let Some(slot) = self.utf8.get_mut(self.used) else {
+                self.used = 0;
+                continue;
+            };
+            *slot = byte;
             self.used += 1;
-            if let Ok(text) = std::str::from_utf8(&self.utf8[..self.used]) {
-                let c = text.chars().next().expect("nonempty UTF-8");
+            if let Some(Ok(text)) = self.utf8.get(..self.used).map(std::str::from_utf8)
+                && let Some(c) = text.chars().next()
+            {
                 self.used = 0;
                 self.character(c);
             }
         }
+    }
+}
+
+impl std::io::Write for Cleaned {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.push_bytes(bytes);
         Ok(bytes.len())
     }
     fn flush(&mut self) -> std::io::Result<()> {

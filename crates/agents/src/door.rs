@@ -2,14 +2,14 @@ use super::*;
 
 impl Shared {
     /// F5: scan Door `id`, whose program's arguments hold `marker`, from the next tick on.
-    pub(super) fn scan_door(self: &Arc<Self>, id: &str, marker: String) {
+    pub(super) fn scan_door(self: &Arc<Self>, id: &str, marker: String) -> Result<(), RpcError> {
         self.scan
             .doors
             .lock()
-            .expect("scan doors lock")
+            .map_err(|_| RpcError::internal("scan doors lock is poisoned"))?
             .insert(id.to_owned(), marker);
         if self.scan.started.swap(true, Ordering::SeqCst) {
-            return;
+            return Ok(());
         }
         let (me, interval) = (self.me.clone(), self.scan.interval);
         tokio::spawn(async move {
@@ -19,13 +19,16 @@ impl Shared {
                 shared.scan_once().await;
             }
         });
+        Ok(())
     }
 
     /// F5: read the process table once if a Door runs, and announce each Door whose strays changed.
     pub(super) async fn scan_once(&self) {
         let live: Vec<(String, String)> = {
             let runs = self.runs();
-            let mut doors = self.scan.doors.lock().expect("scan doors lock");
+            let Ok(mut doors) = self.scan.doors.lock() else {
+                return eprintln!("agents: the scan doors lock is poisoned");
+            };
             doors.retain(|id, _| {
                 matches!(runs.slot(id), Some(Slot::Running(run)) if !run.ended() && !run.closing())
             });
@@ -256,7 +259,7 @@ impl Agents {
             if rail.node(id)?.kind != NodeKind::Workstream {
                 return Err(RpcError::conflict(format!("{id} is not a Workstream")));
             }
-            rail.has_conversation(id)?
+            rail.has_conversation(crate::rail::agent_id(id)?)?
         };
         let own = model.is_some() || effort.is_some();
         // A5214b: a Mode's Door starts on the Model its Mode parked.
@@ -344,7 +347,7 @@ impl Agents {
             let mut runs = self.shared.runs();
             if runs.slot(id).is_some_and(|slot| slot.attempt() == attempt) {
                 runs.forget(id);
-                rail.detach_terminal(id)?;
+                rail.detach_terminal(crate::rail::agent_id(id)?)?;
             }
             drop((rail, runs));
             ctx.emit(EventData::RailChanged);

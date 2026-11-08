@@ -39,7 +39,7 @@ impl Rail {
         let at = ids
             .iter()
             .position(|sibling| sibling == id)
-            .expect("id is among its own parent's siblings");
+            .ok_or_else(|| StoreError::invalid("Rail row is not among its siblings"))?;
         let children = siblings(&nodes, Some(id));
         ids.splice(at..=at, children);
         // Reparent before deleting: a child's row still points at `id` until `place` runs, and a
@@ -63,7 +63,7 @@ impl Rail {
         let tx = self
             .db
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let mut graph = if retain.is_some() {
+        let mut retained = if let Some(retain) = retain {
             let mut graph = Session::new(&tx)?;
             for table in [
                 "nodes",
@@ -73,15 +73,14 @@ impl Rail {
             ] {
                 graph.attach(Some(table))?;
             }
-            Some(graph)
+            Some((retain, graph))
         } else {
             None
         };
         let before = load(&tx)?;
         let out = apply(&tx, removal).map_err(Into::<StoreError>::into)?;
         Self::remove_graph(&tx, id, removal)?;
-        if let Some((actor, operation)) = retain {
-            let mut graph = graph.take().expect("retained graph");
+        if let Some(((actor, operation), mut graph)) = retained.take() {
             // Queue reads prune missing nodes; retain that change before any reader can do so.
             let mut removed: Vec<_> = removal
                 .removed
@@ -116,7 +115,7 @@ impl Rail {
         if let Some((_, operation)) = retain {
             tx.execute("UPDATE rail_deletions SET record=json_set(record,'$.source',(SELECT operation FROM rail_deletions WHERE json_extract(record,'$.redo')=?1),'$.sourceRestoration',(SELECT json_extract(record,'$.deletion.restoration') FROM rail_deletions WHERE json_extract(record,'$.redo')=?1)) WHERE operation=?1 AND EXISTS(SELECT 1 FROM rail_deletions WHERE json_extract(record,'$.redo')=?1)",[operation])?;
         }
-        drop(graph);
+        drop(retained);
         tx.commit()?;
         Ok(out)
     }
@@ -206,11 +205,7 @@ impl Rail {
                 return Err(StoreError::forbidden("removal belongs to another Actor"));
             }
             let mut removal: contracts::agent::Removal = serde_json::from_str(&record)?;
-            removal
-                .deletion
-                .as_mut()
-                .expect("retained operation")
-                .restored = restored;
+            retained_mut(&mut removal)?.restored = restored;
             Ok(removal)
         })
         .transpose()
@@ -231,12 +226,7 @@ impl Rail {
         }
         let mut removal = Self::read_deletion(db, actor, &p.operation)?
             .ok_or_else(|| StoreError::not_found("Rail removal"))?;
-        if removal
-            .deletion
-            .as_ref()
-            .expect("retained operation")
-            .restored
-        {
+        if retained(&removal)?.restored {
             return Ok(removal);
         }
         let boundary: String = db.query_row(
@@ -256,14 +246,7 @@ impl Rail {
             .iter()
             .filter(|item| matches!(item.kind, contracts::agent::RemovalKind::Agent))
             .map(|item| item.id.as_str())
-            .chain(std::iter::once(
-                removal
-                    .deletion
-                    .as_ref()
-                    .expect("retained operation")
-                    .id
-                    .as_str(),
-            ))
+            .chain(std::iter::once(retained(&removal)?.id.as_str()))
             .collect();
         {
             for node in placement
@@ -388,7 +371,7 @@ impl Rail {
         )?;
         let restoration: String =
             db.query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))?;
-        let deletion = removal.deletion.as_mut().expect("retained operation");
+        let deletion = retained_mut(&mut removal)?;
         deletion.restored = true;
         deletion.restoration = Some(restoration);
         db.execute(
@@ -398,6 +381,25 @@ impl Rail {
         ?;
         Ok(removal)
     }
+}
+
+/// The deletion a retained removal record carries.
+fn retained(
+    removal: &contracts::agent::Removal,
+) -> Result<&contracts::agent::Deletion, StoreError> {
+    removal
+        .deletion
+        .as_ref()
+        .ok_or_else(|| StoreError::not_found("Rail removal"))
+}
+
+fn retained_mut(
+    removal: &mut contracts::agent::Removal,
+) -> Result<&mut contracts::agent::Deletion, StoreError> {
+    removal
+        .deletion
+        .as_mut()
+        .ok_or_else(|| StoreError::not_found("Rail removal"))
 }
 
 /// M7: whether `id` is in Agent `agent`'s Reach, read inside the restoring transaction.
@@ -479,12 +481,7 @@ impl Rail {
         if let Some(previous) = Self::read_deletion(&self.db, actor, &p.operation)? {
             let request:(Option<String>,Option<String>)=self.db.query_row("SELECT json_extract(record,'$.source'),json_extract(record,'$.sourceRestoration') FROM rail_deletions WHERE operation=?",[&p.operation],|r|Ok((r.get(0)?,r.get(1)?)))?;
             if request != (Some(p.source.clone()), Some(p.restoration.clone()))
-                || previous
-                    .deletion
-                    .as_ref()
-                    .expect("retained operation")
-                    .project
-                    != p.project
+                || retained(&previous)?.project != p.project
             {
                 return Err(StoreError::conflict("Redo key names another operation"));
             }
@@ -492,7 +489,7 @@ impl Rail {
         }
         let mut removal = Self::read_deletion(&self.db, actor, &p.source)?
             .ok_or_else(|| StoreError::not_found("Rail removal"))?;
-        let source = removal.deletion.as_ref().expect("retained operation");
+        let source = retained(&removal)?;
         if source.project != p.project {
             return Err(StoreError::forbidden("removal belongs to another Project"));
         }

@@ -247,7 +247,11 @@ fn run(gh: &Path, dir: &Path, args: &[&str], deadline: Instant) -> Result<Output
             std::io::ErrorKind::PermissionDenied => Gap::Refused,
             _ => Gap::ReadFailed,
         })?;
-    let stdout = child.stdout.take().expect("piped gh stdout");
+    let Some(stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(Gap::ReadFailed);
+    };
     let reader = std::thread::spawn(move || {
         let mut bytes = Vec::new();
         let _ = stdout.take(LIMIT + 1).read_to_end(&mut bytes);
