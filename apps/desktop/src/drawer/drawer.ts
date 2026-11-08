@@ -12,6 +12,9 @@ export type DrawerState = {
   open(content: DrawerContent, source?: ActivationSource, surface?: { kind: string; project: string }): void;
   surface: Accessor<{ kind: string; project: string } | null>;
   close(source?: ActivationSource): void;
+  /** U3721a: the open Drawer's maximise state and toggle, bound by the `DrawerHost` that draws it. */
+  size: Accessor<{ maximised: boolean; toggle: (source: ActivationSource) => void } | null>;
+  bindSize(size: () => { maximised: boolean; toggle: (source: ActivationSource) => void }): () => void;
   source: Accessor<ActivationSource>;
 };
 
@@ -26,9 +29,13 @@ export const createDrawer = (): DrawerState => {
   const [surface, setSurface] = createSignal<{ kind: string; project: string } | null>(null);
   const [source, setSource] = createSignal<ActivationSource>("pointer");
 
+  const [size, setSize] = createSignal<(() => { maximised: boolean; toggle: (source: ActivationSource) => void }) | null>(null);
+
   return {
     content,
     source,
+    size: () => size()?.() ?? null,
+    bindSize: (next) => { setSize(() => next); return () => setSize(null); },
     surface,
     open: (next, from = "pointer", side) => batch(() => { captureFocus(true); setSurface(side ?? null); setSource(from); setContent(() => next); }),
     close: (from = "pointer") => batch(() => { setSource(from); setContent(null); }),

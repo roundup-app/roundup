@@ -12,5 +12,23 @@ export const registerOpener = (kind: "todo" | "pad", open: Opener): (() => void)
   return () => { openers.delete(entry); };
 };
 
+const selectedRows = new Set<{ kind: "todo" | "pad"; key: () => number | string | undefined }>();
+
+/** U3721a: a mounted list says which row is its focused or first selected one. */
+export const registerSelectedRow = (kind: "todo" | "pad", key: () => number | string | undefined): (() => void) => {
+  const entry = { kind, key };
+
+  selectedRows.add(entry);
+
+  return () => { selectedRows.delete(entry); };
+};
+
+/** U3721a: open the mounted list's selected row in the Drawer through its own opener; false when no row is selected. */
+export const openSelectedRow = (): boolean => [...selectedRows].some((entry) => {
+  const key = entry.key();
+
+  return key !== undefined && openThroughRow(entry.kind, key);
+});
+
 /** True when a mounted list opened the item through its row. */
 export const openThroughRow = (kind: "todo" | "pad", key: number | string): boolean => [...openers].some(entry => entry.kind === kind && entry.open(key));

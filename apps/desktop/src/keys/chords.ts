@@ -171,7 +171,7 @@ const LEADER_TABLE = {
   "leader.row": { name: "leader.row", keys: "K", what: copy.switchToARowByName, args: [{ key: "query", type: "string" }], short: copy.leaderShortRow, press: "KeyK" },
   "leader.bubble-minimise": { name: "leader.bubble-minimise", keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
   "leader.bubble-close": { name: "leader.bubble-close", keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
-  "leader.shelf": { name: "leader.shelf", keys: "B", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyB" },
+  "leader.shelf": { name: "leader.shelf", keys: "B", what: copy.rotateShelf, short: copy.leaderShortShelf, press: "KeyB" },
   "leader.rail": { name: "leader.rail", keys: "R", what: copy.toggleTheRail, short: copy.rail, press: "KeyR" },
   "leader.capture": { name: "leader.capture", keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   "leader.inbox": { name: "leader.inbox", keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },

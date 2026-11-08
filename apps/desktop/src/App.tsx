@@ -29,6 +29,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
 import type { OpenRequest } from "./app/nativeOpen";
 import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
+import { createBenchRotation } from "./shelf/rotation";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -696,12 +697,18 @@ export const App = (props: {
   onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
 
   onCleanup(shelfFocus.stop);
+  const rotation = createBenchRotation({
+    frame,
+    drawer: () => { const connected = activeConnection(); return connected && !(connected instanceof Error) ? connected.drawer : undefined; },
+    overlay: () => document.querySelector<HTMLElement>(".window")?.dataset["shelfMode"] === "overlay",
+    toggle: shelfFocus.toggle,
+  });
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.shelf"], capture: () => {
-    const wasOpen = frame.open();
+    const was = rotation.size();
 
     return {
       available: () => activeConnection() != null,
-      invoke: () => { if (frame.open() === wasOpen) shelfFocus.toggle("key"); },
+      invoke: () => { if (rotation.size() === was) rotation.rotate(); },
     };
   } }]);
 
@@ -886,7 +893,7 @@ export const App = (props: {
               <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={dismissProjectPicker} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
             <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
-            <Help projectOpen={activeConnection() != null} shelfOpen={frame.open()} />
+            <Help projectOpen={activeConnection() != null} />
             <Toasts queue={toasts} />
           </>
         }

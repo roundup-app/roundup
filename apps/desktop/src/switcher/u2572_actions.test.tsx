@@ -195,7 +195,7 @@ it.each(["B", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
 
     const beforeShelf = document.querySelector<HTMLElement>(".window")?.dataset.shelf;
 
-    if (byAction) { await show(); await chooseAction(key === "B" ? "Open the Bench" : "Needs you elsewhere", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "B" ? "Step the Bench through its sizes" : "Needs you elsewhere", "enter"); }
     else leaderKey("Key" + (key === "B" ? "B" : "J"), { shiftKey: key === "⇧J" });
 
     if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
@@ -338,7 +338,7 @@ it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", 
   window.dataset.shelfMode = "overlay";
   await show();
   expect(window.dataset.shelf).toBe("closed");
-  await chooseAction("Open the Bench", "enter");
+  await chooseAction("Step the Bench through its sizes", "enter");
   expect(window.dataset.shelf).toBe("closed");
 });
 

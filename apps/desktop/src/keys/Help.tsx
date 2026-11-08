@@ -10,9 +10,9 @@ const bubbleScopes = new Map(Object.entries(copy.helpBubbleScope));
 
 const rowScopes = new Map(Object.entries(copy.helpRowScope));
 
-const sections = (projectOpen: boolean, shelfOpen: boolean) => projectOpen ? [
+const sections = (projectOpen: boolean) => projectOpen ? [
   { title: copy.helpScope.app, rows: CHORD_ROWS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.ownsEscape && !row.inEditor) },
-  { title: copy.helpScope.leader, rows: LEADER_ROWS.map(row => ({ ...row, keys: leaderKeys(row), what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
+  { title: copy.helpScope.leader, rows: LEADER_ROWS.map(row => ({ ...row, keys: leaderKeys(row), what: bubbleScopes.get(row.keys) ?? row.what })) },
   // #3853 adds the Terminal Find owner; until then its menu catalogue entry has no working key to advertise.
   { title: copy.helpScope.terminals, rows: CHORD_ROWS.filter(row => row.inTerminals && row.name !== "terminal.find") },
   { title: copy.helpScope.rail, rows: CHORD_ROWS.filter(row => row.inRail) },
@@ -29,7 +29,7 @@ const opensFrom = (target: EventTarget | null): boolean => target instanceof Ele
   && !target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .pane-screen, .xterm, .bubble-body');
 
 /** The panel `?` opens over the centre pane, one line per chord. It holds focus while open; Esc, `?` or a click outside closes it and focus returns to where it was. */
-export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
+export const Help = (props: { projectOpen?: boolean }) => {
   const [open, setOpen] = createSignal(false);
   const [labels, setLabels] = createSignal(new Map<string, string>());
   let panel: HTMLElement | undefined;
@@ -68,7 +68,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
 
         queueMicrotask(() => focus(() => { if (element.isConnected) element.focus({ preventScroll: true }); }));
       }}>
-        <For each={sections(props.projectOpen ?? true, props.shelfOpen ?? false)}>{group => <div class="help-group">
+        <For each={sections(props.projectOpen ?? true)}>{group => <div class="help-group">
         <For each={group}>{section => <section class="help-section">
           <h2>{section.title}</h2>
           <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{section.title === copy.helpScope.editor ? chord.what : labels().get(chord.keys) ?? chord.what}</KeyHint></p>}</For>
