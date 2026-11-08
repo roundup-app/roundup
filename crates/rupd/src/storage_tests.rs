@@ -18,6 +18,7 @@ fn standalone_messages(current: &mut Connection, digest: bool) {
         &[
             include_str!("../../messages/migrations/001-digest/up.sql"),
             include_str!("../../messages/migrations/011-digest/up.sql"),
+            include_str!("../../storage/migrations/project/0055-push-intent-waking.sql"),
         ]
     } else {
         &[

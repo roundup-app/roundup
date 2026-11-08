@@ -39,7 +39,7 @@ async fn dcl10d_a_replayed_end_note_wakes_the_door_within_2s() {
             rusqlite::params![
                 run.door,
                 run.child,
-                entry("review", contracts::Kind::Done, "ended-note"),
+                entry("review", contracts::Kind::Done, "review is"),
                 true
             ],
         )
@@ -49,7 +49,7 @@ async fn dcl10d_a_replayed_end_note_wakes_the_door_within_2s() {
             rusqlite::params![
                 run.door,
                 quiet,
-                entry("other", contracts::Kind::Working, "quiet-note"),
+                entry("other", contracts::Kind::Working, "other is"),
                 false
             ],
         )
@@ -64,17 +64,17 @@ async fn dcl10d_a_replayed_end_note_wakes_the_door_within_2s() {
             .cloned()
     };
     tokio::time::timeout(BOUND, async {
-        while find(&inbox(&run).await, "ended-note").is_none() {
+        while find(&inbox(&run).await, "review is").is_none() {
             tokio::task::yield_now().await;
         }
     })
     .await
     .expect("the replayed end note reached the Door");
     let all = inbox(&run).await;
-    let ended = find(&all, "ended-note").unwrap();
+    let ended = find(&all, "review is").unwrap();
     // DTC2: the end note is written to the Door's inbox and delivered, the quiet one waits.
     assert_eq!(ended["status"], "delivered", "{ended}");
-    if let Some(quiet) = find(&all, "quiet-note") {
+    if let Some(quiet) = find(&all, "other is") {
         assert_ne!(quiet["status"], "delivered", "{quiet}");
     }
 }
