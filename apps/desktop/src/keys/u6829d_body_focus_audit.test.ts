@@ -1,12 +1,11 @@
 import { expect, it } from "vitest";
-import { CHORD_ROWS } from "./chords";
+import { CHORD_ROWS, SWITCHER_KEYS } from "./chords";
 
 /** U6829a, U6829b: the rows a stranded click is tested for, in `shelf/u6829a_stranded_row_keys.test.tsx` and `rail/u6829b_stranded_rail_keys.test.tsx`. */
-const COVERED = ["todo.delete", "todo.export", "rail.rename", "rail.move", "agent.restart-mode"];
+const COVERED = ["todo.delete", "todo.export", "rail.rename", "rail.move", "agent.restart-mode", "rail.collapse-expand"];
 
 /** One line each: why a row bound to the Rail or Shelf needs no body-focus case. */
 const EXEMPT = {
-  "rail.collapse-expand": "Ark's tree walks ← → from a focused item; a Rail row is a focusable div, so a click focuses it",
   "settings.forward": "an App-wide chord, not bound to a row",
   "shelf.close": "bound at the App scope",
   "shelf.maximise": "needs the Shelf, not a row",
@@ -23,4 +22,16 @@ it("u6829d_every_row_bound_key_is_in_the_body_focus_table", () => {
 
   expect(missing).toEqual([]);
   expect(COVERED.filter(name => !bound.includes(name))).toEqual([]);
+});
+
+/** U6829c: the Switcher's keys (`SWITCHER_KEYS`) and the Project tabs' arrows, with the case in `switcher/u6829c_switcher_keys.test.tsx` and `header/u494_keyboard.test.ts` that proves each. */
+const SWITCHER_AND_TABS: Record<string, string> = {
+  move: "covered: switcher/u6829c_switcher_keys.test.tsx",
+  choose: "covered: the same layer binding as move",
+  close: "exempt: Escape is the modal layer's own chord, which runs whatever holds focus (U5240a)",
+  record: "exempt: acts on the highlighted command inside the open field, which holds focus while recording (U5240d)",
+};
+
+it("u6829d_every_row_bound_key_is_in_the_body_focus_table (switcher and tabs)", () => {
+  expect(Object.keys(SWITCHER_KEYS).filter(name => !Object.hasOwn(SWITCHER_AND_TABS, name))).toEqual([]);
 });

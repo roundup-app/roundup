@@ -613,6 +613,25 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   registerKeys({ kind: "region", element: container }, [rename()]);
   registerKeys({ kind: "app" }, [rename(press => strandedFocus(press) && !press.repeat)]);
 
+  /** U6829b: the row arrows on the clicked row while a click has left focus on the page body; Ark's tree walks only from a focused row. */
+  const strandedArrow = (press: KeyboardEvent) => strandedFocus(press) && !press.repeat && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && daemonExit() === null;
+  registerKeys({ kind: "app" }, [
+    { chords: ["ArrowUp", "ArrowDown"], when: press => strandedArrow(press) && keyedRowIdAt(press, rail.selected()) !== undefined, run: press => {
+      const ids = nodeIds();
+      const next = ids[ids.indexOf(rail.selected()!) + (press.key === "ArrowDown" ? 1 : -1)];
+
+      if (next === undefined) return;
+
+      selection.selection.replace(next); anchorAt(next); rail.select(next); focusRow(next);
+    } },
+    { chords: ["ArrowLeft", "ArrowRight"], when: press => {
+      const id = strandedArrow(press) ? keyedRowIdAt(press, rail.selected()) : undefined;
+      const node = rail.nodes.find(candidate => candidate.id === id);
+
+      return node !== undefined && (node.kind === "workstream" || node.kind === "group") && collapsed().has(node.id) === (press.key === "ArrowRight");
+    }, run: () => rail.toggleCollapsed(rail.selected()!) },
+  ]);
+
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(
     on(rail.selected, (id) => {

@@ -351,6 +351,17 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     { chords: SWITCHER_CLOSE, run: () => close(true) },
     { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === CHORDS["switcher.open"]?.presses[0], run: event => { if (!event.repeat) close(true); } },
     { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
+    // U6829c: the Switcher is modal, so its move and choose keys act when a click has left focus outside the panel; Ark's Combobox hears them only from its field.
+    { chords: ["ArrowUp", "ArrowDown", "Enter"], when: event => event.target instanceof Node && !panel?.contains(event.target) && recording() === null && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey, run: event => {
+      if (event.key === "Enter") { chooseValue(highlighted()); return; }
+
+      const values = shown().map(entry => entry.value);
+      const at = highlighted() === null ? -1 : values.indexOf(highlighted()!);
+      const next = values[Math.min(values.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
+
+      if (next !== undefined) setHighlighted(next);
+      input?.focus();
+    } },
   ]);
 
   // U5240d: recording is a modal layer of its own, so no other chord runs and nothing reaches a Terminal; it ends with the layer.

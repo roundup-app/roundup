@@ -8,6 +8,7 @@ import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
+import { strandedFocus } from "../keys/stranded";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
 import { MARKS, markOf } from "./tab";
@@ -273,6 +274,19 @@ export const Strip = (props: {
       )}
     </Show>
   );
+
+  /** U6829c: a click can leave focus on the page body; the arrows then move from the open tab to its neighbour, as Ark's tablist does from a focused tab. */
+  registerKeys({ kind: "app" }, [{
+    chords: ["ArrowLeft", "ArrowRight"],
+    when: press => !press.repeat && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && strandedFocus(press) && neighbour(press) !== undefined,
+    run: press => elements.get(neighbour(press)!)?.querySelector<HTMLElement>("[role=tab]")?.focus(),
+  }]);
+
+  const neighbour = (press: KeyboardEvent): string | undefined => {
+    const at = props.active ? paths().indexOf(props.active) : -1;
+
+    return at < 0 ? undefined : paths()[at + (press.key === "ArrowRight" ? 1 : -1)];
+  };
 
   return (
     <div class="strip" onFocusIn={(press) => {
