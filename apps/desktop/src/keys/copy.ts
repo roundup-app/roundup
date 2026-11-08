@@ -35,7 +35,6 @@ export const copy = {
   helpBubbleScope: { M: minimiseBubble, W: "Close focused Bubble" },
   helpRowScope: { O: sharedCopy.assign, D: "Delete focused item", E: "Export focused Pad" },
   closeShelf: sharedCopy.closeShelf,
-  openShelf: sharedCopy.openShelf,
   rotateShelf: sharedCopy.rotateShelf,
   toggleTheRail: "Toggle the Rail",
   rail: sharedCopy.rail,
