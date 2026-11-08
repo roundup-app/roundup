@@ -26,7 +26,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     document.documentElement.dataset.mode = snapshot.mode;
     document.documentElement.style.colorScheme = snapshot.mode;
     input?.focus({ preventScroll: true });
-  }, () => void send({ kind: "ready" }))));
+  }, () => untrack(() => void send({ kind: "ready" })))));
 
   const file = (keepOpen: boolean) => {
     const current = state();
