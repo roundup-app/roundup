@@ -8,9 +8,7 @@ const NAME: &str = "CARGO_PKG_NAME";
 
 async fn program_sees(terminals: &Terminals, unset: Vec<String>) -> String {
     let dir = tempfile::tempdir().unwrap();
-    let out = dir.path().join("seen");
-    let script =
-        format!("printf '%s' \"${{{NAME}-absent}}\" > seen.tmp; mv seen.tmp seen; read line");
+    let script = format!("read go; printf 'seen=<%s>' \"${{{NAME}-absent}}\"");
     let spawned = terminals
         .spawn(SpawnParams {
             cwd: dir.path().to_string_lossy().into_owned(),
@@ -22,14 +20,16 @@ async fn program_sees(terminals: &Terminals, unset: Vec<String>) -> String {
         })
         .await
         .unwrap();
-    for _ in 0..200 {
-        if let Ok(seen) = std::fs::read_to_string(&out) {
-            terminals.kill(&spawned.id).await.unwrap();
-            return seen;
+    let mut output = terminals.subscribe_output(&spawned.id).unwrap();
+    terminals.write(&spawned.id, b"\n").await.unwrap();
+    let mut text = String::new();
+    while let Some(chunk) = output.next().await {
+        if let terminal::Output::Bytes { bytes, .. } = chunk {
+            text.push_str(&String::from_utf8_lossy(&bytes));
         }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
-    panic!("program wrote nothing");
+    let start = text.find("seen=<").expect("program printed nothing") + 6;
+    text[start..].split('>').next().unwrap().to_string()
 }
 
 #[tokio::test]
