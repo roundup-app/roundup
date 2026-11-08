@@ -353,7 +353,7 @@ pub(crate) fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> (String, Pa
 
 tokio::task_local! {
     /// Set while this task holds the ledger, so a nested `release` does not wait on its holder.
-    static LEDGER_HELD: ();
+    static IN_LEDGER: ();
 }
 
 /// B21, B22: accepts one changed entry, retaining it until its Door can receive it.
@@ -367,12 +367,12 @@ pub(crate) async fn push(
     entry: &DigestEntry,
     waking: bool,
 ) {
-    LEDGER_HELD
-        .scope((), push_held(inner, meta, subagent, entry, waking))
+    IN_LEDGER
+        .scope((), push_locked(inner, meta, subagent, entry, waking))
         .await;
 }
 
-async fn push_held(
+async fn push_locked(
     inner: &Arc<Inner>,
     meta: &str,
     subagent: &str,
@@ -426,7 +426,7 @@ pub(crate) fn release_quiet<'a>(
 async fn release(inner: &Arc<Inner>, door: &str, turn_start: bool) {
     // A call beneath a ledger holder in this task is that holder's own rollup being delivered: it
     // sends its own. Any other call waits for a concurrent push, whose entries it then carries out.
-    let mut ledger = if LEDGER_HELD.try_with(|()| ()).is_ok() {
+    let mut ledger = if IN_LEDGER.try_with(|()| ()).is_ok() {
         let Ok(ledger) = inner.pushes.try_lock() else {
             return;
         };
@@ -434,25 +434,26 @@ async fn release(inner: &Arc<Inner>, door: &str, turn_start: bool) {
     } else {
         inner.pushes.lock().await
     };
-    LEDGER_HELD
-        .scope((), release_held(inner, door, turn_start, &mut ledger))
+    IN_LEDGER
+        .scope((), release_locked(inner, door, turn_start, &mut ledger))
         .await;
 }
 
-async fn release_held(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger: &mut Ledger) {
+async fn release_locked(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger: &mut Ledger) {
     let Some(slot) = ledger.metas.get_mut(door) else {
         return;
     };
     if !slot.all_quiet || slot.waiting.is_empty() {
         return;
     }
-    // A Door turn already under way (the user's prompt) takes the quiet notes though nothing else
-    // waits; a Door at rest takes them only with a Message, so quiet notes alone start no turn.
-    if !turn_start
-        && !lock(&inner.store)
-            .list_pending_to(door)
-            .is_ok_and(|pending| !pending.is_empty())
-    {
+    // A Door turn the user's prompt starts takes the quiet notes though nothing else waits; a Door at
+    // rest takes them only with a Message, so quiet notes alone start no turn. A turn that starts
+    // with a Message pending is that Message's turn, already written: a quiet note arriving after
+    // the write stays stored, since a second Message would cost the Door a second turn.
+    let pending = lock(&inner.store)
+        .list_pending_to(door)
+        .is_ok_and(|pending| !pending.is_empty());
+    if turn_start == pending {
         return;
     }
     slot.all_quiet = false;
@@ -467,10 +468,10 @@ async fn release_held(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger: 
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
 pub(crate) async fn flush(inner: &Arc<Inner>) {
-    LEDGER_HELD.scope((), flush_held(inner)).await;
+    IN_LEDGER.scope((), flush_locked(inner)).await;
 }
 
-async fn flush_held(inner: &Arc<Inner>) {
+async fn flush_locked(inner: &Arc<Inner>) {
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
     for slot in ledger.metas.values_mut() {
