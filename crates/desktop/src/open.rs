@@ -188,10 +188,18 @@ struct Machine<'a> {
     text: &'a dyn Fn(&std::path::Path) -> bool,
 }
 
-/// A file with no extension (`justfile`) or whose type conforms to `public.text` (U6372b).
-fn is_text(path: &std::path::Path, conforms: &dyn Fn(&str) -> bool) -> bool {
-    path.extension()
-        .is_none_or(|extension| conforms(&extension.to_string_lossy()))
+/// How much of a file decides whether it is text (U6372e).
+const TEXT_PROBE: u64 = 8192;
+
+/// A file counts as text when its first bytes hold no NUL and decode as UTF-8, the test Git and ripgrep use (U6372e). A character the probe cuts short does not count against it.
+fn is_text(path: &std::path::Path) -> bool {
+    use std::io::Read;
+    let mut head = Vec::new();
+    let read =
+        std::fs::File::open(path).and_then(|file| file.take(TEXT_PROBE).read_to_end(&mut head));
+    read.is_ok()
+        && !head.contains(&0)
+        && std::str::from_utf8(&head).map_or_else(|error| error.error_len().is_none(), |_| true)
 }
 
 /// The command for `launch`. A text file goes to the editor, at its line when it takes one; a folder goes there only from `Open in editor` (`in_editor`); a web link and every other file go to the system opener.
@@ -228,7 +236,6 @@ fn plan(
 mod mac {
     use objc2_app_kit::NSWorkspace;
     use objc2_foundation::NSString;
-    use objc2_uniform_type_identifiers::UTType;
 
     /// Whether LaunchServices knows an app with `bundle_id`.
     // https://developer.apple.com/documentation/appkit/nsworkspace/urlforapplication(withbundleidentifier:)
@@ -237,24 +244,11 @@ mod mac {
             .URLForApplicationWithBundleIdentifier(&NSString::from_str(bundle_id))
             .is_some()
     }
-
-    /// Whether the type of a file extension conforms to `public.text`.
-    // https://developer.apple.com/documentation/uniformtypeidentifiers/uttype
-    pub fn conforms_to_text(extension: &str) -> bool {
-        let text = UTType::typeWithIdentifier(&NSString::from_str("public.text"));
-        UTType::typeWithFilenameExtension(&NSString::from_str(extension))
-            .zip(text)
-            .is_some_and(|(kind, text)| kind.conformsToType(&text))
-    }
 }
 
 #[cfg(not(target_os = "macos"))]
 mod mac {
     pub fn installed(_bundle_id: &str) -> bool {
-        false
-    }
-
-    pub fn conforms_to_text(_extension: &str) -> bool {
         false
     }
 }
@@ -278,14 +272,13 @@ fn open_with(
     in_editor: bool,
     run: impl FnOnce(&str, &[std::ffi::OsString]) -> Result<(), RpcError>,
 ) -> Result<(), RpcError> {
-    let text = |path: &std::path::Path| is_text(path, &mac::conforms_to_text);
     let (program, args) = plan(
         launch,
         chosen,
         in_editor,
         &Machine {
             installed: &mac::installed,
-            text: &text,
+            text: &is_text,
         },
     )?;
     run(&program, &args)
@@ -462,9 +455,6 @@ mod tests {
         ids: &[&'static str],
     ) -> Result<Opening, RpcError> {
         let installed = present(ids);
-        let text = |path: &std::path::Path| {
-            is_text(path, &|extension| ["swift", "ts"].contains(&extension))
-        };
         plan(
             &Launch::Path {
                 path: path.to_path_buf(),
@@ -474,7 +464,7 @@ mod tests {
             in_editor,
             &Machine {
                 installed: &installed,
-                text: &text,
+                text: &is_text,
             },
         )
     }
@@ -489,9 +479,10 @@ mod tests {
         let swift = dir.path().join("a b.swift");
         let justfile = dir.path().join("justfile");
         let png = dir.path().join("a.png");
-        for file in [&swift, &justfile, &png] {
+        for file in [&swift, &justfile] {
             std::fs::write(file, "x").unwrap();
         }
+        std::fs::write(&png, PNG).unwrap();
         let zed = Some("dev.zed.Zed");
 
         let (program, args) = planned(&swift, Some(12), zed, false, &all()).unwrap();
@@ -528,7 +519,7 @@ mod tests {
     fn u6372b_open_in_editor_takes_a_folder_and_not_a_picture() {
         let dir = tempfile::tempdir().unwrap();
         let png = dir.path().join("a.png");
-        std::fs::write(&png, "x").unwrap();
+        std::fs::write(&png, PNG).unwrap();
 
         let (_, folder) =
             planned(dir.path(), Some(5), Some("com.panic.Nova"), true, &all()).unwrap();
@@ -615,10 +606,31 @@ mod tests {
     fn u6372d_macos_answers_installed_and_text() {
         assert!(!mac::installed("com.example.roundup.no-such-app"));
         assert!(mac::installed("com.apple.finder"));
-        for extension in ["rs", "json", "md"] {
-            assert!(mac::conforms_to_text(extension), "{extension}");
+    }
+
+    const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
+
+    #[test]
+    fn u6372e_text_is_read_from_the_first_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let write = |name: &str, bytes: &[u8]| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, bytes).unwrap();
+            path
+        };
+        for name in ["a.ts", "a.rs", "a.toml", "justfile"] {
+            assert!(is_text(&write(name, b"fn main() {}\n")), "{name}");
         }
-        assert!(!mac::conforms_to_text("png"));
+        assert!(!is_text(&write("a.png", PNG)));
+        assert!(!is_text(&write("b.ts", b"G@\0\x10\0")));
+        assert!(!is_text(&dir.path().join("missing.ts")));
+        let mut long = "é".repeat(5000).into_bytes();
+        assert!(is_text(&write("long.ts", &long)));
+        long.extend([0]);
+        assert!(
+            is_text(&write("late.ts", &long)),
+            "bytes past the probe do not decide"
+        );
     }
 
     #[test]
