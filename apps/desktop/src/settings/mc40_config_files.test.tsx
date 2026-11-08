@@ -5,6 +5,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { CHORDS } from "../keys/chords";
 import { refuseKeys } from "./configApply";
 import { lookColours, setByFile, setFileKeys, setFileLook } from "./configFile";
+import { copy } from "./copy";
 import { appSettings, saveAppSettings, storedSettings } from "./preferences";
 
 afterEach(async () => { cleanup(); setFileLook({}); setFileKeys({}); await saveAppSettings({ quickAdd: "meta+shift+KeyT" }); });
@@ -73,5 +74,11 @@ it("mc40_a_token_the_file_names_shows_read_only_in_app_settings", async () => {
 
   fireEvent.click(within(view).getByRole("tab", { name: "Appearance" }));
 
-  for (const radio of await within(view).findAllByRole<HTMLInputElement>("radio")) expect(radio.disabled).toBe(true);
+  await within(view).findAllByRole("radio");
+
+  for (const label of [copy.settingsAppearance, copy.interfaceScale]) {
+    const radios = within(within(view).getByRole("radiogroup", { name: label })).getAllByRole<HTMLInputElement>("radio");
+
+    for (const radio of radios) expect(radio.disabled).toBe(true);
+  }
 });
