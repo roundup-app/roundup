@@ -205,6 +205,6 @@ impl Rail {
         )?;
         let id = tx.last_insert_rowid().to_string();
         tx.commit()?;
-        self.node(&id)
+        self.node(agent_id(&id)?)
     }
 }

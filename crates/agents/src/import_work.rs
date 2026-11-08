@@ -97,7 +97,10 @@ impl Agents {
             }));
         drop(rail);
         if ctx.actor.kind == ActorKind::Agent {
-            let node = self.shared.rail().node(&ctx.actor.id)?;
+            let node = self
+                .shared
+                .rail()
+                .node(crate::rail::agent_id(&ctx.actor.id)?)?;
             let directory = self.dir.join("import-lists");
             std::fs::create_dir_all(&directory).map_err(RpcError::internal)?;
             let mut file =
@@ -111,7 +114,7 @@ impl Agents {
     }
 
     fn import_agent_list(&self, agent: &str) -> Result<ImportList, RpcError> {
-        let node = self.shared.rail().node(agent)?;
+        let node = self.shared.rail().node(crate::rail::agent_id(agent)?)?;
         if node.kind != NodeKind::Agent {
             return Err(RpcError::forbidden("the listing identity must be an Agent"));
         }

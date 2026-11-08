@@ -64,7 +64,9 @@ impl Agents {
             start_attribution.as_ref(),
         )?;
         if typed {
-            shared.rail().set_user_named(&node.id)?;
+            shared
+                .rail()
+                .set_user_named(crate::rail::agent_id(&node.id)?)?;
         }
         if ctx.actor.kind == ActorKind::Agent {
             shared
@@ -95,13 +97,15 @@ impl Agents {
         }
         let scope = scope.unwrap_or_default();
         shared.guard_reach(&ctx.actor, &id, false)?;
-        if scope == RemoveScope::All && shared.rail().node(&id)?.kind != NodeKind::Workstream {
+        if scope == RemoveScope::All
+            && shared.rail().node(crate::rail::agent_id(&id)?)?.kind != NodeKind::Workstream
+        {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
                 "scope all requires a Workstream",
             ));
         }
-        if shared.rail().node(&id)?.kind == NodeKind::Workstream {
+        if shared.rail().node(crate::rail::agent_id(&id)?)?.kind == NodeKind::Workstream {
             let removal = shared
                 .remove_workstream(ctx.actor.clone(), &id, scope)
                 .await?;
