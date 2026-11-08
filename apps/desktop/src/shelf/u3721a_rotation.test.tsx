@@ -72,4 +72,22 @@ describe("U3721a", () => {
     fireEvent.keyDown(tab, { key: "Escape" });
     await waitFor(() => expect(size()).toBe("closed"));
   });
+
+  it("u3721a_the_leader_b_opens_the_focused_row_then_maximises_it_then_closes", async () => {
+    await mount(false);
+    await steps(["list"]);
+    const rowsOf = () => [...document.querySelectorAll<HTMLButtonElement>(".todos-tab [data-shelf-row] .row-head .todo-row-button")].filter(each => each.closest("[hidden], [inert]") === null);
+
+    // The seeded Todos all sit in the Unassigned group, which starts folded.
+    await waitFor(() => expect(document.querySelector('.todos-tab [aria-expanded="false"]')).not.toBeNull());
+    fireEvent.click(document.querySelector('.todos-tab [aria-expanded="false"]') as HTMLElement);
+    await waitFor(() => expect(rowsOf().length).toBeGreaterThan(0));
+    const row = rowsOf()[0] as HTMLButtonElement;
+
+
+    row.focus();
+    leaderKey("KeyB", {}, row);
+    await waitFor(() => expect(size()).toBe("item"));
+    await steps(["full", "closed"]);
+  });
 });
