@@ -1,20 +1,42 @@
 .app-menu {
   color: var(--text);
-  padding: var(--space-4);
-}
-
-.app-menu {
+  padding: var(--space-1);
   z-index: var(--layer-menu);
 }
 
+/* U6870a: rows and highlight match the Select list; the highlight has no transition. */
 .app-menu [data-part="item"] {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  min-height: var(--space-5);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-control);
   color: var(--grey);
-  padding: var(--space-2);
+  cursor: pointer;
 }
 
-.app-menu [data-highlighted] {
+.app-menu [data-part="item"][data-highlighted]:not([data-disabled]) {
+  background-color: var(--selected);
+  color: var(--text);
+}
+
+.app-menu [data-part="item"][data-disabled] {
+  color: var(--disabled);
+  cursor: default;
+}
+
+/* Key chips share the right edge of the rows, so they form one column at least --space-5 after the widest label. */
+.app-menu .key-chips {
+  margin-inline-start: auto;
+  padding-inline-start: var(--space-5);
+}
+
+.app-menu .key-chip {
+  color: var(--grey);
+}
+
+.app-menu [data-part="item"][data-highlighted]:not([data-disabled]) .key-chip {
   color: var(--text);
 }
