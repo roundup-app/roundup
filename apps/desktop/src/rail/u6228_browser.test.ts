@@ -125,6 +125,31 @@ run("u6228 the Rail collapses to a strip", () => {
     expect(running).toBeLessThanOrEqual(1);
   });
 
+  it("u6228g_reduced_motion_fades_and_sends_one_terminal_resize", async () => {
+    await page.scheme("dark", undefined, "motion");
+    await load();
+
+    const fade = `() => new Promise(resolve => requestAnimationFrame(() => {
+      const body = document.querySelector('.rail-body');
+      const moving = body.getAnimations().map(motion => motion.transitionProperty);
+
+      resolve({ slide: document.querySelector('.rail').dataset.slide, transform: moving.includes('transform') });
+    }))`;
+
+    let before = await quiet();
+
+    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    expect(await page.call(fade)).toEqual({ slide: "fade", transform: false });
+    expect(await quiet()).toBe(before + 1);
+
+    before = await quiet();
+    await page.call(`() => document.activeElement?.blur()`);
+    await leader("KeyR", "r");
+    expect(await page.call(fade)).toEqual({ slide: "fade", transform: false });
+    expect(await quiet()).toBe(before + 1);
+    await page.scheme("dark");
+  });
+
   it("u6228_the_leader_chord_toggles_and_a_restart_keeps_it", async () => {
     await load();
     await leader("KeyR", "r");
