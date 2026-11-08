@@ -98,7 +98,7 @@ fn lc1_each_role_launches_as_its_row() {
                 Setup::after(&argv, "--append-system-prompt-file").unwrap(),
             )
             .unwrap();
-            assert!(brief.contains("PROJECT_INSTRUCTION_MARKER"), "{row:?}");
+            assert!(!brief.contains("PROJECT_INSTRUCTION_MARKER"), "{row:?}");
         }
     }
 }
@@ -136,22 +136,27 @@ fn lc2_a_child_starts_from_its_own_settings() {
         } else {
             assert_eq!(
                 settings["permissions"]["allow"],
-                json!(["Bash(git status)", "mcp__roundup__*"]),
-                "a rule once"
+                json!(["mcp__roundup__*"]),
+                "only roundup's rule"
             );
         }
-        assert_eq!(settings["permissions"]["deny"], json!(["Read(.env)"]));
-        // A3507b: every unnamed key carries over, including env and permission mode.
-        assert_eq!(settings["permissions"]["defaultMode"], "plan");
-        assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "0");
-        for kept in [
+        // A3507b: no key of the user's file is copied; Claude Code loads them itself.
+        assert!(settings["permissions"].get("deny").is_none());
+        assert!(settings["permissions"].get("defaultMode").is_none());
+        assert!(
+            settings["env"]
+                .get("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
+                .is_none()
+        );
+        for copied in [
             "outputStyle",
             "enabledPlugins",
             "mcpServers",
             "autoMemoryEnabled",
             "autoMemoryDirectory",
+            "apiKeyHelper",
         ] {
-            assert!(settings.get(kept).is_some(), "{kept}");
+            assert!(settings.get(copied).is_none(), "{copied}");
         }
         assert!(
             settings["hooks"]["Stop"][0]["hooks"][0]["command"]
@@ -208,9 +213,22 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             };
             assert_eq!(Setup::after(&argv, "--tools"), tools);
             let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-            for (key, value) in user.as_object().unwrap() {
-                assert_eq!(&settings[key], value, "{row:?}: {key}");
+            for key in user.as_object().unwrap().keys() {
+                if key == "outputStyle" {
+                    continue;
+                }
+                assert!(settings.get(key).is_none(), "{row:?}: {key} copied");
             }
+            // roundup defaults the style only when no source sets one.
+            assert_eq!(
+                settings["outputStyle"],
+                if output_style.is_none() {
+                    json!("hold:Plain")
+                } else {
+                    Value::Null
+                },
+                "{row:?}"
+            );
             assert!(
                 !settings["env"]
                     .as_object()
@@ -218,7 +236,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
                     .contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
             );
             let brief = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
-            assert!(brief.contains("USER GLOBAL RULE"));
+            assert!(!brief.contains("USER GLOBAL RULE"));
         }
     }
 }
@@ -249,11 +267,11 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
     assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
-    assert!(text.contains("USER GLOBAL RULE"));
+    assert!(!text.contains("USER GLOBAL RULE"));
 }
 
 #[test]
-fn lc4_a_scout_launches_with_read_tools_and_the_users_setup() {
+fn lc4_a_scout_launches_with_read_tools_and_no_user_instructions() {
     let s = setup();
     s.user_file("CLAUDE.md", "USER GLOBAL RULE");
     let pair = LaunchFacts {
@@ -271,16 +289,21 @@ fn lc4_a_scout_launches_with_read_tools_and_the_users_setup() {
     assert_eq!(Setup::after(&argv, "--effort"), Some("low"));
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
-    assert!(text.contains("USER GLOBAL RULE"));
+    assert!(!text.contains("USER GLOBAL RULE"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-    assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"], "1");
+    assert!(
+        settings["env"]
+            .get("CLAUDE_CODE_DISABLE_CLAUDE_MDS")
+            .is_none()
+    );
+    assert!(settings["env"].get("ANTHROPIC_MODEL").is_none());
     let old: contracts::agent::SpawnParams =
         serde_json::from_value(json!({"cwd": "/x", "prompt": null, "parent": null})).unwrap();
     assert_eq!(old.scout, None);
 }
 
 #[tokio::test]
-async fn lc5_every_child_gets_the_plugins_and_global_instructions() {
+async fn lc5_every_child_gets_the_plugins_and_no_instruction_copy() {
     for (row, role, pair) in lean_children() {
         let s = setup();
         s.user_file("CLAUDE.md", "USER GLOBAL RULE");
@@ -308,9 +331,7 @@ async fn lc5_every_child_gets_the_plugins_and_global_instructions() {
         let brief =
             std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
                 .unwrap();
-        assert!(
-            brief.contains("## The user's global instructions (read-only)\n\nUSER GLOBAL RULE")
-        );
+        assert!(!brief.contains("USER GLOBAL RULE"), "{row:?}");
         assert_eq!(brief.contains("hope:intent"), row == Role::Door, "{row:?}");
         assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
     }
@@ -377,7 +398,7 @@ async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
                 .collect();
             assert_eq!(json!(names), want, "{row:?}: {enabled}");
             let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-            assert_eq!(settings["enabledPlugins"], enabled);
+            assert!(settings.get("enabledPlugins").is_none());
             if row == Role::Door && enabled["hope@personal"] == true {
                 let brief = std::fs::read_to_string(
                     Setup::after(&argv, "--append-system-prompt-file").unwrap(),
@@ -477,10 +498,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     assert!(!env.contains_key("CLAUDE_CODE_DISABLE_CLAUDE_MDS"));
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-    assert_eq!(
-        settings["permissions"]["allow"],
-        json!(["Read(x)", "mcp__roundup__*"])
-    );
+    assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
     assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
 }
 
@@ -647,7 +665,7 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             )
             .unwrap();
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-        assert_eq!(settings["mcpServers"]["personal"]["command"], "personal");
+        assert!(settings.get("mcpServers").is_none());
         let allowed = settings["permissions"]["allow"]
             .as_array()
             .cloned()
@@ -659,19 +677,15 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             "terminal_write",
         ] {
             assert!(!Setup::after(&argv, "--tools").unwrap().contains(forbidden));
-            assert_eq!(
-                allowed
+            assert!(
+                !allowed
                     .iter()
                     .any(|rule| rule.as_str().unwrap().contains(forbidden)),
-                carry_user_rules,
-                "only user rules may name {forbidden}"
+                "{carry_user_rules}: the file's rules never name {forbidden}"
             );
         }
-        assert_eq!(
-            allowed.contains(&json!("mcp__roundup__*")),
-            carry_user_rules
-        );
-        assert_eq!(allowed.contains(&json!("Read(*)")), carry_user_rules);
+        assert!(!allowed.contains(&json!("mcp__roundup__*")));
+        assert!(!allowed.contains(&json!("Read(*)")));
     }
 }
 
@@ -711,7 +725,7 @@ fn a2703a_brief_teaches_rail_names() {
 }
 
 #[tokio::test]
-async fn lc17_a_lean_child_loads_no_claude_md_by_itself() {
+async fn lc17_every_agent_leaves_claude_md_loading_to_claude_code() {
     for (row, role, pair) in lean_children() {
         let s = setup();
         s.user_file("CLAUDE.md", "USER_GLOBAL_TOKEN");
@@ -729,12 +743,22 @@ async fn lc17_a_lean_child_loads_no_claude_md_by_itself() {
             })
             .await
             .unwrap();
-        assert_eq!(env["CLAUDE_CODE_DISABLE_CLAUDE_MDS"], "1", "{row:?}");
+        assert!(
+            !env.contains_key("CLAUDE_CODE_DISABLE_CLAUDE_MDS"),
+            "{row:?}"
+        );
+        let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+        assert!(
+            settings["env"]
+                .get("CLAUDE_CODE_DISABLE_CLAUDE_MDS")
+                .is_none(),
+            "{row:?}"
+        );
         let brief =
             std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
                 .unwrap();
-        assert_eq!(brief.matches("PROJECT_TOKEN").count(), 1, "{row:?}");
-        assert_eq!(brief.matches("USER_GLOBAL_TOKEN").count(), 1, "{row:?}");
+        assert_eq!(brief.matches("PROJECT_TOKEN").count(), 0, "{row:?}");
+        assert_eq!(brief.matches("USER_GLOBAL_TOKEN").count(), 0, "{row:?}");
         if row == Role::Door {
             assert!(brief.find("two or more steps").unwrap() < brief.find("## Tools").unwrap());
         } else {
@@ -823,141 +847,5 @@ fn lc18_a_start_without_it_has_no_switch() {
 #[path = "lean/memory.rs"]
 mod memory;
 
-#[tokio::test]
-async fn lc22_a_failed_memory_command_blocks() {
-    use std::os::unix::fs::PermissionsExt;
-    use std::process::Stdio;
-    use tokio::io::{AsyncBufReadExt, BufReader};
-
-    for (_, role, pair) in lean_children().into_iter().take(2) {
-        for mcp_off in [false, true] {
-            for yolo in [false, true] {
-                for resume in [None, Some("saved-conversation")] {
-                    let mut s = setup();
-                    s.dir = s.root.path().join("Project's checkout/.roundup");
-                    s.cwd = s.dir.parent().unwrap().join("work");
-                    std::fs::create_dir_all(&s.dir).unwrap();
-                    s.rup = s.root.path().join("rup's program");
-                    std::fs::write(&s.rup, "").unwrap();
-                    std::fs::create_dir(&s.cwd).unwrap();
-                    let memory = s.root.path().join("Claude's memory");
-                    s.user_file(
-                        "settings.json",
-                        &json!({"autoMemoryDirectory":memory}).to_string(),
-                    );
-                    let pair = LaunchFacts {
-                        mcp_off,
-                        permission: if yolo {
-                            agents::claude_code::Permission::Bypass
-                        } else {
-                            agents::claude_code::Permission::Inherit
-                        },
-                        ..pair.clone()
-                    };
-                    let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
-                    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-                    let hook = settings["hooks"]["PreToolUse"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .find(|hook| hook["matcher"] == "Write|Edit")
-                        .unwrap();
-                    let command = hook["hooks"][0]["command"].as_str().unwrap();
-                    for tool in ["Write", "Edit"] {
-                        for failure in [
-                            "panic",
-                            "nonzero",
-                            "allow-then-fail",
-                            "TERM",
-                            "KILL",
-                            "missing",
-                            "not-executable",
-                        ] {
-                            let script = match failure {
-                                "panic" => "exit 101",
-                                "nonzero" => "exit 1",
-                                "allow-then-fail" => {
-                                    "printf '%s\\n' '{\"hookSpecificOutput\":{\"permissionDecision\":\"allow\"}}'; exit 1"
-                                }
-                                "TERM" | "KILL" => "printf '%s\\n' \"$$\" >&2; exec sleep 3",
-                                _ => "exit 0",
-                            };
-                            std::fs::write(&s.rup, format!("#!/bin/sh\n{script}\n")).unwrap();
-                            std::fs::set_permissions(
-                                &s.rup,
-                                std::fs::Permissions::from_mode(if failure == "not-executable" {
-                                    0o600
-                                } else {
-                                    0o700
-                                }),
-                            )
-                            .unwrap();
-                            if failure == "missing" {
-                                std::fs::remove_file(&s.rup).unwrap();
-                            }
-                            let input = s.root.path().join("input.json");
-                            std::fs::write(&input, serde_json::to_vec(&json!({
-                                "tool_name":tool, "tool_input":{"file_path":s.cwd.join("source.rs")},
-                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
-                            })).unwrap()).unwrap();
-                            let mut child = tokio::process::Command::new("bash")
-                                .args(["-c", command])
-                                .stdin(std::fs::File::open(&input).unwrap())
-                                .stdout(Stdio::piped())
-                                .stderr(Stdio::piped())
-                                .kill_on_drop(true)
-                                .spawn()
-                                .unwrap();
-                            if matches!(failure, "TERM" | "KILL") {
-                                let mut text = String::new();
-                                tokio::time::timeout(
-                                    Duration::from_secs(2),
-                                    BufReader::new(child.stderr.as_mut().unwrap())
-                                        .read_line(&mut text),
-                                )
-                                .await
-                                .expect("memory fixture announced readiness")
-                                .unwrap();
-                                let pid =
-                                    rustix::process::Pid::from_raw(text.trim().parse().unwrap())
-                                        .unwrap();
-                                rustix::process::kill_process(
-                                    pid,
-                                    if failure == "TERM" {
-                                        rustix::process::Signal::TERM
-                                    } else {
-                                        rustix::process::Signal::KILL
-                                    },
-                                )
-                                .unwrap();
-                            }
-                            let output = tokio::time::timeout(
-                                Duration::from_secs(4),
-                                child.wait_with_output(),
-                            )
-                            .await
-                            .expect("hook ended")
-                            .unwrap();
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            assert_eq!(
-                                output.status.code(),
-                                Some(2),
-                                "{role:?} {mcp_off} {yolo} {resume:?} {tool} {failure}: {stderr}"
-                            );
-                            assert!(
-                                output.stdout.is_empty(),
-                                "failed guard forwarded {:?}",
-                                output.stdout
-                            );
-                            assert!(
-                                stderr.contains("Memory guard failed")
-                                    && stderr.contains("child Agent"),
-                                "{failure}: {stderr}"
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+#[path = "lean/environment.rs"]
+mod environment;

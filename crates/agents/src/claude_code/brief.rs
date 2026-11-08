@@ -100,6 +100,10 @@ const TOOLS: &[(&str, &str)] = &[
         "import_list",
         "list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing",
     ),
+    (
+        "machine_list",
+        "list the Machines herdr-core knows, as it gives them",
+    ),
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
     (
