@@ -186,6 +186,8 @@ pub struct Push {
     key: (String, String),
     pub meta: String,
     pub entry: DigestEntry,
+    /// DTC2: the child ended, so the Door must act; every other push is quiet.
+    pub waking: bool,
     told: Told,
     before: (Option<i64>, Option<Told>),
     /// The child left the Rail (B23): `told` is what `changed` took out of the book.
@@ -450,6 +452,7 @@ impl Seen {
                     key,
                     meta: meta.id.clone(),
                     entry: pushed,
+                    waking: ends && is_end(child),
                     told: now,
                     before,
                     gone: false,
@@ -607,6 +610,7 @@ fn farewells(book: &mut Book, from: &Projection) -> Vec<Push> {
             pushes.push(Push {
                 meta: key.0.clone(),
                 entry: told.entry.clone(),
+                waking: true,
                 before: (None, Some(told.clone())),
                 told,
                 key,

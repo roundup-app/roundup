@@ -180,11 +180,9 @@ fn q11_the_users_output_style_replaces_plain() {
                     .launcher()
                     .prepare(folders(&s.dir), "7", "1", &s.cwd, resume, role)
                     .unwrap();
+                // A source sets the style, so the file leaves it to Claude Code's own loading.
                 let settings = read(Path::new(&argv[2]));
-                assert_eq!(
-                    settings["outputStyle"],
-                    if local { "Personal" } else { "Learning" }
-                );
+                assert!(settings.get("outputStyle").is_none(), "{local}");
             }
         }
     }

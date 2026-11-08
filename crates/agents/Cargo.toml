@@ -9,6 +9,7 @@ async-trait.workspace = true
 contracts = { path = "../contracts" }
 backon = "1"
 getrandom = "0.3"
+sysinfo = { version = "0.37", default-features = false, features = ["system"] }
 notify = "8"
 provenance = { path = "../provenance" }
 storage = { path = "../storage" }
@@ -38,6 +39,10 @@ gix-hash = { version = "0.28.1", features = ["sha1"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 libproc = "0.14"
+sysctl = "0.7"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.28", default-features = false, features = ["mman"] }
 
 [dev-dependencies]
 git2 = { version = "0.21", default-features = false }

@@ -1,3 +1,5 @@
+#[path = "pads/deletion_keys.rs"]
+mod deletion_keys;
 #[path = "pads/homes.rs"]
 mod homes;
 #[path = "pads/sections.rs"]

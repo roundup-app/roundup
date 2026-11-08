@@ -223,44 +223,47 @@ fn plan(
     }
 }
 
-// Query LaunchServices without opening Finder or launching the app during discovery.
-// https://developer.apple.com/documentation/appkit/nsworkspace/urlforapplication(withbundleidentifier:)
-const INSTALLED_SCRIPT: &str = "ObjC.import('AppKit'); function run(argv) { const w = $.NSWorkspace.sharedWorkspace; return argv.filter(id => { try { return !!w.URLForApplicationWithBundleIdentifier(id); } catch (e) { return false; } }).join('\\n'); }";
+/// The answers of macOS, in process: types that make a missing answer `None`, so no failure reads as an answer.
+#[cfg(target_os = "macos")]
+mod mac {
+    use objc2_app_kit::NSWorkspace;
+    use objc2_foundation::NSString;
+    use objc2_uniform_type_identifiers::UTType;
 
-// https://developer.apple.com/documentation/uniformtypeidentifiers/uttype
-const CONFORMS_SCRIPT: &str = "ObjC.import('UniformTypeIdentifiers'); function run(argv) { try { const type = $.UTType.typeWithFilenameExtension(argv[0]); return type && type.conformsToType($.UTType.typeWithIdentifier('public.text')) ? 'yes' : 'no'; } catch (e) { return 'no'; } }";
-
-/// The stdout of an `osascript` run of `script`; `None` off macOS or when it fails.
-fn osascript(script: &str, args: &[&str]) -> Option<String> {
-    if !cfg!(target_os = "macos") {
-        return None;
+    /// Whether LaunchServices knows an app with `bundle_id`.
+    // https://developer.apple.com/documentation/appkit/nsworkspace/urlforapplication(withbundleidentifier:)
+    pub fn installed(bundle_id: &str) -> bool {
+        NSWorkspace::sharedWorkspace()
+            .URLForApplicationWithBundleIdentifier(&NSString::from_str(bundle_id))
+            .is_some()
     }
-    let output = Command::new("osascript")
-        .args(["-l", "JavaScript", "-e", script])
-        .args(args)
-        .output()
-        .ok()?;
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+
+    /// Whether the type of a file extension conforms to `public.text`.
+    // https://developer.apple.com/documentation/uniformtypeidentifiers/uttype
+    pub fn conforms_to_text(extension: &str) -> bool {
+        let text = UTType::typeWithIdentifier(&NSString::from_str("public.text"));
+        UTType::typeWithFilenameExtension(&NSString::from_str(extension))
+            .zip(text)
+            .is_some_and(|(kind, text)| kind.conformsToType(&text))
+    }
 }
 
-/// The bundle ids among `ids` that are installed, in one LaunchServices query.
-fn installed_ids(ids: &[&str]) -> Vec<String> {
-    osascript(INSTALLED_SCRIPT, ids)
-        .map(|out| out.lines().map(str::to_owned).collect())
-        .unwrap_or_default()
+#[cfg(not(target_os = "macos"))]
+mod mac {
+    pub fn installed(_bundle_id: &str) -> bool {
+        false
+    }
+
+    pub fn conforms_to_text(_extension: &str) -> bool {
+        false
+    }
 }
 
 /// The editors of `EDITORS` that are installed, in list order.
 pub fn installed_editors() -> Vec<EditorChoice> {
-    let ids: Vec<&str> = EDITORS.iter().map(|editor| editor.id).collect();
-    let found = installed_ids(&ids);
-
     EDITORS
         .iter()
-        .filter(|editor| found.iter().any(|id| id == editor.id))
+        .filter(|editor| mac::installed(editor.id))
         .map(|editor| EditorChoice {
             id: editor.id,
             name: editor.name,
@@ -268,48 +271,72 @@ pub fn installed_editors() -> Vec<EditorChoice> {
         .collect()
 }
 
-/// Opens `launch` as `plan` says, with the machine's answers from LaunchServices.
+/// Opens `launch` as `plan` says, with macOS's answers.
 fn open_with(
     launch: &Launch,
     chosen: Option<&str>,
     in_editor: bool,
     run: impl FnOnce(&str, &[std::ffi::OsString]) -> Result<(), RpcError>,
 ) -> Result<(), RpcError> {
-    let found = std::cell::OnceCell::new();
-    let installed = |id: &str| {
-        found
-            .get_or_init(|| {
-                let ids: Vec<&str> = EDITORS.iter().map(|editor| editor.id).collect();
-                installed_ids(&ids)
-            })
-            .iter()
-            .any(|found| found == id)
-    };
-    let text = |path: &std::path::Path| {
-        is_text(path, &|extension| {
-            osascript(CONFORMS_SCRIPT, &[extension]).as_deref() == Some("yes")
-        })
-    };
+    let text = |path: &std::path::Path| is_text(path, &mac::conforms_to_text);
     let (program, args) = plan(
         launch,
         chosen,
         in_editor,
         &Machine {
-            installed: &installed,
+            installed: &mac::installed,
             text: &text,
         },
     )?;
     run(&program, &args)
 }
 
-/// Hands the system the target; a text file opens in the chosen editor at its line when that takes one, anything else in its default app (a folder in Finder).
-pub fn launch(launch: &Launch, chosen: Option<&str>) -> Result<(), RpcError> {
-    open_with(launch, chosen, false, |program, args| {
-        Command::new(program)
+/// The error for an `open` that exited non-zero: `open -b` means the editor is not installed (U6372c's message), anything else carries the opener's `stderr`.
+fn exit_error(program: &str, args: &[std::ffi::OsString], stderr: &str) -> RpcError {
+    match args {
+        [flag, id, ..] if flag == "-b" => {
+            let name = EDITORS
+                .iter()
+                .find(|editor| id == editor.id)
+                .map_or_else(|| id.to_string_lossy().into_owned(), |e| e.name.to_owned());
+            RpcError::new(
+                rpc::code::NOT_FOUND,
+                format!("{name} is not installed; choose another in Settings"),
+            )
+        }
+        _ => RpcError::new(rpc::code::INTERNAL, format!("{program}: {}", stderr.trim())),
+    }
+}
+
+/// Runs the command and waits for its exit when `wait` or when it is `open -b`; a non-zero exit is `exit_error`.
+fn execute(program: &str, args: &[std::ffi::OsString], wait: bool) -> Result<(), RpcError> {
+    let spawn_error = |err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}"));
+    if !wait && args.first().is_none_or(|flag| flag != "-b") {
+        return Command::new(program)
             .args(args)
             .spawn()
             .map(drop)
-            .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}")))
+            .map_err(spawn_error);
+    }
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .map_err(spawn_error)?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(exit_error(
+            program,
+            args,
+            &String::from_utf8_lossy(&output.stderr),
+        ))
+    }
+}
+
+/// Hands the system the target; a text file opens in the chosen editor at its line when that takes one, anything else in its default app (a folder in Finder).
+pub fn launch(launch: &Launch, chosen: Option<&str>) -> Result<(), RpcError> {
+    open_with(launch, chosen, false, |program, args| {
+        execute(program, args, false)
     })
 }
 
@@ -322,23 +349,7 @@ pub fn open_in_editor(path: &str, line: Option<u32>, chosen: Option<&str>) -> Re
         &Launch::Path { path, line },
         chosen,
         true,
-        |program, args| {
-            let output = Command::new(program)
-                .args(args)
-                .output()
-                .map_err(|err| RpcError::new(rpc::code::INTERNAL, format!("{program}: {err}")))?;
-            if output.status.success() {
-                Ok(())
-            } else {
-                Err(RpcError::new(
-                    rpc::code::INTERNAL,
-                    format!(
-                        "{program}: {}",
-                        String::from_utf8_lossy(&output.stderr).trim()
-                    ),
-                ))
-            }
-        },
+        |program, args| execute(program, args, true),
     )
 }
 
@@ -582,6 +593,32 @@ mod tests {
         );
         let (_, opened) = planned(&file, None, None, false, &[]).unwrap();
         assert_eq!(opened, [file.into_os_string()]);
+    }
+
+    #[test]
+    fn u6372d_a_failed_open_maps_to_the_not_installed_message() {
+        let editor: Vec<std::ffi::OsString> =
+            vec!["-b".into(), "dev.zed.Zed".into(), "/a.rs".into()];
+        let error = exit_error("open", &editor, "LSOpenURLsWithRole() failed");
+
+        assert_eq!(error.code, rpc::code::NOT_FOUND);
+        assert_eq!(
+            error.message,
+            "Zed is not installed; choose another in Settings"
+        );
+        let system = exit_error("open", &["/a.png".into()], "no application");
+        assert_eq!(system.message, "open: no application");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn u6372d_macos_answers_installed_and_text() {
+        assert!(!mac::installed("com.example.roundup.no-such-app"));
+        assert!(mac::installed("com.apple.finder"));
+        for extension in ["rs", "json", "md"] {
+            assert!(mac::conforms_to_text(extension), "{extension}");
+        }
+        assert!(!mac::conforms_to_text("png"));
     }
 
     #[test]
