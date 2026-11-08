@@ -78,7 +78,10 @@ fn preview(value: &Value) -> String {
     match value {
         Value::Null => {}
         Value::String(text) => sink.push_bytes(text.as_bytes()),
-        other => sink.push_bytes(format!("{other:#}").as_bytes()),
+        other => {
+            // The sink never fails, so streaming keeps the allocation bounded.
+            let _ = serde_json::to_writer_pretty(&mut sink, other);
+        }
     }
     sink.finish_preview()
 }
