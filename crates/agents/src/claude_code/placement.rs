@@ -161,20 +161,16 @@ impl Placement for Call {
                 .map_err(|e| format!("absent or invalid structured output: {e}"))
         })
         .await;
-        match result {
-            Ok(Ok(parts)) => Ok(parts),
-            failure => {
-                // kill() also waits: no unclear result can race a still-live Placement call.
-                child
-                    .kill()
-                    .await
-                    .map_err(|e| format!("kill and reap: {e}"))?;
-                match failure {
-                    Ok(Err(cause)) => Err(cause),
-                    Err(_) => Err("timed out after 60 seconds".into()),
-                    Ok(Ok(_)) => unreachable!(),
-                }
-            }
-        }
+        let cause = match result {
+            Ok(Ok(parts)) => return Ok(parts),
+            Ok(Err(cause)) => cause,
+            Err(_) => "timed out after 60 seconds".into(),
+        };
+        // kill() also waits: no unclear result can race a still-live Placement call.
+        child
+            .kill()
+            .await
+            .map_err(|e| format!("kill and reap: {e}"))?;
+        Err(cause)
     }
 }
