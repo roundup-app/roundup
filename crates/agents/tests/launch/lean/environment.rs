@@ -1,142 +1,44 @@
-//! LC22, LC24: the memory command and the launch environment.
+//! LC24, LC26: the launch environment and the settings the user keeps.
 use super::*;
 
-#[tokio::test]
-async fn lc22_a_failed_memory_command_blocks() {
-    use std::os::unix::fs::PermissionsExt;
-    use std::process::Stdio;
-    use tokio::io::{AsyncBufReadExt, BufReader};
-
-    for (_, role, pair) in lean_children().into_iter().take(2) {
-        for mcp_off in [false, true] {
-            for yolo in [false, true] {
-                for resume in [None, Some("saved-conversation")] {
-                    let mut s = setup();
-                    s.dir = s.root.path().join("Project's checkout/.roundup");
-                    s.cwd = s.dir.parent().unwrap().join("work");
-                    std::fs::create_dir_all(&s.dir).unwrap();
-                    s.rup = s.root.path().join("rup's program");
-                    std::fs::write(&s.rup, "").unwrap();
-                    std::fs::create_dir(&s.cwd).unwrap();
-                    let memory = s.root.path().join("Claude's memory");
-                    s.user_file(
-                        "settings.json",
-                        &json!({"autoMemoryDirectory":memory}).to_string(),
-                    );
-                    let pair = LaunchFacts {
-                        mcp_off,
-                        permission: if yolo {
-                            agents::claude_code::Permission::Bypass
-                        } else {
-                            agents::claude_code::Permission::Inherit
-                        },
-                        ..pair.clone()
-                    };
-                    let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
-                    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-                    let hook = settings["hooks"]["PreToolUse"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .find(|hook| hook["matcher"] == "Write|Edit")
-                        .unwrap();
-                    let command = hook["hooks"][0]["command"].as_str().unwrap();
-                    for tool in ["Write", "Edit"] {
-                        for failure in [
-                            "panic",
-                            "nonzero",
-                            "allow-then-fail",
-                            "TERM",
-                            "KILL",
-                            "missing",
-                            "not-executable",
-                        ] {
-                            let script = match failure {
-                                "panic" => "exit 101",
-                                "nonzero" => "exit 1",
-                                "allow-then-fail" => {
-                                    "printf '%s\\n' '{\"hookSpecificOutput\":{\"permissionDecision\":\"allow\"}}'; exit 1"
-                                }
-                                "TERM" | "KILL" => "printf '%s\\n' \"$$\" >&2; exec sleep 3",
-                                _ => "exit 0",
-                            };
-                            std::fs::write(&s.rup, format!("#!/bin/sh\n{script}\n")).unwrap();
-                            std::fs::set_permissions(
-                                &s.rup,
-                                std::fs::Permissions::from_mode(if failure == "not-executable" {
-                                    0o600
-                                } else {
-                                    0o700
-                                }),
-                            )
-                            .unwrap();
-                            if failure == "missing" {
-                                std::fs::remove_file(&s.rup).unwrap();
-                            }
-                            let input = s.root.path().join("input.json");
-                            std::fs::write(&input, serde_json::to_vec(&json!({
-                                "tool_name":tool, "tool_input":{"file_path":s.cwd.join("source.rs")},
-                                "permission_mode":if yolo { "bypassPermissions" } else { "default" }
-                            })).unwrap()).unwrap();
-                            let mut child = tokio::process::Command::new("bash")
-                                .args(["-c", command])
-                                .stdin(std::fs::File::open(&input).unwrap())
-                                .stdout(Stdio::piped())
-                                .stderr(Stdio::piped())
-                                .kill_on_drop(true)
-                                .spawn()
-                                .unwrap();
-                            if matches!(failure, "TERM" | "KILL") {
-                                let mut text = String::new();
-                                tokio::time::timeout(
-                                    Duration::from_secs(2),
-                                    BufReader::new(child.stderr.as_mut().unwrap())
-                                        .read_line(&mut text),
-                                )
-                                .await
-                                .expect("memory fixture announced readiness")
-                                .unwrap();
-                                let pid =
-                                    rustix::process::Pid::from_raw(text.trim().parse().unwrap())
-                                        .unwrap();
-                                rustix::process::kill_process(
-                                    pid,
-                                    if failure == "TERM" {
-                                        rustix::process::Signal::TERM
-                                    } else {
-                                        rustix::process::Signal::KILL
-                                    },
-                                )
-                                .unwrap();
-                            }
-                            let output = tokio::time::timeout(
-                                Duration::from_secs(4),
-                                child.wait_with_output(),
-                            )
-                            .await
-                            .expect("hook ended")
-                            .unwrap();
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            assert_eq!(
-                                output.status.code(),
-                                Some(2),
-                                "{role:?} {mcp_off} {yolo} {resume:?} {tool} {failure}: {stderr}"
-                            );
-                            assert!(
-                                output.stdout.is_empty(),
-                                "failed guard forwarded {:?}",
-                                output.stdout
-                            );
-                            assert!(
-                                stderr.contains("Memory guard failed")
-                                    && stderr.contains("child Agent"),
-                                "{failure}: {stderr}"
-                            );
-                        }
-                    }
-                }
-            }
+#[test]
+fn lc26_the_users_hooks_and_permissions_pass_through() {
+    for (row, role, pair) in
+        lean_children()
+            .into_iter()
+            .chain([(Role::Agent, Role::Agent, LaunchFacts::default())])
+    {
+        let s = setup();
+        s.user_file("settings.json", &json!({
+            "permissions":{"allow":["Read(user)"],"ask":["Edit(*)"],"deny":["Write(**/secret.md)"],"defaultMode":"plan"},
+            "autoMemoryEnabled":false,"autoMemoryDirectory":"/user-memory",
+            "env":{"CLAUDE_CODE_DISABLE_AUTO_MEMORY":"1"},
+            "hooks":{"PreToolUse":[{"matcher":"Write|Edit","hooks":[{"type":"command","command":"user-guard"}]}]}
+        }).to_string());
+        let argv = s.prepare_lean("7", role, &pair, None).unwrap();
+        let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+        for key in ["autoMemoryEnabled", "autoMemoryDirectory"] {
+            assert!(settings.get(key).is_none(), "{row:?}: {key}");
         }
+        assert!(
+            settings["env"]
+                .get("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
+                .is_none()
+        );
+        for key in ["ask", "deny", "defaultMode"] {
+            assert!(settings["permissions"].get(key).is_none(), "{row:?}: {key}");
+        }
+        let allow = settings["permissions"]["allow"].to_string();
+        assert!(
+            !allow.contains("Write") && !allow.contains("Edit"),
+            "{row:?}"
+        );
+        let hooks = settings["hooks"]["PreToolUse"].as_array().unwrap();
+        assert!(
+            hooks.iter().all(|hook| hook["matcher"] != "Write|Edit"),
+            "{row:?}"
+        );
+        assert!(!settings.to_string().contains("claude-memory"), "{row:?}");
     }
 }
 

@@ -37,7 +37,7 @@ impl Agents {
         mode: Option<contracts::agent::ResumeMode>,
         permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
-        if self.shared.rail().node(id)?.kind == NodeKind::Group {
+        if self.shared.rail().node(crate::rail::agent_id(id)?)?.kind == NodeKind::Group {
             return Err(RpcError::conflict("a Group has no program to resume"));
         }
         models::check_permissions(&ctx.actor, permission_mode)?;
@@ -46,7 +46,7 @@ impl Agents {
         // finished one again; an Agent's resume would spend tokens.
         if ctx.actor.kind == contracts::ActorKind::Agent
             && mode.is_none()
-            && self.shared.rail().node(id)?.kind == NodeKind::Agent
+            && self.shared.rail().node(crate::rail::agent_id(id)?)?.kind == NodeKind::Agent
             && !self.shared.rail().is_cut_off(crate::rail::agent_id(id)?)?
             && !self.shared.runs().agent(id).is_some()
         {
@@ -57,7 +57,7 @@ impl Agents {
         // A5213: a Workstream resumes its Door's conversation in the mode it last ran in.
         let mode = {
             let rail = self.shared.rail();
-            let node = rail.node(id)?;
+            let node = rail.node(crate::rail::agent_id(id)?)?;
             match (node.kind, mode) {
                 (_, Some(mode)) => Some(mode),
                 (NodeKind::Group, _) => return Err(RpcError::conflict("a Group has no program")),
@@ -102,7 +102,7 @@ impl Agents {
         ExtrasAddParams { id, extras }: ExtrasAddParams,
     ) -> Result<RailNode, RpcError> {
         self.shared.guard_reach(&ctx.actor, &id, false)?;
-        self.shared.rail().node(&id)?;
+        self.shared.rail().node(crate::rail::agent_id(&id)?)?;
         let Some(mut lean) = Launcher::load_lean(&self.dir, &id)? else {
             return Err(RpcError::conflict(format!(
                 "{id} keeps the user's full setup: it was not started by an Agent"
@@ -211,7 +211,7 @@ impl Agents {
             ..
         } = resumption;
         let mut rail = self.shared.rail();
-        rail.node(id)?;
+        rail.node(crate::rail::agent_id(id)?)?;
         let mut runs = self.shared.runs();
         Self::check_slot(&runs, id, mode.is_some())?;
         let saved = match conversation {
@@ -285,7 +285,11 @@ impl Agents {
 
     /// FOP5978d and A21: the Worktree or folder the saved conversation continues in is usable.
     async fn verify_resume_cwd(&self, id: &str, saved_cwd: &str) -> Result<(), RpcError> {
-        let worktree = self.shared.rail().node(id)?.worktree;
+        let worktree = self
+            .shared
+            .rail()
+            .node(crate::rail::agent_id(id)?)?
+            .worktree;
         match &worktree {
             // FOP5978d: continuing in a Worktree of the live Project folder is not a Fork's to do.
             Some(_) if self.forked => Err(RpcError::new(
@@ -750,13 +754,26 @@ mod tests {
             assert_eq!(error.code, code::CONFLICT);
             assert!(error.message.contains("stopping"), "{error}");
             assert_eq!(
-                agents.shared.rail().node(&id).unwrap().attempt.as_deref(),
+                agents
+                    .shared
+                    .rail()
+                    .node(crate::rail::agent_id(&id).unwrap())
+                    .unwrap()
+                    .attempt
+                    .as_deref(),
                 Some("1")
             );
             assert!(agents.shared.terminals.list().await.is_empty());
             release.notify_one();
             ending.await.unwrap();
-            assert_eq!(agents.shared.rail().node(&id).is_err(), remove);
+            assert_eq!(
+                agents
+                    .shared
+                    .rail()
+                    .node(crate::rail::agent_id(&id).unwrap())
+                    .is_err(),
+                remove
+            );
         }
     }
 }

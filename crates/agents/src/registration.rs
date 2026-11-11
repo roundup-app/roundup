@@ -21,7 +21,7 @@ impl Shared {
         {
             return Err(RpcError::conflict(format!(
                 "{}: stale start completion",
-                rail.name(id)?
+                rail.name_or_gone(id)?
             )));
         }
         let Some(Slot::Starting { named, parked, .. }) = runs.take(id) else {

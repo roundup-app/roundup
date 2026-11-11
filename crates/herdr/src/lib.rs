@@ -16,6 +16,9 @@ use tokio::sync::{mpsc, oneshot};
 /// The protocol generation roundup speaks and pins.
 pub const GENERATION: u64 = 1;
 const DATA: u8 = 0;
+const CREDIT: u8 = 1;
+const CLOSE: u8 = 2;
+const RESIZE: u8 = 3;
 /// Exit status of a shell that finds no `herdr-core` on its PATH.
 const NOT_FOUND_EXIT: i32 = 127;
 
@@ -32,10 +35,20 @@ pub struct RpcError {
 
 impl RpcError {
     fn from_value(v: &Value) -> RpcError {
-        let text = |p: &str| v["data"][p].as_str().unwrap_or_default().to_owned();
+        let text = |p: &str| {
+            v.get("data")
+                .and_then(|d| d.get(p))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        };
         RpcError {
-            code: v["code"].as_i64().unwrap_or_default(),
-            message: v["message"].as_str().unwrap_or_default().to_owned(),
+            code: v.get("code").and_then(Value::as_i64).unwrap_or_default(),
+            message: v
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
             kind: text("kind"),
             hint: text("hint"),
         }
@@ -127,6 +140,86 @@ struct Waiting {
 
 type Pending = Arc<Mutex<Waiting>>;
 
+/// What arrives on an attached channel.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Ev {
+    /// Terminal bytes, cut wherever the core framed them, which may be inside a UTF-8 character.
+    Data(Vec<u8>),
+    /// The size another viewer set.
+    Resize(u16, u16),
+    /// The stream ended, with the core's reason object (`exit_code` when the program exited).
+    Close(Value),
+}
+
+/// Live channels by number. The first paint follows an attach reply at once, so frames for a
+/// channel nobody has opened yet wait in `orphans`, in order.
+#[derive(Default)]
+struct Channels {
+    live: HashMap<u32, mpsc::UnboundedSender<Ev>>,
+    orphans: HashMap<u32, Vec<Ev>>,
+}
+
+type Streams = Arc<Mutex<Channels>>;
+
+fn streams(channels: &Streams) -> std::sync::MutexGuard<'_, Channels> {
+    channels
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn deliver(channels: &Streams, channel: u32, ev: Ev) {
+    let mut state = streams(channels);
+    match state.live.get(&channel) {
+        Some(tx) => {
+            let _ = tx.send(ev);
+        }
+        None => state.orphans.entry(channel).or_default().push(ev),
+    }
+}
+
+/// One attached terminal channel: its bytes in, and the viewer's input and size out.
+pub struct Stream {
+    channel: u32,
+    rx: mpsc::UnboundedReceiver<Ev>,
+    out: mpsc::UnboundedSender<Vec<u8>>,
+}
+
+impl Stream {
+    /// Type `bytes` through the fast stream.
+    pub fn send(&self, bytes: &[u8]) {
+        let _ = self.out.send(frame(self.channel, DATA, bytes));
+    }
+
+    /// Take the terminal's size (the last active non-observer sets it).
+    pub fn resize(&self, cols: u16, rows: u16) {
+        let mut p = cols.to_le_bytes().to_vec();
+        p.extend_from_slice(&rows.to_le_bytes());
+        let _ = self.out.send(frame(self.channel, RESIZE, &p));
+    }
+
+    /// Detach; the program keeps running.
+    pub fn close(&self) {
+        let _ = self.out.send(frame(self.channel, CLOSE, &[]));
+    }
+
+    /// The next event, or `None` once the channel is closed and drained.
+    pub async fn next(&mut self) -> Option<Ev> {
+        self.rx.recv().await
+    }
+
+    /// [`Stream::next`] for a thread that is not on the runtime.
+    pub fn blocking_next(&mut self) -> Option<Ev> {
+        self.rx.blocking_recv()
+    }
+}
+
+/// The waiting calls hold no invariant a panicking holder could break, so a poisoned lock is used as is.
+fn locked(pending: &Pending) -> std::sync::MutexGuard<'_, Waiting> {
+    pending
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 /// The longest frame payload read; a longer header is a corrupt or hostile stream.
 const MAX_FRAME: usize = 16 << 20;
 
@@ -138,6 +231,7 @@ pub struct Conn {
     timeout: Duration,
     pub hello: Hello,
     events: Option<mpsc::UnboundedReceiver<Event>>,
+    channels: Streams,
     _child: Option<Child>,
 }
 
@@ -231,8 +325,9 @@ impl Conn {
                 Error::Rpc(e)
             });
         }
-        let hello: Hello = serde_json::from_value(msg["result"].clone())
-            .map_err(|e| Error::Protocol(e.to_string()))?;
+        let hello: Hello =
+            serde_json::from_value(msg.get("result").cloned().unwrap_or(Value::Null))
+                .map_err(|e| Error::Protocol(e.to_string()))?;
         if hello.generation != GENERATION {
             let message = format!("core answered generation {}", hello.generation);
             return Err(Error::Refused(RpcError {
@@ -254,29 +349,61 @@ impl Conn {
             }
         });
         let waiting = pending.clone();
+        let channels: Streams = Default::default();
+        let routed = channels.clone();
+        let credit = out.clone();
         tokio::spawn(async move {
             while let Ok((channel, kind, payload)) = read_frame(&mut reader).await {
-                if channel != 0 || kind != DATA {
+                if channel != 0 {
+                    match kind {
+                        DATA => {
+                            let len = payload.len() as u32;
+                            deliver(&routed, channel, Ev::Data(payload));
+                            // Consumed on arrival: hand the credit back.
+                            let _ = credit.send(frame(channel, CREDIT, &len.to_le_bytes()));
+                        }
+                        RESIZE if payload.len() == 4 => deliver(
+                            &routed,
+                            channel,
+                            Ev::Resize(
+                                u16::from_le_bytes([payload[0], payload[1]]),
+                                u16::from_le_bytes([payload[2], payload[3]]),
+                            ),
+                        ),
+                        CLOSE => {
+                            let reason = serde_json::from_slice(&payload).unwrap_or(Value::Null);
+                            deliver(&routed, channel, Ev::Close(reason));
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
+                if kind != DATA {
                     continue;
                 }
                 let Ok(msg) = serde_json::from_slice::<Value>(&payload) else {
                     continue;
                 };
                 if let Some(id) = msg.get("id").and_then(Value::as_u64) {
-                    if let Some(tx) = waiting.lock().unwrap().calls.remove(&id) {
+                    if let Some(tx) = locked(&waiting).calls.remove(&id) {
                         let _ = tx.send(msg);
                     }
-                } else if let Some(method) = msg["method"].as_str() {
+                } else if let Some(method) = msg.get("method").and_then(Value::as_str) {
                     let _ = events_tx.send(Event {
                         method: method.to_owned(),
-                        params: msg["params"].clone(),
+                        params: msg.get("params").cloned().unwrap_or(Value::Null),
                     });
                 }
             }
             // Pipe gone: dropping the senders fails every waiter with `Closed`.
-            let mut w = waiting.lock().unwrap();
+            let mut w = locked(&waiting);
             w.closed = true;
             w.calls.clear();
+            drop(w);
+            let gone = serde_json::json!({"reason":"connection_lost"});
+            for (_, tx) in streams(&routed).live.drain() {
+                let _ = tx.send(Ev::Close(gone.clone()));
+            }
         });
         Ok(Conn {
             out,
@@ -285,6 +412,7 @@ impl Conn {
             timeout,
             hello,
             events: Some(events),
+            channels,
             _child: None,
         })
     }
@@ -297,7 +425,7 @@ impl Conn {
     /// Wait for the answer to `id`; `Closed` once the reader has cleared `pending`.
     fn register(&self, id: u64) -> Result<oneshot::Receiver<Value>> {
         let (tx, rx) = oneshot::channel();
-        let mut w = self.pending.lock().unwrap();
+        let mut w = locked(&self.pending);
         if w.closed {
             return Err(Error::Closed);
         }
@@ -313,12 +441,12 @@ impl Conn {
             serde_json::to_vec(&json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))
                 .map_err(|e| Error::Protocol(e.to_string()))?;
         if self.out.send(frame(0, DATA, &body)).is_err() {
-            self.pending.lock().unwrap().calls.remove(&id);
+            locked(&self.pending).calls.remove(&id);
             return Err(Error::Closed);
         }
         let msg = match tokio::time::timeout(self.timeout, rx).await {
             Err(_) => {
-                self.pending.lock().unwrap().calls.remove(&id);
+                locked(&self.pending).calls.remove(&id);
                 return Err(Error::TimedOut);
             }
             Ok(Err(_)) => return Err(Error::Closed),
@@ -326,8 +454,41 @@ impl Conn {
         };
         match msg.get("error") {
             Some(e) => Err(Error::Rpc(RpcError::from_value(e))),
-            None => Ok(msg["result"].clone()),
+            None => Ok(msg.get("result").cloned().unwrap_or(Value::Null)),
         }
+    }
+
+    /// `terminal.attach` as the viewer that sets the size, with `history` lines of scrollback in the
+    /// first repaint. Returns the terminal's channel.
+    pub async fn attach(
+        &self,
+        terminal: &str,
+        cols: u16,
+        rows: u16,
+        history: u32,
+    ) -> Result<Stream> {
+        let reply = self
+            .call(
+                "terminal.attach",
+                json!({"terminal":terminal,"cols":cols,"rows":rows,"history":history}),
+            )
+            .await?;
+        let channel = reply
+            .get("channel")
+            .and_then(Value::as_u64)
+            .and_then(|c| u32::try_from(c).ok())
+            .ok_or_else(|| Error::Protocol("terminal.attach: no channel".into()))?;
+        let (tx, rx) = mpsc::unbounded_channel();
+        let mut state = streams(&self.channels);
+        for ev in state.orphans.remove(&channel).unwrap_or_default() {
+            let _ = tx.send(ev);
+        }
+        state.live.insert(channel, tx);
+        Ok(Stream {
+            channel,
+            rx,
+            out: self.out.clone(),
+        })
     }
 
     /// `machine.list`: herdr-core's list, as it answers.

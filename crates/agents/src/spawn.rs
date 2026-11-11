@@ -143,8 +143,11 @@ impl Agents {
                 if runs.slot(&id).is_some_and(|slot| slot.attempt() == attempt) {
                     runs.forget(&id);
                     self.shared.events.observed.notify_waiters();
-                    if rail.node(&id)?.worktree.is_none() {
-                        report_undo("remove the Agent from the Rail", rail.remove(&id));
+                    if rail.node(crate::rail::agent_id(&id)?)?.worktree.is_none() {
+                        report_undo(
+                            "remove the Agent from the Rail",
+                            rail.remove(crate::rail::agent_id(&id)?),
+                        );
                     } else if request.start_attribution.is_some() {
                         let path = self.project_dir().to_string_lossy().into_owned();
                         let cause = err.message.clone();
@@ -223,7 +226,7 @@ impl Agents {
         if params.visibility == Some(contracts::agent::RailVisibility::Internal) {
             let rail = self.shared.rail();
             if ctx.actor.kind == ActorKind::Agent
-                && rail.node(&ctx.actor.id)?.kind != NodeKind::Workstream
+                && rail.node(crate::rail::agent_id(&ctx.actor.id)?)?.kind != NodeKind::Workstream
             {
                 return Err(RpcError::forbidden(
                     "only a Door may start internal children",
@@ -234,7 +237,11 @@ impl Agents {
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
         if ctx.actor.kind == ActorKind::Agent {
-            let agent = self.shared.rail().node(&ctx.actor.id).is_ok();
+            let agent = self
+                .shared
+                .rail()
+                .node(crate::rail::agent_id(&ctx.actor.id)?)
+                .is_ok();
             if !agent {
                 return Err(RpcError::forbidden(format!(
                     "{} is not an Agent and may not start an Agent",
@@ -243,7 +250,12 @@ impl Agents {
             }
             params.parent = Some(ctx.actor.id.clone());
         } else if let Some(parent) = &params.parent
-            && self.shared.rail().node(parent)?.kind == NodeKind::Agent
+            && self
+                .shared
+                .rail()
+                .node(crate::rail::agent_id(parent)?)?
+                .kind
+                == NodeKind::Agent
         {
             return Err(RpcError::conflict(format!(
                 "{parent} is an Agent: only an Agent's own start nests under it"
@@ -318,7 +330,7 @@ impl Agents {
         let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;
         self.shared.mark_starting(&node.id, attempt.clone());
         if request.by_user_named {
-            rail.set_user_named(&node.id)?;
+            rail.set_user_named(crate::rail::agent_id(&node.id)?)?;
         }
         if request.settle_name
             && let Some(slot) = self.shared.runs().slot_mut(&node.id)
@@ -346,7 +358,7 @@ impl Agents {
         }
         let (node, saved_cwd) = {
             let rail = self.shared.rail();
-            let node = rail.node(&id)?;
+            let node = rail.node(crate::rail::agent_id(&id)?)?;
             let saved_cwd = match self.shared.runs().slot(&id) {
                 Some(Slot::Running(run)) => Some(run.cwd().to_owned()),
                 _ => None,
@@ -395,7 +407,10 @@ impl Agents {
         let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         let owner = match workstream {
             Some(workstream) => {
-                let node = self.shared.rail().node(&workstream)?;
+                let node = self
+                    .shared
+                    .rail()
+                    .node(crate::rail::agent_id(&workstream)?)?;
                 if node.kind != NodeKind::Workstream {
                     return Err(RpcError::new(
                         code::INVALID_PARAMS,
@@ -437,18 +452,20 @@ impl Agents {
         } = launch;
         let (node, prompt) = {
             let mut rail = self.shared.rail();
-            let node = rail.node(id)?;
+            let node = rail.node(crate::rail::agent_id(id)?)?;
             // O2, O3: the first Steer is the node's order, whichever way it was set.
             let spawn_prompt = rail.spawn_prompt(crate::rail::agent_id(id)?)?;
             let prompt = order::first_input(
                 first,
                 node.work.as_ref(),
                 spawn_prompt.as_deref(),
-                rail.order_revision(id)?.is_some(),
+                rail.order_revision(crate::rail::agent_id(id)?)?.is_some(),
                 attempt,
             );
 
-            if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(id)?) {
+            if let (Some(text), Some(revision)) =
+                (&prompt, rail.order_revision(crate::rail::agent_id(id)?)?)
+            {
                 rail.prepare_instruction(&revision, attempt, text, true)?;
             }
             (node, prompt)
@@ -537,7 +554,7 @@ impl Agents {
             Origin::Fresh => None,
             Origin::Resume(conversation) => Some(conversation),
         };
-        let node = self.shared.rail().node(id)?;
+        let node = self.shared.rail().node(crate::rail::agent_id(id)?)?;
         let role = match node.kind {
             NodeKind::Workstream => Role::Door,
             _ => Role::Agent,
@@ -633,16 +650,17 @@ impl Agents {
     pub fn start_for_test(&self, id: &str, first: Option<String>) -> Result<(), RpcError> {
         let (attempt, prompt) = {
             let mut rail = self.shared.rail();
-            let node = rail.node(id)?;
-            let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
+            let agent = crate::rail::agent_id(id)?;
+            let node = rail.node(agent)?;
+            let attempt = rail.allocate_attempt(agent)?;
             let prompt = order::first_input(
                 first,
                 node.work.as_ref(),
-                rail.spawn_prompt(crate::rail::agent_id(id)?)?.as_deref(),
-                rail.order_revision(id)?.is_some(),
+                rail.spawn_prompt(agent)?.as_deref(),
+                rail.order_revision(agent)?.is_some(),
                 &attempt,
             );
-            rail.attach_terminal(crate::rail::agent_id(id)?, "fixture")?;
+            rail.attach_terminal(agent, "fixture")?;
             (attempt, prompt)
         };
         self.shared.mark_starting(id, attempt.clone());
@@ -718,7 +736,9 @@ mod idle_tests {
                 None,
                 node.work.as_ref(),
                 None,
-                rail.order_revision(&node.id).unwrap().is_some(),
+                rail.order_revision(crate::rail::agent_id(&node.id).unwrap())
+                    .unwrap()
+                    .is_some(),
                 if restart { "2" } else { "1" },
             );
             let mut run = Run::starting(

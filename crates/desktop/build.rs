@@ -1,7 +1,7 @@
 mod build_stamp;
 
-fn main() {
-    let dir = std::env::current_dir().expect("the build runs in a directory");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = std::env::current_dir()?;
     for path in build_stamp::rerun_paths(&dir) {
         println!("cargo:rerun-if-changed={}", path.display());
     }
@@ -25,6 +25,6 @@ fn main() {
                     "zoom_window",
                 ]),
             ),
-    )
-    .expect("the current-window plugin permissions must build");
+    )?;
+    Ok(())
 }

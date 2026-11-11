@@ -459,7 +459,13 @@ impl Daemon {
                 .map_err(DeliverableError::internal)?;
         }
         let maker = if conn.actor.kind == ActorKind::Agent {
-            Some(agents::maker_in(&tx, &conn.actor.id)?.ok_or(DeliverableError::MakerGone)?)
+            Some(
+                agents::AgentId::parse(&conn.actor.id)
+                    .map(|id| agents::maker_in(&tx, id))
+                    .transpose()?
+                    .flatten()
+                    .ok_or(DeliverableError::MakerGone)?,
+            )
         } else {
             None
         };
@@ -562,7 +568,10 @@ fn publish(
             .as_ref()
             .map_or_else(|| "You".to_owned(), |(name, _)| name.clone()),
         home: match call.maker {
-            Some(_) => agents::home_in(tx, &conn.actor.id)?,
+            Some(_) => agents::AgentId::parse(&conn.actor.id)
+                .map(|id| agents::home_in(tx, id))
+                .transpose()?
+                .flatten(),
             None => None,
         },
         title: p.title.into(),
@@ -612,7 +621,10 @@ fn move_to(call: &Call, p: MoveParams) -> Ret<Done<Deliverable>> {
         },
     )?;
     if let Some(home) = &p.home
-        && !agents::is_home_in(tx, home)?
+        && !agents::AgentId::parse(home)
+            .map(|id| agents::is_home_in(tx, id))
+            .transpose()?
+            .unwrap_or(false)
     {
         return Err(DeliverableError::NotAHome);
     }

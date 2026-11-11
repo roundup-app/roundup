@@ -62,7 +62,7 @@ impl Shared {
     ) -> Result<(), SteerError> {
         let name = self
             .rail()
-            .name(id)
+            .name_or_gone(id)
             .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         match self.runs().slot(id) {
             Some(Slot::Running(run))
@@ -101,7 +101,7 @@ impl Agents {
         let name = self
             .shared
             .rail()
-            .name(id)
+            .name_or_gone(id)
             .map_err(|error| PromptError::Rail(error.into()))?;
         let missing = || PromptError::NotFound {
             id: id.to_owned(),
@@ -262,7 +262,7 @@ impl Shared {
     ) -> Result<(), SteerError> {
         let name = self
             .rail()
-            .name(id)
+            .name_or_gone(id)
             .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
         let not_found = |name: &str| PromptError::NotFound {
             id: id.to_owned(),
@@ -364,7 +364,7 @@ impl Shared {
         let delivery = {
             let mut rail = self.rail();
             if first.is_some() {
-                rail.first_instruction(id, &attempt)
+                crate::rail::agent_id(id).and_then(|id| rail.first_instruction(id, &attempt))
             } else if let Some(revision) = record.as_ref().and_then(|r| r.revision.as_deref()) {
                 rail.prepare_instruction(revision, &attempt, text, false)
                     .map(Some)
@@ -416,7 +416,7 @@ impl Shared {
             Err(err) if err.code == code::NOT_FOUND => {
                 let name = self
                     .rail()
-                    .name(id)
+                    .name_or_gone(id)
                     .map_err(|error| SteerError::Refused(PromptError::Rail(error.into())))?;
                 return Err(SteerError::Refused(not_found(&name)));
             }
@@ -426,7 +426,7 @@ impl Shared {
                     id: id.to_owned(),
                     name: self
                         .rail()
-                        .name(id)
+                        .name_or_gone(id)
                         .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?,
                 };
                 if err.code == code::UNKNOWN_OUTCOME {
@@ -456,7 +456,7 @@ impl Shared {
                     }
                     _ => SteerError::Uncertain(PromptError::NotAccepted {
                         id: id.to_owned(),
-                        name: self.rail().name(id).map_err(|error| {
+                        name: self.rail().name_or_gone(id).map_err(|error| {
                             SteerError::Uncertain(PromptError::Rail(error.into()))
                         })?,
                     }),
@@ -465,7 +465,7 @@ impl Shared {
         };
         let name = self
             .rail()
-            .name(id)
+            .name_or_gone(id)
             .map_err(|error| SteerError::Uncertain(PromptError::Rail(error.into())))?;
         let mut runs = self.runs();
         let ended = match runs.slot_mut(id) {
@@ -491,7 +491,7 @@ impl Shared {
     /// working (`Kind::Idle`) or a question's Kind leaves `needs-you` (H4702a). Physical completion precedes the title timeout; `NOT_ACKED`
     /// means the Escape was written but its outcome is uncertain. Nothing is retried.
     pub(super) async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
-        let name = self.rail().name(id)?;
+        let name = self.rail().name_or_gone(id)?;
         let not_found = || RpcError::not_found(format!("{name} is not running"));
         let (terminal_id, acked) = {
             let mut runs = self.runs();
@@ -544,7 +544,7 @@ impl Shared {
             .await;
         let error = match written {
             Err(err) => {
-                let name = self.rail().name(id)?;
+                let name = self.rail().name_or_gone(id)?;
                 eprintln!("agents: could not write the interrupt to terminal {terminal_id}: {err}");
                 if err.code == code::UNKNOWN_OUTCOME {
                     RpcError::unknown_outcome(format!(
@@ -560,7 +560,7 @@ impl Shared {
             Ok(()) => match tokio::time::timeout(self.steer.interrupt_bound, acked).await {
                 Ok(Ok(())) => return Ok(()),
                 _ => {
-                    let name = self.rail().name(id)?;
+                    let name = self.rail().name_or_gone(id)?;
                     eprintln!("agents: {id}: the title did not change after the interrupt");
                     RpcError::new(
                         code::NOT_ACKED,
