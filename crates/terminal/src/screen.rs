@@ -25,6 +25,29 @@ pub(super) enum ScreenParser {
 }
 
 impl ScreenState {
+    /// A fresh mirror of a `cols` x `rows` Terminal, its log and counters at zero.
+    pub(super) fn new(cols: u16, rows: u16) -> Self {
+        let snapshot_available = snapshot_size_supported(cols, rows);
+        let scrollback_rows = if snapshot_available {
+            SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(cols))
+        } else {
+            0
+        };
+        Self {
+            parser: ScreenParser::Pending,
+            after: 0,
+            log: output::Log::default(),
+            cursors: Default::default(),
+            snapshot_available,
+            scrollback_rows,
+            cols,
+            rows,
+            scheme_notices: false,
+            kitty: Default::default(),
+            status: Default::default(),
+        }
+    }
+
     pub(super) fn ensure_parser(&mut self) -> Option<&mut vt100::Parser<Seen>> {
         if matches!(&self.parser, ScreenParser::Pending) {
             let (rows, cols, scrollback) = if self.snapshot_available {

@@ -78,25 +78,7 @@ impl Terminals {
             Some(adapt) => adapt(writer),
             None => writer,
         };
-        let snapshot_available = screen::snapshot_size_supported(params.cols, params.rows);
-        let scrollback = if snapshot_available {
-            SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(params.cols))
-        } else {
-            0
-        };
-        let screen = Arc::new(Mutex::new(ScreenState {
-            parser: ScreenParser::Pending,
-            after: 0,
-            log: output::Log::default(),
-            cursors: Default::default(),
-            snapshot_available,
-            scrollback_rows: scrollback,
-            cols: params.cols,
-            rows: params.rows,
-            scheme_notices: false,
-            kitty: Default::default(),
-            status: Default::default(),
-        }));
+        let screen = Arc::new(Mutex::new(ScreenState::new(params.cols, params.rows)));
         let (program_arrival, program_arrives) = mpsc::channel::<Program>();
         let (reaped, completion) = mpsc::channel();
         let (ended, program_ended) = watch::channel(false);
@@ -136,7 +118,7 @@ impl Terminals {
                             &shared,
                             number,
                             reader,
-                            &handle,
+                            &handle.recorder,
                             &reader_screen,
                             &pump_output,
                         ),
