@@ -474,7 +474,7 @@ async fn release_locked(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger
     ledger.persist(inner, None);
 }
 
-/// DTC4: a Door at its Stop is written one note for what `rupd` has pending for it: its pending
+/// DTC4: a Door at its Stop is written one note for what the Daemon has pending for it: its pending
 /// digests fold into one Message with one entry per child, the newest, as B22(b) merges two.
 pub(crate) fn catch_up<'a>(
     inner: &'a Arc<Inner>,
