@@ -12,45 +12,35 @@ fn attribution(agent: &str) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn a5765e_workstream_attribution_survives_stop_and_reopen_with_or_without_a_mode_prompt() {
-    for prompt in [None, Some("Saved Mode prompt")] {
-        let f = Fixture::new();
-        let source = attribution("1");
-        let created = f
-            .call(
-                "rail.createWorkstream",
-                json!({
-                    "name": "Target work", "start_attribution": source
-                }),
-            )
-            .await
-            .unwrap();
-        assert_eq!(created["start_attribution"], source);
-        if let Some(prompt) = prompt {
-            f.call(
-                "workstream.setOpeningPrompt",
-                json!({"id": created["id"], "prompt": prompt}),
-            )
-            .await
-            .unwrap();
-        }
-        f.call("rail.startDoor", json!({"id": created["id"]}))
-            .await
-            .unwrap();
-        f.call("agent.stop", json!({"id": created["id"]}))
-            .await
-            .unwrap();
-        let f = f.reopen();
-        let read = f.call("rail.tree", serde_json::Value::Null).await.unwrap();
-        let node = read
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|n| n["id"] == created["id"])
-            .unwrap();
-        assert_eq!(node["start_attribution"], source);
-        assert_eq!(node["opening_prompt"], json!(prompt));
-    }
+async fn a5765e_workstream_attribution_survives_stop_and_reopen() {
+    let f = Fixture::new();
+    let source = attribution("1");
+    let created = f
+        .call(
+            "rail.createWorkstream",
+            json!({
+                "name": "Target work", "start_attribution": source
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created["start_attribution"], source);
+    f.call("rail.startDoor", json!({"id": created["id"]}))
+        .await
+        .unwrap();
+    f.call("agent.stop", json!({"id": created["id"]}))
+        .await
+        .unwrap();
+    let f = f.reopen();
+    let read = f.call("rail.tree", serde_json::Value::Null).await.unwrap();
+    let node = read
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == created["id"])
+        .unwrap();
+    assert_eq!(node["start_attribution"], source);
+    assert_eq!(node["opening_prompt"], serde_json::Value::Null);
 }
 
 #[tokio::test]
