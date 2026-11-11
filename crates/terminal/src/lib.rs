@@ -8,6 +8,11 @@ mod contract_handlers;
 mod error;
 pub use error::Error;
 use error::Locked;
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the start path switches to it in the next slice")
+)]
+mod host;
 mod input;
 mod integration;
 mod output;
