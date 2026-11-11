@@ -17,8 +17,8 @@ mod ordinal;
 pub use ordinal::Ordinal;
 mod launch;
 pub use launch::{
-    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
-    StartAttribution, StartDoorParams,
+    CreateModeParams, CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams,
+    SpawnRole, StartAttribution, StartDoorParams,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -432,10 +432,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = bool)]
     pub auto: Option<bool>,
-    /// A4452c: the Workstream's saved opening prompt; absent on an Agent and when none is set.
+    /// A4452c: the Mode Agent's saved prompt; absent on other nodes and when none is set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = String)]
-    pub opening_prompt: Option<String>,
+    pub mode_prompt: Option<String>,
     pub id: String,
     pub kind: NodeKind,
     pub name: String,
@@ -884,6 +884,42 @@ pub struct MoveParams {
     pub id: String,
     pub parent: Option<String>,
     pub index: u32,
+}
+
+/// A4452c: the longest saved prompt a Mode holds, in characters.
+pub const MODE_PROMPT_MAX: usize = 4000;
+
+/// A4452c: the user's saved prompt for a root Agent Mode; `None` or blank clears it.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ModePromptParams {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub prompt: Option<String>,
+}
+
+/// A4452c: a user-requested fresh Mode Agent run. Retries retain `request`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ModeRestartParams {
+    pub id: String,
+    pub request: crate::Text<128, { crate::text::NONEMPTY }>,
+    /// U3801: the user's current App choice; omission preserves the Agent's selected choice.
+    #[serde(
+        default,
+        rename = "permissionMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[specta(optional, type = PermissionMode)]
+    #[schemars(skip)]
+    pub permission_mode: Option<PermissionMode>,
+    /// U3802: the App's current engine choice; omission keeps the Agent's Adapter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub engine: Option<String>,
+    /// A36: use the Agent's saved Model when present, then this App default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub model: Option<String>,
 }
 
 /// A5214b: `agent.saveAsMode`, the Mode's name.

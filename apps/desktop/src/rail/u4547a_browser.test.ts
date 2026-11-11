@@ -14,9 +14,13 @@ it("u4547a_rendered_heading_keys_preserve_focus_without_calls", async () => {
     const app = window.__fake.app;
     const agents = await app.rpc('rail.tree', null);
     const plain = await app.rpc('rail.createWorkstream', { name: 'Product work', parent: null });
-    const mode = await app.rpc('rail.createWorkstream', { name: 'Review changes', parent: null });
-    await app.rpc('workstream.setOpeningPrompt', { id: mode.id, prompt: 'Review the current changes' });
-    for (const [index, agent] of agents.entries()) if (index < 8) await app.rpc('rail.move', { id: agent.id, parent: index < 4 ? plain.id : mode.id, index });
+    const mode = await app.rpc('agent.createMode', { name: 'Review changes', prompt: 'Review the current changes' });
+    for (const [index, agent] of agents.filter(node => node.kind === 'agent').entries()) {
+      if (index < 4) await app.rpc('rail.move', { id: agent.id, parent: plain.id, index });
+    }
+    for (let index = 0; index < 2; index++) {
+      await app.rpc('agent.spawn', { cwd: app.opened.project.path, parent: mode.id, name: 'reviewer-' + index, prompt: null, model: null, effort: null });
+    }
     return true;
   })()`);
   await lane.until("document.querySelectorAll('.rail-tree .section-head').length === 3");
@@ -58,7 +62,7 @@ it("u4547a_rendered_heading_keys_preserve_focus_without_calls", async () => {
     for (const kind of ["workstreams", "modes", "agents", "empty"]) {
       await lane.evaluate(`(() => {
         const saved = ${JSON.stringify(saved)};
-        const rows = saved.filter(row => row.parent === null && (${JSON.stringify(kind)} === 'agents' ? row.kind === 'agent' : ${JSON.stringify(kind)} === 'modes' ? !!row.opening_prompt?.trim() : ${JSON.stringify(kind)} === 'workstreams' ? row.kind === 'workstream' && !row.opening_prompt?.trim() : false));
+        const rows = saved.filter(row => row.parent === null && (${JSON.stringify(kind)} === 'agents' ? row.kind === 'agent' : ${JSON.stringify(kind)} === 'modes' ? !!row.mode_prompt?.trim() : ${JSON.stringify(kind)} === 'workstreams' ? row.kind === 'workstream' && !row.mode_prompt?.trim() : false));
         window.__fake.app.handlers['rail.tree'] = () => rows;
         window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'rail.changed' });
         return true;

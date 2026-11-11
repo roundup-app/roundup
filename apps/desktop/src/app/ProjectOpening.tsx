@@ -67,16 +67,18 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
 
         const node = kind === "agent"
           ? await calls.rpc("agent.spawn", { cwd: opened.path, parent: null, name, prompt, model: null, effort: null, start_attribution })
-          : await calls.rpc("rail.createWorkstream", { name, parent: null, start_attribution });
+          : kind === "workstream"
+            ? await calls.rpc("rail.createWorkstream", { name, parent: null, start_attribution })
+            : await calls.rpc("agent.createMode", { name, prompt, start_attribution });
 
-        created = { path: opened.path, id: node.id, stage: kind === "mode" ? "save" : "start" };
+        created = { path: opened.path, id: node.id, stage: "start" };
 
-        if (kind !== "agent") {
-          if (kind === "mode") await calls.rpc("workstream.setOpeningPrompt", { id: node.id, prompt });
-
+        if (kind === "workstream") {
           if (signal.aborted) return lost();
-          created.stage = "start";
           await calls.rpc("rail.startDoor", { id: node.id, prompt });
+        } else if (kind === "mode") {
+          if (signal.aborted) return lost();
+          await calls.rpc("agent.restartMode", { id: node.id, request: `project-start:${id}` });
         }
 
         if (signal.aborted) return lost();

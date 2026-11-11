@@ -205,9 +205,11 @@ impl Shared {
         // A5287: the guards of `agent.makeWorkstream` and `agent.saveAsMode`.
         let agent = node.kind == NodeKind::Agent;
         node.can_make_workstream = agent
+            && node.mode_prompt.is_none()
             && node.parent.is_none()
             && rail.has_conversation(crate::rail::agent_id(&node.id)?)?;
         node.can_save_as_mode = agent
+            && node.mode_prompt.is_none()
             && matches!(
                 Launcher::load_lean(&self.rail_view.data_dir, &node.id),
                 Ok(Some(_))

@@ -19,7 +19,7 @@ import type { Project } from "../app/seam";
 import { createFakeApp } from "./fakeApp";
 import { fromBase64, toBase64 } from "../terminal/base64";
 import type { FakeApp } from "./fakeApp";
-import { agent, workstream, MINUTE, door, USER } from "./nodes";
+import { agent, mode, workstream, MINUTE, door, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 
 const CONFLICT = -32003;
@@ -292,8 +292,14 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return append(parent, (id, order) => workstream(id, { name, parent, order }));
   };
 
-  app.handlers["workstream.setOpeningPrompt"] = ({ id, prompt }) => {
-    changed(Object.assign(find(id), { opening_prompt: prompt }));
+  app.handlers["agent.createMode"] = ({ name, prompt, start_attribution }) =>
+    append(null, (id, order) => mode(id, prompt, { name, order, ...(start_attribution ? { start_attribution } : {}), status: null, attempt: null, status_revision: null, terminal_id: null }));
+
+  app.handlers["agent.setModePrompt"] = ({ id, prompt }) => {
+    const target = find(id);
+
+    if (target.kind !== "agent" || target.parent !== null) throw new RpcError(CONFLICT, "only a root Agent can hold a Mode prompt");
+    changed(Object.assign(target, { mode_prompt: prompt }));
 
     return null;
   };
@@ -320,7 +326,14 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return changed(Object.assign(node, { attempt, status_revision: "1", terminal_id: `t-${id}-${attempt}`, status: statusAt(Date.now(), "working", "starting", 0) }));
   };
 
-  app.handlers["workstream.restart"] = ({ id }) => app.handlers["rail.startDoor"]!({ id });
+  app.handlers["agent.restartMode"] = ({ id }) => {
+    const target = find(id);
+
+    if (target.kind !== "agent" || target.parent !== null || !target.mode_prompt?.trim()) throw new RpcError(CONFLICT, "only a root Mode Agent can be restarted");
+    const attempt = String(BigInt(target.attempt ?? "0") + 1n);
+
+    return changed(Object.assign(target, { attempt, status_revision: "1", terminal_id: `t-${id}-${attempt}`, status: statusAt(Date.now(), "working", "starting", 0) }));
+  };
 
   app.handlers["rail.move"] = async ({ id, parent, index }) => {
     // A real Daemon answers a move in a later task than the drop that sent it.

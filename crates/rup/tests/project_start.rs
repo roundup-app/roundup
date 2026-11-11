@@ -213,10 +213,10 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
         assert_eq!(row["parent"], Value::Null);
         assert_eq!(
             row["kind"],
-            if kind == "agent" {
-                "agent"
-            } else {
+            if kind == "workstream" {
                 "workstream"
+            } else {
+                "agent"
             }
         );
         assert_eq!(row["start_attribution"], attribution);
@@ -240,7 +240,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
                 .any(|touch| touch["actor"]["id"] == qualified)
         );
         assert_eq!(
-            row["opening_prompt"],
+            row["mode_prompt"],
             if kind == "mode" {
                 json!(prompt)
             } else {
@@ -267,7 +267,7 @@ async fn a5765a_an_agent_starts_each_kind_in_open_b_and_gets_its_id() {
             .find(|loaded| loaded["id"] == row["id"])
             .unwrap();
         assert_eq!(loaded["start_attribution"], row["start_attribution"]);
-        assert_eq!(loaded["opening_prompt"], row["opening_prompt"]);
+        assert_eq!(loaded["mode_prompt"], row["mode_prompt"]);
     }
     let launches = std::fs::read_to_string(launch).unwrap();
     assert_eq!(launches.lines().count(), 12);
@@ -373,6 +373,20 @@ async fn start_target(
         launch["name"] = params["name"].clone();
         launch["start_attribution"] = attribution;
         client.request("agent.spawn", launch).await.unwrap()
+    } else if params["kind"] == "mode" {
+        let node = client
+            .request(
+                "agent.createMode",
+                json!({"name":params["name"],"prompt":params["prompt"],"start_attribution":attribution}),
+            )
+            .await
+            .unwrap();
+        let mut restart =
+            json!({"id":node["id"],"request":format!("project-start:{}",request["id"])});
+        if let Some(mode) = permission {
+            restart["permissionMode"] = json!(mode);
+        }
+        client.request("agent.restartMode", restart).await.unwrap()
     } else {
         let node = client
             .request(
@@ -381,15 +395,6 @@ async fn start_target(
             )
             .await
             .unwrap();
-        if params["kind"] == "mode" {
-            client
-                .request(
-                    "workstream.setOpeningPrompt",
-                    json!({"id":node["id"],"prompt":params["prompt"]}),
-                )
-                .await
-                .unwrap();
-        }
         launch["id"] = node["id"].clone();
         client.request("rail.startDoor", launch).await.unwrap()
     }

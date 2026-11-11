@@ -1,4 +1,4 @@
-//! Creation parameters for Agents, Workstreams and Door starts.
+//! Creation parameters for Agents, Workstreams, Modes and Door starts.
 
 use super::Order;
 use schemars::JsonSchema;
@@ -128,6 +128,22 @@ pub struct CreateWorkstreamParams {
     #[serde(default)]
     #[specta(optional, type = Order)]
     pub order: Option<Order>,
+}
+
+/// A user-created Mode: a root Agent whose first prompt is saved for later restarts.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct CreateModeParams {
+    /// A5765e: only the target user connection may supply source attribution.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "StartAttribution::deserialize_present"
+    )]
+    #[specta(optional, type = StartAttribution)]
+    #[schemars(skip)]
+    pub start_attribution: Option<StartAttribution>,
+    pub name: String,
+    pub prompt: String,
 }
 
 /// LC7: names by kind. As a call's parameter, the extras to add; as the result of `agent.extras`,

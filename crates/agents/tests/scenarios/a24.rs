@@ -179,11 +179,7 @@ async fn f8_the_door_keeps_f2_on_start_and_resume() {
     let old = f.attempt(&id).await;
     let restarting = {
         let (f, id) = (Arc::clone(&f), id.clone());
-        tokio::spawn(async move {
-            f.agents
-                .restart_door(&f.ctx(), &id, agents::START_DOOR_ACK_BOUND)
-                .await
-        })
+        tokio::spawn(async move { f.call("rail.startDoor", json!({"id":id})).await })
     };
     f.until_attempt_changed(&id, &old).await;
     assert_f8_argv(&f, false).await;

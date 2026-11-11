@@ -12,7 +12,7 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
         alert_level: Default::default(),
         id: id.into(),
         auto: (kind == NodeKind::Workstream).then_some(false),
-        opening_prompt: None,
+        mode_prompt: None,
         kind,
         name: id.into(),
         parent: None,

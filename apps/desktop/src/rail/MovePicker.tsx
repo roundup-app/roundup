@@ -47,7 +47,7 @@ export const MovePicker = (props: {
 export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "app" | "rail" | "daemonExit">, rowElement: (id: string) => HTMLElement | undefined) => {
   const [target, setTarget] = createSignal<{ id: string; anchor: HTMLElement } | null>(null);
   const destinations = () => rail.nodes.filter(node => node.kind === "workstream").map(node => ({ value: node.id, label: node.name }));
-  const available = (id: string | undefined) => daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "agent" && node.parent === null) && destinations().length > 0;
+  const available = (id: string | undefined) => daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "agent" && node.parent === null && !node.mode_prompt?.trim()) && destinations().length > 0;
 
   const open = (id: string) => {
     const anchor = rowElement(id);
@@ -78,7 +78,7 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
         if (rail.collapsed().has(params.parent)) rail.toggleCollapsed(params.parent);
         const node = rail.nodes.find(node => node.id === params.parent);
 
-        rail.setSectionOpen(node?.opening_prompt?.trim() ? "modes" : "workstreams", true);
+        rail.setSectionOpen(node?.kind === "workstream" ? "workstreams" : "agents", true);
       }
 
       await rail.settled();

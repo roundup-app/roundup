@@ -145,7 +145,7 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAdd).toBe("ctrl+shift+KeyY"));
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
-  expect(app.calls.filter(call => ["workstream.setOpeningPrompt", "workstream.restart", "rail.startDoor"].includes(call.method))).toEqual([]);
+  expect(app.calls.filter(call => ["agent.setModePrompt", "agent.restartMode", "rail.startDoor"].includes(call.method))).toEqual([]);
   cleanup();
   await mount();
   expect(appSettings()).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });

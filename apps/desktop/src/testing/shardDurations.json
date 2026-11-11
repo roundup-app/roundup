@@ -244,7 +244,7 @@
  "src/perf/u3010e_frames.test.ts": 1,
  "src/perf/u3010g_drivers.test.ts": 9,
  "src/plain/q10_markdown.test.tsx": 1,
- "src/rail/a4452c_opening_prompt.test.tsx": 3,
+ "src/rail/a4452c_mode_prompt.test.tsx": 3,
  "src/rail/doorState.test.ts": 1,
  "src/rail/menu/a5213_offered_actions.test.tsx": 2,
  "src/rail/menu/u2694_confirm.test.tsx": 4,

@@ -364,7 +364,7 @@ impl Intake {
                 self.emit(id)?;
                 let result = self
                     .agents
-                    .start_door_with(
+                    .start_with_role(
                         ctx,
                         StartDoorParams {
                             prompt: None,
@@ -378,6 +378,8 @@ impl Intake {
                         },
                         None,
                         false,
+                        Role::Door,
+                        NodeKind::Workstream,
                     )
                     .await;
                 match result {

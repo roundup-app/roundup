@@ -47,26 +47,25 @@ async fn u4547e_reparenting_survives_reopen() {
     .unwrap();
     let mode: RailNode = serde_json::from_value(
         c.request(
-            "rail.createWorkstream",
-            json!({"name": "Review", "parent": null}),
+            "agent.createMode",
+            json!({"name": "Review", "prompt": "review it"}),
         )
         .await
         .unwrap(),
     )
     .unwrap();
-    c.request(
-        "workstream.setOpeningPrompt",
-        json!({"id": mode.id, "prompt": "review it"}),
-    )
-    .await
-    .unwrap();
     let mut events = project.subscribed().await;
     let into_workstream = project.spawn_agent(&c).await;
-    let into_mode = project.spawn_agent(&c).await;
-    for (id, parent) in [
-        (&into_workstream.id, &workstream.id),
-        (&into_mode.id, &mode.id),
-    ] {
+    let into_mode: RailNode = serde_json::from_value(
+        c.request(
+            "agent.spawn",
+            json!({"cwd": project.dir.path(), "name": "Mode child", "prompt": null, "parent": mode.id}),
+        )
+        .await
+        .unwrap(),
+    )
+    .unwrap();
+    for (id, parent) in [(&into_workstream.id, &workstream.id)] {
         c.request("rail.move", json!({"id": id, "parent": parent, "index": 0}))
             .await
             .unwrap();

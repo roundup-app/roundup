@@ -2,14 +2,14 @@ import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { RequestedApp } from "../testing/requestedApp";
-import { node, workstream, NOW } from "../testing/nodes";
+import { mode, node, workstream, NOW } from "../testing/nodes";
 import { mountRail, rowOf, rowNames, settled } from "./railFixture";
 
 const tree = () => [
   node("root", { order: 0 }),
-  workstream("mode", { opening_prompt: " \nDo work\n ", order: 1 }),
+  mode("mode", " \nDo work\n ", { order: 1 }),
   node("mode-child", { parent: "mode" }),
-  workstream("plain", { opening_prompt: " \n ", order: 2 }),
+  workstream("plain", { order: 2 }),
   node("plain-child", { parent: "plain" }),
   workstream("plain-second", { order: 3 }),
 ];
@@ -110,18 +110,14 @@ it("u4547a_section_state_survives_reopen_per_project", async () => {
   expect(heads().map(head => head.getAttribute("aria-expanded"))).toEqual(["true", "false", "true"]);
 });
 
-it("u5645c_sections_and_stable_order_survive_reclassification", async () => {
-  const nodes = () => [workstream("plain"), workstream("nested-mode", { parent: "plain", opening_prompt: "Saved" }),
-    node("second", { parent: "plain", order: 4 }), node("first", { parent: "plain", order: 4 }),
-    workstream("mode", { opening_prompt: "Saved" }), node("root")];
+it("u5645c_sections_and_stable_order_survive_mode_prompt_clearing", async () => {
+  const nodes = () => [workstream("plain", { order: 0 }), node("nested", { parent: "plain", order: 1 }),
+    mode("mode", "Saved", { order: 2 }), node("mode-child", { parent: "mode" }), node("root", { order: 3 })];
 
   const { rail, app } = await mountRail(nodes());
   const members = () => heads().map(head => [...head.parentElement!.querySelectorAll(".rail-row")].map(row => row.getAttribute("data-id")));
-  expect(members()).toEqual([["plain", "nested-mode", "second", "first"], ["mode"], ["root"]]);
-  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "plain" ? { ...node, opening_prompt: "Now a Mode" } : node);
+  expect(members()).toEqual([["plain", "nested"], ["mode", "mode-child"], ["root"]]);
+  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "mode" ? { ...node, mode_prompt: "" } : node);
   await rail.refresh();
-  expect(members()).toEqual([["plain", "nested-mode", "second", "first", "mode"], ["root"]]);
-  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "nested-mode" ? { ...node, parent: null } : node);
-  await rail.refresh();
-  expect(members()).toEqual([["plain", "second", "first"], ["nested-mode", "mode"], ["root"]]);
+  expect(members()).toEqual([["plain", "nested"], ["root", "mode", "mode-child"]]);
 });
