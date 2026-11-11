@@ -1,4 +1,10 @@
 //! R3696c: an unused Agents module needs no Terminal-owner worker at startup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[cfg(target_os = "linux")]
 #[test]
 fn r3696c_opening_agents_starts_no_owner_worker() {

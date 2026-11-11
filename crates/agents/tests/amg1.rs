@@ -1,4 +1,10 @@
 //! AMG1: the environment marks a process as an Agent's, whatever its parent or session.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(clippy::disallowed_methods)] // the test names its own child's environment
 
 use agents::guard::{Live, Source};

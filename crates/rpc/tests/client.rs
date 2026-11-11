@@ -1,6 +1,12 @@
 //! C1: a Client whose connection drops reports a third outcome, `UNKNOWN_OUTCOME`, distinct from
 //! a request that never reached the Daemon at all (`INTERNAL`). Fake server on a temp socket, no
 //! Daemon, no network beyond the local Unix socket.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::io::BufRead;
 use std::os::unix::net::UnixListener;

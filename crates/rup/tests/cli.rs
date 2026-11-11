@@ -1,4 +1,10 @@
 //! I1–I7: the built `rup` as a command line, against an in-process Daemon or a stand-in on a temp socket.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};

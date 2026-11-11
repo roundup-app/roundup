@@ -1,4 +1,10 @@
 //! T26: a hand-off is a Change of kind `handed`, and the record bounds it.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::sync::Arc;
 
 use contracts::Actor;

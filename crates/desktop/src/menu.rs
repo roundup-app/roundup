@@ -26,7 +26,9 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
                 None
             }
         })
-        .expect("Tauri's macOS default starts with the application submenu");
+        .ok_or_else(|| {
+            std::io::Error::other("Tauri's macOS default starts with the application submenu")
+        })?;
     #[cfg(not(target_vendor = "apple"))]
     let application = {
         let submenu = Submenu::new(app, app.package_info().name.clone(), true)?;

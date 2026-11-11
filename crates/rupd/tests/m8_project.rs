@@ -1,5 +1,11 @@
 //! M8: an Agent asks the App to open or rename a Project. The Daemon validates, emits
 //! `project.requested` once, and logs a Touch; it cannot see what the App does.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::path::Path;
 use std::sync::Arc;

@@ -1,4 +1,10 @@
 //! X14 library capability only; production Output projection belongs to #1930.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[test]
 fn x14_library_observes_screen_edits_for_source_offsets() {

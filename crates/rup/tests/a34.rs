@@ -1,4 +1,6 @@
 //! A34: coordinated Workstream removal against real rupd.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::panic, clippy::indexing_slicing)]
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;
@@ -8,7 +10,6 @@ use contracts::agent::RailNode;
 use daemon::start;
 use removal::{agent_in, pad_in, pads, todo_in, todos, workstream};
 use serde_json::{Value, json};
-
 #[tokio::test]
 async fn a34_done_todos_are_deleted_and_open_ones_move() {
     let project = start(&[]);
@@ -16,7 +17,6 @@ async fn a34_done_todos_are_deleted_and_open_ones_move() {
     let ws = workstream(&client, "w").await;
     let finished = todo_in(&client, "finished", Some(&ws), true).await;
     let open = todo_in(&client, "open", Some(&ws), false).await;
-
     let removal = client
         .request("rail.remove", json!({ "id": ws }))
         .await

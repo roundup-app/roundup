@@ -1,4 +1,10 @@
 //! NA11–NA13: `rup actions` lists the App's named actions and `rup do` runs one.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::path::{Path, PathBuf};
 use std::process::{Output, Stdio};

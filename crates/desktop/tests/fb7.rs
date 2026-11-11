@@ -1,4 +1,10 @@
 //! FB7: the build id is the commit the App was built from (`scenarios/feedback-facts.md`).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[path = "../build_stamp.rs"]
 mod build_stamp;

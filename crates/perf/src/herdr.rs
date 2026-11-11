@@ -2,10 +2,6 @@
 //! Terminals hosted by a local herdr-core, as the spike's `corebench` measured them. Prints
 //! the median of `--runs` fresh cores as JSON next to `just perf`'s PTY numbers; no budget is
 //! changed and no Terminal of roundup is switched.
-#![deny(clippy::unwrap_used, clippy::expect_used)]
-#![deny(clippy::panic, clippy::indexing_slicing)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};

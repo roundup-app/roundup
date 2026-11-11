@@ -1,3 +1,9 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use contracts::{Actor, EventData};
 use pads::Pads;
 use provenance::Touches;

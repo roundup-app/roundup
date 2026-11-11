@@ -1,8 +1,3 @@
-#![deny(clippy::unwrap_used, clippy::expect_used)]
-#![deny(clippy::panic, clippy::indexing_slicing)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
-
 use std::io::Read;
 use std::process::ExitCode;
 use std::time::Duration;

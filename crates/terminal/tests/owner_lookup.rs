@@ -1,4 +1,10 @@
 //! X6570: the owner lookup reports a poisoned remote table.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use contracts::terminal::SpawnParams;
 use std::collections::BTreeMap;
 use terminal::{TerminalOwner, Terminals};

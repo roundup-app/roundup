@@ -1,4 +1,10 @@
 //! R16: isolate line acquisition from parsing, Daemon rendering and socket scheduling.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::hint::black_box;
 use std::time::Instant;
 

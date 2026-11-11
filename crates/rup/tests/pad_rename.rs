@@ -1,4 +1,10 @@
 //! U3789a's bounded rename prerequisite, through the real Daemon, CLI and MCP.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;

@@ -1,5 +1,11 @@
 //! SK7–SK9: `rup skill report` under a pty, and the three owner commands against a temporary
 //! config folder. None starts `claude` or a Daemon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::io::Read;
 use std::path::Path;
