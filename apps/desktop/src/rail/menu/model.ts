@@ -11,7 +11,7 @@ import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
 import type { QueueView } from "../../state/queue";
 import { goesLine, staysLine } from "./removal";
-import { isMode, railOrder } from "../layout";
+import { railOrder } from "../layout";
 import { judgeRemoval } from "./removal";
 import type { Known, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
@@ -52,13 +52,13 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
   ]);
 
-  const restartSession = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
+  const restartMode = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
     if (restarts[id]?.pending) return { kind: "pending" };
     setRestarts(id, { request, pending: true });
     const release = rail.launch(id);
 
     try {
-      await app.rpc("workstream.restart", { id, request });
+      await app.rpc("agent.restartMode", { id, request });
       await rail.refresh({ terminals: true });
       setRestarts(id, undefined);
       acknowledge(id);
@@ -66,7 +66,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       return { kind: "acknowledged" };
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      rail.commandFailure.show(error.message, id, "rail", () => { void restartSession(id); });
+      rail.commandFailure.show(error.message, id, "rail", () => { void restartMode(id); });
 
       return { kind: outcomeOf(error), message: error.message };
     } finally {
@@ -374,7 +374,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
     ];
 
-    if (node.yolo && !isMode(node) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
+    if (node.yolo && !(node.kind === "agent" && node.parent === null && node.mode_prompt?.trim()) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
 
     // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
     if (!node.yolo && (isRunning(node, exit) || node.can_resume)) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
@@ -405,7 +405,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseRemove,
     requestRemove,
     requestRemoveSelection,
-    restartSession,
+    restartMode,
     makeWorkstream,
     restartPending: (id: string) => restarts[id]?.pending ?? false,
     requestStop,

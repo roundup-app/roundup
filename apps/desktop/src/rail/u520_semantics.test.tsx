@@ -12,7 +12,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 const tree = () => [
   workstream("outer"),
-  workstream("inner", { parent: "outer" }),
+  agent("inner", "idle", "x", { parent: "outer" }),
   agent("leaf", "idle", "x", { parent: "inner" }),
   door("door", "working", "y", { order: 1 }),
   agent("child", "idle", "z", { parent: "door" }),
@@ -98,7 +98,7 @@ it("u5645a_reconciled_structure_updates_once_and_view_changes_do_not_rebuild", a
   expect(projection.nodeIds().slice(0, 3)).toEqual(["outer", "new", "inner"]);
   await refresh(tree().map(node => node.id === "inner" ? { ...node, parent: "door" } : node));
   expect(projection.nodeIds()).toEqual(["outer", "door", "inner", "leaf", "child"]);
-  await refresh(tree().map(node => node.id === "outer" ? { ...node, opening_prompt: "Saved" } : node));
+  await refresh(tree().map(node => node.id === "outer" ? { ...node, mode_prompt: "Saved" } : node));
   expect(projection.sectionRows().map(section => section.id)).toEqual(["workstreams", "modes"]);
   await refresh(tree().map(node => node.id === "child" ? { ...node, order: -1 } : node));
   expect(projection.nodeIds()).toEqual(["outer", "inner", "leaf", "door", "child"]);

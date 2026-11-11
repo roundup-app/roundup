@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { node, agent, door, workstream } from "../testing/nodes";
+import { agent, door, mode, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf, exitedTerminal } from "./railFixture";
 import { copy } from "./copy";
 
@@ -81,7 +81,7 @@ it("u5214_make_a_workstream_calls_the_method", async () => {
 it("u5214_save_as_mode_asks_for_a_name", async () => {
   const tree = [agent("a", "working", "", { can_save_as_mode: true })];
   const m = await mountRail(tree);
-  m.app.handlers["agent.saveAsMode"] = () => node("mode", { opening_prompt: "p" });
+  m.app.handlers["agent.saveAsMode"] = () => mode("mode", "p");
   fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });
   await m.app.pickMenu(copy.saveAsMode);
   const field = await screen.findByRole("textbox", { name: copy.name });

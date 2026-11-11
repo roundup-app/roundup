@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, door } from "../testing/nodes";
+import { agent, mode } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { CHORDS, LEADER, pressOf, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { endLeader } from "./registry";
@@ -45,11 +45,11 @@ const open = async (openingPrompt = "") => {
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
-    agent("w", "idle", "idle", { name: "lead", opening_prompt: openingPrompt }),
+    mode("w", openingPrompt, { name: "lead" }),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: id === "i" ? null : "w" })),
   ];
 
-  app.handlers["workstream.restart"] = () => agent("w", "idle", "idle", { opening_prompt: openingPrompt });
+  app.handlers["agent.restartMode"] = () => mode("w", openingPrompt, { name: "lead" });
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));

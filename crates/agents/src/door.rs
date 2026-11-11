@@ -85,14 +85,9 @@ impl Shared {
 }
 
 impl Agents {
-    /// A4452c: type the reserved user text only into the matching fresh, idle Door.
+    /// A4452c: type the reserved user text only into the matching fresh, idle Mode Agent.
     /// The coordinator persists its Typing fence before calling; never retry this effect.
-    pub async fn opening_prompt(
-        &self,
-        id: &str,
-        attempt: &str,
-        text: &str,
-    ) -> Result<(), RpcError> {
+    pub async fn mode_prompt(&self, id: &str, attempt: &str, text: &str) -> Result<(), RpcError> {
         let ready = async {
             loop {
                 let observed = self.shared.events.observed.notified();
@@ -114,7 +109,9 @@ impl Agents {
                             }
                         }
                         _ => {
-                            return Err(RpcError::conflict("fresh Door Attempt is no longer live"));
+                            return Err(RpcError::conflict(
+                                "fresh Mode Agent Attempt is no longer live",
+                            ));
                         }
                     }
                 }
@@ -125,7 +122,7 @@ impl Agents {
                 .await
                 .map_err(|error| {
                     RpcError::unknown_outcome(format!(
-                        "Opening prompt was not acknowledged: {}; do not retype",
+                        "Mode prompt was not acknowledged: {}; do not retype",
                         PromptError::from(error)
                     ))
                 })
@@ -133,32 +130,46 @@ impl Agents {
         tokio::time::timeout(Duration::from_secs(15), ready)
             .await
             .map_err(|_| {
-                RpcError::unknown_outcome("Opening prompt acknowledgement timed out; do not retype")
+                RpcError::unknown_outcome("Mode prompt acknowledgement timed out; do not retype")
             })?
     }
 
-    /// A4452c: stop the program before a fresh Door session.
-    pub async fn stop_door(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
+    /// Stop the program before a fresh Mode Agent run.
+    pub async fn stop_before_restart(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
         self.shared.stop(actor, id).await
     }
 
-    /// A4452c: start a fresh conversation and await SessionStart within `bound`.
+    /// A4452c: start a fresh Mode Agent run and await SessionStart within `bound`.
     /// A4665: a failed start is retryable only after no launched program remains;
     /// unconfirmed cleanup returns UNKNOWN_OUTCOME to keep the coordinator's fence.
-    pub async fn restart_door(
+    pub async fn restart_mode(
         &self,
         ctx: &Ctx,
-        id: &str,
+        params: &contracts::agent::ModeRestartParams,
         bound: Duration,
     ) -> Result<RailNode, RpcError> {
+        let id = params.id.as_str();
         let parked = self.shared.node(id)?;
+        if parked.kind != NodeKind::Agent
+            || parked.parent.is_some()
+            || parked
+                .mode_prompt
+                .as_deref()
+                .is_none_or(|prompt| prompt.trim().is_empty())
+        {
+            return Err(RpcError::conflict(
+                "only a root Mode Agent can be restarted",
+            ));
+        }
         let params = StartDoorParams {
             prompt: None,
             id: id.to_owned(),
-            model: parked.model,
+            model: parked.model.or(params.model.clone()),
             effort: parked.effort,
-            permission_mode: None,
-            engine: None,
+            permission_mode: params
+                .permission_mode
+                .or_else(|| self.launcher.selected_permission_mode(id)),
+            engine: params.engine.clone(),
             cols: None,
             rows: None,
         };
@@ -166,7 +177,14 @@ impl Agents {
         // failed. Only an authoritative Terminal snapshot can rule out that orphan.
         let before = self.shared.terminals.list().await;
         let node = match self
-            .start_door_with(ctx, params, Some(String::new()), true)
+            .start_with_role(
+                ctx,
+                params,
+                Some(String::new()),
+                true,
+                Role::Agent,
+                NodeKind::Agent,
+            )
             .await
         {
             Ok(node) => node,
@@ -175,7 +193,7 @@ impl Agents {
                     terminal.running && !before.iter().any(|old| old.id == terminal.id)
                 }) {
                     return Err(RpcError::unknown_outcome(format!(
-                        "{error}; fresh Door cleanup is not confirmed"
+                        "{error}; fresh Mode Agent cleanup is not confirmed"
                     )));
                 }
                 return Err(error);
@@ -196,12 +214,17 @@ impl Agents {
             }
         };
         if tokio::time::timeout(bound, started).await.is_err() {
-            let cause = format!("{id}: no SessionStart within {}s", bound.as_secs());
+            let cause = format!(
+                "{id}: Mode Agent did not start a session within {}s",
+                bound.as_secs()
+            );
             let stopped = self.shared.stop(ctx.actor.clone(), id).await;
             let cleanup = match stopped {
                 Ok(()) => match node.terminal_id.as_deref() {
                     Some(terminal) => self.shared.confirm_terminal_exit(terminal).await,
-                    None => Err(RpcError::unknown_outcome("fresh Door Terminal is unknown")),
+                    None => Err(RpcError::unknown_outcome(
+                        "fresh Mode Agent Terminal is unknown",
+                    )),
                 },
                 Err(error) => Err(error),
             };
@@ -211,7 +234,9 @@ impl Agents {
             return Err(RpcError::conflict(cause));
         }
         self.shared.node(id).map_err(|error| {
-            RpcError::unknown_outcome(format!("fresh Door started but could not be read: {error}"))
+            RpcError::unknown_outcome(format!(
+                "fresh Mode Agent started but could not be read: {error}"
+            ))
         })
     }
 
@@ -229,17 +254,12 @@ impl Agents {
             ));
         }
         let first = params.prompt.take();
-        if self.shared.node(&params.id)?.kind != NodeKind::Workstream {
-            return Err(RpcError::conflict(format!(
-                "{} is not a Workstream: a Mode Agent has no Door",
-                params.id
-            )));
-        }
-        self.start_door_with(ctx, params, first, true).await
+        self.start_with_role(ctx, params, first, true, Role::Door, NodeKind::Workstream)
+            .await
     }
 
     /// `first` requests a fresh conversation, replacing the saved order as its first prompt.
-    pub(super) async fn start_door_with(
+    pub(super) async fn start_with_role(
         &self,
         ctx: &Ctx,
         StartDoorParams {
@@ -254,6 +274,8 @@ impl Agents {
         }: StartDoorParams,
         first: Option<String>,
         startup_context: bool,
+        role: Role,
+        kind: NodeKind,
     ) -> Result<RailNode, RpcError> {
         let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         models::check_engine(engine.as_deref())?;
@@ -262,22 +284,18 @@ impl Agents {
         let id = id.as_str();
         let saved = {
             let rail = self.shared.rail();
-            if !fresh_session_target(&rail.node(crate::rail::agent_id(id)?)?) {
+            if rail.node(crate::rail::agent_id(id)?)?.kind != kind {
                 return Err(RpcError::conflict(format!(
-                    "{id} is not a Workstream or Mode"
+                    "{id} has the wrong Rail kind for this start"
                 )));
             }
             rail.has_conversation(crate::rail::agent_id(id)?)?
         };
         let own = model.is_some() || effort.is_some();
-        // A5214b: a Mode's Door starts on the Model its Mode parked.
+        // A5214b: a Mode Agent starts on the Model its Mode parked.
         let (model, effort) = match self.shared.rail().node(crate::rail::agent_id(id)?)? {
             parked if !saved && !own => (parked.model, parked.effort),
             _ => (model, effort),
-        };
-        let role = match self.shared.node(id)?.kind {
-            NodeKind::Workstream => Role::Door,
-            _ => Role::Agent,
         };
         let pair = self.choose(&ctx.actor, role, model, effort)?;
         if saved && first.is_none() {
@@ -304,9 +322,9 @@ impl Agents {
         let attempt = {
             let mut rail = self.shared.rail();
             let node = rail.node(crate::rail::agent_id(id)?)?;
-            if !fresh_session_target(&node) {
+            if node.kind != kind {
                 return Err(RpcError::conflict(format!(
-                    "{id} is not a Workstream or Mode"
+                    "{id} has the wrong Rail kind for this start"
                 )));
             }
             let mut runs = self.shared.runs();
@@ -321,7 +339,10 @@ impl Agents {
                     _ => true,
                 };
                 if live {
-                    return Err(RpcError::conflict(format!("Door {id} is already active")));
+                    let owner = if role == Role::Door { "Door" } else { "Agent" };
+                    return Err(RpcError::conflict(format!(
+                        "{owner} {id} is already active"
+                    )));
                 }
             }
             rail.set_pair(
@@ -342,7 +363,7 @@ impl Agents {
             );
             attempt
         };
-        // U6000e: the Door's starting row is published before the launch steps.
+        // U6000e: the starting row is published before the launch steps.
         ctx.emit(EventData::RailChanged);
         let project = self.project_dir().to_owned();
         if let Err(err) = self
@@ -374,12 +395,6 @@ impl Agents {
         ctx.emit(EventData::RailChanged);
         self.shared.node(id)
     }
-}
-
-/// A4452c: a fresh session starts a Workstream's Door or a Mode, a root Agent with a saved prompt.
-fn fresh_session_target(node: &RailNode) -> bool {
-    node.kind == NodeKind::Workstream
-        || (node.kind == NodeKind::Agent && node.parent.is_none() && node.opening_prompt.is_some())
 }
 
 /// F5: what the scan of the Doors' process trees keeps.

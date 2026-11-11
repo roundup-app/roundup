@@ -18,6 +18,12 @@ impl Rail {
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
         check_parent(&nodes, node.kind, parent)?;
+        if node.mode_prompt.is_some() && parent.is_some() {
+            return Err(StoreError::conflict(format!(
+                "Mode {} must stay at the Project root",
+                node.name
+            )));
+        }
         if node.kind == NodeKind::Group
             && nodes
                 .iter()
@@ -25,15 +31,10 @@ impl Rail {
         {
             check_parent(&nodes, NodeKind::Workstream, parent)?;
         }
-        // Only a start nests an Agent under an Agent, or the user under a Mode Agent (A6, A26, A4452c).
+        // Only a start nests an Agent under an Agent (A6, A26).
         if let Some(under) = parent_id.map(|id| find(&nodes, id)).transpose()?
             && node.kind == NodeKind::Agent
             && under.kind == NodeKind::Agent
-            && !tx.query_row(
-                "SELECT opening_prompt IS NOT NULL AND parent IS NULL FROM nodes WHERE id=?",
-                [under.id.parse::<i64>().unwrap_or_default()],
-                |row| row.get::<_, bool>(0),
-            )?
         {
             return Err(StoreError::conflict(format!(
                 "{name} cannot move under Agent {}: only a start nests it",

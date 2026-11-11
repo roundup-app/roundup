@@ -12,7 +12,7 @@ export type RowActions = {
   folder: () => void;
   editor: () => void;
 } & (
-  | { kind: "workstream" }
+  | { kind: "workstream"; restart?: { pending: boolean; run: () => void; menu: (click: MouseEvent) => void } }
   | { kind: "group" }
-  | { kind: "agent"; stop?: () => void; resume?: () => void; restart?: { pending: boolean; run: () => void; menu: (click: MouseEvent) => void } }
+  | { kind: "agent"; restart?: { pending: boolean; run: () => void; menu: (click: MouseEvent) => void }; stop?: () => void; resume?: () => void }
 );

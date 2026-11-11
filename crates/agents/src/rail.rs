@@ -417,10 +417,17 @@ impl Rail {
         } else {
             ("workstream", "agent")
         };
-        let changed = self.db.execute(
-            "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
-            params![to, id.get(), from],
-        )?;
+        let changed = if to_workstream {
+            self.db.execute(
+                "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL AND mode_prompt IS NULL",
+                params![to, id.get(), from],
+            )?
+        } else {
+            self.db.execute(
+                "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
+                params![to, id.get(), from],
+            )?
+        };
         Ok(changed == 1)
     }
 

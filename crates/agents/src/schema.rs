@@ -45,33 +45,6 @@ mod tests {
     use rusqlite_migration::Migrations;
 
     #[test]
-    fn a4452c_reopen_converts_saved_modes_in_place() {
-        let mut db = Connection::open_in_memory().unwrap();
-        let all = migrations();
-        Migrations::new(all[..all.len() - 1].to_vec())
-            .to_latest(&mut db)
-            .unwrap();
-        db.execute_batch(
-            "INSERT INTO nodes (id, kind, name, ord, opening_prompt) VALUES (1, 'workstream', 'mode', 0, ' exact\n ');
-             INSERT INTO nodes (id, kind, name, parent, ord) VALUES (2, 'agent', 'child', 1, 0);
-             INSERT INTO nodes (id, kind, name, ord) VALUES (3, 'workstream', 'plain', 1);",
-        )
-        .unwrap();
-        Migrations::new(all).to_latest(&mut db).unwrap();
-        let row = |id: i64| -> (String, Option<i64>, Option<String>) {
-            db.query_row(
-                "SELECT kind, parent, opening_prompt FROM nodes WHERE id = ?",
-                [id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .unwrap()
-        };
-        assert_eq!(row(1), ("agent".into(), None, Some(" exact\n ".into())));
-        assert_eq!(row(2).1, Some(1));
-        assert_eq!(row(3), ("workstream".into(), None, None));
-    }
-
-    #[test]
     fn n5088a_agents_refuses_a_newer_database() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("agents.db");

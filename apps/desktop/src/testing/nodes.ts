@@ -49,6 +49,10 @@ export const workstream = (id: string, over: Partial<RailNode> = {}): RailNode =
 export const door = (id: string, kind: Kind, label: string, over: Partial<RailNode> = {}): RailNode =>
   workstream(id, { attempt: "1", status_revision: "1", status: { kind, label, since: NOW, finished: "0" }, terminal_id: `t-${id}`, ...over });
 
+/** A Mode is an Agent row with its saved first prompt. */
+export const mode = (id: string, prompt: string, over: Partial<RailNode> = {}): RailNode =>
+  node(id, { kind: "agent", mode_prompt: prompt, ...over });
+
 /** A node that holds a Terminal and no Status: the Pane's tests mount one. A Terminal is no Rail row (X12), so it is an Agent here. */
 export const terminal = (id: string, over: Partial<RailNode> = {}): RailNode =>
   node(id, { kind: "agent", status: null, attempt: null, status_revision: null, work: null, ...over });

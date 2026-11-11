@@ -78,35 +78,6 @@ impl Agents {
         shared.node(&node.id)
     }
 
-    /// `rail.create_mode`: a stopped root Agent holding the user's exact saved prompt (A4452c).
-    pub fn create_mode(
-        &self,
-        ctx: &Ctx,
-        request: contracts::agent::CreateModeParams,
-    ) -> Result<RailNode, RpcError> {
-        if ctx.actor.kind != ActorKind::User {
-            return Err(RpcError::forbidden("only the user saves a Mode"));
-        }
-        let name = crate::agent_name(&request.name)
-            .map_err(|reason| RpcError::new(code::INVALID_PARAMS, reason))?;
-        if request.prompt.trim().is_empty()
-            || request.prompt.chars().count() > contracts::workstream::OPENING_PROMPT_MAX
-        {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "a Mode needs a first prompt within the length limit",
-            ));
-        }
-        let mut rail = self.shared.rail();
-        let node = rail.insert_ordered(NodeKind::Agent, &name, None, None, None, None)?;
-        let id = crate::rail::agent_id(&node.id)?;
-        rail.set_user_named(id)?;
-        rail.set_opening_prompt(id, Some(&request.prompt))?;
-        drop(rail);
-        ctx.emit(EventData::RailChanged);
-        self.shared.node(&node.id)
-    }
-
     /// `rail.remove`: a Workstream's outcome, `None` for any other node.
     pub async fn remove_node(
         &self,

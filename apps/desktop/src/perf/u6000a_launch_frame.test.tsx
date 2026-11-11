@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent, door, workstream } from "../testing/nodes";
+import { agent, mode, workstream } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { framesLate, MAX_FRAMES_LATE, type TimedAction } from "./framesLate";
 import { percentile } from "./keystrokes";
@@ -70,9 +70,8 @@ const launches: TimedAction[] = [
   },
   {
     name: "restart",
-    mount: () =>
-      mountRail([agent("mode", "working", "", { opening_prompt: "go" })]),
-    method: "workstream.restart",
+    mount: () => mountRail([mode("mode", "go")]),
+    method: "agent.restartMode",
     fire: () =>
       void fireEvent.click(
         within(rowOf("mode")).getByRole("button", { name: "Restart" }),

@@ -1,7 +1,7 @@
 import { createRoot } from "solid-js";
 import { connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import { node, agent, workstream, NOW } from "../testing/nodes";
+import { agent, mode, workstream, NOW } from "../testing/nodes";
 import * as topology from "./topology";
 import { createRailTree } from "./railTree";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -215,7 +215,7 @@ it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
     const expected = [...chain.map(node => node.id), "earlier", "later", "mode", "root-agent"];
 
     const source = [...chain.toReversed(), workstream("later", { order: 8 }),
-      agent("root-agent", "working", "x"), node("mode", { opening_prompt: "Go" }), workstream("earlier", { order: 7 })];
+      agent("root-agent", "working", "x"), mode("mode", "Go"), workstream("earlier", { order: 7 })];
 
     let parents = 0;
 

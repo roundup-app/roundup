@@ -12,35 +12,51 @@ fn attribution(agent: &str) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn a5765e_workstream_attribution_survives_stop_and_reopen() {
-    let f = Fixture::new();
-    let source = attribution("1");
-    let created = f
-        .call(
-            "rail.createWorkstream",
-            json!({
-                "name": "Target work", "start_attribution": source
-            }),
-        )
-        .await
-        .unwrap();
-    assert_eq!(created["start_attribution"], source);
-    f.call("rail.startDoor", json!({"id": created["id"]}))
-        .await
-        .unwrap();
-    f.call("agent.stop", json!({"id": created["id"]}))
-        .await
-        .unwrap();
-    let f = f.reopen();
-    let read = f.call("rail.tree", serde_json::Value::Null).await.unwrap();
-    let node = read
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|n| n["id"] == created["id"])
-        .unwrap();
-    assert_eq!(node["start_attribution"], source);
-    assert_eq!(node["opening_prompt"], serde_json::Value::Null);
+async fn a5765e_workstream_and_mode_attribution_survive_stop_and_reopen() {
+    for prompt in [None, Some("Saved Mode prompt")] {
+        let f = Fixture::new();
+        let source = attribution("1");
+        let created = if let Some(prompt) = prompt {
+            let mode = f
+                .call(
+                    "agent.createMode",
+                    json!({"name":"Target work","prompt":prompt,"start_attribution":source}),
+                )
+                .await
+                .unwrap();
+            f.call(
+                "agent.restartMode",
+                json!({"id":mode["id"],"request":"start-attribution"}),
+            )
+            .await
+            .unwrap()
+        } else {
+            let workstream = f
+                .call(
+                    "rail.createWorkstream",
+                    json!({"name":"Target work","start_attribution":source}),
+                )
+                .await
+                .unwrap();
+            f.call("rail.startDoor", json!({"id":workstream["id"]}))
+                .await
+                .unwrap()
+        };
+        assert_eq!(created["start_attribution"], source);
+        f.call("agent.stop", json!({"id": created["id"]}))
+            .await
+            .unwrap();
+        let f = f.reopen();
+        let read = f.call("rail.tree", serde_json::Value::Null).await.unwrap();
+        let node = read
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == created["id"])
+            .unwrap();
+        assert_eq!(node["start_attribution"], source);
+        assert_eq!(node["mode_prompt"], json!(prompt));
+    }
 }
 
 #[tokio::test]

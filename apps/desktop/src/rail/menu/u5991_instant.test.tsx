@@ -171,7 +171,7 @@ it.each(kinds.flatMap(name => arrivals.map(arrival => [name, arrival] as const))
   };
 
   mounted.app.handlers["rail.tree"] = () => tree;
-  mounted.app.handlers["workstream.setOpeningPrompt"] = () => null;
+  mounted.app.handlers["agent.setModePrompt"] = () => null;
   // SAFETY: the fake reply carries only the fields the App reads from the made row, which these methods' results share.
   mounted.app.handlers[action.method] = (async () => {
     await answer.promise;

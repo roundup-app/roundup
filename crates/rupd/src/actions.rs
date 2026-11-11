@@ -250,7 +250,7 @@ impl Daemon {
             return Err(invalid("start requires a nonblank prompt".into()));
         }
         if start.kind == contracts::project::StartKind::Mode
-            && start.prompt.chars().count() > contracts::workstream::OPENING_PROMPT_MAX
+            && start.prompt.chars().count() > contracts::agent::MODE_PROMPT_MAX
         {
             return Err(invalid("the opening prompt is too long".into()));
         }

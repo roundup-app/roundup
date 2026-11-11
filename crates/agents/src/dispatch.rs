@@ -322,12 +322,20 @@ impl Agents {
         }
     }
 
-    async fn workstream_set_opening_prompt(
+    async fn agent_create_mode(
         &self,
         ctx: &Ctx,
-        p: contracts::workstream::OpeningPromptParams,
+        p: contracts::agent::CreateModeParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.create_mode(ctx, p)
+    }
+
+    async fn agent_set_mode_prompt(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::ModePromptParams,
     ) -> Result<(), RpcError> {
-        self.set_opening_prompt(ctx, p)?;
+        self.set_mode_prompt(ctx, p)?;
         Ok(())
     }
 
@@ -372,14 +380,6 @@ impl Agents {
         p: contracts::agent::CreateWorkstreamParams,
     ) -> Result<contracts::agent::RailNode, RpcError> {
         self.create_workstream(ctx, p)
-    }
-
-    async fn rail_create_mode(
-        &self,
-        ctx: &Ctx,
-        p: contracts::agent::CreateModeParams,
-    ) -> Result<contracts::agent::RailNode, RpcError> {
-        self.create_mode(ctx, p)
     }
 
     async fn rail_group(

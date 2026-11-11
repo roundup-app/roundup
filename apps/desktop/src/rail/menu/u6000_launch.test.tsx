@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
-import { agent, door, workstream } from "../../testing/nodes";
+import { agent, mode, workstream } from "../../testing/nodes";
 import { mountRailAndPane } from "../../terminal/paneHarness";
 import { copy } from "../copy";
 import { chooseAction, chooseFooter, itemOf, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
@@ -32,7 +32,7 @@ const launches: [string, (mounted: Mounted) => Promise<string>][] = [
     return "old";
   }],
   ["restart", async mounted => {
-    mounted.app.handlers["workstream.restart"] = never;
+    mounted.app.handlers["agent.restartMode"] = never;
     fireEvent.click(within(rowOf("mode")).getByRole("button", { name: "Restart" }));
 
     return "mode";
@@ -47,7 +47,7 @@ const launches: [string, (mounted: Mounted) => Promise<string>][] = [
 ];
 
 it.each(launches)("u6000a_every_launch_renders_starting_before_its_call_answers_%s", async (_name, fire) => {
-  const mounted = await mountRail([exited("old"), workstream("ws"), agent("mode", "working", "", { opening_prompt: "go" })]);
+  const mounted = await mountRail([exited("old"), workstream("ws"), mode("mode", "go")]);
   await settled();
   const id = await fire(mounted);
 

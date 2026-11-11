@@ -40,7 +40,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
       if (!await drafts.submit(submitted)) return;
 
       if (saved.id === null) {
-        saved.id = (await app.rpc("rail.createMode", { name: saved.name.trim(), prompt: saved.text })).id;
+        saved.id = (await app.rpc("agent.createMode", { name: saved.name.trim(), prompt: saved.text })).id;
         const checkpoint = drafts.edit(destination, saved, null, "ordinary", revision.revision);
         await checkpoint.retained;
         await drafts.settle(submitted, "acknowledged");
