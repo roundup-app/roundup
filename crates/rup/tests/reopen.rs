@@ -62,13 +62,23 @@ async fn u4547e_reparenting_survives_reopen() {
     .unwrap();
     let mut events = project.subscribed().await;
     let into_workstream = project.spawn_agent(&c).await;
-    let into_mode: RailNode = serde_json::from_value(
-        c.request(
-            "agent.spawn",
-            json!({"cwd": project.dir.path(), "name": "Mode child", "prompt": null, "parent": mode.id}),
+    // A Mode's children are the Agents it starts itself (U4547a); the user nests none under it.
+    let mode_agent = project.client().await;
+    mode_agent
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":mode.id,"parent":null}}),
         )
         .await
-        .unwrap(),
+        .unwrap();
+    let into_mode: RailNode = serde_json::from_value(
+        mode_agent
+            .request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "name": "Mode child", "prompt": null, "parent": mode.id, "role": "job"}),
+            )
+            .await
+            .unwrap(),
     )
     .unwrap();
     for (id, parent) in [(&into_workstream.id, &workstream.id)] {
