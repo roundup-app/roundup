@@ -6,6 +6,7 @@ import type { Brief as agent_Brief } from "./agent/Brief";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
 import type { CompareFileParams as agent_CompareFileParams } from "./agent/CompareFileParams";
 import type { Context as agent_Context } from "./agent/Context";
+import type { CreateModeParams as agent_CreateModeParams } from "./agent/CreateModeParams";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
 import type { DeletionParams as agent_DeletionParams } from "./agent/DeletionParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
@@ -205,6 +206,7 @@ export type RpcMethods = {
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
   "workstream.setOpeningPrompt": { params: workstream_OpeningPromptParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
+  "rail.createMode": { params: agent_CreateModeParams; result: agent_RailNode };
   "rail.group": { params: agent_GroupParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
   "rail.rename": { params: agent_RenameParams; result: agent_RailNode };

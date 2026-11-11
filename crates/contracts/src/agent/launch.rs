@@ -130,6 +130,13 @@ pub struct CreateWorkstreamParams {
     pub order: Option<Order>,
 }
 
+/// A4452c: a new Mode, a stopped root Agent carrying the user's saved first prompt.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct CreateModeParams {
+    pub name: String,
+    pub prompt: String,
+}
+
 /// LC7: names by kind. As a call's parameter, the extras to add; as the result of `agent.extras`,
 /// the names that exist.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]

@@ -17,7 +17,7 @@ mod ordinal;
 pub use ordinal::Ordinal;
 mod launch;
 pub use launch::{
-    CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
+    CreateModeParams, CreateWorkstreamParams, Extras, ExtrasAddParams, PermissionMode, SpawnParams, SpawnRole,
     StartAttribution, StartDoorParams,
 };
 

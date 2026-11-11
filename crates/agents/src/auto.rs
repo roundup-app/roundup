@@ -4,7 +4,7 @@ use crate::id::AgentId;
 use contracts::workstream::AutoParams;
 
 impl Agents {
-    /// A4452c: the user's saved opening prompt; an Agent, a Message and an Ask cannot set it.
+    /// A4452c: the user's saved opening prompt of a root Agent (its Mode); an Agent, a Message and an Ask cannot set it.
     pub(super) fn set_opening_prompt(
         &self,
         ctx: &Ctx,
@@ -25,8 +25,14 @@ impl Agents {
             ));
         }
         let mut rail = self.shared.rail();
-        if rail.node(crate::rail::agent_id(&choice.id)?)?.kind != NodeKind::Workstream {
-            return Err(RpcError::not_found("Workstream"));
+        let node = rail.node(crate::rail::agent_id(&choice.id)?)?;
+        if node.kind == NodeKind::Workstream {
+            return Err(RpcError::conflict(
+                "a Workstream is never a Mode: only a root Agent carries a saved prompt",
+            ));
+        }
+        if node.kind != NodeKind::Agent || node.parent.is_some() {
+            return Err(RpcError::not_found("root Agent"));
         }
         if let Some(id) = AgentId::parse(&choice.id)
             && rail.set_opening_prompt(id, text)?

@@ -374,6 +374,14 @@ impl Agents {
         self.create_workstream(ctx, p)
     }
 
+    async fn rail_create_mode(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::CreateModeParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.create_mode(ctx, p)
+    }
+
     async fn rail_group(
         &self,
         ctx: &Ctx,

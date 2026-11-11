@@ -79,7 +79,7 @@ impl Agents {
                 Some(Order::Work { ask, .. }) if !ask.trim().is_empty() => ask.clone(),
                 _ => agent.name.clone(),
             };
-            let mode = rail.insert_ordered(NodeKind::Workstream, name, None, None, None, None)?;
+            let mode = rail.insert_ordered(NodeKind::Agent, name, None, None, None, None)?;
             if let Some(id) = crate::id::AgentId::parse(&mode.id) {
                 rail.set_opening_prompt(id, Some(&prompt))?;
             }

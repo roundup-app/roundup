@@ -106,6 +106,7 @@ export const CONTRACT = {
     "project.start": "40e8b5c3800e6d3f",
     "provenance.history": "c20c66fb119e79a3",
     "provenance.touched": "90d4eb550afcfb2b",
+    "rail.createMode": "e2735a38184b0a4b",
     "rail.createWorkstream": "caadcbf2e211b123",
     "rail.deletion": "eee0740db6e84936",
     "rail.group": "89f2eedfda5394d9",

@@ -229,6 +229,12 @@ impl Agents {
             ));
         }
         let first = params.prompt.take();
+        if self.shared.node(&params.id)?.kind != NodeKind::Workstream {
+            return Err(RpcError::conflict(format!(
+                "{} is not a Workstream: a Mode Agent has no Door",
+                params.id
+            )));
+        }
         self.start_door_with(ctx, params, first, true).await
     }
 
@@ -256,8 +262,8 @@ impl Agents {
         let id = id.as_str();
         let saved = {
             let rail = self.shared.rail();
-            if rail.node(crate::rail::agent_id(id)?)?.kind != NodeKind::Workstream {
-                return Err(RpcError::conflict(format!("{id} is not a Workstream")));
+            if !fresh_session_target(&rail.node(crate::rail::agent_id(id)?)?) {
+                return Err(RpcError::conflict(format!("{id} is not a Workstream or Mode")));
             }
             rail.has_conversation(crate::rail::agent_id(id)?)?
         };
@@ -267,7 +273,11 @@ impl Agents {
             parked if !saved && !own => (parked.model, parked.effort),
             _ => (model, effort),
         };
-        let pair = self.choose(&ctx.actor, Role::Door, model, effort)?;
+        let role = match self.shared.node(id)?.kind {
+            NodeKind::Workstream => Role::Door,
+            _ => Role::Agent,
+        };
+        let pair = self.choose(&ctx.actor, role, model, effort)?;
         if saved && first.is_none() {
             // A36: a resume takes the pair the Door parked; one the call names replaces it.
             if own {
@@ -292,8 +302,8 @@ impl Agents {
         let attempt = {
             let mut rail = self.shared.rail();
             let node = rail.node(crate::rail::agent_id(id)?)?;
-            if node.kind != NodeKind::Workstream {
-                return Err(RpcError::conflict(format!("{id} is not a Workstream")));
+            if !fresh_session_target(&node) {
+                return Err(RpcError::conflict(format!("{id} is not a Workstream or Mode")));
             }
             let mut runs = self.shared.runs();
             if let Some(slot) = runs.slot(id) {
@@ -360,6 +370,12 @@ impl Agents {
         ctx.emit(EventData::RailChanged);
         self.shared.node(id)
     }
+}
+
+/// A4452c: a fresh session starts a Workstream's Door or a Mode, a root Agent with a saved prompt.
+fn fresh_session_target(node: &RailNode) -> bool {
+    node.kind == NodeKind::Workstream
+        || (node.kind == NodeKind::Agent && node.parent.is_none() && node.opening_prompt.is_some())
 }
 
 /// F5: what the scan of the Doors' process trees keeps.

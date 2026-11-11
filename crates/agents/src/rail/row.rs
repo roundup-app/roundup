@@ -126,7 +126,9 @@ impl NodeRow {
             start_attribution: self.start_attribution,
             visibility: self.visibility,
             alert_level: self.alert_level,
-            opening_prompt: self.opening_prompt.filter(|_| workstream),
+            opening_prompt: self
+                .opening_prompt
+                .filter(|_| kind == NodeKind::Agent && self.parent.is_none()),
             auto: workstream.then_some(self.auto),
             id: self.id.to_string(),
             kind,
