@@ -19,7 +19,7 @@ import { registerOpener } from "../shelf/openItem";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -350,7 +350,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
     open("key");
 
     return true;
-  }, selectedPad.bind(undefined, props.selection, pad.incarnation, pad.name)));
+  }, () => untrack(() => selectedPad(props.selection, pad.incarnation, pad.name))));
 
   const rename = () => { setEditing(true); };
 
