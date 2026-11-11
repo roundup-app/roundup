@@ -93,14 +93,15 @@ impl Run {
 
     /// No `rupd` note has started a turn for 5 s: the setup's own notes are all written.
     async fn calm(&self) {
-        let mut seen = (started(self).len(), std::time::Instant::now());
-        while seen.1.elapsed() < Duration::from_secs(5) {
-            tokio::time::sleep(Duration::from_millis(250)).await;
+        let seen = std::cell::Cell::new((started(self).len(), std::time::Instant::now()));
+        wait(|| {
             let now = started(self).len();
-            if now != seen.0 {
-                seen = (now, std::time::Instant::now());
+            if now != seen.get().0 {
+                seen.set((now, std::time::Instant::now()));
             }
-        }
+            seen.get().1.elapsed() >= Duration::from_secs(5)
+        })
+        .await;
     }
 
     /// The Job gives itself one open Todo, which keeps its end note to say something (DTC5(b)).
