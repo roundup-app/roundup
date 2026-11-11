@@ -5,7 +5,7 @@
 
     {"path": "crates/rup/tests/e2e.rs", "ceiling": 3004, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "loop/builder.py", "ceiling": 1450, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "loop/builder.test.py", "ceiling": 1656, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "loop/builder.test.py", "ceiling": 1565, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "proofs/messages/PROOF.bend", "ceiling": 1630, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."}
   ],
   "ast": [
@@ -249,7 +249,6 @@
     {"rule": "E741", "path": "loop/stall.test.py", "source": "        return dict(labels=[l for i in self.issues for l in i['labels']] if self.issues else [])", "detail": "56:57", "occurrence": 1, "location": "48:56", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "E741", "path": "loop/stall.py", "source": "             if builder.NEEDS_USER not in {l['name'] for l in i['labels']} and not orders.frozen(i)]", "detail": "58:59", "occurrence": 1, "location": "51:58", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "E731", "path": "loop/affected.py", "source": "    git = lambda *args: subprocess.run(['git', *args], cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True).stdout", "detail": "5:119", "occurrence": 1, "location": "127:5", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
-    {"rule": "E731", "path": "loop/builder.py", "source": "    check = lambda: subprocess.run(['bash', str(rules), 'merge-loss', main_ref], text=True, capture_output=True, timeout=600)", "detail": "5:126", "occurrence": 1, "location": "1035:5", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "E741", "path": "loop/stall.py", "source": "              and builder.NEEDS_USER not in {l['name'] for l in p['labels']}]", "detail": "60:61", "occurrence": 1, "location": "54:60", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "E731", "path": "loop/builder.test.py", "source": "        seen = lambda name: json.loads(Path(path, name).read_text()) if Path(path, name).exists() else None", "detail": "9:108", "occurrence": 1, "location": "340:9", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."},
     {"rule": "F841", "path": "loop/builder.py", "source": "    pr, branch = current['number'], current['headRefName']", "detail": "9:15", "occurrence": 1, "location": "1135:9", "reason": "Frozen loop Python; retain this exact diagnostic without changing loop machinery."}
