@@ -1,4 +1,4 @@
-import { batch, createSignal, type Accessor } from "solid-js";
+import { batch, createMemo, createSignal, type Accessor } from "solid-js";
 import { createItemFailures } from "../ink/itemFailures";
 
 export type BubbleTerminal = { id: string; incarnation: string };
@@ -45,7 +45,8 @@ export const createBubbleFailure = (present: Accessor<readonly BubbleTerminal[] 
   const [general, setGeneral] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal<BubbleTerminal | null>(null);
 
-  const failure = (): BubbleFailure | null => {
+  // One object per failure: close.tsx hands a failure over by identity.
+  const failure = createMemo((): BubbleFailure | null => {
     const message = general();
 
     if (message !== null) return { message, terminal: null };
@@ -53,7 +54,7 @@ export const createBubbleFailure = (present: Accessor<readonly BubbleTerminal[] 
     const cause = terminal === null ? undefined : failures.failure(keyOf(terminal));
 
     return terminal === null || cause === undefined ? null : { message: cause, terminal };
-  };
+  });
 
   const set = (value: BubbleFailure | null): void => {
     batch(() => {

@@ -271,7 +271,7 @@ export const AskBar = (props: {
     const placement = projectPick.request();
 
     if (!draft || !(await drafts.submit(draft.revision))) return;
-    refusals.clear(draft.revision);
+    records().forEach(each => refusals.clear(each.revision));
     const workstream = v.safeParse(v.string(), draft.value.workstream);
     const request: AskSubmission = { text: value, submission: draft.revision };
 
