@@ -58,9 +58,11 @@ impl Run {
         wait(|| {
             let tree = latest_snapshot(self.dir.path());
             tree.iter().any(|v| {
-                v["nodes"].as_array().unwrap().iter().any(|n| {
-                    n["id"] == self.door && n["status"]["kind"] == "working"
-                })
+                v["nodes"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|n| n["id"] == self.door && n["status"]["kind"] == "working")
             })
         })
         .await;
@@ -148,13 +150,20 @@ async fn dtc4_eight_reports_during_one_turn_cost_one_turn() {
     assert_eq!(turns.len(), 1, "{turns:#?}");
     let notes = digests(&turns[0]);
     assert_eq!(notes.len(), 1, "one Message, one write: {notes:#?}");
+    // The transcript shows a digest as one line (B50(d)); the Message holds the entries.
+    let held = run.digests().await;
+    let body = held
+        .iter()
+        .filter_map(|m| m["body"].as_str())
+        .find(|body| (0..8).all(|n| body.contains(&format!("job{n} is done"))))
+        .unwrap_or_else(|| panic!("no one Message holds an entry per Job: {held:#?}"));
     for n in 0..8 {
         let entry = format!("job{n} is done");
-        assert_eq!(notes[0].matches(&entry).count(), 1, "job{n} once: {notes:#?}");
+        assert_eq!(body.matches(&entry).count(), 1, "job{n} once: {body}");
     }
     assert!(
-        !notes[0].contains("last: report of"),
-        "no summary the Door already holds: {notes:#?}"
+        !body.contains("last: report of"),
+        "no summary the Door already holds: {body}"
     );
 }
 
@@ -204,7 +213,12 @@ fn door_transcript(run: &Run) -> String {
 }
 
 fn all(turns: &[Vec<String>]) -> String {
-    turns.iter().flatten().cloned().collect::<Vec<_>>().join("\n")
+    turns
+        .iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[tokio::test]

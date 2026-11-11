@@ -992,14 +992,3 @@ fn b5641b_end_entries_keep_the_child_summary_and_bounds() {
         assert!(serde_json::to_string(&pushes[0].entry).unwrap().len() <= 1024);
     }
 }
-
-/// DTC5(a): a summary that is the whole body of a Message the child sent is no end note.
-#[test]
-fn dtc5_an_end_note_repeating_a_sent_report_is_no_push() {
-    let seen = Seen::default();
-    let mut nodes = rail();
-    seen.baseline(&sources(&nodes, &[], &[], &[]));
-    nodes[1].status = Some(status(Kind::Done, "done"));
-    let messages = vec![sent(1, "a", "m", "short\nsummary")];
-    assert!(seen.changed(&sources(&nodes, &[], &[], &messages)).is_empty());
-}

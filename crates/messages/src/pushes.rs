@@ -255,11 +255,7 @@ pub(crate) fn counted(body: &str, weight: u32) -> String {
 /// `header`, then `entries` (newest first, one per child) one to a line, at most 8 and 4096 bytes
 /// in all; the children left out are named on one last line, cut at 512 bytes.
 /// The entries the body lists are the payload's, as the body renders them.
-fn compose(
-    header: &str,
-    entries: &[DigestEntry],
-    children: usize,
-) -> (String, Vec<DigestEntry>) {
+fn compose(header: &str, entries: &[DigestEntry], children: usize) -> (String, Vec<DigestEntry>) {
     // B49: inside a Rollup or a merge an end note keeps B19's bounds.
     let mut rolled: Vec<DigestEntry> = entries.iter().map(digest::rolled).collect();
     let lines: Vec<String> = rolled.iter().map(entry_text).collect();
