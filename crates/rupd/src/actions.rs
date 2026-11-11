@@ -252,7 +252,7 @@ impl Daemon {
         if start.kind == contracts::project::StartKind::Mode
             && start.prompt.chars().count() > contracts::agent::MODE_PROMPT_MAX
         {
-            return Err(invalid("the opening prompt is too long".into()));
+            return Err(invalid("the Mode prompt is too long".into()));
         }
         let (path, value) = self
             .project_relay(conn, "project.start", &start.path, Some(&start))

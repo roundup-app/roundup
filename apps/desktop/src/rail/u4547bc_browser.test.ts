@@ -28,7 +28,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.until("document.querySelector('[role=dialog]') !== null");
   await lane.capture("U4547b", "blank-fields");
   await lane.browser("fill", '[data-part=input]', "Reviewer");
-  await lane.browser("fill", '.opening-prompt-field textarea', "  Review the current changes\nKeep exact spacing  ");
+  await lane.browser("fill", '.mode-prompt-field textarea', "  Review the current changes\nKeep exact spacing  ");
   await lane.capture("U4547b", "enter");
   await lane.evaluate("window.__fake.failNext(-32003, 'Mode could not be created. Retry with your saved input.')");
   await lane.browser("click", 'button[type=submit]');
@@ -58,9 +58,9 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.browser("press", "Shift+F10");
   await lane.until("window.__fake.app.menuLabels().includes('First prompt…')");
   await lane.evaluate("window.__fake.app.pickMenu('First prompt…')");
-  await lane.until("document.querySelector('.opening-prompt-dialog textarea') !== null");
+  await lane.until("document.querySelector('.mode-prompt-dialog textarea') !== null");
   await lane.capture("U4547c", "edit-first-prompt");
-  await lane.browser("fill", '.opening-prompt-field textarea', "  changed prompt\n ");
+  await lane.browser("fill", '.mode-prompt-field textarea', "  changed prompt\n ");
   await lane.evaluate("window.__fake.failNext(-32003, 'First prompt could not be saved. Retry with your draft.')");
   await lane.browser("click", '[data-part=title]');
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('First prompt could not be saved')");

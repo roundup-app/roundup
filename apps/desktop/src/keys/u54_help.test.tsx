@@ -40,16 +40,16 @@ const focusableEmulator = (): EmulatorFactory => () => {
   };
 };
 
-const open = async (openingPrompt = "") => {
+const open = async (prompt = "") => {
   const app = createFakeApp();
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
-    mode("w", openingPrompt, { name: "lead" }),
+    mode("w", prompt, { name: "lead" }),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: id === "i" ? null : "w" })),
   ];
 
-  app.handlers["agent.restartMode"] = () => mode("w", openingPrompt, { name: "lead" });
+  app.handlers["agent.restartMode"] = () => mode("w", prompt, { name: "lead" });
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));
@@ -117,9 +117,9 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
         // `⇧⌘M` opens the Mode dialog, a modal layer that would take every later probe.
         if (press.defaultPrevented && code === "KeyM" && mods.metaKey && mods.shiftKey) {
           // No spawn capacity (an earlier probe's create in flight) binds the key and opens nothing.
-          await waitFor(() => expect(document.querySelector(".opening-prompt-dialog")).not.toBeNull(), { timeout: 300 }).then(async () => {
-            document.querySelector(".opening-prompt-dialog")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-            await waitFor(() => expect(document.querySelector(".opening-prompt-dialog")).toBeNull());
+          await waitFor(() => expect(document.querySelector(".mode-prompt-dialog")).not.toBeNull(), { timeout: 300 }).then(async () => {
+            document.querySelector(".mode-prompt-dialog")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+            await waitFor(() => expect(document.querySelector(".mode-prompt-dialog")).toBeNull());
           }, () => undefined);
         }
 

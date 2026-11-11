@@ -90,7 +90,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
         },
       }] : []),
-      ...(node.kind === "agent" && node.parent === null && node.mode_prompt?.trim() ? [{ id: "mode-prompt", label: copy.openingPromptMenu, run: () => { setModePrompt(node.id); } }] : []),
+      ...(node.kind === "agent" && node.parent === null && node.mode_prompt?.trim() ? [{ id: "mode-prompt", label: copy.modePromptMenu, run: () => { setModePrompt(node.id); } }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [{ id: "add", label: copy.addMenu, children: [

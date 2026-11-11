@@ -9,7 +9,7 @@ export const copy = {
   rail: sharedCopy.rail,
   retryDoor: sharedCopy.retryDoor,
   startDoor: sharedCopy.startDoor,
-  openingPrompt: sharedCopy.openingPrompt,
-  openingPromptMenu: sharedCopy.openingPromptMenu,
+  modePrompt: sharedCopy.modePrompt,
+  modePromptMenu: sharedCopy.modePromptMenu,
   comma: sharedCopy.comma,
 } as const;

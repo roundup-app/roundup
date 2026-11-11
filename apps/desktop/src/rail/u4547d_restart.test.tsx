@@ -59,8 +59,8 @@ it("u4547d_only_explicit_restart_requests_a_fresh_session", async () => {
   expect(railCallsTo(m.app, "agent.resume")).toEqual([{ id: "mode" }]);
   m.rail.select("mode");
   await m.rail.refresh();
-  await chooseAction(m.app, "mode", copy.openingPromptMenu);
-  const field = await screen.findByRole("textbox", { name: copy.openingPrompt });
+  await chooseAction(m.app, "mode", copy.modePromptMenu);
+  const field = await screen.findByRole("textbox", { name: copy.modePrompt });
   field.focus();
   expect(fireEvent.keyDown(field, { key: "r", code: "KeyR" })).toBe(true);
   fireEvent.input(field, { target: { value: "edited" } });

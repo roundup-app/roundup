@@ -89,15 +89,15 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
   };
 
   return <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) { props.onClose(); queueFocus(() => props.finalFocus()?.focus({ preventScroll: true })); } }} finalFocusEl={props.finalFocus}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form opening-prompt-dialog">
-      <Dialog.Title>{copy.openingPromptFor(current()?.name ?? "")}</Dialog.Title>
-      <Field.Root class="opening-prompt-field">
-        <Field.Textarea aria-label={copy.openingPrompt} value={text()} placeholder={copy.openingPromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
+    <Dialog.Positioner><Dialog.Content class="app-dialog-form mode-prompt-dialog">
+      <Dialog.Title>{copy.modePromptFor(current()?.name ?? "")}</Dialog.Title>
+      <Field.Root class="mode-prompt-field">
+        <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
           drafts.edit(destination(), { text: event.currentTarget.value, base: draft()?.value.base ?? current()?.mode_prompt ?? "" }, null, "ordinary");
         }} onBlur={() => void save()} />
-        <Field.HelperText>{copy.openingPromptHint}</Field.HelperText>
+        <Field.HelperText>{copy.modePromptHint}</Field.HelperText>
       </Field.Root>
-      <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.openingPromptConflict} /></Show>
+      <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.modePromptConflict} /></Show>
       <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void (restartFailed() ? restart() : save()) }} />
       <div class="app-dialog-actions">
         <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restart}</button>
