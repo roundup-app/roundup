@@ -6,7 +6,7 @@ import { IconButton } from "../ui/IconButton";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { triage } from "../todos/triage";
-import { copy } from "../app/copy";
+import { copy } from "./copy";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";

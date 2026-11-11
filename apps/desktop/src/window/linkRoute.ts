@@ -1,4 +1,4 @@
-import { linkCopy } from "../app/copy";
+import { linkCopy } from "./copy";
 import { projectKeyOf } from "./projectLink";
 import type { AppSeam } from "../app/seam";
 

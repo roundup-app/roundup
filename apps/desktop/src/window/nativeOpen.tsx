@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js";
 import type * as Solid from "solid-js";
 import type { LinkContent } from "@contracts/link/LinkContent";
-import { linkCopy } from "../app/copy";
+import { linkCopy } from "./copy";
 import { RpcError, type App, type NativeOpen } from "../app/seam";
 import type { ProjectsState } from "../state/projects";
 import type { ConnectedProject } from "../state/connectedProject";

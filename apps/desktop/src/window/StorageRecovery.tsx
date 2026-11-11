@@ -1,6 +1,6 @@
 import { createResource, Show, type JSX } from "solid-js";
 import { deleteSavedWork, initializeStorage } from "../state/storage";
-import { storageCopy } from "../app/copy";
+import { storageCopy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import "../state/storage.css";
 

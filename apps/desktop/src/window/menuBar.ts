@@ -1,4 +1,4 @@
-import { copy, menuBarCopy } from "../app/copy";
+import { copy, menuBarCopy } from "./copy";
 import type * as Solid from "solid-js";
 import type { ConnectedProject, createProjectDrafts } from "../state/connectedProject";
 import type { OpenTab } from "../state/projects";
@@ -179,7 +179,8 @@ export const projectMenuItems = (focus: Element | null, connected: boolean, hist
     }) : []),
     ...[
       ...(["agent.new", "agent.new-with-prompt", "workstream.new", "mode.new", "terminal.new", "todo.capture", "attention.jump"] as const).map(name => CHORDS[name]),
-      ...[LEADER["leader.changes"], LEADER["leader.project"]],
+      LEADER["leader.changes"],
+      LEADER["leader.project"],
       CHORDS["project.choose-folder"],
     ].map((row, index): MenuItem => {
       const action = actions.find(action => action.name === row.name && action.available());

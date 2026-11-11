@@ -4,7 +4,7 @@ import { Dialog } from "../ui/Dialog";
 import type { ProjectsState } from "../state/projects";
 import { RpcError, type ActionRequest, type ActionReply, type AppSeam } from "../app/seam";
 import { withAppSettings } from "../settings/preferences";
-import { copy } from "../app/copy";
+import { copy } from "./copy";
 
 type ProjectRequest = Extract<ActionRequest, { method: "project.open" | "project.start" }>;
 

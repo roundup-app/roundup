@@ -1,3 +1,4 @@
+import { copy as windowCopy } from "../window/copy";
 import { copy as appCopy } from "../app/copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -37,7 +38,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     fireEvent.click(tab("api"));
 
     expect(await within(screen.getByRole("region", { name: "Rail" })).findByText(appCopy.daemonExit("exited 1"))).toBeDefined();
-    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: appCopy.reopen })).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: windowCopy.reopen })).toBeDefined();
   });
 
   it("u185_another_project_is_unaffected", async () => {
@@ -58,7 +59,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.openProject = (target) => (opened.push(target), open(target));
     fireEvent.click(tab("api"));
     app.exitDaemon({ code: 1 }, path("api"));
-    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: appCopy.reopen }));
+    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: windowCopy.reopen }));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).toBeNull());
     expect(opened).toEqual([path("api")]);
@@ -71,11 +72,11 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
     const failure = new RpcError(-32603, "rupd stayed silent");
     app.opened.failure = failure;
-    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: appCopy.reopen }));
+    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: windowCopy.reopen }));
 
     expect(await within(screen.getByRole("region", { name: "Rail" })).findByText(failure.message)).toBeDefined();
     expect(within(screen.getByRole("region", { name: "Rail" })).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
-    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: appCopy.reopen })).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: windowCopy.reopen })).toBeDefined();
   });
 
   it("u185_closing_an_exited_tab_asks_nothing", async () => {
