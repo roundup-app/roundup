@@ -1,17 +1,17 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::panic, clippy::indexing_slicing)]
 #[path = "pads/deletion_keys.rs"]
 mod deletion_keys;
 #[path = "pads/homes.rs"]
 mod homes;
 #[path = "pads/sections.rs"]
 mod sections;
-
-use std::sync::Arc;
-
 use contracts::{Actor, ActorKind, EventData, Verb};
 use pads::{PadDeletion, PadSourceState, Pads, source, source_state};
 use provenance::Touches;
 use rpc::{Bus, Ctx, Module, code};
 use serde_json::{Value, json};
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// APFS caps a file name at 255 characters (bytes on other file systems).

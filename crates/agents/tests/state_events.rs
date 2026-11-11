@@ -11,6 +11,12 @@
 //! `log.jsonl` has no paired title capture, so it is checked by Kind alone. This test checks the
 //! rule against `STATE_EVENTS` itself, not a hand copy of it, and asserts that no event is
 //! prunable by the rule: `STATE_EVENTS` keeps `PreToolUse`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};

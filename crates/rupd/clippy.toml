@@ -9,3 +9,8 @@ too-many-lines-threshold = 100
 disallowed-types = [
     { path = "std::sync::Mutex", reason = "parking_lot::Mutex never poisons, so a lock has no panic or recovery arm; a section that can fail returns its error (RB3798b)" },
 ]
+
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true

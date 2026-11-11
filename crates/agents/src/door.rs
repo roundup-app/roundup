@@ -256,14 +256,14 @@ impl Agents {
         let id = id.as_str();
         let saved = {
             let rail = self.shared.rail();
-            if rail.node(id)?.kind != NodeKind::Workstream {
+            if rail.node(crate::rail::agent_id(id)?)?.kind != NodeKind::Workstream {
                 return Err(RpcError::conflict(format!("{id} is not a Workstream")));
             }
             rail.has_conversation(crate::rail::agent_id(id)?)?
         };
         let own = model.is_some() || effort.is_some();
         // A5214b: a Mode's Door starts on the Model its Mode parked.
-        let (model, effort) = match self.shared.rail().node(id)? {
+        let (model, effort) = match self.shared.rail().node(crate::rail::agent_id(id)?)? {
             parked if !saved && !own => (parked.model, parked.effort),
             _ => (model, effort),
         };
@@ -271,9 +271,9 @@ impl Agents {
         if saved && first.is_none() {
             // A36: a resume takes the pair the Door parked; one the call names replaces it.
             if own {
-                let parked = self.shared.rail().node(id)?;
+                let parked = self.shared.rail().node(crate::rail::agent_id(id)?)?;
                 self.shared.rail().set_pair(
-                    id,
+                    crate::rail::agent_id(id)?,
                     pair.model.as_deref().or(parked.model.as_deref()),
                     pair.effort.as_deref().or(parked.effort.as_deref()),
                 )?;
@@ -291,7 +291,7 @@ impl Agents {
         let listed = self.shared.terminals.list().await;
         let attempt = {
             let mut rail = self.shared.rail();
-            let node = rail.node(id)?;
+            let node = rail.node(crate::rail::agent_id(id)?)?;
             if node.kind != NodeKind::Workstream {
                 return Err(RpcError::conflict(format!("{id} is not a Workstream")));
             }
@@ -310,7 +310,11 @@ impl Agents {
                     return Err(RpcError::conflict(format!("Door {id} is already active")));
                 }
             }
-            rail.set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
+            rail.set_pair(
+                crate::rail::agent_id(id)?,
+                pair.model.as_deref(),
+                pair.effort.as_deref(),
+            )?;
             let attempt = rail.allocate_attempt(crate::rail::agent_id(id)?)?;
             self.shared.events.observed.notify_waiters();
             runs.put(

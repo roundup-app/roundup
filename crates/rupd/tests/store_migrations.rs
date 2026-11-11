@@ -1,4 +1,10 @@
 //! N20 current-store reopen and N5467a older-store refusal.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::{path::Path, sync::Arc};
 
 use contracts::{Actor, ActorKind, Verb};

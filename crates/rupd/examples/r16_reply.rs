@@ -1,4 +1,10 @@
 //! Attribution only: excludes scheduling, socket I/O, and Rail database/presentation work.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::hint::black_box;
 use std::time::Instant;
 

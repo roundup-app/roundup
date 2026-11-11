@@ -1,4 +1,10 @@
 //! R16's allocation prerequisite (#1327), not an RSS observation or baseline.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![cfg(target_arch = "x86_64")]
 use std::alloc::System;
 use std::mem::size_of;

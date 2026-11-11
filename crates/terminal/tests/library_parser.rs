@@ -1,4 +1,10 @@
 //! Library-only prerequisites for X14; these do not exercise selected output streams.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[cfg(target_os = "linux")]
 #[derive(Clone, Default)]

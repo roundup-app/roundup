@@ -1,4 +1,10 @@
 //! SK1–SK6: the skill and hook installed in a temporary config folder.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;

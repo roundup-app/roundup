@@ -1,4 +1,10 @@
 //! A32: retired RPC calls never enter the Workstream lifecycle.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use serde_json::json;
 use std::sync::Arc;
 use tokio::net::UnixListener;

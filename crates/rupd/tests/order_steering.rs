@@ -1,5 +1,11 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input. The user's
 //! Steer is the one write left that types (A4452d), so these tests drive it.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/child_run.rs"]
 mod child_run;
 #[path = "support/door_terminals.rs"]

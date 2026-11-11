@@ -1,4 +1,5 @@
 //! U3787f: native delivery waits for the main webview; URLs stay opaque until link.read.
+use crate::Unpoisoned;
 use std::collections::VecDeque;
 #[cfg(any(target_os = "macos", test))]
 use std::path::Path;
@@ -48,7 +49,7 @@ impl Delivery {
 pub(crate) fn deliver<R: Runtime>(app: &AppHandle<R>, request: NativeOpen) {
     app.state::<Mutex<Delivery>>()
         .lock()
-        .expect("native delivery lock")
+        .unpoisoned()
         .push(request);
 }
 
@@ -115,7 +116,7 @@ pub(crate) fn native_open<R: Runtime>(
             "native opens belong to the main window",
         ));
     }
-    let mut delivery = state.lock().expect("native delivery lock");
+    let mut delivery = state.lock().unpoisoned();
     delivery.consumer = Some(channel);
     delivery.flush();
     Ok(())

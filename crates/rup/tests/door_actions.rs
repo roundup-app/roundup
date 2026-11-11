@@ -1,13 +1,13 @@
 //! A26, A39, A41, B37, F3, M9, M16, Q11, U5991e: what a real Claude Door does through its tools.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::panic, clippy::indexing_slicing)]
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
-use daemon::aimock;
-
 use contracts::{EventData, Kind};
+use daemon::aimock;
 use serde_json::{Value, json};
 use std::time::Duration;
-
 #[tokio::test]
 async fn m9_a_door_asked_for_a_workstream_makes_one() {
     let project = daemon::start_real("m9_create_workstream", &[]);

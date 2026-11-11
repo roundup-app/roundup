@@ -1,4 +1,10 @@
 //! Recorded samples prove gates, never a native Mac measurement.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use perf::idle::{guard, parse_footprint};
 
 #[test]

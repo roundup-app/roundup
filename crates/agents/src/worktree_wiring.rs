@@ -104,7 +104,9 @@ impl Agents {
         id: &str,
         cwd: &Path,
     ) -> Result<Option<(PathBuf, worktree::Worktree)>, RpcError> {
-        self.shared.rail().closed_recovery_ready(Some(id))?;
+        self.shared
+            .rail()
+            .closed_recovery_ready(Some(crate::rail::agent_id(id)?))?;
         if !self.shared.rail().get_worktrees()?.on {
             return Ok(None);
         }
@@ -113,13 +115,17 @@ impl Agents {
         }
         let project = self.project_dir().to_owned();
         let (real_project, real_cwd) = real_paths(&project, cwd)?;
-        self.shared.rail().resource_node(id)?;
+        self.shared
+            .rail()
+            .resource_node(crate::rail::agent_id(id)?)?;
         let (git, plan_project, plan_id) =
             (self.shared.git.bounded(), project.clone(), id.to_owned());
         let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id))
             .await
             .map_err(RpcError::internal)??;
-        self.shared.rail().mark_worktree_provisioning(id, &plan)?;
+        self.shared
+            .rail()
+            .mark_worktree_provisioning(crate::rail::agent_id(id)?, &plan)?;
         let (git, provisioning_plan) = (self.shared.git.bounded(), plan.clone());
         let made =
             match tokio::task::spawn_blocking(move || git.provision(&project, &provisioning_plan))
@@ -243,7 +249,7 @@ pub(super) fn reconcile_closed(
         if let Some(copy) = copy {
             launcher.discard_conversation(&copy)?;
         }
-        let node = rail.resource_node(&agent)?;
+        let node = rail.resource_node(crate::rail::agent_id(&agent)?)?;
         if node.worktree.is_some() {
             let plan = rail
                 .provisioning()?
@@ -560,13 +566,21 @@ mod tests {
         agents
             .shared
             .rail()
-            .rename(&ids.0, "user Workstream")
+            .rename(crate::rail::agent_id(&ids.0).unwrap(), "user Workstream")
             .unwrap();
-        agents.shared.rail().rename(&ids.1, "user Agent").unwrap();
         agents
             .shared
             .rail()
-            .move_node(&ids.1, Some(&other.id), 0)
+            .rename(crate::rail::agent_id(&ids.1).unwrap(), "user Agent")
+            .unwrap();
+        agents
+            .shared
+            .rail()
+            .move_node(
+                crate::rail::agent_id(&ids.1).unwrap(),
+                Some(crate::rail::agent_id(&other.id).unwrap()),
+                0,
+            )
             .unwrap();
         let agents = reopen(agents);
         assert_eq!(
@@ -580,7 +594,11 @@ mod tests {
         let node = agents.shared.node(&ids.1).unwrap();
         assert_eq!(node.name, "user Agent");
         assert_eq!(node.parent, Some(other.id));
-        agents.shared.rail().remove(&ids.1).unwrap();
+        agents
+            .shared
+            .rail()
+            .remove(crate::rail::agent_id(&ids.1).unwrap())
+            .unwrap();
         assert_eq!(
             agents
                 .prepare_closed("same", "replacement", dir.path(), b"invalid", None)

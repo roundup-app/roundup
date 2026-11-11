@@ -71,8 +71,9 @@ fn log_tail(path: &Path) -> Vec<String> {
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
         .unwrap_or_default();
     let lines: Vec<&str> = text.lines().collect();
-    lines[lines.len().saturating_sub(LOG_LINES)..]
+    lines
         .iter()
+        .skip(lines.len().saturating_sub(LOG_LINES))
         .map(|line| redact(line))
         .collect()
 }

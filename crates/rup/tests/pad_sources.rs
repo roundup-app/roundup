@@ -1,4 +1,10 @@
 //! DV2/DV3 source-lifecycle prerequisite; publication observers remain owned by #2796.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;

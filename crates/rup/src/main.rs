@@ -1,8 +1,3 @@
-#![deny(clippy::unwrap_used, clippy::expect_used)]
-#![deny(clippy::panic, clippy::indexing_slicing)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
-
 use std::io::Read;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -96,22 +91,6 @@ async fn main() -> ExitCode {
         return ExitCode::from(2);
     }
     let outcome = match command[..] {
-        ["claude-memory", root, cwd] => {
-            let mut input = Vec::new();
-            if let Err(err) = std::io::stdin().read_to_end(&mut input) {
-                eprintln!("Cannot read memory hook input: {err}; hand the work to a child Agent");
-                return ExitCode::from(2);
-            }
-            println!(
-                "{}",
-                agents::claude_code::memory_guard(
-                    std::path::Path::new(root),
-                    std::path::Path::new(cwd),
-                    &input
-                )
-            );
-            return ExitCode::SUCCESS;
-        }
         // SK9: no Daemon and no Agent id; `skill report` is the hook's and never exits 2.
         ["skill", ..] => {
             let flags: Vec<String> = command

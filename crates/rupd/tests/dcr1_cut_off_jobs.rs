@@ -1,6 +1,12 @@
 //! DCR1 through a real Daemon over its socket, with a fake `claude` that only reads stdin: a
 //! quit marks the Job mid-turn as cut off, and the record survives a reopen, where an Agent's
 //! `agent_resume` without `mode` takes it and refuses the finished ones.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::Arc;

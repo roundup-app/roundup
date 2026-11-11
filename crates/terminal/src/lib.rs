@@ -4,20 +4,15 @@
 //! returns the new Terminal's id together with a [`broadcast::Receiver`] of its events. The receiver
 //! exists before the reader thread reads any output, so none is missed.
 
-#![cfg_attr(
-    not(test),
-    deny(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing
-    )
-)]
-
 mod contract_handlers;
 mod error;
 pub use error::Error;
 use error::Locked;
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the start path switches to it in the next slice")
+)]
+mod host;
 mod input;
 mod integration;
 mod output;

@@ -1,5 +1,11 @@
 //! AMG3: a guard end of a fake Agent's `sleep` under a test budget sends one note to the Agent and
 //! one to its Door, through a real Daemon and its Message store.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(clippy::disallowed_methods)] // a test starts its own `sleep` and reads its own harness path
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;

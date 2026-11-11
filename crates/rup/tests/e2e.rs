@@ -1,5 +1,6 @@
 //! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock; the rest keep the stub while E10 migrates.
-
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::panic, clippy::indexing_slicing)]
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -11,7 +12,6 @@ mod notes;
 mod public_discovery;
 #[path = "e2e/wake.rs"]
 mod wake;
-
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};

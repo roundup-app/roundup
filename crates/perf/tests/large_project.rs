@@ -1,4 +1,10 @@
 //! R5220: every read the App makes on start and on a click stays fast on a Project the size of the owner's.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "../../rupd/tests/support/rupd_harness.rs"]
 mod rupd_harness;
 
