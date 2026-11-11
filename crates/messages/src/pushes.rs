@@ -255,7 +255,11 @@ pub(crate) fn counted(body: &str, weight: u32) -> String {
 /// `header`, then `entries` (newest first, one per child) one to a line, at most 8 and 4096 bytes
 /// in all; the children left out are named on one last line, cut at 512 bytes.
 /// The entries the body lists are the payload's, as the body renders them.
-fn compose(header: &str, entries: &[DigestEntry]) -> (String, Vec<DigestEntry>) {
+fn compose(
+    header: &str,
+    entries: &[DigestEntry],
+    children: usize,
+) -> (String, Vec<DigestEntry>) {
     // B49: inside a Rollup or a merge an end note keeps B19's bounds.
     let mut rolled: Vec<DigestEntry> = entries.iter().map(digest::rolled).collect();
     let lines: Vec<String> = rolled.iter().map(entry_text).collect();
@@ -263,7 +267,7 @@ fn compose(header: &str, entries: &[DigestEntry]) -> (String, Vec<DigestEntry>) 
         let mut used = header.len();
         let mut taken = 0;
         for line in &lines {
-            if taken == ROLLUP_CHILDREN || used + 1 + line.len() + reserve > ROLLUP_BYTES {
+            if taken == children || used + 1 + line.len() + reserve > ROLLUP_BYTES {
                 break;
             }
             used += 1 + line.len();
@@ -320,7 +324,8 @@ pub(crate) fn merged(
             .chain(older_payload.entries())
             .cloned(),
     );
-    let (body, entries) = compose(&header, &entries);
+    // DTC4: a merge names every child its entries hold, within the byte bound.
+    let (body, entries) = compose(&header, &entries, usize::MAX);
     (
         body,
         Payload::Digest {
@@ -341,6 +346,7 @@ pub(crate) fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> (String, Pa
             .rev()
             .map(|(_, entry, _)| entry.clone())
             .collect::<Vec<_>>(),
+        ROLLUP_CHILDREN,
     );
     (
         body,
@@ -443,9 +449,12 @@ async fn release_locked(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger
     let Some(slot) = ledger.metas.get_mut(door) else {
         return;
     };
-    if !slot.all_quiet || slot.waiting.is_empty() {
+    if slot.waiting.is_empty() || (turn_start && !slot.all_quiet) {
         return;
     }
+    // DTC4: at a Stop the entries the window cap kept back are pending for the Door too, so they
+    // ride the one catch-up note.
+    let held = !turn_start && !slot.all_quiet;
     // A Door turn the user's prompt starts takes the quiet notes though nothing else waits; a Door at
     // rest takes them only with a Message, so quiet notes alone start no turn. A turn that starts
     // with a Message pending is that Message's turn, already written: a quiet note arriving after
@@ -453,17 +462,82 @@ async fn release_locked(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger
     let pending = lock(&inner.store)
         .list_pending_to(door)
         .is_ok_and(|pending| !pending.is_empty());
-    if turn_start == pending {
+    if !held && turn_start == pending {
         return;
     }
     slot.all_quiet = false;
     let now = (inner.clock)();
     slot.expire(now);
+    if held {
+        slot.sent.clear();
+    }
     match crate::load_rail_nodes(inner).await {
         Ok(nodes) => roll_up(inner, door, slot, now, false, &nodes).await,
         Err(err) => crate::log_failure("push", &format!("{door}: {err}")),
     }
     ledger.persist(inner, None);
+}
+
+/// DTC4: a Door at its Stop is written one note for what `rupd` has pending for it: its pending
+/// digests fold into one Message with one entry per child, the newest, as B22(b) merges two.
+pub(crate) fn catch_up<'a>(
+    inner: &'a Arc<Inner>,
+    door: &'a str,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
+    // Boxed: the merged Message it sends is delivered through `on_idle`, which calls this again.
+    Box::pin(fold_pending(inner, door))
+}
+
+async fn fold_pending(inner: &Arc<Inner>, door: &str) {
+    let is_door = crate::load_rail_nodes(inner).await.is_ok_and(|nodes| {
+        nodes
+            .iter()
+            .any(|node| node.id == door && node.kind == contracts::agent::NodeKind::Workstream)
+    });
+    if !is_door {
+        return;
+    }
+    let messages = Messages {
+        inner: Arc::clone(inner),
+    };
+    let ctx = Ctx {
+        actor: Actor::daemon(),
+        bus: inner.bus.clone(),
+        touches: Arc::clone(&inner.touches),
+    };
+    let params = SendParams {
+        to: door.to_owned(),
+        kind: MessageKind::Note,
+        body: PREFIX.to_owned(),
+        reply_to: None,
+    };
+    loop {
+        let foldable = {
+            let store = lock(&inner.store);
+            store.open_digests(door).map(|open| {
+                // A digest in flight is being written: it is not folded under its writer.
+                open.len() > 1
+                    && !open
+                        .iter()
+                        .any(|(m, _)| store.in_flight(m.id).unwrap_or(true))
+            })
+        };
+        match foldable {
+            Ok(true) => {}
+            Ok(false) => return,
+            Err(err) => return crate::log_failure("catch-up", &err.to_string()),
+        }
+        let empty = Payload::Digest {
+            entries: Vec::new(),
+            stands_for: 1,
+        };
+        if let Err(err) = messages
+            .send_message(&ctx, params.clone(), true, empty)
+            .await
+        {
+            return crate::log_failure("catch-up", &err.to_string());
+        }
+    }
 }
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.

@@ -978,3 +978,5 @@ mod dtc2_quiet_notes;
 
 #[path = "support/dtc3_one_turn.rs"]
 mod dtc3_one_turn;
+#[path = "support/dtc4_catch_up.rs"]
+mod dtc4_catch_up;
