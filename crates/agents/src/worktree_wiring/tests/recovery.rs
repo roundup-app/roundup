@@ -42,14 +42,14 @@ async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
                         agents
                             .shared
                             .rail()
-                            .reserve_prepared(&agent, &plan)
+                            .reserve_prepared(crate::rail::agent_id(&agent).unwrap(), &plan)
                             .unwrap()
                     );
                 } else {
                     agents
                         .shared
                         .rail()
-                        .mark_worktree_provisioning(&agent, &plan)
+                        .mark_worktree_provisioning(crate::rail::agent_id(&agent).unwrap(), &plan)
                         .unwrap();
                 }
                 if boundary == 2 {
