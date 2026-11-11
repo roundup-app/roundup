@@ -9,17 +9,17 @@ import { queueFocus } from "../keys/focus";
 import type { RailMenuModel } from "./menu/model";
 import { ReservedLine } from "../ink/ReservedLine";
 
-/** A4452c: the row menu captures the Workstream independently of the selected Todo scope. */
+/** A4452c: the row menu captures the root Agent independently of the selected Todo scope. */
 export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["restartSession"]>; id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
   const connected = useConnectedProject();
-  const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.id));
+  const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "agent" && node.parent === null && node.id === props.id));
   const [open, setOpen] = createSignal(true);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [restarting, setRestarting] = createSignal(false);
   const [restartFailed, setRestartFailed] = createSignal(false);
   const { drafts } = connected;
   drafts.validate("opening-prompt", v.strictObject({ text: v.string(), base: v.optional(v.string()) }));
-  drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "workstream" && node.id === draft.destination.object) ? "available" : "unavailable");
+  drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "agent" && node.parent === null && node.id === draft.destination.object) ? "available" : "unavailable");
   const destination = () => ({ surface: "opening-prompt", object: props.id, recipient: null });
   const draft = () => drafts.list().filter(record => record.destination.surface === "opening-prompt" && record.destination.object === props.id).at(-1);
   const text = () => String(draft()?.value.text ?? current()?.opening_prompt ?? "");

@@ -64,7 +64,7 @@ const provesChoice = async (m: Awaited<ReturnType<typeof mount>>, id: string) =>
 
 it.each(["agent", "workstream", "door", "mode", "redirect", "self-needs-you"])("u5742a_plain_rail_choice_focuses_terminal_%s", async kind => {
   const target = kind === "agent" ? agent("target", "idle", "ready")
-    : kind === "mode" ? door("target", "idle", "ready", { opening_prompt: "review this" })
+    : kind === "mode" ? agent("target", "idle", "ready", { opening_prompt: "review this" })
     : kind === "workstream" ? workstream("target", { terminal_id: "t-target" })
     : door("target", kind === "self-needs-you" ? "needs-you" : "idle", "ready");
 
@@ -253,7 +253,7 @@ it.each(["agent", "workstream"] as const)("u5742c_authorized_native_link_choice_
 });
 
 it.each(["fold", "door-action", "menu"])("u5742b_controls_do_not_activate_the_row_%s", async control => {
-  const m = await mount([agent("ann", "idle", "ready"), door("mode", "idle", "ready", { opening_prompt: "review this" }), agent("child", "idle", "ready", { parent: "mode" })]);
+  const m = await mount([agent("ann", "idle", "ready"), agent("mode", "idle", "ready", { opening_prompt: "review this" }), agent("child", "idle", "ready", { parent: "mode" })]);
   m.connected.rail.select("ann");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-ann"));
   const { copy } = await import("./copy");

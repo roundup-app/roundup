@@ -9,6 +9,7 @@ import { Combobox } from "../ui/Combobox";
 import { Popover } from "../ui/Popover";
 import { copy } from "./copy";
 import { captureFocus, queueFocus } from "../keys/focus";
+import { isMode } from "./layout";
 
 export const MovePicker = (props: {
   target: { id: string; anchor: HTMLElement } | null;
@@ -46,8 +47,8 @@ export const MovePicker = (props: {
 
 export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "app" | "rail" | "daemonExit">, rowElement: (id: string) => HTMLElement | undefined) => {
   const [target, setTarget] = createSignal<{ id: string; anchor: HTMLElement } | null>(null);
-  const destinations = () => rail.nodes.filter(node => node.kind === "workstream").map(node => ({ value: node.id, label: node.name }));
-  const available = (id: string | undefined) => daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "agent" && node.parent === null) && destinations().length > 0;
+  const destinations = () => rail.nodes.filter(node => node.kind === "workstream" || isMode(node)).map(node => ({ value: node.id, label: node.name }));
+  const available = (id: string | undefined) => daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "agent" && node.parent === null && !isMode(node)) && destinations().length > 0;
 
   const open = (id: string) => {
     const anchor = rowElement(id);

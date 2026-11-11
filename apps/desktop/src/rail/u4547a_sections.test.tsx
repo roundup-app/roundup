@@ -7,9 +7,9 @@ import { mountRail, rowOf, rowNames, settled } from "./railFixture";
 
 const tree = () => [
   node("root", { order: 0 }),
-  workstream("mode", { opening_prompt: " \nDo work\n ", order: 1 }),
+  node("mode", { opening_prompt: " \nDo work\n ", order: 1 }),
   node("mode-child", { parent: "mode" }),
-  workstream("plain", { opening_prompt: " \n ", order: 2 }),
+  workstream("plain", { order: 2 }),
   node("plain-child", { parent: "plain" }),
   workstream("plain-second", { order: 3 }),
 ];
@@ -111,17 +111,16 @@ it("u4547a_section_state_survives_reopen_per_project", async () => {
 });
 
 it("u5645c_sections_and_stable_order_survive_reclassification", async () => {
-  const nodes = () => [workstream("plain"), workstream("nested-mode", { parent: "plain", opening_prompt: "Saved" }),
-    node("second", { parent: "plain", order: 4 }), node("first", { parent: "plain", order: 4 }),
-    workstream("mode", { opening_prompt: "Saved" }), node("root")];
+  const nodes = () => [workstream("plain"), node("second", { parent: "plain", order: 4 }), node("first", { parent: "plain", order: 4 }),
+    node("mode", { opening_prompt: "Saved" }), node("root")];
 
   const { rail, app } = await mountRail(nodes());
   const members = () => heads().map(head => [...head.parentElement!.querySelectorAll(".rail-row")].map(row => row.getAttribute("data-id")));
-  expect(members()).toEqual([["plain", "nested-mode", "second", "first"], ["mode"], ["root"]]);
-  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "plain" ? { ...node, opening_prompt: "Now a Mode" } : node);
+  expect(members()).toEqual([["plain", "second", "first"], ["mode"], ["root"]]);
+  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "root" ? { ...node, opening_prompt: "Now a Mode" } : node);
   await rail.refresh();
-  expect(members()).toEqual([["plain", "nested-mode", "second", "first", "mode"], ["root"]]);
-  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "nested-mode" ? { ...node, parent: null } : node);
+  expect(members()).toEqual([["plain", "second", "first"], ["mode", "root"]]);
+  app.handlers["rail.tree"] = () => nodes().map(node => node.id === "mode" ? { ...node, opening_prompt: "" } : node);
   await rail.refresh();
-  expect(members()).toEqual([["plain", "second", "first"], ["nested-mode", "mode"], ["root"]]);
+  expect(members()).toEqual([["plain", "second", "first"], ["mode", "root"]]);
 });

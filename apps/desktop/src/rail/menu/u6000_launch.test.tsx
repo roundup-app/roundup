@@ -47,7 +47,7 @@ const launches: [string, (mounted: Mounted) => Promise<string>][] = [
 ];
 
 it.each(launches)("u6000a_every_launch_renders_starting_before_its_call_answers_%s", async (_name, fire) => {
-  const mounted = await mountRail([exited("old"), workstream("ws"), door("mode", "working", "", { opening_prompt: "go" })]);
+  const mounted = await mountRail([exited("old"), workstream("ws"), agent("mode", "working", "", { opening_prompt: "go" })]);
   await settled();
   const id = await fire(mounted);
 

@@ -121,7 +121,7 @@ async fn a5214b_the_mode_holds_the_agents_brief_tools_extras_and_model() {
     )
     .await;
     let mode = save(&f, &agent.id, " Parser audit ").await.unwrap();
-    assert_eq!(mode.kind, NodeKind::Workstream);
+    assert_eq!(mode.kind, NodeKind::Agent);
     assert_eq!(mode.name, "Parser audit");
     assert_eq!(mode.parent, None);
     assert_eq!(mode.opening_prompt.as_deref(), Some("audit the parser"));

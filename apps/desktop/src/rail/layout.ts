@@ -28,6 +28,9 @@ export type RailView = {
 
 export const isWorkstream = (node: RailNode): boolean => node.kind === "workstream";
 
+/** A4452c: a Mode is a root Agent carrying a saved first prompt; it is no Workstream and has no Door. */
+export const isMode = (node: RailNode): boolean => node.kind === "agent" && node.parent === null && !!node.opening_prompt?.trim();
+
 /** U6119: an Agent whose parent is a Workstream is the Door's to handle, so it draws no unseen marker of its own. */
 export const isWorkstreamChild = (nodes: readonly RailNode[], node: RailNode): boolean =>
   node.kind === "agent" && node.parent !== null && nodes.some((each) => each.id === node.parent && isWorkstream(each));

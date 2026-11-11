@@ -292,7 +292,11 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return append(parent, (id, order) => workstream(id, { name, parent, order }));
   };
 
+  app.handlers["rail.createMode"] = ({ name, prompt }) => append(null, (id, order) => agent(id, "idle", "", { name, parent: null, order, opening_prompt: prompt }));
+
   app.handlers["workstream.setOpeningPrompt"] = ({ id, prompt }) => {
+    if (find(id).kind === "workstream") throw new RpcError(CONFLICT, "a Workstream is never a Mode");
+
     changed(Object.assign(find(id), { opening_prompt: prompt }));
 
     return null;

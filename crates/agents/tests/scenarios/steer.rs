@@ -243,14 +243,19 @@ async fn a4452d_agent_authored_text_never_types() {
 #[tokio::test]
 async fn a4452c_only_the_user_sets_the_opening_prompt() {
     let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
-    let workstream = f.workstream("team", None).await;
     let prompt = "  Review e\u{301} 🧭\nKeep spacing  ";
-    let params = json!({"id": workstream, "prompt": prompt});
+    let mode: RailNode = serde_json::from_value(
+        f.call("rail.createMode", json!({"name": "team", "prompt": "first"}))
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let params = json!({"id": mode.id, "prompt": prompt});
     for kind in [ActorKind::Agent, ActorKind::Ext] {
         let ctx = Ctx {
             actor: Actor {
                 kind,
-                id: workstream.clone(),
+                id: mode.id.clone(),
                 parent: None,
             },
             ..f.ctx()
@@ -262,13 +267,28 @@ async fn a4452c_only_the_user_sets_the_opening_prompt() {
             .unwrap_err();
         assert_eq!(err.code, code::FORBIDDEN);
     }
-    assert!(f.tree().await.iter().all(|n| n.opening_prompt.is_none()));
     f.call("workstream.setOpeningPrompt", params).await.unwrap();
     let f = f.reopen();
     let tree = f.tree().await;
-    let node = tree.iter().find(|n| n.id == workstream).unwrap();
+    let node = tree.iter().find(|n| n.id == mode.id).unwrap();
     assert_eq!(node.name, "team");
+    assert_eq!(node.kind, NodeKind::Agent);
     assert_eq!(node.opening_prompt.as_deref(), Some(prompt));
+}
+
+#[tokio::test]
+async fn a4452c_a_workstream_is_never_a_mode() {
+    let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
+    let workstream = f.workstream("team", None).await;
+    let err = f
+        .call(
+            "workstream.setOpeningPrompt",
+            json!({"id": workstream, "prompt": "go"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert!(f.tree().await.iter().all(|n| n.opening_prompt.is_none()));
 }
 
 #[tokio::test]

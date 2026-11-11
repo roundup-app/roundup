@@ -71,7 +71,7 @@ const launches: TimedAction[] = [
   {
     name: "restart",
     mount: () =>
-      mountRail([door("mode", "working", "", { opening_prompt: "go" })]),
+      mountRail([agent("mode", "working", "", { opening_prompt: "go" })]),
     method: "workstream.restart",
     fire: () =>
       void fireEvent.click(

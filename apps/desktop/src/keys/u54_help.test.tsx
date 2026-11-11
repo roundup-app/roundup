@@ -45,11 +45,11 @@ const open = async (openingPrompt = "") => {
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
-    door("w", "idle", "idle", { name: "lead", opening_prompt: openingPrompt }),
+    agent("w", "idle", "idle", { name: "lead", opening_prompt: openingPrompt }),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: id === "i" ? null : "w" })),
   ];
 
-  app.handlers["workstream.restart"] = () => door("w", "idle", "idle", { opening_prompt: openingPrompt });
+  app.handlers["workstream.restart"] = () => agent("w", "idle", "idle", { opening_prompt: openingPrompt });
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));

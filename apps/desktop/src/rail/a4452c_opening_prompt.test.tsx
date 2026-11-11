@@ -7,7 +7,7 @@ import { mountRail, railCallsTo, rowOf } from "./railFixture";
 afterEach(cleanup);
 
 it("a4452c_the_row_menu_opens_only_the_named_workstreams_prompt", async () => {
-  const m = await mountRail([workstream("w", { name: "Plan" }), agent("a", "idle", "", { parent: "w" })]);
+  const m = await mountRail([agent("w", "idle", "", { name: "Plan" }), agent("a", "idle", "", { parent: "w" })]);
   m.rail.select("a");
   expect(screen.queryByRole("textbox")).toBeNull();
   fireEvent.contextMenu(rowOf("a"));
@@ -24,7 +24,7 @@ it("a4452c_the_row_menu_opens_only_the_named_workstreams_prompt", async () => {
 });
 
 it("a4452c_a_refused_opening_prompt_keeps_the_original_workstream_draft", async () => {
-  const m = await mountRail([workstream("w"), workstream("other")], [], undefined, () => true);
+  const m = await mountRail([agent("w", "idle", ""), agent("other", "idle", "")], [], undefined, () => true);
   m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
 
 
@@ -48,7 +48,7 @@ it("a4452c_a_refused_opening_prompt_keeps_the_original_workstream_draft", async 
 });
 
 it.each(["Escape", "Close"])("a4452c_closing_with_%s_returns_focus_to_the_workstream", async close => {
-  const m = await mountRail([workstream("w")], [], undefined, () => true);
+  const m = await mountRail([agent("w", "idle", "")], [], undefined, () => true);
   const row = rowOf("w");
   row.focus();
   fireEvent.contextMenu(row);
@@ -62,7 +62,7 @@ it.each(["Escape", "Close"])("a4452c_closing_with_%s_returns_focus_to_the_workst
 });
 
 it("a4452c_retry_saves_the_retained_prompt_without_refocusing_the_field", async () => {
-  const m = await mountRail([workstream("w")], [], undefined, () => true);
+  const m = await mountRail([agent("w", "idle", "")], [], undefined, () => true);
   m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
 
 
@@ -82,7 +82,7 @@ it("a4452c_retry_saves_the_retained_prompt_without_refocusing_the_field", async 
 });
 
 it("a4452c_restart_saves_first_and_retries_the_same_session_identity", async () => {
-  const m = await mountRail([workstream("w")], [], undefined, () => true);
+  const m = await mountRail([agent("w", "idle", "")], [], undefined, () => true);
   const order: string[] = [];
 
   let finishSave = () => {};
@@ -109,7 +109,7 @@ it("a4452c_restart_saves_first_and_retries_the_same_session_identity", async () 
   await screen.findByRole("alert");
   expect(order).toEqual(["save", "restart"]);
   const first = railCallsTo(m.app, "workstream.restart")[0];
-  m.app.handlers["workstream.restart"] = () => workstream("w");
+  m.app.handlers["workstream.restart"] = () => agent("w", "idle", "");
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(railCallsTo(m.app, "workstream.restart")).toEqual([first, first]));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

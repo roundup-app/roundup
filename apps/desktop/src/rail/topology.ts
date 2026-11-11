@@ -28,7 +28,7 @@ export const railTopology = (source: readonly RailNode[]) => {
   for (let root = 0; root < starts[1]!; root += 1) {
     const at = children[root]!;
     const node = nodes[at]!;
-    visit(at, node.kind === "agent" ? "agents" : node.opening_prompt?.trim() ? "modes" : "workstreams");
+    visit(at, node.kind !== "agent" ? "workstreams" : node.opening_prompt?.trim() ? "modes" : "agents");
   }
 
   return { nodes, index, parent, children, starts, section };

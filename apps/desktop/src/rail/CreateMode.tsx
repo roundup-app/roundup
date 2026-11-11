@@ -34,13 +34,13 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
     let submitted = revision.revision;
     const saved = value();
     // U5991a: the Mode's Row shows now; the refreshed tree or a failure lifts it.
-    const lift = saved.id === null ? rail.drawNew("workstream", saved.name.trim(), null) : null;
+    const lift = saved.id === null ? rail.drawNew("agent", saved.name.trim(), null) : null;
 
     try {
       if (!await drafts.submit(submitted)) return;
 
       if (saved.id === null) {
-        saved.id = (await app.rpc("rail.createWorkstream", { name: saved.name.trim(), parent: null })).id;
+        saved.id = (await app.rpc("rail.createMode", { name: saved.name.trim(), prompt: saved.text })).id;
         const checkpoint = drafts.edit(destination, saved, null, "ordinary", revision.revision);
         await checkpoint.retained;
         await drafts.settle(submitted, "acknowledged");
@@ -48,7 +48,6 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
         await drafts.submit(submitted);
       }
 
-      await app.rpc("workstream.setOpeningPrompt", { id: saved.id, prompt: saved.text });
       await rail.refresh();
       rail.setSectionOpen("modes", true);
       rail.select(saved.id);

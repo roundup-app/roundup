@@ -1,7 +1,7 @@
 import { openTabs, path } from "../header/stripFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent, info, workstream } from "../testing/nodes";
+import { node, agent, info, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountRail, railCallsTo, rowOf, chooseAction, settled } from "./railFixture";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -9,7 +9,7 @@ import { captureActions } from "../keys/registry";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-const tree = () => [workstream("Research"), workstream("Review", { opening_prompt: "Review changes" }), agent("nested", "idle", "", { parent: "Review" }), agent("free", "working", "live")];
+const tree = () => [workstream("Research"), node("Review", { opening_prompt: "Review changes" }), agent("nested", "idle", "", { parent: "Review" }), agent("free", "working", "live")];
 
 it.each(["menu", "key"])("u4547e_menu_and_key_move_to_either_container %s", async entry => {
   for (const parent of ["Research", "Review"]) {
