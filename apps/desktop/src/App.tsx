@@ -554,6 +554,7 @@ export const App = (props: {
 
     return { path, items: projectMenuItems(menuFocus(), connected !== undefined && !(connected instanceof Error), path ? drafts(path).todoUndo : null) };
   });
+
   const writeMenu = untrack(() => createMenuWriter(props.app, setWindowFailure));
 
   createEffect(() => {

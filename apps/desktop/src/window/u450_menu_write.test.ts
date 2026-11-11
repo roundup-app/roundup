@@ -14,6 +14,7 @@ it("u450_the_latest_menu_write_wins", async () => {
       if (sent.length === 1) await gate;
     },
   };
+
   const write = createMenuWriter(app, message => { throw new Error(message); });
   const first = write(() => latest);
 
