@@ -92,7 +92,7 @@ pub(super) fn read(
     shared: &Shared,
     number: u64,
     mut reader: Box<dyn Read + Send>,
-    handle: &Handle,
+    recorder: &OnceLock<Mutex<recorder::Recording>>,
     screen: &Mutex<ScreenState>,
     output: &broadcast::Sender<Chunk>,
 ) -> Result<(), Error> {
@@ -103,7 +103,7 @@ pub(super) fn read(
             break;
         }
         let data = within(&chunk, ..read);
-        if let Some(recorder) = handle.recorder.get() {
+        if let Some(recorder) = recorder.get() {
             let at = (shared.clock)();
             recorder.locked("recorder lock")?.read(data, at)?;
         }
@@ -195,7 +195,7 @@ pub(super) fn pump(
     stopped(
         number,
         "output stopped",
-        read(shared, number, reader, handle, screen, &output),
+        read(shared, number, reader, &handle.recorder, screen, &output),
     );
     let code = program::exit_code(number, reap(&handle.program));
     if let Some(hold) = exit_hold {
