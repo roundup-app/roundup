@@ -21,11 +21,11 @@ import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { ModePrompt } from "./ModePrompt";
+import { ModePrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { ancestorsOf, descendantsOf, isWorkstream, siblingsOf } from "./layout";
+import { ancestorsOf, descendantsOf, isMode, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW, type RowActions } from "./rows";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -83,14 +83,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
       ...(node.can_make_workstream ? [{ id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } }] : []),
       ...(node.can_save_as_mode ? [{ id: "save-as-mode", label: copy.saveAsMode, run: () => { setSavingMode(node.id); } }] : []),
-      ...(node.kind === "agent" && node.parent === null && node.mode_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } }] : []),
+      ...(isMode(node) ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
         id: "progress", label: copy.workProgress, run: () => {
           rowElement(node.id)?.focus({ preventScroll: true });
           connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
         },
       }] : []),
-      ...(node.kind === "agent" && node.parent === null && node.mode_prompt?.trim() ? [{ id: "mode-prompt", label: copy.modePromptMenu, run: () => { setModePrompt(node.id); } }] : []),
+      ...(isMode(node) ? [{ id: "mode-prompt", label: copy.modePromptMenu, run: () => { setModePrompt(node.id); } }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [{ id: "add", label: copy.addMenu, children: [
@@ -448,7 +448,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     const exit = rail.exitOf(node);
     const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
 
-    if (node.parent === null && node.mode_prompt?.trim()) actions.restart = {
+    if (isMode(node)) actions.restart = {
       pending: menu.restartPending(node.id),
       run: () => { void menu.restartMode(node.id); },
       menu: click => {
@@ -567,11 +567,11 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
-    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "agent" && node.parent === null && !!node.mode_prompt?.trim()), capture: focus => {
+    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === focusedRowId(press) && isMode(node)), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
       return {
-        available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "agent" && node.parent === null && !!node.mode_prompt?.trim()),
+        available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && isMode(node)),
         invoke: () => { if (id) void menu.restartMode(id); },
       };
     } },
@@ -749,13 +749,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
                         return (
                         <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
-                        <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null || view().node.kind === "agent" && view().node.parent === null && !!view().node.mode_prompt?.trim()}>{(parts) =>
+                        <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null || isMode(view().node)}>{(parts) =>
                         <RailRowView
                           row={view()}
                           topology={below()}
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
-                          doorAction={<Show when={isWorkstream(view().node) && !view().node.mode_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={entryOf(view().node.id).branch && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
@@ -783,7 +783,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                           lifted={parts.isDragging()} folded={lifted() === view().node.id}
                           sortRef={parts.ref}
                           handleRef={parts.handleRef}
-                          draggable={daemonExit() === null && !(view().node.kind === "agent" && view().node.parent === null && view().node.mode_prompt?.trim())}
+                          draggable={daemonExit() === null && !isMode(view().node)}
                           onOpenMenu={(x, y) => void openSelectionMenu(view().node, x, y)}
                         />
                         }</Sortable.Item>

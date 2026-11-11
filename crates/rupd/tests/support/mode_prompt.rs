@@ -37,11 +37,19 @@ async fn restart(run: &mut Run, request: &str) -> Result<Value, rpc::RpcError> {
 async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
     let prompt = "  /compose exact words\nKeep spacing  ";
     let mut run = mode(prompt).await;
-    let child = run
-        .user
+    // A Mode's children are the Agents it starts itself (U4547a); the user nests none under it.
+    let mode_agent = rpc::Client::connect(&run.daemon.socket).await.unwrap();
+    mode_agent
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child,"parent":null}}),
+        )
+        .await
+        .unwrap();
+    let child = mode_agent
         .request(
             "agent.spawn",
-            json!({"name":"retained child","cwd":run.dir.path(),"parent":run.child}),
+            json!({"name":"retained child","cwd":run.dir.path(),"parent":run.child,"role":"job"}),
         )
         .await
         .unwrap();
@@ -52,7 +60,10 @@ async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
         .unwrap();
     let todo = run
         .user
-        .request("todo.move", json!({"id":todo["id"],"home":run.child}))
+        .request(
+            "todo.assign",
+            json!({"id":todo["id"],"owner":{"kind":"agent","id":run.child}}),
+        )
         .await
         .unwrap();
     let pad = run
@@ -61,10 +72,6 @@ async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
             "pad.create",
             json!({"name":"retained pad","text":"unchanged"}),
         )
-        .await
-        .unwrap();
-    run.user
-        .request("pad.move", json!({"name":"retained pad","home":run.child}))
         .await
         .unwrap();
     run.user
@@ -106,9 +113,7 @@ async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
         pads.as_array()
             .unwrap()
             .iter()
-            .any(|p| p["name"] == pad["name"]
-                && p["text"] == "unchanged"
-                && p["home"] == run.child)
+            .any(|p| p["name"] == pad["name"] && p["text"] == "unchanged")
     );
     let retried = restart(&mut run, "fresh-1").await.unwrap();
     assert_eq!(retried["attempt"], node["attempt"]);

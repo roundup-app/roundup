@@ -119,5 +119,5 @@ it("u5645c_sections_and_stable_order_survive_mode_prompt_clearing", async () => 
   expect(members()).toEqual([["plain", "nested"], ["mode", "mode-child"], ["root"]]);
   app.handlers["rail.tree"] = () => nodes().map(node => node.id === "mode" ? { ...node, mode_prompt: "" } : node);
   await rail.refresh();
-  expect(members()).toEqual([["plain", "nested"], ["root", "mode", "mode-child"]]);
+  expect(members()).toEqual([["plain", "nested"], ["mode", "mode-child", "root"]]);
 });

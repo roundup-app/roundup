@@ -233,3 +233,27 @@ impl StartAttribution {
         Self::deserialize(deserializer).map(Some)
     }
 }
+
+/// A4452c: a user-requested fresh Mode Agent run. Retries retain `request`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ModeRestartParams {
+    pub id: String,
+    pub request: crate::Text<128, { crate::text::NONEMPTY }>,
+    /// U3801: the user's current App choice; omission preserves the Agent's selected choice.
+    #[serde(
+        default,
+        rename = "permissionMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[specta(optional, type = PermissionMode)]
+    #[schemars(skip)]
+    pub permission_mode: Option<PermissionMode>,
+    /// U3802: the App's current engine choice; omission keeps the Agent's Adapter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub engine: Option<String>,
+    /// A36: use the Agent's saved Model when present, then this App default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub model: Option<String>,
+}

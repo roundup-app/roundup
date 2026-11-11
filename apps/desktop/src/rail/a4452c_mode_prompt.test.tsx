@@ -37,7 +37,7 @@ it("a4452c_a_refused_mode_prompt_keeps_the_original_mode_draft", async () => {
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   fireEvent.contextMenu(rowOf("other"));
   await m.app.pickMenu("First prompt…");
-  expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" })).value).toBe("");
+  expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" })).value).toBe("second");
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 

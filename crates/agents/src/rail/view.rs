@@ -96,7 +96,7 @@ impl Rail {
         Ok(self
             .db
             .execute(
-                "UPDATE nodes SET mode_prompt=?1 WHERE id=?2 AND kind='agent' AND parent IS NULL AND mode_prompt IS NOT ?1",
+                "UPDATE nodes SET opening_prompt=?1 WHERE id=?2 AND kind='agent' AND parent IS NULL AND opening_prompt IS NOT ?1",
                 params![prompt, id.get()],
             )
             .map(|changed| changed != 0)?)

@@ -11,7 +11,7 @@ import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
 import type { QueueView } from "../../state/queue";
 import { goesLine, staysLine } from "./removal";
-import { railOrder } from "../layout";
+import { isMode, railOrder } from "../layout";
 import { judgeRemoval } from "./removal";
 import type { Known, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
@@ -374,7 +374,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
     ];
 
-    if (node.yolo && !(node.kind === "agent" && node.parent === null && node.mode_prompt?.trim()) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
+    if (node.yolo && !isMode(node) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
 
     // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
     if (!node.yolo && (isRunning(node, exit) || node.can_resume)) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });

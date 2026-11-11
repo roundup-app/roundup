@@ -17,16 +17,10 @@ async fn a5765e_workstream_and_mode_attribution_survive_stop_and_reopen() {
         let f = Fixture::new();
         let source = attribution("1");
         let created = if let Some(prompt) = prompt {
-            let mode = f
-                .call(
-                    "agent.createMode",
-                    json!({"name":"Target work","prompt":prompt,"start_attribution":source}),
-                )
-                .await
-                .unwrap();
+            // `agent.restartMode` is the Daemon's; a created Mode already holds its attribution.
             f.call(
-                "agent.restartMode",
-                json!({"id":mode["id"],"request":"start-attribution"}),
+                "agent.createMode",
+                json!({"name":"Target work","prompt":prompt,"start_attribution":source}),
             )
             .await
             .unwrap()

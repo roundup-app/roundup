@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, mode } from "../testing/nodes";
+import { agent, mode, workstream } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { CHORDS, LEADER, pressOf, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { endLeader } from "./registry";
@@ -46,6 +46,8 @@ const open = async (prompt = "") => {
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
     mode("w", prompt, { name: "lead" }),
+    // U4547e: a Workstream gives the free root Agent a Move destination.
+    workstream("team"),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: id === "i" ? null : "w" })),
   ];
 

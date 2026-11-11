@@ -293,7 +293,13 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   };
 
   app.handlers["agent.createMode"] = ({ name, prompt, start_attribution }) =>
-    append(null, (id, order) => mode(id, prompt, { name, order, ...(start_attribution ? { start_attribution } : {}), status: null, attempt: null, status_revision: null, terminal_id: null }));
+    append(null, (id, order) => {
+      const made = mode(id, prompt, { name, order, status: null, attempt: null, status_revision: null, terminal_id: null });
+
+      if (start_attribution) made.start_attribution = start_attribution;
+
+      return made;
+    });
 
   app.handlers["agent.setModePrompt"] = ({ id, prompt }) => {
     const target = find(id);

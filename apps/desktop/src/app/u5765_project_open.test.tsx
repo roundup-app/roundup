@@ -183,7 +183,7 @@ it.each(["agent", "workstream", "mode"] as const)("u5765_start_%s_in_open_b_uses
     const launch = target.calls.find(call => call.method === (kind === "agent" ? "agent.spawn" : kind === "workstream" ? "rail.startDoor" : "agent.restartMode"));
     expect(launch?.params).not.toHaveProperty("mode");
 
-    if (kind !== "mode" && permissionMode) expect(launch?.params).toHaveProperty("permissionMode", permissionMode);
+    if (permissionMode) expect(launch?.params).toHaveProperty("permissionMode", permissionMode);
     else expect(launch?.params).not.toHaveProperty("permissionMode");
     cleanup();
   }

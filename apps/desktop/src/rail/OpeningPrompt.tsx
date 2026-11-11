@@ -8,6 +8,7 @@ import { Field } from "../ui/Field";
 import { queueFocus } from "../keys/focus";
 import type { RailMenuModel } from "./menu/model";
 import { ReservedLine } from "../ink/ReservedLine";
+import { createDraftField } from "../state/draftField";
 
 /** A4452c: the row menu captures the Mode Agent independently of the selected Todo scope. */
 export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["restartMode"]>; id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
@@ -18,9 +19,11 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
   const [restarting, setRestarting] = createSignal(false);
   const [restartFailed, setRestartFailed] = createSignal(false);
   const { drafts } = connected;
-  drafts.validate("opening-prompt", v.strictObject({ text: v.string(), base: v.optional(v.string()) }));
+  const schema = v.strictObject({ text: v.string(), base: v.optional(v.string()) });
+  drafts.validate("opening-prompt", schema);
   drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "agent" && node.parent === null && node.id === draft.destination.object) ? "available" : "unavailable");
   const destination = () => ({ surface: "opening-prompt", object: props.id, recipient: null });
+  const field = createDraftField(drafts, destination(), schema);
   const draft = () => drafts.list().filter(record => record.destination.surface === "opening-prompt" && record.destination.object === props.id).at(-1);
   const text = () => String(draft()?.value.text ?? current()?.mode_prompt ?? "");
   createEffect(() => {
@@ -93,7 +96,7 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
       <Dialog.Title>{copy.modePromptFor(current()?.name ?? "")}</Dialog.Title>
       <Field.Root class="mode-prompt-field">
         <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
-          drafts.edit(destination(), { text: event.currentTarget.value, base: draft()?.value.base ?? current()?.mode_prompt ?? "" }, null, "ordinary");
+          field.keep({ text: event.currentTarget.value, base: draft()?.value.base ?? current()?.mode_prompt ?? "" }, null);
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.modePromptHint}</Field.HelperText>
       </Field.Root>

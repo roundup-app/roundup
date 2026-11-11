@@ -80,7 +80,7 @@ impl Agents {
                 Some(Order::Work { ask, .. }) if !ask.trim().is_empty() => ask.clone(),
                 _ => agent.name.clone(),
             };
-            let mode = rail.insert_agent(crate::rail::NewAgent {
+            rail.insert_agent(crate::rail::NewAgent {
                 name,
                 parent: None,
                 work: None,
@@ -92,8 +92,7 @@ impl Agents {
                 model: agent.model.as_deref(),
                 effort: agent.effort.as_deref(),
                 mode_prompt: Some(&prompt),
-            })?;
-            mode
+            })?
         };
         Launcher::save_lean(&self.dir, &mode.id, &lean)?;
         ctx.emit(EventData::RailChanged);

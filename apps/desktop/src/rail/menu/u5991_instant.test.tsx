@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { todo } from "../../todos/testHarness";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { agent, event, info, workstream } from "../../testing/nodes";
+import { agent, event, info, mode, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 import { actions, gone, nextFrame, removeByKey } from "./u5991Harness";
 
@@ -147,7 +147,7 @@ it("u5991d_a_clean_workstream_leaves_in_the_next_frame_while_its_call_is_pending
 const landed = {
   "new Agent": base => [...base, agent("made", "working", "starting", { order: 1 })],
   "new Workstream": base => [...base, workstream("made", { order: 1 })],
-  "new Mode": base => [...base, workstream("made", { order: 1 })],
+  "new Mode": base => [...base, mode("made", "Look", { name: "Review", order: 1 })],
   "make Workstream": base => [workstream("made", { order: 0 }), ...base.map(node => ({ ...node, parent: "made" }))],
 } satisfies Record<string, (base: RailNode[]) => RailNode[]>;
 

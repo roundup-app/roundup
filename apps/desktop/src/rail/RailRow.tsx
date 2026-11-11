@@ -23,7 +23,7 @@ import { mergeProps } from "@zag-js/solid";
 import { StatusTip } from "../ink/StatusTip";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
-import { descendantsOf, isWorkstream } from "./layout";
+import { descendantsOf, isMode, isWorkstream } from "./layout";
 import { rowKind, rowUnread } from "./rollup";
 import { Trunks } from "../ui/TreeView";
 import type { NodeRow, RailTopology } from "./layout";
@@ -147,6 +147,8 @@ export const RailRowView = (props: {
 
   const isGroup = () => props.row.node.kind === "group";
   const isContainer = () => workstream() || isGroup();
+  // U4547a: a Mode folds the Agents it started, as a Workstream folds its own.
+  const folds = () => workstream() || isMode(props.row.node) && props.branch;
 
   // U3800d: each derived value is a memo, so a move that changes none of them runs nothing below it.
   const kind = createMemo((): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null));
@@ -218,7 +220,7 @@ export const RailRowView = (props: {
   const row = (mine: (extra: RowProps) => RowProps) => <StatusTip status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)}>{reveal => <div {...mergeProps({ onClick: choose }, mine(mergeProps(rowProps(), reveal())))} ref={el => { element = el; props.sortRef(el); }}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
-      <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+      <Show when={folds()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
@@ -268,8 +270,8 @@ export const RailRowView = (props: {
   </div>}</StatusTip>;
 
   return <>
-    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(props.row.node.kind === "agent" && props.row.node.parent === null && props.row.node.mode_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(props.row.node.kind === "agent" && props.row.node.parent === null && props.row.node.mode_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)}>
+    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
+      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)}>
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>
