@@ -6,7 +6,7 @@ New capabilities in P11–P12 remain goals until their behavioral observers pass
 
 ## P1 Single front door
 
-The Workstream organizes the work; its Door is the default Agent the user speaks to, and the Thread is that conversation, not another container. The Door breaks objectives down, routes work, absorbs Agent chatter and gives one summary when the work settles; these remain goals until their observers pass. It is the default, never the only way in: the user can always type into any Agent, and a Message to an Agent never writes to its Terminal, so the user's typing is never interleaved with one.
+The Workstream organizes the work; its Door is the default Agent the user speaks to, and the Thread is that conversation, not another container. The Door breaks objectives down, routes work, absorbs Agent chatter and gives one summary when the work settles; these remain goals until their observers pass. A Mode is no Workstream: it is a root Agent with a saved prompt, with no Door and no routing of its own. The Door is the default, never the only way in: the user can always type into any Agent, and a Message to an Agent never writes to its Terminal, so the user's typing is never interleaved with one.
 
 - Gate: does a path make the user address an Agent instead of the Thread to start, route or read work; make an Agent reachable only through the Thread; or let a Message write to an Agent's Terminal?
 - Observer: work started, routed and finished through the Thread alone; a Message to an Agent reaches the Claude inbox with zero Terminal writes, and stays pending until the transcript receipt (B3563c).
