@@ -213,22 +213,56 @@ fn mc46_a_request_for_a_second_surface_or_interrupt_is_refused() {
     }
 }
 
-#[tokio::test]
-async fn mc40_a_folder_made_after_startup_is_watched_once_it_exists() {
+/// Starts the Daemon on a Config folder that cannot be made yet (its parent is a file), then
+/// makes it and saves `text` as `look.json`.
+async fn late_look(
+    text: &str,
+) -> (
+    Arc<Daemon>,
+    tokio::sync::broadcast::Receiver<contracts::Event>,
+) {
     let root = tempfile::tempdir().unwrap();
-    let dir = root.path().join("later");
-    let config = Config::new(dir.clone());
-    let (changes, mut changed) = mpsc::unbounded_channel();
-    let mut watcher = config.watcher(changes);
-    assert!(!config.watch_dir(watcher.as_mut(), true));
-    std::fs::create_dir(&dir).unwrap();
-    tokio::time::timeout(Duration::from_secs(10), changed.recv())
+    let parent = root.path().join("late");
+    std::fs::write(&parent, "").unwrap();
+    let daemon = Arc::new(crate::tests::daemon_in(root.path()).with_config(&parent.join("cfg")));
+    let (events, _) = daemon.subscribe();
+    daemon.config.start(&daemon);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    std::fs::remove_file(&parent).unwrap();
+    std::fs::create_dir_all(parent.join("cfg")).unwrap();
+    std::fs::write(parent.join("cfg").join("look.json"), text).unwrap();
+    std::mem::forget(root);
+    (daemon, events)
+}
+
+#[tokio::test]
+async fn mc50_a_folder_created_after_start_applies_its_look() {
+    let (daemon, mut events) = late_look(r#"{"mode":"light"}"#).await;
+    let wait = async {
+        while !matches!(
+            events.recv().await.map(|e| e.data),
+            Ok(EventData::ConfigChanged)
+        ) {}
+    };
+    tokio::time::timeout(Duration::from_secs(10), wait)
         .await
         .unwrap();
-    assert!(config.watch_dir(watcher.as_mut(), false));
-    while changed.try_recv().is_ok() {}
-    std::fs::write(dir.join("look.json"), r#"{"mode":"light"}"#).unwrap();
-    tokio::time::timeout(Duration::from_secs(10), changed.recv())
+    assert_eq!(daemon.config.state().look["mode"], "light");
+}
+
+#[tokio::test]
+async fn mc50_a_file_in_the_late_folder_is_refused_whole_when_bad() {
+    let (daemon, mut events) = late_look(r#"{"mode":"nope"}"#).await;
+    let wait = async {
+        loop {
+            if let Ok(EventData::ConfigProblem(p)) = events.recv().await.map(|e| e.data) {
+                break p;
+            }
+        }
+    };
+    let problem = tokio::time::timeout(Duration::from_secs(10), wait)
         .await
         .unwrap();
+    assert_eq!(problem.file, "look.json");
+    assert!(daemon.config.state().look.get("mode").is_none());
 }
