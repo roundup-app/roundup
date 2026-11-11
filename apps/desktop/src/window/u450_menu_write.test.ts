@@ -4,9 +4,17 @@ import { createMenuWriter } from "./menuBar";
 it("u450_the_latest_menu_write_wins", async () => {
   const sent: Array<string | null> = [];
   let release!: () => void;
-  const held = new Promise<void>(resolve => { release = resolve; });
-  let latest = { path: "/a" as string | null, items: [] };
-  const write = createMenuWriter({ selectProjectMenu: async path => { sent.push(path); if (sent.length === 1) await held; } }, message => { throw new Error(message); });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let latest = { path: "/a", items: [] };
+
+  const app = {
+    selectProjectMenu: async (path: string | null) => {
+      sent.push(path);
+
+      if (sent.length === 1) await gate;
+    },
+  };
+  const write = createMenuWriter(app, message => { throw new Error(message); });
   const first = write(() => latest);
 
   latest = { path: "/b", items: [] };

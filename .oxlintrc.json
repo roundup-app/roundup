@@ -105,9 +105,9 @@
     {
       "files": [
         "apps/desktop/src/App.tsx",
-        "apps/desktop/src/app/FirstRun.tsx",
+        "apps/desktop/src/window/FirstRun.tsx",
         "apps/desktop/src/window/m8_project_requested.test.tsx",
-        "apps/desktop/src/app/menuBar.ts",
+        "apps/desktop/src/window/menuBar.ts",
         "apps/desktop/src/window/r17_activity.test.tsx",
         "apps/desktop/src/app/r3800_shell.test.tsx",
         "apps/desktop/src/app/u130_fork_colour_proofs.test.ts",

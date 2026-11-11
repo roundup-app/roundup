@@ -556,7 +556,11 @@ export const App = (props: {
   });
   const writeMenu = untrack(() => createMenuWriter(props.app, setWindowFailure));
 
-  createEffect(() => { nativeMenu(); void writeMenu(nativeMenu); });
+  createEffect(() => {
+    nativeMenu();
+
+    void writeMenu(nativeMenu);
+  });
   onCleanup(untrack(() => props.app.onProjectPage(({ path, command }) => {
     if (path !== projects.active()) return;
     const open = connectionOf(path);

@@ -21,6 +21,10 @@ export const createWindowFocus = () => {
     focus,
     setFocus,
     menuFocus,
-    visible: () => { changed(); return document.visibilityState !== "hidden"; },
+    visible: () => {
+      changed();
+
+      return document.visibilityState !== "hidden";
+    },
   };
 };
