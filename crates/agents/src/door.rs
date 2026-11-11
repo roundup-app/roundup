@@ -263,7 +263,9 @@ impl Agents {
         let saved = {
             let rail = self.shared.rail();
             if !fresh_session_target(&rail.node(crate::rail::agent_id(id)?)?) {
-                return Err(RpcError::conflict(format!("{id} is not a Workstream or Mode")));
+                return Err(RpcError::conflict(format!(
+                    "{id} is not a Workstream or Mode"
+                )));
             }
             rail.has_conversation(crate::rail::agent_id(id)?)?
         };
@@ -303,7 +305,9 @@ impl Agents {
             let mut rail = self.shared.rail();
             let node = rail.node(crate::rail::agent_id(id)?)?;
             if !fresh_session_target(&node) {
-                return Err(RpcError::conflict(format!("{id} is not a Workstream or Mode")));
+                return Err(RpcError::conflict(format!(
+                    "{id} is not a Workstream or Mode"
+                )));
             }
             let mut runs = self.shared.runs();
             if let Some(slot) = runs.slot(id) {

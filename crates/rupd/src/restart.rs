@@ -22,9 +22,8 @@ impl Daemon {
             .into_iter()
             .find(|n| n.id == p.id)
             .ok_or_else(|| RpcError::not_found(&p.id))?;
-        let mode = node.kind == NodeKind::Agent
-            && node.parent.is_none()
-            && node.opening_prompt.is_some();
+        let mode =
+            node.kind == NodeKind::Agent && node.parent.is_none() && node.opening_prompt.is_some();
         if node.kind != NodeKind::Workstream && !mode {
             return Err(RpcError::conflict(
                 "only a Workstream's Door or a Mode Agent restarts a fresh session",

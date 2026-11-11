@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
+use contracts::agent::{NodeKind, RailNode};
 use contracts::{Actor, ActorKind, Kind};
 use rpc::{Ctx, Module, RpcError, code};
 use serde_json::{Value, json};
@@ -245,9 +246,12 @@ async fn a4452c_only_the_user_sets_the_opening_prompt() {
     let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
     let prompt = "  Review e\u{301} 🧭\nKeep spacing  ";
     let mode: RailNode = serde_json::from_value(
-        f.call("rail.createMode", json!({"name": "team", "prompt": "first"}))
-            .await
-            .unwrap(),
+        f.call(
+            "rail.createMode",
+            json!({"name": "team", "prompt": "first"}),
+        )
+        .await
+        .unwrap(),
     )
     .unwrap();
     let params = json!({"id": mode.id, "prompt": prompt});
