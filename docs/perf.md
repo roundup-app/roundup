@@ -554,4 +554,12 @@ cargo build --release -p perf
 ./target/release/perf-herdr --core <path to herdr-core> --serve "<args that serve>"
 ```
 
-Recorded numbers: none yet; the Mac reading is a comment on #6713. No Terminal is switched and no budget changes.
+Recorded numbers (Mac, 16 CPUs, 2026-11-08, median of 11 fresh Daemons or cores per arm; herdr-core hc 0.1.18; #6713):
+
+| rule 7 row | PTY arm | herdr arm | limit |
+|---|---|---|---|
+| cold start (ms) | 13.1 | 121.9 | 300 |
+| keystroke write→output p95 (ms) | 0.055 | 0.143 | 16 |
+| 10 idle Terminals, extra RSS (MB) | 3.5 | 15.25 | 150 |
+
+herdr-core passes all three limits. The owner decided on 2026-11-08 that rule 7 means the limits, so the ×2.6 to ×9.3 rise against the PTY arm does not keep the PTY path. No Terminal is switched here and no budget changes.
