@@ -1,4 +1,10 @@
 //! Instruction identity prerequisite only; result acceptance and continuation are not exercised.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;

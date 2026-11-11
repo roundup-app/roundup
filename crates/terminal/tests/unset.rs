@@ -1,4 +1,10 @@
 //! A36: a spawn's `unset` removes a Daemon variable from that program alone.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use contracts::terminal::SpawnParams;
 use std::collections::BTreeMap;
 use terminal::Terminals;

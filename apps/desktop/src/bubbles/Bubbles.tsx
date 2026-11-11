@@ -15,6 +15,8 @@ import { Bubble } from "./Bubble";
 import { Tab } from "./tab";
 import type { TabContext } from "./tab";
 import { copy } from "./copy";
+import { createBubbleFailure, createCopyFailure } from "./failures";
+import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import { HintLine } from "../keys/HintLine";
@@ -55,14 +57,9 @@ export const Bubbles = (props: {
   });
   const records = createMemo(() => drafts.list().filter(draft => draft.destination.surface === "bubbles"));
   const [recovering, recover] = createSignal(false);
-  const [copyFailure, failCopy] = createSignal<{ revision: string; message: string } | null>(null);
-  const recoveryLine = dismissable(() => (copyFailure()?.message) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null);
-  createEffect(() => {
-    const listed = records();
-    const prior = untrack(copyFailure);
-
-    if (prior && !listed.some(draft => draft.revision === prior.revision)) failCopy(null);
-  });
+  const copyFailures = createCopyFailure(() => records().map(draft => draft.revision));
+  const copyFailure = copyFailures.failure;
+  const recoveryLine = dismissable(() => (copyFailure()) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null);
   const currentDraft = () => records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1);
 
   const problem = () => {
@@ -87,21 +84,14 @@ export const Bubbles = (props: {
   };
 
   const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
-  const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
+  const failures = createBubbleFailure(() => connected.daemonExit() !== null ? "unknown" : rail.terminals());
+  const { failure, set: setFailure } = failures;
 
   const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
     rail.commandFailure.acknowledgeTerminal(terminal);
-    setFailure(prior => prior?.terminal?.id === terminal.id && prior.terminal.incarnation === terminal.incarnation ? null : prior);
+    failures.clearTerminal(terminal);
   };
 
-  createEffect(() => {
-    const terminals = rail.terminals();
-
-    if (connected.daemonExit() !== null) return;
-    const prior = untrack(failure);
-
-    if (prior?.terminal && !terminals.some(terminal => terminal.id === prior.terminal!.id && terminal.incarnation === prior.terminal!.incarnation)) setFailure(null);
-  });
   const [opening, setOpening] = createSignal(false);
   const [reserved, setReserved] = createSignal<Record<string, string | null>>({});
   const bubbleMenus = new Map<string, (event: MouseEvent) => void>();
@@ -116,8 +106,7 @@ export const Bubbles = (props: {
   const parkedTabs = document.createElement("div");
   const [measured, setMeasured] = createSignal(false);
   const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
-  const [editing, setEditing] = createSignal<{ id: string } | null>(null);
-  createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
+  const [editing, setEditing] = createRestartable<{ id: string } | null>(rail.selected, null);
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined));
   let before: Element | null = null;
 
@@ -125,8 +114,7 @@ export const Bubbles = (props: {
 
   // U524: every Terminal opened from the Project root stays available alongside Project-owned Terminals.
   const [fromRoot, setFromRoot] = createSignal<readonly { id: string; listed: boolean }[]>([]);
-  const [openedHere, setOpenedHere] = createSignal<readonly string[]>([]);
-  createEffect(on(() => rail.selected(), () => setOpenedHere([]), { defer: true }));
+  const [openedHere, setOpenedHere] = createRestartable<readonly string[]>(rail.selected, []);
 
   const shown = createMemo(() => {
     if (rail.selected() === null) return rail.terminals().filter((terminal) => terminal.owner === path || fromRoot().some(root => root.id === terminal.id));
@@ -404,7 +392,7 @@ export const Bubbles = (props: {
 
         if (selection !== null && (workstream === null || resolvedWorkstream(rail.nodes, selection) !== workstream)) setOpenedHere(prior => [...prior, opened.terminal_id]);
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
-      setFailure(prior => prior?.terminal === null ? null : prior);
+      failures.clearGeneral();
       rail.commandFailure.acknowledge(null);
       await rail.refresh({ terminals: true });
       setReserved(prior => ({ ...prior, [key]: opened.terminal_id }));
@@ -816,13 +804,13 @@ export const Bubbles = (props: {
       </Portal>
       <NameDraftRecovery class="bubble-recovery" open={recovering()} onOpenChange={recover} panel={element => { recoveryPanel = element; }}
         identity={copy.draftIdentity(connected.project.name, copy.terminalName)} records={records()} current={currentDraft()} app={app}
-        lines={<ReservedLine message={recoveryLine.message()} dismiss={() => copyFailure() ? failCopy(null) : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />}
+        lines={<ReservedLine message={recoveryLine.message()} dismiss={() => copyFailure() !== undefined ? copyFailures.dismiss() : recoveryLine.dismiss()} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />}
         label={(draft, index) => copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index + 1))}
         detail={draft => <p class="draft-identity">{copy.draftIdentity(String(draft.value.base ?? ""), draft.destination.recipient ?? copy.noDraftRecipient)}</p>}
         notice={draft => <ReservedLine status={recoveryNotice(draft) ?? copy.draftStatus[draft.status]} data-state={draft.status} />}
         value={draft => String(draft.value.name ?? "")}
-        onCopySuccess={draft => failCopy(prior => prior?.revision === draft.revision ? null : prior)}
-        onCopyFailure={(draft, error) => failCopy({ revision: draft.revision, message: copy.copyDraftFailure(error.message) })}
+        onCopySuccess={draft => copyFailures.clear(draft.revision)}
+        onCopyFailure={(draft, error) => copyFailures.fail(draft.revision, copy.copyDraftFailure(error.message))}
         onDiscard={draft => { drafts.discard(draft.revision); setEditing(null); }} />
       <CloseFailure message={failure()?.message ?? null} onDismiss={() => setFailure(null)} action={<Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show>} />
     </div>;

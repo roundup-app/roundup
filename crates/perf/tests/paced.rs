@@ -1,4 +1,10 @@
 //! Scenario R15 (`scenarios/perf.md`): `terminal_write_p95_ms` paces its writes.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::cell::Cell;
 use std::io;

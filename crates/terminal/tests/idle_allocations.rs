@@ -1,4 +1,10 @@
 //! R3696c: retained memory of idle Terminal event/output queues on the real spawn path.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::{alloc::System, collections::BTreeMap};
 
 use contracts::terminal::SpawnParams;

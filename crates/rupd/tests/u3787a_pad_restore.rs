@@ -1,4 +1,10 @@
 //! U3787a: restoration crosses the same socket and Project storage as production clients.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use rpc::Client;
 use serde_json::{Value, json};
 use std::sync::Arc;

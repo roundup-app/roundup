@@ -1,4 +1,10 @@
 //! Z6395b: an Agent process writing raw JSON-RPC is refused `terminal.catchUp`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 

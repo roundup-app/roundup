@@ -1,5 +1,6 @@
 //! herdr-core as a Terminal's host, beside `remote.rs`: the framed attach stream feeds the same
 //! `Chunk` broadcast, `ScreenState` and status records the PTY reader does, through `pty::read`.
+use super::spawn::{OTHER_TERMINALS, check_program};
 use super::*;
 
 /// The bytes of one attached channel as a [`Read`]. Frames are cut anywhere, a UTF-8 character
@@ -90,6 +91,70 @@ pub(super) fn feed(
     )?;
     let reason = closed.locked("stream close")?.take();
     Ok(reason.as_ref().and_then(exit_code))
+}
+
+/// MC16: the argv that starts a core on this Mac from a clean environment: `env -i` with only the
+/// named variables, since an empty-string value would set a variable rather than remove it.
+pub(super) fn core_command(core: &str, vars: &BTreeMap<String, String>) -> Vec<String> {
+    let mut argv = vec!["env".to_owned(), "-i".to_owned()];
+    argv.extend(vars.iter().map(|(name, value)| format!("{name}={value}")));
+    argv.extend([core.to_owned(), "connect".to_owned()]);
+    argv
+}
+
+/// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the
+/// PTY path gave a program. A core may have started in a session that carries other variables, so
+/// every name the program must not see is removed by `env -u` in argv.
+pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, name: &str) -> Value {
+    let mut env = params.env.clone();
+    let mut removed: Vec<&str> = shared.clean_env.iter().map(String::as_str).collect();
+    removed.extend(params.unset.iter().map(String::as_str));
+    removed.extend(OTHER_TERMINALS.iter().copied());
+    removed.sort_unstable();
+    removed.dedup();
+    for name in &removed {
+        env.remove(*name);
+    }
+    env.insert("TERM".into(), "xterm-256color".into());
+    env.insert("CLAUDE_CODE_FORCE_SYNC_OUTPUT".into(), "1".into());
+    env.insert("ROUNDUP_TERMINAL".into(), number.to_string());
+    let mut argv = vec!["env".to_owned()];
+    for name in removed {
+        argv.extend(["-u".to_owned(), name.to_owned()]);
+    }
+    match &params.command {
+        Some(command) => argv.extend(command.iter().cloned()),
+        None => argv.push(std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into())),
+    }
+    serde_json::json!({
+        "argv": argv,
+        "cwd": params.cwd,
+        "env": env,
+        "name": name,
+        "size": {"cols": params.cols, "rows": params.rows},
+    })
+}
+
+/// Start `params` in the core as terminal `name`. A bad cwd or program is the caller's error
+/// (`spawn_failed`); anything else is the Daemon's.
+pub(super) async fn run(
+    conn: &herdr::Conn,
+    shared: &Shared,
+    params: &SpawnParams,
+    number: u64,
+    name: &str,
+) -> Result<(), Error> {
+    check_program(params)?;
+    match conn
+        .call("terminal.run", run_params(shared, params, number, name))
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(herdr::Error::Rpc(err)) if err.kind == "spawn_failed" => {
+            Err(invalid(format!("cannot run the program: {}", err.message)))
+        }
+        Err(err) => Err(Error::internal(err)),
+    }
 }
 
 #[cfg(test)]
@@ -280,5 +345,132 @@ mod tests {
         assert_eq!(code, Some(3));
         let named = fed(vec![], json!({"exit_code":7})).await;
         assert_eq!(named.code, Some(7));
+    }
+
+    /// A fake core that records each `terminal.run` it gets and answers `reply` (an error object
+    /// when it has `code`).
+    async fn run_core(reply: Value) -> (herdr::Conn, tokio::sync::mpsc::UnboundedReceiver<Value>) {
+        let (mac_r, mut core_w) = duplex(1 << 20);
+        let (core_r, mac_w) = duplex(1 << 20);
+        let (seen, got) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            let mut r = tokio::io::BufReader::new(core_r);
+            let mut line = String::new();
+            tokio::io::AsyncBufReadExt::read_line(&mut r, &mut line)
+                .await
+                .unwrap();
+            let hello =
+                r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+            core_w
+                .write_all(format!("{hello}\n").as_bytes())
+                .await
+                .unwrap();
+            loop {
+                let mut h = [0u8; 9];
+                if r.read_exact(&mut h).await.is_err() {
+                    return;
+                }
+                let mut p = vec![0u8; u32::from_le_bytes([h[5], h[6], h[7], h[8]]) as usize];
+                r.read_exact(&mut p).await.unwrap();
+                let msg: Value = serde_json::from_slice(&p).unwrap();
+                let key = if reply.get("code").is_some() {
+                    "error"
+                } else {
+                    "result"
+                };
+                let body = json!({"jsonrpc":"2.0","id":msg["id"],key:reply});
+                core_w
+                    .write_all(&frame(0, 0, body.to_string().as_bytes()))
+                    .await
+                    .unwrap();
+                let _ = seen.send(msg);
+            }
+        });
+        let conn = herdr::Conn::over(mac_r, mac_w, Duration::from_secs(5))
+            .await
+            .unwrap();
+        (conn, got)
+    }
+
+    fn launch() -> SpawnParams {
+        SpawnParams {
+            cwd: "/work".into(),
+            command: Some(vec!["claude".into(), "--flag".into()]),
+            env: [
+                ("ROUNDUP_AGENT".to_owned(), "7".to_owned()),
+                ("CLAUDECODE".to_owned(), "1".to_owned()),
+            ]
+            .into(),
+            unset: vec!["CLAUDE_CODE_SESSION_ID".into()],
+            cols: 100,
+            rows: 30,
+        }
+    }
+
+    #[tokio::test]
+    async fn mc12_local_terminal_starts_through_herdr_core() {
+        let dir = tempfile::tempdir().unwrap();
+        let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
+        let (conn, mut seen) = run_core(json!({"state":"live"})).await;
+        run(&conn, &terminals.shared, &launch(), 4, "rp4")
+            .await
+            .unwrap();
+        let call = seen.recv().await.unwrap();
+        assert_eq!(call["method"], "terminal.run");
+        let p = &call["params"];
+        assert_eq!((&p["cwd"], &p["name"]), (&json!("/work"), &json!("rp4")));
+        assert_eq!(p["size"], json!({"cols":100,"rows":30}));
+        assert_eq!(p["env"]["ROUNDUP_AGENT"], "7");
+        assert_eq!(p["env"]["ROUNDUP_TERMINAL"], "4");
+        assert_eq!(p["env"]["TERM"], "xterm-256color");
+        let argv: Vec<&str> = p["argv"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| a.as_str().unwrap())
+            .collect();
+        assert_eq!(&argv[argv.len() - 2..], ["claude", "--flag"]);
+    }
+
+    #[tokio::test]
+    async fn mc16_agent_env_has_no_session_leak() {
+        let dir = tempfile::tempdir().unwrap();
+        let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
+        let p = run_params(&terminals.shared, &launch(), 4, "rp4");
+        // Names the launch or the Daemon removes are neither in env nor left to the core's own.
+        assert!(p["env"].get("CLAUDECODE").is_none());
+        let argv = p["argv"].to_string();
+        for name in [
+            "CLAUDECODE",
+            "CLAUDE_CODE_SESSION_ID",
+            "TMUX",
+            "TERM_PROGRAM",
+        ] {
+            assert!(argv.contains(&format!("\"-u\",\"{name}\"")), "{name}");
+        }
+        assert_eq!(p["env"]["ROUNDUP_AGENT"], "7");
+    }
+
+    #[test]
+    fn mc16_core_starts_from_clean_environment() {
+        let vars = [("PATH".to_owned(), "/usr/bin".to_owned())].into();
+        assert_eq!(
+            core_command("/bin/herdr-core", &vars),
+            ["env", "-i", "PATH=/usr/bin", "/bin/herdr-core", "connect"]
+        );
+    }
+
+    #[tokio::test]
+    async fn mc16_spawn_failed_is_the_callers_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        let (conn, _seen) = run_core(
+            json!({"code":-32000,"message":"no such directory","data":{"kind":"spawn_failed"}}),
+        )
+        .await;
+        let err = run(&conn, &terminals.shared, &launch(), 1, "rp1")
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("cannot run"), "{err}");
     }
 }

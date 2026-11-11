@@ -1,3 +1,9 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 // T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 #[path = "common/served.rs"]
 mod common;

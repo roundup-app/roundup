@@ -1,4 +1,10 @@
 //! Scenario R11 (`scenarios/perf.md`): what the keystroke runner accepts from the webview.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use perf::webview::{checked, judge_runs, perf_line};
 use serde_json::json;

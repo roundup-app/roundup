@@ -362,14 +362,18 @@ impl Conn {
                             // Consumed on arrival: hand the credit back.
                             let _ = credit.send(frame(channel, CREDIT, &len.to_le_bytes()));
                         }
-                        RESIZE if payload.len() == 4 => deliver(
-                            &routed,
-                            channel,
-                            Ev::Resize(
-                                u16::from_le_bytes([payload[0], payload[1]]),
-                                u16::from_le_bytes([payload[2], payload[3]]),
-                            ),
-                        ),
+                        RESIZE => {
+                            if let [c0, c1, r0, r1] = payload[..] {
+                                deliver(
+                                    &routed,
+                                    channel,
+                                    Ev::Resize(
+                                        u16::from_le_bytes([c0, c1]),
+                                        u16::from_le_bytes([r0, r1]),
+                                    ),
+                                );
+                            }
+                        }
                         CLOSE => {
                             let reason = serde_json::from_slice(&payload).unwrap_or(Value::Null);
                             deliver(&routed, channel, Ev::Close(reason));
