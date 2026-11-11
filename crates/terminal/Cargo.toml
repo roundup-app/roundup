@@ -10,6 +10,7 @@ getrandom = "0.3"
 nix = { version = "0.28", features = ["signal"] }
 contracts = { path = "../contracts" }
 rpc = { path = "../rpc" }
+herdr = { path = "../herdr" }
 serde_json.workspace = true
 thiserror.workspace = true
 serde.workspace = true
