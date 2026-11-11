@@ -208,7 +208,7 @@ impl Terminals {
 }
 
 /// What the OS would refuse at exec time, caught here so it is the caller's error with a short message.
-fn check_program(params: &SpawnParams) -> Result<(), Error> {
+pub(super) fn check_program(params: &SpawnParams) -> Result<(), Error> {
     let argv = params.command.as_deref().unwrap_or_default();
     if params.command.is_some() && argv.first().is_none_or(String::is_empty) {
         return Err(invalid("command must start with a program name"));
@@ -251,7 +251,7 @@ fn program_name(command: Option<&[String]>) -> String {
 }
 
 /// U6144b: variables other terminals set that a program reads as that terminal's features.
-const OTHER_TERMINALS: &[&str] = &[
+pub(super) const OTHER_TERMINALS: &[&str] = &[
     // Owner decision 2026-11-06: Claude Code's Kitty placeholders break in this emulator.
     "CLAUDE_CODE_FORCE_TERMINAL_IMAGES",
     "TERM_PROGRAM",
