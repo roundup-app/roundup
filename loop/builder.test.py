@@ -18,6 +18,7 @@ builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 
 HEAD = 'a' * 40
+MAIN = 'm' * 40
 ROOT_BODY = ('Scenarios: U83\nSpecification: [scenarios/ui.md](https://github.com/a/b/blob/main/scenarios/ui.md)\n'
              'Key: K\nPriority: 2\n')
 NOW = time.time()
@@ -71,6 +72,8 @@ class GitHub:
             return self.merged if 'merged' in args else self.prs
         if args[:2] == ('run', 'view'):
             return self.run
+        if args[1].endswith('/git/ref/heads/main'):
+            return dict(object=dict(sha=MAIN))
         if '/comments' in args[1]:
             return [self.notes]
         if '/events' in args[1]:
@@ -487,7 +490,7 @@ class Pick(unittest.TestCase):
         sent, errors = [], io.StringIO()
         with patch.object(builder.orders, 'gh', return_value=prs), patch.object(builder, 'fixing', return_value=[]), patch.object(builder.orders, 'reviewing', return_value=set()), \
                 patch.object(builder, 'fix_prs', return_value={2}), patch.object(builder, 'codex_slots', return_value=(set(), 5)), \
-                patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
+                patch.object(builder, 'repairs', side_effect=lambda prs, now, taken, main: [(p['number'], HEAD, 'check') for p in prs]), \
                 patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
                 patch.object(builder, 'unreviewed', return_value=[]), patch.object(builder.orders, 'read_orders', return_value=[]), \
                 redirect_stdout(io.StringIO()), redirect_stderr(errors):
@@ -525,7 +528,7 @@ class Pick(unittest.TestCase):
             with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
                     patch.object(builder, 'fixing', return_value=[]), patch.object(builder.orders, 'reviewing', return_value=set()), patch.object(builder, 'fix_prs', return_value=set()), \
                     patch.object(builder, 'codex_slots', return_value=(set(), free)), \
-                    patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
+                    patch.object(builder, 'repairs', side_effect=lambda prs, now, taken, main: [(p['number'], HEAD, 'check') for p in prs]), \
                     patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
                     patch.object(builder, 'unreviewed', return_value=[]), \
                     patch.object(builder.orders, 'read_orders', return_value=rows), redirect_stdout(output), redirect_stderr(errors):
@@ -997,13 +1000,69 @@ class Fix(unittest.TestCase):
         rejected = note(f'VERDICT: reject\nHead: {HEAD}\n\nbad name', ago=100)
         moved = note(f'VERDICT: approve\nHead: {"b" * 40}\n\nok', ago=100)
         critic_rejected = note(f'CRITIC: reject\nHead: {HEAD}\n\nugly', ago=100)
-        earlier = note(f'<!-- fix-revive -->\nHead: {"c" * 40}\n\nonce', ago=280)
-        for files, notes in (((), [review, rejected]), ((), [moved]), (UI, [review]), (UI, [review, critic, critic_rejected]),
-                             ((), [earlier, review]), (UI, [earlier, review, critic])):
+        for files, notes in (((), [review, rejected]), ((), [moved]), (UI, [review]), (UI, [review, critic, critic_rejected])):
             with self.subTest(files=files, notes=notes), GitHub(view=view, files=files, notes=attempts + notes) as github:
                 self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
                 self.assertTrue(github.bodies()[0].startswith('<!-- fix-exhausted #9 -->'))
                 self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+
+    def test_l82_a_revived_pr_out_of_fix_runs_whose_head_review_and_critic_approved_is_parked_not_closed(self):
+        attempts = [note(f'<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/{n} answered `check`.',
+                         ago=300 - n * 50) for n in (1, 2, 3)]
+        earlier = note(f'<!-- fix-revive -->\nHead: {"c" * 40}\n\nonce', ago=280)
+        merged = 'd' * 40
+        view = pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=[], statusCheckRollup=FAILED)
+        diff = 'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n'
+        review, critic = note(f'VERDICT: approve\nHead: {HEAD}\n\nok', ago=120), note(f'CRITIC: approve\nHead: {HEAD}\n\nok', ago=110)
+        # The approved head itself, and a later head that merged `main` and kept the same diff (patch-id), both park.
+        for files, notes, head in (((), [review], HEAD), (UI, [review, critic], HEAD), ((), [review], merged)):
+            with self.subTest(files=files, head=head), GitHub(view=dict(view, headRefOid=head), files=files, notes=[earlier] + attempts + notes,
+                                                              diffs={HEAD: diff, merged: diff}) as github:
+                self.assertIsNone(builder.fix_task(9, head, 'check'))
+                self.assertEqual([b.split('\n')[0] for b in github.bodies()], ['<!-- fix-parked -->'])
+                self.assertIn(f'Main: {MAIN}', github.bodies()[0])
+                self.assertIn(('pr', 'ready', '9', '--undo'), github.writes)
+                self.assertNotIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+                self.assertRegex(github.bodies_set()[0], rf'\n\nParked: .*\nMain: {MAIN}\n$')
+        parks = [note(f'<!-- fix-parked -->\nHead: {HEAD}\nMain: {n}', ago=200) for n in 'xyz']
+        with GitHub(view=view, notes=[earlier] + attempts + parks + [review]) as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
+            self.assertTrue(github.bodies()[0].startswith('<!-- fix-exhausted #9 -->'))
+            self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+
+    def test_l82_a_fix_run_that_parks_on_a_block_outside_the_diff_counts_no_attempt_until_three_parks(self):
+        body = f'{LINKED_BODY}Parked: `lint` fails on main too: RUSTSEC-2026-0459.\n\n## What changed\n- x\n'
+        draft = pr(isDraft=True, body=body)
+        with GitHub(view=draft) as github:
+            builder.fixed(9, 'check', True, 'https://run/2')
+        self.assertEqual([b.split('\n')[0] for b in github.bodies()], ['<!-- fix-parked -->'])
+        self.assertEqual(github.bodies_set(), [body.replace('RUSTSEC-2026-0459.', f'RUSTSEC-2026-0459.\nMain: {MAIN}')])
+        self.assertEqual(github.fixes(), [])
+        self.assertFalse(github.flagged())
+        self.assertNotIn(('pr', 'ready', '9', '--undo'), github.writes)
+        parks = [note(f'<!-- fix-parked -->\nHead: {HEAD}\nMain: {n}', ago=200) for n in 'xyz']
+        with GitHub(view=draft, notes=parks) as github:
+            builder.fixed(9, 'check', True, 'https://run/2')
+        self.assertEqual([b.split('\n')[0] for b in github.bodies()], ['<!-- fix-attempt -->', '<!-- fix-parked -->'])
+        self.assertEqual(github.fixes(), [])
+
+    def test_l82_a_parked_draft_gets_one_run_once_main_moves_and_turns_ready(self):
+        held = pr(number=4, isDraft=True, body=f'{LINKED_BODY}Parked: lint fails on main.\nMain: {MAIN}\n')
+        unstamped = pr(number=5, isDraft=True, body=f'{LINKED_BODY}Parked: lint fails on main.\n')
+        self.assertEqual(builder.repairs([held, unstamped], NOW, set(), MAIN), [(5, HEAD, 'parked')])
+        self.assertEqual(builder.repairs([held], NOW, set(), 'n' * 40), [(4, HEAD, 'parked')])
+        moved = dict(held, number=9, body=held['body'].replace(MAIN, 'n' * 40), statusCheckRollup=FAILED)
+        for view, cause, task in ((dict(held, number=9), 'parked', False), (moved, 'check', False), (moved, 'unfinished', False),
+                                  (pr(), 'parked', False), (moved, 'parked', True)):
+            with self.subTest(body=view['body'], cause=cause), GitHub(view=view) as github, tempfile.NamedTemporaryFile('r') as out:
+                self.assertEqual(builder.fix_task(9, HEAD, cause, output=out.name) is not None, task)
+                self.assertEqual(out.read(), 'plumbing=true\n' if task else '')
+                self.assertEqual(github.writes, [])
+        with GitHub(view=moved) as github, patch.object(builder, 'app_token', return_value='fresh'), patch.dict(os.environ):
+            builder.unpark(9)
+        self.assertEqual(github.bodies_set(), [LINKED_BODY.rstrip() + '\n'])
+        self.assertEqual([w for w in github.writes if w[0] == 'pr'], [('pr', 'ready', '9'), ('pr', 'merge', '9', '--auto', '--merge')])
+        self.assertEqual(github.writes[-1], ('api', '-X', 'DELETE', '/installation/token'))
 
     def test_l82_a_reopened_pr_counts_only_the_fix_runs_after_the_reopen(self):
         before = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=900 - n) for n in range(3)]
@@ -1142,156 +1201,6 @@ class Plumbing(unittest.TestCase):
         other = [(10, 'Fix PR #9: check', MODEL), (11, 'Fix PR #8: rules', MODEL), (12, title, [dict(name='fix-run', conclusion='skipped')])]
         task, plumbing, _ = self.start(view, 'rules', notes, history(builder.PLUMBING_RUNS - 1) + other + [(99, title, MODEL)], steps)
         self.assertTrue(task and plumbing)
-
-
-class Generated(unittest.TestCase):
-    """L82: a conflict only in generated files is regenerated by a script, so no model runs."""
-
-    REGENERATE = ('sh', '-c', 'cat src/*.txt | sort >contracts/generated/methods.ts')
-
-    def conflict(self, source_edit=False):
-        """A repo whose `main` and `build/x` each add a contract method, which the regenerate command sorts into the same
-        place of `contracts/generated/methods.ts`; with `source_edit` both also edit one source line."""
-        root = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(root)]))
-
-        def git(*args):
-            subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', *args],
-                           cwd=root, check=True, capture_output=True)
-
-        def commit(name, text, subject):
-            (root / name).parent.mkdir(parents=True, exist_ok=True)
-            (root / name).write_text(text)
-            (root / 'contracts/generated').mkdir(parents=True, exist_ok=True)
-            subprocess.run(self.REGENERATE, cwd=root, check=True)
-            git('add', '-A')
-            git('commit', '-m', subject)
-
-        git('init')
-        commit('src/base.txt', 'm0\n', 'base')
-        commit('src/shared.txt', 'x\n', 'shared')
-        git('switch', '-c', 'build/x')
-        commit('src/pr.txt', 'm_pr\n', 'pr')
-        git('switch', 'main')
-        commit('src/main.txt', 'm_main\n', 'main')
-        if source_edit:
-            commit('src/shared.txt', 'main\n', 'main edits')
-        git('update-ref', 'refs/remotes/origin/main', 'main')
-        git('switch', 'build/x')
-        if source_edit:
-            commit('src/shared.txt', 'pr\n', 'pr edits')
-        return root
-
-    def resolve(self, root, regenerate=REGENERATE):
-        with chdir(root):
-            return builder.merge_main(regenerate)
-
-    def test_l82_a_generated_only_conflict_is_regenerated_with_no_model(self):
-        root = self.conflict()
-        self.assertTrue(self.resolve(root))
-        parents = subprocess.run(['git', 'rev-list', '--parents', '-1', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
-        self.assertEqual(len(parents.split()), 3)
-        self.assertEqual((root / 'contracts/generated/methods.ts').read_text(), 'm0\nm_main\nm_pr\nx\n')
-
-    def test_l82_a_clean_merge_of_main_is_committed_with_no_model(self):
-        root = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(root)]))
-
-        def git(*args):
-            subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', *args],
-                           cwd=root, check=True, capture_output=True)
-
-        def commit(name):
-            (root / name).write_text(f'{name}\n')
-            git('add', '-A')
-            git('commit', '-m', name)
-
-        git('init')
-        commit('base.txt')
-        git('switch', '-c', 'build/x')
-        commit('pr.txt')
-        git('switch', 'main')
-        commit('main.txt')
-        git('update-ref', 'refs/remotes/origin/main', 'main')
-        git('switch', 'build/x')
-        with patch.object(builder, 'engine') as engine:
-            self.assertTrue(self.resolve(root, ('false',)))  # a regenerate would fail: nothing conflicted, so it never runs
-        engine.assert_not_called()
-        parents = subprocess.run(['git', 'rev-list', '--parents', '-1', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
-        self.assertEqual(len(parents.split()), 3)
-        self.assertTrue((root / 'main.txt').is_file())
-
-    def test_l82_a_conflict_that_also_touches_source_or_cannot_regenerate_leaves_the_branch_untouched(self):
-        cases = [(True, self.REGENERATE), (False, ('false',)),
-                 # A regenerate that adds a line on every run differs on its second.
-                 (False, ('sh', '-c', 'echo again >>contracts/generated/methods.ts'))]
-        for source_edit, regenerate in cases:
-            with self.subTest(source_edit=source_edit, regenerate=regenerate[-1]):
-                root = self.conflict(source_edit)
-                before = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
-                self.assertFalse(self.resolve(root, regenerate))
-                after = subprocess.run(['git', 'status', '--porcelain'], cwd=root, text=True, capture_output=True).stdout
-                head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
-                self.assertEqual((head, after), (before, ''))
-
-
-class MergeLoss(unittest.TestCase):
-    """L120: a `rules` failure only on `merge-loss` is repaired by restoring main's files, with no model."""
-
-    def repo(self):
-        """A branch whose merge of `main` kept its stale `src/lost.txt` and whose own commit touched only `src/own.txt`."""
-        root = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(root)]))
-
-        def git(*args):
-            subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', *args],
-                           cwd=root, check=True, capture_output=True)
-
-        def commit(name, text, subject):
-            (root / name).write_text(text)
-            git('add', '-A')
-            git('commit', '-m', subject)
-
-        git('init')
-        (root / 'src').mkdir()
-        commit('src/lost.txt', 'old\n', 'base')
-        git('switch', '-c', 'build/x')
-        commit('src/own.txt', 'mine\n', 'own')
-        git('switch', 'main')
-        commit('src/lost.txt', 'new\n', 'main edits')
-        git('update-ref', 'refs/remotes/origin/main', 'main')
-        git('switch', 'build/x')
-        git('merge', '-s', 'ours', '-m', 'merge main, keeping the stale side', 'origin/main')
-        return root
-
-    def restore(self, root, rules=None):
-        with chdir(root):
-            return builder.restore_merge_loss(rules=rules)
-
-    def test_l120_a_merge_that_kept_a_stale_file_is_restored_from_main_with_no_model(self):
-        root = self.repo()
-        self.assertTrue(self.restore(root))
-        self.assertEqual((root / 'src/lost.txt').read_text(), 'new\n')
-        self.assertEqual((root / 'src/own.txt').read_text(), 'mine\n')
-        message = subprocess.run(['git', 'log', '-1', '--format=%B'], cwd=root, text=True, capture_output=True).stdout
-        self.assertRegex(message, r'Author-Agent: builder-\d+\n')
-
-    def test_l120_a_restore_that_still_fails_or_has_nothing_to_restore_leaves_the_branch_untouched(self):
-        stale = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(stale)]))
-        # A `merge-loss` that lists the file on every run still fails after the restore.
-        (stale / 'rules.sh').write_text('echo "merge-loss: lost" >&2; echo "  src/lost.txt" >&2; exit 1\n')
-        # One that fails and lists nothing has no file to restore.
-        (stale / 'silent.sh').write_text('exit 1\n')
-        for script in ('rules.sh', 'silent.sh'):
-            with self.subTest(script=script):
-                root = self.repo()
-                before = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
-                self.assertFalse(self.restore(root, stale / script))
-                state = subprocess.run(['git', 'status', '--porcelain'], cwd=root, text=True, capture_output=True).stdout
-                head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
-                self.assertEqual((head, state), (before, ''))
-                self.assertEqual((root / 'src/lost.txt').read_text(), 'old\n')
 
     def test_l120_only_a_rules_failure_on_merge_loss_alone_asks_for_the_restore(self):
         for steps, asks in ((['loop/rules.sh merge-loss'], True), (['loop/rules.sh merge-loss', 'loop/rules.sh vocab'], False)):

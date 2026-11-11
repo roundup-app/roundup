@@ -382,7 +382,7 @@ delta() {
 
 # L120: a file that differs from main but that no commit of the branch's own touched changed only through a merge, so a merge dropped
 # the work there for certain. Never reads the PR body. It reads the repository it was run in, so a fix run can run main's copy on
-# the branch it checked out (`builder.py restore-merge-loss`).
+# the branch it checked out (`merge_main.py restore`).
 # It compares with the merge base, the newest main the branch holds, so a file main changed since is not a loss.
 merge_loss() {
   local main_ref=$1 base own changed lost
