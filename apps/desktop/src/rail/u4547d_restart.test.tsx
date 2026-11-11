@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { node, agent, door, workstream } from "../testing/nodes";
+import { node, agent, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountRail, railCallsTo, rowOf, chooseAction, exitedTerminal } from "./railFixture";
 import { openTabs, path } from "../header/stripFixture";

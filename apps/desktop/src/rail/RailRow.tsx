@@ -143,6 +143,7 @@ export const RailRowView = (props: {
  if (restore) queueMicrotask(() => element?.focus()); };
 
   const workstream = () => isWorkstream(props.row.node);
+  const chevron = () => workstream() || isMode(props.row.node) && props.branch;
   const cutName = createCutTitle(() => props.row.node.name);
 
   const isGroup = () => props.row.node.kind === "group";
@@ -218,7 +219,7 @@ export const RailRowView = (props: {
   const row = (mine: (extra: RowProps) => RowProps) => <StatusTip status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)}>{reveal => <div {...mergeProps({ onClick: choose }, mine(mergeProps(rowProps(), reveal())))} ref={el => { element = el; props.sortRef(el); }}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
-      <Show when={workstream() || isMode(props.row.node) && props.branch}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+      <Show when={chevron()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, door } from "../testing/nodes";
+import { agent } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { CHORDS, LEADER, pressOf, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { endLeader } from "./registry";
