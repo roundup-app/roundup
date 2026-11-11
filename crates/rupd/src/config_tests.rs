@@ -264,5 +264,5 @@ async fn mc50_a_file_in_the_late_folder_is_refused_whole_when_bad() {
         .await
         .unwrap();
     assert_eq!(problem.file, "look.json");
-    assert!(daemon.config.state().look.get("mode").is_none());
+    assert!(!daemon.config.state().look.contains_key("mode"));
 }
