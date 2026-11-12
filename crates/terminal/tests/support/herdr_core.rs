@@ -2,7 +2,7 @@
 //! protocol on stdin and stdout (`hello`, `terminal.run`, `terminal.get`, `terminal.attach`, and
 //! DATA, RESIZE and CLOSE frames) and runs each requested program on a real PTY. Tests start it
 //! the way the product starts the real core, as a child whose pipe is the connection. It is
-//! dev-only: the `test-support` feature builds it and `rupd` never starts it.
+//! dev-only: the `test-support` feature builds it and the daemon never starts it.
 use std::collections::HashMap;
 use std::io::{self, BufRead, Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
