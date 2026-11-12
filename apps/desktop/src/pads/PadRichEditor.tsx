@@ -35,10 +35,10 @@ import { type EditorState, Plugin, TextSelection } from "@milkdown/kit/prose/sta
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
-import { visualBlocks } from "./visualBlocks";
+import { insertBlock, visualBlocks } from "./visualBlocks";
 import { agentDetailsRemark, agentDetailsNode, agentDetailsView } from "./agentDetails";
 import { headingFolds } from "./headingFolds";
-import { visualKinds } from "./visualKinds";
+import { emptyDrawing, visualKinds } from "./visualKinds";
 import "./editor.css";
 import "../ui/reading.styles.css";
 
@@ -250,6 +250,15 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
             tr.setSelection(TextSelection.near(tr.doc.resolve(start + 2)));
             view.dispatch(tr.scrollIntoView());
             view.focus();
+          },
+        });
+
+        builder.getGroup("advanced").addItem("drawing", {
+          label: copy.drawingItem,
+          icon: "",
+          onRun: (ctx) => {
+            ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+            insertBlock(ctx.get(editorViewCtx), emptyDrawing);
           },
         });
 
