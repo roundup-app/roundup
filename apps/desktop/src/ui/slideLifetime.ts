@@ -104,7 +104,7 @@ export const createMaximiseSlide = (element: Accessor<HTMLElement | undefined>, 
 
       if (!grows) host.style.minWidth = `${before}px`;
 
-      const inset = (px: number) => `inset(0 0 0 ${px}px)`;
+      const inset = (px: number) => "inset(0 0 0 " + px + "px)";
 
       const current = host.animate([
         { clipPath: inset(grows ? hidden : 0) },
