@@ -224,6 +224,15 @@ impl Grid {
         self.scrollback_len
     }
 
+    /// Sets the history bound and drops the oldest lines beyond it.
+    pub fn set_scrollback_len(&mut self, len: usize) {
+        self.scrollback_len = len;
+        while self.scrollback.len() > len {
+            self.scrollback.pop_front();
+        }
+        self.scrollback_offset = self.scrollback_offset.min(self.scrollback.len());
+    }
+
     pub fn scrollback(&self) -> usize {
         self.scrollback_offset
     }

@@ -230,6 +230,7 @@ async fn e2704a_wake_and_attention_notes_use_names() {
         .request("rail.rename", json!({"id":child,"name":"attention-child"}))
         .await
         .unwrap();
+    drive(&s.user, &child, WORK).await;
     drive(&s.user, &child, FAIL).await;
     h21_poll("named attention note", async || {
         let notes = messages(&s.user, &s.w, "[digest]").await;
@@ -324,6 +325,7 @@ async fn b42_a_firing_creates_one_note_with_each_agents_kind_and_last() {
     let s = scene(&[]).await;
     ask(&s.as_w, &[&s.b, &s.a], false).await.unwrap();
     drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &s.b, WORK).await;
     drive(&s.user, &s.b, FAIL).await;
     let note = &notes(&s.user, &s.w, "[wake]", 1).await[0];
     assert_eq!(note["kind"], "note");
@@ -382,6 +384,7 @@ async fn b43_error_and_needs_you_reach_a_non_door_parent() {
     let s = scene(&[]).await;
     let c = agent_in_as(&s.project, &s.w).await;
     let n = name_of(&s.user, &c).await;
+    drive(&s.user, &c, WORK).await;
     drive(&s.user, &c, FAIL).await;
     let note = &notes(&s.user, &s.w, "[digest]", 1).await[0];
     assert!(
@@ -416,6 +419,7 @@ async fn b43_the_note_is_not_held_behind_an_all_request() {
     let c2 = agent_in_as(&s.project, &s.w).await;
     drive(&s.user, &c2, WORK).await;
     ask(&s.as_w, &[&c1, &c2], false).await.unwrap();
+    drive(&s.user, &c1, WORK).await;
     drive(&s.user, &c1, FAIL).await;
     notes(&s.user, &s.w, "[digest]", 1).await;
     still(&s.user, &s.w, "[wake]", 0).await;
@@ -424,6 +428,7 @@ async fn b43_the_note_is_not_held_behind_an_all_request() {
 #[tokio::test]
 async fn b43_one_note_not_two_for_a_door() {
     let s = scene(&[]).await;
+    drive(&s.user, &s.a, WORK).await;
     drive(&s.user, &s.a, FAIL).await;
     let a = name_of(&s.user, &s.a).await;
     notes(&s.user, &s.door, &format!("[digest] {a} is error"), 1).await;
@@ -448,6 +453,7 @@ async fn b43_a_change_that_also_fires_a_wake_sends_only_the_wake_note() {
     let c = agent_in_as(&s.project, &s.w).await;
     drive(&s.user, &c, WORK).await;
     ask(&s.as_w, &[&c], true).await.unwrap();
+    drive(&s.user, &c, WORK).await;
     drive(&s.user, &c, FAIL).await;
     notes(&s.user, &s.w, "[wake]", 1).await;
     still(&s.user, &s.w, "[digest]", 0).await;
@@ -461,6 +467,7 @@ async fn b43_the_note_is_outside_b22s_caps() {
         children.push(agent_in_as(&s.project, &s.w).await);
     }
     for c in &children {
+        drive(&s.user, c, WORK).await;
         drive(&s.user, c, FAIL).await;
     }
     assert_eq!(notes(&s.user, &s.w, "[digest]", 10).await.len(), 10);

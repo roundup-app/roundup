@@ -277,15 +277,41 @@ async fn u104_shrinking_after_an_oversized_window_cannot_claim_a_complete_screen
 }
 
 #[tokio::test]
-async fn u104_resize_that_would_grow_history_past_its_budget_is_conflict() {
+async fn u104_a_resize_past_the_history_budget_trims_history_and_snapshot_still_answers() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, _) = open(&dir);
     let mut spawned = terminals
-        .spawn(sh(dir.path(), "printf before; read line"))
+        .spawn(sh(
+            dir.path(),
+            r"seq -f 'line-%04g' 1 1300; printf '\033[?2004h\033[2;3H@'; read line",
+        ))
         .await
         .unwrap();
-    until_printed(&mut spawned.output, "before").await;
-    terminals.resize(&spawned.id, 1000, 40).await.unwrap();
+    until_printed(&mut spawned.output, "@").await;
+    let history = |snapshot: Snapshot| {
+        let mut restored = vt100::Parser::new(snapshot.rows, snapshot.cols, 1000);
+        restored.process(&STANDARD.decode(snapshot.data).unwrap());
+        let mut screen = restored.screen().clone();
+        assert!(screen.bracketed_paste());
+        screen.set_scrollback(usize::MAX);
+        let kept = screen.scrollback();
+        screen.set_scrollback(0);
+        assert!(screen.contents().contains("line-1300"));
+        kept
+    };
+    let full = history(terminals.snapshot(&spawned.id).unwrap());
+    assert!(full > 873, "history {full}");
+    terminals.resize(&spawned.id, 300, 24).await.unwrap();
+    let wide = terminals.snapshot(&spawned.id).unwrap();
+    assert_eq!(wide.cols, 300);
+    let kept = history(wide);
+    assert!((800..=873).contains(&kept), "history {kept}");
+    terminals.resize(&spawned.id, 200, 24).await.unwrap();
+    assert!(history(terminals.snapshot(&spawned.id).unwrap()) <= 873);
+    terminals
+        .resize(&spawned.id, u16::MAX, u16::MAX)
+        .await
+        .unwrap();
     assert_eq!(
         terminals.snapshot(&spawned.id).unwrap_err().code,
         code::CONFLICT

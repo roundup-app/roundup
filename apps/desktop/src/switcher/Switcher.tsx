@@ -10,7 +10,6 @@ import type { RpcError } from "../app/seam";
 import type { ActionRow } from "@contracts/action/ActionRow";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
-import { StatusTip } from "../ink/StatusTip";
 import { errorCause, shownKind } from "../ink/FailureLine";
 import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
@@ -424,13 +423,13 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             if (!entry) return null;
 
-            return <StatusTip placement="right-start" status={entry.node?.status} dismissed={entry.node ? rail.dismissed(entry.node) : false}>{reveal => <span class="switcher-row" {...reveal()}>
+            return <span class="switcher-row">
               <Show when={entry.node?.status} fallback={entry.todo !== undefined ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.pad !== undefined ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
               <Show when={entry.todo !== undefined || entry.pad !== undefined}><span class="switcher-kind">{entry.todo !== undefined ? copy.kindTodo : copy.kindPad}</span></Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
               <Show when={entry.node && !rail.dismissed(entry.node)}><Show when={errorCause(entry.node?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
-            </span>}</StatusTip>;
+            </span>;
           }} />
         <ReservedLine message={makeFailure()} dismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>

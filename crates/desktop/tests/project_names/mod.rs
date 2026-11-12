@@ -1,5 +1,6 @@
 //! Project-name persistence, validation and captured-write conflicts through the App seam.
 use super::*;
+use std::sync::Mutex;
 
 #[test]
 fn s10_a_rename_is_trimmed_listed_and_restored_and_an_empty_name_removes_it() {
