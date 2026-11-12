@@ -299,7 +299,7 @@ async fn u5531a_door_tool_round_trip_and_reopen() {
         .await
         .unwrap();
     drop(shim);
-    fx.served.restart(&env).await;
+    fx.served.restart(&[]).await;
     let reopened = rpc::Client::connect(&fx.served.socket()).await.unwrap();
     let tree = reopened.request("rail.tree", Value::Null).await.unwrap();
     let node = tree
