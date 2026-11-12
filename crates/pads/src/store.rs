@@ -141,12 +141,11 @@ impl Store {
                 Ok((row_to_pad(row)?, row.get::<_, Option<i64>>(6)?))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
-        rows.sort_by(|(a, a_position), (b, b_position)| {
-            if a_position.is_some() || b_position.is_some() {
-                return std::cmp::Ordering::Equal;
-            }
-            alphanumeric_sort::compare_str(key(&a.name), key(&b.name))
-        });
+        // The query puts positioned rows first; only the rest has a name order, so a positioned Pad never enters a comparison.
+        let positioned = rows.partition_point(|(_, position)| position.is_some());
+        rows.split_at_mut(positioned)
+            .1
+            .sort_by(|(a, _), (b, _)| alphanumeric_sort::compare_str(key(&a.name), key(&b.name)));
         Ok(rows.into_iter().map(|(pad, _)| pad).collect())
     }
 
