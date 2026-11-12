@@ -299,7 +299,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mc14_reattach_keeps_program_and_fills_the_gap_without_duplicates() {
+    async fn mc14_gap_filled_from_history_without_duplicate_lines() {
         let dir = tempfile::tempdir().unwrap();
         let mut terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
         // The ssh is lost after tick 10; the repaint of the second connection holds ticks 8 to 20,
