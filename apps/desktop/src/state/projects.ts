@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import { command } from "../app/command";
@@ -107,7 +107,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     if (path !== null) void saved.write(path);
   };
 
-  const read = command(async () => {
+  const read = command(() => untrack(async () => {
     const listed = await retryRead(() => app.projects());
 
     setTabs(inOrder(
@@ -123,7 +123,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     setReadFailure(null);
 
     setActive(listed.some((entry) => entry.path === last) ? last : (listed.at(-1)?.path ?? null));
-  }, { fail: setReadFailure });
+  }), { fail: setReadFailure });
 
   const reload = async () => {
     if (read.state().kind === "pending") return;
@@ -139,7 +139,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     generation: exit.recovery === "connecting" ? tab.generation + 1 : tab.generation,
   }))));
 
-  const openPath = async (path: string) => {
+  const openPath = (path: string) => untrack(async () => {
     const project = await app.openProject(path);
     const known = tabs().find((tab) => tab.project.path === project.path);
 
@@ -151,7 +151,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     show(project.path);
 
     return project;
-  };
+  });
 
   const opened = async (path: string): Promise<Project | undefined> => {
     const live = tabs().filter(tab => !tab.exit);
@@ -168,11 +168,11 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
   const fail = setFailure;
 
-  const choosing = command(async () => {
+  const choosing = command(() => untrack(async () => {
     const path = await app.chooseProjectPath();
 
     if (path !== null) await openPath(path);
-  }, { fail });
+  }), { fail });
 
   const opening = command(openPath, { fail });
 
@@ -187,7 +187,27 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
   const renaming = command((path: string, name: string, base?: string) => app.renameProject(path, name, base), { fail });
 
+  type Holder = { committed: Project; acknowledged: number };
+
   const reading = command(() => app.projects());
+
+  // After a failure that may have been applied, the Daemon's own list settles the name.
+  const reconcile = async (path: string, revision: number, holder: Holder, error: Error, showName: () => void) => {
+    const listed = await reading();
+
+    if (listed.kind === "failed") {
+      setFailure(`${error.message}; ${listed.error.message}`);
+
+      return;
+    }
+
+    const project = listed.kind === "applied" ? listed.value.find(entry => entry.path === path) : undefined;
+
+    if (project && revision >= holder.acknowledged) {
+      holder.committed = { path: project.path, name: project.name };
+      showName();
+    }
+  };
 
   const closing = command((path: string) => app.closeProject(path), { fail });
 
@@ -315,18 +335,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
           return { ...submission, status: "failed", error: error.message };
         }
 
-        const listed = await reading();
-
-        if (listed.kind === "applied") {
-          const project = listed.value.find((project) => project.path === path);
-
-          if (project && submission.revision >= holder.acknowledged) {
-            holder.committed = { path: project.path, name: project.name };
-            showName();
-          }
-        } else if (listed.kind === "failed") {
-          setFailure(`${error.message}; ${listed.error.message}`);
-        }
+        await reconcile(path, submission.revision, holder, error, showName);
 
         return { ...submission, status: renamed.kind === "failed" ? renamed.outcome : "unknown", error: error.message };
       } finally {
