@@ -700,6 +700,54 @@ fn x14_desktop_output_channel_uses_raw_bodies() {
     assert!(received.recv_timeout(Duration::from_millis(300)).is_err());
 }
 
+#[test]
+fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
+    let fx = Fixture::new(
+        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nexec cat",
+    );
+    fx.serve_real_daemon();
+    let (_app, webview) = app(fx.config.clone(), None);
+
+    let opened = open(&webview, &fx.project);
+
+    assert_eq!(
+        opened,
+        json!({ "name": "my-project", "path": fx.project.display().to_string() })
+    );
+    assert_eq!(
+        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
+        format!("{}\n--attached\n--notify-bound\n", fx.project.display())
+    );
+    assert_eq!(
+        std::fs::read_to_string(fx.dir.path().join("socket")).unwrap(),
+        fx.config.socket.display().to_string()
+    );
+}
+
+#[test]
+fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
+    let fx = Fixture::new(
+        "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nread go < '{dir}/go'\nexit 0",
+    );
+    fx.serve_real_daemon();
+    let (app, webview) = app(fx.config.clone(), None);
+    let exited = daemon_exited(&app);
+    open(&webview, &fx.project);
+    fx.release();
+    exited.recv_timeout(WAIT).unwrap();
+
+    invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(fx.dir.path().join("args")).unwrap(),
+        format!("{}\n--attached\n--notify-bound\n", fx.project.display())
+    );
+    let reopened_socket = std::fs::read_to_string(fx.dir.path().join("socket")).unwrap();
+    assert_ne!(reopened_socket, fx.config.socket.display().to_string());
+
+    fx.release();
+}
+
 #[path = "app/calls.rs"]
 mod calls;
 mod project_names;
