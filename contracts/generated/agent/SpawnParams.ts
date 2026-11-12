@@ -18,6 +18,8 @@ export type SpawnParams = {
 	permissionMode?: agent$PermissionMode.PermissionMode,
 	/**  U3802: an opaque engine id from `models.list`; omission keeps the current Adapter. */
 	engine?: string,
+	/**  MC13: the Machine the Agent runs on, an ssh name from `machine.list`; absent runs it on this Mac. */
+	machine?: string,
 	cwd: string,
 	prompt: string | null,
 	parent: string | null,

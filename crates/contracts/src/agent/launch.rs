@@ -42,6 +42,10 @@ pub struct SpawnParams {
     #[specta(optional, type = String)]
     pub engine: Option<String>,
 
+    /// MC13: the Machine the Agent runs on, an ssh name from `machine.list`; absent runs it on this Mac.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub machine: Option<String>,
     pub cwd: String,
     pub prompt: Option<String>,
     pub parent: Option<String>,

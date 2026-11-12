@@ -30,6 +30,7 @@ async fn r3696c_ten_quiet_terminals_retain_under_800_kb() {
                     unset: Vec::new(),
                     cols: 80,
                     rows: 24,
+                    machine: None,
                 })
                 .await
                 .unwrap(),

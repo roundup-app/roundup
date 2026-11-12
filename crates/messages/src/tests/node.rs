@@ -35,5 +35,6 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
         inbox: None,
         tool_call: None,
         overview: None,
+        machine: None,
     }
 }

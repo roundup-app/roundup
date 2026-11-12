@@ -17,6 +17,10 @@ pub struct SpawnParams {
     pub unset: Vec<String>,
     pub cols: u16,
     pub rows: u16,
+    /// MC13: the Machine whose herdr-core runs the program, an ssh name; absent runs it on this Mac.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub machine: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]

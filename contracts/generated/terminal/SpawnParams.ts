@@ -8,4 +8,6 @@ export type SpawnParams = {
 	unset: string[],
 	cols: number,
 	rows: number,
+	/**  MC13: the Machine whose herdr-core runs the program, an ssh name; absent runs it on this Mac. */
+	machine?: string,
 };
