@@ -192,8 +192,10 @@ const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the
 /// PTY path gave a program. A core may have started in a session that carries other variables, so
-/// every name the program must not see is dropped from `env`, and the core itself starts clean.
-pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, name: &str) -> Value {
+/// every name the program must not see is dropped from `env`, and the core itself starts clean. It
+/// names no terminal: a core's names are unique among its live terminals, and one core serves every
+/// Daemon on the machine and outlives each, so the core's `address` is the only id.
+pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64) -> Value {
     // The program inherits the Daemon's own environment, as it did on the PTY path (A3507a), with
     // the launch's variables on top.
     let mut env: BTreeMap<String, String> = std::env::vars().collect();
@@ -220,23 +222,21 @@ pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, nam
         "argv": argv,
         "cwd": params.cwd,
         "env": env,
-        "name": name,
         "size": {"cols": params.cols, "rows": params.rows},
     })
 }
 
-/// Start `params` in the core as terminal `name`. A bad cwd or program is the caller's error
+/// Start `params` in the core. A bad cwd or program is the caller's error
 /// (`spawn_failed`); anything else is the Daemon's.
 pub(super) async fn run(
     conn: &herdr::Conn,
     shared: &Shared,
     params: &SpawnParams,
     number: u64,
-    name: &str,
 ) -> Result<Value, Error> {
     check_program(params)?;
     match conn
-        .call("terminal.run", run_params(shared, params, number, name))
+        .call("terminal.run", run_params(shared, params, number))
         .await
     {
         Ok(ran) => Ok(ran),
@@ -502,13 +502,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
         let (conn, mut seen) = run_core(json!({"state":"live"})).await;
-        run(&conn, &terminals.shared, &launch(), 4, "rp4")
-            .await
-            .unwrap();
+        run(&conn, &terminals.shared, &launch(), 4).await.unwrap();
         let call = seen.recv().await.unwrap();
         assert_eq!(call["method"], "terminal.run");
         let p = &call["params"];
-        assert_eq!((&p["cwd"], &p["name"]), (&json!("/work"), &json!("rp4")));
+        assert_eq!(p["cwd"], "/work");
+        assert!(p.get("name").is_none(), "a name collides across Daemons");
         assert_eq!(p["size"], json!({"cols":100,"rows":30}));
         assert_eq!(p["env"]["ROUNDUP_AGENT"], "7");
         assert_eq!(p["env"]["ROUNDUP_TERMINAL"], "4");
@@ -526,7 +525,7 @@ mod tests {
     async fn mc16_agent_env_has_no_session_leak() {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
-        let p = run_params(&terminals.shared, &launch(), 4, "rp4");
+        let p = run_params(&terminals.shared, &launch(), 4);
         // Names the launch or the Daemon removes are neither in env nor left to the core's own.
         assert!(p["env"].get("CLAUDECODE").is_none());
         for name in [
@@ -557,7 +556,7 @@ mod tests {
             json!({"code":-32000,"message":"no such directory","data":{"kind":"spawn_failed"}}),
         )
         .await;
-        let err = run(&conn, &terminals.shared, &launch(), 1, "rp1")
+        let err = run(&conn, &terminals.shared, &launch(), 1)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("cannot run"), "{err}");
