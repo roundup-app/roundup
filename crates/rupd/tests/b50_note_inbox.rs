@@ -58,12 +58,10 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
         project,
         true,
         |command| {
-            let owner = project.join("owner-helper");
-            if owner.exists() {
-                command.env(
-                    "RUPD_TERMINAL_OWNER",
-                    std::fs::read_to_string(owner).unwrap(),
-                );
+            // A core that outlives the Daemon runs while the `herdr-core-persist` file stays.
+            let core_tmp = project.join("core-tmp");
+            if core_tmp.join("herdr-core-persist").exists() {
+                command.env("TMPDIR", core_tmp);
             }
             command
                 .env("ROUNDUP_DATA_DIR", data)
@@ -96,20 +94,6 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 impl Run {
-    fn owner_helper() -> PathBuf {
-        let path = Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("terminal-owner");
-        if !path.is_file() {
-            let built = std::process::Command::new(
-                std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()),
-            )
-            .args(["build", "-p", "terminal", "--bin", "terminal-owner"])
-            .status()
-            .unwrap();
-            assert!(built.success(), "build the isolated Terminal owner");
-        }
-        path
-    }
-
     fn project_data(&self) -> PathBuf {
         rupd::data::project_data(self.data.path(), self.dir.path()).unwrap()
     }

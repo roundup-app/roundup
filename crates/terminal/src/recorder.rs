@@ -94,7 +94,3 @@ impl Recording {
             .collect()
     }
 }
-
-#[cfg(test)]
-#[path = "recorder_tests.rs"]
-mod tests;

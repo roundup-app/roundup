@@ -52,13 +52,10 @@ impl Daemon {
         let db = storage::connect(dir)?;
         let storage_at = begun.elapsed();
         let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
-        let mut terminals =
+        let terminals =
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
                 .with_input_writer(terminal_input_observer(&observers))
                 .with_exit_hold(terminal_exit_observer(&observers));
-        if let Some(helper) = &observers.terminal_owner {
-            terminals = terminals.with_terminal_owner(helper);
-        }
         let terminals = Arc::new(terminals);
         terminals.answer_status_query(true);
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());

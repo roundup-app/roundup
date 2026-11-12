@@ -215,7 +215,7 @@ impl KillsTerminals for Terminals {
 
 /// How long `kill_or_already_gone` waits for the Terminal's own exit event once the program is
 /// reaped, before giving up on it. `kill` sends SIGHUP then, after a ~250ms grace period
-/// (`portable_pty`'s own `Child::kill`), SIGKILL to the program's single pid, never to its
+/// (the core's own kill), SIGKILL to the program's single pid, never to its
 /// process group; a descendant the program backgrounded before dying inherits the slave end of
 /// the PTY and, if it also inherited SIGHUP ignored, outlives the signal that was meant to end
 /// it, which would otherwise keep this wait from ever ending. Comfortably above that grace period
@@ -414,11 +414,6 @@ impl Agents {
             let clock = Arc::clone(&self.shared.clock);
             run.replace_fold(claude_code::hookless(move || clock()));
         }
-    }
-
-    /// A12a: run the stop a new start for Agent `id` makes first.
-    pub async fn stop_recorded_owner_for_test(&self, id: &str) {
-        self.stop_recorded_owner(id).await;
     }
 
     /// X6570b: run `save_owner` for Agent `id`'s Terminal `terminal_id`.

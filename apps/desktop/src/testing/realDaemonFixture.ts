@@ -60,9 +60,9 @@ const buildOnce = async () => {
   }
 
   try {
-    const build = () => spawnSync("cargo", ["build", "-p", "rupd", "-p", "rup"], { cwd: REPO, stdio: "inherit" });
+    const build = () => spawnSync("cargo", ["build", "-p", "rupd", "-p", "rup", "-p", "terminal", "--features", "terminal/test-support"], { cwd: REPO, stdio: "inherit" });
 
-    if (build().status !== 0 && build().status !== 0) throw new Error("cargo build -p rupd -p rup failed");
+    if (build().status !== 0 && build().status !== 0) throw new Error("cargo build of rupd, rup and the test core failed");
   } finally {
     await rm(LOCK, { recursive: true, force: true });
   }

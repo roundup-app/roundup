@@ -17,9 +17,6 @@ impl Terminals {
     }
 
     pub(super) fn write_at(&self, id: &str, bytes: &[u8], received: f64) -> Result<(), Error> {
-        if let Some(remote) = self.remote(id)? {
-            return remote.enqueue(Input::Bytes(bytes.to_vec(), Vec::new()));
-        }
         let handle = self.running(id)?;
         let samples = match handle.recorder.get() {
             Some(recorder) => recorder.locked("recorder lock")?.receive(bytes, received)?,
@@ -71,9 +68,6 @@ impl Terminals {
     }
 
     fn enqueue(&self, id: &str, input: Input) -> Result<(), Error> {
-        if let Some(remote) = self.remote(id)? {
-            return remote.enqueue(input);
-        }
         self.running(id)?.enqueue(id, input)
     }
 }

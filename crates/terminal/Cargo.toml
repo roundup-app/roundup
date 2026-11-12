@@ -13,12 +13,11 @@ rpc = { path = "../rpc" }
 herdr = { path = "../herdr" }
 serde_json.workspace = true
 thiserror.workspace = true
-serde.workspace = true
 provenance = { path = "../provenance" }
 tempfile.workspace = true
 
 base64.workspace = true
-portable-pty.workspace = true
+portable-pty = { workspace = true, optional = true }
 vt100.workspace = true
 regex.workspace = true
 tokio.workspace = true
@@ -31,7 +30,7 @@ terminal = { path = ".", features = ["test-support"] }
 workspace = true
 
 [features]
-test-support = []
+test-support = ["dep:portable-pty"]
 
 # The test-support herdr-core: tests start it as `herdr-core-test connect`, as the product starts the real core.
 [[bin]]
