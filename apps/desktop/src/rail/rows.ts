@@ -18,7 +18,14 @@ export const rowIdAt = (focus: Element | null, selected: string | null | undefin
 export const keyedRowIdAt = (press: KeyboardEvent, selected: string | null | undefined): string | undefined => focusedRowId(press) ?? (strandedRow(press) ? rowIdAt(document.body, selected) : undefined);
 
 /** U6829b: a key press a click left stranded on the page body, once per press. */
-export const strandedRow = (press: KeyboardEvent): boolean => strandedFocus(press) && !press.repeat;
+export const strandedRow = (press: KeyboardEvent): boolean => strandedFocus(press) && !press.repeat && railClicked();
+
+let lastClickInRail = false;
+
+export const railClicked = (): boolean => lastClickInRail;
+
+/** Only the surface clicked last owns a body press: a click on a Shelf row or a Project tab releases the Rail's claim. */
+export const noteClick = (click: MouseEvent): void => { lastClickInRail = click.target instanceof Element && click.target.closest(ROW) !== null; };
 
 export type RowActions = {
   folder: () => void;
