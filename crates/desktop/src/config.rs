@@ -3,6 +3,8 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::Error;
+
 /// `sockaddr_un.sun_path` on macOS holds 104 bytes including the terminating NUL.
 const SOCKET_PATH_LIMIT: usize = 104;
 
@@ -37,7 +39,7 @@ impl Config {
         exe: &Path,
         socket_dir: &Path,
         pid: u32,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, Error> {
         let rupd_bin = rupd_env
             .map(PathBuf::from)
             .unwrap_or_else(|| exe.parent().unwrap_or_else(|| Path::new(".")).join("rupd"));
@@ -66,15 +68,12 @@ impl Config {
     /// fresh path for each further run (a reopen, S5) so the old and new Daemon never share one.
     /// A reopen whose prefixed path would break the 104-byte limit is refused here, before the
     /// App ever asks `rupd` to bind it (S5 keeps S1's "under the 104-byte limit" exactly).
-    pub(crate) fn socket_for_run(&self, run: u64) -> Result<PathBuf, String> {
+    pub(crate) fn socket_for_run(&self, run: u64) -> Result<PathBuf, Error> {
         if run == 0 {
             return Ok(self.socket.clone());
         }
         let Some(file_name) = self.socket.file_name() else {
-            return Err(format!(
-                "{}: the socket path has no file name",
-                self.socket.display()
-            ));
+            return Err(Error::SocketPathNoName(self.socket.clone()));
         };
         let path = self
             .socket
@@ -107,9 +106,8 @@ impl Config {
         Ok(context)
     }
 
-    pub fn from_env() -> Result<Self, String> {
-        let exe = std::env::current_exe()
-            .map_err(|err| format!("cannot find the App's own executable: IO {:?}", err.kind()))?;
+    pub fn from_env() -> Result<Self, Error> {
+        let exe = std::env::current_exe().map_err(|err| Error::Executable(err.kind()))?;
         let mut config = Self::locate(
             std::env::var_os("ROUNDUP_RUPD_BIN"),
             &exe,
@@ -126,12 +124,13 @@ impl Config {
     }
 }
 
-fn check_limit(socket: &Path) -> Result<(), String> {
+fn check_limit(socket: &Path) -> Result<(), Error> {
     let bytes = socket.as_os_str().len();
     if bytes >= SOCKET_PATH_LIMIT {
-        return Err(format!(
-            "the Daemon socket path is {bytes} bytes; a unix socket path must be under {SOCKET_PATH_LIMIT}"
-        ));
+        return Err(Error::SocketPathTooLong {
+            bytes,
+            limit: SOCKET_PATH_LIMIT,
+        });
     }
     Ok(())
 }
@@ -259,7 +258,7 @@ pub(crate) mod tests {
         let reopened = config.socket_for_run(1);
 
         let err = reopened.expect_err("a 104-byte reopen path must be refused, not bind-failed");
-        assert!(err.contains("104"));
+        assert!(err.to_string().contains("104"));
     }
 
     #[test]

@@ -37,7 +37,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         diagnostics::report("check idle performance profile", cause);
     })?;
     let config = Config::from_env().inspect_err(|cause| {
-        diagnostics::report("configure App", cause);
+        diagnostics::report("configure App", &cause.to_string());
     })?;
     let context = config.context().inspect_err(|error| {
         diagnostics::report("resolve App context", &format!("IO {:?}", error.kind()));
