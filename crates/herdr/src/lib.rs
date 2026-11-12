@@ -664,12 +664,12 @@ mod tests {
     }
 
     async fn held_settles(conn: &Conn, want: impl Fn((usize, usize)) -> bool) -> (usize, usize) {
-        for _ in 0..200 {
+        for _ in 0..100_000 {
             let h = streams(&conn.channels).held();
             if want(h) {
                 return h;
             }
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            tokio::task::yield_now().await;
         }
         streams(&conn.channels).held()
     }
