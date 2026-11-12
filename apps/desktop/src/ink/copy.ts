@@ -1,6 +1,15 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  statusAge: {
+    now: sharedCopy.ageNow,
+    minutes: (value: number) => `${value} min`,
+    hours: (value: number) => `${value} h`,
+    days: (value: number) => `${value} d`,
+    weeks: (value: number) => `${value} w`,
+  },
+  statusReveal: sharedCopy.dotted,
+  statusAfterLabel: sharedCopy.dottedAfter,
   error: sharedCopy.error,
   retry: sharedCopy.retry,
   dismissFailure: sharedCopy.dismissFailure,
