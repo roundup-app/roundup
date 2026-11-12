@@ -110,6 +110,21 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 };
 
 
+/** The worktree facts a row carries: ahead count, CI, pull request, or that they are unavailable. */
+const WorktreeChips = (props: { id: string }) => {
+  const connected = useConnectedProject();
+  const read = () => connected.worktrees.read(props.id);
+  const worktreeFailure = () => read()?.failure;
+  const facts = () => read()?.failure === null ? read()!.state : null;
+
+  return <span class="worktree-chips row-secondary">
+        <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
+        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
+  </span>;
+};
+
 /** The count a row shows for children it hides: those folded under it while a drag holds it (U6550a), else its collapsed Agents. */
 const FoldedCount = (props: { folded: boolean; topology: RailTopology; id: string; hidden: number | undefined }) => {
   const lifted = () => props.folded ? descendantsOf(props.topology, props.id).length : 0;
@@ -177,13 +192,6 @@ export const RailRowView = (props: {
 
   // U6248c: an exhausted resume shows its cause once, in the line that carries Resume.
   const exhaustedResume = () => props.row.node.resume?.at === null && props.row.node.status?.kind === "error";
-  const worktreeFailure = () => connected.worktrees.read(props.row.node.id)?.failure;
-
-  const facts = () => {
-    const read = connected.worktrees.read(props.row.node.id);
-
-    return read?.failure === null ? read.state : null;
-  };
 
   const rowProps = () => ({
     class: "rail-row", classList: { "row-wash": true, "rail-root-divider": rootDivider() }, "data-id": props.row.node.id,
@@ -227,12 +235,7 @@ export const RailRowView = (props: {
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
-      <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
-        <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
-        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
-      </span></Show>
+      <Show when={!workstream() && props.row.node.worktree}><WorktreeChips id={props.row.node.id} /></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
