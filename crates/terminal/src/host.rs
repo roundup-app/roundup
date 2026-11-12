@@ -173,7 +173,7 @@ const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the
 /// PTY path gave a program. A core may have started in a session that carries other variables, so
-/// every name the program must not see is removed by `env -u` in argv.
+/// every name the program must not see is dropped from `env`, and the core itself starts clean.
 pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, name: &str) -> Value {
     let mut env = params.env.clone();
     let mut removed: Vec<&str> = shared.clean_env.iter().map(String::as_str).collect();
@@ -187,10 +187,9 @@ pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, nam
     env.insert("TERM".into(), "xterm-256color".into());
     env.insert("CLAUDE_CODE_FORCE_SYNC_OUTPUT".into(), "1".into());
     env.insert("ROUNDUP_TERMINAL".into(), number.to_string());
-    let mut argv = vec!["env".to_owned()];
-    for name in removed {
-        argv.extend(["-u".to_owned(), name.to_owned()]);
-    }
+    // The core starts clean (`core_command`), so the program's argv is its own and a bad program
+    // fails the run as `spawn_failed`, which an `env` in front of it would hide.
+    let mut argv = Vec::new();
     match &params.command {
         Some(command) => argv.extend(command.iter().cloned()),
         None => argv.push(std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into())),
@@ -508,14 +507,13 @@ mod tests {
         let p = run_params(&terminals.shared, &launch(), 4, "rp4");
         // Names the launch or the Daemon removes are neither in env nor left to the core's own.
         assert!(p["env"].get("CLAUDECODE").is_none());
-        let argv = p["argv"].to_string();
         for name in [
             "CLAUDECODE",
             "CLAUDE_CODE_SESSION_ID",
             "TMUX",
             "TERM_PROGRAM",
         ] {
-            assert!(argv.contains(&format!("\"-u\",\"{name}\"")), "{name}");
+            assert!(p["env"].get(name).is_none(), "{name}");
         }
         assert_eq!(p["env"]["ROUNDUP_AGENT"], "7");
     }
