@@ -117,7 +117,11 @@ export const Layout = (props: {
     props.widths?.style();
     measure();
   });
-  createEffect(on(() => [placement().shown, placement().covering] as const, () => {
+  // Memos: the placement object is rebuilt when any field changes, `sliding` ending included, and that must not start a slide again.
+  const shownNow = createMemo(() => placement().shown);
+  const coveringNow = createMemo(() => placement().covering);
+
+  createEffect(on([shownNow, coveringNow], () => {
     const drawer = windowElement?.querySelector('.drawer[data-open="true"]');
     setShelfSliding(!drawer && mode() === "reserved" && placement().animated && placement().rendered);
   }, { defer: true }));
