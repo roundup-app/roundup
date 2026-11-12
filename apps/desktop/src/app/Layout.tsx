@@ -15,6 +15,8 @@ import { setShelfSliding } from "../shelf/sliding";
 import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
 import { railView } from "../rail/slide";
+import { RailHandle } from "../rail/RailHandle";
+import { resizeDragging } from "../resize/dragging";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
 export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; keyed?: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
@@ -38,6 +40,8 @@ export const Layout = (props: {
   railPeeking?: boolean;
   /** U6228g: how the Rail slides now: a click's drawer motion, a key's, or the reduced-motion fade. */
   railSlide?: "click" | "key" | "fade" | undefined;
+  /** U6228h: the Rail's edge handle; absent, none shows. */
+  railHandle?: { collapsed: boolean; onToggle: () => void } | undefined;
   railOpen?: boolean;
   centre: JSX.Element;
   shelf: JSX.Element;
@@ -154,6 +158,7 @@ export const Layout = (props: {
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
+      <Show when={props.railHandle}>{(handle) => <RailHandle collapsed={handle().collapsed} peek={railMode().peek} slide={props.railSlide} dragging={resizeDragging()} onToggle={handle().onToggle} />}</Show>
     </div>
     <Show when={mode() === "overlay" && placement().rendered && !placement().covering}>
       <div class="shelf-scrim" onPointerDown={(event) => event.preventDefault()} onClick={() => placement().onClose?.()} />
