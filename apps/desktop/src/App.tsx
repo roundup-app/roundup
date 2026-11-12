@@ -1,6 +1,6 @@
 import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
-import { historyRegion, isTextEntry } from "./keys/focus";
+import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
@@ -13,7 +13,7 @@ import { AppSettings } from "./settings/AppSettings";
 import { createSettingsView } from "./state/settingsView";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
-import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "./keys/chords";
+import { CHORDS, LEADER } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
 import { batch, lazy, createEffect, createMemo, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
@@ -237,12 +237,7 @@ export const App = (props: {
     const outcome = await projects.rename(path, name, base);
 
     if (renamingProjects().get(path)?.revision !== revision) return outcome;
-    setRenamingProjects((all) => {
-      const next = new Map(all);
-      next.delete(path);
-
-      return next;
-    });
+    setRenamingProjects((all) => new Map([...all].filter(([key]) => key !== path)));
 
     return outcome;
   };
