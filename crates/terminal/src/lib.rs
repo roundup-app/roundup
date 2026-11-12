@@ -261,7 +261,7 @@ pub struct Terminals {
     test_input: Option<Mutex<Box<dyn Write + Send>>>,
     /// The herdr-core binary, started on first use from a clean environment.
     core_bin: std::path::PathBuf,
-    core: tokio::sync::OnceCell<Arc<herdr::Conn>>,
+    core: tokio::sync::Mutex<Option<Arc<herdr::Conn>>>,
     /// MC13: the connections to the Machines other than this Mac.
     remotes: Arc<Remotes>,
     shared: Arc<Shared>,
@@ -287,7 +287,7 @@ impl Terminals {
             #[cfg(feature = "test-support")]
             test_input: None,
             core_bin: host::default_core(),
-            core: tokio::sync::OnceCell::new(),
+            core: tokio::sync::Mutex::new(None),
             remotes: Arc::new(Remotes::ssh()),
             shared: Arc::new(Shared {
                 bus,
