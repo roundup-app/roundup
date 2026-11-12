@@ -115,7 +115,12 @@ const WorktreeChips = (props: { id: string }) => {
   const connected = useConnectedProject();
   const read = () => connected.worktrees.read(props.id);
   const worktreeFailure = () => read()?.failure;
-  const facts = () => read()?.failure === null ? read()!.state : null;
+
+  const facts = () => {
+    const current = read();
+
+    return current?.failure === null ? current.state : null;
+  };
 
   return <span class="worktree-chips row-secondary">
         <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>

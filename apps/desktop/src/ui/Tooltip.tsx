@@ -6,16 +6,14 @@ import type { Chord } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import "./Tooltip.css";
 
-type Anchor = () => HTMLElement | undefined;
-
 const Ownership = createContext<{ pointer: (event: PointerEvent) => void; focus: (event: FocusEvent, id: string | undefined) => void }>();
 
-const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => {
+const Root = (props: ArkTooltip.RootProps) => {
   const [owner, setOwner] = createSignal<HTMLElement>();
-  const control = floatingControl(props, () => props.anchor?.() ?? owner());
+  const control = floatingControl(props, owner);
   let pointer: { x: number; y: number } | undefined;
   // U6236a: a re-render replaces the trigger's element; its id finds the replacement.
-  const rect = () => props.anchor ? anchorBox(props.anchor()) : anchorBox(owner(), () => document.getElementById(owner()?.id ?? ""));
+  const rect = () => anchorBox(owner(), () => document.getElementById(owner()?.id ?? ""));
 
   const ownership = {
     pointer: (event: PointerEvent) => {
