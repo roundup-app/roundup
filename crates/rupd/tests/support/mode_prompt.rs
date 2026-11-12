@@ -260,7 +260,9 @@ async fn a4665_failed_start_retries_same_request() {
         let error = restart(&mut run, "retry-failed-start").await.unwrap_err();
         if missing_start {
             assert!(
-                error.message.contains("Mode Agent did not start a session within 15s"),
+                error
+                    .message
+                    .contains("Mode Agent did not start a session within 15s"),
                 "{error}"
             );
         } else {
