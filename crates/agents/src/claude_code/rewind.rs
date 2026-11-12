@@ -18,10 +18,7 @@ pub enum RewindError {
     #[error("Claude Code had not finished in {} s; the rewind may still finish", BUDGET.as_secs())]
     TimedOut,
     #[error("cannot run Claude Code `{bin}`: {source}")]
-    Spawn {
-        bin: String,
-        source: std::io::Error,
-    },
+    Spawn { bin: String, source: std::io::Error },
     #[error("Claude Code exited with {0}")]
     Exited(std::process::ExitStatus),
     #[error("{0}")]
@@ -30,7 +27,12 @@ pub enum RewindError {
 
 impl Launcher {
     /// Ask Claude Code to restore the files of `session` to the state at user message `turn`.
-    pub async fn rewind_files(&self, session: &str, cwd: &Path, turn: &str) -> Result<(), RewindError> {
+    pub async fn rewind_files(
+        &self,
+        session: &str,
+        cwd: &Path,
+        turn: &str,
+    ) -> Result<(), RewindError> {
         if !super::is_uuid(turn) {
             return Err(RewindError::NotUserMessage);
         }
