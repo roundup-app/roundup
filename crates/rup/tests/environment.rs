@@ -118,6 +118,7 @@ async fn terminal_env(served: &Served, env: BTreeMap<String, String>) -> String 
         unset: Vec::new(),
         cols: 80,
         rows: 24,
+        machine: None,
     };
     let spawned = client.request("terminal.spawn", params).await.unwrap();
     let id = spawned["id"].as_str().unwrap().to_owned();
@@ -201,6 +202,7 @@ async fn agent_env(method: &str) -> String {
                     scout: None,
                     specialist: None,
                     extras: None,
+                    machine: None,
                 },
             )
             .await

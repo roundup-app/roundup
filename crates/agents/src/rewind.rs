@@ -63,7 +63,7 @@ impl Agents {
             .await
         {
             Ok(()) => Outcome::Rewound,
-            Err(why) => Outcome::Failed(why),
+            Err(why) => Outcome::Failed(why.to_string()),
         }
     }
 }

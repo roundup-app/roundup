@@ -287,6 +287,7 @@ async fn x12_close_on_an_ownerless_terminal_is_refused_and_leaves_it() {
             unset: Vec::new(),
             cols: 80,
             rows: 24,
+            machine: None,
         })
         .await
         .unwrap();

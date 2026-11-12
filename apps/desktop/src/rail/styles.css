@@ -112,6 +112,31 @@
   line-height: 1.15;
 }
 
+/* U6640b: a long status keeps one line, cut with …. */
+.rail-row .row-status {
+  flex: 1 1 0;
+  container-type: inline-size;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--grey);
+  font-size: var(--text-row);
+  line-height: 1.15;
+}
+
+.rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+/* The status's right edge is fixed across rest, hover, focus and selection: the row's gap before the tail is dropped (gap moves to margins, none after the status), and the quick icons reveal in the tail's one constant slot. */
+.rail-row .line:has(.row-status) { gap: 0; }
+.rail-row:has(.row-status) :is(.name, .row-status) { margin-inline-start: var(--rail-gap); }
+/* pre keeps the separator's leading space, which a flex item would collapse. */
+.rail-row :is(.row-status-sep, .row-status-age) { flex: none; white-space: pre; }
+/* The name keeps its content width up to 60% of the row; the status takes all the shrink, so only the label is cut. */
+.rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 60%; }
+/* The tail keeps its one slot in every state, so the status's width never changes. The label gives way first, with its separator, once it would show under a glyph and …; the age stays until it no longer fits, then the row stays at the name. */
+@container (max-width: 12ch) { .row-status-label, .row-status-sep { display: none; } }
+@container (max-width: 4ch) { .row-status-age { display: none; } }
+
 [data-part="branch-control"].rail-row .name,
 .rail-row[data-mode] .name {
   font-weight: 600;

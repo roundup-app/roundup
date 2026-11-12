@@ -156,7 +156,7 @@ impl Shared {
         let socket = self
             .config
             .socket_for_run(run)
-            .map_err(RpcError::internal)?;
+            .map_err(|error| RpcError::internal(error.to_string()))?;
         let started = daemon::start(&self.config, path, &socket, self.store.dir()).await?;
         *runs = run + 1;
         Ok((started, run))

@@ -48,6 +48,7 @@ struct SpawnRequest {
     settle_name: bool,
     size: (u16, u16),
     cwd: String,
+    machine: Option<String>,
     permission: Permission,
 }
 
@@ -211,6 +212,7 @@ impl Agents {
             start_attribution: params.start_attribution,
             size,
             cwd: params.cwd,
+            machine: params.machine,
             permission: params.permission_mode.into(),
         })
     }
@@ -324,6 +326,7 @@ impl Agents {
             model: request.pair.model.as_deref(),
             effort: request.pair.effort.as_deref(),
             mode_prompt: None,
+            machine: request.machine.as_deref(),
         })?;
         if let Some(lean) = &request.lean {
             Launcher::save_lean(&self.dir, &node.id, lean)?;
@@ -388,6 +391,7 @@ impl Agents {
                     unset: Vec::new(),
                     cols: size.cols,
                     rows: size.rows,
+                    machine: None,
                 },
                 &id,
             )
@@ -598,6 +602,7 @@ impl Agents {
                     unset,
                     cols: size.0,
                     rows: size.1,
+                    machine: node.machine,
                 },
                 attach,
             )

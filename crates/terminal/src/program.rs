@@ -38,7 +38,7 @@ impl Terminals {
     pub(super) async fn kill_in(&self, id: &str) -> Result<(), Error> {
         let handle = self.running(id)?;
         match handle
-            .conn
+            .conn()?
             .call(
                 "terminal.kill",
                 serde_json::json!({"terminal": handle.core_id}),

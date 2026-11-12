@@ -38,6 +38,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  ageNow: "now",
   workstream: word.workstream,
   feedback: "Feedback",
   defaultChoice: "Default",
@@ -47,6 +48,7 @@ export const copy = {
   storageIncompatible: (folder: string) => `Saved work is incompatible with this app. Delete it to start fresh: ${folder}`,
   you: "You",
   dotted: (first: string, second: string) => `${first} · ${second}`,
+  dottedAfter: (value: string) => ` · ${value}`,
   move: "Move",
   comment: "Comment",
   bold: "Bold",

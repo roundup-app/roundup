@@ -365,3 +365,32 @@ fn dcl9_stored_node_with_unknown_kind_fails_instead_of_reading_as_an_agent() {
         .unwrap();
     assert!(rail.tree().is_err());
 }
+
+#[test]
+fn mc13_an_agent_records_its_machine_across_a_reopen() {
+    let (dir, mut rail) = rail();
+    let new = |name, machine| super::NewAgent {
+        name,
+        parent: None,
+        work: None,
+        start_attribution: None,
+        visibility: contracts::agent::RailVisibility::default(),
+        spawn_prompt: None,
+        spawner: None,
+        role: None,
+        model: None,
+        effort: None,
+        mode_prompt: None,
+        machine,
+    };
+    let remote = rail.insert_agent(new("remote", Some("build-box"))).unwrap();
+    let local = rail.insert_agent(new("local", None)).unwrap();
+    drop(rail);
+    let rail = Rail::open(&dir.path().join("agents.db")).unwrap();
+    let id = |id: &str| super::agent_id(id).unwrap();
+    assert_eq!(
+        rail.node(id(&remote.id)).unwrap().machine.as_deref(),
+        Some("build-box")
+    );
+    assert_eq!(rail.node(id(&local.id)).unwrap().machine, None);
+}

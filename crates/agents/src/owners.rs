@@ -130,6 +130,7 @@ impl Agents {
             cols: stored.cols,
             rows: stored.rows,
             program: stored.program.clone(),
+            machine: node.machine.clone(),
         };
         let Ok(spawned) = self
             .shared

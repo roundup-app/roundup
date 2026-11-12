@@ -242,7 +242,7 @@ impl Core {
     fn describe(&self, t: &Terminal) -> Value {
         let exit = lock(&t.live).exit.clone();
         json!({
-            "terminal": t.id,
+            "address": t.id,
             "state": if exit.is_some() { "finished" } else { "live" },
             "pid": t.pid,
             "cwd": t.cwd,

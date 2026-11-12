@@ -631,6 +631,7 @@ mod tests {
                 unset: Vec::new(),
                 cols: 80,
                 rows: 24,
+                machine: None,
             })
             .await
             .unwrap();
