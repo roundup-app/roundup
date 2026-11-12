@@ -8,7 +8,7 @@ use super::*;
 /// has ended. It blocks, so it runs on the Terminal's own thread.
 pub(super) type Relink = Box<dyn FnMut() -> Option<herdr::Stream> + Send>;
 
-/// How long a reattach's repaint is held, quiet, while its seam is looked for.
+/// How long a reattach's repaint may stay quiet while its seam is looked for.
 const SEAM_QUIET: Duration = Duration::from_millis(300);
 
 /// The bytes of one attached channel as a [`Read`]. Frames are cut anywhere, a UTF-8 character
@@ -26,9 +26,9 @@ struct StreamReader {
 }
 
 impl StreamReader {
-    /// The next event; while a repaint is held, `None` for the stream going quiet.
+    /// The next event; while a repaint is kept back, `None` for the stream going quiet.
     fn next(&mut self) -> Option<Option<herdr::Ev>> {
-        if !self.seam.holding() {
+        if !self.seam.waiting() {
             return Some(self.stream.blocking_next());
         }
         let stream = &mut self.stream;

@@ -94,6 +94,11 @@ pub(super) fn check_machine(name: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// The wait between two attempts to reach a Machine, on this thread's own clock.
+fn pause(wait: Duration) {
+    std::thread::sleep(wait);
+}
+
 enum Step {
     Retry,
     Gone(Arc<herdr::Conn>),
@@ -146,7 +151,7 @@ pub(super) fn relink(
             });
             match step {
                 Step::Retry => {
-                    std::thread::sleep(wait);
+                    pause(wait);
                     wait = (wait * 2).min(LONGEST_WAIT);
                 }
                 Step::Gone(conn) => {
@@ -312,20 +317,20 @@ mod tests {
         let spawned = terminals.spawn(launch("box")).await.unwrap();
         let text = output(spawned).await;
         assert_eq!(text.as_bytes(), ticks(1..=20));
-        assert_eq!(terminals.machine_reachability()["box"], true);
+        assert!(terminals.machine_reachability()["box"]);
     }
 
     #[tokio::test]
     async fn mc15_a_machine_that_does_not_answer_is_unreachable_until_it_does() {
         let remotes = Remotes::with(fake_ssh(vec![]));
         assert!(remotes.conn("box").await.is_err());
-        assert_eq!(remotes.reachability()["box"], false);
+        assert!(!remotes.reachability()["box"]);
         let remotes = Remotes::with(fake_ssh(vec![Script {
             frames: vec![],
             close: None,
         }]));
         remotes.conn("box").await.unwrap();
-        assert_eq!(remotes.reachability()["box"], true);
+        assert!(remotes.reachability()["box"]);
     }
 
     #[tokio::test]

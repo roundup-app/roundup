@@ -6,21 +6,30 @@
 const ANCHOR_LINES: usize = 3;
 /// How much of the delivered output is kept to find the seam in.
 const TAIL: usize = 16 << 10;
-/// The repaint is held at most this long (bytes) while its seam is looked for.
-const HOLD: usize = 4 << 20;
+/// The most bytes of a repaint kept back while its seam is looked for.
+const KEEP: usize = 4 << 20;
 
-/// What a repaint is held for, and what it is dropped by.
+/// A repaint kept back until the lines last delivered are found in it, and dropped up to them.
 #[derive(Default)]
 pub(super) struct Seam {
     tail: Vec<u8>,
-    held: Option<Vec<u8>>,
+    /// The repaint so far; `None` outside a reattach.
+    pending: Option<Vec<u8>>,
     anchor: Vec<Vec<u8>>,
 }
 
-fn lines(bytes: &[u8]) -> impl Iterator<Item = &[u8]> {
+/// The lines of `bytes` without their line ends, each with the offset just past its newline.
+fn rows(bytes: &[u8]) -> Vec<(usize, &[u8])> {
+    let mut end = 0;
     bytes
-        .split(|b| *b == b'\n')
-        .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+        .split_inclusive(|b| *b == b'\n')
+        .filter(|row| row.ends_with(b"\n"))
+        .map(|row| {
+            end += row.len();
+            let text = row.strip_suffix(b"\n").unwrap_or(row);
+            (end, text.strip_suffix(b"\r").unwrap_or(text))
+        })
+        .collect()
 }
 
 impl Seam {
@@ -33,87 +42,69 @@ impl Seam {
         }
     }
 
-    /// A new attach begins: hold its repaint until the last lines delivered are found in it.
+    /// A new attach begins: keep its repaint back until the last lines delivered are found in it.
     pub(super) fn reattached(&mut self) {
-        let complete = self
-            .tail
-            .iter()
-            .rposition(|b| *b == b'\n')
-            .map_or(0, |i| i + 1);
-        let mut anchor: Vec<Vec<u8>> = lines(&self.tail[..complete])
-            .filter(|line| !line.is_empty())
+        let mut anchor: Vec<Vec<u8>> = rows(&self.tail)
+            .into_iter()
+            .map(|(_, text)| text)
+            .filter(|text| !text.is_empty())
             .map(<[u8]>::to_vec)
             .collect();
         anchor.drain(..anchor.len().saturating_sub(ANCHOR_LINES));
         self.anchor = anchor;
-        self.held = Some(Vec::new());
+        self.pending = Some(Vec::new());
     }
 
-    /// Whether a repaint is still being held.
-    pub(super) fn holding(&self) -> bool {
-        self.held.is_some()
+    /// Whether a repaint is still being kept back.
+    pub(super) fn waiting(&self) -> bool {
+        self.pending.is_some()
     }
 
-    /// Take `bytes` from the stream: what to deliver now (empty while a repaint is held).
+    /// Take `bytes` from the stream: what to deliver now (nothing while a repaint is kept back).
     pub(super) fn feed(&mut self, bytes: Vec<u8>) -> Vec<u8> {
-        let Some(held) = self.held.as_mut() else {
+        let Some(pending) = self.pending.as_mut() else {
             return bytes;
         };
-        held.extend_from_slice(&bytes);
-        let size = held.len();
+        pending.extend_from_slice(&bytes);
+        let size = pending.len();
         match self.after_anchor() {
             Some(rest) => {
-                self.held = None;
+                self.pending = None;
                 rest
             }
-            None if self.anchor.is_empty() || size > HOLD => self.give_up(),
+            None if self.anchor.is_empty() || size > KEEP => self.give_up(),
             None => Vec::new(),
         }
     }
 
     /// The stream went quiet: deliver the repaint whole, with a note that a gap may lie in it.
     pub(super) fn give_up(&mut self) -> Vec<u8> {
-        let held = self.held.take().unwrap_or_default();
-        if self.anchor.is_empty() || held.is_empty() {
-            return held;
+        let repaint = self.pending.take().unwrap_or_default();
+        if self.anchor.is_empty() || repaint.is_empty() {
+            return repaint;
         }
         let mut out = b"\r\n\x1b[2m[output while disconnected may be missing]\x1b[0m\r\n".to_vec();
-        out.extend(held);
+        out.extend(repaint);
         out
     }
 
-    /// What follows the last place the anchor's lines run in order in the held repaint. A line may
-    /// carry the repaint's own escape sequence before its text, so lines match by their end.
+    /// What follows the last place the anchor's lines run in order in the repaint. A line may carry
+    /// the repaint's own escape sequence before its text, so lines match by their end.
     fn after_anchor(&self) -> Option<Vec<u8>> {
-        let held = self.held.as_ref()?;
-        if self.anchor.is_empty() {
+        let pending = self.pending.as_ref()?;
+        let k = self.anchor.len();
+        if k == 0 {
             return None;
         }
-        // Only a line ended by a newline is complete; the last segment is still arriving.
-        let complete = held.iter().rposition(|b| *b == b'\n').map(|i| i + 1)?;
-        let mut starts = vec![0usize];
-        starts.extend(
-            held[..complete]
-                .iter()
-                .enumerate()
-                .filter(|(_, b)| **b == b'\n')
-                .map(|(i, _)| i + 1),
-        );
-        let rows: Vec<&[u8]> = starts
-            .windows(2)
-            .map(|w| {
-                let line = &held[w[0]..w[1] - 1];
-                line.strip_suffix(b"\r").unwrap_or(line)
-            })
-            .collect();
-        let k = self.anchor.len();
-        let at = (k..=rows.len()).rev().find(|end| {
-            rows[end - k..*end]
+        let rows = rows(pending);
+        let at = rows.windows(k).rposition(|window| {
+            window
                 .iter()
                 .zip(&self.anchor)
-                .all(|(row, want)| row.ends_with(want))
+                .all(|((_, row), want)| row.ends_with(want))
         })?;
-        Some(held[starts[at]..].to_vec())
+        let (end, _) = rows.get(at + k - 1)?;
+        Some(pending.get(*end..)?.to_vec())
     }
 }
 
@@ -142,7 +133,7 @@ mod tests {
         out.extend(seam.feed(tail.to_vec()));
         out.extend(seam.feed(numbered(21..=22)));
         assert_eq!(out, numbered(11..=22));
-        assert!(!seam.holding());
+        assert!(!seam.waiting());
     }
 
     #[test]
@@ -161,6 +152,6 @@ mod tests {
         let mut seam = Seam::default();
         seam.reattached();
         assert_eq!(seam.feed(b"first paint".to_vec()), b"first paint");
-        assert!(!seam.holding());
+        assert!(!seam.waiting());
     }
 }
