@@ -140,6 +140,7 @@ pub fn connect(dir: &Path) -> rusqlite::Result<Connection> {
         let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
         if stored <= migrations().len() as i64 {
             apply(&mut db, migrations())?;
+            convert_saved_modes(&db)?;
         }
         Ok(db)
     };
@@ -152,6 +153,18 @@ pub fn connect(dir: &Path) -> rusqlite::Result<Connection> {
                 .display()
         ))
     })
+}
+
+/// A saved Mode written before Modes became root Agents is a root Workstream holding an opening
+/// prompt: make it a root Agent in place, keeping its id, prompt bytes and nested Agents. Kept out
+/// of a migration, which MG1 holds additive; it changes no row that is already an Agent.
+fn convert_saved_modes(db: &Connection) -> rusqlite::Result<()> {
+    db.execute(
+        "UPDATE nodes SET kind = 'agent' \
+         WHERE kind = 'workstream' AND parent IS NULL AND opening_prompt IS NOT NULL",
+        [],
+    )
+    .map(drop)
 }
 
 /// N22: an empty directory holding the real Project schema, for a store's tests; open it with `connect`.

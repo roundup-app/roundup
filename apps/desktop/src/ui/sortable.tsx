@@ -18,7 +18,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { createContext, createEffect, createMemo, mergeProps, on, onCleanup, splitProps, untrack, useContext, type JSX } from "solid-js";
+import { createContext, createEffect, createSignal, createMemo, mergeProps, on, onCleanup, splitProps, untrack, useContext, type JSX } from "solid-js";
 
 /** Past this many pixels outside the list the preview shows no move; back inside the lower gap it follows again. */
 const FAR_OUT_PX = 56;
@@ -917,6 +917,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
+  /** The row holds a slot others can land on but cannot be lifted: it has no drag activator, so it is announced neither draggable nor disabled. */
+  fixed?: boolean;
   /** The handle is also a button: a pointer drag starts after 4 px, so a click stays a click, and Space and Enter stay the button's own. */
   pressable?: boolean;
   children: (parts: ReturnType<typeof useSortable>) => JSX.Element;
@@ -931,7 +933,24 @@ const Item = (props: ItemProps) => {
   const accept = slots ? { accept: (): boolean => slots.takes(sortable.sortable.index) } : {};
   const sortable = useSortable(untrack(() => mergeProps(props, { transition: { duration: 0 } }, slots ? { collisionDetector: slots } : {}, accept, props.pressable ? { sensors: [pointerSensor()] } : {})));
 
-  return untrack(() => props.children(sortable));
+  if (!untrack(() => props.fixed)) return untrack(() => props.children(sortable));
+
+  // The row stays a drop slot (its element is the droppable's) but the draggable gets none, so the library binds no activator to it.
+  // The library sets the elements in an effect; this one is created after it, so it runs after it.
+  const [element, setElement] = createSignal<Element>();
+
+  createEffect(() => {
+    if (element()) sortable.sortable.source = undefined;
+  });
+
+  // SAFETY: the wrapper takes the element the library's own setter takes and passes it on; the cast only drops the setter's updater overload.
+  const ref = ((next?: Element) => {
+    setElement(next);
+
+    return sortable.ref(next);
+  }) as SortableParts["ref"];
+
+  return untrack(() => props.children({ ...sortable, ref }));
 };
 
 /** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. The row beside it names what moves, so it shows no tooltip (U6614a). */

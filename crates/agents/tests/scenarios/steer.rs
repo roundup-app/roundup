@@ -241,34 +241,50 @@ async fn a4452d_agent_authored_text_never_types() {
 }
 
 #[tokio::test]
-async fn a4452c_only_the_user_sets_the_opening_prompt() {
+async fn a4452c_only_the_user_sets_the_mode_prompt() {
     let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
-    let workstream = f.workstream("team", None).await;
+    let mode = f
+        .call(
+            "agent.createMode",
+            json!({"name":"team","prompt":"Initial mode prompt"}),
+        )
+        .await
+        .unwrap();
+    let mode_id = mode["id"].as_str().unwrap().to_owned();
     let prompt = "  Review e\u{301} 🧭\nKeep spacing  ";
-    let params = json!({"id": workstream, "prompt": prompt});
+    let params = json!({"id": mode_id, "prompt": prompt});
     for kind in [ActorKind::Agent, ActorKind::Ext] {
         let ctx = Ctx {
             actor: Actor {
                 kind,
-                id: workstream.clone(),
+                id: mode_id.clone(),
                 parent: None,
             },
             ..f.ctx()
         };
         let err = f
             .agents
-            .call(&ctx, "workstream.setOpeningPrompt", params.clone())
+            .call(&ctx, "agent.setModePrompt", params.clone())
             .await
             .unwrap_err();
         assert_eq!(err.code, code::FORBIDDEN);
     }
-    assert!(f.tree().await.iter().all(|n| n.opening_prompt.is_none()));
-    f.call("workstream.setOpeningPrompt", params).await.unwrap();
+    assert_eq!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == mode_id)
+            .unwrap()
+            .mode_prompt
+            .as_deref(),
+        Some("Initial mode prompt")
+    );
+    f.call("agent.setModePrompt", params).await.unwrap();
     let f = f.reopen();
     let tree = f.tree().await;
-    let node = tree.iter().find(|n| n.id == workstream).unwrap();
+    let node = tree.iter().find(|n| n.id == mode_id).unwrap();
     assert_eq!(node.name, "team");
-    assert_eq!(node.opening_prompt.as_deref(), Some(prompt));
+    assert_eq!(node.mode_prompt.as_deref(), Some(prompt));
 }
 
 #[tokio::test]

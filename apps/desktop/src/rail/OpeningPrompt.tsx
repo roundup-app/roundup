@@ -8,21 +8,24 @@ import { Field } from "../ui/Field";
 import { queueFocus } from "../keys/focus";
 import type { RailMenuModel } from "./menu/model";
 import { ReservedLine } from "../ink/ReservedLine";
+import { createDraftField } from "../state/draftField";
 
-/** A4452c: the row menu captures the Workstream independently of the selected Todo scope. */
-export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["restartSession"]>; id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
+/** A4452c: the row menu captures the Mode Agent independently of the selected Todo scope. */
+export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["restartMode"]>; id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
   const connected = useConnectedProject();
-  const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.id));
+  const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "agent" && node.parent === null && node.id === props.id));
   const [open, setOpen] = createSignal(true);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [restarting, setRestarting] = createSignal(false);
   const [restartFailed, setRestartFailed] = createSignal(false);
   const { drafts } = connected;
-  drafts.validate("opening-prompt", v.strictObject({ text: v.string(), base: v.optional(v.string()) }));
-  drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "workstream" && node.id === draft.destination.object) ? "available" : "unavailable");
+  const schema = v.strictObject({ text: v.string(), base: v.string() });
+  drafts.validate("opening-prompt", schema);
+  drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "agent" && node.parent === null && node.id === draft.destination.object) ? "available" : "unavailable");
   const destination = () => ({ surface: "opening-prompt", object: props.id, recipient: null });
+  const field = createDraftField(drafts, destination(), schema);
   const draft = () => drafts.list().filter(record => record.destination.surface === "opening-prompt" && record.destination.object === props.id).at(-1);
-  const text = () => String(draft()?.value.text ?? current()?.opening_prompt ?? "");
+  const text = () => String(draft()?.value.text ?? current()?.mode_prompt ?? "");
   createEffect(() => {
     if (current()) onCleanup(drafts.editor(destination()));
   });
@@ -31,7 +34,7 @@ export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["
     const id = props.id;
     const revision = draft();
 
-    if (!revision || revision.value.text === (current()?.opening_prompt ?? "")) return true;
+    if (!revision || revision.value.text === (current()?.mode_prompt ?? "")) return true;
 
     const submitted = await drafts.submit(revision.revision);
 
@@ -40,7 +43,7 @@ export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["
     try {
       const prompt = String(submitted.draft.value.text);
 
-      await connected.app.rpc("workstream.setOpeningPrompt", prompt.trim() === "" ? { id } : { id, prompt });
+      await connected.app.rpc("agent.setModePrompt", prompt.trim() === "" ? { id } : { id, prompt });
       await connected.rail.refresh();
       await drafts.settle(revision.revision, "acknowledged");
 
@@ -89,15 +92,15 @@ export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["
   };
 
   return <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) { props.onClose(); queueFocus(() => props.finalFocus()?.focus({ preventScroll: true })); } }} finalFocusEl={props.finalFocus}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form opening-prompt-dialog">
-      <Dialog.Title>{copy.openingPromptFor(current()?.name ?? "")}</Dialog.Title>
-      <Field.Root class="opening-prompt-field">
-        <Field.Textarea aria-label={copy.openingPrompt} value={text()} placeholder={copy.openingPromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
-          drafts.edit(destination(), { text: event.currentTarget.value, base: draft()?.value.base ?? current()?.opening_prompt ?? "" }, null, "ordinary");
+    <Dialog.Positioner><Dialog.Content class="app-dialog-form mode-prompt-dialog">
+      <Dialog.Title>{copy.modePromptFor(current()?.name ?? "")}</Dialog.Title>
+      <Field.Root class="mode-prompt-field">
+        <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
+          field.keep({ text: event.currentTarget.value, base: String(draft()?.value.base ?? current()?.mode_prompt ?? "") }, null);
         }} onBlur={() => void save()} />
-        <Field.HelperText>{copy.openingPromptHint}</Field.HelperText>
+        <Field.HelperText>{copy.modePromptHint}</Field.HelperText>
       </Field.Root>
-      <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.opening_prompt ?? "")}><ReservedLine status={copy.openingPromptConflict} /></Show>
+      <Show when={draft() && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.modePromptConflict} /></Show>
       <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void (restartFailed() ? restart() : save()) }} />
       <div class="app-dialog-actions">
         <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restart}</button>

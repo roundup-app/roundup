@@ -1,4 +1,4 @@
-//! Creation parameters for Agents, Workstreams and Door starts.
+//! Creation parameters for Agents, Workstreams, Modes and Door starts.
 
 use super::Order;
 use schemars::JsonSchema;
@@ -130,6 +130,22 @@ pub struct CreateWorkstreamParams {
     pub order: Option<Order>,
 }
 
+/// A user-created Mode: a root Agent whose first prompt is saved for later restarts.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct CreateModeParams {
+    /// A5765e: only the target user connection may supply source attribution.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "StartAttribution::deserialize_present"
+    )]
+    #[specta(optional, type = StartAttribution)]
+    #[schemars(skip)]
+    pub start_attribution: Option<StartAttribution>,
+    pub name: String,
+    pub prompt: String,
+}
+
 /// LC7: names by kind. As a call's parameter, the extras to add; as the result of `agent.extras`,
 /// the names that exist.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
@@ -216,4 +232,28 @@ impl StartAttribution {
     ) -> Result<Option<Self>, D::Error> {
         Self::deserialize(deserializer).map(Some)
     }
+}
+
+/// A4452c: a user-requested fresh Mode Agent run. Retries retain `request`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ModeRestartParams {
+    pub id: String,
+    pub request: crate::Text<128, { crate::text::NONEMPTY }>,
+    /// U3801: the user's current App choice; omission preserves the Agent's selected choice.
+    #[serde(
+        default,
+        rename = "permissionMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[specta(optional, type = PermissionMode)]
+    #[schemars(skip)]
+    pub permission_mode: Option<PermissionMode>,
+    /// U3802: the App's current engine choice; omission keeps the Agent's Adapter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub engine: Option<String>,
+    /// A36: use the Agent's saved Model when present, then this App default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub model: Option<String>,
 }

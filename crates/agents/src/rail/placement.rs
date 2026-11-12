@@ -18,6 +18,12 @@ impl Rail {
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
         check_parent(&nodes, node.kind, parent)?;
+        if node.mode_prompt.is_some() && parent.is_some() {
+            return Err(StoreError::conflict(format!(
+                "Mode {} must stay at the Project root",
+                node.name
+            )));
+        }
         if node.kind == NodeKind::Group
             && nodes
                 .iter()
