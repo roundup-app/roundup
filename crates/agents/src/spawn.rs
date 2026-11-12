@@ -624,6 +624,7 @@ impl Agents {
         spawn: TerminalSpawn,
         attach: Attach,
     ) -> Result<terminal::Spawned, RpcError> {
+        self.stop_recorded_owner(id).await;
         let spawned = self.shared.terminals.spawn(spawn).await?;
         if attach == Attach::Now {
             let attached = self
