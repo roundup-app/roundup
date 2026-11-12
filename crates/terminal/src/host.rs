@@ -124,7 +124,24 @@ fn core_vars() -> BTreeMap<String, String> {
     ]
     .into_iter()
     .filter_map(|name| Some((name.to_owned(), std::env::var(name).ok()?)))
+    .chain(test_vars())
     .collect()
+}
+
+/// Under `test-support` the test-support core also gets the variables the fake `claude` and the
+/// Daemon's tests set, which a real core never sees.
+#[cfg(feature = "test-support")]
+fn test_vars() -> impl Iterator<Item = (String, String)> {
+    std::env::vars().filter(|(name, _)| {
+        name.starts_with("FAKE_CLAUDE_")
+            || name.starts_with("ROUNDUP_")
+            || name == "CLAUDE_CONFIG_DIR"
+    })
+}
+
+#[cfg(not(feature = "test-support"))]
+fn test_vars() -> impl Iterator<Item = (String, String)> {
+    std::iter::empty()
 }
 
 /// Under `test-support` the core is the test-support one built beside the test binary, so a test

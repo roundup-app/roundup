@@ -300,6 +300,7 @@ impl Core {
     fn call(self: &Arc<Self>, msg: &Value) {
         let id = msg.get("id").cloned().unwrap_or(Value::Null);
         let params = msg.get("params").cloned().unwrap_or(Value::Null);
+        eprintln!("call {msg}");
         let result = match msg
             .get("method")
             .and_then(Value::as_str)
@@ -433,7 +434,9 @@ fn listen(tmp: &std::path::Path) -> io::Result<()> {
         for t in lock(&core.terminals).values() {
             lock(&t.live).channels.clear();
         }
-        let _ = serve(&core, &mut io::BufReader::new(stream));
+        eprintln!("accepted");
+        let r = serve(&core, &mut io::BufReader::new(stream));
+        eprintln!("serve ended {r:?}");
     }
     Ok(())
 }
@@ -457,18 +460,26 @@ fn proxy(tmp: &std::path::Path) -> io::Result<()> {
             .arg(tmp)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stderr(std::fs::File::create("/tmp/serve.log")?)
             .process_group(0)
             .spawn()?;
         started = true;
     };
     let mut up = stream.try_clone()?;
     std::thread::spawn(move || {
-        let _ = io::copy(&mut io::stdin().lock(), &mut up);
+        let r = io::copy(&mut io::stdin().lock(), &mut up);
+        let _ = std::fs::write("/tmp/proxy.log", format!("stdin ended {r:?}"));
         let _ = up.shutdown(std::net::Shutdown::Both);
     });
     let mut down = stream;
-    let _ = io::copy(&mut down, &mut io::stdout().lock());
+    // Stdout is line-buffered: flush each read so a frame without a newline is not held back.
+    let mut out = io::stdout().lock();
+    let mut buf = [0u8; 8192];
+    while let Ok(n) = down.read(&mut buf) {
+        if n == 0 || out.write_all(&buf[..n]).is_err() || out.flush().is_err() {
+            break;
+        }
+    }
     Ok(())
 }
 
