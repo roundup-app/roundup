@@ -6,7 +6,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { railOrder } from "../rail/layout";
 import { copy } from "./copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
-import { projectKeyOf } from "../app/projectLink";
+import { projectKeyOf } from "../projectLink";
 
 /** U2694a: one item of a menu model. `run` stays in the webview; only the rest crosses to the host. */
 export type MenuEntry = {

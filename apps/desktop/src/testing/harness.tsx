@@ -1,6 +1,6 @@
 import { Menu } from "../ui/Menu";
 import type { MenuItem } from "../app/seam";
-import { StorageRecovery } from "../app/StorageRecovery";
+import { StorageRecovery } from "../window/StorageRecovery";
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
 import { createEffect, createRoot, createSignal, For, Show } from "solid-js";

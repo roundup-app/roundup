@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-li
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal, type JSX } from "solid-js";
 import { mountBubbles } from "../bubbles/bubblesFixture";
-import { ChooseProject } from "../app/FirstRun";
+import { ChooseProject } from "../window/FirstRun";
 import { RpcError } from "../app/seam";
 import { Pads } from "../pads/Pads";
 import { Inbox } from "../inbox/Inbox";

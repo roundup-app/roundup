@@ -1,11 +1,11 @@
-import { copy } from "./copy";
+import { copy } from "../app/copy";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RpcMethods } from "@contracts/methods";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
-import { createTauriApp } from "./tauri";
-import { contractFingerprint, OWN_CONTRACT } from "./contractMatch";
+import { createTauriApp } from "../app/tauri";
+import { contractFingerprint, OWN_CONTRACT } from "../app/contractMatch";
 
 const ours = OWN_CONTRACT.methods;
 
