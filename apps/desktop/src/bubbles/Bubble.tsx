@@ -3,6 +3,7 @@ import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, For, on, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
+import { provideFocusTarget } from "../keys/focus";
 import { registerKeys } from "../keys/registry";
 import { Panel } from "../ui/Panel";
 import { IconButton } from "../ui/IconButton";
@@ -79,6 +80,7 @@ export const Bubble = (props: {
 
   const mount = (host: HTMLDivElement) => {
     body = host;
+    provideFocusTarget(`bubble.${id()}`, () => host.querySelector<HTMLElement>("textarea"));
 
     props.hostRef?.(host, () => restoreResize === undefined);
     createEffect(on(() => props.preparing ? null : id(), terminal => {

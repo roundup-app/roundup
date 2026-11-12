@@ -1,6 +1,6 @@
 import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
-import { historyRegion, returnFocus } from "./keys/focus";
+import { historyRegion, isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
@@ -14,7 +14,6 @@ import { createSettingsView } from "./state/settingsView";
 import { applyConfig } from "./settings/configApply";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
-import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
@@ -24,7 +23,7 @@ import { ChooseProject, EmptyShelf } from "./window/FirstRun";
 import { EmptyRail } from "./rail/EmptyRail";
 import { Layout } from "./window/Layout";
 import { createWindowFocus } from "./window/focus";
-import { createMenuWriter, projectMenuItems, TEXT_FIELD, undoAction, watchMenuBar } from "./window/menuBar";
+import { createMenuWriter, projectMenuItems, undoAction, watchMenuBar } from "./window/menuBar";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./window/Reopen";
@@ -74,6 +73,7 @@ import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
 import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
+import { ProjectPicker } from "./switcher/ProjectPicker";
 import { Feedback } from "./feedback/Feedback";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
@@ -302,13 +302,13 @@ export const App = (props: {
   const drafts = props.drafts ?? createProjectDrafts();
   registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
     action: CHORDS[keys === "⌘Z" ? "edit.undo" : "edit.redo"],
-    when: () => !document.activeElement?.closest(TEXT_FIELD),
+    when: () => !isTextEntry(document.activeElement),
     capture: focus => {
       const path = projects.active();
       const undo = undoAction(path ? drafts(path).undo : null, keys === "⇧⌘Z", focus);
 
       return {
-        available: () => path !== null && projects.active() === path && undo.available && !focus?.closest(TEXT_FIELD),
+        available: () => path !== null && projects.active() === path && undo.available && !isTextEntry(focus),
         label: undo.label,
         invoke: undo.run,
       };
@@ -615,24 +615,6 @@ export const App = (props: {
     };
   } }]);
 
-  const [projectPicker, setProjectPicker] = createSignal(false);
-  const [projectQuery, setProjectQuery] = createSignal("");
-  const [projectHighlight, setProjectHighlight] = createSignal<string | null>(null);
-  let projectPanel: HTMLElement | undefined;
-  let projectOpener: Element | null = null;
-
-  /** Esc or a dismissal returns focus to where it was before the picker opened; choosing a Project moves focus itself. */
-  const dismissProjectPicker = () => {
-    setProjectPicker(false);
-    returnFocus(projectOpener);
-  };
-
-  const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
-
-  createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
-  registerKeys({ kind: "leader" }, [{ action: LEADER["leader.project"], capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { projectOpener = document.activeElement; setProjectQuery(""); setProjectPicker(true); } }) }]);
-  registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: dismissProjectPicker }]);
-
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
   return (
@@ -651,6 +633,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
+        onOverlaid={frame.setOverlaid}
         railOpen={projects.tabs().length > 0}
         busy={projects.tabs().length > 0 && activeConnection() === undefined}
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), peeking: frame.peeking(), covering: frame.covering(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), keyed: frame.keyed(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
@@ -741,7 +724,7 @@ export const App = (props: {
                     <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={(url, surface) => routeNativeOpen({ kind: "link", url, surface })} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Feedback notify={toasts.notify} />
-                    <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
+                    <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
                     </div>
                     <ProjectSettingsView />
                     </div>
@@ -792,9 +775,7 @@ export const App = (props: {
                 </>
               )}
             </InProject>
-            <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
-              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={dismissProjectPicker} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
-            </section></Show>
+            <ProjectPicker projects={projects} />
             <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
             <Help projectOpen={activeConnection() != null} />
             <Toasts queue={toasts} />

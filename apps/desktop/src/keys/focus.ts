@@ -93,7 +93,7 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
 };
 
 /** Elements a component hands to others by name; a caller never finds them by CSS class. */
-export type FocusTarget = "terminal.new" | "pane.terminal" | "thread.composer" | "ask.input" | "shelf.tabs" | "shelf.first";
+export type FocusTarget = `bubble.${string}` | "terminal.new" | "pane.terminal" | "thread.composer" | "ask.input" | "shelf.tabs" | "shelf.first";
 
 type Provided = HTMLElement | (() => HTMLElement | null | undefined);
 
@@ -113,6 +113,11 @@ export const focusTarget = (name: FocusTarget): HTMLElement | undefined => {
 
   return element?.isConnected ? element : undefined;
 };
+
+/** An element that takes typed text: a field, an editable region or a Terminal screen. */
+const TEXT_ENTRY = "input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]";
+
+export const isTextEntry = (element: Element | null | undefined): boolean => element?.closest(TEXT_ENTRY) != null;
 
 /** The one definition of "a layer is open": a Drawer, dialog, alert dialog or menu. A drag in flight counts when `withDrag`. */
 const OPEN_LAYER = '.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]';
