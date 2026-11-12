@@ -81,7 +81,7 @@ impl RestartHarness {
                 let mut fail = failing.lock().unwrap();
                 if fail.as_deref() == Some(op) {
                     *fail = None;
-                    Err("recording failed".into())
+                    Err(crate::Error::internal("recording failed"))
                 } else {
                     Ok(())
                 }

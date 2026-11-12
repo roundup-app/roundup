@@ -132,7 +132,7 @@ pub(super) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 /// Runs `Env::fault` for `op` inside the store lock.
-pub(super) fn trip(inner: &Inner, op: &str) -> Result<(), String> {
+pub(super) fn trip(inner: &Inner, op: &str) -> Result<(), Error> {
     let _store = lock(&inner.store);
     (inner.fault)(op)
 }

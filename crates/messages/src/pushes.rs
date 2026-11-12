@@ -629,7 +629,7 @@ async fn send_digest(
         body,
         reply_to: None,
     };
-    crate::trip(inner, "push").map_err(Error::internal)?;
+    crate::trip(inner, "push")?;
     messages
         .send_message(&ctx, params(body), false, payload)
         .await?;

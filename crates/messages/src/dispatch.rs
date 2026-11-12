@@ -105,7 +105,7 @@ impl Module for Messages {
 
 impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        trip(&self.inner, method).map_err(RpcError::internal)?;
+        trip(&self.inner, method)?;
         if method == "message.send" {
             require_kind(&value)?;
         }

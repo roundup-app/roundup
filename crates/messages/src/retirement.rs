@@ -28,7 +28,7 @@ impl Messages {
             .ok_or_else(|| Error::not_found(agent))?;
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;
-        (self.inner.fault)("reserve_retirement").map_err(Error::internal)?;
+        (self.inner.fault)("reserve_retirement")?;
         store.atomically(|s| s.reserve_retirement(agent, key))
     }
 
@@ -55,7 +55,7 @@ impl Messages {
         {
             return Err(Error::conflict("retiring Agent still on the Rail"));
         }
-        (self.inner.fault)("complete_retirement").map_err(Error::internal)?;
+        (self.inner.fault)("complete_retirement")?;
         self.store()?.complete_retirement(agent, key)
     }
 }
