@@ -133,6 +133,9 @@
 .rail-row .row-status-age { flex: none; white-space: pre; }
 /* The name keeps its content width up to 60% of the row; the status takes all the shrink, so only the label is cut. */
 .rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 60%; }
+/* At rest the tail reserves no slot, so the status runs to the row's end; it takes the slot only on hover, focus or selection, and the label gives way. */
+.rail-row:has(.row-status) .row-tail { width: 0; min-width: 0; justify-content: flex-end; }
+.rail-row:has(.row-status):is(:hover, :focus-within, [data-selected="true"]) .row-tail { width: auto; min-width: var(--rail-slot); }
 /* The label gives way first; the age stays until it no longer fits, then the row stays at the name. */
 @container (max-width: 8ch) { .row-status-label { display: none; } }
 @container (max-width: 4ch) { .row-status-age { display: none; } }
