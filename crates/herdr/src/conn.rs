@@ -24,6 +24,8 @@ const NOT_FOUND_EXIT: i32 = 127;
 struct Waiting {
     closed: bool,
     calls: HashMap<u64, oneshot::Sender<Value>>,
+    /// Attach calls: the reader opens the reply's channel for the sender before any later frame.
+    claims: HashMap<u64, mpsc::UnboundedSender<Ev>>,
 }
 
 type Pending = Arc<Mutex<Waiting>>;
@@ -43,7 +45,8 @@ pub struct Conn {
     timeout: Duration,
     pub hello: Hello,
     events: Option<mpsc::UnboundedReceiver<Event>>,
-    channels: Streams,
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) channels: Streams,
     _child: Option<Child>,
 }
 
@@ -192,7 +195,22 @@ impl Conn {
                     continue;
                 };
                 if let Some(id) = msg.get("id").and_then(Value::as_u64) {
-                    if let Some(tx) = locked(&waiting).calls.remove(&id) {
+                    let (call, claim) = {
+                        let mut w = locked(&waiting);
+                        (w.calls.remove(&id), w.claims.remove(&id))
+                    };
+                    if let Some(tx) = claim {
+                        let channel = msg
+                            .pointer("/result/channel")
+                            .and_then(Value::as_u64)
+                            .and_then(|c| u32::try_from(c).ok());
+                        if let Some(channel) = channel {
+                            let mut state = streams(&routed);
+                            state.claim(channel, &tx);
+                            state.live.insert(channel, tx);
+                        }
+                    }
+                    if let Some(tx) = call {
                         let _ = tx.send(msg);
                     }
                 } else if let Some(method) = msg.get("method").and_then(Value::as_str) {
@@ -206,9 +224,13 @@ impl Conn {
             let mut w = locked(&waiting);
             w.closed = true;
             w.calls.clear();
+            w.claims.clear();
             drop(w);
             let gone = serde_json::json!({"reason":"connection_lost"});
-            for (_, tx) in streams(&routed).live.drain() {
+            let mut state = streams(&routed);
+            state.orphans.clear();
+            state.orphan_bytes = 0;
+            for (_, tx) in state.live.drain() {
                 let _ = tx.send(Ev::Close(gone.clone()));
             }
         });
@@ -242,18 +264,35 @@ impl Conn {
 
     /// Send a request and return its `result`; the core's error object becomes [`Error::Rpc`].
     pub async fn call(&self, method: &str, params: Value) -> Result<Value> {
+        self.call_claiming(method, params, None).await
+    }
+
+    /// [`Conn::call`], with `claim` made the live reader of the reply's channel by the reader task.
+    async fn call_claiming(
+        &self,
+        method: &str,
+        params: Value,
+        claim: Option<mpsc::UnboundedSender<Ev>>,
+    ) -> Result<Value> {
         let id = self.next.fetch_add(1, Ordering::SeqCst);
         let rx = self.register(id)?;
+        if let Some(tx) = claim {
+            locked(&self.pending).claims.insert(id, tx);
+        }
         let body =
             serde_json::to_vec(&json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))
                 .map_err(|e| Error::Protocol(e.to_string()))?;
         if self.out.send(frame(0, DATA, &body)).is_err() {
-            locked(&self.pending).calls.remove(&id);
+            let mut w = locked(&self.pending);
+            w.calls.remove(&id);
+            w.claims.remove(&id);
             return Err(Error::Closed);
         }
         let msg = match tokio::time::timeout(self.timeout, rx).await {
             Err(_) => {
-                locked(&self.pending).calls.remove(&id);
+                let mut w = locked(&self.pending);
+                w.calls.remove(&id);
+                w.claims.remove(&id);
                 return Err(Error::TimedOut);
             }
             Ok(Err(_)) => return Err(Error::Closed),
@@ -274,10 +313,12 @@ impl Conn {
         rows: u16,
         history: u32,
     ) -> Result<Stream> {
+        let (tx, rx) = mpsc::unbounded_channel();
         let reply = self
-            .call(
+            .call_claiming(
                 "terminal.attach",
                 json!({"terminal":terminal,"cols":cols,"rows":rows,"history":history}),
+                Some(tx),
             )
             .await?;
         let channel = reply
@@ -285,12 +326,6 @@ impl Conn {
             .and_then(Value::as_u64)
             .and_then(|c| u32::try_from(c).ok())
             .ok_or_else(|| Error::Protocol("terminal.attach: no channel".into()))?;
-        let (tx, rx) = mpsc::unbounded_channel();
-        let mut state = streams(&self.channels);
-        for ev in state.orphans.remove(&channel).unwrap_or_default() {
-            let _ = tx.send(ev);
-        }
-        state.live.insert(channel, tx);
         Ok(Stream {
             channel,
             rx,

@@ -9,6 +9,8 @@ export const storageCopy = {
   changed: "Saved work was changed. Review it before retrying.",
 } as const;
 
+const pluralSuffix = (count: number) => count === 1 ? "" : "s";
+
 export const copy = {
   resumeNote: "Your last turn was cut off by a Claude service error. Please continue where you left off.",
   actionsUnregistered: "The App could not register its actions.",
@@ -21,4 +23,24 @@ export const copy = {
   worktreeReadUnavailable: sharedCopy.worktreeReadUnavailable,
   theDoorDidNotStartInTimeRetry: "It did not start in time. Retry.",
   askNoAcknowledgement: "not found yet",
+  importDefaultPrompt: "Find active and recent Claude Code conversations in this Project",
+  importAgentName: sharedCopy.importAgentName,
+  importTimeout: "Looking for conversations took too long. Retry to try again, or choose a shorter period.",
+  importUnnamed: sharedCopy.importUnnamed,
+  workstreamName: sharedCopy.workstream,
+  deleteBusy: "Another delete is still finishing. Try again in a moment.",
+  deleting: (ids: string) => `Deleting ${ids}`,
+  deleteNotConnected: "The project is not connected yet. Try again in a moment.",
+  deleteBlockedBy: (name: string) => `${name} is unconfirmed. Press Check deletion to check it, or Dismiss to leave it.`,
+  deleteStaysUnconfirmed: (name: string) => `${name} is still unconfirmed.`,
+  todoUndo: sharedCopy.todoUndo,
+  redo: sharedCopy.redo,
+  undoAction: (action: string) => `Undo ${action}`,
+  redoAction: (action: string) => `Redo ${action}`,
+  deleteAction: (count: number, noun: "Todo" | "Pad") => `Delete ${noun}${pluralSuffix(count)}`,
+  todoDeleteMissing: "The chosen Todo is no longer available. Retry to check again.",
+  todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.",
+  remove: sharedCopy.remove,
+  todo: sharedCopy.todo,
+  pad: sharedCopy.pad,
 } as const;

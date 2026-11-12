@@ -1,6 +1,6 @@
 import type { Actor } from "@contracts/Actor";
 import { currentOwner, type RailState } from "../state/rail";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, focusTarget } from "../keys/focus";
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
 import { copy } from "./copy";
@@ -104,8 +104,7 @@ export const createBulkDelete = <Id,>(props: {
 
     if (deleteButton?.isConnected) return deleteButton;
 
-    return document.querySelector<HTMLElement>('.shelf button:not([disabled]), .shelf [tabindex="0"], .shelf input:not([disabled])')
-      ?? document.querySelector<HTMLElement>('.shelf-tabs [role="tab"][aria-selected="true"]');
+    return focusTarget("shelf.first") ?? focusTarget("shelf.tabs")?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? null;
   };
 
   const selectFocused = () => {
@@ -173,7 +172,7 @@ export const createBulkDelete = <Id,>(props: {
     { chords: ["Backspace"], when: event => props.selected().length > 0 && event.target instanceof Element && event.target.closest(".shelf-bulk") !== null, run: key },
   ]);
 
-  registerKeys({ kind: "region", element: () => host ? document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined : undefined }, [{ chords: ["Escape"], when: () => props.selected().length > 0, run: key }]);
+  registerKeys({ kind: "region", element: () => host ? focusTarget("shelf.tabs") : undefined }, [{ chords: ["Escape"], when: () => props.selected().length > 0, run: key }]);
 
   const owners = createMemo(() => {
     const kept = question();

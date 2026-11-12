@@ -10,7 +10,7 @@ import { copy } from "./copy";
 import { createItemFailures } from "../ink/itemFailures";
 import { lazy, createEffect, createSignal, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "../pads/padList";
 import { useTodoList } from "../todos/todoList";
 import { Deferred } from "../ui/Deferred";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";

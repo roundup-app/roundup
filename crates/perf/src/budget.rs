@@ -86,16 +86,16 @@ pub fn load_per_cpu(loads: &[f64], cpus: usize) -> f64 {
 }
 
 /// Every metric judged against its budget. A budget naming a metric the run never measured is an error, not a pass: a gate that silently stops measuring is not a gate.
-pub fn judge_all(result: &Report, budgets: &Budgets) -> Result<Outcome, String> {
+pub fn judge_all(result: &Report, budgets: &Budgets) -> Result<Outcome, crate::Error> {
     if result.loads.is_empty() {
-        return Err("no load figures recorded".to_string());
+        return Err(crate::Error::NoLoads);
     }
 
     if let Some(name) = budgets
         .keys()
         .find(|name| !result.metrics.contains_key(*name))
     {
-        return Err(format!("budget {name:?} has no measurement"));
+        return Err(crate::Error::UnmeasuredBudget(name.clone()));
     }
 
     let baseline_key = result

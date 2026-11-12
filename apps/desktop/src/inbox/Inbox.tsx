@@ -8,7 +8,7 @@ import { LEADER } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { createItemFailures } from "../ink/itemFailures";
-import { failureOf } from "../todos/failureOf";
+import { failureOf } from "../app/failureOf";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { CopyButton } from "../ui/CopyButton";
 import { InboxRow } from "./InboxRow";

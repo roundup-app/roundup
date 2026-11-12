@@ -1,5 +1,5 @@
 import type { RailNode } from "@contracts/agent/RailNode";
-import { descendantsOf, type RailSource } from "./layout";
+import { descendantsOf, type RailSource } from "../state/railTopology";
 
 /** U5501: a Workstream choice describes its current Agents, never future inheritance. */
 export const alertLevel = (nodes: RailSource, node: RailNode) => {

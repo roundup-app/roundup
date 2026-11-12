@@ -5,6 +5,7 @@ import { noInlineDeleteConfirmationRule } from "./rules/no-inline-delete-confirm
 import { noRawAnchorBoxRule } from "./rules/no-raw-anchor-box.ts";
 import { requireFieldFrameRule } from "./rules/require-field-frame.ts";
 import { noRawListenerRule } from "./rules/no-raw-listener.ts";
+import { noDocumentQueryRule } from "./rules/no-document-query.ts";
 import { noTooltipBypassRule } from "./rules/no-tooltip-bypass.ts";
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
@@ -12,6 +13,7 @@ import { noArrayFilterMapRule } from "./rules/no-array-filter-map.ts";
 import { noReduceAccumulatorCopyRule } from "./rules/no-reduce-accumulator-copy.ts";
 import { noChainedTypeAssertionsRule } from "./rules/no-chained-type-assertions.ts";
 import { noConditionalEmptyObjectSpreadRule } from "./rules/no-conditional-empty-object-spread.ts";
+import { noJsonEqualityRule } from "./rules/no-json-equality.ts";
 import { noKnownValueWideningRule } from "./rules/no-known-value-widening.ts";
 import { noModuleMockingRule } from "./rules/no-module-mocking.ts";
 import { noObjectParametersRule } from "./rules/no-object-parameters.ts";
@@ -42,6 +44,7 @@ const antiSlopPlugin = eslintCompatPlugin({
         "no-new-web-assertions": noNewWebAssertionsRule,
         "no-tooltip-bypass": noTooltipBypassRule,
         "no-raw-listener": noRawListenerRule,
+        "no-document-query": noDocumentQueryRule,
         "require-field-frame": requireFieldFrameRule,
         "no-raw-anchor-box": noRawAnchorBoxRule,
         "no-inline-delete-confirmation": noInlineDeleteConfirmationRule,
@@ -49,6 +52,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-reduce-accumulator-copy": noReduceAccumulatorCopyRule,
 		"no-chained-type-assertions": noChainedTypeAssertionsRule,
 		"no-conditional-empty-object-spread": noConditionalEmptyObjectSpreadRule,
+		"no-json-equality": noJsonEqualityRule,
 		"no-known-value-widening": noKnownValueWideningRule,
 		"no-module-mocking": noModuleMockingRule,
 		"no-object-parameters": noObjectParametersRule,

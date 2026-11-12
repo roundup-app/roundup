@@ -1,12 +1,12 @@
-import { captureFocus } from "../keys/focus";
+import { captureFocus, focusTarget } from "../keys/focus";
 import type { Place } from "./places";
 import type { Screens } from "../terminal/screens";
 
 export const focusPane = (): void => {
-  const target = document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
+  const target = focusTarget("pane.terminal");
   target?.focus();
 
-  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
+  if (document.activeElement !== target) focusTarget("terminal.new")?.focus();
 };
 
 export const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);

@@ -1,3 +1,4 @@
+import { provideFocusTarget } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
@@ -14,7 +15,7 @@ import { shownPads } from "../pads/shownPads";
 import { useConnectedProject } from "../state/connectedProject";
 import { shownTodos } from "../todos/shownTodos";
 import { useTodoList } from "../todos/todoList";
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "../pads/padList";
 import { SHELF_TABS } from "./frame";
 import type { ShelfTab, ShelfFrame } from "./frame";
 import "./styles.css";
@@ -39,7 +40,7 @@ type ShelfTabsProps = { frame: ShelfFrame; onToggle: (source: ActivationSource) 
 
 /** U373: the Shelf controls stay available in the window bar even when its panel is hidden. */
 export const ShelfTabs = (props: ShelfTabsProps) => (
-  <Tabs.List class="shelf-tabs" data-history-region="shelf" aria-label={copy.shelfLabel}>
+  <Tabs.List class="shelf-tabs" ref={element => provideFocusTarget("shelf.tabs", element)} data-history-region="shelf" aria-label={copy.shelfLabel}>
     <For each={SHELF_TABS}>{(tab) => (
       <Tabs.Trigger value={tab.value} class="shelf-tab"
         aria-selected={props.frame.open() && props.frame.tab() === tab.value}

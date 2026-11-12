@@ -5,7 +5,7 @@ import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { useConnectedProject } from "../state/connectedProject";
-import { failureOf } from "../todos/failureOf";
+import { failureOf } from "../app/failureOf";
 import { Checkbox } from "../ui/Checkbox";
 
 /** a whole number of 1 or more, else `null`. */

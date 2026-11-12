@@ -10,7 +10,7 @@ mod wire;
 
 pub use conn::{Conn, GENERATION};
 pub use error::{Error, Result, RpcError};
-pub use stream::Stream;
+pub use stream::{Sender, Stream};
 pub use types::{Ev, Event, Hello, Machine};
 
 #[cfg(test)]

@@ -211,13 +211,10 @@ async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn u5531a_door_tool_round_trip_and_reopen() {
-    let owner = std::env::var_os("ROUNDUP_TEST_APP_BIN")
-        .map(|dir| std::path::PathBuf::from(dir).join("terminal-owner"))
-        .unwrap_or_else(|| {
-            std::path::PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner")
-        });
-    assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
-    let env = [("RUPD_TERMINAL_OWNER", owner.to_str().unwrap())];
+    // A core that outlives the Daemon runs while the `herdr-core-persist` file stays.
+    let core_tmp = tempfile::tempdir().unwrap();
+    std::fs::write(core_tmp.path().join("herdr-core-persist"), "").unwrap();
+    let env = [("TMPDIR", core_tmp.path().to_str().unwrap())];
     let mut fx = b53_fixture_with(&env).await;
     let shim = spawn_shim(&fx.served.socket(), &fx.door).await;
     let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
@@ -328,7 +325,8 @@ async fn u5531a_door_tool_round_trip_and_reopen() {
         .expect("the same child still has its verified Terminal");
     assert!(original_terminal["incarnation"].is_string());
     assert!(original_terminal["program_pid"].is_number());
-    assert_eq!(terminal["incarnation"], original_terminal["incarnation"]);
+    // The reopened Daemon mirrors the core's Terminal anew, so a catch-up starts over.
+    assert_ne!(terminal["incarnation"], original_terminal["incarnation"]);
     assert_eq!(terminal["program_pid"], original_terminal["program_pid"]);
     assert_eq!(terminal["running"], true);
     let original = before

@@ -1,6 +1,6 @@
 import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble, onBubbleFocus as trackBubbleFocus, hasTerminalFocus } from "./focus";
 import { outcomeOf } from "../app/seam";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, focusTarget, provideFocusTarget } from "../keys/focus";
 import { createTerminalClose } from "./close";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
@@ -12,12 +12,17 @@ import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
+import { idle, step } from "./pull";
+import type { Pull, Pressed, Pulling } from "./pull";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tab } from "./tab";
 import type { TabContext } from "./tab";
 import { copy } from "./copy";
 import { createBubbleFailure, createCopyFailure } from "./failures";
 import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createBubblesModel, samePlaces } from "./model";
+import type { Arrival } from "./model";
 import { Portal } from "solid-js/web";
 import { HintLine } from "../keys/HintLine";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -25,7 +30,7 @@ import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
-import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopology";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
@@ -35,6 +40,8 @@ import type { Place, Extent } from "./places";
 import "./styles.css";
 
 const ESCAPE = "Escape".split(" ");
+
+const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 export const Bubbles = (props: {
@@ -49,7 +56,6 @@ export const Bubbles = (props: {
   const path = connected.project.path;
   const store = placesStorage(path);
   const drafts = connected.drafts;
-  const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
   drafts.validate("bubbles", schema);
   drafts.registerRecovery("bubbles", (draft, facts) => {
     return facts.daemonExit() !== null ? "unavailable" : facts.rail.failure() ? "unverified"
@@ -72,18 +78,16 @@ export const Bubbles = (props: {
   let recoveryPanel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => recoveryPanel, active: recovering, modal: true }, []);
 
+  const model = createBubblesModel(store, () => connected.daemonExit() === null);
+  const { places, commitPlaces, wanted, setWanted, reserved } = model;
+
   const refreshPlaces = (event: StorageEvent) => {
-    if (event.storageArea === window.sessionStorage && event.key === `roundup:bubble-places:${path}`) setPlaces(store.read());
+    if (event.storageArea === window.sessionStorage && event.key === `roundup:bubble-places:${path}`) model.reload();
   };
 
   window.addEventListener("storage", refreshPlaces);
   onCleanup(() => window.removeEventListener("storage", refreshPlaces));
 
-  const persistPlaces = (value: Record<string, Place>): void => {
-    if (connected.daemonExit() === null) store.write(value);
-  };
-
-  const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
   const failures = createBubbleFailure(() => connected.daemonExit() !== null ? "unknown" : rail.terminals());
   const { failure, set: setFailure } = failures;
 
@@ -92,15 +96,17 @@ export const Bubbles = (props: {
     failures.clearTerminal(terminal);
   };
 
-  const [opening, setOpening] = createSignal(false);
-  const [reserved, setReserved] = createSignal<Record<string, string | null>>({});
   const bubbleMenus = new Map<string, (event: MouseEvent) => void>();
-  let openingController: AbortController | undefined;
-  onCleanup(() => openingController?.abort());
-  createEffect(on(rail.selected, () => openingController?.abort(), { defer: true }));
-  const destinations = new Map<string, (destination: { host: HTMLElement; settled: () => boolean }) => void>();
-  const [openingSelection, setOpeningSelection] = createSignal<string | null>();
-  const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
+  const opening = () => model.opening().kind === "opening";
+
+  const abortOpening = (reason?: DOMException): void => {
+    const current = untrack(model.opening);
+
+    if (current.kind === "opening") current.controller.abort(reason);
+  };
+
+  onCleanup(() => abortOpening());
+  createEffect(on(rail.selected, () => abortOpening(), { defer: true }));
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
   const parkedTabs = document.createElement("div");
@@ -155,22 +161,20 @@ export const Bubbles = (props: {
     const next = { ...prior };
     const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
-    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: (opening() && chosen === openingSelection()) || terminal.id !== latest };
+    const current = model.opening();
+    const selecting = current.kind === "opening" && chosen === current.selection;
+
+    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: selecting || terminal.id !== latest };
 
     for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
 
     if (folds) for (const terminal of eligible) next[terminal.id] = { ...next[terminal.id]!, min: true };
 
-    if (JSON.stringify(next) === JSON.stringify(prior)) return;
-    setPlaces(next);
-    persistPlaces(next);
+    if (!samePlaces(next, prior)) commitPlaces(next);
   });
 
   const setPlace = (id: string, place: Place): void => {
-    const next = { ...places(), [id]: place };
-
-    setPlaces(next);
-    persistPlaces(next);
+    commitPlaces({ ...places(), [id]: place });
   };
 
   const nameFor = (terminal: TerminalInfo): string => shownName(terminal, places()[terminal.id]);
@@ -183,12 +187,7 @@ export const Bubbles = (props: {
 
     const { name: _previous, ...place } = placeOf(terminal.id);
 
-    const next = { ...places(), [terminal.id]: name === "" ? place : { ...place, name } };
-    const failure = store.write(next);
-
-    if (failure === null) setPlaces(next);
-
-    return failure;
+    return model.commitRename({ ...places(), [terminal.id]: name === "" ? place : { ...place, name } });
   };
 
   const show = (id: string | null): void => {
@@ -197,8 +196,7 @@ export const Bubbles = (props: {
     const next = { ...places() };
 
     for (const terminal of shown()) next[terminal.id] = { ...placeOf(terminal.id), min: terminal.id !== id };
-    setPlaces(next);
-    persistPlaces(next);
+    commitPlaces(next);
   };
 
   const openRecovery = (target?: () => HTMLElement | null | undefined) => {
@@ -227,10 +225,7 @@ export const Bubbles = (props: {
     const prior = untrack(places);
     const kept = Object.fromEntries(Object.entries(prior).filter(([id]) => listed.has(id)));
 
-    if (Object.keys(kept).length !== Object.keys(prior).length) {
-      setPlaces(kept);
-      persistPlaces(kept);
-    }
+    if (Object.keys(kept).length !== Object.keys(prior).length) commitPlaces(kept);
   });
 
   // The layer shrinks when the Shelf opens or the window narrows: every place is kept inside it (U164).
@@ -281,10 +276,7 @@ export const Bubbles = (props: {
       const prior = untrack(places);
       const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
 
-      if (JSON.stringify(next) !== JSON.stringify(prior)) {
-        setPlaces(next);
-        persistPlaces(next);
-      }
+      if (!samePlaces(next, prior)) commitPlaces(next);
 
       setMeasured(true);
     };
@@ -344,14 +336,11 @@ export const Bubbles = (props: {
     if (opening() || readOnly()) return null;
     const opener = document.activeElement;
     let focusReturn = captureFocus(true);
-    setOpeningSelection(selection);
-    setOpening(true);
-    const key = crypto.randomUUID();
-    const destination = Promise.withResolvers<{ host: HTMLElement; settled: () => boolean }>();
-    const controller = new AbortController();
-    openingController = controller;
-    destinations.set(key, destination.resolve);
-    setReserved(prior => ({ ...prior, [key]: null }));
+    const destination = Promise.withResolvers<Arrival>();
+    const begun = model.open(selection, destination.resolve);
+
+    if (begun === null) return null;
+    const { key, controller } = begun;
     let prepared: Awaited<ReturnType<Screens["prepare"]>> | undefined;
 
     const cancelled = () => {
@@ -361,7 +350,7 @@ export const Bubbles = (props: {
 
       if (restore) captureFocus(true)(() => {
         if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
-        else document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
+        else focusTarget("terminal.new")?.focus({ preventScroll: true });
       });
     };
 
@@ -384,7 +373,7 @@ export const Bubbles = (props: {
       }
 
       prepared?.bind(opened.terminal_id);
-      setPlaces(prior => ({ ...prior, [opened.terminal_id]: placeOf(key) }));
+      commitPlaces({ ...places(), [opened.terminal_id]: placeOf(key) });
       const available = () => mounted() && !controller.signal.aborted && current() && rail.selected() === selection;
 
       if (available()) {
@@ -395,7 +384,7 @@ export const Bubbles = (props: {
       failures.clearGeneral();
       rail.commandFailure.acknowledge(null);
       await rail.refresh({ terminals: true });
-      setReserved(prior => ({ ...prior, [key]: opened.terminal_id }));
+      model.reserve(key, opened.terminal_id);
 
       if (available() && focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
 
@@ -423,21 +412,12 @@ export const Bubbles = (props: {
 
       return null;
     } finally {
-      if (openingController === controller) openingController = undefined;
       controller.signal.removeEventListener("abort", cancelled);
       controller.abort();
       prepared?.dispose();
-      destinations.delete(key);
+      model.finish(key);
 
-      if (reserved()[key] === null) setReserved(prior => {
-        const next = { ...prior };
-        delete next[key];
-
-        return next;
-      });
-      setOpening(false);
-
-      if (mounted() && focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
+      if (mounted() && focus && failure() !== null && shown().length === 0) focusReturn(() => focusTarget("terminal.new")?.focus({ preventScroll: true }));
     }
   };
 
@@ -470,51 +450,40 @@ export const Bubbles = (props: {
 
   /** U421: a right-button drag of `PULL_DISTANCE` pulls the selected Workstream's Terminal out under the pointer. */
   const pulling = () => {
-    let press: { x: number; y: number } | null = null;
-    let active = false;
-    let pointer = { x: 0, y: 0 };
-    let id: string | null = null;
-    let frame: number | null = null;
-    let swallowMenu = false;
-    let swallowUp = false;
-    let selection: string | null = null;
-    let target: EventTarget | null = null;
-    let pointerId: number | undefined;
+    let pull: Pull = idle();
     let disposed = false;
-    let openedId: string | null = null;
 
-    const apply = (): void => {
-      frame = null;
+    const apply = (running: Pulling): void => {
+      running.frame = null;
 
-      if (id !== null) holdAt(id, pointer);
+      if (running.id !== null) holdAt(running.id, running.pointer);
     };
 
-    const schedule = (): void => {
-      frame ??= requestAnimationFrame(apply);
+    const schedule = (running: Pulling): void => {
+      running.frame ??= requestAnimationFrame(() => apply(running));
     };
 
-    const end = (): void => {
-      if (frame !== null) {
-        cancelAnimationFrame(frame);
-        apply();
+    /** Leaves the running Pull; a queued frame lands first, so the bubble stays where the last move put it. */
+    const leave = (event: "release" | "cancel"): Pulling | null => {
+      const was = pull;
+
+      if (was.kind === "idle") return null;
+      pull = step(was, { type: event });
+
+      if (was.kind !== "pulling") return null;
+
+      if (was.frame !== null) {
+        cancelAnimationFrame(was.frame);
+        apply(was);
       }
 
-      press = null;
-      active = false;
+      return was;
     };
 
     const cancel = (): void => {
-      if (press === null) return;
+      if (pull.kind === "idle") return;
       generation += 1;
-
-      if (active) {
-        swallowMenu = true;
-        swallowUp = true;
-      }
-
-      end();
-      id = null;
-      openedId = null;
+      leave("cancel");
     };
 
     onCleanup(() => { disposed = true; cancel(); });
@@ -523,124 +492,110 @@ export const Bubbles = (props: {
     const blocked = (): boolean =>
       resolvedWorkstream(rail.nodes, rail.selected()) === null || opening() || readOnly() || surfaceOpen();
 
-    const start = (): void => {
-      active = true;
+    const start = (pressed: Pressed): void => {
+      const running = step(pressed, { type: "start" });
+
+      pull = running;
+
+      if (running.kind !== "pulling") return;
 
       const target = lastTarget();
 
       if (target !== null) {
-        id = target;
-        holdAt(target, pointer);
+        running.id = target;
+        holdAt(target, running.pointer);
 
         return;
       }
 
-      id = null;
       const request = generation;
-      const selected = selection;
+      const selected = running.selection;
       const current = () => !disposed && generation === request && rail.selected() === selected;
 
       void openTerminal(current, false).then((opened) => {
         if (opened === null || !current()) return;
 
-        id = opened;
+        running.id = opened;
         // Release retains its final pointer, cancellation invalidates this request.
-        holdAt(opened, pointer);
+        holdAt(opened, running.pointer);
 
-        if (press === null) focusItem(opened);
-        else openedId = opened;
+        if (pull === running) running.openedId = opened;
+        else focusItem(opened);
       });
     };
 
     const down = (event: PointerEvent): void => {
       cancel();
       generation += 1;
-      openedId = null;
-      swallowMenu = false;
-      swallowUp = false;
-      press = null;
+      pull = step(pull, { type: "clear" });
 
       if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || textTarget(event.target) || blocked()) return;
 
-      selection = rail.selected();
-      target = event.target;
-      pointerId = event.pointerId;
-      press = { x: event.clientX, y: event.clientY };
-      pointer = press;
+      pull = step(pull, { type: "press", press: { x: event.clientX, y: event.clientY }, selection: rail.selected(), target: event.target, pointerId: event.pointerId });
     };
 
+    const mine = (event: PointerEvent): boolean =>
+      pull.kind !== "idle" && (event.pointerId === undefined || event.pointerId === pull.pointerId);
+
     const move = (event: PointerEvent): void => {
-      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
+      if (pull.kind === "idle" || !mine(event)) return;
 
-      pointer = { x: event.clientX, y: event.clientY };
+      pull.pointer = { x: event.clientX, y: event.clientY };
 
-      if (!active) {
-        if ((event.buttons & 2) === 0 || Math.hypot(pointer.x - press.x, pointer.y - press.y) < PULL_DISTANCE) return;
+      if (pull.kind === "pressed") {
+        if ((event.buttons & 2) === 0 || Math.hypot(pull.pointer.x - pull.press.x, pull.pointer.y - pull.press.y) < PULL_DISTANCE) return;
 
-        start();
+        start(pull);
       }
 
       // A Pull crossing a Terminal keeps its move and release out of that program.
       event.stopPropagation();
 
-      if (id !== null) schedule();
+      if (pull.kind === "pulling" && pull.id !== null) schedule(pull);
     };
 
     const up = (event: PointerEvent): void => {
-      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
+      if (!mine(event)) return;
 
-      if (active) {
-        event.stopPropagation();
-        swallowMenu = true;
-        swallowUp = true;
-      }
+      if (pull.kind === "pulling") event.stopPropagation();
 
-      end();
+      const was = leave("release");
 
-      if (openedId !== null) focusItem(openedId);
-      openedId = null;
+      if (was?.openedId != null) focusItem(was.openedId);
     };
 
     const swallow = (event: Event): void => {
-      if (active) event.stopPropagation();
+      if (pull.kind === "pulling") event.stopPropagation();
     };
 
     const swallowRelease = (event: Event): void => {
-      if (!active && !swallowUp) return;
+      if (pull.kind !== "pulling" && !(pull.kind === "idle" && pull.swallowUp)) return;
 
-      swallowUp = false;
+      pull = step(pull, { type: "mouseup" });
       event.stopPropagation();
     };
 
     const menu = (event: Event): void => {
-      if (!active && !swallowMenu) return;
+      if (pull.kind !== "pulling" && !(pull.kind === "idle" && pull.swallowMenu)) return;
 
-      swallowMenu = false;
+      pull = step(pull, { type: "menu" });
       event.preventDefault();
       event.stopPropagation();
     };
 
-    const listen = <K extends keyof WindowEventMap>(name: K, listener: (event: WindowEventMap[K]) => void): void => {
-      window.addEventListener(name, listener, true);
-      onCleanup(() => window.removeEventListener(name, listener, true));
-    };
-
-    listen("pointerdown", down);
-    listen("pointermove", move);
-    listen("pointerup", up);
-    listen("pointercancel", event => { if (event.pointerId === undefined || event.pointerId === pointerId) cancel(); });
-    listen("blur", event => { if (event.target === event.currentTarget) cancel(); });
-    listen("focusin", event => { if (press !== null && event.target !== target) cancel(); });
-    listen("mousemove", swallow);
-    listen("mouseup", swallowRelease);
-    listen("contextmenu", menu);
+    makeEventListener(window, "pointerdown", down, true);
+    makeEventListener(window, "pointermove", move, true);
+    makeEventListener(window, "pointerup", up, true);
+    makeEventListener(window, "pointercancel", event => { if (event.pointerId === undefined || mine(event)) cancel(); }, true);
+    makeEventListener(window, "blur", event => { if (event.target === event.currentTarget) cancel(); }, true);
+    makeEventListener(window, "focusin", event => { if (pull.kind !== "idle" && event.target !== pull.target) cancel(); }, true);
+    makeEventListener(window, "mousemove", swallow, true);
+    makeEventListener(window, "mouseup", swallowRelease, true);
+    makeEventListener(window, "contextmenu", menu, true);
     registerKeys({ kind: "app" }, [{
       chords: ESCAPE,
-      when: () => active,
-      run: () => {
-        swallowMenu = true;
-        cancel();
-      },
+      when: () => pull.kind === "pulling",
+      run: cancel,
     }]);
   };
 
@@ -682,7 +637,7 @@ export const Bubbles = (props: {
   const mainTerminal = (): string | null => {
     const id = rail.nodes.find((node) => node.id === rail.selected())?.terminal_id ?? null;
 
-    return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
+    return id !== null && focusTarget("pane.terminal") ? id : null;
   };
 
   const switchPair = (focus: Element | null) => {
@@ -776,6 +731,12 @@ export const Bubbles = (props: {
   // Bubbles are keyed by id: a refreshed `terminal.list` brings new objects for the same Terminals, and a remount would drop the emulator's focus.
   const shownIds = createMemo(() => shown().map((terminal) => terminal.id), [], { equals: (a, b) => a.length === b.length && a.every((id, at) => id === b[at]) });
 
+  const bubbleKeys = createMemo(() => {
+    const { preparing, keyOf } = model.reservations();
+
+    return [...preparing, ...shownIds().map(id => keyOf.get(id) ?? id)];
+  });
+
   const tabContext: TabContext = {
     props, connected, schema, path, drafts, records, editing, setEditing, shown, nameFor, placeOf, toggleMinimised, openRecovery, readOnly, rename,
     setFailure, clearItemFailure, lastTarget, close, bubbleMenus,
@@ -784,10 +745,10 @@ export const Bubbles = (props: {
   const recoveryNotice = (draft: ReturnType<typeof records>[number]) => !original(draft) || readOnly() ? copy.originalUnavailable : draft.value.base !== nameFor(original(draft)!) ? copy.railDraftConflict : null;
 
   return <div class="bubbles" ref={setLayer}>
-      <For each={[...Object.keys(reserved()).filter(key => reserved()[key] === null), ...shownIds().map(id => Object.keys(reserved()).find(key => reserved()[key] === id) ?? id)]}>{key => {
+      <For each={bubbleKeys()}>{key => {
         const id = () => reserved()[key] ?? key;
 
-        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : ""} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={async terminal => { if (reserved()[key] === null) openingController?.abort(new DOMException(copy.terminalPreparationCancelled)); else await close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
+        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => model.arrive(key, { host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : ""} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={terminal => reserved()[key] === null ? Promise.resolve(abortOpening(new DOMException(copy.terminalPreparationCancelled))) : close(terminal)} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) abortOpening(); else toggleMinimised(terminal); }} />;
       }}</For>
       {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
       <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); element.setAttribute("data-flat-bar", ""); }}>
@@ -796,7 +757,7 @@ export const Bubbles = (props: {
         }}>
           <div class="terminal-tab-list"><For each={shownIds()}>{id => <Tab id={id} ctx={tabContext} />}</For></div>
           <div class="terminal-tabs-actions">
-            <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger()} data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}><Icon name="plus" /></FlatAdd>}</Tip>
+            <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger()} ref={element => provideFocusTarget("terminal.new", element)} data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}><Icon name="plus" /></FlatAdd>}</Tip>
             <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
           </div>
         </div>

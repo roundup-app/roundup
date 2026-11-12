@@ -3,7 +3,7 @@ import { Inbox } from "../inbox/Inbox";
 import { AskRows } from "./AskRows";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { Presence } from "@ark-ui/solid/presence";
-import { captureFocus, queueFocus } from "../keys/focus";
+import { captureFocus, focusTarget, provideFocusTarget, queueFocus } from "../keys/focus";
 import type { JSX } from "solid-js";
 import { createItemFailures } from "../ink/itemFailures";
 import { createWritableMemo } from "@solid-primitives/memo";
@@ -176,8 +176,8 @@ export const AskBar = (props: {
       return field;
     }),
     finalFocusEl: () => selectedPane
-      ? document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
-        ?? document.querySelector<HTMLElement>(".pane-screen textarea")
+      ? focusTarget("thread.composer")
+        ?? focusTarget("pane.terminal")
         ?? selectedRailRow()
       : null,
     // Background layers may close while Ask remains the newer focus owner.
@@ -321,7 +321,7 @@ export const AskBar = (props: {
       <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
         <Show when={over()}><div class="ask-compose">
         <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
-          <Mentions.Field class="ask-input" ref={restoreSelection}
+          <Mentions.Field class="ask-input" ref={element => { provideFocusTarget("ask.input", element); restoreSelection(element); }}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} row={item => {
@@ -389,7 +389,7 @@ const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof
   const wanted = (id: string) => connected.hasView(id) && (id === "made" || !connected.hasView("made"));
 
   const Requested = (own: { id: "attention" | "made"; label: string; children: JSX.Element }) => <Presence lazyMount present={wanted(own.id)}>
-    <div class="made-heading"><h2 class="overview-heading">{own.label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(own.id); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(own.label)}</button></div>
+    <div class="made-heading"><h2 class="overview-heading">{own.label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(own.id); queueFocus(() => focusTarget("ask.input")?.focus()); }}>{copy.closeView(own.label)}</button></div>
     {own.children}
   </Presence>;
 

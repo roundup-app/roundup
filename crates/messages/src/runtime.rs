@@ -151,21 +151,21 @@ fn cause_of(panic: Box<dyn std::any::Any + Send>) -> String {
 }
 
 /// `fut`'s output, or the cause of the panic that ended it, logged once with the operation (B28).
-pub(super) async fn guarded<T>(op: &str, fut: impl Future<Output = T> + Send) -> Result<T, String> {
+pub(super) async fn guarded<T>(op: &str, fut: impl Future<Output = T> + Send) -> Result<T, Error> {
     struct Guarded<F>(Pin<Box<F>>);
     impl<F: Future> Future for Guarded<F> {
-        type Output = Result<F::Output, String>;
+        type Output = Result<F::Output, Error>;
         fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             match catch_unwind(AssertUnwindSafe(|| self.0.as_mut().poll(cx))) {
                 Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
                 Ok(Poll::Pending) => Poll::Pending,
-                Err(panic) => Poll::Ready(Err(cause_of(panic))),
+                Err(panic) => Poll::Ready(Err(Error::Internal(cause_of(panic)))),
             }
         }
     }
     let result = Guarded(Box::pin(fut)).await;
     if let Err(cause) = &result {
-        log_failure(op, cause);
+        log_failure(op, &cause.to_string());
     }
     result
 }

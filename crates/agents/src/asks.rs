@@ -956,7 +956,7 @@ fn placed_parts(
                     limits: vec![],
                 }
                 .validate_explicit()
-                .map_err(|err| invalid(&err))?;
+                .map_err(|err| invalid(&err.to_string()))?;
             }
             let state = if matches!(part.placement, Place::Unclear { .. }) {
                 State::Waiting

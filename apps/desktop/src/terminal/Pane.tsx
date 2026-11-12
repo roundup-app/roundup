@@ -1,4 +1,5 @@
-import { siblingsOf } from "../rail/layout";
+import { provideFocusTarget } from "../keys/focus";
+import { siblingsOf } from "../state/railTopology";
 import { EmptyState } from "../ink/EmptyState";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
@@ -308,7 +309,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
           body = element;
         }}
       >
-        <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
+        <div class="pane-screen" ref={element => { setScreen(element); provideFocusTarget("pane.terminal", () => element.querySelector<HTMLElement>("textarea, [tabindex]")); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>

@@ -2,7 +2,7 @@ import { createRoot } from "solid-js";
 import { connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, mode, workstream, NOW } from "../testing/nodes";
-import * as topology from "./topology";
+import * as topology from "../state/railTopology";
 import { createRailTree } from "./railTree";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

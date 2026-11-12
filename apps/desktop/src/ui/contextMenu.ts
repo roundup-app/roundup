@@ -3,7 +3,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { writeText } from "../app/clipboard";
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { railOrder } from "../rail/layout";
+import { railOrder } from "../state/railTopology";
 import { copy } from "./copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
 import { projectKeyOf } from "../projectLink";

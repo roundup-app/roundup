@@ -94,7 +94,9 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
     const previous = records().find(draft => draft.revision === revision);
 
     if (previous?.value.name === input.value) {
-      if (JSON.stringify(previous.selection) !== JSON.stringify(caret)) drafts.setSelection(previous.revision, caret);
+      const saved = previous.selection;
+
+      if (saved?.start !== caret.start || saved.end !== caret.end || saved.direction !== caret.direction) drafts.setSelection(previous.revision, caret);
 
       return;
     }

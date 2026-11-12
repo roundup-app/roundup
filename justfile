@@ -69,7 +69,7 @@ clippy base="":
 # The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89).
 [script('loop/keep-going.sh')]
 test-rust *args:
-    cargo build --quiet -p rupd -p rup
+    cargo build --quiet -p rupd -p rup -p terminal --features terminal/test-support
     cargo nextest run {{args}}
     just contracts-fresh
 
@@ -223,7 +223,7 @@ app-bundle:
     pnpm -r --if-present build
     cargo build --release --target "$triple" -p rupd -p rup -p terminal
     mkdir -p target/app-bundle-inputs
-    for bin in rupd rup terminal-owner; do
+    for bin in rupd rup; do
         cp "target/$triple/release/$bin" "target/app-bundle-inputs/$bin-$triple"
     done
     tools/sidecar/bundle.sh target/app-bundle-inputs/sidecar
@@ -247,7 +247,7 @@ app-bundle-check bundle:
         extracted = Path(folder).resolve() / source.name
         shutil.copytree(source, extracted, symlinks=True)
         binaries = extracted / "Contents/MacOS"
-        for name in ["roundup", "rupd", "rup", "terminal-owner", "sidecar/node"]:
+        for name in ["roundup", "rupd", "rup", "sidecar/node"]:
             binary = binaries / name
             if (not binary.is_file() or not os.access(binary, os.X_OK)
                     or not binary.resolve().is_relative_to(extracted)):
@@ -271,14 +271,24 @@ app-bundle-check bundle:
                        cwd=sidecar, check=True)
         print(json.dumps({"executables": str(binaries), "sidecar": "SDK import passed"}), flush=True)
         environment = os.environ.copy()
-        for name in ["ROUNDUP_RUPD_BIN", "ROUNDUP_RUP_BIN", "ROUNDUP_SIDECAR_DIR",
-                     "RUPD_TERMINAL_OWNER"]:
+        for name in ["ROUNDUP_RUPD_BIN", "ROUNDUP_RUP_BIN", "ROUNDUP_SIDECAR_DIR"]:
             environment.pop(name, None)
         environment["ROUNDUP_TEST_APP_BIN"] = str(binaries)
+        # The App ships no herdr-core (ADR 0012: the machine has one) and this runner has none, so the
+        # test-support core stands in for it as `herdr-core`, as the fake `claude` stands in for the vendor.
+        built = subprocess.run([
+            "cargo", "build", "-p", "terminal", "--features", "test-support",
+            "--bin", "herdr-core-test", "--message-format=json-render-diagnostics",
+        ], stdout=subprocess.PIPE, text=True, check=True).stdout
+        core = next(artifact["executable"] for artifact in map(json.loads, built.splitlines())
+                    if artifact.get("reason") == "compiler-artifact"
+                    and artifact["target"]["name"] == "herdr-core-test" and artifact["executable"])
+        stand_in = Path(folder).resolve() / "core"
+        stand_in.mkdir()
+        (stand_in / "herdr-core").symlink_to(core)
+        environment["PATH"] = f"{stand_in}{os.pathsep}{environment['PATH']}"
         subprocess.run([
-            "cargo", "nextest", "run", "-p", "desktop", "-p", "terminal", "-p", "rup",
-            "--test", "a12a", "--test", "durable_owner", "--test", "reopen", "-E",
-            "binary(a12a) | binary(reopen) | test(=x8_reconnecting_keeps_the_original_program)",
+            "cargo", "nextest", "run", "-p", "rup", "--test", "reopen", "-E", "binary(reopen)",
         ], env=environment, check=True)
 
 # S12: renders the App's 1024 px Dock icon from the approved artwork; needs macOS's sips.

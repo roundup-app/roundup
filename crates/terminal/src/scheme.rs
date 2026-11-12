@@ -43,15 +43,6 @@ impl Palette {
         })
     }
 
-    pub fn params(self) -> SchemeParams {
-        let colour = |[r, g, b]: [u8; 3]| format!("#{r:02x}{g:02x}{b:02x}");
-        SchemeParams {
-            scheme: self.scheme,
-            background: colour(self.background),
-            foreground: colour(self.foreground),
-        }
-    }
-
     pub fn answer(&self, query: Query) -> Vec<u8> {
         match query {
             Query::Foreground => osc_colour(10, self.foreground),

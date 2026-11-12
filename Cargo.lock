@@ -718,6 +718,7 @@ dependencies = [
  "specta-serde",
  "specta-typescript",
  "stats_alloc",
+ "thiserror 2.0.21",
  "tokio",
 ]
 
@@ -3442,6 +3443,7 @@ dependencies = [
  "shlex",
  "sysinfo",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
 ]
 
@@ -5285,7 +5287,6 @@ dependencies = [
  "provenance",
  "regex",
  "rpc",
- "serde",
  "serde_json",
  "stats_alloc",
  "tempfile",

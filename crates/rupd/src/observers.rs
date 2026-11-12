@@ -17,10 +17,6 @@ pub struct Observers {
     pub(crate) terminal_input_gate: Option<PathBuf>,
     pub(crate) prompt_effect_gate: Option<PathBuf>,
     pub(crate) digest_observer: Option<PathBuf>,
-    /// The packaged `terminal-owner` helper (X8), named by `RUPD_TERMINAL_OWNER`. The App sets it
-    /// for its Daemon; without it, Terminals stay children of the Daemon and a reopen reports
-    /// Agents `done`.
-    pub(crate) terminal_owner: Option<PathBuf>,
     /// AMG2: bytes Agents may hold, from `RUPD_MEMORY_BUDGET`; half the machine's RAM when unset.
     pub(crate) memory_budget: Option<u64>,
 }
@@ -46,7 +42,6 @@ impl Observers {
             terminal_input_gate: path("RUPD_TERMINAL_INPUT_GATE"),
             prompt_effect_gate: path("RUPD_PROMPT_EFFECT_GATE"),
             digest_observer: path("RUPD_DIGEST_OBSERVER"),
-            terminal_owner: path("RUPD_TERMINAL_OWNER"),
             memory_budget: std::env::var("RUPD_MEMORY_BUDGET")
                 .ok()
                 .and_then(|bytes| bytes.parse().ok()),

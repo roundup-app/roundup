@@ -1,7 +1,5 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
-const pluralSuffix = (count: number) => count === 1 ? "" : "s";
-
 export const copy = {
   changeDidNotApply: "The change did not apply; the earlier value was kept. Try again.",
   dismissFailure: sharedCopy.dismissFailure,
@@ -17,19 +15,9 @@ export const copy = {
   draftRetention: sharedCopy.draftRetention,
   copyField: sharedCopy.copyField,
   copyDraftFailure: sharedCopy.copyDraftFailure,
-  deleteBusy: "Another delete is still finishing. Try again in a moment.",
-  deleting: (ids: string) => `Deleting ${ids}`,
-  deleteNotConnected: "The project is not connected yet. Try again in a moment.",
-  deleteBlockedBy: (name: string) => `${name} is unconfirmed. Press Check deletion to check it, or Dismiss to leave it.`,
-  deleteStaysUnconfirmed: (name: string) => `${name} is still unconfirmed.`,
   deleteUnconfirmed: "An earlier deletion is unconfirmed. Check deletion first.",
   todoUndo: sharedCopy.todoUndo,
   redo: sharedCopy.redo,
-  undoAction: (action: string) => `Undo ${action}`,
-  redoAction: (action: string) => `Redo ${action}`,
-  deleteAction: (count: number, noun: "Todo" | "Pad") => `Delete ${noun}${pluralSuffix(count)}`,
-  todoDeleteMissing: "The chosen Todo is no longer available. Retry to check again.",
-  todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.",
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   todoDeleteUnconfirmed: (ids: number[]) => `Deleting ${ids.map(id => `#${id}`).join(", ")} is unconfirmed. Check that deletion before trying Delete again.`,
   todoRestorePending: "Restoration is in progress. Wait for it to finish, then try Delete again.",
@@ -116,7 +104,7 @@ export const copy = {
   blockedByCount: (count: number) => `Blocked by ${count}`,
   blockingCount: (count: number) => `Blocking ${count}`,
   activity: "Activity",
-  historyEntries: (count: number) => `${count} change${pluralSuffix(count)}`,
+  historyEntries: (count: number) => count === 1 ? "1 change" : `${count} changes`,
   olderActivity: (count: number) => `${count} older ${count === 1 ? "entry" : "entries"}`,
   commentField: "Write a comment",
   commentPlaceholder: "Add a comment",

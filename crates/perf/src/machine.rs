@@ -1,6 +1,9 @@
 //! R16: which measured machine class this run is on, so a baseline is compared only with values measured on that class.
 
 use std::collections::BTreeMap;
+
+use crate::Error;
+use crate::error::Unmatched;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -120,13 +123,11 @@ pub fn read() -> Machine {
     machine
 }
 
-fn require<'a>(field: &'a Option<String>, name: &str) -> Result<&'a str, String> {
-    field
-        .as_deref()
-        .ok_or_else(|| format!("machine class: {name} is missing"))
+fn require<'a>(field: &'a Option<String>, name: &'static str) -> Result<&'a str, Error> {
+    field.as_deref().ok_or(Error::MachineFieldMissing(name))
 }
 
-fn builder_key(machine: &Machine) -> Result<Option<&'static str>, String> {
+fn builder_key(machine: &Machine) -> Result<Option<&'static str>, Error> {
     let model = require(&machine.cpu_model, "cpu model")?;
 
     Ok(BUILDERS
@@ -135,7 +136,7 @@ fn builder_key(machine: &Machine) -> Result<Option<&'static str>, String> {
 }
 
 /// Which class the machine is: a Builder by exact identity, or the boxd VM by its two CPUs. Anything else is an error naming the mismatch.
-pub fn classify(machine: &Machine) -> Result<&'static str, String> {
+pub fn classify(machine: &Machine) -> Result<&'static str, Error> {
     let distro = require(&machine.distro_id, "ID in /etc/os-release")?;
     let version = require(&machine.version_id, "VERSION_ID in /etc/os-release")?;
     let arch = require(&machine.arch, "architecture")?;
@@ -145,27 +146,33 @@ pub fn classify(machine: &Machine) -> Result<&'static str, String> {
     let available = machine
         .available_cpus
         .filter(|&n| n > 0)
-        .ok_or("machine class: available cpu count is missing")?;
+        .ok_or(Error::MachineFieldMissing("available cpu count"))?;
 
     if distro != "ubuntu" || arch != "x86_64" {
-        return Err(format!(
-            "machine class: unsupported host {distro} {version} {arch}"
-        ));
+        return Err(Error::UnsupportedHost {
+            distro: distro.into(),
+            version: version.into(),
+            arch: arch.into(),
+        });
     }
 
     if online == "0-3" && available == 4 && affinity == "0-3" && version == "24.04" {
-        return builder_key(machine)?.ok_or_else(|| {
-            format!("machine class: cpu model {model:?} is not a supported Builder model")
-        });
+        return builder_key(machine)?.ok_or_else(|| Error::UnsupportedBuilder(model.into()));
     }
 
     if online == "0-1" && available == 2 && affinity == "0-1" && model.starts_with("AMD EPYC") {
         return Ok(BOXD);
     }
 
-    Err(format!(
-        "machine class: {distro} {version} {arch} {model:?} with online cpus {online}, {available} available, affinity {affinity} matches no measured class"
-    ))
+    Err(Error::UnmatchedClass(Box::new(Unmatched {
+        distro: distro.into(),
+        version: version.into(),
+        arch: arch.into(),
+        model: model.into(),
+        online: online.into(),
+        available,
+        affinity: affinity.into(),
+    })))
 }
 
 /// Selects the class for `machine` and checks its baseline is measured: a provenance, and a `baseline` entry under its key for every Linux metric in `has_baseline`.
@@ -173,20 +180,21 @@ pub fn select(
     machine: &Machine,
     provenance: &Provenance,
     has_baseline: impl Fn(&str, &str) -> bool,
-) -> Result<Class, String> {
+) -> Result<Class, Error> {
     let key = classify(machine)?;
     let source = provenance
         .get(key)
         .filter(|text| !text.trim().is_empty())
-        .ok_or_else(|| format!("machine class {key}: baseline provenance is missing"))?;
+        .ok_or_else(|| Error::MissingProvenance(key.into()))?;
 
     if let Some(metric) = LINUX_METRICS
         .iter()
         .find(|metric| !has_baseline(metric, key))
     {
-        return Err(format!(
-            "machine class {key}: no measured baseline for {metric}"
-        ));
+        return Err(Error::MissingBaseline {
+            key: key.into(),
+            metric: (*metric).into(),
+        });
     }
 
     Ok(Class {
@@ -207,7 +215,7 @@ pub fn comparison(
     machine: &Machine,
     provenance: &Provenance,
     budgets: &crate::budget::Budgets,
-) -> Result<Comparison, String> {
+) -> Result<Comparison, Error> {
     let key = classify(machine)?;
     let selected = select(machine, provenance, |metric, key| {
         budgets

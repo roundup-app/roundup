@@ -2,17 +2,20 @@
 //! it again instead of reporting the Agent `done`. Attaching launches nothing and sends no input.
 use super::*;
 
-use terminal::TerminalOwner as OwnerRecord;
-
 /// One Agent's record: the Attempt it belongs to, and the owner verified at attachment.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Stored {
     attempt: Ordinal,
+    /// The core's id for the Agent's Terminal, and what a reattach needs besides it.
+    core_id: String,
+    cwd: String,
+    cols: u16,
+    rows: u16,
+    program: String,
     #[serde(default)]
     input_started: bool,
     #[serde(default)]
     inbox: Option<PathBuf>,
-    owner: OwnerRecord,
     /// The socket the retained program's hooks and MCP inherited as `RUPD_SOCKET`.
     #[serde(default)]
     socket: Option<PathBuf>,
@@ -25,7 +28,7 @@ impl Agents {
     /// Save the owner behind client Terminal `terminal_id` for Agent `id`'s current Attempt.
     /// A Terminal the client owns directly has no record, and reopening reports its Agent `done`.
     pub(super) fn save_owner(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
-        let Some(owner) = self.shared.terminals.terminal_owner(terminal_id)? else {
+        let Some((core_id, adopted)) = self.shared.terminals.core_record(terminal_id)? else {
             return Ok(());
         };
         let Some(attempt) = self.shared.rail().node(crate::rail::agent_id(id)?)?.attempt else {
@@ -34,9 +37,13 @@ impl Agents {
         let file = self.shared.owner_file(id);
         let body = serde_json::to_vec(&Stored {
             attempt,
+            core_id,
+            cwd: adopted.cwd,
+            cols: adopted.cols,
+            rows: adopted.rows,
+            program: adopted.program,
             input_started: false,
             inbox: Some(self.launcher.socket_path(id).map_err(RpcError::internal)?),
-            owner,
             socket: rpc::socket_path().ok(),
             background: None,
         })
@@ -48,20 +55,8 @@ impl Agents {
         std::fs::write(file, body).map_err(RpcError::internal)
     }
 
-    /// Stop the owner an earlier record names for Agent `id` before a new process starts for it,
-    /// so the record this start overwrites never hides a live second copy. A gone, replaced or
-    /// foreign owner fails verification and is left alone.
-    pub(super) async fn stop_recorded_owner(&self, id: &str) {
-        let stored = std::fs::read(self.shared.owner_file(id))
-            .ok()
-            .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
-        if let Some(stored) = stored {
-            self.shared.terminals.stop_owner(&stored.owner).await;
-        }
-    }
-
-    /// Attach every saved owner whose Agent, Attempt, incarnation and program still match, and
-    /// return the Agents it kept. A record whose owner is gone, exited, replaced or stale is
+    /// Attach every saved owner whose Agent, Attempt and core terminal still match, and return
+    /// the Agents it kept. A record whose terminal the core lost, or whose program ended, is
     /// dropped and its Agent stays `done` (A8). Call once after `Agents::open`.
     pub async fn reattach_owners(&self) -> Vec<String> {
         let mut kept = Vec::new();
@@ -83,16 +78,7 @@ impl Agents {
                 .ok()
                 .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
             let attached = match stored {
-                Some(stored) => {
-                    let owner = stored.owner.clone();
-                    let attached = self.reattach(&id, stored).await;
-                    if !attached {
-                        // A12a: an owner nothing adopts is stopped, never left running beside
-                        // the new process a resume starts for the same Agent.
-                        self.shared.terminals.stop_owner(&owner).await;
-                    }
-                    attached
-                }
+                Some(stored) => self.reattach(&id, stored).await,
                 None => false,
             };
             if attached {
@@ -139,7 +125,18 @@ impl Agents {
         {
             return false;
         }
-        let Ok(spawned) = self.shared.terminals.reattach_owner(&stored.owner).await else {
+        let adopted = terminal::Adopted {
+            cwd: stored.cwd.clone(),
+            cols: stored.cols,
+            rows: stored.rows,
+            program: stored.program.clone(),
+        };
+        let Ok(spawned) = self
+            .shared
+            .terminals
+            .reattach(&stored.core_id, adopted, None)
+            .await
+        else {
             return false;
         };
         let cwd = conversation.map_or_else(

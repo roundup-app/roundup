@@ -300,7 +300,7 @@ pub fn judge_switch(
     }
     let outcome = match judge_all(&result, &budgets) {
         Ok(outcome) => outcome,
-        Err(error) => return (2, vec![error]),
+        Err(error) => return (2, vec![error.to_string()]),
     };
     let failures: Vec<String> = outcome
         .misses

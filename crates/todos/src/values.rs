@@ -15,7 +15,7 @@ impl Todos {
             .owner
             .map(contracts::common::Owner::into_actor)
             .transpose()
-            .map_err(Error::InvalidParams)?;
+            .map_err(|error| Error::InvalidParams(error.to_string()))?;
         let todo = self.store()?.insert(
             &p.title,
             &p.body.unwrap_or_default(),

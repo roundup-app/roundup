@@ -17,7 +17,7 @@ import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { useTodoList } from "./todoList";
 import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
-import { doesClearTodoFailure, failureOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import type { TodosState } from "./state";
 
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
@@ -84,8 +84,8 @@ export const TodoDrawer = (props: {
   const [deleteRefused, setDeleteRefused] = createSignal(0);
 
   const deletionRefusal = () => !deleteRefused() ? null
-    : drafts.todoUndo.uncertain() ? (drafts.todoUndo.ids().length ? copy.todoDeleteUnconfirmed(drafts.todoUndo.ids()) : copy.deleteUnconfirmed)
-    : drafts.todoUndo.pending() ? copy.todoRestorePending : null;
+    : drafts.undo.uncertain() ? (drafts.undo.ids().length ? copy.todoDeleteUnconfirmed(drafts.undo.ids()) : copy.deleteUnconfirmed)
+    : drafts.undo.pending() ? copy.todoRestorePending : null;
 
   // U6249d F3: a Todo someone else deleted leaves nothing to show, so the Drawer closes; unsaved text kept for it keeps the line that says why.
   const keptText = () => drafts.list().some(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id));
@@ -256,7 +256,7 @@ export const TodoDrawer = (props: {
   const remove = () => {
     if (deleting()) return;
 
-    if (drafts.todoUndo.pending() || drafts.todoUndo.uncertain()) { setDeleteRefused(count => count + 1);
+    if (drafts.undo.pending() || drafts.undo.uncertain()) { setDeleteRefused(count => count + 1);
 
  return; }
 
@@ -265,7 +265,7 @@ export const TodoDrawer = (props: {
     const opening = drawer.content();
     const focus = captureFocus();
     setDeleting(true);
-    void drafts.todoUndo.remove([id], `todo:${id}`).then(async removed => {
+    void drafts.undo.remove([id], `todo:${id}`).then(async removed => {
       if (removed) { setRemovedByMe(true);
  await props.todos.reload();
 
@@ -274,11 +274,11 @@ export const TodoDrawer = (props: {
    if (document.activeElement === document.body) focus(() => detail?.focus({ preventScroll: true }));
    drawer.close("key");
 
-   if (props.region) drafts.todoUndo.handoff(`todo:${id}`, props.region);
-   queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
+   if (props.region) drafts.undo.handoff(`todo:${id}`, props.region);
+   queueMicrotask(() => drafts.undo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
    void keepRegionFocus(props.todos.reload, ".todo-row-button");
  } }
-      else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
+      else if (!drafts.undo.uncertain()) setFailure(drafts.undo.failure());
       setDeleting(false);
     });
   };
@@ -288,12 +288,12 @@ export const TodoDrawer = (props: {
       <div class="todo-detail" tabIndex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
         <Show when={todo()}>{current => <TodoHeader todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
         <ReservedLine class="todo-delete-feedback"
-          aria-live={drafts.todoUndo.uncertain() ? undefined : "polite"} aria-atomic="true"
-          message={deletionRefusal() && drafts.todoUndo.uncertain() ? deletionRefusal() : failure()}
-          status={deletionRefusal() && !drafts.todoUndo.uncertain() ? deletionRefusal() : null}
+          aria-live={drafts.undo.uncertain() ? undefined : "polite"} aria-atomic="true"
+          message={deletionRefusal() && drafts.undo.uncertain() ? deletionRefusal() : failure()}
+          status={deletionRefusal() && !drafts.undo.uncertain() ? deletionRefusal() : null}
           content={deletionRefusal() ? <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show> : undefined}
           dismiss={() => { setDeleteRefused(0); setFailure(null); }}
-          recover={deletionRefusal() && drafts.todoUndo.uncertain() ? { run: () => void drafts.todoUndo.retryDelete(), label: copy.todoDeleteRetry } : undefined} />
+          recover={deletionRefusal() && drafts.undo.uncertain() ? { run: () => void drafts.undo.retryDelete(), label: copy.todoDeleteRetry } : undefined} />
           <Show
             when={todo()}
             fallback={

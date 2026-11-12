@@ -45,11 +45,4 @@ async fn a36_unset_removes_a_daemon_variable_for_one_spawn() {
     let plain = Terminals::open(data.path(), rpc::Bus::new()).unwrap();
     assert_eq!(program_sees(&plain, vec![]).await, daemon);
     assert_eq!(program_sees(&plain, vec![NAME.into()]).await, "absent");
-
-    let owned_data = tempfile::tempdir().unwrap();
-    let durable = Terminals::open(owned_data.path(), rpc::Bus::new())
-        .unwrap()
-        .with_terminal_owner(env!("CARGO_BIN_EXE_terminal-owner").as_ref());
-    assert_eq!(program_sees(&durable, vec![]).await, daemon);
-    assert_eq!(program_sees(&durable, vec![NAME.into()]).await, "absent");
 }

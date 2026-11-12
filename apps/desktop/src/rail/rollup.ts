@@ -2,7 +2,8 @@ import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { byUrgency } from "../ink/glyph";
 import { attentionCounts } from "./attention";
-import { agentKindsBelow, descendantsOf, isWorkstream, type RailSource } from "./layout";
+import { agentKindsBelow } from "./layout";
+import { descendantsOf, isWorkstream, type RailSource } from "../state/railTopology";
 
 /** U5940a, DCL2: whether the owner dismissed the node's current failure. */
 type Dismissed = (node: RailNode) => boolean;

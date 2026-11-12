@@ -1,3 +1,5 @@
+import { onCleanup } from "solid-js";
+
 /** Appearance focus belongs to its requesting action, never to a later reply or mount.
  * Focus choices invalidate it permanently, including a trip away and back to the same element.
  * `choose` invalidates older requests before an asynchronous destination has an element to focus.
@@ -89,6 +91,38 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
     },
   });
 };
+
+/** Elements a component hands to others by name; a caller never finds them by CSS class. */
+export type FocusTarget = `bubble.${string}` | "terminal.new" | "pane.terminal" | "thread.composer" | "ask.input" | "shelf.tabs" | "shelf.first";
+
+type Provided = HTMLElement | (() => HTMLElement | null | undefined);
+
+const providers = new Map<FocusTarget, () => HTMLElement | null | undefined>();
+
+/** The owner provides `name` until its scope ends. A getter suits an element its library creates later. The last provider wins, and an older cleanup never removes a newer one. */
+export const provideFocusTarget = (name: FocusTarget, element: Provided): void => {
+  const resolve = element instanceof HTMLElement ? () => element : element;
+
+  providers.set(name, resolve);
+  onCleanup(() => { if (providers.get(name) === resolve) providers.delete(name); });
+};
+
+/** The provided element, or `undefined` when nothing provides `name` or its element left the page: the caller keeps its fallback. */
+export const focusTarget = (name: FocusTarget): HTMLElement | undefined => {
+  const element = providers.get(name)?.();
+
+  return element?.isConnected ? element : undefined;
+};
+
+/** An element that takes typed text: a field, an editable region or a Terminal screen. */
+const TEXT_ENTRY = "input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]";
+
+export const isTextEntry = (element: Element | null | undefined): boolean => element?.closest(TEXT_ENTRY) != null;
+
+/** The one definition of "a layer is open": a Drawer, dialog, alert dialog or menu. A drag in flight counts when `withDrag`. */
+const OPEN_LAYER = '.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]';
+
+export const layerOpen = (withDrag = false): boolean => document.querySelector(withDrag ? `${OPEN_LAYER}, [data-dnd-dragging]` : OPEN_LAYER) !== null;
 
 /** A mount/return callback keeps the permission it had when queued. */
 export const queueFocus = (move: () => void): void => {

@@ -465,11 +465,13 @@ mod tests {
     /// the kill never touched: a real Terminal that ignores its exit keys proves the wait after the
     /// kill is skipped, since it would otherwise run out `KILL_WAIT_BOUND` before returning. The
     /// program reads raw, so the exit keys are input to it and not a signal.
-    #[tokio::test(start_paused = true)]
+    #[tokio::test]
     async fn kill_or_already_gone_returns_a_failed_kills_error_without_waiting() {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
         let spawned = spawn_raw(&terminals, dir.path(), "sleep 30").await;
+        // The core starts on real time; only the waits after it run on the paused clock.
+        tokio::time::pause();
         let began = Instant::now();
 
         let err = crate::ending::kill_or_already_gone(&FailingKill, &terminals, &spawned.id)
@@ -486,13 +488,15 @@ mod tests {
     #[async_trait::async_trait]
     impl crate::KillsTerminals for RecordedKill {
         async fn kill(&self, _id: &str) -> Result<(), rpc::RpcError> {
-            // The program's input thread writes after `Terminals::write` returns.
+            // The core's connection tasks write after `Terminals::write` returns, so each wait
+            // yields to them on the one thread the paused clock runs on.
             for _ in 0..100 {
                 let seen = std::fs::read(&self.0).unwrap_or_default();
                 if seen.len() >= crate::claude_code::EXIT_PRESSES {
                     break;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(20));
+                tokio::task::yield_now().await;
             }
             self.1
                 .lock()
@@ -583,7 +587,7 @@ mod tests {
 
     /// A7: a Claude Code that ignores its exit keys is killed once `CLEAN_EXIT_BOUND` has passed,
     /// after all three keys were typed, and the failure is reported on stderr.
-    #[tokio::test(start_paused = true)]
+    #[tokio::test]
     async fn a7_stop_kills_a_claude_code_that_ignores_its_exit_keys_after_the_bound() {
         let dir = tempfile::tempdir().unwrap();
         let typed = dir.path().join("typed");
@@ -595,6 +599,7 @@ mod tests {
         )
         .await;
         let kill = RecordedKill(typed, Default::default());
+        tokio::time::pause();
         let began = Instant::now();
 
         crate::ending::kill_or_already_gone(&kill, &terminals, &spawned.id)
