@@ -19,7 +19,7 @@ export const Reveal = (props: { status: Status; label?: string; live?: boolean; 
   const label = () => props.label ?? props.status.label;
 
   // U6640b: split, the label is its own cut span and the age keeps its width.
-  return <>{props.label === undefined && props.status.kind === "error" ? age() : props.split ? <><span class="row-status-label">{label()}</span><span class="row-status-age">{copy.statusAfterLabel(age())}</span></> : copy.statusReveal(label(), age())}</>;
+  return <>{props.label === undefined && props.status.kind === "error" ? age() : props.split ? <><span class="row-status-label">{label()}</span><span class="row-status-sep">{copy.statusAfterLabel("")}</span><span class="row-status-age">{age()}</span></> : copy.statusReveal(label(), age())}</>;
 };
 
 /** U6640a: the kinds whose label and age a Rail row shows in place. */
