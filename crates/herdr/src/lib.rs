@@ -157,15 +157,15 @@ pub enum Ev {
 struct Channels {
     live: HashMap<u32, mpsc::UnboundedSender<Ev>>,
     orphans: HashMap<u32, Vec<Ev>>,
-    /// Data bytes held in `orphans`, bounded by [`MAX_ORPHAN_BYTES`].
+    /// Data bytes kept in `orphans`, bounded by [`MAX_ORPHAN_BYTES`].
     orphan_bytes: usize,
 }
 
-/// The most Data bytes held across channels nobody has claimed; a frame past it is dropped.
+/// The most Data bytes kept across channels nobody has claimed; a frame past it is dropped.
 const MAX_ORPHAN_BYTES: usize = 4 << 20;
 
 impl Channels {
-    /// Free what is held for `channel`.
+    /// Free what is kept for `channel`.
     fn free(&mut self, channel: u32) {
         for ev in self.orphans.remove(&channel).unwrap_or_default() {
             if let Ev::Data(d) = ev {
@@ -175,7 +175,7 @@ impl Channels {
     }
 
     #[cfg(test)]
-    fn held(&self) -> (usize, usize) {
+    fn unclaimed(&self) -> (usize, usize) {
         (self.orphans.values().map(Vec::len).sum(), self.orphan_bytes)
     }
 }
@@ -663,15 +663,15 @@ mod tests {
         (conn, core)
     }
 
-    async fn held_settles(conn: &Conn, want: impl Fn((usize, usize)) -> bool) -> (usize, usize) {
+    async fn unclaimed_settles(conn: &Conn, want: impl Fn((usize, usize)) -> bool) -> (usize, usize) {
         for _ in 0..100_000 {
-            let h = streams(&conn.channels).held();
+            let h = streams(&conn.channels).unclaimed();
             if want(h) {
                 return h;
             }
             tokio::task::yield_now().await;
         }
-        streams(&conn.channels).held()
+        streams(&conn.channels).unclaimed()
     }
 
     #[tokio::test]
@@ -685,9 +685,9 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(500)).await;
         })
         .await;
-        assert_eq!(held_settles(&conn, |h| h.0 == 1).await, (1, 1));
+        assert_eq!(unclaimed_settles(&conn, |h| h.0 == 1).await, (1, 1));
         core.await.unwrap();
-        assert_eq!(held_settles(&conn, |h| h.0 == 0).await, (0, 0));
+        assert_eq!(unclaimed_settles(&conn, |h| h.0 == 0).await, (0, 0));
     }
 
     #[tokio::test]
@@ -702,7 +702,7 @@ mod tests {
         })
         .await;
         assert_eq!(
-            held_settles(&conn, |h| h.1 >= MAX_ORPHAN_BYTES).await,
+            unclaimed_settles(&conn, |h| h.1 >= MAX_ORPHAN_BYTES).await,
             (4, MAX_ORPHAN_BYTES)
         );
     }
@@ -725,6 +725,6 @@ mod tests {
         let mut stream = conn.attach("t", 80, 24, 0).await.unwrap();
         assert_eq!(stream.next().await, Some(Ev::Data(b"one".to_vec())));
         assert_eq!(stream.next().await, Some(Ev::Data(b"two".to_vec())));
-        assert_eq!(streams(&conn.channels).held(), (0, 0));
+        assert_eq!(streams(&conn.channels).unclaimed(), (0, 0));
     }
 }
