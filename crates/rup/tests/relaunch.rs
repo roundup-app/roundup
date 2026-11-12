@@ -1,4 +1,10 @@
 //! A3516: production hook replies and MCP identity across a vendor relaunch.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;

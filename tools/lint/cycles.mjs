@@ -41,7 +41,7 @@ try {
   const edges = new Set();
 
   for (const [file, imports] of Object.entries(graph.obj())) {
-    if (/\.test\.tsx?$/.test(file) || file.startsWith('testing/')) continue;
+    if (/(?:\.test|Harness|Fixture)\.tsx?$/.test(file) || file.startsWith('testing/')) continue;
 
     for (const target of imports) {
       const [from, to] = [directory(file), directory(target)];

@@ -3,7 +3,7 @@ import { usePadList } from "./pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
-import { EmptyRail } from "../window/FirstRun";
+import { EmptyRail } from "./EmptyRail";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
@@ -21,11 +21,11 @@ import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { OpeningPrompt } from "./OpeningPrompt";
+import { ModePrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { ancestorsOf, descendantsOf, isWorkstream, siblingsOf } from "./layout";
+import { ancestorsOf, descendantsOf, isMode, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW, type RowActions } from "./rows";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -62,7 +62,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
   const [creatingMode, setCreatingMode] = createSignal(false);
-  const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
+  const [modePrompt, setModePrompt] = createSignal<string | null>(null);
   const [savingMode, setSavingMode] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
@@ -83,14 +83,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
       ...(node.can_make_workstream ? [{ id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } }] : []),
       ...(node.can_save_as_mode ? [{ id: "save-as-mode", label: copy.saveAsMode, run: () => { setSavingMode(node.id); } }] : []),
-      ...(node.kind === "workstream" && node.opening_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartSession(node.id); } }] : []),
+      ...(isMode(node) ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
         id: "progress", label: copy.workProgress, run: () => {
           rowElement(node.id)?.focus({ preventScroll: true });
           connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
         },
       }] : []),
-      ...(node.kind === "workstream" ? [{ id: "opening-prompt", label: copy.openingPromptMenu, run: () => { setOpeningPrompt(node.id); } }] : []),
+      ...(isMode(node) ? [{ id: "mode-prompt", label: copy.modePromptMenu, run: () => { setModePrompt(node.id); } }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [{ id: "add", label: copy.addMenu, children: [
@@ -440,16 +440,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         kind: "workstream",
       };
 
-      if (node.opening_prompt?.trim()) actions.restart = {
-        pending: menu.restartPending(node.id),
-        run: () => { void menu.restartSession(node.id); },
-        menu: click => {
-          if (!(click.currentTarget instanceof HTMLElement)) return;
-          const box = click.currentTarget.getBoundingClientRect();
-          void menu.open(node, rail.exitOf(node), box.left, box.bottom);
-        },
-      };
-
       return actions;
     }
 
@@ -457,6 +447,16 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     const exit = rail.exitOf(node);
     const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
+
+    if (isMode(node)) actions.restart = {
+      pending: menu.restartPending(node.id),
+      run: () => { void menu.restartMode(node.id); },
+      menu: click => {
+        if (!(click.currentTarget instanceof HTMLElement)) return;
+        const box = click.currentTarget.getBoundingClientRect();
+        void menu.open(node, rail.exitOf(node), box.left, box.bottom);
+      },
+    };
 
     if (menu.isRunning(node, exit)) actions.stop = () => stopFromIcon(node, exit);
     else if (menu.isResumable(node, exit)) actions.resume = () => menu.requestResume(node);
@@ -567,12 +567,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
-    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
+    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === focusedRowId(press) && isMode(node)), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
       return {
-        available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "workstream" && !!node.opening_prompt?.trim()),
-        invoke: () => { if (id) void menu.restartSession(id); },
+        available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && isMode(node)),
+        invoke: () => { if (id) void menu.restartMode(id); },
       };
     } },
     { action: CHORDS["agent.new"], match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
@@ -749,13 +749,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
                         return (
                         <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
-                        <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
+                        <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null} fixed={isMode(view().node)}>{(parts) =>
                         <RailRowView
                           row={view()}
                           topology={below()}
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
-                          doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={entryOf(view().node.id).branch && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
@@ -783,7 +783,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                           lifted={parts.isDragging()} folded={lifted() === view().node.id}
                           sortRef={parts.ref}
                           handleRef={parts.handleRef}
-                          draggable={daemonExit() === null}
+                          draggable={daemonExit() === null && !isMode(view().node)}
                           onOpenMenu={(x, y) => void openSelectionMenu(view().node, x, y)}
                         />
                         }</Sortable.Item>
@@ -826,13 +826,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         if (current && !task()) setTaskDestination(parent());
       }} />
       <Show when={savingMode()} keyed>{id => <SaveAsMode id={id} onClose={() => setSavingMode(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
-      <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
+      <Show when={modePrompt()} keyed>{id => <ModePrompt restart={() => menu.restartMode(id)} id={id} onClose={() => setModePrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={creatingMode()}><CreateMode finalFocus={id => rowElement(id) ?? null} onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
         setCreatingMode(false);
-        // The arriving Door must not reuse the selection permission to take focus from this row.
+        // The arriving Mode Agent must not reuse the selection permission to take focus from this row.
         const focus = rail.terminalFocus();
         queueMicrotask(() => untrack(() => focus(() => rowElement(id)?.focus({ preventScroll: true }))));
-        void menu.restartSession(id, request);
+        void menu.restartMode(id, request);
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <RailFooter retained={retained} asking={asking} canSpawn={canSpawn} createWorkstream={createWorkstream} openCreateMode={() => setCreatingMode(true)} />

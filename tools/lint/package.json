@@ -7,6 +7,6 @@
     "typescript": "5.9.3"
   },
   "scripts": {
-    "test:boundaries": "python3 setup.py web && python3 setup.py rust && node --test cycles.test.mjs && python3 -m unittest discover -s . -p \"*_test.py\""
+    "test:boundaries": "python3 setup.py web && python3 setup.py rust && node --test cycles.test.mjs eager-sheets.test.mjs && python3 -m unittest discover -s . -p \"*_test.py\""
   }
 }

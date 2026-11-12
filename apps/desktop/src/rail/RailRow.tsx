@@ -20,10 +20,9 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { mergeProps } from "@zag-js/solid";
-import { StatusTip } from "../ink/StatusTip";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
-import { descendantsOf, isWorkstream } from "./layout";
+import { descendantsOf, isMode, isWorkstream } from "./layout";
 import { rowKind, rowUnread } from "./rollup";
 import { Trunks } from "../ui/TreeView";
 import type { NodeRow, RailTopology } from "./layout";
@@ -111,6 +110,26 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 };
 
 
+/** The worktree facts a row carries: ahead count, CI, pull request, or that they are unavailable. */
+const WorktreeChips = (props: { id: string }) => {
+  const connected = useConnectedProject();
+  const read = () => connected.worktrees.read(props.id);
+  const worktreeFailure = () => read()?.failure;
+
+  const facts = () => {
+    const current = read();
+
+    return current?.failure === null ? current.state : null;
+  };
+
+  return <span class="worktree-chips row-secondary">
+        <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
+        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
+  </span>;
+};
+
 /** The count a row shows for children it hides: those folded under it while a drag holds it (U6550a), else its collapsed Agents. */
 const FoldedCount = (props: { folded: boolean; topology: RailTopology; id: string; hidden: number | undefined }) => {
   const lifted = () => props.folded ? descendantsOf(props.topology, props.id).length : 0;
@@ -147,6 +166,8 @@ export const RailRowView = (props: {
 
   const isGroup = () => props.row.node.kind === "group";
   const isContainer = () => workstream() || isGroup();
+  // U4547a: a Mode folds the Agents it started, as a Workstream folds its own.
+  const folds = () => workstream() || isMode(props.row.node) && props.branch;
 
   // U3800d: each derived value is a memo, so a move that changes none of them runs nothing below it.
   const kind = createMemo((): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null));
@@ -176,13 +197,6 @@ export const RailRowView = (props: {
 
   // U6248c: an exhausted resume shows its cause once, in the line that carries Resume.
   const exhaustedResume = () => props.row.node.resume?.at === null && props.row.node.status?.kind === "error";
-  const worktreeFailure = () => connected.worktrees.read(props.row.node.id)?.failure;
-
-  const facts = () => {
-    const read = connected.worktrees.read(props.row.node.id);
-
-    return read?.failure === null ? read.state : null;
-  };
 
   const rowProps = () => ({
     class: "rail-row", classList: { "row-wash": true, "rail-root-divider": rootDivider() }, "data-id": props.row.node.id,
@@ -190,6 +204,7 @@ export const RailRowView = (props: {
     "data-selected": selected() ? "true" : undefined,
     "data-multiple": multiple() ? "true" : undefined,
     tabIndex: tabbable() ? 0 : -1,
+    "data-mode": isMode(props.row.node) ? "true" : undefined,
     "data-worktree": props.row.node.worktree ? "true" : undefined,
     "data-editing": props.editing, "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
@@ -215,22 +230,17 @@ export const RailRowView = (props: {
     props.onOpen();
   };
 
-  const row = (mine: (extra: RowProps) => RowProps) => <StatusTip status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)}>{reveal => <div {...mergeProps({ onClick: choose }, mine(mergeProps(rowProps(), reveal())))} ref={el => { element = el; props.sortRef(el); }}>
+  const row = (mine: (extra: RowProps) => RowProps) => <div {...mergeProps({ onClick: choose }, mine(rowProps()))} ref={el => { element = el; props.sortRef(el); }}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
-      <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+      <Show when={folds()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
-      <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
-        <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
-        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
-      </span></Show>
+      <Show when={!workstream() && props.row.node.worktree}><WorktreeChips id={props.row.node.id} /></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
@@ -265,11 +275,11 @@ export const RailRowView = (props: {
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && !exhaustedResume() && !connected.rail.dismissed(props.row.node)}><FailureLine status={props.row.node.status} dismiss={() => connected.rail.dismiss(props.row.node)} recover={{ run: () => props.onOpen(props.row.node.id), label: copy.openTerminal }} /></Show>
-  </div>}</StatusTip>;
+  </div>;
 
   return <>
-    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)}>
+    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
+      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)}>
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>

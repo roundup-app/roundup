@@ -323,6 +323,7 @@ impl Agents {
             role: request.role,
             model: request.pair.model.as_deref(),
             effort: request.pair.effort.as_deref(),
+            mode_prompt: None,
         })?;
         if let Some(lean) = &request.lean {
             Launcher::save_lean(&self.dir, &node.id, lean)?;
@@ -623,6 +624,7 @@ impl Agents {
         spawn: TerminalSpawn,
         attach: Attach,
     ) -> Result<terminal::Spawned, RpcError> {
+        self.stop_recorded_owner(id).await;
         let spawned = self.shared.terminals.spawn(spawn).await?;
         if attach == Attach::Now {
             let attached = self

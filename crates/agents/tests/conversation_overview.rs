@@ -1,4 +1,10 @@
 //! A2681: retained conversation overview facts.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use agents::claude_code::Launcher;
 use serde_json::{Value, json};

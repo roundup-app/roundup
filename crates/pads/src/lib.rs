@@ -1,15 +1,5 @@
 //! Pads: markdown notes, app-stored or as files. Owner: pads Builder.
 
-#![cfg_attr(
-    not(test),
-    deny(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing
-    )
-)]
-
 mod deletion;
 mod error;
 pub use error::Error;

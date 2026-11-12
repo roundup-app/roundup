@@ -34,13 +34,13 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
     let submitted = revision.revision;
     const saved = value();
     // U5991a: the Mode's Row shows now; the refreshed tree or a failure lifts it.
-    const lift = saved.id === null ? rail.drawNew("workstream", saved.name.trim(), null) : null;
+    const lift = saved.id === null ? rail.drawNew("agent", saved.name.trim(), null) : null;
 
     try {
       if (!await drafts.submit(submitted)) return;
 
       if (saved.id === null) {
-        saved.id = (await app.rpc("rail.createWorkstream", { name: saved.name.trim(), parent: null })).id;
+        saved.id = (await app.rpc("agent.createMode", { name: saved.name.trim(), prompt: saved.text })).id;
         const checkpoint = drafts.edit(destination, saved, null, "ordinary", revision.revision);
         await checkpoint.retained;
         await drafts.settle(submitted, "acknowledged");
@@ -48,7 +48,6 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
         await drafts.submit(submitted);
       }
 
-      await app.rpc("workstream.setOpeningPrompt", { id: saved.id, prompt: saved.text });
       await rail.refresh();
       rail.setSectionOpen("modes", true);
       rail.select(saved.id);
@@ -65,11 +64,11 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
   };
 
   return <Dialog.Root open={open()} finalFocusEl={() => created === null ? null : props.finalFocus(created)} onOpenChange={({ open }) => { if (!open) { setOpen(false); props.onClose(); } }}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form opening-prompt-dialog">
+    <Dialog.Positioner><Dialog.Content class="app-dialog-form mode-prompt-dialog">
       <Dialog.Title>{copy.newMode}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={value().name} onInput={event => edit({ name: event.currentTarget.value })} /></Field.Root>
-        <Field.Root disabled={busy()} class="opening-prompt-field"><Field.Label>{copy.openingPrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck={false} autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.modePromptHint}</Field.HelperText></Field.Root>
+        <Field.Root disabled={busy()} class="mode-prompt-field"><Field.Label>{copy.modePrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck={false} autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.modePromptHint}</Field.HelperText></Field.Root>
         <ReservedLine message={line.message()} dismiss={dismissLine} recover={drafts.problem() ? { run: () => void drafts.retry(), label: copy.railDraftRetry } : undefined} />
         <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !value().name.trim() || !value().text.trim()}>{copy.createMode}</button></div>
       </form>

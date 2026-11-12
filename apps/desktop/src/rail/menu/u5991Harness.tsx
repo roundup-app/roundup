@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { expect } from "vitest";
-import { agent, info, workstream } from "../../testing/nodes";
+import { agent, info, mode, workstream } from "../../testing/nodes";
 import { copy as windowCopy } from "../../window/copy";
 import { createMove } from "../MovePicker";
 import { chooseAction, chooseFooter, exitedTerminal, itemOf, mountRail, rowNames, rowOf } from "../railFixture";
@@ -20,7 +20,7 @@ export const nextFrame = () => new Promise<void>(resolve => requestAnimationFram
 
 type Mounted = Awaited<ReturnType<typeof mountRail>>;
 
-export type Action = { name: string; mount: () => Promise<Mounted>; method: "rail.remove" | "rail.rename" | "rail.move" | "agent.stop" | "agent.resume" | "agent.spawn" | "rail.createWorkstream" | "rail.group" | "rail.restore" | "rail.redo"; prepare?: (mounted: Mounted) => Promise<void>; fire: (mounted: Mounted) => Promise<void> | void; shown: (mounted: Mounted) => void; call: unknown };
+export type Action = { name: string; mount: () => Promise<Mounted>; method: "rail.remove" | "rail.rename" | "rail.move" | "agent.stop" | "agent.resume" | "agent.spawn" | "agent.createMode" | "rail.createWorkstream" | "rail.group" | "rail.restore" | "rail.redo"; prepare?: (mounted: Mounted) => Promise<void>; fire: (mounted: Mounted) => Promise<void> | void; shown: (mounted: Mounted) => void; call: unknown };
 
 const resumable = (id: string) => agent(id, "done", "done", { can_resume: true });
 
@@ -155,7 +155,7 @@ export const actions: Action[] = [
   {
     name: "new Mode",
     mount: () => mountRail([agent("a", "idle", "ready", { terminal_id: null })]),
-    method: "rail.createWorkstream",
+    method: "agent.createMode",
     fire: async () => {
       await chooseFooter("Mode");
       fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Review" } });
@@ -164,7 +164,7 @@ export const actions: Action[] = [
     },
     // The dialog stays modal over the Rail while its call is pending, so the Rail's row data holds the new Mode.
     shown: ({ rail }) => expect(rail.nodes.map(node => node.name)).toContain("Review"),
-    call: { name: "Review", parent: null },
+    call: { name: "Review", prompt: "Look" },
   },
   {
     name: "undo",

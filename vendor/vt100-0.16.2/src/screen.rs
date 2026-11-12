@@ -91,6 +91,11 @@ impl Screen {
             .set_size(crate::grid::Size { rows, cols });
     }
 
+    /// Bounds the normal screen's history to `len` lines, dropping the oldest beyond it.
+    pub fn set_scrollback_len(&mut self, len: usize) {
+        self.grid.set_scrollback_len(len);
+    }
+
     /// Returns the current size of the terminal.
     ///
     /// The return value will be (rows, cols).

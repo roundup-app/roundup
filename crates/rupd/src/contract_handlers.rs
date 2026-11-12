@@ -102,12 +102,12 @@ impl Daemon {
         Ok(())
     }
 
-    pub(super) async fn workstream_restart(
+    pub(super) async fn agent_restart_mode(
         &self,
         conn: &mut Conn,
-        p: contracts::workstream::RestartParams,
+        p: contracts::agent::ModeRestartParams,
     ) -> Result<contracts::agent::RailNode, RpcError> {
-        self.restart_session(&conn.actor, p).await
+        self.restart_mode(&conn.actor, p).await
     }
 
     pub(super) async fn todo_start_workstream(

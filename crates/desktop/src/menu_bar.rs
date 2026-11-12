@@ -379,9 +379,10 @@ pub(crate) fn dock_chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
         if let Some(action) = owner.as_ref().and_then(|menu| menu.chosen(id)) {
             // The displayed Dock row retains its original identity while tracking. The
             // connected App reports a removed Agent instead of silently choosing another.
-            let action: Action =
-                serde_json::from_str(&action).expect("Dock action was serialized by this adapter");
-            deliver(app, &action);
+            match serde_json::from_str::<Action>(&action) {
+                Ok(action) => deliver(app, &action),
+                Err(error) => crate::diagnostics::failure("read Dock action", &error.into()),
+            }
         }
     });
 }

@@ -1,5 +1,10 @@
 //! LK1 to LK5 (`scenarios/rup-ext.md`): `link.read` on the real `rupd`, the way `rup link read` calls it.
-
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;

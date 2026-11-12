@@ -1,5 +1,11 @@
 //! A1 replays the hooks-state spike fixtures, so re-recording the spike after a Claude Code
 //! payload change re-tests the adapter against it. A3 exits are hand-built.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -80,6 +86,7 @@ fn a1_permission_request_quotes_the_question_it_asks() {
 
 fn failure_label(error: Option<&str>) -> String {
     let (mut adapter, _) = adapter();
+    signal(&mut adapter, event(FAILURE, "UserPromptSubmit"));
     let mut payload = event(FAILURE, "StopFailure");
     let fields = payload.as_object_mut().unwrap();
     fields.remove("error_details");
@@ -149,6 +156,7 @@ fn u5151b_unrecognized_and_missing_errors_remain_actionable() {
     }
     // Vendor details are never part of the label.
     let (mut adapter, _) = adapter();
+    signal(&mut adapter, event(FAILURE, "UserPromptSubmit"));
     let mut payload = event(FAILURE, "StopFailure");
     payload["error"] = "server_error".into();
     payload["error_details"] = "<img src=x onerror=alert(1)>".into();
@@ -386,7 +394,10 @@ fn u5151d_status_labels_read_as_user_actions() {
         ),
         (
             "failed turn",
-            Box::new(|a| signal(a, event(FAILURE, "StopFailure"))),
+            Box::new(|a| {
+                signal(a, event(FAILURE, "UserPromptSubmit"));
+                signal(a, event(FAILURE, "StopFailure"))
+            }),
             Kind::Error,
             "retry",
         ),

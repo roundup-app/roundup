@@ -24,7 +24,7 @@ These are numbered baselines, not evidence the planned tests pass:
 
 1. `crates/contracts/src/declarations.rs`, `declarations!`, declares `rail.createWorkstream` and `rail.startDoor` and exposes their MCP tools. Keep those public methods and Role exposure.
 2. `crates/rupd/src/auto.rs`, `Daemon::route`, calls `Daemon::resolve_agent_inputs` before dispatch. `crates/rupd/src/selectors.rs`, `Daemon::resolve_agent_inputs`, lists the fields it resolves; `is_agent` excludes a Workstream without an Attempt. Workstream starts need selection that includes never-started Workstreams without broadening Agent-only selectors.
-3. `crates/agents/src/dispatch.rs`, `Agents::rpc_rail_start_door`, applies `Shared::guard_reach` and starts the Door. `crates/agents/src/reach.rs`, `Shared::guard_reach`, first looks up the supplied id. `crates/agents/src/door.rs`, `Agents::start_door_with`, checks the Workstream kind and launches or resumes its Door. Preserve these guards after canonicalization.
+3. `crates/agents/src/dispatch.rs`, `Agents::rpc_rail_start_door`, applies `Shared::guard_reach` and starts the Door. `crates/agents/src/reach.rs`, `Shared::guard_reach`, first looks up the supplied id. `crates/agents/src/door.rs`, `Agents::start_with_role`, checks the requested Workstream kind and launches or resumes its Door. Preserve these guards after canonicalization.
 4. `crates/rup/tests/mcp/names.rs`, `m2706a_actions_name_rail_nodes`, exercises public MCP against the real Daemon; `crates/rupd/src/workstream_door.rs`, `a7_b1_b9_real_daemon_fences_old_status_after_door_restart`, observes Door identity and Terminal liveness through that Daemon. Reuse their seams, not a new registry or protocol.
 
 ## Principle gates and journey

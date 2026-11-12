@@ -1,4 +1,10 @@
 //! N7: direct launch failure must preserve seeded App data and reap the Daemon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::Command;

@@ -20,15 +20,15 @@ const RowIcon = (props: { name: "rotate-cw" | "stop" | "play" | "more"; label: s
 
 /** U426/U4896: hover and focus reveal actions by opacity without changing their Tab order. */
 export const RowIcons = (props: { actions: RowActions; children?: JSX.Element }) => (
-  <Show when={props.actions.kind === "workstream" || (props.actions.kind === "agent" && (props.actions.stop || props.actions.resume))}>
+  <Show when={props.actions.kind === "workstream" || (props.actions.kind === "agent" && (props.actions.restart || props.actions.stop || props.actions.resume))}>
     <span class="row-icons" role="group" aria-label={copy.rowActions}>
-      <Show when={props.actions.kind === "workstream" ? props.actions.restart : undefined}>{restart => <>
+      <Show when={props.actions.kind === "workstream" || props.actions.kind === "agent" ? props.actions.restart : undefined}>{restart => <>
         <RowIcon name="rotate-cw" label={copy.restart} disabled={restart().pending} onClick={() => restart().run()} />
-        <RowIcon name="more" label={copy.rowActions} onClick={restart().menu} />
       </>}</Show>
       {props.children}
       <Show when={props.actions.kind === "agent" ? props.actions.stop : undefined}>{(stop) => <RowIcon name="stop" label={copy.stop} onClick={stop()} />}</Show>
       <Show when={props.actions.kind === "agent" ? props.actions.resume : undefined}>{(resume) => <RowIcon name="play" label={copy.resume} onClick={resume()} />}</Show>
+      <Show when={props.actions.kind === "workstream" || props.actions.kind === "agent" ? props.actions.restart : undefined}>{restart => <RowIcon name="more" label={copy.rowActions} onClick={restart().menu} />}</Show>
     </span>
   </Show>
 );

@@ -34,7 +34,7 @@ export type CopyValue = string | number | undefined;
 export const labels = new Map([
   ["held", "held alerts"], ["open-tab", "the selected Project"], ["tab-order", "the Project tab order"], ["project-alerts", "Project alert levels"], ["unseen", "read markers"], ["drafts", "unfinished work"],
   ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
-  ["widths", "panel widths"], ["shelf", "work item layout"], ["terminal-font", "Terminal text size"],
+  ["viewer", "panel layout"],
  ]);
 
 export const copy = {
@@ -45,7 +45,6 @@ export const copy = {
   alerts: "Alerts",
   allAlerts: "All",
   storageIncompatible: (folder: string) => `Saved work is incompatible with this app. Delete it to start fresh: ${folder}`,
-  now: "now",
   you: "You",
   dotted: (first: string, second: string) => `${first} · ${second}`,
   move: "Move",
@@ -125,7 +124,6 @@ export const copy = {
   done: word.done,
   exitedBySignal: "exited by signal",
   closeShelf: "Close the Bench",
-  openShelf: "Open the Bench",
   maximise: "Maximise",
   restore: "Restore",
   newAgent: "New Agent",
@@ -208,8 +206,8 @@ export const copy = {
   moveItem: (name: string) => `Move ${name}`,
   blocks: "Blocks",
   me: "Me",
-  openingPrompt: word.firstPrompt,
-  openingPromptMenu: "First prompt…",
+  modePrompt: word.firstPrompt,
+  modePromptMenu: "First prompt…",
   todoAutoHint: "Auto assign Todos",
   changeReopened: "Reopened",
   todo: word.todo,

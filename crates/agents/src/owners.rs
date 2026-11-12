@@ -48,6 +48,18 @@ impl Agents {
         std::fs::write(file, body).map_err(RpcError::internal)
     }
 
+    /// Stop the owner an earlier record names for Agent `id` before a new process starts for it,
+    /// so the record this start overwrites never hides a live second copy. A gone, replaced or
+    /// foreign owner fails verification and is left alone.
+    pub(super) async fn stop_recorded_owner(&self, id: &str) {
+        let stored = std::fs::read(self.shared.owner_file(id))
+            .ok()
+            .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
+        if let Some(stored) = stored {
+            self.shared.terminals.stop_owner(&stored.owner).await;
+        }
+    }
+
     /// Attach every saved owner whose Agent, Attempt, incarnation and program still match, and
     /// return the Agents it kept. A record whose owner is gone, exited, replaced or stale is
     /// dropped and its Agent stays `done` (A8). Call once after `Agents::open`.
@@ -71,7 +83,16 @@ impl Agents {
                 .ok()
                 .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
             let attached = match stored {
-                Some(stored) => self.reattach(&id, stored).await,
+                Some(stored) => {
+                    let owner = stored.owner.clone();
+                    let attached = self.reattach(&id, stored).await;
+                    if !attached {
+                        // A12a: an owner nothing adopts is stopped, never left running beside
+                        // the new process a resume starts for the same Agent.
+                        self.shared.terminals.stop_owner(&owner).await;
+                    }
+                    attached
+                }
                 None => false,
             };
             if attached {

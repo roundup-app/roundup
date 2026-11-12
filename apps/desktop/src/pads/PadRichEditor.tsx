@@ -35,10 +35,10 @@ import { type EditorState, Plugin, TextSelection } from "@milkdown/kit/prose/sta
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
-import { visualBlocks } from "./visualBlocks";
+import { insertBlock, visualBlocks } from "./visualBlocks";
 import { agentDetailsRemark, agentDetailsNode, agentDetailsView } from "./agentDetails";
 import { headingFolds } from "./headingFolds";
-import { visualKinds } from "./visualKinds";
+import { emptyDrawing, visualKinds } from "./visualKinds";
 import "./editor.css";
 import "../ui/reading.styles.css";
 
@@ -108,6 +108,17 @@ export default function PadRichEditor(props: EditorProps) {
   const [attempt, setAttempt] = createSignal(0);
 
   return <Show when={[attempt()]} keyed>{([count]) => <MountedEditor {...props} remount={count === 0 ? () => setAttempt(1) : undefined} />}</Show>;
+}
+
+function addDrawingItem(builder: Parameters<NonNullable<BlockEditFeatureConfig["buildMenu"]>>[0]) {
+  builder.getGroup("advanced").addItem("drawing", {
+    label: copy.drawingItem,
+    icon: "",
+    onRun: (ctx) => {
+      ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
+      insertBlock(ctx.get(editorViewCtx), emptyDrawing);
+    },
+  });
 }
 
 function MountedEditor(props: EditorProps & { remount: (() => void) | undefined }) {
@@ -244,18 +255,18 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
             ctx.get(commandsCtx).call(clearTextInCurrentBlockCommand.key);
             const view = ctx.get(editorViewCtx);
             const start = view.state.selection.$from.before();
-            const type = padCallout.type(ctx);
             const body = view.state.schema.nodes.paragraph!.create();
-            const tr = view.state.tr.replaceSelectionWith(type.create({ kind }, body));
+            const tr = view.state.tr.replaceSelectionWith(padCallout.type(ctx).create({ kind }, body));
             tr.setSelection(TextSelection.near(tr.doc.resolve(start + 2)));
             view.dispatch(tr.scrollIntoView());
             view.focus();
           },
         });
 
+        addDrawingItem(builder);
+
         for (const shortcut of [false, true]) builder.getGroup("advanced").addItem(shortcut ? "for-agents" : "toggle", {
           label: shortcut ? copy.forAgents : copy.toggle,
-
           icon: "",
           onRun: (ctx) => {
             const view = ctx.get(editorViewCtx);

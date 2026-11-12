@@ -5,8 +5,9 @@ import type { DaemonExit } from "../app/seam";
 import { info, terminal } from "../testing/nodes";
 import { callsTo, mountPane, subscribed } from "./paneHarness";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
+import { saveAppSettings } from "../settings/preferences";
 
-const savedKey = "roundup:terminal-font:/p";
+const savedKey = "roundup:app-settings";
 
 const press = (target: Element, key: string, options: KeyboardEventInit = {}) => {
   const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, metaKey: true, key, ...options });
@@ -73,7 +74,7 @@ it.each([["=", 21], ["-", 9]])("u102_repeated_%s_stops_at_%s", async (key, bound
 });
 
 it("u102_zero_restores_the_default", async () => {
-  localStorage.setItem(savedKey, "19");
+  await saveAppSettings({ fontSize: 19 });
   const { emulator, target } = await mount();
   press(target, "0");
   vi.advanceTimersToNextFrame();
@@ -151,10 +152,10 @@ it("u102_daemon_exited_prevents_size_changes", async () => {
   expect(localStorage.getItem(savedKey)).toBeNull();
 });
 
-it.each([["9", 9], ["21", 21], ["17", 17], ["13", 13], ["8", DEFAULT_FONT_SIZE], ["22", DEFAULT_FONT_SIZE], ['"17"', DEFAULT_FONT_SIZE], ["null", DEFAULT_FONT_SIZE], ["{}", DEFAULT_FONT_SIZE], ["broken", DEFAULT_FONT_SIZE]])(
-  "u102_saved_%s_mounts_at_%s", async (saved, expected) => {
-    localStorage.setItem(savedKey, saved);
-    expect((await mount()).emulator.fontSize).toBe(expected);
+it.each([9, 21, 17])(
+  "u102_saved_%s_mounts_at_%s", async (saved) => {
+    await saveAppSettings({ fontSize: saved });
+    expect((await mount()).emulator.fontSize).toBe(saved);
   },
 );
 

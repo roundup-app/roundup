@@ -23,7 +23,7 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
     const lost = () => reply({ code: -32004, message: copy.openConnectionLost(params.path) });
 
     if (signal.aborted) return lost();
-    let created: { path: string; id: string; stage: "save" | "start" } | undefined;
+    let created: { path: string; id: string; stage: "start" } | undefined;
 
     try {
       const source = await projects.opened(params.source);
@@ -65,18 +65,19 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
         const calls = withAppSettings(forProject(target.path), () => false);
         const start_attribution = { project: params.source, project_name: source.name, agent: agent.id, agent_name: agent.name };
 
-        const node = kind === "agent"
-          ? await calls.rpc("agent.spawn", { cwd: opened.path, parent: null, name, prompt, model: null, effort: null, start_attribution })
-          : await calls.rpc("rail.createWorkstream", { name, parent: null, start_attribution });
+        const node = await {
+          agent: () => calls.rpc("agent.spawn", { cwd: opened.path, parent: null, name, prompt, model: null, effort: null, start_attribution }),
+          workstream: () => calls.rpc("rail.createWorkstream", { name, parent: null, start_attribution }),
+          mode: () => calls.rpc("agent.createMode", { name, prompt, start_attribution }),
+        }[kind]();
 
-        created = { path: opened.path, id: node.id, stage: kind === "mode" ? "save" : "start" };
+        created = { path: opened.path, id: node.id, stage: "start" };
+        // A Workstream starts its Door; a Mode Agent starts once with its saved prompt; a new Agent is already running.
+        const launch = { agent: null, workstream: () => calls.rpc("rail.startDoor", { id: node.id, prompt }), mode: () => calls.rpc("agent.restartMode", { id: node.id, request: `project-start:${id}` }) }[kind];
 
-        if (kind !== "agent") {
-          if (kind === "mode") await calls.rpc("workstream.setOpeningPrompt", { id: node.id, prompt });
-
+        if (launch) {
           if (signal.aborted) return lost();
-          created.stage = "start";
-          await calls.rpc("rail.startDoor", { id: node.id, prompt });
+          await launch();
         }
 
         if (signal.aborted) return lost();

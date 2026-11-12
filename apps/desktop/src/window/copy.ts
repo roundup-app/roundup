@@ -41,8 +41,6 @@ export const copy = {
   redo: sharedCopy.redo,
   openAFolderToStart: "Choose a Project",
   chooseFolder: sharedCopy.chooseFolder,
-  emptyRailTitle: "No Agents yet",
-  emptyRailLine: "Start a Workstream or an Agent.",
   emptyTodosLine: sharedCopy.emptyTodosLine,
   emptyPadsLine: sharedCopy.emptyPadsLine,
   todos: sharedCopy.todos,

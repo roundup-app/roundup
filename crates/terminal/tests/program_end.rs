@@ -1,5 +1,10 @@
 //! Z3799b: program completion is independent of a descendant's PTY lifetime.
-
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 // Linux retains the PTY until descendants close it; macOS may report EOF at leader exit.
 #![cfg(target_os = "linux")]
 

@@ -7,14 +7,6 @@ import type { App } from "../app/seam";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 
-/** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
-export const EmptyRail = (props: { onNew?: () => void; onWorkstream?: () => void; available?: boolean }) => (
-  <EmptyState art="plant" {...{ title: copy.emptyRailTitle }} line={copy.emptyRailLine} actions={props.onWorkstream ? [
-    { label: copy.newAgent, chord: CHORDS["agent.new"], run: () => props.onNew?.() },
-    { label: copy.newWorkstreamTitle, chord: CHORDS["workstream.new"], run: () => props.onWorkstream?.() },
-  ] : undefined} available={props.available} />
-);
-
 export const ChooseProject = (props: { app: App; failure: string | null; onOpen: (path: string) => void; onChoose: () => void; onRetry?: (() => void) | undefined }) => {
   const [recent, { refetch: refetchRecent }] = createResource(() => props.app.recentProjects().then(paths => ({ paths, failure: null })).catch((error: Error) => ({ paths: [], failure: error.message })));
   const [binary, { refetch: refetchBinary }] = createResource(() => props.app.claudeBinary().then(value => ({ value, failure: null })).catch((error: Error) => ({ value: null, failure: error.message })));

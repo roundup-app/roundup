@@ -123,9 +123,7 @@ it("n5467c_current_native_records_reopen_with_exact_identity", async () => {
     ["roundup:import:/original/雪", { open: true, period: "week", selected: [{ source: "original-source", revision: "original-version", title: " 雪 " }] }],
     ["roundup:rail:/original/雪", { selected: "agent-original", collapsed: ["home-original"] }],
     ["roundup:app-settings", { fontFamily: "Original font", mode: "dark" }],
-    ["roundup:widths:/original/雪", { rail: 301, shelf: 411 }],
-    ["roundup:shelf:/original/雪", { open: false, maximised: true, tab: "pads" }],
-    ["roundup:terminal-font:/original/雪", 17],
+    ["roundup:viewer", { rail: 301, shelf: 411, frame: { open: false, maximised: true, tab: "pads" } }],
   ]);
 
   for (const [key, value] of families) disk.set(key, { version: 1, value });

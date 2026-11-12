@@ -18,7 +18,7 @@ export function baselineEntries(root) {
   return cache.get(root);
 }
 
-/** Independent review approves the first baseline; every later head must only shrink it. */
+/** Independent review approves the first baseline; every later head must only shrink it, or swap an identity one-to-one (swap.mjs). */
 export function baselineErrors(root) {
   const entries = baselineEntries(root);
   const errors = [];
@@ -36,20 +36,30 @@ export function baselineErrors(root) {
     if (!existsSync(resolve(root, entry.file))) errors.push("Stale assertion baseline entry (file deleted): " + key);
   }
   if (!entries.length) return errors;
-  const base = spawnSync("git", ["merge-base", "HEAD", "origin/main"], { cwd: root, encoding: "utf8" });
-  if (base.status !== 0) {
-    errors.push("Cannot check assertion baseline: git merge-base HEAD origin/main failed: " + base.stderr.trim());
-    return errors;
-  }
-  const object = base.stdout.trim() + ":" + baselinePath;
-  const present = spawnSync("git", ["cat-file", "-e", object], { cwd: root, encoding: "utf8" });
-  if (present.status === 0) {
-    // A test file the PR renamed keeps its entry at the new path.
-    const renames = new Map(execFileSync("git", ["diff", "--name-status", "-M", base.stdout.trim()], { cwd: root, encoding: "utf8" }).split("\n")
-      .filter(line => line.startsWith("R")).map(line => line.split("\t").slice(1)));
-    const original = new Set(readBaseline(execFileSync("git", ["show", object], { cwd: root, encoding: "utf8" }))
-      .map(entry => assertionKey({ ...entry, file: renames.get(entry.file) ?? entry.file })));
-    for (const key of keys) if (!original.has(key)) errors.push("Added or broadened assertion baseline entry: " + key);
-  }
+  const base = mergeBase(root);
+  if (base.error) errors.push(base.error);
   return errors;
+}
+
+function mergeBase(root) {
+  const base = spawnSync("git", ["merge-base", "HEAD", "origin/main"], { cwd: root, encoding: "utf8" });
+  if (base.status !== 0) return { error: "Cannot check assertion baseline: git merge-base HEAD origin/main failed: " + base.stderr.trim() };
+  const sha = base.stdout.trim();
+  const object = sha + ":" + baselinePath;
+  const present = spawnSync("git", ["cat-file", "-e", object], { cwd: root, encoding: "utf8" });
+  return { sha, entries: present.status === 0 ? readBaseline(execFileSync("git", ["show", object], { cwd: root, encoding: "utf8" })) : null };
+}
+
+/** Head entries the merge base lacks and base entries the head dropped; null when there is no base to compare. */
+export function baselineChanges(root) {
+  const base = mergeBase(root);
+  if (base.error || !base.entries) return null;
+  const head = baselineEntries(root);
+  const headKeys = new Set(head.map(assertionKey));
+  const baseKeys = new Set(base.entries.map(assertionKey));
+  return {
+    sha: base.sha,
+    added: head.filter(entry => !baseKeys.has(assertionKey(entry))),
+    removed: base.entries.filter(entry => !headKeys.has(assertionKey(entry))),
+  };
 }

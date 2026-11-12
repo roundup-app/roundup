@@ -38,7 +38,7 @@ it("u4458_every_drawer_kind_gets_the_control", () => {
   }
 });
 
-it("u4458_the_state_is_kept_per_kind_and_project", async () => {
+it("u4458_the_state_is_kept_per_kind", async () => {
   const drawer = createDrawer();
   const mount = () => render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
   const first = mount();
@@ -48,13 +48,13 @@ it("u4458_the_state_is_kept_per_kind_and_project", async () => {
   drawer.open(() => <p>Todo</p>, "key", { kind: "todo", project: "/one" });
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
   drawer.open(() => <p>other Project</p>, "key", { kind: "pad", project: "/two" });
-  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
   drawer.open(() => <p>another Pad</p>, "key", { kind: "pad", project: "/one" });
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
   drawer.open(() => <p>work order</p>, "key", { kind: "work-order", project: "/one" });
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
   // A new host restores from the same stored frame, rather than its previous in-memory state.
-  await waitFor(() => expect(localStorage.getItem("roundup:shelf:/one:pad")).not.toBeNull());
+  await waitFor(() => expect(localStorage.getItem("roundup:viewer")).not.toBeNull());
   first.unmount();
   mount();
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
@@ -113,10 +113,9 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
   }
 });
 
-it("u4698a_choice_survives_reopen_and_is_scoped", () => {
+it("u4698a_choice_survives_reopen_and_is_per_kind", () => {
   const drawer = createDrawer();
-  localStorage.setItem("roundup:shelf:/one:pad", JSON.stringify({ maximised: false }));
-  localStorage.setItem("roundup:shelf:/one:todo", JSON.stringify({ maximised: true }));
+  localStorage.setItem("roundup:viewer", JSON.stringify({ surfaces: { pad: false, todo: true } }));
   render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
 
   const maximisedOf = (kind: string, project: string) => {
@@ -129,7 +128,7 @@ it("u4698a_choice_survives_reopen_and_is_scoped", () => {
 
   expect(maximisedOf("pad", "/one")).toBe("false");
   expect(maximisedOf("todo", "/one")).toBe("true");
-  expect(maximisedOf("pad", "/two")).toBe("true");
+  expect(maximisedOf("pad", "/two")).toBe("false");
   expect(maximisedOf("todo", "/two")).toBe("true");
   expect(maximisedOf("work-order", "/one")).toBe("false");
 });

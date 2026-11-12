@@ -1,5 +1,5 @@
 use super::*;
-use contracts::agent::{Order, ResumeMode, SaveAsModeParams};
+use contracts::agent::{CreateModeParams, ModePromptParams, Order, ResumeMode, SaveAsModeParams};
 
 impl Agents {
     /// A5214a: the root Agent `id` becomes a Workstream in place, its conversation the Door's. A
@@ -15,6 +15,7 @@ impl Agents {
             let node = rail.node(crate::rail::agent_id(id)?)?;
             if node.kind != NodeKind::Agent
                 || node.parent.is_some()
+                || node.mode_prompt.is_some()
                 || !rail.has_conversation(crate::rail::agent_id(id)?)?
                 || !rail.convert_kind(crate::rail::agent_id(id)?, true)?
             {
@@ -50,7 +51,7 @@ impl Agents {
         self.shared.node(id)
     }
 
-    /// A5214b: a Mode named `name` holding Agent `id`'s first prompt, extras, Model and Effort.
+    /// A5214b: a root Agent Mode holding Agent `id`'s first prompt and saved setup.
     /// The Agent is not touched.
     pub(super) async fn save_as_mode(
         &self,
@@ -72,26 +73,103 @@ impl Agents {
         let mode = {
             let mut rail = self.shared.rail();
             let agent = rail.node(crate::rail::agent_id(&id)?)?;
-            if agent.kind != NodeKind::Agent {
-                return Err(RpcError::conflict(format!("{id} is not an Agent")));
+            if agent.kind != NodeKind::Agent || agent.mode_prompt.is_some() {
+                return Err(RpcError::conflict(format!("{id} is not an ordinary Agent")));
             }
             let prompt = match &agent.work {
                 Some(Order::Work { ask, .. }) if !ask.trim().is_empty() => ask.clone(),
                 _ => agent.name.clone(),
             };
-            let mode = rail.insert_ordered(NodeKind::Workstream, name, None, None, None, None)?;
-            if let Some(id) = crate::id::AgentId::parse(&mode.id) {
-                rail.set_opening_prompt(id, Some(&prompt))?;
-            }
-            rail.set_pair(
-                crate::rail::agent_id(&mode.id)?,
-                agent.model.as_deref(),
-                agent.effort.as_deref(),
-            )?;
-            mode
+            rail.insert_agent(crate::rail::NewAgent {
+                name,
+                parent: None,
+                work: None,
+                start_attribution: None,
+                visibility: contracts::agent::RailVisibility::default(),
+                spawn_prompt: None,
+                spawner: None,
+                role: None,
+                model: agent.model.as_deref(),
+                effort: agent.effort.as_deref(),
+                mode_prompt: Some(&prompt),
+            })?
         };
         Launcher::save_lean(&self.dir, &mode.id, &lean)?;
         ctx.emit(EventData::RailChanged);
         self.shared.node(&mode.id)
+    }
+
+    pub(super) fn create_mode(
+        &self,
+        ctx: &Ctx,
+        CreateModeParams {
+            start_attribution,
+            name,
+            prompt,
+        }: CreateModeParams,
+    ) -> Result<RailNode, RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user creates a Mode"));
+        }
+        let name = name.trim();
+        if name.is_empty() || name.chars().count() > crate::name::MAX_CHARS {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "a Mode needs a valid name",
+            ));
+        }
+        if prompt.trim().is_empty() {
+            return Err(RpcError::new(code::INVALID_PARAMS, "a Mode needs a prompt"));
+        }
+        if prompt.chars().count() > contracts::agent::MODE_PROMPT_MAX {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "the Mode prompt is too long",
+            ));
+        }
+        let mode = self.shared.rail().insert_agent(crate::rail::NewAgent {
+            name,
+            parent: None,
+            work: None,
+            start_attribution: start_attribution.as_ref(),
+            visibility: contracts::agent::RailVisibility::default(),
+            spawn_prompt: None,
+            spawner: None,
+            role: None,
+            model: None,
+            effort: None,
+            mode_prompt: Some(&prompt),
+        })?;
+        Self::touch_creation(ctx, &mode.id, start_attribution.as_ref())?;
+        ctx.emit(EventData::RailChanged);
+        self.shared.node(&mode.id)
+    }
+
+    pub(super) fn set_mode_prompt(
+        &self,
+        ctx: &Ctx,
+        ModePromptParams { id, prompt }: ModePromptParams,
+    ) -> Result<(), RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user sets a Mode prompt"));
+        }
+        let prompt = prompt.as_deref().filter(|text| !text.trim().is_empty());
+        if prompt.is_some_and(|text| text.chars().count() > contracts::agent::MODE_PROMPT_MAX) {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "the Mode prompt is too long",
+            ));
+        }
+        let mut rail = self.shared.rail();
+        let node = rail.node(crate::rail::agent_id(&id)?)?;
+        if node.kind != NodeKind::Agent || node.parent.is_some() {
+            return Err(RpcError::not_found("root Agent"));
+        }
+        if rail.set_mode_prompt(crate::rail::agent_id(&id)?, prompt)? {
+            drop(rail);
+            ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
+            ctx.emit(EventData::RailChanged);
+        }
+        Ok(())
     }
 }

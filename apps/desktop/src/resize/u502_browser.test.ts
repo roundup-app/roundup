@@ -38,7 +38,7 @@ const load = async (width: number) => {
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, 800);
   await page.until(`() => Boolean(document.querySelector('.rail-actions button')) && Boolean(document.querySelector('[aria-label="Resize Bench"]'))`);
   // Count each committed write of the saved widths, the one place a commit leaves a trace.
-  await page.call(`() => { window.__commits = 0; const set = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (String(key).startsWith('roundup:widths:')) window.__commits += 1; return set.call(this, key, value); }; }`);
+  await page.call(`() => { window.__commits = 0; const set = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (String(key).startsWith('roundup:viewer')) window.__commits += 1; return set.call(this, key, value); }; }`);
 };
 
 const commits = () => page.call<number>(`() => window.__commits`);

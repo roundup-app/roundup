@@ -1,5 +1,11 @@
 //! A4, H8: `rup signal <agent-id>` turns one hook payload on stdin into `agent.signal` as that Agent.
 //! It never exits 2, which Claude Code reads as "block": every failure is exit 1 and a message.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[path = "common/served.rs"]
 mod common;

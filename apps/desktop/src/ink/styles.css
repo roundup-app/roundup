@@ -136,6 +136,31 @@ p.ink[role="alert"] {
   letter-spacing: inherit;
 }
 
+/* U4709c, U4709d: a Todo's and a Pad's row are one line in a 32 px box, the name cut with `…`; one rule here, which loads at start, so a row looks the same before any other surface loads. */
+.shelf-row:is(.todo-row, .pad-inset) {
+  grid-template-rows: var(--space-5);
+  min-height: var(--space-6);
+  box-sizing: border-box;
+}
+.shelf-row :is(.row-head, .pad-row-head) {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: var(--space-5);
+}
+.shelf-row :is(.todo-row-button, .pad-name) {
+  flex: 1;
+  min-width: 0;
+  height: var(--space-5);
+  overflow: hidden;
+}
+:is(.todo-row, .pad-inset) .shelf-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shelf-title {
   width: fit-content;
   max-width: 100%;
@@ -185,11 +210,6 @@ p.ink[role="alert"] {
   max-width: var(--measure);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-/* U5231a: a hairline sets the reveal apart over another surface; D8 grants a tooltip no shadow. */
-.status-reveal {
-  border: var(--hairline-width) solid var(--hairline);
 }
 
 /* U38: the empty list sits centred in the room under the add button, in `--grey` only. */

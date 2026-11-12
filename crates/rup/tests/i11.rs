@@ -1,4 +1,10 @@
 //! I11: `rup api describe` and `rup api list`. The built `rup` against an in-process Daemon on a temp socket.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::process::Stdio;
 use std::sync::Arc;

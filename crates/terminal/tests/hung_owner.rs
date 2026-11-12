@@ -1,4 +1,10 @@
 //! X18: a hung owner never blocks the calling thread.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![cfg(target_os = "linux")]
 
 use std::collections::BTreeMap;

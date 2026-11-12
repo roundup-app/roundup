@@ -6,7 +6,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { railOrder } from "../rail/layout";
 import { copy } from "./copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
-import { projectKeyOf } from "../window/projectLink";
+import { projectKeyOf } from "../projectLink";
 
 /** U2694a: one item of a menu model. `run` stays in the webview; only the rest crosses to the host. */
 export type MenuEntry = {
@@ -52,7 +52,7 @@ const groups = [
   ["start", "restart", "yolo", "stop", "resume"],
   ["complete"],
   ["folder", "editor", "send", "copy-link", "copy"],
-  ["rename", "alerts", "clear", "opening-prompt", "assign", "make-yours", "move", "move-up", "move-down", "make-workstream", "save-as-mode"],
+  ["rename", "alerts", "clear", "mode-prompt", "assign", "make-yours", "move", "move-up", "move-down", "make-workstream", "save-as-mode"],
   ["add"],
   ["remove", "delete", "close"],
 ];

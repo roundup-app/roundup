@@ -1,4 +1,10 @@
 //! R3696c: allocation work of the ordinary forty-Workstream Rail reply, without a clock.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::{alloc::System, sync::Arc};
 
 use rpc::{Bus, Ctx, Module};

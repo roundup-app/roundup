@@ -323,7 +323,7 @@ optional = true
 default-features = false
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies.libsqlite3-sys]
-version = "0.38.1"
+version = "0.40.0"
 optional = true
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies.sqlite-wasm-rs]
@@ -360,7 +360,7 @@ version = "0.2.104"
 version = "0.3.54"
 
 [target.'cfg(not(all(target_family = "wasm", target_os = "unknown")))'.dependencies.libsqlite3-sys]
-version = "0.38.2"
+version = "0.40.0"
 
 [lints.clippy]
 ref_option = "warn"

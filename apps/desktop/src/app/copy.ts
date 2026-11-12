@@ -29,7 +29,6 @@ export const copy = {
   theDaemonIsNewerThanTheApp: (value1: CopyValue) => `This App is older than the connected version. ${value1}`,
   theAppAndTheDaemonDiffer: (value1: CopyValue) => `The versions differ. ${value1}`,
   theAppAndTheDaemonDiffer2: (value1: CopyValue, value2: CopyValue) => `${value1}: The versions differ. ${value2}`,
-  openShelf: sharedCopy.openShelf,
   captureATodo: sharedCopy.captureATodo,
   retry: sharedCopy.retry,
   start: sharedCopy.start,

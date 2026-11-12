@@ -1,4 +1,10 @@
 //! A12a: a surviving Terminal owner keeps its Agent across `Agents::open`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -149,6 +155,43 @@ async fn a12a_an_exited_owner_falls_back_to_done() {
         "{label}"
     );
     assert!(terminals.list().await.iter().all(|t| !t.running));
+}
+
+/// A12a: an owner no record of the rail can adopt is stopped, so a resume never runs beside it.
+#[tokio::test]
+async fn a12a_an_owner_that_cannot_be_adopted_is_stopped() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().canonicalize().unwrap();
+    let script = data.join("fake-claude");
+    std::fs::write(&script, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nexec sleep 30\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bus = Bus::new();
+
+    let (agents, _terminals) = open(&data, &bus);
+    let cwd = data.to_string_lossy().into_owned();
+    let spawned: RailNode =
+        serde_json::from_value(call(&agents, &bus, "agent.spawn", json!({"cwd": cwd})).await)
+            .unwrap();
+    drop(agents);
+
+    let file = data.join("owners").join(format!("{}.json", spawned.id));
+    let mut record: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    let owner: terminal::TerminalOwner = serde_json::from_value(record["owner"].clone()).unwrap();
+    owner.connect(&data).await.expect("the owner is alive");
+    record["attempt"] = json!("99");
+    std::fs::write(&file, serde_json::to_vec(&record).unwrap()).unwrap();
+
+    let (agents, terminals) = open(&data, &bus);
+    assert!(agents.reattach_owners().await.is_empty());
+    assert!(terminals.list().await.iter().all(|t| !t.running));
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(100));
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while owner.connect(&data).await.is_ok() {
+            tick.tick().await;
+        }
+    })
+    .await;
+    assert!(stopped.is_ok(), "the unadopted owner still runs");
 }
 
 /// A5335a: two restarts in a row keep every live child, each with its Terminal and never
@@ -358,4 +401,27 @@ async fn x6570b_save_owner_fails_when_the_lookup_fails() {
     // A directly owned Terminal writes no file and succeeds.
     let direct = Terminals::open(&data, bus.clone()).unwrap();
     assert!(direct.terminal_owner(&terminal).unwrap().is_none());
+}
+
+/// A12a: a new process for an Agent never starts beside a surviving owner nothing adopted.
+#[tokio::test]
+async fn a12a_a_start_stops_the_surviving_owner_of_the_same_agent() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().canonicalize().unwrap();
+    let script = data.join("fake-claude");
+    std::fs::write(&script, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nexec sleep 30\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bus = Bus::new();
+    let (agents, _terminals) = open(&data, &bus);
+    let cwd = data.to_string_lossy().into_owned();
+    let spawned: RailNode =
+        serde_json::from_value(call(&agents, &bus, "agent.spawn", json!({"cwd": cwd})).await)
+            .unwrap();
+    drop(agents);
+
+    // A reopened Daemon that never adopted the owner is about to start a second process.
+    let (agents, _terminals) = open(&data, &bus);
+    agents.stop_recorded_owner_for_test(&spawned.id).await;
+    // The surviving owner is gone, so a new process starts alone. Adopting finds nothing.
+    assert!(agents.reattach_owners().await.is_empty());
 }

@@ -1,4 +1,10 @@
 //! S12 (`scenarios/app.md`): the App carries roundup's rendered icon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use tauri::test::MockRuntime;
 
