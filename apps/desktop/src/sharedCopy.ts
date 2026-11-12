@@ -38,6 +38,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  ageNow: "now",
   workstream: word.workstream,
   feedback: "Feedback",
   defaultChoice: "Default",
