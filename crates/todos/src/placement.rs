@@ -26,7 +26,7 @@ impl Todos {
             .owner
             .map(contracts::common::Owner::into_actor)
             .transpose()
-            .map_err(Error::InvalidParams)?;
+            .map_err(|error| Error::InvalidParams(error.to_string()))?;
         let store = self.store()?;
         let todo = store.get(p.id)?;
         if todo.owner == owner {

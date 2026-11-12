@@ -718,6 +718,7 @@ dependencies = [
  "specta-serde",
  "specta-typescript",
  "stats_alloc",
+ "thiserror 2.0.21",
  "tokio",
 ]
 

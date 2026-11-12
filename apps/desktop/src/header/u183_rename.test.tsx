@@ -276,7 +276,7 @@ it("u2773c_header_external_change_keeps_original", async () => {
 
   await screen.findByText("Project name changed");
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
-  expect(tab("B")).toBeDefined();
+  await waitFor(() => expect(tab("B")).toBeDefined());
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^B`) }));
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   within(recovery).getByText(" exact 雪 ", { exact: true, normalizer: text => text });
