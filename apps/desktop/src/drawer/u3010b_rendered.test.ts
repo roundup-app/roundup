@@ -117,7 +117,10 @@ it("u3010b_latest_action_owns_layer_lifetime", { retry: 0 }, async () => {
   expect(await evaluate("window.__drawerObserver.exit")).toMatchObject({ open: false, retained: true, inert: true, sliding: true });
   expect(await drawerState()).toMatchObject({ open: true, retained: true, sliding: false, focused: true, incarnation: "2" });
   await browser("press", "Escape");
-  expect(await evaluate("window.__drawerObserver.escape")).toMatchObject({ open: false, retained: false, sliding: false, returned: true });
+  // A key close slides in the key duration (U6837a): focus is back by the next frame, the exit content goes when that slide ends.
+  expect(await evaluate("window.__drawerObserver.escape")).toMatchObject({ open: false, returned: true });
+  await waitForDrawer();
+  expect(await drawerState()).toMatchObject({ open: false, retained: false, sliding: false, returned: true });
 });
 
 it("u3010b_stale_completion_has_no_new_layer_effect", { retry: 0 }, async () => {
