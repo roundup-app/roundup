@@ -43,7 +43,7 @@ pub struct Conn {
     timeout: Duration,
     pub hello: Hello,
     events: Option<mpsc::UnboundedReceiver<Event>>,
-    pub(crate) channels: Streams,
+    channels: Streams,
     _child: Option<Child>,
 }
 
@@ -208,10 +208,7 @@ impl Conn {
             w.calls.clear();
             drop(w);
             let gone = serde_json::json!({"reason":"connection_lost"});
-            let mut state = streams(&routed);
-            state.orphans.clear();
-            state.orphan_bytes = 0;
-            for (_, tx) in state.live.drain() {
+            for (_, tx) in streams(&routed).live.drain() {
                 let _ = tx.send(Ev::Close(gone.clone()));
             }
         });
@@ -290,7 +287,7 @@ impl Conn {
             .ok_or_else(|| Error::Protocol("terminal.attach: no channel".into()))?;
         let (tx, rx) = mpsc::unbounded_channel();
         let mut state = streams(&self.channels);
-        for ev in state.claim(channel) {
+        for ev in state.orphans.remove(&channel).unwrap_or_default() {
             let _ = tx.send(ev);
         }
         state.live.insert(channel, tx);

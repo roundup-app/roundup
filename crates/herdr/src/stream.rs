@@ -12,29 +12,6 @@ use crate::wire::{CLOSE, DATA, RESIZE, frame};
 pub(crate) struct Channels {
     pub(crate) live: HashMap<u32, mpsc::UnboundedSender<Ev>>,
     pub(crate) orphans: HashMap<u32, Vec<Ev>>,
-    /// Data bytes kept in `orphans`, bounded by [`MAX_ORPHAN_BYTES`].
-    pub(crate) orphan_bytes: usize,
-}
-
-/// The most Data bytes kept across channels nobody has claimed; a frame past it is dropped.
-pub(crate) const MAX_ORPHAN_BYTES: usize = 4 << 20;
-
-impl Channels {
-    /// Take what is kept for `channel`, releasing its bytes.
-    pub(crate) fn claim(&mut self, channel: u32) -> Vec<Ev> {
-        let evs = self.orphans.remove(&channel).unwrap_or_default();
-        for ev in &evs {
-            if let Ev::Data(d) = ev {
-                self.orphan_bytes -= d.len();
-            }
-        }
-        evs
-    }
-
-    #[cfg(test)]
-    pub(crate) fn unclaimed(&self) -> (usize, usize) {
-        (self.orphans.values().map(Vec::len).sum(), self.orphan_bytes)
-    }
 }
 
 pub(crate) type Streams = Arc<Mutex<Channels>>;
@@ -51,17 +28,7 @@ pub(crate) fn deliver(channels: &Streams, channel: u32, ev: Ev) {
         Some(tx) => {
             let _ = tx.send(ev);
         }
-        None => match ev {
-            // An unclaimed channel that closes will never be attached.
-            Ev::Close(_) => drop(state.claim(channel)),
-            Ev::Data(d) if state.orphan_bytes + d.len() > MAX_ORPHAN_BYTES => {}
-            ev => {
-                if let Ev::Data(d) = &ev {
-                    state.orphan_bytes += d.len();
-                }
-                state.orphans.entry(channel).or_default().push(ev);
-            }
-        },
+        None => state.orphans.entry(channel).or_default().push(ev),
     }
 }
 
