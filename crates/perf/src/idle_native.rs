@@ -459,7 +459,7 @@ impl Native {
                 timing.end,
                 &phase.settings,
             ) {
-                phase.errors.push(e);
+                phase.errors.push(e.to_string());
             }
         }
         Ok(())
@@ -561,7 +561,7 @@ impl Native {
         }
         let after = self.inventory(app, daemon).await?;
         if let Err(e) = idle::same_members(&phase.members, &after) {
-            phase.errors.push(e);
+            phase.errors.push(e.to_string());
         }
         let mut cursors = Vec::new();
         for (id, before) in offsets {
@@ -626,13 +626,13 @@ impl Native {
                 .filter_map(|n| n.status.as_ref().map(|s| s.kind)),
         );
         if let Err(e) = idle::activity(phase.count, &all_statuses, &cursors, &changes) {
-            phase.errors.push(e);
+            phase.errors.push(e.to_string());
         }
         if let Err(e) =
             self.journal(app, false)?
                 .phase(phase.state, stable_start, end, &phase.settings)
         {
-            phase.errors.push(e);
+            phase.errors.push(e.to_string());
         }
         // Keep later transitions outside conservative clock uncertainty intervals.
         tokio::time::sleep(Duration::from_secs(5)).await;
