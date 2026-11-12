@@ -17,6 +17,7 @@ percent-encoding = "2"
 schemars = "1"
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 specta.workspace = true
 specta-serde.workspace = true
 specta-typescript.workspace = true

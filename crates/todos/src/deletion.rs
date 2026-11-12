@@ -94,7 +94,8 @@ impl Todos {
             &tx,
             &ctx.actor,
             &DeleteParams {
-                operation: OperationKey::new(p.operation.as_str()).map_err(Error::InvalidParams)?,
+                operation: OperationKey::new(p.operation.as_str())
+                    .map_err(|error| Error::InvalidParams(error.to_string()))?,
                 ids: source.deleted,
             },
             ctx.touches.sequence()?,
@@ -416,7 +417,8 @@ impl Todos {
             db,
             actor,
             &DeleteParams {
-                operation: OperationKey::new(participant.as_str()).map_err(Error::InvalidParams)?,
+                operation: OperationKey::new(participant.as_str())
+                    .map_err(|error| Error::InvalidParams(error.to_string()))?,
                 ids,
             },
             after_touch,
@@ -638,7 +640,8 @@ impl Todos {
             db,
             actor,
             &DeleteParams {
-                operation: OperationKey::new(participant.as_str()).map_err(Error::InvalidParams)?,
+                operation: OperationKey::new(participant.as_str())
+                    .map_err(|error| Error::InvalidParams(error.to_string()))?,
                 ids: previous.deleted.clone(),
             },
             after_touch,
