@@ -112,7 +112,8 @@
   line-height: 1.15;
 }
 
-[data-part="branch-control"].rail-row .name {
+[data-part="branch-control"].rail-row .name,
+.rail-row[data-mode] .name {
   font-weight: 600;
 }
 

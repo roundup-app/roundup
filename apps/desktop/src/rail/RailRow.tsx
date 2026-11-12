@@ -192,6 +192,7 @@ export const RailRowView = (props: {
     "data-selected": selected() ? "true" : undefined,
     "data-multiple": multiple() ? "true" : undefined,
     tabIndex: tabbable() ? 0 : -1,
+    "data-mode": isMode(props.row.node) ? "true" : undefined,
     "data-worktree": props.row.node.worktree ? "true" : undefined,
     "data-editing": props.editing, "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },

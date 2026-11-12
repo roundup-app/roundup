@@ -749,7 +749,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
                         return (
                         <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
-                        <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null || isMode(view().node)}>{(parts) =>
+                        <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
                           topology={below()}
