@@ -589,10 +589,13 @@ async fn a5556b_automatic_delivery_waits_for_first_user_input() {
             + "\n";
         std::fs::write(&transcript, receipts).unwrap();
         run.call("agent.signal", json!({"id":id,"attempt":"1","payload":{"hook_event_name":"Stop","transcript_path":transcript}})).await;
+        // DTC4: a digest folded into the one catch-up note is dropped as merged; that note is delivered.
         for message in pending {
-            assert_eq!(
-                run.call("message.get", json!({"id":message})).await["status"],
-                "delivered"
+            let got = run.call("message.get", json!({"id":message})).await;
+            assert!(
+                got["status"] == "delivered"
+                    || (got["status"] == "dropped" && got["reason"] == "merged"),
+                "{got}"
             );
         }
     }

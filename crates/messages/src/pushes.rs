@@ -450,7 +450,7 @@ async fn release_locked(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger
     }
     // DTC4: at a Stop the entries the window cap kept back are pending for the Door too, so they
     // ride the one catch-up note.
-    let held = !turn_start && !slot.all_quiet;
+    let kept = !turn_start && !slot.all_quiet;
     // A Door turn the user's prompt starts takes the quiet notes though nothing else waits; a Door at
     // rest takes them only with a Message, so quiet notes alone start no turn. A turn that starts
     // with a Message pending is that Message's turn, already written: a quiet note arriving after
@@ -458,13 +458,13 @@ async fn release_locked(inner: &Arc<Inner>, door: &str, turn_start: bool, ledger
     let pending = lock(&inner.store)
         .list_pending_to(door)
         .is_ok_and(|pending| !pending.is_empty());
-    if !held && turn_start == pending {
+    if !kept && turn_start == pending {
         return;
     }
     slot.all_quiet = false;
     let now = (inner.clock)();
     slot.expire(now);
-    if held {
+    if kept {
         slot.sent.clear();
     }
     match crate::load_rail_nodes(inner).await {
