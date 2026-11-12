@@ -2,6 +2,7 @@ import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
+import { saveViewer, viewer } from "../resize/viewer";
 import { applying } from "../app/pending";
 import { batch, createMemo, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
@@ -264,7 +265,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
-  const [closedSections, setClosedSections] = createSignal<ReadonlySet<RailSection>>(new Set());
+  const closedSections = createMemo((): ReadonlySet<RailSection> => new Set(viewer().sections));
   const [restored, setRestored] = createSignal(false);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   // U5151g: one entry per failure whose dismissal write was refused; the Rail shows the oldest.
@@ -274,7 +275,6 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const save = async () => {
     const layout: Parameters<RailStorage["write"]>[0] = { selected: selected(), collapsed: [...collapsed()] };
 
-    if (closedSections().size > 0) layout.sections = [...closedSections()];
     setStorageFailure(await storage?.write(layout) ?? null);
   };
 
@@ -377,7 +377,6 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         const saved = storage?.read();
 
         if (saved) {
-          setClosedSections(new Set(saved.sections ?? []));
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
           setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
           reveal(selected());
@@ -728,8 +727,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     closedSections,
     setSectionOpen: (section, open) => {
       if (closedSections().has(section) !== open) return;
-      setClosedSections(closed => new Set(open ? [...closed].filter(each => each !== section) : [...closed, section]));
-      void save();
+      saveViewer({ sections: [...closedSections()].filter(each => each !== section).concat(open ? [] : [section]) });
     },
     storageFailure,
     clearStorageFailure: () => setStorageFailure(null),
