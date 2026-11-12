@@ -25,7 +25,7 @@ import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
-import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopology";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {

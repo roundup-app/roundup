@@ -23,7 +23,7 @@ import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
 import { openThroughRow } from "../shelf/openItem";
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "../pads/padList";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX, type Entry } from "./entries";

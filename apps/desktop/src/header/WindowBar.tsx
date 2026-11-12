@@ -2,7 +2,7 @@ import { createEffect, createMemo, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
-import { resolvedWorkstream } from "../rail/layout";
+import { resolvedWorkstream } from "../state/railTopology";
 import { copy } from "./copy";
 
 /** U449–U451: the Project strip and selected Workstream share the native window bar. */

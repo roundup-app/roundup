@@ -11,7 +11,8 @@ import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
 import type { QueueView } from "../../state/queue";
 import { goesLine, staysLine } from "./removal";
-import { isMode, railOrder } from "../layout";
+import { isMode } from "../layout";
+import { railOrder } from "../../state/railTopology";
 import { judgeRemoval } from "./removal";
 import type { Known, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
@@ -185,7 +186,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     rail.hide(leaving);
     close();
 
-    void storage.todoUndo.removeRailSelection(ids, name, "rail").then(async removed => {
+    void storage.undo.removeRailSelection(ids, name, "rail").then(async removed => {
       if (removed) {
         rail.keepRemoved(leaving);
         await rail.refresh();
@@ -194,7 +195,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       } else {
         // The row returns first: a failure line about a row the Rail does not show would clear itself.
         rail.unhide(leaving);
-        const failure = storage.todoUndo.failure();
+        const failure = storage.undo.failure();
 
         if (failure) onFailure(failure, current.node.id);
       }

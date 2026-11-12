@@ -1,7 +1,7 @@
 import { createMemo } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { ConnectedProject } from "../state/connectedProject";
-import { railOrder, resolvedWorkstream } from "../rail/layout";
+import { railOrder, resolvedWorkstream } from "../state/railTopology";
 import { copy } from "./copy";
 
 type Scope = { kind: "overview" } | { kind: "workstream" | "agent"; id: string; name: string };

@@ -6,7 +6,7 @@ import type { Pad } from "@contracts/pad/Pad";
 import type PadRichEditor from "./PadRichEditor";
 import { PadDrawer } from "./PadDrawer";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "./padList";
 import { copy } from "./copy";
 import { USER } from "./owner";
 import { deferred, openShelf, padOf, RpcError, waitForReload, writeAdopted } from "./padsFixture";

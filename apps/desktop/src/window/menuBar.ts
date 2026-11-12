@@ -152,7 +152,7 @@ export const watchMenuBar = (options: {
   onCleanup(stop);
 };
 
-type TodoUndo = ReturnType<ReturnType<typeof createProjectDrafts>>["todoUndo"];
+type TodoUndo = ReturnType<ReturnType<typeof createProjectDrafts>>["undo"];
 
 /** The one Undo or Redo the key (⌘Z, ⇧⌘Z) and the Project menu both run; it names what it would do and whether it can. */
 export const undoAction = (history: TodoUndo | null, redo: boolean, focus: Element | null) => {

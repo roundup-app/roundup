@@ -14,7 +14,7 @@ import { shownPads } from "../pads/shownPads";
 import { useConnectedProject } from "../state/connectedProject";
 import { shownTodos } from "../todos/shownTodos";
 import { useTodoList } from "../todos/todoList";
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "../pads/padList";
 import { SHELF_TABS } from "./frame";
 import type { ShelfTab, ShelfFrame } from "./frame";
 import "./styles.css";

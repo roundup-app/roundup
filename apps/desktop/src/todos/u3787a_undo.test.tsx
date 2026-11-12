@@ -83,8 +83,8 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   await acknowledged();
   await waitFor(() => expect([connections.get("/a")!.drawer.content()]).toEqual([null]));
   await acknowledged();
-  expect(connections.get("/a")!.drafts.todoUndo.available("todo:5")).toBe(true);
-  expect(connections.get("/a")!.drafts.todoUndo.available("todo:7")).toBe(false);
+  expect(connections.get("/a")!.drafts.undo.available("todo:5")).toBe(true);
+  expect(connections.get("/a")!.drafts.undo.available("todo:7")).toBe(false);
   expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Undo")).toEqual([]);
 
   if (source === "menu") {
@@ -127,7 +127,7 @@ const failedDeletionRefresh = async () => {
   const connected = mounted.connections.get("/a")!;
 
   await waitFor(() => {
-    expect({ drawer: connected.drawer.content(), pending: connected.drafts.todoUndo.pending() }).toEqual({ drawer: null, pending: false });
+    expect({ drawer: connected.drawer.content(), pending: connected.drafts.undo.pending() }).toEqual({ drawer: null, pending: false });
   });
 
   return { ...mounted, daemon, connected };
@@ -139,7 +139,7 @@ it("u5127a_acknowledged_delete_closes_after_failed_list_refresh", async () => {
     { operation: expect.any(String), ids: [5] },
   ]);
   expect(app.of("/b").calls.filter(call => call.method === "todo.delete")).toEqual([]);
-  expect({ failure: connected.drafts.todoUndo.failure(), uncertain: connected.drafts.todoUndo.uncertain() }).toEqual({ failure: null, uncertain: false });
+  expect({ failure: connected.drafts.undo.failure(), uncertain: connected.drafts.undo.uncertain() }).toEqual({ failure: null, uncertain: false });
   expect(questionProbe.shown).toBeNull();
   expect(screen.queryByText(DELETED)).toBeNull();
   expect(screen.queryAllByRole("button", { name: "Undo" })).toEqual([]);
@@ -172,14 +172,14 @@ const DELETED = /^Deleted \d/;
 
 const acknowledged = async () => {
   await waitFor(() => {
-    expect([...histories.values()].some(open => open.drafts.todoUndo.available() && !open.drafts.todoUndo.pending())).toBe(true);
+    expect([...histories.values()].some(open => open.drafts.undo.available() && !open.drafts.undo.pending())).toBe(true);
     expect(screen.queryByText(DELETED)).toBeNull();
   });
   await new Promise<void>(resolve => queueMicrotask(resolve));
 };
 
 const pressUndo = () => {
-  const history = histories.get(projectMenu.path ?? "/a")?.drafts.todoUndo;
+  const history = histories.get(projectMenu.path ?? "/a")?.drafts.undo;
 
   const target = history?.available("rail") ? document.querySelector<HTMLElement>(".rail-tree")
     : history?.available("shelf") ? document.querySelector<HTMLElement>('.shelf-tab[aria-selected="true"]')
@@ -272,7 +272,7 @@ it("u3787a_undo_failure_is_retryable", async () => {
   await screen.findByText("Original Home is unavailable. Restore the Home and retry.");
   app.of("/a").handlers["todo.restore"] = p => ({ operation: p.operation, deleted: [5], missing: [], state: "restored", restoration: "restoration-5" });
   pressUndo();
-  await waitFor(() => expect([...histories.values()].every(open => !open.drafts.todoUndo.pending())).toBe(true));
+  await waitFor(() => expect([...histories.values()].every(open => !open.drafts.undo.pending())).toBe(true));
   // SAFETY: the source call is filtered to todo.delete and its generated params contain operation.
   expect(app.of("/a").calls.filter(call => call.method === "todo.restore").map(c => c.params)).toEqual(Array(2).fill({ operation: (app.of("/a").calls.filter(call => call.method === "todo.delete")[0]!.params as { operation: string }).operation }));
   expect(app.of("/a").calls.filter(c => ["todo.create", "agent.spawn", "terminal.spawn"].includes(c.method))).toEqual([]);
@@ -310,7 +310,7 @@ it("u3787a_dismissing_a_restore_failure_preserves_undo", async () => {
   const dismiss = await screen.findByRole("button", { name: "Dismiss" });
   fireEvent.click(dismiss);
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(connections.get("/a")!.drafts.todoUndo.available("todo:5")).toBe(true);
+  expect(connections.get("/a")!.drafts.undo.available("todo:5")).toBe(true);
 });
 
 it("u3787a_unknown_restore_consumes_only_the_reconciled_receipt", async () => {
@@ -324,7 +324,7 @@ it("u3787a_unknown_restore_consumes_only_the_reconciled_receipt", async () => {
   app.of("/a").handlers["todo.restore"] = () => { restored = true; throw new Error("reply lost after restore"); };
 
   pressUndo();
-  await waitFor(() => expect([...histories.values()].every(open => !open.drafts.todoUndo.pending())).toBe(true));
+  await waitFor(() => expect([...histories.values()].every(open => !open.drafts.undo.pending())).toBe(true));
   undoKey();
   expect(app.of("/a").calls.filter(call => call.method === "todo.restore").map(c => c.params)).toEqual([{ operation: params.operation }]);
   expect(app.of("/a").calls.filter(call => call.method === "todo.deletion").map(c => c.params)).toEqual([{ operation: params.operation }, { operation: params.operation }]);
@@ -371,8 +371,8 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
     ]));
     expect([questionProbe.shown]).toEqual([null]);
     await acknowledged();
-    expect(connections.get("/a")!.drafts.todoUndo.available("shelf")).toBe(true);
-    expect(connections.get("/a")!.drafts.todoUndo.available("todos")).toBe(false);
+    expect(connections.get("/a")!.drafts.undo.available("shelf")).toBe(true);
+    expect(connections.get("/a")!.drafts.undo.available("todos")).toBe(false);
     pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
   });
@@ -420,14 +420,14 @@ for (const entry of ["selection", "single", "drawer"] as const) {
     }
 
     await acknowledged();
-    expect(connections.get("/a")!.drafts.todoUndo.available(entry === "drawer" ? "pad:fixture-first" : "shelf")).toBe(true);
-    expect(connections.get("/a")!.drafts.todoUndo.available("pads")).toBe(false);
+    expect(connections.get("/a")!.drafts.undo.available(entry === "drawer" ? "pad:fixture-first" : "shelf")).toBe(true);
+    expect(connections.get("/a")!.drafts.undo.available("pads")).toBe(false);
     expect([questionProbe.shown]).toEqual([null]);
     expect(daemon.calls.filter(c => c.method === "pad.delete").map(c => c.params)).toEqual((entry === "selection" ? ["first", "second"] : ["first"]).map(name => ({ name, expectedIncarnation: `fixture-${name}`, operation: expect.any(String) })));
     pressUndo();
 
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "pad.restore").length).toBe(1));
-    await waitFor(() => expect(connections.get("/a")!.drafts.todoUndo.pending()).toBe(false));
+    await waitFor(() => expect(connections.get("/a")!.drafts.undo.pending()).toBe(false));
     await showPads("first");
     (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
     expect((await daemon.rpc("pad.read", { name: "first" }))).toEqual(padOf("first", AGENT, "original"));
@@ -458,7 +458,7 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
   await daemon.rpc("pad.write", { name: "first", text: "edited after restore" });
   refuse = false;
   pressUndo();
-  await waitFor(() => expect([...histories.values()].every(open => !open.drafts.todoUndo.pending())).toBe(true));
+  await waitFor(() => expect([...histories.values()].every(open => !open.drafts.undo.pending())).toBe(true));
   expect(calls).toBe(3);
   expect((await daemon.rpc("pad.read", { name: "first" })).text).toBe("edited after restore");
 });
@@ -551,7 +551,7 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   await waitFor(() => { if (connected.drawer.content() !== null) throw new Error("Drawer has not closed"); });
   expect(connected.drafts.list()).toEqual(retained);
   pressUndo();
-  await waitFor(() => expect(connected.drafts.todoUndo.pending()).toBe(false));
+  await waitFor(() => expect(connected.drafts.undo.pending()).toBe(false));
   await showPads("second");
   expect(connected.drafts.list()).toEqual(retained);
 });
@@ -764,7 +764,7 @@ it("u3787h_restore_completion_requires_a_new_delete", async () => {
 it("u3787a_pending_restore_disables_history_until_acknowledgement", async () => {
   const { app, remove, connections } = await mount();
   await remove("/a");
-  const undo = connections.get("/a")!.drafts.todoUndo;
+  const undo = connections.get("/a")!.drafts.undo;
   await acknowledged();
   let finish!: () => void;
   app.of("/a").handlers["todo.restore"] = p => new Promise(resolve => {
@@ -785,7 +785,7 @@ it("u3787a_pending_restore_disables_history_until_acknowledgement", async () => 
 it("u3787a_edit_menu_tracks_focused_history", async () => {
   const { app, remove, connections } = await mount();
   await remove("/a");
-  const history = connections.get("/a")!.drafts.todoUndo;
+  const history = connections.get("/a")!.drafts.undo;
   await waitFor(() => expect(history.pending()).toBe(false));
   const destination = document.createElement("button");
   destination.dataset.historyRegion = "todo:5";

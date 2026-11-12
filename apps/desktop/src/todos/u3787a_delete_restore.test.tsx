@@ -1,6 +1,6 @@
 import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { deleteTodos } from "./deleteTodos";
+import { deleteTodos } from "../state/undo";
 import { mountTodos, todo } from "./testHarness";
 import type { DeleteParams } from "@contracts/todo/DeleteParams";
 import { RpcError } from "../app/seam";

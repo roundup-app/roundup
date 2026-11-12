@@ -9,7 +9,7 @@ import type { ImportCommitParams } from "@contracts/project/ImportCommitParams";
 import type { ImportDiscoverParams } from "@contracts/project/ImportDiscoverParams";
 import type { ImportSelection } from "@contracts/project/ImportSelection";
 import type { AppSeam } from "../app/seam";
-import { storageSchema, storedValue, type draftStorage } from "../state/storage";
+import { storageSchema, storedValue, type draftStorage } from "./storage";
 
 const DEFAULT_PROMPT = copy.importDefaultPrompt;
 

@@ -1,13 +1,13 @@
 import { createStore } from "solid-js/store";
 import { createHeld } from "./held";
-import { createTodoUndo } from "../todos/deleteTodos";
+import { createUndo } from "./undo";
 import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
 import { withAppSettings } from "../settings/preferences";
 import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, untrack, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
-import { createImport } from "../rail/importState";
+import { createImport } from "./importState";
 import { draftStorage } from "./storage";
 import { copy } from "./copy";
 import { checkContract } from "../app/contractMatch";
@@ -22,14 +22,14 @@ import { createAsks } from "./asks";
 import type { AsksState, AskRouting } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
-import { dismissalStorage, resumptionStorage } from "../rail/persist/storage";
+import { dismissalStorage, resumptionStorage } from "./railStorage";
 import type { UnseenState } from "./unseen";
 import type { QueueView } from "./queue";
 import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
 import { createNoteQueue } from "./noteQueue";
 import type { NoteQueue } from "./noteQueue";
-import type { RailStorage } from "../rail/persist/storage";
+import type { RailStorage } from "./railStorage";
 import type { RailState } from "./rail";
 
 type Drafts = ReturnType<typeof draftStorage>;
@@ -44,7 +44,7 @@ type Recovery = (draft: Draft, facts: {
 }) => Availability;
 
 type ProjectDrafts = Drafts & {
-  todoUndo: ReturnType<typeof createTodoUndo>;
+  undo: ReturnType<typeof createUndo>;
   importing: ReturnType<typeof createImport> | null;
   settingsView: SettingsViewState;
   /** Surface-owned identity extraction, installed independently of the original editor.
@@ -72,7 +72,7 @@ export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { pat
     const [recovery, setRecovery] = createStore<Record<string, Recovery | undefined>>({});
 
     const holder: ProjectDrafts = {
-      todoUndo: createTodoUndo(),
+      undo: createUndo(),
       importing: null,
       settingsView: createSettingsView(),
       editor: storage.editor,
@@ -182,7 +182,7 @@ export const connectProject = async (
   clock: Accessor<number> = now,
   routing?: AskRouting,
 ): Promise<ConnectedProject> => {
-  drafts.todoUndo.reconnect(app);
+  drafts.undo.reconnect(app);
   const original = app;
 
   notesFor(original, project.path, drafts);
@@ -219,7 +219,7 @@ export const connectProject = async (
     return createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path));
   });
 
-  drafts.todoUndo.bindRail(direction => rail.drawHistory(direction));
+  drafts.undo.bindRail(direction => rail.drawHistory(direction));
 
   if (ended) stopRail();
 

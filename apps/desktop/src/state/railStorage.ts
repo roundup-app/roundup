@@ -1,6 +1,6 @@
-import type { draftStorage } from "../../state/storage";
+import type { draftStorage } from "./storage";
 import * as v from "valibot";
-import { storageSchema, storedValue } from "../../state/storage";
+import { storageSchema, storedValue } from "./storage";
 
 export type RailSection = "workstreams" | "modes" | "agents";
 

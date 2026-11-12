@@ -1,9 +1,9 @@
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
-import type { PadList } from "../rail/pads/padList";
+import type { PadList } from "./padList";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { OwnerGroup } from "../shelf/scope";
-import { railOrder } from "../rail/layout";
+import { railOrder } from "../state/railTopology";
 
 /** U2744a: the per-Project reader is the membership boundary, independent of Rail selection. */
 export const shownPads = (_connected: ConnectedProject, list: PadList): Accessor<readonly Pad[]> => list.pads;

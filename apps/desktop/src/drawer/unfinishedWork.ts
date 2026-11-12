@@ -1,7 +1,7 @@
 import { createMemo } from "solid-js";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "../pads/padList";
 
 type Row = ReturnType<ReturnType<typeof useConnectedProject>["drafts"]["list"]>[number];
 

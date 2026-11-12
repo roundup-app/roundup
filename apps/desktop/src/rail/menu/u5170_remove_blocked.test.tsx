@@ -6,7 +6,7 @@ import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 import { createRoot } from "solid-js";
 import type { AppSeam } from "../../app/seam";
 import { createFakeApp } from "../../testing/fakeApp";
-import { createTodoUndo } from "../../todos/deleteTodos";
+import { createUndo } from "../../state/undo";
 
 /** A todoUndo on a stub App: `lose` makes rail.remove's acknowledgement vanish; `hold` leaves it unanswered. */
 const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
@@ -35,7 +35,7 @@ const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
   // SAFETY: the todoUndo under test calls only `rpc`, and each method it sends answers with one of the shapes above.
   const app: AppSeam = { ...createFakeApp(), rpc: rpc as AppSeam["rpc"] };
 
-  const undo = createRoot(() => createTodoUndo());
+  const undo = createRoot(() => createUndo());
 
   if (mode !== "offline") undo.reconnect(app);
 
@@ -111,7 +111,7 @@ describe("u5170d", () => {
   it.each(states.flatMap(state => (["menu", "shortcut"] as const).map(entry => [state, entry] as const)))("u5170d_menu_and_shortcut_remove_blocked_%s_%s", async (state, entry) => {
     const title = "Design feedback and doodles";
     const { app, connected } = await mountRail([workstream("w", { name: title }), agent("a", "done", "finished", { parent: "w", terminal_id: null })]);
-    const history = connected.drafts.todoUndo;
+    const history = connected.drafts.undo;
     const lost = () => { throw new Error("link lost"); };
 
     const pending = () => new Promise<never>(() => undefined);

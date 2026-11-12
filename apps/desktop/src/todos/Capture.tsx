@@ -12,13 +12,13 @@ import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, LEADER } from "../keys/chords";
-import { resolvedWorkstream } from "../rail/layout";
+import { resolvedWorkstream } from "../state/railTopology";
 import { captureActions, modalOpen, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
-import { failureOf } from "./failureOf";
+import { failureOf } from "../app/failureOf";
 import { useTodoList } from "./todoList";
 import "./capture.styles.css";
 

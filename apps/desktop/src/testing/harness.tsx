@@ -10,7 +10,7 @@ import { captureActions } from "../keys/registry";
 import { App } from "../App";
 import { createXtermEmulators } from "../terminal/emulator";
 import type { Emulator } from "../terminal/emulator";
-import { railStorage } from "../rail/persist/storage";
+import { railStorage } from "../state/railStorage";
 import { createReducedMotion } from "../app/reducedMotion";
 import { runAxe } from "./axe";
 import type { AxeResult } from "./axe";
