@@ -184,15 +184,14 @@ async fn a12a_an_owner_that_cannot_be_adopted_is_stopped() {
     let (agents, terminals) = open(&data, &bus);
     assert!(agents.reattach_owners().await.is_empty());
     assert!(terminals.list().await.iter().all(|t| !t.running));
-    let mut stopped = false;
-    for _ in 0..50 {
-        if owner.connect(&data).await.is_err() {
-            stopped = true;
-            break;
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(100));
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while owner.connect(&data).await.is_ok() {
+            tick.tick().await;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-    assert!(stopped, "the unadopted owner still runs");
+    })
+    .await;
+    assert!(stopped.is_ok(), "the unadopted owner still runs");
 }
 
 /// A5335a: two restarts in a row keep every live child, each with its Terminal and never
