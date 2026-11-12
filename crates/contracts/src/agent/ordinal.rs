@@ -91,10 +91,10 @@ impl PartialOrd for Ordinal {
 }
 
 impl TryFrom<String> for Ordinal {
-    type Error = String;
+    type Error = crate::Error;
 
-    fn try_from(value: String) -> Result<Self, String> {
-        Self::parse(&value).ok_or_else(|| format!("invalid ordinal {value:?}"))
+    fn try_from(value: String) -> Result<Self, crate::Error> {
+        Self::parse(&value).ok_or(crate::Error::InvalidOrdinal(value))
     }
 }
 

@@ -29,10 +29,10 @@ pub enum Owner {
 
 impl Owner {
     /// Stores refuse unresolved selectors rather than persisting a name as an identity.
-    pub fn into_actor(self) -> Result<Actor, String> {
+    pub fn into_actor(self) -> Result<Actor, crate::Error> {
         match self {
             Self::Actor(actor) => Ok(actor),
-            Self::Agent(_) => Err("an owner selector must be resolved by the Daemon".into()),
+            Self::Agent(_) => Err(crate::Error::UnresolvedOwner),
         }
     }
 }

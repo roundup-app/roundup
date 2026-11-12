@@ -7,6 +7,8 @@ pub use crate::declarations::{metadata, owner_namespace};
 use specta::{Format, Type};
 use std::collections::BTreeSet;
 
+use crate::Error;
+
 #[derive(Clone)]
 pub struct Method<'a> {
     pub name: &'a str,
@@ -212,7 +214,7 @@ pub struct Metadata {
 
 impl Metadata {
     /// The single completeness check for declarations and in-memory fixtures.
-    pub fn check(&self) -> Result<(), String> {
+    pub fn check(&self) -> Result<(), Error> {
         let missing = match (self.mcp, self.perf) {
             (McpChoice::None(reason), _) if reason.trim().is_empty() => Some("MCP no-tool reason"),
             (_, PerfDisposition::OffPath(reason)) if reason.trim().is_empty() => {
@@ -222,7 +224,10 @@ impl Metadata {
             _ => None,
         };
         match missing {
-            Some(field) => Err(format!("{}: fill {field}", self.name)),
+            Some(field) => Err(Error::IncompleteMetadata {
+                name: self.name,
+                field,
+            }),
             None => Ok(()),
         }
     }
@@ -367,7 +372,7 @@ mod metadata_tests {
                 },
             ),
         ] {
-            let error = incomplete.check().unwrap_err();
+            let error = incomplete.check().unwrap_err().to_string();
             assert!(
                 error.contains("fixture.call") && error.contains(field),
                 "{error}"
