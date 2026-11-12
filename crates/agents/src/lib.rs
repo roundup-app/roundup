@@ -59,7 +59,7 @@ pub mod rewind;
 mod scan;
 pub mod worktree;
 
-use agent::{Agent, Facts, Fold, Run, Runs, Slot};
+use agent::{Agent, Facts, Run, Runs, Slot};
 use claude_code::{LaunchFacts, Launcher, Role};
 
 /// How a session began, as its adapter reports it.

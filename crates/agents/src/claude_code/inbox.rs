@@ -143,14 +143,6 @@ impl Launcher {
         Ok(format!("uds:{}", self.socket_dir()?.join("rupd").display()))
     }
 
-    /// Restore only the messaging endpoint of a verified surviving owner.
-    pub(crate) fn reattach_inbox(&self, agent: &str, socket: &Path) {
-        self.retained_inboxes
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(agent.to_owned(), socket.to_owned());
-    }
-
     /// The live session listening on `socket`: Claude Code lists each session in
     /// `<config>/sessions/<pid>.json` and keeps its token in a `<pid>.<hash>.key` beside it. A
     /// session that was killed leaves its files, so only a listed process still running counts.

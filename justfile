@@ -223,7 +223,7 @@ app-bundle:
     pnpm -r --if-present build
     cargo build --release --target "$triple" -p rupd -p rup -p terminal
     mkdir -p target/app-bundle-inputs
-    for bin in rupd rup terminal-owner; do
+    for bin in rupd rup; do
         cp "target/$triple/release/$bin" "target/app-bundle-inputs/$bin-$triple"
     done
     tools/sidecar/bundle.sh target/app-bundle-inputs/sidecar
@@ -247,7 +247,7 @@ app-bundle-check bundle:
         extracted = Path(folder).resolve() / source.name
         shutil.copytree(source, extracted, symlinks=True)
         binaries = extracted / "Contents/MacOS"
-        for name in ["roundup", "rupd", "rup", "terminal-owner", "sidecar/node"]:
+        for name in ["roundup", "rupd", "rup", "sidecar/node"]:
             binary = binaries / name
             if (not binary.is_file() or not os.access(binary, os.X_OK)
                     or not binary.resolve().is_relative_to(extracted)):

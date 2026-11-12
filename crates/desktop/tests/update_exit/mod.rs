@@ -89,8 +89,7 @@ impl Real {
             fake_claude.display(),
             rupd.display()
         );
-        let mut fx = Fixture::new(&body);
-        fx.config.terminal_owner = Some(built("terminal-owner"));
+        let fx = Fixture::new(&body);
         let (app, webview) = app(fx.config.clone(), None);
         let exited = daemon_exited(&app);
         open(&webview, &fx.project);

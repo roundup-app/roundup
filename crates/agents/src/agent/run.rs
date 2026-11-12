@@ -170,16 +170,6 @@ impl FirstSteer {
         }
     }
 
-    /// An Agent reattached after a Daemon restart: nothing is owed.
-    fn reattached() -> Self {
-        Self {
-            prompt: None,
-            pending: false,
-            completion: None,
-            progress: Some(Progress::Acknowledged),
-        }
-    }
-
     #[cfg(test)]
     fn none() -> Self {
         Self {
@@ -386,26 +376,6 @@ impl Run {
         );
         run.launch.yolo = yolo;
         run
-    }
-
-    /// A Run reattached to its still-running Terminal after a Daemon restart.
-    pub(crate) fn reattached(
-        fold: Fold,
-        attempt: Ordinal,
-        terminal_id: String,
-        cwd: String,
-        input_started: bool,
-    ) -> Self {
-        Self::new(
-            fold,
-            attempt,
-            terminal_id,
-            cwd,
-            FirstSteer::reattached(),
-            input_started,
-            false,
-            true,
-        )
     }
 
     /// A settled Run of Terminal "1", owing nothing.
