@@ -6,7 +6,7 @@ import type { Events } from "../app/events";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { descendantsOf, isWorkstreamChild } from "../rail/layout";
+import { descendantsOf, isWorkstreamChild } from "./railTopology";
 import { storageSchema, storedValue } from "./storage";
 
 /** U3566c: the finish count the user has read, per Agent id, of one original Project. */

@@ -9,7 +9,7 @@ import type { Worktree } from "@contracts/agent/Worktree";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
-import { failureOf } from "../todos/failureOf";
+import { failureOf } from "../app/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
 import { Popover } from "../ui/Popover";
 import { notesFor } from "./notes";

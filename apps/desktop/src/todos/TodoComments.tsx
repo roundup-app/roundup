@@ -13,7 +13,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { Collapsible } from "../ui/Collapsible";
 import { useConnectedProject } from "../state/connectedProject";
-import { doesClearTodoFailure, failureOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import { rowButtonOf, triage } from "./triage";
 
 // Rows are keyed by id so fold state, focus and fade survive an arrival.

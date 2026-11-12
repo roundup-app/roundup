@@ -1,6 +1,6 @@
 import { createNow, DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "./padList";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect } from "vitest";
 import type { Actor } from "@contracts/Actor";

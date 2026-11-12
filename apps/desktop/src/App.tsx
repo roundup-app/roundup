@@ -47,7 +47,7 @@ import { createProjectAlerts } from "./state/projectAlerts";
 import type { ProjectAlerts } from "./state/projectAlerts";
 import { createStateAlerts } from "./rail/stateAlerts";
 import type { StateAlerts } from "./rail/stateAlerts";
-import { railStorage } from "./rail/persist/storage";
+import { railStorage } from "./state/railStorage";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
 import { createRailSlide } from "./rail/slide";
@@ -305,7 +305,7 @@ export const App = (props: {
     when: () => !isTextEntry(document.activeElement),
     capture: focus => {
       const path = projects.active();
-      const undo = undoAction(path ? drafts(path).todoUndo : null, keys === "⇧⌘Z", focus);
+      const undo = undoAction(path ? drafts(path).undo : null, keys === "⇧⌘Z", focus);
 
       return {
         available: () => path !== null && projects.active() === path && undo.available && !isTextEntry(focus),
@@ -553,7 +553,7 @@ export const App = (props: {
     const connected = activeConnection();
     const path = projects.active();
 
-    return { path, items: projectMenuItems(menuFocus(), connected !== undefined && !(connected instanceof Error), path ? drafts(path).todoUndo : null) };
+    return { path, items: projectMenuItems(menuFocus(), connected !== undefined && !(connected instanceof Error), path ? drafts(path).undo : null) };
   });
 
   const writeMenu = untrack(() => createMenuWriter(props.app, setWindowFailure));
@@ -682,7 +682,7 @@ export const App = (props: {
         centre={
           <div class="storage-center">
           <For each={drafts.paths?.() ?? keys()}>{path => {
-            const undo = drafts(path).todoUndo;
+            const undo = drafts(path).undo;
 
             const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
 

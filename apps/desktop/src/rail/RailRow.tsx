@@ -22,12 +22,14 @@ import { Icon } from "../ink/Icon";
 import { mergeProps } from "@zag-js/solid";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
-import { descendantsOf, isMode, isWorkstream } from "./layout";
+import { isMode } from "./layout";
+import { descendantsOf, isWorkstream } from "../state/railTopology";
 import { rowKind, rowUnread } from "./rollup";
 import { Trunks } from "../ui/TreeView";
-import type { NodeRow, RailTopology } from "./layout";
+import type { NodeRow } from "./layout";
+import type { RailTopology } from "../state/railTopology";
 import { PadsControl } from "./pads/AgentPads";
-import { draftsOf } from "./persist/storage";
+import { draftsOf } from "../state/railStorage";
 
 /** What Ark's item and branch control take for the row's own element. */
 type RowProps = JSX.HTMLAttributes<HTMLDivElement>;

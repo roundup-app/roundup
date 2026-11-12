@@ -12,6 +12,9 @@ import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
+import { idle, step } from "./pull";
+import type { Pull, Pressed, Pulling } from "./pull";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tab } from "./tab";
 import type { TabContext } from "./tab";
 import { copy } from "./copy";
@@ -25,7 +28,7 @@ import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
-import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopology";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
@@ -470,51 +473,40 @@ export const Bubbles = (props: {
 
   /** U421: a right-button drag of `PULL_DISTANCE` pulls the selected Workstream's Terminal out under the pointer. */
   const pulling = () => {
-    let press: { x: number; y: number } | null = null;
-    let active = false;
-    let pointer = { x: 0, y: 0 };
-    let id: string | null = null;
-    let frame: number | null = null;
-    let swallowMenu = false;
-    let swallowUp = false;
-    let selection: string | null = null;
-    let target: EventTarget | null = null;
-    let pointerId: number | undefined;
+    let pull: Pull = idle();
     let disposed = false;
-    let openedId: string | null = null;
 
-    const apply = (): void => {
-      frame = null;
+    const apply = (running: Pulling): void => {
+      running.frame = null;
 
-      if (id !== null) holdAt(id, pointer);
+      if (running.id !== null) holdAt(running.id, running.pointer);
     };
 
-    const schedule = (): void => {
-      frame ??= requestAnimationFrame(apply);
+    const schedule = (running: Pulling): void => {
+      running.frame ??= requestAnimationFrame(() => apply(running));
     };
 
-    const end = (): void => {
-      if (frame !== null) {
-        cancelAnimationFrame(frame);
-        apply();
+    /** Leaves the running Pull; a queued frame lands first, so the bubble stays where the last move put it. */
+    const leave = (event: "release" | "cancel"): Pulling | null => {
+      const was = pull;
+
+      if (was.kind === "idle") return null;
+      pull = step(was, { type: event });
+
+      if (was.kind !== "pulling") return null;
+
+      if (was.frame !== null) {
+        cancelAnimationFrame(was.frame);
+        apply(was);
       }
 
-      press = null;
-      active = false;
+      return was;
     };
 
     const cancel = (): void => {
-      if (press === null) return;
+      if (pull.kind === "idle") return;
       generation += 1;
-
-      if (active) {
-        swallowMenu = true;
-        swallowUp = true;
-      }
-
-      end();
-      id = null;
-      openedId = null;
+      leave("cancel");
     };
 
     onCleanup(() => { disposed = true; cancel(); });
@@ -523,124 +515,110 @@ export const Bubbles = (props: {
     const blocked = (): boolean =>
       resolvedWorkstream(rail.nodes, rail.selected()) === null || opening() || readOnly() || surfaceOpen();
 
-    const start = (): void => {
-      active = true;
+    const start = (pressed: Pressed): void => {
+      const running = step(pressed, { type: "start" });
+
+      pull = running;
+
+      if (running.kind !== "pulling") return;
 
       const target = lastTarget();
 
       if (target !== null) {
-        id = target;
-        holdAt(target, pointer);
+        running.id = target;
+        holdAt(target, running.pointer);
 
         return;
       }
 
-      id = null;
       const request = generation;
-      const selected = selection;
+      const selected = running.selection;
       const current = () => !disposed && generation === request && rail.selected() === selected;
 
       void openTerminal(current, false).then((opened) => {
         if (opened === null || !current()) return;
 
-        id = opened;
+        running.id = opened;
         // Release retains its final pointer, cancellation invalidates this request.
-        holdAt(opened, pointer);
+        holdAt(opened, running.pointer);
 
-        if (press === null) focusItem(opened);
-        else openedId = opened;
+        if (pull === running) running.openedId = opened;
+        else focusItem(opened);
       });
     };
 
     const down = (event: PointerEvent): void => {
       cancel();
       generation += 1;
-      openedId = null;
-      swallowMenu = false;
-      swallowUp = false;
-      press = null;
+      pull = step(pull, { type: "clear" });
 
       if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || textTarget(event.target) || blocked()) return;
 
-      selection = rail.selected();
-      target = event.target;
-      pointerId = event.pointerId;
-      press = { x: event.clientX, y: event.clientY };
-      pointer = press;
+      pull = step(pull, { type: "press", press: { x: event.clientX, y: event.clientY }, selection: rail.selected(), target: event.target, pointerId: event.pointerId });
     };
 
+    const mine = (event: PointerEvent): boolean =>
+      pull.kind !== "idle" && (event.pointerId === undefined || event.pointerId === pull.pointerId);
+
     const move = (event: PointerEvent): void => {
-      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
+      if (pull.kind === "idle" || !mine(event)) return;
 
-      pointer = { x: event.clientX, y: event.clientY };
+      pull.pointer = { x: event.clientX, y: event.clientY };
 
-      if (!active) {
-        if ((event.buttons & 2) === 0 || Math.hypot(pointer.x - press.x, pointer.y - press.y) < PULL_DISTANCE) return;
+      if (pull.kind === "pressed") {
+        if ((event.buttons & 2) === 0 || Math.hypot(pull.pointer.x - pull.press.x, pull.pointer.y - pull.press.y) < PULL_DISTANCE) return;
 
-        start();
+        start(pull);
       }
 
       // A Pull crossing a Terminal keeps its move and release out of that program.
       event.stopPropagation();
 
-      if (id !== null) schedule();
+      if (pull.kind === "pulling" && pull.id !== null) schedule(pull);
     };
 
     const up = (event: PointerEvent): void => {
-      if (press === null || (event.pointerId !== undefined && event.pointerId !== pointerId)) return;
+      if (!mine(event)) return;
 
-      if (active) {
-        event.stopPropagation();
-        swallowMenu = true;
-        swallowUp = true;
-      }
+      if (pull.kind === "pulling") event.stopPropagation();
 
-      end();
+      const was = leave("release");
 
-      if (openedId !== null) focusItem(openedId);
-      openedId = null;
+      if (was?.openedId != null) focusItem(was.openedId);
     };
 
     const swallow = (event: Event): void => {
-      if (active) event.stopPropagation();
+      if (pull.kind === "pulling") event.stopPropagation();
     };
 
     const swallowRelease = (event: Event): void => {
-      if (!active && !swallowUp) return;
+      if (pull.kind !== "pulling" && !(pull.kind === "idle" && pull.swallowUp)) return;
 
-      swallowUp = false;
+      pull = step(pull, { type: "mouseup" });
       event.stopPropagation();
     };
 
     const menu = (event: Event): void => {
-      if (!active && !swallowMenu) return;
+      if (pull.kind !== "pulling" && !(pull.kind === "idle" && pull.swallowMenu)) return;
 
-      swallowMenu = false;
+      pull = step(pull, { type: "menu" });
       event.preventDefault();
       event.stopPropagation();
     };
 
-    const listen = <K extends keyof WindowEventMap>(name: K, listener: (event: WindowEventMap[K]) => void): void => {
-      window.addEventListener(name, listener, true);
-      onCleanup(() => window.removeEventListener(name, listener, true));
-    };
-
-    listen("pointerdown", down);
-    listen("pointermove", move);
-    listen("pointerup", up);
-    listen("pointercancel", event => { if (event.pointerId === undefined || event.pointerId === pointerId) cancel(); });
-    listen("blur", event => { if (event.target === event.currentTarget) cancel(); });
-    listen("focusin", event => { if (press !== null && event.target !== target) cancel(); });
-    listen("mousemove", swallow);
-    listen("mouseup", swallowRelease);
-    listen("contextmenu", menu);
+    makeEventListener(window, "pointerdown", down, true);
+    makeEventListener(window, "pointermove", move, true);
+    makeEventListener(window, "pointerup", up, true);
+    makeEventListener(window, "pointercancel", event => { if (event.pointerId === undefined || mine(event)) cancel(); }, true);
+    makeEventListener(window, "blur", event => { if (event.target === event.currentTarget) cancel(); }, true);
+    makeEventListener(window, "focusin", event => { if (pull.kind !== "idle" && event.target !== pull.target) cancel(); }, true);
+    makeEventListener(window, "mousemove", swallow, true);
+    makeEventListener(window, "mouseup", swallowRelease, true);
+    makeEventListener(window, "contextmenu", menu, true);
     registerKeys({ kind: "app" }, [{
       chords: ESCAPE,
-      when: () => active,
-      run: () => {
-        swallowMenu = true;
-        cancel();
-      },
+      when: () => pull.kind === "pulling",
+      run: cancel,
     }]);
   };
 

@@ -33,7 +33,7 @@ it("u5991a_every_rail_action_renders_before_its_call_answers", async () => {
 it("u5991b_ten_removals_and_an_undo_reach_the_daemon_once_in_order", async () => {
   const all = names(10);
   const { app, connected } = await mountRail(all.map(name => agent(name, "done", "finished", { terminal_id: null })));
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
   const finish: (() => void)[] = [];
 
   app.handlers["rail.remove"] = ({ id, operation }) => new Promise(resolve => {

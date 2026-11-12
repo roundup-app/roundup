@@ -8,7 +8,8 @@ import { TreeView } from "../ui/TreeView";
 import { captureActions } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
-import { isWorkstream, layoutRail, resolvedWorkstream } from "./layout";
+import { layoutRail } from "./layout";
+import { isWorkstream, resolvedWorkstream } from "../state/railTopology";
 import { markKind, rowAttention, rowKind, rowUnread } from "./rollup";
 import "./strip.css";
 

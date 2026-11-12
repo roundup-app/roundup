@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { copy } from "../../todos/copy";
+import { copy } from "../../state/copy";
 import { agent, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 import { createRoot } from "solid-js";
 import type { AppSeam } from "../../app/seam";
 import { createFakeApp } from "../../testing/fakeApp";
-import { createTodoUndo } from "../../todos/deleteTodos";
+import { createTodoUndo } from "../../state/undo";
 
 /** A todoUndo on a stub App: `lose` makes rail.remove's acknowledgement vanish; `hold` leaves it unanswered. */
 const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
@@ -111,7 +111,7 @@ describe("u5170d", () => {
   it.each(states.flatMap(state => (["menu", "shortcut"] as const).map(entry => [state, entry] as const)))("u5170d_menu_and_shortcut_remove_blocked_%s_%s", async (state, entry) => {
     const title = "Design feedback and doodles";
     const { app, connected } = await mountRail([workstream("w", { name: title }), agent("a", "done", "finished", { parent: "w", terminal_id: null })]);
-    const history = connected.drafts.todoUndo;
+    const history = connected.drafts.undo;
     const lost = () => { throw new Error("link lost"); };
 
     const pending = () => new Promise<never>(() => undefined);

@@ -1,6 +1,6 @@
 import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
-import { createItemFailure } from "../rail/itemFailure";
+import { createItemFailure } from "./itemFailure";
 import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
 import { applying } from "../app/pending";
@@ -11,10 +11,10 @@ import type { Status } from "@contracts/Status";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
-import { defaultWorkstreamName } from "../rail/defaultName";
-import { railTopology, type RailTopology } from "../rail/topology";
-import { ancestorsOf, isWorkstream } from "../rail/layout";
-import type { RailSection, RailStorage, ResumptionStorage } from "../rail/persist/storage";
+import { defaultWorkstreamName } from "./defaultName";
+import { railTopology, type RailTopology } from "./railTopology";
+import { ancestorsOf, isWorkstream } from "./railTopology";
+import type { RailSection, RailStorage, ResumptionStorage } from "./railStorage";
 import type { Events } from "../app/events";
 import { outcomeOf, type AppSeam } from "../app/seam";
 

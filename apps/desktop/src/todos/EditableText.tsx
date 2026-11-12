@@ -7,7 +7,7 @@ import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
-import { doesClearTodoFailure } from "./failureOf";
+import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 

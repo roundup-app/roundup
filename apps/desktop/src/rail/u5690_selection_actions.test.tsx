@@ -79,7 +79,7 @@ it.each([
 
   if (next) await waitFor(() => expect(document.activeElement).toBe(rowOf(next)));
   else await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".rail-tree")));
-  await waitFor(() => expect(connected.drafts.todoUndo.available("rail")).toBe(true));
+  await waitFor(() => expect(connected.drafts.undo.available("rail")).toBe(true));
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
 });
 
@@ -99,7 +99,7 @@ it("u5690d_mixed_losses_are_named_once_and_consent_uses_default_scopes", async (
   expect(railCallsTo(app, "rail.removeSelection")).toEqual([]);
   questionProbe.answer?.(true);
   await waitFor(() => expect(railCallsTo(app, "rail.removeSelection")).toEqual([{ ids: ["a", "c", "e"] }]));
-  expect(connected.drafts.todoUndo.available("rail")).toBe(false);
+  expect(connected.drafts.undo.available("rail")).toBe(false);
 });
 
 it.each(["Enter", "Escape"])("u5690c_group_collects_in_rail_order_and_focuses_rename_%s", async key => {

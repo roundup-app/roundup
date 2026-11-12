@@ -15,7 +15,7 @@ import { padHandlers, todoHandlers } from "../../testing/stores";
 import type { PadStore, TodoStore } from "../../testing/stores";
 import { Todos } from "../../todos/Todos";
 import { todo } from "../../todos/testHarness";
-import * as topology from "../topology";
+import * as topology from "../../state/railTopology";
 import { copy } from "../copy";
 import * as todoList from "../../todos/todoList";
 import { rowOf, settled } from "../railFixture";

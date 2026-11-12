@@ -896,8 +896,17 @@ mod tests {
                         }).await.map_err(io::Error::other)??;
                         let mut system = System::new();
                         system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                        // The program runs under the core the Daemon started, so the Daemon is an ancestor.
+                        let daemon = sysinfo::Pid::from_u32(launched.as_ref().unwrap().1);
+                        let under_daemon = |mut at: Option<sysinfo::Pid>| {
+                            while let Some(pid) = at {
+                                if pid == daemon { return true; }
+                                at = system.process(pid).and_then(|p| p.parent());
+                            }
+                            false
+                        };
                         producer = system.processes().iter().find_map(|(id, child)| {
-                            (child.name() == "yes" && child.parent() == Some(sysinfo::Pid::from_u32(launched.as_ref().unwrap().1))).then_some(id.as_u32())
+                            (child.name() == "yes" && under_daemon(child.parent())).then_some(id.as_u32())
                         });
                         assert!(producer.is_some(), "the run owned no live yes producer");
                         let measured = client.request("terminal.open", serde_json::json!({"workstream":null})).await.map_err(io::Error::other)?;

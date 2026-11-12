@@ -6,9 +6,10 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { easingOut, reorderMs, translateOf } from "../ui/reorderMotion";
 import { railCollection } from "./collection";
 import { copy } from "./copy";
-import { foldIdOf, isWorkstream, layoutRail, type NodeRow, type RailRow } from "./layout";
+import { foldIdOf, layoutRail, type NodeRow, type RailRow } from "./layout";
+import { isWorkstream } from "../state/railTopology";
 import { placeable } from "./placement";
-import type { RailSection } from "./persist/storage";
+import type { RailSection } from "../state/railStorage";
 
 export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
   { id: "workstreams", label: copy.workstreamsHead, icon: KIND_ICON.workstream },

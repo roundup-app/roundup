@@ -1,6 +1,6 @@
 import { createEffect, untrack } from "solid-js";
 import { createStore } from "solid-js/store";
-import { isWorkstreamChild } from "../rail/layout";
+import { isWorkstreamChild } from "../state/railTopology";
 import { retryRead } from "../app/seam";
 import { copy as appCopy } from "./copy";
 import type { OutputMessage, OutputSubscription } from "../app/seam";

@@ -13,7 +13,7 @@ import { copy } from "./copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
-import { changeFailureOf, failureOf } from "../todos/failureOf";
+import { changeFailureOf, failureOf } from "../app/failureOf";
 import { Icon } from "../ink/Icon";
 import { registerOpener } from "../shelf/openItem";
 import { PAD_ICON } from "../shelf/frame";
@@ -33,8 +33,8 @@ import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { Sortable } from "../ui/sortable";
-import { usePadList } from "../rail/pads/padList";
-import type { PadList } from "../rail/pads/padList";
+import { usePadList } from "./padList";
+import type { PadList } from "./padList";
 
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
 export const Pads = (props: {
@@ -158,8 +158,8 @@ export const Pads = (props: {
     targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
-    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
-    remove: (ids) => connected.drafts.todoUndo.removePads(pads().filter(pad => ids.includes(pad.incarnation)), shelf ? "shelf" : "pads"),
+    blocked: () => connected.drafts.undo.pending() || connected.drafts.undo.uncertain(),
+    remove: (ids) => connected.drafts.undo.removePads(pads().filter(pad => ids.includes(pad.incarnation)), shelf ? "shelf" : "pads"),
     reload: async () => {
       await list.reload();
 

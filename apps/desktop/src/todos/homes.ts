@@ -1,6 +1,6 @@
 import { copy } from "./copy";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { isWorkstream, railOrder } from "../rail/layout";
+import { isWorkstream, railOrder } from "../state/railTopology";
 
 export type Home = { home: string | null; name: string };
 
