@@ -1,6 +1,6 @@
 import { createStore } from "solid-js/store";
 import { createHeld } from "./held";
-import { createUndo } from "./undo";
+import { createTodoUndo } from "./undo";
 import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
@@ -44,7 +44,7 @@ type Recovery = (draft: Draft, facts: {
 }) => Availability;
 
 type ProjectDrafts = Drafts & {
-  undo: ReturnType<typeof createUndo>;
+  undo: ReturnType<typeof createTodoUndo>;
   importing: ReturnType<typeof createImport> | null;
   settingsView: SettingsViewState;
   /** Surface-owned identity extraction, installed independently of the original editor.
@@ -72,7 +72,7 @@ export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { pat
     const [recovery, setRecovery] = createStore<Record<string, Recovery | undefined>>({});
 
     const holder: ProjectDrafts = {
-      undo: createUndo(),
+      undo: createTodoUndo(),
       importing: null,
       settingsView: createSettingsView(),
       editor: storage.editor,

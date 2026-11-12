@@ -6,7 +6,7 @@ import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 import { createRoot } from "solid-js";
 import type { AppSeam } from "../../app/seam";
 import { createFakeApp } from "../../testing/fakeApp";
-import { createUndo } from "../../state/undo";
+import { createTodoUndo } from "../../state/undo";
 
 /** A todoUndo on a stub App: `lose` makes rail.remove's acknowledgement vanish; `hold` leaves it unanswered. */
 const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
@@ -35,7 +35,7 @@ const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
   // SAFETY: the todoUndo under test calls only `rpc`, and each method it sends answers with one of the shapes above.
   const app: AppSeam = { ...createFakeApp(), rpc: rpc as AppSeam["rpc"] };
 
-  const undo = createRoot(() => createUndo());
+  const undo = createRoot(() => createTodoUndo());
 
   if (mode !== "offline") undo.reconnect(app);
 

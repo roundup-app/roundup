@@ -63,7 +63,7 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
 }
 
 /** Project-owned receipts, never client snapshots. The current connection may change; the operation does not. */
-export function createUndo() {
+export function createTodoUndo() {
   const [stack, setStack] = createSignal<(({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] } | { kind: "rail"; receipt: RailDeletion; name: string }) & { regions: string[] })[]>([]);
 
   type Operation = ReturnType<typeof stack>[number];
