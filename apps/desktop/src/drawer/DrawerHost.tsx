@@ -11,7 +11,7 @@ import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { useContext } from "solid-js";
-import { createContext, createEffect, createSignal, on, onCleanup, Show } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Icon } from "../ink/Icon";
@@ -131,7 +131,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   );
 
   // U3721b: the centre takes the Drawer's width once, when its slide ends; a width never interpolates.
-  const reserve = createMemo<boolean>(held => lifetime.sliding() ? held : isOpen(), isOpen());
+  const reserve = createMemo<boolean>(prev => lifetime.sliding() ? prev : isOpen(), isOpen());
 
   onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 

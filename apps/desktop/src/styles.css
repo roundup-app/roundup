@@ -22,7 +22,7 @@ p {
 
 :focus { outline: none; }
 
-.window[data-shelf-key] { --slide-duration: var(--duration-key); }
+.window[data-shelf-key="true"] { --slide-duration: var(--duration-key); }
 
 /* U449: every content region starts beneath the shared window bar. */
 .window {

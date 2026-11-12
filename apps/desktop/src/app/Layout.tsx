@@ -137,12 +137,12 @@ export const Layout = (props: {
   }, { defer: true }));
 
   // U3721b: the centre takes its final width once, when the slide ends, never by interpolating it.
-  const reserved = createMemo<boolean>(held => placement().sliding === true ? held : placement().shown, placement().shown);
+  const reserved = createMemo<boolean>(prev => placement().sliding === true ? prev : placement().shown, false);
   createEffect(() => { if (placement().reducedMotion) setShelfSliding(false); });
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : placement().peeking ? "peek" : "closed"} data-shelf-peek={placement().covering === true} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-reserved={reserved()} data-shelf-key={placement().keyed || undefined} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : placement().peeking ? "peek" : "closed"} data-shelf-peek={placement().covering === true} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-reserved={reserved()} data-shelf-key={placement().keyed === true} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
