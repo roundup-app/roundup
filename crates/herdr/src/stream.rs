@@ -20,15 +20,6 @@ pub(crate) struct Channels {
 pub(crate) const MAX_ORPHAN_BYTES: usize = 4 << 20;
 
 impl Channels {
-    /// Free what is kept for `channel`.
-    pub(crate) fn free(&mut self, channel: u32) {
-        for ev in self.orphans.remove(&channel).unwrap_or_default() {
-            if let Ev::Data(d) = ev {
-                self.orphan_bytes -= d.len();
-            }
-        }
-    }
-
     /// Hand `channel`'s kept frames to a reader, in order.
     pub(crate) fn claim(&mut self, channel: u32, tx: &mpsc::UnboundedSender<Ev>) {
         for ev in self.orphans.remove(&channel).unwrap_or_default() {
@@ -60,8 +51,7 @@ pub(crate) fn deliver(channels: &Streams, channel: u32, ev: Ev) {
             let _ = tx.send(ev);
         }
         None => match ev {
-            // An unclaimed channel that closes will never be attached.
-            Ev::Close(_) => state.free(channel),
+            // A CLOSE is held with the frames, in order: the attach reply may still come (MC27).
             Ev::Data(d) if state.orphan_bytes + d.len() > MAX_ORPHAN_BYTES => {}
             ev => {
                 if let Ev::Data(d) = &ev {
