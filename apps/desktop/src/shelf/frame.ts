@@ -41,7 +41,7 @@ export type ShelfFrame = {
   keyed: Accessor<boolean>;
   maximised: Accessor<boolean>;
   toggleMaximise: (source?: ActivationSource) => void;
-  /** U3721a: leave the maximised state with no motion of its own, for a close that already moves. */
+  /** U3721a, U3721b: leave the maximised state with no motion of its own, for a close that already moves; after a closing slide it waits for the slide to end. */
   unmaximise: () => void;
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
@@ -100,6 +100,16 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   }, { defer: true }));
 
   const rendered = () => phase() !== "closed" || lifetime.exiting();
+
+  let restoreAfterExit = false;
+
+  createEffect(on(lifetime.exiting, (exiting) => {
+    if (exiting || !restoreAfterExit) return;
+
+    restoreAfterExit = false;
+    setMaximised(false);
+    save();
+  }, { defer: true }));
 
   const move = (to: ShelfPhase, slides: boolean, remember: boolean, source: ActivationSource = "pointer") => {
     // One update: `rendered` must never read false between the phase and the exit retention changing.
@@ -177,6 +187,14 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     },
     unmaximise: () => {
       if (!maximised()) return;
+
+      // A closing slide carries the full-width Shelf out whole; the width drops once it has left.
+      if (lifetime.exiting()) {
+        restoreAfterExit = true;
+
+        return;
+      }
+
       setMaximised(false);
       save();
     },

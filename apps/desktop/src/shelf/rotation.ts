@@ -37,9 +37,9 @@ export const createBenchRotation = (props: {
   const close = () => {
     drawer()?.close("key");
 
-    props.frame.unmaximise();
-
     if (props.frame.open()) props.toggle("key");
+
+    props.frame.unmaximise();
   };
 
   const step = (open: DrawerState | undefined) => {

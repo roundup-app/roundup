@@ -82,3 +82,21 @@ it("u3721b_a_press_during_a_motion_leaves_one_running_motion", () => createRoot(
   expect(cancels[1]).not.toHaveBeenCalled();
   dispose();
 }));
+
+it("u3721b_closing_a_full_bench_slides_it_out_whole_then_restores_its_width", () => {
+  let dispose = () => {};
+
+  const frame = createRoot(done => {
+    dispose = done;
+
+    return createShelfFrame(() => "/two", () => false, () => {});
+  });
+
+  frame.toggleMaximise("key");
+  frame.toggle("key");
+  frame.unmaximise();
+  expect(frame.maximised()).toBe(true);
+  frame.settle();
+  expect(frame.maximised()).toBe(false);
+  dispose();
+});
