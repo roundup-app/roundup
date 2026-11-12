@@ -19,6 +19,7 @@ mod recorder;
 mod scheme;
 mod screen;
 mod spawn;
+pub use spawn::Adopted;
 mod status;
 pub use status::{BlockedKind, Change, ProgramState, Record};
 

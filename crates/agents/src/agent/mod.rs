@@ -5,7 +5,7 @@ mod run;
 use std::collections::HashMap;
 
 use contracts::agent::Stray;
-pub(crate) use run::{Run, Slot};
+pub(crate) use run::{Fold, Run, Slot};
 
 use crate::claude_code::toolcall::Tracked;
 use crate::id::AgentId;

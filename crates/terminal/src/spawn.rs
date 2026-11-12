@@ -1,5 +1,13 @@
 use super::*;
 
+/// What a reattached Terminal's record needs that the core does not hold.
+pub struct Adopted {
+    pub cwd: String,
+    pub cols: u16,
+    pub rows: u16,
+    pub program: String,
+}
+
 impl Terminals {
     /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
     pub(super) fn evict_for_cap(&self, owner: &str) -> Result<bool, Error> {
@@ -40,10 +48,6 @@ impl Terminals {
         if !Path::new(&params.cwd).is_dir() {
             return Err(invalid(format!("cwd is not a directory: {}", params.cwd)));
         }
-        // Generate independently of authentication and vendor content; failure starts no program.
-        let mut nonce = [0u8; 32];
-        getrandom::fill(&mut nonce).map_err(Error::internal)?;
-        let incarnation = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
         let conn = self.core().await?;
         let number = self.next.fetch_add(1, Ordering::Relaxed);
         let ran = host::run(
@@ -63,6 +67,88 @@ impl Terminals {
             .get("pid")
             .and_then(Value::as_u64)
             .and_then(|pid| u32::try_from(pid).ok());
+        self.adopt(
+            conn,
+            core_id,
+            pid,
+            Adopted {
+                cwd: params.cwd,
+                cols: params.cols,
+                rows: params.rows,
+                program: program_name(params.command.as_deref()),
+            },
+            owner,
+            number,
+        )
+        .await
+    }
+
+    /// A12a: the core's id for Terminal `id` and what a reattach needs, or `None` for a Terminal
+    /// that has ended.
+    pub fn core_record(&self, id: &str) -> Result<Option<(String, Adopted)>, Error> {
+        let Ok(number) = id.parse::<u64>() else {
+            return Ok(None);
+        };
+        let table = self.shared.table()?;
+        let Some(entry) = table.get(&number) else {
+            return Ok(None);
+        };
+        let Some(handle) = &entry.handle else {
+            return Ok(None);
+        };
+        let screen = entry.screen.locked("screen")?;
+        Ok(Some((
+            handle.core_id.clone(),
+            Adopted {
+                cwd: entry.info.cwd.clone(),
+                cols: screen.cols,
+                rows: screen.rows,
+                program: entry.info.program.clone(),
+            },
+        )))
+    }
+
+    /// Reattach Terminal `core_id`, which the core kept across the Daemon: attach it again, with
+    /// no launch and no input. A terminal the core no longer holds, or whose program has ended,
+    /// is the caller's error, and its Agent stays `done` (A8).
+    pub async fn reattach(
+        &self,
+        core_id: &str,
+        adopted: Adopted,
+        owner: Option<String>,
+    ) -> Result<Spawned, Error> {
+        window(adopted.cols, adopted.rows)?;
+        let conn = self.core().await?;
+        let got = conn
+            .call("terminal.get", serde_json::json!({"terminal": core_id}))
+            .await
+            .map_err(|err| Error::not_found(format!("terminal {core_id}: {err}")))?;
+        if got.get("state").and_then(Value::as_str) != Some("live") {
+            return Err(Error::not_found(format!("terminal {core_id} is not live")));
+        }
+        let pid = got
+            .get("pid")
+            .and_then(Value::as_u64)
+            .and_then(|pid| u32::try_from(pid).ok());
+        let number = self.next.fetch_add(1, Ordering::Relaxed);
+        self.adopt(conn, core_id.to_owned(), pid, adopted, owner, number)
+            .await
+    }
+
+    /// Attach `core_id` and publish its stream as Terminal `number`.
+    async fn adopt(
+        &self,
+        conn: Arc<herdr::Conn>,
+        core_id: String,
+        pid: Option<u32>,
+        adopted: Adopted,
+        owner: Option<String>,
+        number: u64,
+    ) -> Result<Spawned, Error> {
+        let mut nonce = [0u8; 32];
+        getrandom::fill(&mut nonce).map_err(Error::internal)?;
+        let incarnation = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
+        let params = adopted;
         let stream = conn
             .attach(
                 &core_id,
@@ -106,7 +192,7 @@ impl Terminals {
                     incarnation,
                     cwd: params.cwd,
                     title: None,
-                    program: program_name(params.command.as_deref()),
+                    program: params.program,
                     running: true,
                     exit_code: None,
                     owner,
