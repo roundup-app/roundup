@@ -168,8 +168,6 @@
 
 .traffic-lights { grid-column: 1; grid-row: 1; height: 100%; }
 
-/* U6228f: the Rail's toggle sits at the end of the leading column, right after the traffic lights, in every Rail state. */
-.window-bar .rail-toggle { grid-column: 1; grid-row: 1; justify-self: end; align-self: center; }
 .window-bar .strip { grid-column: 2; overflow: clip; }
 
 .header-recovery {
