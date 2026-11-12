@@ -46,7 +46,7 @@ const dragEdge = async (label: string, panel: string, from: number, to: number):
 };
 
 // What the Rail's drag persisted for the Project, the width it kept and whether it collapsed.
-const stored = () => page.call<{ rail: number; collapsed: boolean }>(`() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find(key => key.startsWith("roundup:widths:")))) `);
+const stored = () => page.call<{ rail: number; collapsed: boolean }>(`() => JSON.parse(localStorage.getItem("roundup:viewer")) `);
 
 const railDrag = (from: number, to: number) => dragEdge("Resize Rail", ".rail", from, to);
 
