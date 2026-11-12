@@ -185,7 +185,7 @@ async fn apply_status(
     };
     {
         let mut store = lock(&inner.store);
-        (inner.fault)("on_status").map_err(Error::internal)?;
+        (inner.fault)("on_status")?;
         reconcile(
             inner,
             &mut store,

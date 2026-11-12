@@ -56,7 +56,7 @@ impl Pushes {
                 if op == "push" {
                     sends.fetch_add(1, Ordering::SeqCst);
                     if refusals.load(Ordering::SeqCst) {
-                        return Err("injected Digest refusal".into());
+                        return Err(crate::Error::internal("injected Digest refusal"));
                     }
                 }
                 Ok(())

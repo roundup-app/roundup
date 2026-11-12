@@ -8,10 +8,10 @@ import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
+import { strandedTabKeys } from "./strandedTabs";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
-import { MARKS, markOf } from "./tab";
-import type { Mark, StripTab } from "./tab";
+import { MARKS, markOf, type Mark, type StripTab } from "./tab";
 import "./strip.styles.css";
 
 type Edge = { mark: Mark; count: number; nearest: string };
@@ -274,10 +274,10 @@ export const Strip = (props: {
     </Show>
   );
 
+  registerKeys({ kind: "app" }, strandedTabKeys({ paths: () => paths(), active: () => props.active, focusTab: path => elements.get(path)?.querySelector<HTMLElement>("[role=tab]")?.focus() }));
+
   return (
-    <div class="strip" onFocusIn={(press) => {
-      if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
-    }}>
+    <div class="strip" onFocusIn={(press) => { if (!asking() && press.target === closeOpener()) setCloseOpener(undefined); }}>
       <div class="strip-scroll">
         {edge(copy.left, left())}
         <Tabs.Context>{(tabs) => <Sortable.Root {...tabs().getListProps()} onDrag={undefined} class="tablist app-tabs-list" aria-label={copy.projects} plain horizontal ids={paths()} onOrderChange={(ids) => props.onReorder(ids)} ref={(element) => { list = element; setListElement(element); onCleanup(() => setListElement(undefined)); }} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>

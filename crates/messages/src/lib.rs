@@ -75,7 +75,7 @@ pub struct Env {
 }
 
 /// See `Env::fault`.
-pub type Fault = Arc<dyn Fn(&str) -> Result<(), String> + Send + Sync>;
+pub type Fault = Arc<dyn Fn(&str) -> Result<(), Error> + Send + Sync>;
 
 pub struct Messages {
     inner: Arc<Inner>,

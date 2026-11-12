@@ -120,7 +120,11 @@ pub(crate) fn messages_env(
                     .append(true)
                     .open(path)
                     .and_then(|mut file| writeln!(file, "{name}"))
-                    .map_err(|err| format!("Messages observer could not record {name}: {err}"))?;
+                    .map_err(|err| {
+                        messages::Error::Internal(format!(
+                            "Messages observer could not record {name}: {err}"
+                        ))
+                    })?;
             }
             let selected = fault_file
                 .as_ref()
@@ -129,7 +133,9 @@ pub(crate) fn messages_env(
                 || (op.as_deref() == Some(name)
                     && armed.swap(false, std::sync::atomic::Ordering::SeqCst))
             {
-                Err(format!("injected failure in {name}"))
+                Err(messages::Error::Internal(format!(
+                    "injected failure in {name}"
+                )))
             } else {
                 Ok(())
             }

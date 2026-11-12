@@ -1,6 +1,6 @@
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { Layout } from "../app/Layout";
+import { Layout } from "../window/Layout";
 import { createWidths } from "./widths";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });

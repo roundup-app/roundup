@@ -253,6 +253,9 @@ def main():
                 old = {section: inventory(section, checkout) for section in sections if section not in unrecorded}
             finally:
                 run(['git', 'worktree', 'remove', '--force', checkout], root)
+    # A file the PR renamed keeps its debt: compare the merge base's rows at their new paths.
+    renames = dict(line.split('\t')[1:] for line in run(['git', 'diff', '--name-status', '-M', base], root).stdout.splitlines() if line.startswith('R'))
+    old = {section: [{**row, 'path': renames.get(row['path'], row['path'])} if 'path' in row else row for row in rows] for section, rows in old.items()}
     # Likewise a function-size rule the merge base holds no row of: its first PR records it.
     first = {rule for rule in (*FUNCTION_RULES, *HOLDER_RULES) if not any(row.get('rule') == rule for row in old.get('oxlint', []))}
     excused = advisory_excuse(root, base)

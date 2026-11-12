@@ -146,3 +146,22 @@ async fn p17_positioned_pads_keep_their_order_before_the_rest() {
         .unwrap();
     assert_eq!(listed_names(&pads, &ctx).await, ["A", "b", "c", "Z"]);
 }
+
+#[tokio::test]
+async fn p17b_mixed_positioned_and_unpositioned_pads_list_positioned_first() {
+    let names: Vec<String> = (0..210).map(|n| format!("pad {n:03}")).collect();
+    let refs: Vec<&str> = names.iter().rev().map(String::as_str).collect();
+    let (dir, pads, ctx) = pads_named(&refs).await;
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    let positioned: Vec<&String> = names.iter().step_by(3).collect();
+    for (position, name) in positioned.iter().rev().enumerate() {
+        db.execute(
+            "UPDATE pads SET position = ?2 WHERE key = ?1",
+            rusqlite::params![name, position as i64],
+        )
+        .unwrap();
+    }
+    let mut expected: Vec<String> = positioned.iter().rev().map(|n| (*n).clone()).collect();
+    expected.extend(names.iter().filter(|n| !positioned.contains(n)).cloned());
+    assert_eq!(listed_names(&pads, &ctx).await, expected);
+}

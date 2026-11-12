@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { Layout } from "../app/Layout";
+import { Layout } from "../window/Layout";
 import { Tabs } from "../ui/Tabs";
 import { createShelfTabs, ShelfTabs } from "./Shelf";
 import { createShelfFrame, type ShelfFrame } from "./frame";

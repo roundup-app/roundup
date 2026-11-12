@@ -51,7 +51,7 @@ impl Faulty {
                     }
                     Some((_, Fail::Err)) => {
                         *armed = None;
-                        Err(format!("injected error in {op}"))
+                        Err(crate::Error::internal(format!("injected error in {op}")))
                     }
                     None => Ok(()),
                 }

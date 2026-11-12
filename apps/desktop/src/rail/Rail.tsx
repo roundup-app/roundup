@@ -3,7 +3,7 @@ import { usePadList } from "./pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
-import { EmptyRail } from "../app/FirstRun";
+import { EmptyRail } from "./EmptyRail";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
@@ -27,7 +27,8 @@ import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { ancestorsOf, descendantsOf, isMode, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
-import { focusedRowId, ROW, type RowActions } from "./rows";
+import { focusedRowId, keyedRowIdAt, ROW, rowIdAt, strandedRow, type RowActions } from "./rows";
+import { strandedRowKeys } from "./strandedKeys";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
@@ -562,13 +563,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
-    { action: CHORDS["rail.move"], when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
-      const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+    { action: CHORDS["rail.move"], when: press => moveAgent.available(keyedRowIdAt(press, rail.selected())), capture: focus => {
+      const id = rowIdAt(focus, rail.selected());
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
-    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === focusedRowId(press) && isMode(node)), capture: focus => {
-      const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+    { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === keyedRowIdAt(press, rail.selected()) && isMode(node)), capture: focus => {
+      const id = rowIdAt(focus, rail.selected());
 
       return {
         available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && isMode(node)),
@@ -594,14 +595,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     { action: CHORDS["rail.remove"], capture: () => ({ available: () => (selectedNodes().length > 0 || rail.nodes.some((node) => node.id === rail.selected())) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
-  registerKeys({ kind: "region", element: container }, [{ action: CHORDS["rail.rename"], capture: focus => {
-    const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+  const rename = (when?: (press: KeyboardEvent) => boolean) => ({ action: CHORDS["rail.rename"], ...when && { when }, capture: (focus: Element | null) => {
+    const id = rowIdAt(focus, rail.selected());
 
-    return {
-      available: () => !!id && !!focus?.isConnected && !focus.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
-      invoke: () => { if (id) setEditingName(id); },
-    };
-  } }]);
+    return { available: () => !!id && !!focus?.isConnected && !focus?.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id), invoke: () => { if (id) setEditingName(id); } };
+  } });
+
+  registerKeys({ kind: "region", element: container }, [rename()]);
+  registerKeys({ kind: "app" }, [rename(strandedRow), ...strandedRowKeys({ nodes: () => rail.nodes, ids: nodeIds, selected: rail.selected, collapsed, active: () => daemonExit() === null, toggle: rail.toggleCollapsed, go: next => { selection.selection.replace(next); anchorAt(next); rail.select(next); focusRow(next); } })]);
 
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(

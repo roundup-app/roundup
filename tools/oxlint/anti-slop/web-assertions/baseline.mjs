@@ -56,10 +56,13 @@ export function baselineChanges(root) {
   if (base.error || !base.entries) return null;
   const head = baselineEntries(root);
   const headKeys = new Set(head.map(assertionKey));
-  const baseKeys = new Set(base.entries.map(assertionKey));
+  // A test file the PR renamed keeps its entry at the new path.
+  const renames = new Map(execFileSync("git", ["diff", "--name-status", "-M", base.sha, "HEAD"], { cwd: root, encoding: "utf8" }).split("\n")
+    .filter(line => line.startsWith("R")).map(line => line.split("\t").slice(1)));
+  const baseKeys = new Set(base.entries.map(entry => assertionKey({ ...entry, file: renames.get(entry.file) ?? entry.file })));
   return {
     sha: base.sha,
     added: head.filter(entry => !baseKeys.has(assertionKey(entry))),
-    removed: base.entries.filter(entry => !headKeys.has(assertionKey(entry))),
+    removed: base.entries.filter(entry => !headKeys.has(assertionKey({ ...entry, file: renames.get(entry.file) ?? entry.file }))),
   };
 }

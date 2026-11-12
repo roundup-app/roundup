@@ -1,4 +1,4 @@
-import { StorageRecovery } from "./app/StorageRecovery";
+import { StorageRecovery } from "./window/StorageRecovery";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { CapturePanel } from "./todos/CapturePanel";

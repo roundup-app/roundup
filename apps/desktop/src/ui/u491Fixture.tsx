@@ -1,7 +1,7 @@
 import { render } from "solid-js/web";
 import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
-import { Layout } from "../app/Layout";
+import { Layout } from "../window/Layout";
 import { createWidths } from "../resize/widths";
 import { Splitter } from "./Splitter";
 import { createToast, ToastProvider } from "./Toast";

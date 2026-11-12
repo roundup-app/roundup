@@ -169,11 +169,11 @@ impl Messages {
                     &payload,
                 )?;
                 if wake.is_some() {
-                    (self.inner.fault)("wake").map_err(Error::internal)?;
+                    (self.inner.fault)("wake")?;
                 }
                 if let Some(c) = continuation {
                     store.accept_continuation(c, message.id)?;
-                    (self.inner.fault)("continuation").map_err(Error::internal)?;
+                    (self.inner.fault)("continuation")?;
                 }
                 let mut merged = Vec::new();
                 for id in folded {

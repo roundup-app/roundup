@@ -1,6 +1,6 @@
 import madge from 'madge';
 import ts from 'typescript';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 try {
@@ -35,8 +35,36 @@ try {
   }
 
   const cycles = graph.circular();
-  console.log(JSON.stringify({ tool: 'madge 8.0.0', cycles }));
-  process.exitCode = cycles.length ? 1 : 0;
+
+  // Directory mode: no two top-level directories import each other. Production files only, so a test or a harness may cross directories.
+  const directory = (file) => (file.includes('/') ? file.split('/')[0] : null);
+  const edges = new Set();
+
+  for (const [file, imports] of Object.entries(graph.obj())) {
+    if (/(?:\.test|Harness|Fixture)\.tsx?$/.test(file) || file.startsWith('testing/')) continue;
+
+    for (const target of imports) {
+      const [from, to] = [directory(file), directory(target)];
+
+      if (from && to && from !== to) edges.add(`${from}>${to}`);
+    }
+  }
+
+  const pairs = [...edges].flatMap((edge) => {
+    const [a, b] = edge.split('>');
+
+    return a < b && edges.has(`${b}>${a}`) ? [`${a}<>${b}`] : [];
+  }).sort();
+
+  const baselinePath = resolve(root, 'tools/lint/directory-pairs.json');
+  const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : [];
+  const added = pairs.filter((pair) => !baseline.includes(pair));
+  const stale = baseline.filter((pair) => !pairs.includes(pair));
+
+  console.log(JSON.stringify({ tool: 'madge 8.0.0', cycles, directoryPairs: { added, stale } }));
+
+  if (stale.length) console.error(`directory pairs repaired, remove from tools/lint/directory-pairs.json: ${stale.join(', ')}`);
+  process.exitCode = cycles.length || added.length || stale.length ? 1 : 0;
 } catch (error) {
   console.error(`madge: ${error.message}`);
   process.exitCode = 2;

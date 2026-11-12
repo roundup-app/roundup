@@ -1,8 +1,11 @@
-import { menuBarCopy } from "./copy";
+import { copy, menuBarCopy } from "./copy";
 import type * as Solid from "solid-js";
-import type { ConnectedProject } from "../state/connectedProject";
+import type { ConnectedProject, createProjectDrafts } from "../state/connectedProject";
 import type { OpenTab } from "../state/projects";
-import type { App, MenuBar } from "./seam";
+import type { App, MenuBar, MenuItem } from "../app/seam";
+import { captureActions } from "../keys/registry";
+import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "../keys/chords";
+import { historyRegion } from "../keys/focus";
 import type { Kind } from "@contracts/Kind";
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
@@ -147,4 +150,68 @@ export const watchMenuBar = (options: {
   });
 
   onCleanup(stop);
+};
+
+type TodoUndo = ReturnType<ReturnType<typeof createProjectDrafts>>["todoUndo"];
+
+/** The one Undo or Redo the key (⌘Z, ⇧⌘Z) and the Project menu both run; it names what it would do and whether it can. */
+export const undoAction = (history: TodoUndo | null, redo: boolean, focus: Element | null) => {
+  const region = historyRegion(focus);
+
+  return {
+    available: history !== null && !history.pending() && (redo ? history.redoAvailable(region) : history.available(region)),
+    label: history ? (redo ? history.redoLabel(region) : history.undoLabel(region)) : redo ? copy.redo : copy.todoUndo,
+    run: () => { void (redo ? history!.redo(region) : history!.undo(region)); },
+  };
+};
+
+export const TEXT_FIELD = "input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]";
+
+/** The Project menu's rows: Undo and Redo ("edit"), then the creating ("create") and navigating ("navigate") actions the focus can reach. */
+export const projectMenuItems = (focus: Element | null, connected: boolean, history: TodoUndo | null): MenuItem[] => {
+  const actions = captureActions(focus);
+
+  return [
+    ...(!focus?.closest(TEXT_FIELD) ? ["⌘Z", "⇧⌘Z"].map(keys => {
+      const undo = undoAction(history, keys === "⇧⌘Z", focus);
+
+      return { id: `action:chord:${keys}`, label: undo.label, shortcut: keys, group: "edit" as const, enabled: connected && undo.available };
+    }) : []),
+    ...[
+      ...(["agent.new", "agent.new-with-prompt", "workstream.new", "mode.new", "terminal.new", "todo.capture", "attention.jump"] as const).map(name => CHORDS[name]),
+      LEADER["leader.changes"],
+      LEADER["leader.project"],
+      CHORDS["project.choose-folder"],
+    ].map((row, index): MenuItem => {
+      const action = actions.find(action => action.name === row.name && action.available());
+
+      return {
+        id: action?.value ?? `action:${"press" in row ? "leader" : "chord"}:${row.keys}`,
+        label: copy.projectMenuLabel(row.name, row.what),
+        shortcut: "press" in row ? leaderKeys(row) : action?.press ? shortcutLabel(action.press) : row.keys,
+        group: index < 6 ? "create" : "navigate",
+        enabled: connected && action !== undefined,
+      };
+    }),
+  ];
+};
+
+/** The writer of the Project menu: one write at a time, and when the menu changes during a write the next write sends the latest. */
+export const createMenuWriter = (app: Pick<App, "selectProjectMenu">, fail: (message: string) => void) => {
+  let writing = false;
+  let written: unknown;
+
+  return async (latest: () => { path: string | null; items: MenuItem[] }) => {
+    if (writing) return;
+    writing = true;
+
+    try {
+      while (written !== latest()) {
+        const next = latest();
+        written = next;
+        await app.selectProjectMenu(next.path, next.items);
+      }
+    } catch (error) { fail(error instanceof Error ? error.message : String(error)); }
+    finally { writing = false; }
+  };
 };

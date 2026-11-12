@@ -6,7 +6,7 @@ import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Todo } from "@contracts/todo/Todo";
-import { Layout } from "../app/Layout";
+import { Layout } from "../window/Layout";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
