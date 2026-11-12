@@ -25,12 +25,12 @@ it("u6829d_every_row_bound_key_is_in_the_body_focus_table", () => {
 });
 
 /** U6829c: the Switcher's keys (`SWITCHER_KEYS`) and the Project tabs' arrows, with the case in `switcher/u6829c_switcher_keys.test.tsx` and `header/u494_keyboard.test.ts` that proves each. */
-const SWITCHER_AND_TABS: Record<string, string> = {
+const SWITCHER_AND_TABS = {
   move: "covered: switcher/u6829c_switcher_keys.test.tsx",
   choose: "covered: the same layer binding as move",
   close: "exempt: Escape is the modal layer's own chord, which runs whatever holds focus (U5240a)",
   record: "exempt: acts on the highlighted command inside the open field, which holds focus while recording (U5240d)",
-};
+} satisfies Record<string, string>;
 
 it("u6829d_every_row_bound_key_is_in_the_body_focus_table (switcher and tabs)", () => {
   expect(Object.keys(SWITCHER_KEYS).filter(name => !Object.hasOwn(SWITCHER_AND_TABS, name))).toEqual([]);

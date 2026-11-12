@@ -353,7 +353,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
     // U6829c: the Switcher is modal, so its move and choose keys act when a click has left focus outside the panel; Ark's Combobox hears them only from its field.
     { chords: ["ArrowUp", "ArrowDown", "Enter"], when: event => event.target instanceof Node && !panel?.contains(event.target) && recording() === null && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey, run: event => {
-      if (event.key === "Enter") { chooseValue(highlighted()); return; }
+      if (event.key === "Enter") {
+        chooseValue(highlighted());
+
+        return;
+      }
 
       const values = shown().map(entry => entry.value);
       const at = highlighted() === null ? -1 : values.indexOf(highlighted()!);

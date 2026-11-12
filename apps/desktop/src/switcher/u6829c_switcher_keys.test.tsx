@@ -9,7 +9,8 @@ it("u6829c_switcher_and_project_tab_keys_work_after_a_click (switcher keys act w
   openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());
   const before = document.querySelector('.switcher [data-highlighted]')?.getAttribute("data-value");
-  (document.activeElement as HTMLElement | null)?.blur();
+
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   expect(document.activeElement).toBe(document.body);
 
   press("ArrowDown", {}, document.body);

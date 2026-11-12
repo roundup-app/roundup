@@ -16,7 +16,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
 import { CHORDS, type ActionValue } from "../keys/chords";
-import { captureActions, modalOpen, registerKeys } from "../keys/registry";
+import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useConnectedProject } from "../state/connectedProject";
@@ -27,8 +27,8 @@ import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { ancestorsOf, descendantsOf, isMode, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
-import { focusedRowId, ROW, type RowActions } from "./rows";
-import { strandedFocus } from "../keys/stranded";
+import { focusedRowId, keyedRowIdAt, ROW, rowIdAt, strandedRow, type RowActions } from "./rows";
+import { strandedRowKeys } from "./strandedKeys";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
@@ -47,12 +47,6 @@ const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: 
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
-
-/** U6829b: a row key acts on the focused row, or on the clicked (selected) row while a click has left focus on the page body. */
-const rowIdAt = (focus: Element | null, selected: string | null | undefined): string | undefined => focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id
-  : focus === document.body && !modalOpen() ? selected ?? undefined : undefined;
-
-const keyedRowIdAt = (press: KeyboardEvent, selected: string | null | undefined): string | undefined => focusedRowId(press) ?? (strandedFocus(press) && !press.repeat ? rowIdAt(document.body, selected) : undefined);
 
 export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
   const connected = useConnectedProject();
@@ -567,17 +561,15 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     onCleanup(() => document.removeEventListener("click", clear, true));
   });
 
-  const idAt = (focus: Element | null) => rowIdAt(focus, rail.selected());
-
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
     { action: CHORDS["rail.move"], when: press => moveAgent.available(keyedRowIdAt(press, rail.selected())), capture: focus => {
-      const id = idAt(focus);
+      const id = rowIdAt(focus, rail.selected());
 
       return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
     } },
     { action: CHORDS["agent.restart-mode"], when: press => rail.nodes.some(node => node.id === keyedRowIdAt(press, rail.selected()) && isMode(node)), capture: focus => {
-      const id = idAt(focus);
+      const id = rowIdAt(focus, rail.selected());
 
       return {
         available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && isMode(node)),
@@ -604,32 +596,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   ]);
 
   const rename = (when?: (press: KeyboardEvent) => boolean) => ({ action: CHORDS["rail.rename"], ...when && { when }, capture: (focus: Element | null) => {
-    const id = idAt(focus);
+    const id = rowIdAt(focus, rail.selected());
 
     return { available: () => !!id && !!focus?.isConnected && !focus?.closest("[data-dnd-dragging]") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id), invoke: () => { if (id) setEditingName(id); } };
   } });
 
   registerKeys({ kind: "region", element: container }, [rename()]);
-  registerKeys({ kind: "app" }, [rename(press => strandedFocus(press) && !press.repeat)]);
-
-  /** U6829b: the row arrows on the clicked row while a click has left focus on the page body; Ark's tree walks only from a focused row. */
-  const strandedArrow = (press: KeyboardEvent) => strandedFocus(press) && !press.repeat && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && daemonExit() === null;
-  registerKeys({ kind: "app" }, [
-    { chords: ["ArrowUp", "ArrowDown"], when: press => strandedArrow(press) && keyedRowIdAt(press, rail.selected()) !== undefined, run: press => {
-      const ids = nodeIds();
-      const next = ids[ids.indexOf(rail.selected()!) + (press.key === "ArrowDown" ? 1 : -1)];
-
-      if (next === undefined) return;
-
-      selection.selection.replace(next); anchorAt(next); rail.select(next); focusRow(next);
-    } },
-    { chords: ["ArrowLeft", "ArrowRight"], when: press => {
-      const id = strandedArrow(press) ? keyedRowIdAt(press, rail.selected()) : undefined;
-      const node = rail.nodes.find(candidate => candidate.id === id);
-
-      return node !== undefined && (node.kind === "workstream" || node.kind === "group") && collapsed().has(node.id) === (press.key === "ArrowRight");
-    }, run: () => rail.toggleCollapsed(rail.selected()!) },
-  ]);
+  registerKeys({ kind: "app" }, [rename(strandedRow), ...strandedRowKeys({ nodes: () => rail.nodes, ids: nodeIds, selected: rail.selected, collapsed, active: () => daemonExit() === null, toggle: rail.toggleCollapsed, go: next => { selection.selection.replace(next); anchorAt(next); rail.select(next); focusRow(next); } })]);
 
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(
