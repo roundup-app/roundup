@@ -32,6 +32,7 @@
     "anti-slop/no-new-web-assertions": "error",
     "anti-slop/no-tooltip-bypass": "error",
     "anti-slop/no-raw-listener": "error",
+    "anti-slop/no-document-query": "error",
     "anti-slop/require-field-frame": "error",
     "anti-slop/no-raw-anchor-box": "error",
     "anti-slop/no-inline-delete-confirmation": "error",

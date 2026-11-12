@@ -18,7 +18,7 @@ FUNCTION_RULES = {
     'eslint(max-lines-per-function)': r'\((\d+)\)',
 }
 # State-holder lints (U6416): existing sites are exact debt; later Issues move them to a store or a queue.
-HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)', 'anti-slop(no-draft-bypass)', 'anti-slop(no-raw-listener)', 'anti-slop(no-repair-effect)')
+HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)', 'anti-slop(no-draft-bypass)', 'anti-slop(no-raw-listener)', 'anti-slop(no-document-query)', 'anti-slop(no-repair-effect)')
 TESTS = re.compile(r'\.test\.tsx?$|/testing/|/perf/')
 SECTIONS = {'web': ['size', 'ast', 'typos', 'ruff'], 'rust': ['dependencies']}
 
@@ -45,7 +45,8 @@ def is_generated(root, path, data, attributes):
     # Same predicate as Check 3's generated(), using the checked tree, not staged changes.
     name = Path(path).name
     lock = re.search(r'\.lock($|b$|\.)|-lock\.', name) or name in ('npm-shrinkwrap.json', 'Package.resolved', 'go.sum')
-    return ('/vendor/' in f'/{path}' or '/node_modules/' in f'/{path}' or lock
+    return (path == 'tools/lint/debt.json'  # the recorded inventory itself, rewritten by --record
+            or '/vendor/' in f'/{path}' or '/node_modules/' in f'/{path}' or lock
             or attributes.get(path, False)
             or re.search(rb'@generated|Code generated .*DO NOT EDIT', b'\n'.join(data.split(b'\n')[:5])))
 

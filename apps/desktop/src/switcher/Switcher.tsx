@@ -1,6 +1,6 @@
 import type { KeyText } from "../keys/chords";
 import { useDialog } from "@ark-ui/solid/dialog";
-import { captureFocus, queueFocus } from "../keys/focus";
+import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { lazy, batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
@@ -83,8 +83,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       : chosenPane
       ? chosenTerminal
         ? document.querySelector<HTMLElement>(`[data-bubble="${chosenTerminal}"] textarea`)
-        : document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
-          ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")
+        : focusTarget("thread.composer") ?? focusTarget("pane.terminal") ?? null
       : null,
     // A background layer closing is not a parent dismissal of this independent dialog.
     onRequestDismiss: event => event.preventDefault(),
