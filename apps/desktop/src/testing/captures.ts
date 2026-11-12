@@ -129,6 +129,7 @@ const observerTable = {
   "src/todos/u3776_rendered.test.ts": ["U3776"],
   "src/todos/u461_rendered.test.ts": ["U3021c", "U3728", "U461", "U461a", "U461b", "U462"],
   "src/todos/u490a_browser.test.ts": ["U3010c", "U490a"],
+  "src/header/u6993_name_gap.test.ts": ["U6993"],
   "src/ui/u3010c_copy_rendered.test.ts": ["U3010c"],
   "src/ui/u3295_capture.test.ts": ["U3295a", "U3295b"],
   "src/ui/u3310_browser.test.ts": ["U3310"],

@@ -23,3 +23,19 @@ for (const name of ["freelance", "illicitly"]) {
     })()`);
   }, 60_000);
 }
+
+rendered("u6993_a_clipped_head_keeps_five_characters", async () => {
+  await browser("open", url("/harness.html?seed=tabs-8"));
+  await wait(`document.querySelectorAll('.tab-name').length > 0`);
+
+  // A Check: the head of the longest name, clipped by the strip, keeps the 5ch floor U382 sets.
+  await read<number>(`(() => {
+    const heads = [...document.querySelectorAll('.tab-head')];
+    const clipped = heads.filter(head => head.scrollWidth > head.clientWidth);
+    if (clipped.length === 0) throw new Error('no clipped head in seed');
+    const floor = parseFloat(getComputedStyle(clipped[0]).fontSize) * 0.5 * 5;
+    const narrow = clipped.find(head => head.clientWidth < floor);
+    if (narrow) throw new Error('clipped head ' + narrow.clientWidth + ' < ' + floor);
+    return clipped.length;
+  })()`);
+}, 60_000);
