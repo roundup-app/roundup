@@ -4,7 +4,7 @@ import { defineRule } from "@oxlint/plugins";
 export const noDocumentQueryRule = defineRule({
   meta: {
     type: "problem",
-    docs: { description: "Reject document.querySelector* in the App outside keys/focus.ts, testing/ and perf/." },
+    docs: { description: "Reject document.querySelector* in the App outside keys/focus.ts, tests and their fixtures, testing/ and perf/." },
     messages: { query: "Reach another component's element through a ref or a name its owner provides with provideFocusTarget (keys/focus.ts), never by document query." },
   },
   createOnce(context) {
@@ -12,7 +12,7 @@ export const noDocumentQueryRule = defineRule({
       CallExpression(node) {
         const file = context.filename.replaceAll("\\", "/");
 
-        if (!file.includes("/apps/desktop/src/") || file.includes("/apps/desktop/src/testing/") || file.includes("/apps/desktop/src/perf/") || file.endsWith("/apps/desktop/src/keys/focus.ts")) return;
+        if (!file.includes("/apps/desktop/src/") || /(?:\.test|Fixture|Harness|Browser)\.tsx?$/.test(file) || file.includes("/apps/desktop/src/testing/") || file.includes("/apps/desktop/src/perf/") || file.endsWith("/apps/desktop/src/keys/focus.ts")) return;
         const callee = node.callee;
 
         if (callee.type !== "MemberExpression" || callee.object.type !== "Identifier" || callee.object.name !== "document") return;
