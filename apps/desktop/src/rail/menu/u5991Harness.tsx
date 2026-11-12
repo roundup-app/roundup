@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { expect } from "vitest";
 import { agent, info, mode, workstream } from "../../testing/nodes";
-import { copy } from "../../app/copy";
+import { copy as windowCopy } from "../../window/copy";
 import { createMove } from "../MovePicker";
 import { chooseAction, chooseFooter, exitedTerminal, itemOf, mountRail, rowNames, rowOf } from "../railFixture";
 
@@ -133,7 +133,7 @@ export const actions: Action[] = [
       await app.pickMenu("Group");
     },
     // Both Agents sit one level under a new Workstream row.
-    shown: () => { expect(rowNames()).toContain(copy.newWorkstreamTitle); expect(Number(itemOf("a").getAttribute("aria-level"))).toBe(Number(itemOf(copy.newWorkstreamTitle).getAttribute("aria-level")) + 1); },
+    shown: () => { expect(rowNames()).toContain(windowCopy.newWorkstreamTitle); expect(Number(itemOf("a").getAttribute("aria-level"))).toBe(Number(itemOf(windowCopy.newWorkstreamTitle).getAttribute("aria-level")) + 1); },
     call: { ids: ["a", "c"] },
   },
   {
@@ -141,7 +141,7 @@ export const actions: Action[] = [
     mount: () => mountRail([agent("a", "idle", "ready", { terminal_id: null })]),
     method: "agent.spawn",
     fire: () => chooseFooter("Agent"),
-    shown: () => expect(rowNames()).toEqual(["a", copy.newAgent]),
+    shown: () => expect(rowNames()).toEqual(["a", windowCopy.newAgent]),
     call: { cwd: "/p", prompt: null, parent: null, model: null, effort: null },
   },
   {

@@ -1,4 +1,4 @@
-import { copy as appCopy } from "./copy";
+import { copy as windowCopy } from "../window/copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
@@ -35,7 +35,7 @@ describe("u2 first run", () => {
 
     fireEvent.click(await screen.findByText("Choose Project…"));
 
-    expect(await screen.findByText(appCopy.openAFolderToStart)).toBeTruthy();
+    expect(await screen.findByText(windowCopy.openAFolderToStart)).toBeTruthy();
   });
 
   it("u2_an_app_that_already_has_a_project_shows_it_without_a_chooser", async () => {
@@ -76,7 +76,7 @@ describe("u2 first run", () => {
     fireEvent.click(await screen.findByText("Choose Project…"));
 
     expect(await screen.findByText(failure.message)).toBeTruthy();
-    expect(screen.queryByText(appCopy.openAFolderToStart)).toBeNull();
+    expect(screen.queryByText(windowCopy.openAFolderToStart)).toBeNull();
   });
 
   it("u2_a_failed_open_project_is_the_only_ink_in_the_window", async () => {

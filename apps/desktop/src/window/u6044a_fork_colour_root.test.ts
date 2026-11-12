@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
-import { OWN_CONTRACT } from "./contractMatch";
+import { OWN_CONTRACT } from "../app/contractMatch";
 
 const ping = { pong: true, pid: 1, project: "/p", projectKey: "p-0000000000000000", contract: { fingerprint: OWN_CONTRACT.fingerprint } } as const;
 

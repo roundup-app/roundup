@@ -68,6 +68,8 @@ export const copy = {
   importTimeout: "Looking for conversations took too long. Retry to try again, or choose a shorter period.",
   rename: sharedCopy.rename,
   openAFolder: sharedCopy.openAFolder,
+  emptyRailTitle: "No Agents yet",
+  emptyRailLine: "Start a Workstream or an Agent.",
   newAgent: sharedCopy.newAgent,
   newAgentWithAPrompt: sharedCopy.newAgentWithAPrompt,
   removeProcessLoss: (name: string) => `Stop the running program for ${name}. Its live Terminal input cannot be restored.`,

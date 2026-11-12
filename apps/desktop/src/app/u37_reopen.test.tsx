@@ -1,3 +1,4 @@
+import { copy as windowCopy } from "../window/copy";
 import { copy as appCopy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -24,7 +25,7 @@ const openApp = async () => {
 
 const callsOf = (app: FakeApp, method: string) => app.calls.filter((call) => call.method === method).length;
 
-const reopen = (header: HTMLElement) => fireEvent.click(within(header).getByRole("button", { name: appCopy.reopen }));
+const reopen = (header: HTMLElement) => fireEvent.click(within(header).getByRole("button", { name: windowCopy.reopen }));
 
 afterEach(cleanup);
 
@@ -32,12 +33,12 @@ describe("u37 Reopen after the Daemon exits", () => {
   it("u37_reopen_shows_after_the_exit_text_and_not_before", async () => {
     const { app, header } = await openApp();
 
-    expect(within(header).queryByRole("button", { name: appCopy.reopen })).toBeNull();
+    expect(within(header).queryByRole("button", { name: windowCopy.reopen })).toBeNull();
 
     app.exitDaemon({ code: 1 });
 
     expect(within(header).getByText(appCopy.daemonExit("exited 1"))).toBeTruthy();
-    expect(within(header).getByRole("button", { name: appCopy.reopen })).toBeTruthy();
+    expect(within(header).getByRole("button", { name: windowCopy.reopen })).toBeTruthy();
   });
 
   it("u37_an_exit_during_connection_stays_actionable", async () => {
@@ -57,7 +58,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     release([node("kept", { name: "Connected work" })]);
     await screen.findByText("Connected work");
 
-    expect(screen.getByRole("button", { name: appCopy.reopen })).toBeTruthy();
+    expect(screen.getByRole("button", { name: windowCopy.reopen })).toBeTruthy();
   });
 
   it("u37_clicking_reopen_calls_open_project_with_the_project_path", async () => {
@@ -78,7 +79,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     app.exitDaemon({ code: 1 });
     reopen(header);
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: appCopy.reopen })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull());
 
     await waitFor(() => expect(screen.getAllByRole("button", { name: /^(New Workstream|Create)$/ }).length).toBeGreaterThan(0));
 
@@ -127,7 +128,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     await waitFor(() => expect(within(header).queryByText(failure.message)).not.toBeNull());
 
     expect(within(header).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
-    expect(within(header).getByRole("button", { name: appCopy.reopen })).not.toBeNull();
+    expect(within(header).getByRole("button", { name: windowCopy.reopen })).not.toBeNull();
   });
 
   it("u37_the_pane_works_again_after_a_successful_reopen", async () => {
@@ -144,7 +145,7 @@ describe("u37 Reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
     reopen(screen.getByRole("region", { name: "Rail" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: appCopy.reopen })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull());
 
     fireEvent.click(await screen.findByText("a"));
     await waitFor(() => expect(made.get("t-a")?.host).not.toBeNull());
@@ -164,7 +165,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     reopen(header);
 
     expect(asked.count).toBe(1);
-    expect(within(header).getByRole("button", { name: appCopy.reopen }).matches('[aria-disabled="true"]')).toBe(true);
+    expect(within(header).getByRole("button", { name: windowCopy.reopen }).matches('[aria-disabled="true"]')).toBe(true);
   });
 
   it("u37_a_reopen_after_a_failed_one_can_succeed", async () => {
@@ -179,6 +180,6 @@ describe("u37 Reopen after the Daemon exits", () => {
     app.opened.failure = null;
     reopen(header);
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: appCopy.reopen })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull());
   });
 });

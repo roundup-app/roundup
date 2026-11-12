@@ -5,8 +5,8 @@ import { agent, door, mode } from "../testing/nodes";
 import { App } from "../App";
 import { createProjectDrafts } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import type { ActionReply, ActionRequest, ProjectCalls } from "./seam";
-import { RpcError } from "./seam";
+import type { ActionReply, ActionRequest, ProjectCalls } from "../app/seam";
+import { RpcError } from "../app/seam";
 
 const SOURCE = { name: "Renamed source Project", path: "/repos/source" };
 

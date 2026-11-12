@@ -1,4 +1,4 @@
-import type { AppSeam } from "./seam";
+import type { AppSeam } from "./app/seam";
 
 /** The Daemon's key for its Project, read once per seam (LK1). */
 const keys = new WeakMap<AppSeam, Promise<string>>();

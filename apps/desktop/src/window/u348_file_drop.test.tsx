@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { HOLD_MS } from "./dropTargets";
-import type { FileDrop } from "./seam";
+import type { FileDrop } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info } from "../testing/nodes";
 import { callsTo, fakeEmulators } from "../terminal/paneHarness";

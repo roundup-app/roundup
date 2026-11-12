@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TargetText } from "../terminal/TargetText";
 import { agent, door } from "../testing/nodes";
-import { watchNativeOpen } from "../app/nativeOpen";
+import { watchNativeOpen } from "../window/nativeOpen";
 import { ask, mountAskBar, openAsk } from "./askFixture";
 import { AskBar } from "./AskBar";
 import { mountTodos } from "../todos/testHarness";

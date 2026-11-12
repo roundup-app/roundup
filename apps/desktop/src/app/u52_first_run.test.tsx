@@ -1,4 +1,4 @@
-import { copy as appCopy } from "./copy";
+import { copy as windowCopy } from "../window/copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
@@ -25,7 +25,7 @@ it("u52_missing_binary_and_failed_recent_open_keep_both_failures_visible", async
   const failure = new RpcError(-32603, "Folder unavailable; choose another folder");
   app.opened.failure = failure;
   render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} />);
-  await screen.findByText(appCopy.claudeNotFound);
+  await screen.findByText(windowCopy.claudeNotFound);
   expect(screen.getAllByRole("alert")).toHaveLength(1);
   fireEvent.click(await screen.findByRole("button", { name: "/repos/one" }));
   expect(await screen.findByText(failure.message)).toBeTruthy();

@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
 import type { RailState } from "../state/rail";
-import type { App, AppSeam, FileDrop, Unsubscribe } from "./seam";
+import type { App, AppSeam, FileDrop, Unsubscribe } from "../app/seam";
 
 /** U348: how long a drag holds over a Rail row or a Project tab before it opens; policy, above a pass at drag speed and below a wait that reads as stuck. */
 export const HOLD_MS = 600;

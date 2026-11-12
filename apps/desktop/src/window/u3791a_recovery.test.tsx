@@ -1,10 +1,11 @@
-import { copy as appCopy } from "./copy";
+import { copy as windowCopy } from "./copy";
+import { copy as appCopy } from "../app/copy";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Pane } from "../terminal/Pane";
-import { RpcError } from "./seam";
+import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, node } from "../testing/nodes";
 
@@ -24,14 +25,14 @@ it("u3791a_daemon_third_failure_is_visible", async () => {
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await screen.findByText(retained.name);
   app.exitDaemon({ code: 1, recovery: "waiting" });
-  expect(screen.queryByRole("button", { name: appCopy.reopen })).toBeNull();
+  expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull();
   expect(screen.queryByText(new RegExp(appCopy.daemonExit("exited")))).toBeNull();
   screen.getByText(retained.name);
   app.exitDaemon({ code: 1, recovery: "waiting", cause: failure.message });
   expect(screen.queryByText(failure.message)).toBeNull();
   app.exitDaemon({ code: 1, cause: failure.message });
   expect(screen.getAllByText(failure.message)).toHaveLength(1);
-  screen.getByRole("button", { name: appCopy.reopen });
+  screen.getByRole("button", { name: windowCopy.reopen });
 });
 
 it("u3791a_reconnected_project_refetches", async () => {
