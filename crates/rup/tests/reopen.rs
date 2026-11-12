@@ -10,7 +10,6 @@
 #[allow(dead_code)]
 mod daemon;
 
-use std::path::PathBuf;
 use std::time::Duration;
 
 use contracts::agent::RailNode;

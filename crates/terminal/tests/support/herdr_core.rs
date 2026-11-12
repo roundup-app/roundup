@@ -3,6 +3,10 @@
 //! DATA, RESIZE and CLOSE frames) and runs each requested program on a real PTY. Tests start it
 //! the way the product starts the real core, as a child whose pipe is the connection. It is
 //! dev-only: the `test-support` feature builds it and the daemon never starts it.
+//!
+//! A Daemon whose `$TMPDIR` holds a `herdr-core-persist` file gets a core that outlives it: the
+//! first `connect` starts `herdr-core-test serve` on a socket there and proxies the pipe to it, so a
+//! reopened Daemon finds its terminals live. The server ends once that file is gone.
 use std::collections::HashMap;
 use std::io::{self, BufRead, Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -67,7 +71,7 @@ struct Terminal {
 }
 
 struct Core {
-    out: Mutex<io::Stdout>,
+    out: Mutex<Box<dyn Write + Send>>,
     terminals: Mutex<HashMap<String, Arc<Terminal>>>,
     attached: Mutex<HashMap<u32, Arc<Terminal>>>,
     next_terminal: AtomicU32,
@@ -369,18 +373,106 @@ fn resize(t: &Terminal, cols: u64, rows: u64) {
 }
 
 fn main() -> io::Result<()> {
-    if std::env::args().nth(1).as_deref() != Some("connect") {
-        eprintln!("usage: herdr-core-test connect");
-        std::process::exit(2);
+    let mut args = std::env::args().skip(1);
+    match args.next().as_deref() {
+        Some("connect") => {
+            let tmp = std::env::var_os("TMPDIR").map(std::path::PathBuf::from);
+            match tmp.filter(|t| t.join("herdr-core-persist").exists()) {
+                Some(tmp) => proxy(&tmp),
+                None => serve(&new_core(Box::new(io::stdout())), &mut io::stdin().lock()),
+            }
+        }
+        Some("serve") => {
+            let tmp = std::path::PathBuf::from(args.next().unwrap_or_default());
+            listen(&tmp)
+        }
+        _ => {
+            eprintln!("usage: herdr-core-test connect");
+            std::process::exit(2);
+        }
     }
-    let core = Arc::new(Core {
-        out: Mutex::new(io::stdout()),
+}
+
+fn new_core(out: Box<dyn Write + Send>) -> Arc<Core> {
+    Arc::new(Core {
+        out: Mutex::new(out),
         terminals: Mutex::default(),
         attached: Mutex::default(),
         next_terminal: AtomicU32::new(1),
         next_channel: AtomicU32::new(1),
+    })
+}
+
+/// The persistent server: one connection at a time over a socket in `tmp`, its terminals kept
+/// between connections, ending when the `herdr-core-persist` file goes.
+fn listen(tmp: &std::path::Path) -> io::Result<()> {
+    let marker = tmp.join("herdr-core-persist");
+    let listener = std::os::unix::net::UnixListener::bind(tmp.join("herdr-core.sock"))?;
+    let core = new_core(Box::new(io::sink()));
+    let watch = core.clone();
+    std::thread::spawn(move || {
+        while marker.exists() {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+        }
+        for t in lock(&watch.terminals).values() {
+            if let Some(pid) = t.pid {
+                let _ = std::process::Command::new("kill")
+                    .args(["-9", &pid.to_string()])
+                    .status();
+            }
+        }
+        std::process::exit(0);
     });
-    let mut input = io::BufReader::new(io::stdin().lock());
+    for stream in listener.incoming() {
+        let Ok(stream) = stream else { continue };
+        let Ok(writer) = stream.try_clone() else {
+            continue;
+        };
+        *lock(&core.out) = Box::new(writer);
+        lock(&core.attached).clear();
+        for t in lock(&core.terminals).values() {
+            lock(&t.live).channels.clear();
+        }
+        let _ = serve(&core, &mut io::BufReader::new(stream));
+    }
+    Ok(())
+}
+
+/// `connect` against the persistent server, started if it is not running: bytes both ways.
+fn proxy(tmp: &std::path::Path) -> io::Result<()> {
+    use std::os::unix::process::CommandExt;
+    let socket = tmp.join("herdr-core.sock");
+    let mut started = false;
+    let stream = loop {
+        if let Ok(stream) = std::os::unix::net::UnixStream::connect(&socket) {
+            break stream;
+        }
+        if started {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            continue;
+        }
+        let _ = std::fs::remove_file(&socket);
+        std::process::Command::new(std::env::current_exe()?)
+            .arg("serve")
+            .arg(tmp)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .process_group(0)
+            .spawn()?;
+        started = true;
+    };
+    let mut up = stream.try_clone()?;
+    std::thread::spawn(move || {
+        let _ = io::copy(&mut io::stdin().lock(), &mut up);
+        let _ = up.shutdown(std::net::Shutdown::Both);
+    });
+    let mut down = stream;
+    let _ = io::copy(&mut down, &mut io::stdout().lock());
+    Ok(())
+}
+
+fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
     let mut line = String::new();
     input.read_line(&mut line)?;
     let hello: Value = serde_json::from_str(&line).unwrap_or(Value::Null);

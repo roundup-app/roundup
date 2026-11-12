@@ -738,12 +738,19 @@ fn parse_terminal_number(id: &str) -> Result<u64, Error> {
         .ok_or_else(|| invalid(format!("not a terminal id: {id:?}")))
 }
 
+/// A validated Terminal size.
+#[derive(Clone, Copy)]
+pub struct Size {
+    pub cols: u16,
+    pub rows: u16,
+}
+
 /// Validate Terminal dimensions before allocating launch resources.
-pub fn window(cols: u16, rows: u16) -> Result<(), RpcError> {
+pub fn window(cols: u16, rows: u16) -> Result<Size, RpcError> {
     if cols == 0 || rows == 0 {
         return Err(invalid("cols and rows must be at least 1").into());
     }
-    Ok(())
+    Ok(Size { cols, rows })
 }
 
 fn invalid(message: impl Into<String>) -> Error {
