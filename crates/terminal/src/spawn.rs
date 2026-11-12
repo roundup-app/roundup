@@ -59,9 +59,9 @@ impl Terminals {
         )
         .await?;
         let core_id = ran
-            .get("terminal")
+            .get("address")
             .and_then(Value::as_str)
-            .ok_or_else(|| Error::internal("terminal.run named no terminal"))?
+            .ok_or_else(|| Error::internal("terminal.run answered no address"))?
             .to_owned();
         let pid = ran
             .get("pid")

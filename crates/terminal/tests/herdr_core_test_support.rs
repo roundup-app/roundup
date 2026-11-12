@@ -39,7 +39,7 @@ async fn mc12_core_replays_five_thousand_lines_and_the_exit_code() {
         )
         .await
         .unwrap();
-    let id = run["terminal"].as_str().unwrap();
+    let id = run["address"].as_str().unwrap();
     let mut stream = conn.attach(id, 100, 30, 0).await.unwrap();
     let mut printed = Vec::new();
     let close = loop {
@@ -75,7 +75,7 @@ async fn mc12_core_carries_id_cwd_env_size_and_input() {
         .call("terminal.run", run_params(cwd.to_str().unwrap(), script))
         .await
         .unwrap();
-    let id = run["terminal"].as_str().unwrap();
+    let id = run["address"].as_str().unwrap();
     let mut stream = conn.attach(id, 100, 30, 0).await.unwrap();
     stream.send(b"typed\n");
     let mut printed = String::new();
