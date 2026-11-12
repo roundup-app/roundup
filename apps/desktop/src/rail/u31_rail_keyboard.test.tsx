@@ -361,6 +361,9 @@ describe("u31 rail keyboard", () => {
     const { rail } = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x"), agent("c", "idle", "x")]);
     fireEvent.click(rowOf("b"));
     await settled();
+    // An arrow in a field elsewhere; with focus on the body it would move the clicked row (U6829b).
+    const elsewhere = document.body.appendChild(document.createElement("input"));
+    elsewhere.focus();
 
     press("ArrowDown");
 
@@ -369,6 +372,7 @@ describe("u31 rail keyboard", () => {
     const tabbable = tabbableRows();
     expect(tabbable).toEqual([rowOf("b")]);
     expect(rail.selected()).toBe("b");
+    elsewhere.remove();
   });
 
   it("u31_reselecting_the_same_row_after_an_arrow_move_keeps_it_tabbable", async () => {

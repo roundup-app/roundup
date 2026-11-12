@@ -168,7 +168,7 @@ export const Pads = (props: {
   });
 
   shelfRowKeys({
-    focused: selection.focused,
+    focused: selection.focused, clicked: selection.clicked, move: selection.move,
     exportPad: async incarnation => {
       const pad = pads().find(pad => pad.incarnation === incarnation);
 
