@@ -71,7 +71,16 @@ impl Agents {
                 .ok()
                 .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
             let attached = match stored {
-                Some(stored) => self.reattach(&id, stored).await,
+                Some(stored) => {
+                    let owner = stored.owner.clone();
+                    let attached = self.reattach(&id, stored).await;
+                    if !attached {
+                        // A12a: an owner nothing adopts is stopped, never left running beside
+                        // the new process a resume starts for the same Agent.
+                        self.shared.terminals.stop_owner(&owner).await;
+                    }
+                    attached
+                }
                 None => false,
             };
             if attached {
