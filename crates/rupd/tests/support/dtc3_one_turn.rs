@@ -4,7 +4,7 @@ use super::*;
 
 /// The Door's turns a `rupd` note started, each as the notes the Door was given before it answered:
 /// consecutive `user` entries of `rupd` end at the `assistant` entry that answers them.
-fn rupd_turns(run: &Run) -> Vec<Vec<String>> {
+pub(super) fn rupd_turns(run: &Run) -> Vec<Vec<String>> {
     let projects = run.dir.path().join("config/projects");
     let mut turns = Vec::new();
     let mut open: Vec<String> = Vec::new();
