@@ -12,6 +12,10 @@ pub struct Machine {
     #[serde(default)]
     #[specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>)]
     pub details: serde_json::Value,
+    /// MC15: whether roundup's ssh to this Machine answers; absent before it has tried.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = bool)]
+    pub reachable: Option<bool>,
 }
 
 /// `machine.add`: the ssh name of the machine to add.

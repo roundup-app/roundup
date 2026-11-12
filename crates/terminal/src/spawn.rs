@@ -6,6 +6,8 @@ pub struct Adopted {
     pub cols: u16,
     pub rows: u16,
     pub program: String,
+    /// The Machine the Terminal runs on; `None` is this Mac.
+    pub machine: Option<String>,
 }
 
 impl Terminals {
@@ -45,10 +47,19 @@ impl Terminals {
     ) -> Result<Spawned, Error> {
         check_program(&params)?;
         window(params.cols, params.rows)?;
-        if !Path::new(&params.cwd).is_dir() {
-            return Err(invalid(format!("cwd is not a directory: {}", params.cwd)));
-        }
-        let conn = self.core().await?;
+        let conn = match &params.machine {
+            // The core of a Machine checks the cwd itself and answers `spawn_failed`.
+            Some(machine) => {
+                remote::check_machine(machine)?;
+                self.remotes.conn(machine).await?
+            }
+            None => {
+                if !Path::new(&params.cwd).is_dir() {
+                    return Err(invalid(format!("cwd is not a directory: {}", params.cwd)));
+                }
+                self.core().await?
+            }
+        };
         let number = self.next.fetch_add(1, Ordering::Relaxed);
         let ran = host::run(
             &conn,
@@ -76,6 +87,7 @@ impl Terminals {
                 cols: params.cols,
                 rows: params.rows,
                 program: program_name(params.command.as_deref()),
+                machine: params.machine,
             },
             owner,
             number,
@@ -104,6 +116,7 @@ impl Terminals {
                 cols: screen.cols,
                 rows: screen.rows,
                 program: entry.info.program.clone(),
+                machine: handle.machine.clone(),
             },
         )))
     }
@@ -118,7 +131,13 @@ impl Terminals {
         owner: Option<String>,
     ) -> Result<Spawned, Error> {
         window(adopted.cols, adopted.rows)?;
-        let conn = self.core().await?;
+        let conn = match &adopted.machine {
+            Some(machine) => {
+                remote::check_machine(machine)?;
+                self.remotes.conn(machine).await?
+            }
+            None => self.core().await?,
+        };
         let got = conn
             .call("terminal.get", serde_json::json!({"terminal": core_id}))
             .await
@@ -158,8 +177,11 @@ impl Terminals {
             )
             .await
             .map_err(Error::internal)?;
-        let tx = stream.sender();
-        let writer: Box<dyn Write + Send> = Box::new(host::StreamWriter(tx.clone()));
+        let link = Arc::new(Mutex::new(Link {
+            conn: Arc::clone(&conn),
+            tx: stream.sender(),
+        }));
+        let writer: Box<dyn Write + Send> = Box::new(host::StreamWriter(Arc::clone(&link)));
         let writer = match &self.input_writer {
             Some(adapt) => adapt(writer),
             None => writer,
@@ -169,10 +191,11 @@ impl Terminals {
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
         let (input, queued) = mpsc::sync_channel(WRITE_BACKLOG);
         let recorder = Arc::new(OnceLock::new());
+        let machine = params.machine;
         let handle = Arc::new(Handle {
-            conn: Arc::clone(&conn),
+            link: Arc::clone(&link),
             core_id: core_id.clone(),
-            tx,
+            machine: machine.clone(),
             input,
             ended: program_ended.clone(),
             recorder,
@@ -212,17 +235,39 @@ impl Terminals {
         let shared = Arc::clone(&self.shared);
         let exit_hold = self.exit_hold.clone();
         let runtime = tokio::runtime::Handle::current();
+        // MC14: a Machine's Terminal finds its channel again when the ssh to it is lost.
+        let relink = machine.map(|machine| {
+            remote::relink(
+                Arc::clone(&self.remotes),
+                machine,
+                core_id.clone(),
+                Arc::clone(&link),
+                Arc::clone(&screen),
+                runtime.clone(),
+            )
+        });
         std::thread::Builder::new()
             .name(format!("terminal-{number}"))
             .spawn(move || {
-                let closed = host::feed(&shared, number, stream, &screen, &output);
+                let closed = host::feed(
+                    &shared,
+                    number,
+                    stream,
+                    relink,
+                    runtime.clone(),
+                    &screen,
+                    &output,
+                );
                 let code = match closed {
                     Ok(Some(code)) => Some(code),
-                    Ok(None) => runtime.block_on(host::finished_code(
-                        &conn,
-                        &core_id,
-                        Duration::from_millis(100),
-                    )),
+                    Ok(None) => {
+                        let conn = link.lock().map_or(conn, |link| Arc::clone(&link.conn));
+                        runtime.block_on(host::finished_code(
+                            &conn,
+                            &core_id,
+                            Duration::from_millis(100),
+                        ))
+                    }
                     Err(err) => {
                         eprintln!("terminal {number}: output stopped: {err}");
                         Some(i32::MAX)

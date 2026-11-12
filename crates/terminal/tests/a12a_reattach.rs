@@ -26,6 +26,7 @@ async fn a12a_reattach_attaches_the_core_terminal_again() {
             unset: Vec::new(),
             cols: 80,
             rows: 24,
+            machine: None,
         })
         .await
         .unwrap();
@@ -64,6 +65,7 @@ async fn a12a_reattach_of_a_terminal_the_core_lost_is_not_found() {
             unset: Vec::new(),
             cols: 80,
             rows: 24,
+            machine: None,
         })
         .await
         .unwrap();

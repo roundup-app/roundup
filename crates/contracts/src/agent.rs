@@ -436,6 +436,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = String)]
     pub mode_prompt: Option<String>,
+    /// MC13: the Machine the Agent runs on; absent on this Mac and on every other node.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub machine: Option<String>,
     pub id: String,
     pub kind: NodeKind,
     pub name: String,

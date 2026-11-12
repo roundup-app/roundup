@@ -92,6 +92,7 @@ impl Agents {
                 model: agent.model.as_deref(),
                 effort: agent.effort.as_deref(),
                 mode_prompt: Some(&prompt),
+                machine: None,
             })?
         };
         Launcher::save_lean(&self.dir, &mode.id, &lean)?;
@@ -139,6 +140,7 @@ impl Agents {
             model: None,
             effort: None,
             mode_prompt: Some(&prompt),
+            machine: None,
         })?;
         Self::touch_creation(ctx, &mode.id, start_attribution.as_ref())?;
         ctx.emit(EventData::RailChanged);

@@ -23,6 +23,7 @@ async fn program_sees(terminals: &Terminals, unset: Vec<String>) -> String {
             unset,
             cols: 80,
             rows: 24,
+            machine: None,
         })
         .await
         .unwrap();
