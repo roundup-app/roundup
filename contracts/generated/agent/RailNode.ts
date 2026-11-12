@@ -30,6 +30,8 @@ export type RailNode = {
 	auto?: boolean,
 	/**  A4452c: the Mode Agent's saved prompt; absent on other nodes and when none is set. */
 	mode_prompt?: string,
+	/**  MC13: the Machine the Agent runs on; absent on this Mac and on every other node. */
+	machine?: string,
 	id: string,
 	kind: agent$NodeKind.NodeKind,
 	name: string,

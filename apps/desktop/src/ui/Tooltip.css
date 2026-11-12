@@ -10,7 +10,8 @@
 /* Ark copies the content stack level to its portalled positioner; the Tooltip layer sits above the Dialog, so a label on a Drawer or Dialog control shows (U3767). */
 .app-tooltip {
   z-index: var(--layer-tooltip);
-  padding: var(--space-2);
+  /* U6640c: a box shorter than a 32 px Rail row opens right-start from its target without meeting the row below. */
+  padding: var(--space-1) var(--space-2);
 }
 
 /* U2749e: a name takes no press; the control beneath gets it. Ark's positioner box is the part that catches it. */

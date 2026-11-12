@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createResource, mapArray, on, onCleanup, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
+import type { ShelfRequest } from "./projectView";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, ActionReply, ActionRequest, Project } from "../app/seam";
@@ -55,6 +56,7 @@ export type ConnectionDeps = {
   /** U6271c: another Project's Rail nodes, and showing it with one of its Workstreams selected. */
   nodes: (path: string) => readonly RailNode[];
   openIn: (path: string, workstream: string) => void;
+  openShelf: ShelfRequest;
 };
 
 /** One Project's live connection, kept while its tab is open and its regions are not on screen, so its Tab mark stays current (U181). */
@@ -80,7 +82,7 @@ const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connecti
       const open = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
         await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
           ? deps.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
-      } }, project, deps.reducedMotion, deps.now, () => tab()?.generation === generation ? tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), deps.drafts(path), () => deps.viewing(path), deps.clock, { app: deps.app, open: deps.open, nodes: deps.nodes, show: deps.openIn });
+      } }, project, deps.reducedMotion, deps.now, () => tab()?.generation === generation ? tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), deps.drafts(path), () => deps.viewing(path), deps.clock, { app: deps.app, open: deps.open, nodes: deps.nodes, show: deps.openIn }, deps.openShelf);
 
       if (tab()?.generation !== generation) {
         open.stopTerminalScheme();

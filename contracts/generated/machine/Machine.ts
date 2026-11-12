@@ -4,4 +4,6 @@ export type Machine = {
 	name: string,
 	/**  Every other field of herdr-core's entry, kept as the core sent it. */
 	details: { [key in string]: unknown },
+	/**  MC15: whether roundup's ssh to this Machine answers; absent before it has tried. */
+	reachable?: boolean,
 };

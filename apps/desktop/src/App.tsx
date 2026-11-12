@@ -72,6 +72,7 @@ import { Feedback } from "./feedback/Feedback";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
+import type { ShelfRequest } from "./state/projectView";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
@@ -194,6 +195,7 @@ export const App = (props: {
     viewing: path => projects.active() === path && visible() && focus() === "focused" && !settingsOpen(),
     open: () => projects.tabs().map(tab => tab.project), nodes: path => railOf(path)?.nodes ?? [],
     openIn: (path, workstream) => { railOf(path)?.select(workstream, "open"); projects.select(path); },
+    openShelf: tab => openShelf(tab),
   });
 
   const connectionOf = (path: string): ConnectedProject | undefined => connectedOf(connections().get(path));
@@ -356,27 +358,15 @@ export const App = (props: {
     if (open) props.prepareIdle(open);
   });
 
-  // U370, U373: the Shelf's open state and open tab, kept per Project.
+  // U370, U373, U4457: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
   const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth, props.initialShelfOpen ?? false);
-  createEffect(() => {
-    const connected = activeConnection();
-    const request = connected ? connected.creation() : null;
-
-    if (!request || request.kind === "terminal") return;
-    frame.setTab(request.kind === "todo" ? "todos" : "pads");
+  const openShelf: ShelfRequest = (tab) => {
+    frame.setTab(tab);
 
     if (!frame.open()) frame.toggle("key");
-  });
-  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K B` does, on the Pads tab.
-  createEffect(() => {
-    const connected = activeConnection();
+  };
 
-    if (!connected || connected.padsRequest() === null) return;
-    frame.setTab(connected.padsTab());
-
-    if (!frame.open()) frame.toggle("key");
-  });
   const widths = createWidths(projects.active);
 
   // U6228: the Rail folds to a strip of Workstream marks; focus follows the control the user pressed, and `⌘K R` toggles it.
