@@ -27,9 +27,9 @@ import { openThroughRow } from "../shelf/openItem";
 import { usePadList } from "../rail/pads/padList";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
-import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX } from "./entries";
+import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX, type Entry } from "./entries";
 import type { ToastQueue } from "../toasts/queue";
-import type { Entry } from "./entries";
+import { strandedSwitcherKeys } from "./strandedKeys";
 import "./styles.css";
 
 const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
@@ -286,11 +286,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const chooseValue = (value: string | null): void => {
     const user = userActions().find(candidate => candidate.value === value);
 
-    if (user) {
-      runUserAction(user);
-
-      return;
-    }
+    if (user) return runUserAction(user);
 
     const action = opening().actions.find((candidate) => candidate.value === value);
 
@@ -351,21 +347,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     { chords: SWITCHER_CLOSE, run: () => close(true) },
     { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === CHORDS["switcher.open"]?.presses[0], run: event => { if (!event.repeat) close(true); } },
     { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
-    // U6829c: the Switcher is modal, so its move and choose keys act when a click has left focus outside the panel; Ark's Combobox hears them only from its field.
-    { chords: ["ArrowUp", "ArrowDown", "Enter"], when: event => event.target instanceof Node && !panel?.contains(event.target) && recording() === null && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey, run: event => {
-      if (event.key === "Enter") {
-        chooseValue(highlighted());
-
-        return;
-      }
-
-      const values = shown().map(entry => entry.value);
-      const at = highlighted() === null ? -1 : values.indexOf(highlighted()!);
-      const next = values[Math.min(values.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
-
-      if (next !== undefined) setHighlighted(next);
-      input?.focus();
-    } },
+    ...strandedSwitcherKeys({ panel: () => panel, recording, values: () => shown().map(entry => entry.value), highlighted, highlight: setHighlighted, choose: chooseValue, focusInput: () => input?.focus() }),
   ]);
 
   // U5240d: recording is a modal layer of its own, so no other chord runs and nothing reaches a Terminal; it ends with the layer.

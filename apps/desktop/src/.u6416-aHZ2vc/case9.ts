@@ -1,1 +1,0 @@
-lifetime.settle(); setTimeout(() => {}, 500);

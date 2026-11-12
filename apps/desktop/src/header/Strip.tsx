@@ -8,11 +8,10 @@ import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
-import { strandedFocus } from "../keys/stranded";
+import { strandedTabKeys } from "./strandedTabs";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
-import { MARKS, markOf } from "./tab";
-import type { Mark, StripTab } from "./tab";
+import { MARKS, markOf, type Mark, type StripTab } from "./tab";
 import "./strip.styles.css";
 
 type Edge = { mark: Mark; count: number; nearest: string };
@@ -275,23 +274,10 @@ export const Strip = (props: {
     </Show>
   );
 
-  /** U6829c: a click can leave focus on the page body; the arrows then move from the open tab to its neighbour, as Ark's tablist does from a focused tab. */
-  registerKeys({ kind: "app" }, [{
-    chords: ["ArrowLeft", "ArrowRight"],
-    when: press => !press.repeat && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && strandedFocus(press) && neighbour(press) !== undefined,
-    run: press => elements.get(neighbour(press)!)?.querySelector<HTMLElement>("[role=tab]")?.focus(),
-  }]);
-
-  const neighbour = (press: KeyboardEvent): string | undefined => {
-    const at = props.active ? paths().indexOf(props.active) : -1;
-
-    return at < 0 ? undefined : paths()[at + (press.key === "ArrowRight" ? 1 : -1)];
-  };
+  registerKeys({ kind: "app" }, strandedTabKeys(paths, props, path => elements.get(path)?.querySelector<HTMLElement>("[role=tab]")?.focus()));
 
   return (
-    <div class="strip" onFocusIn={(press) => {
-      if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
-    }}>
+    <div class="strip" onFocusIn={(press) => { if (!asking() && press.target === closeOpener()) setCloseOpener(undefined); }}>
       <div class="strip-scroll">
         {edge(copy.left, left())}
         <Tabs.Context>{(tabs) => <Sortable.Root {...tabs().getListProps()} onDrag={undefined} class="tablist app-tabs-list" aria-label={copy.projects} plain horizontal ids={paths()} onOrderChange={(ids) => props.onReorder(ids)} ref={(element) => { list = element; setListElement(element); onCleanup(() => setListElement(undefined)); }} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
