@@ -1,70 +1,102 @@
-import { expect, it } from "vitest";
-import { shelfBrowser } from "./u371Browser";
+import { readFileSync } from "node:fs";
+import { createRoot, createSignal } from "solid-js";
+import { afterEach, expect, it, vi } from "vitest";
+import { createShelfFrame } from "./frame";
+import { createMaximiseSlide } from "../ui/slideLifetime";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+afterEach(() => localStorage.clear());
 
-const resizes = "window.__fake.app.calls.filter(call => call.method === 'terminal.resize').length";
+it("u3721b_each_size_change_starts_one_transform_motion_and_no_width_motion", () => {
+  for (const file of ["../styles.css", "./styles.css"]) {
+    const transitions = readFileSync(new URL(file, import.meta.url), "utf8").match(/transition[^;{}]*;/g) ?? [];
 
-type Outcome = { sent: number; sliding: number; resized: boolean };
+    for (const declaration of transitions) expect(declaration, declaration).not.toMatch(/\b(width|grid-template-columns)\b/);
+  }
 
-const slides = "document.getAnimations().some(a => a.playState === 'running' && a.effect?.target?.matches?.('.shelf, .shelf-scrim, .columns, .drawer'))";
+  createRoot(dispose => {
+    const [reduced, setReduced] = createSignal(false);
+    const frame = createShelfFrame(() => "/one", reduced, () => {});
 
-/** Run one key-started change; report the resizes it sent in all, those sent while a slide was running, and whether the Terminal's visible width changed. */
-const change = async (press: string[]) => {
-  await evaluate(`(() => {
-    const count = () => ${resizes};
-    const box = () => { const e = document.querySelector('.xterm-screen'); return e?.checkVisibility() ? Math.round(e.getBoundingClientRect().width) : 0; };
-    const w = window.__watch = { box, width: box(), before: count(), last: count(), sliding: 0, stop: false };
-    const watch = () => { if (${slides}) w.sliding += count() - w.last; w.last = count(); if (!w.stop) requestAnimationFrame(watch); };
-    requestAnimationFrame(watch);
-    return true;
-  })()`);
-  for (const key of press) await browser("press", key);
-  await settle();
-  await evaluate("new Promise(resolve => setTimeout(() => resolve(true), 600))");
+    for (const source of ["key", "pointer"] as const) {
+      frame.toggle(source);
+      expect([frame.animated(), frame.keyed()]).toEqual([true, source === "key"]);
+      frame.toggle(source);
+      frame.toggleMaximise(source);
+      expect([frame.animated(), frame.keyed()]).toEqual([true, source === "key"]);
+    }
 
-  return evaluate<Outcome>(`(() => { const w = window.__watch; w.stop = true; return { sent: ${resizes} - w.before, sliding: w.sliding, resized: w.width !== 0 && w.box() !== 0 && w.box() !== w.width }; })()`);
+    setReduced(true);
+    frame.toggle("key");
+    expect(frame.animated()).toBe(false);
+    dispose();
+  });
+});
+
+const panel = (widths: number[]) => {
+  const host = document.createElement("div");
+  const animate = vi.fn((_keyframes: Keyframe[], _options: KeyframeAnimationOptions) => ({ cancel: vi.fn(), finished: new Promise<void>(() => {}) }));
+
+  Object.assign(host, { animate });
+  host.getBoundingClientRect = () => DOMRect.fromRect({ width: widths.shift() ?? 0 });
+  host.style.setProperty("--duration-key", "150ms");
+  host.style.setProperty("--duration-drawer", "250ms");
+  document.body.append(host);
+
+  return { host, animate };
 };
 
-it("u3721b_each_size_change_sends_exactly_one_terminal_resize", async () => {
-  await openShelf("agents-10", 288, 360, 1512, "dark");
-  await evaluate(`(() => { document.querySelector('.rail [data-id="agent-4"] .name').click(); return true; })()`);
-  await browser("wait", ".xterm-screen");
-  await settle();
+it("u3721b_maximise_and_restore_move_by_key_and_by_pointer", () => createRoot(dispose => {
+  const grow = panel([600]);
+  const slide = createMaximiseSlide(() => grow.host, () => true);
 
-  // `⌘K` then `B` opens a shut Bench; `Esc` from inside it closes it (U3721a).
-  const outcomes: Outcome[] = [];
+  slide.start(200, true);
+  const [keyframes = [], options] = grow.animate.mock.calls[0] ?? [];
+  expect(keyframes.map(frame => Object.keys(frame))).toEqual([["clipPath"], ["clipPath"]]);
+  expect(options?.duration).toBe(150);
+  expect(grow.host.style.minWidth).toBe("");
 
-  // A Bench maximise by key, from a focus inside the Bench, then its restore.
-  await evaluate(`(() => { document.querySelector('.shelf-controls button').focus(); return true; })()`);
-  outcomes.push(await change(["m"]));
-  outcomes.push(await change(["m"]));
+  const shrink = panel([200]);
+  const restore = createMaximiseSlide(() => shrink.host, () => true);
 
-  outcomes.push(await change(["Escape"]));
-  expect(await evaluate("document.querySelector('.window').dataset.shelf")).toBe("closed");
-  outcomes.push(await change(["Meta+k", "b"]));
-  expect(await evaluate("document.querySelector('.window').dataset.shelf")).toBe("open");
+  restore.start(600, false);
+  expect(shrink.animate.mock.calls[0]?.[1].duration).toBe(250);
+  expect(shrink.host.style.minWidth).toBe("600px");
+  dispose();
+}));
 
-  // A Pad opens the Drawer on any Agent.
-  await openShelf("tree-40", 288, 360, 1512, "dark");
+it("u3721b_a_press_during_a_motion_leaves_one_running_motion", () => createRoot(dispose => {
+  const { host, animate } = panel([600, 200]);
+  const slide = createMaximiseSlide(() => host, () => true);
+  const cancels: ReturnType<typeof vi.fn>[] = [];
 
-  // A Drawer maximise and restore by key, from a Pad's Drawer opened under a selected Agent.
-  await evaluate(`(() => { document.querySelector('.rail [data-id]:not([data-id=""]) .name').click(); return true; })()`);
-  await browser("wait", ".xterm-screen");
-  await settle();
-  await evaluate(`(() => { [...document.querySelectorAll('.shelf-tabs [role=tab]')].find(t => t.textContent.startsWith('Pads')).click(); return true; })()`);
-  await settle();
-  await evaluate(`(() => { document.querySelector('.shelf .pad-name').focus(); return true; })()`);
-  await browser("press", "Enter");
-  await browser("wait", ".drawer[data-open=true]");
-  await settle();
-  await evaluate(`(() => { document.querySelector('.drawer button.close').focus(); return true; })()`);
-  outcomes.push(await change(["m"]));
-  outcomes.push(await change(["m"]));
+  animate.mockImplementation(() => {
+    const cancel = vi.fn();
+    cancels.push(cancel);
 
-  // A change that leaves the Terminal's visible width as it was (a maximised surface covers the centre, hiding the Terminal, not refitting it) sends none; one that changes it sends exactly one.
-  expect(outcomes.map(o => o.sent)).toEqual(outcomes.map(o => o.resized ? 1 : o.sent));
-  expect(outcomes.map(o => o.sent <= 1)).toEqual(outcomes.map(() => true));
-  expect(outcomes.slice(2, 4).map(o => o.sent)).toEqual([1, 1]);
-  expect(outcomes.map(o => o.sliding)).toEqual([0, 0, 0, 0, 0, 0]);
-}, 120_000);
+    return { cancel, finished: new Promise<void>(() => {}) };
+  });
+  slide.start(200, true);
+  slide.start(600, true);
+  expect(animate).toHaveBeenCalledTimes(2);
+  expect(cancels[0]).toHaveBeenCalledTimes(1);
+  expect(cancels[1]).not.toHaveBeenCalled();
+  dispose();
+}));
+
+it("u3721b_closing_a_full_bench_slides_it_out_whole_then_restores_its_width", () => {
+  let dispose = () => {};
+
+  const frame = createRoot(done => {
+    dispose = done;
+
+    return createShelfFrame(() => "/two", () => false, () => {});
+  });
+
+  frame.toggleMaximise("key");
+  frame.toggle("key");
+  frame.unmaximise();
+  expect(frame.maximised()).toBe(true);
+  frame.settle();
+  expect(frame.maximised()).toBe(false);
+  dispose();
+});
