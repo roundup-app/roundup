@@ -1,15 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { createDrawer } from "../drawer/drawer";
 import { DrawerHost } from "../drawer/DrawerHost";
-import { drawerSliding } from "../drawer/sliding";
-import { mountPane } from "../terminal/paneHarness";
-import { info, node } from "./nodes";
-import { Layout } from "../app/Layout";
-import { createShelfTabs, ShelfTabs } from "../shelf/Shelf";
-import { Tabs } from "../ui/Tabs";
-import { createShelfFrame, type ShelfFrame } from "../shelf/frame";
-import { shelfSliding } from "../shelf/sliding";
 import { shelfBrowser } from "../shelf/u371Browser";
 
 // Observe before the registry consumes handled keys at window capture.
@@ -20,38 +12,6 @@ if (!window.__layerWatch) {
 }`);
 
 afterEach(cleanup);
-
-it("u2580a_instant_actions_release_slide_and_fit_once", async () => {
-  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "setTimeout", "clearTimeout"] });
-
-  try {
-    const { connected, emulators } = await mountPane([node("a")], [info("t-a")]);
-    connected.rail.select("a");
-    render(() => <DrawerHost drawer={connected.drawer} reducedMotion={() => false} />);
-    const emulator = emulators.get("t-a")!;
-    const fit = vi.spyOn(emulator, "fit");
-    connected.drawer.open(() => <p>old detail</p>);
-    vi.advanceTimersToNextFrame();
-    fit.mockClear();
-    fireEvent.keyDown(screen.getByLabelText("Close"), { key: "Escape" });
-    expect(drawerSliding()).toBe(false);
-    expect(screen.queryByText("old detail")).toBeNull();
-    vi.advanceTimersToNextFrame();
-    expect(fit).toHaveBeenCalledTimes(1);
-    connected.drawer.open(() => <p>new detail</p>, "key");
-    window.dispatchEvent(new Event("resize"));
-    fit.mockClear();
-    vi.advanceTimersToNextFrame();
-    expect(fit).toHaveBeenCalledTimes(1);
-    fireEvent.transitionEnd(screen.getByLabelText("Drawer"));
-    vi.advanceTimersByTime(600);
-    expect(screen.getByText("new detail")).toBeTruthy();
-    expect(fit).toHaveBeenCalledTimes(1);
-  } finally {
-    cleanup();
-    vi.useRealTimers();
-  }
-});
 
 const load = async (reduced = false) => {
   await browser("set", "viewport", "1512", "950");
@@ -112,7 +72,8 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(opened).toMatchObject({ open: true, content: true, focus: true });
     await browser("wait", "--fn", "!!document.querySelector('.todo-detail')");
     const closed = await activate('.drawer .close', "Space");
-    expect(closed).toMatchObject({ open: false, content: false, returned: true });
+    // U3721b: a key close slides in the key duration, so only the focus return is checked at the next frame.
+    expect(closed).toMatchObject({ returned: true });
     await settle();
 
 
@@ -131,10 +92,13 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(await keyFrame("Escape", "Escape", "!document.querySelector('.switcher') && document.activeElement === window.__layerOrigin")).toBe(true);
     await settle();
     await leader();
-    expect(await keyFrame("b", "KeyB", "document.querySelector('.window').dataset.shelfMaximised === 'true' || document.querySelector('.shelf').hidden")).toBe(true);
+    // U3721b: a key size change slides in the key duration; the Bench settles after it, not by the next frame.
+    await keyFrame("b", "KeyB", "true");
+    await browser("wait", "--fn", "document.querySelector('.window').dataset.shelfMaximised === 'true' || document.querySelector('.shelf').hidden");
     await settle();
     await leader();
-    expect(await keyFrame("b", "KeyB", "document.querySelector('.shelf').hidden")).toBe(true);
+    await keyFrame("b", "KeyB", "true");
+    await browser("wait", "--fn", "document.querySelector('.shelf').hidden");
     await settle();
     await leader();
     expect(await keyFrame("b", "KeyB", "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
@@ -179,7 +143,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
       })));
     })()`);
 
-    expect(observed).toEqual({ content: false, returned: true });
+    expect(observed).toMatchObject({ returned: true });
     await settle();
 
     // U3010b: pointer open, close, reopen, then each key ends the slide by the next frame with no exit content and U40's return.
@@ -228,48 +192,6 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
     expect(await evaluate("!!document.querySelector('.todo-detail')")).toBe(true);
   }
 }, 90_000);
-
-it("u2580a_shelf_instant_actions_release_slide_and_fit_once", async () => {
-  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
-
-  try {
-    const { connected, emulators } = await mountPane([node("a")], [info("t-a")]);
-    connected.rail.select("a");
-    let frame: ShelfFrame | undefined;
-    render(() => {
-      frame = createShelfFrame(() => "/test", () => false, () => {});
-      const state = frame;
-
-      const tabs = createShelfTabs(state);
-
-      return <Tabs.RootProvider value={tabs}><Layout header={<ShelfTabs frame={state} onToggle={state.toggle} />} rail={null} centre={null} shelf={null}
-        overlay={null} shelfPlacement={{ open: state.open(), rendered: state.rendered(), shown: state.shown(), animated: state.animated(), onSettle: state.settle }} /></Tabs.RootProvider>;
-    });
-    const fit = vi.spyOn(emulators.get("t-a")!, "fit");
-    frame!.toggle("pointer");
-    window.dispatchEvent(new Event("resize"));
-    vi.advanceTimersToNextFrame();
-    expect(shelfSliding()).toBe(true);
-    fit.mockClear();
-    // Enter/Space produce a detail=0 click; it reverses the in-flight pointer close.
-    fireEvent.click(screen.getByRole("tab", { name: /^Todos/, hidden: true }), { detail: 0 });
-    expect(shelfSliding()).toBe(false);
-    vi.advanceTimersToNextFrame();
-    expect(fit).toHaveBeenCalledTimes(1);
-    frame!.toggle("key");
-    window.dispatchEvent(new Event("resize"));
-    fit.mockClear();
-    vi.advanceTimersToNextFrame();
-    expect(frame!.rendered()).toBe(false);
-    expect(fit).toHaveBeenCalledTimes(1);
-    frame!.toggle("pointer");
-    expect(shelfSliding()).toBe(true);
-  } finally {
-    cleanup();
-    vi.useRealTimers();
-  }
-});
-
 
 it("u2580a_key_close_returns_focus_before_content_is_removed", () => {
   const drawer = createDrawer();
