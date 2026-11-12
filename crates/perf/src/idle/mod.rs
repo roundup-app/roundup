@@ -1,19 +1,20 @@
 //! R24: recorded evidence is separate from native acquisition.
 mod journal;
 mod samples;
+use crate::Error;
 pub use journal::{Journal, View};
 pub use samples::{Interval, TopSamples, parse_footprint, parse_top};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub fn guard(allow: Option<&str>, host: &str) -> Result<(), String> {
+pub fn guard(allow: Option<&str>, host: &str) -> Result<(), Error> {
     if allow != Some("1") {
-        return Err("perf-idle opens a native window and requires focus/hide interaction for six phases; ROUNDUP_ALLOW_WINDOW=1 is required before build or launch".into());
+        return Err(Error::IdleGuard("perf-idle opens a native window and requires focus/hide interaction for six phases; ROUNDUP_ALLOW_WINDOW=1 is required before build or launch".into()));
     }
     if host != "macos" {
-        return Err(format!(
+        return Err(Error::IdleGuard(format!(
             "perf-idle unsupported host: {host}; macos required"
-        ));
+        )));
     }
     Ok(())
 }
@@ -45,55 +46,60 @@ fn role(name: &str) -> Option<&'static str> {
 }
 
 /// A complete inventory includes unrelated WebKit helpers with resolved ownership.
-pub fn membership(inventory: &[Member], app: u32, daemon: u32) -> Result<Vec<Member>, String> {
+pub fn membership(inventory: &[Member], app: u32, daemon: u32) -> Result<Vec<Member>, Error> {
     let mut seen = BTreeSet::new();
     let mut included = Vec::new();
     for p in inventory {
         if !seen.insert(p.pid) || p.started == 0 {
-            return Err(format!("PID {} duplicate or missing start identity", p.pid));
+            return Err(Error::Membership(format!(
+                "PID {} duplicate or missing start identity",
+                p.pid
+            )));
         }
         if p.pid == app || p.pid == daemon {
             let mut member = p.clone();
             member.role = if p.pid == app { "App" } else { "Daemon" }.into();
             included.push(member);
         } else if role(&p.name).is_some() {
-            let owner = p
-                .responsible
-                .ok_or_else(|| format!("PID {} unresolved WebKit ownership", p.pid))?;
+            let owner = p.responsible.ok_or_else(|| {
+                Error::Membership(format!("PID {} unresolved WebKit ownership", p.pid))
+            })?;
             if owner == app || p.parent == Some(app) {
                 let mut member = p.clone();
                 member.role = role(&p.name)
-                    .ok_or_else(|| format!("PID {} unclassified helper", p.pid))?
+                    .ok_or_else(|| Error::Membership(format!("PID {} unclassified helper", p.pid)))?
                     .into();
                 included.push(member);
             }
         } else if p.name.starts_with("com.apple.WebKit.")
             && (p.responsible == Some(app) || p.parent == Some(app))
         {
-            return Err(format!(
+            return Err(Error::Membership(format!(
                 "PID {} unidentifiable WebKit role {}",
                 p.pid, p.name
-            ));
+            )));
         }
     }
     if !included.iter().any(|p| p.pid == app) || !included.iter().any(|p| p.pid == daemon) {
-        return Err("missing App or Daemon PID".into());
+        return Err(Error::Membership("missing App or Daemon PID".into()));
     }
     if !included.iter().any(|p| role(&p.name) == Some("WebContent")) {
-        return Err("missing associated WebContent".into());
+        return Err(Error::Membership("missing associated WebContent".into()));
     }
     included.sort_by_key(|p| p.pid);
     Ok(included)
 }
 
-pub fn same_members(before: &[Member], after: &[Member]) -> Result<(), String> {
+pub fn same_members(before: &[Member], after: &[Member]) -> Result<(), Error> {
     let ids = |ps: &[Member]| {
         ps.iter()
             .map(|p| (p.pid, p.started))
             .collect::<BTreeSet<_>>()
     };
     if ids(before) != ids(after) {
-        return Err("PID loss/reuse or changed associated process set".into());
+        return Err(Error::Membership(
+            "PID loss/reuse or changed associated process set".into(),
+        ));
     }
     Ok(())
 }
@@ -327,7 +333,7 @@ pub fn activity(
     statuses: &[contracts::common::Kind],
     cursors: &[(u64, u64)],
     transitions: &[contracts::common::Kind],
-) -> Result<(), String> {
+) -> Result<(), Error> {
     if statuses.len() != count * 2
         || cursors.len() != count
         || statuses
@@ -335,10 +341,12 @@ pub fn activity(
             .chain(transitions)
             .any(|k| *k != contracts::common::Kind::Idle)
     {
-        return Err("non-idle Agent or incomplete authoritative Status observations".into());
+        return Err(Error::Evidence(
+            "non-idle Agent or incomplete authoritative Status observations".into(),
+        ));
     }
     if cursors.iter().any(|(a, b)| a != b) {
-        return Err("Terminal output during phase".into());
+        return Err(Error::Evidence("Terminal output during phase".into()));
     }
     Ok(())
 }
