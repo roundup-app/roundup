@@ -459,21 +459,16 @@ impl Terminals {
         handle.tx.resize(cols, rows);
         state.cols = cols;
         state.rows = rows;
-        if state.snapshot_available
-            && screen::snapshot_size_supported(cols, rows)
-            && (matches!(&state.parser, ScreenParser::Pending)
-                || state.scrollback_rows * usize::from(cols) <= SNAPSHOT_MAX_HISTORY_CELLS)
-        {
-            match &mut state.parser {
-                ScreenParser::Pending => {
-                    state.scrollback_rows =
-                        SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(cols));
-                }
-                ScreenParser::Active(parser) => parser.screen_mut().set_size(rows, cols),
-                ScreenParser::Failed => {}
+        if state.snapshot_available && screen::snapshot_size_supported(cols, rows) {
+            // History beyond the budget at this width is trimmed, oldest first; it stays gone after a shrink.
+            let keep = SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(cols));
+            state.scrollback_rows = keep;
+            if let ScreenParser::Active(parser) = &mut state.parser {
+                parser.screen_mut().set_size(rows, cols);
+                parser.screen_mut().set_scrollback_len(keep);
             }
         } else {
-            // A size beyond the capture budget loses screen history; a later shrink cannot restore it.
+            // A window beyond the visible bound loses the screen; a later shrink cannot restore it.
             state.snapshot_available = false;
         }
         Ok(())

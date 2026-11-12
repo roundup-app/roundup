@@ -1,5 +1,7 @@
 //! `exit_for_update` through the native App seam.
 use super::*;
+use desktop::handle_run_event;
+use tauri::RunEvent;
 
 /// A Daemon stand-in that answers one request, `open_project`'s ping, and then goes silent.
 pub(super) fn serve_one_answer(socket: PathBuf) {
