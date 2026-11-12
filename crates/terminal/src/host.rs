@@ -261,8 +261,8 @@ impl Terminals {
     /// The one core connection, started on first use from a clean environment (MC16). MC53: a
     /// connection that has closed (the core restarted or was upgraded) is replaced by a new one.
     pub(super) async fn core(&self) -> Result<Arc<herdr::Conn>, Error> {
-        let mut held = self.core.lock().await;
-        if let Some(conn) = held.as_ref().filter(|conn| !conn.is_closed()) {
+        let mut slot = self.core.lock().await;
+        if let Some(conn) = slot.as_ref().filter(|conn| !conn.is_closed()) {
             return Ok(Arc::clone(conn));
         }
         let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
@@ -275,7 +275,7 @@ impl Terminals {
                 herdr::Error::Missing => Error::internal("herdr-core is not installed"),
                 other => Error::internal(other),
             })?;
-        *held = Some(Arc::clone(&conn));
+        *slot = Some(Arc::clone(&conn));
         Ok(conn)
     }
 }
