@@ -6,6 +6,7 @@ import { Tabs } from "../ui/Tabs";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { strandedTabKeys } from "./strandedTabs";
@@ -274,7 +275,11 @@ export const Strip = (props: {
     </Show>
   );
 
-  registerKeys({ kind: "app" }, strandedTabKeys({ paths: () => paths(), active: () => props.active, focusTab: path => elements.get(path)?.querySelector<HTMLElement>("[role=tab]")?.focus() }));
+  const [tabClicked, setTabClicked] = createSignal(false);
+  const noteClick = (click: MouseEvent) => setTabClicked(click.target instanceof Element && click.target.closest(".strip [role=tab]") !== null);
+
+  makeEventListener(document, "click", noteClick, true);
+  registerKeys({ kind: "app" }, strandedTabKeys({ paths: () => paths(), clicked: tabClicked, active: () => props.active, focusTab: path => elements.get(path)?.querySelector<HTMLElement>("[role=tab]")?.focus() }));
 
   return (
     <div class="strip" onFocusIn={(press) => { if (!asking() && press.target === closeOpener()) setCloseOpener(undefined); }}>

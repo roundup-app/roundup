@@ -77,4 +77,9 @@ it("u6829c_switcher_and_project_tab_keys_work_after_a_click (tab arrows)", async
   expect(document.activeElement).toBe(document.body);
   fireEvent.keyDown(document.body, { key: "ArrowRight" });
   await waitFor(() => expect(document.activeElement).toBe(tab("web")));
+
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  fireEvent.click(document.body);
+  fireEvent.keyDown(document.body, { key: "ArrowLeft" });
+  expect(document.activeElement).toBe(document.body);
 });
