@@ -5,6 +5,7 @@ import { noInlineDeleteConfirmationRule } from "./rules/no-inline-delete-confirm
 import { noRawAnchorBoxRule } from "./rules/no-raw-anchor-box.ts";
 import { requireFieldFrameRule } from "./rules/require-field-frame.ts";
 import { noRawListenerRule } from "./rules/no-raw-listener.ts";
+import { noDocumentQueryRule } from "./rules/no-document-query.ts";
 import { noTooltipBypassRule } from "./rules/no-tooltip-bypass.ts";
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
@@ -42,6 +43,7 @@ const antiSlopPlugin = eslintCompatPlugin({
         "no-new-web-assertions": noNewWebAssertionsRule,
         "no-tooltip-bypass": noTooltipBypassRule,
         "no-raw-listener": noRawListenerRule,
+        "no-document-query": noDocumentQueryRule,
         "require-field-frame": requireFieldFrameRule,
         "no-raw-anchor-box": noRawAnchorBoxRule,
         "no-inline-delete-confirmation": noInlineDeleteConfirmationRule,
