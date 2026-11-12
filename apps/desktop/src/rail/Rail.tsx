@@ -38,6 +38,7 @@ import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "../state/railStorage";
 import { createRailDrag } from "./drag";
+import { createWritableMemo } from "@solid-primitives/memo";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
@@ -251,8 +252,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   let treeApi: { focus: (value: string) => void } | undefined;
   const focusRow = (id: string) => treeApi?.focus(id);
 
-  const [selected, setSelected] = createSignal<string[]>([]);
-  createEffect(on(rail.selected, id => setSelected(id === null ? [] : [id])));
+  const [selected, setSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
   const isNodeId = (value: string) => rail.nodes.some(node => node.id === value);
   const isSelected = (id: string) => selected().includes(id);
 
@@ -640,11 +640,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         setContainer(element);
         // Ark's keys walk the collection, so it shows the rows as drawn first.
         makeEventListener(element, "keydown", settleCollection, { capture: true });
+
         // macOS Ctrl-click opens the menu: it must not focus a row, blur unfinished input, arm the sort sensor or toggle.
         const ctrlClick = (event: MouseEvent) => {
           if (event.button !== 0 || !event.ctrlKey) return;
-          event.preventDefault(); event.stopPropagation();
+          event.preventDefault();
+          event.stopPropagation();
         };
+
         makeEventListener(element, "pointerdown", ctrlClick, { capture: true });
         makeEventListener(element, "click", ctrlClick, { capture: true });
       }}
@@ -677,7 +680,11 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       }}
     >
 
-      <TreeView.Context>{api => { treeApi = api(); return null; }}</TreeView.Context>
+      <TreeView.Context>{api => {
+        treeApi = api();
+
+        return null;
+      }}</TreeView.Context>
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField

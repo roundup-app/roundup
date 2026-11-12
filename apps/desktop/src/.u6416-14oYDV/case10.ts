@@ -1,0 +1,1 @@
+const [a, setA] = createSignal(0); createEffect(() => { if (b() === null) setA(0); });

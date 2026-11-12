@@ -119,13 +119,16 @@ it("u5742c_overview_choice_focuses_terminal", async () => {
 it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   const m = await mount(["ann", "bea", "cee", "dee"].map(id => agent(id, "idle", "ready")));
   const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id);
+
   // A press focuses its row before the click, and Ark applies the selection a task later.
   const click = async (id: string, modifier: { metaKey?: boolean; shiftKey?: boolean }, want: string[]) => {
     row(id).focus();
+
     fireEvent.click(row(id), modifier);
     await waitFor(() => expect(selected()).toEqual(want));
     expect(document.activeElement).toBe(row(id));
   };
+
   await click("ann", { metaKey: true }, ["ann"]);
   await click("cee", { metaKey: true }, ["ann", "cee"]);
   await click("ann", { metaKey: true }, ["cee"]);
