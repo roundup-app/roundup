@@ -404,6 +404,7 @@ async fn h20_one_line_steer_has_typed_lead_in() {
 async fn b37_live_error_accepts_one_prompt_in_the_same_attempt() {
     let (f, id) = idle(Duration::from_secs(30)).await;
     let attempt = f.attempt(&id).await;
+    signal(&f, &id, "UserPromptSubmit").await;
     signal(&f, &id, "StopFailure").await;
     assert_eq!(status_of(&f.tree().await, &id).kind, Kind::Error);
     let waiting = {
@@ -423,6 +424,7 @@ async fn b37_live_error_accepts_one_prompt_in_the_same_attempt() {
 #[tokio::test]
 async fn b37_live_error_refuses_concurrent_input() {
     let (f, id) = idle(Duration::from_secs(30)).await;
+    signal(&f, &id, "UserPromptSubmit").await;
     signal(&f, &id, "StopFailure").await;
     let waiting = steer(&f, &id, "one");
     let expected = paste("one");
@@ -439,6 +441,7 @@ async fn b37_live_error_refuses_concurrent_input() {
 #[tokio::test]
 async fn b37_live_error_owner_is_open_until_terminal_exit() {
     let (f, id) = idle(Duration::from_secs(30)).await;
+    signal(&f, &id, "UserPromptSubmit").await;
     signal(&f, &id, "StopFailure").await;
     let terminal = f
         .tree()

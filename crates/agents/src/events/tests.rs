@@ -349,8 +349,8 @@ async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
     for (index, event) in [
         "UserPromptSubmit",
         "Stop",
-        "StopFailure",
         "UserPromptSubmit",
+        "StopFailure",
     ]
     .iter()
     .enumerate()
