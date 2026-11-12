@@ -240,7 +240,7 @@ mod tests {
                         let msg: Value = serde_json::from_slice(&p).unwrap();
                         let result = match msg["method"].as_str() {
                             Some("terminal.attach") => json!({"channel":5}),
-                            _ => json!({"terminal":"c1","pid":42,"state":"live"}),
+                            _ => json!({"address":"c1","pid":42,"state":"live"}),
                         };
                         let reply = json!({"jsonrpc":"2.0","id":msg["id"],"result":result});
                         core_w
