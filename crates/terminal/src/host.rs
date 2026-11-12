@@ -194,7 +194,10 @@ const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 /// PTY path gave a program. A core may have started in a session that carries other variables, so
 /// every name the program must not see is dropped from `env`, and the core itself starts clean.
 pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, name: &str) -> Value {
-    let mut env = params.env.clone();
+    // The program inherits the Daemon's own environment, as it did on the PTY path (A3507a), with
+    // the launch's variables on top.
+    let mut env: BTreeMap<String, String> = std::env::vars().collect();
+    env.extend(params.env.clone());
     let mut removed: Vec<&str> = shared.clean_env.iter().map(String::as_str).collect();
     removed.extend(params.unset.iter().map(String::as_str));
     removed.extend(OTHER_TERMINALS.iter().copied());

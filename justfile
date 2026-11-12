@@ -69,7 +69,7 @@ clippy base="":
 # The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89).
 [script('loop/keep-going.sh')]
 test-rust *args:
-    cargo build --quiet -p rupd -p rup
+    cargo build --quiet -p rupd -p rup -p terminal --features terminal/test-support
     cargo nextest run {{args}}
     just contracts-fresh
 
