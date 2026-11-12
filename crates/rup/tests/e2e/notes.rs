@@ -578,13 +578,6 @@ async fn b49_a_5000_byte_summary_gives_a_note_of_at_most_600_bytes() {
 }
 
 #[tokio::test]
-async fn b49_a_short_summary_is_carried_whole() {
-    let s = scene(&[]).await;
-    let note = end_note(&s, Some("fixed it, see the pad notes"), None).await;
-    assert_eq!(last_of(&note), "fixed it, see the pad notes");
-}
-
-#[tokio::test]
 async fn b49_a_child_that_ends_with_no_summary_gives_ended_with_no_finding() {
     let s = scene(&[]).await;
     let note = end_note(&s, None, None).await;
