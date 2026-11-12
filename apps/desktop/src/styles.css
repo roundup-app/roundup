@@ -224,6 +224,8 @@ p {
   transition: opacity var(--duration-crossfade) var(--easing-out), left var(--rail-slide-duration, var(--duration-drawer)) var(--easing-out);
 }
 
+.rail-handle[data-collapsed]:not([data-peek]) { left: calc(var(--rail-strip-width) - var(--space-2)); }
+
 .rail-handle[data-peek] { left: calc(var(--rail-peek-width) - var(--space-2)); }
 
 .rail-handle[data-slide="key"] { --rail-slide-duration: var(--duration-key); }
@@ -231,7 +233,7 @@ p {
 .rail-handle[data-slide="fade"] { --rail-slide-duration: var(--duration-reduced); }
 
 .columns:has(.rail:hover, .rail-edge:hover, .rail-handle:hover) .rail-handle:not([data-dragging]),
-:root[data-keyboard-focus="true"] .rail-handle:focus-within {
+.rail-handle:has(:focus-visible) {
   opacity: 1;
   pointer-events: auto;
 }
