@@ -37,6 +37,7 @@ export const copy = {
   calloutKinds: { NOTE: "NOTE", TIP: "TIP", IMPORTANT: "IMPORTANT", WARNING: "WARNING", CAUTION: "CAUTION" },
   languages: { typescript: "TypeScript", javascript: "JavaScript", python: "Python" },
   callouts: "Callouts",
+  drawingItem: "Drawing",
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
   inlineCode: sharedCopy.inlineCodeAction,

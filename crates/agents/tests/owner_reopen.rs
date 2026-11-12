@@ -402,3 +402,26 @@ async fn x6570b_save_owner_fails_when_the_lookup_fails() {
     let direct = Terminals::open(&data, bus.clone()).unwrap();
     assert!(direct.terminal_owner(&terminal).unwrap().is_none());
 }
+
+/// A12a: a new process for an Agent never starts beside a surviving owner nothing adopted.
+#[tokio::test]
+async fn a12a_a_start_stops_the_surviving_owner_of_the_same_agent() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().canonicalize().unwrap();
+    let script = data.join("fake-claude");
+    std::fs::write(&script, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nexec sleep 30\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bus = Bus::new();
+    let (agents, _terminals) = open(&data, &bus);
+    let cwd = data.to_string_lossy().into_owned();
+    let spawned: RailNode =
+        serde_json::from_value(call(&agents, &bus, "agent.spawn", json!({"cwd": cwd})).await)
+            .unwrap();
+    drop(agents);
+
+    // A reopened Daemon that never adopted the owner is about to start a second process.
+    let (agents, _terminals) = open(&data, &bus);
+    agents.stop_recorded_owner_for_test(&spawned.id).await;
+    // The surviving owner is gone, so a new process starts alone. Adopting finds nothing.
+    assert!(agents.reattach_owners().await.is_empty());
+}

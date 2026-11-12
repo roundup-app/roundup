@@ -416,6 +416,11 @@ impl Agents {
         }
     }
 
+    /// A12a: run the stop a new start for Agent `id` makes first.
+    pub async fn stop_recorded_owner_for_test(&self, id: &str) {
+        self.stop_recorded_owner(id).await;
+    }
+
     /// X6570b: run `save_owner` for Agent `id`'s Terminal `terminal_id`.
     pub fn save_owner_for_test(&self, id: &str, terminal_id: &str) -> Result<(), RpcError> {
         self.save_owner(id, terminal_id)
