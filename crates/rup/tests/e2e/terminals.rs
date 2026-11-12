@@ -316,7 +316,7 @@ pub(super) async fn ids_listed(client: &rpc::Client) -> Vec<u32> {
     listed.into_iter().map(|todo| todo.id).collect()
 }
 
-/// T10, U155: the order the user dropped a Todo into is the order `todo.list` gives after `rupd` restarts.
+/// T10, U155: the order the user dropped a Todo into is the order `todo.list` gives after the Daemon restarts.
 #[tokio::test]
 pub(super) async fn t11_reordered_list_survives_a_restart() {
     let mut project = start(&[]);

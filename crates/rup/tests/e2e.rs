@@ -638,3 +638,63 @@ async fn m14_an_ownerless_terminal_is_forbidden_to_write() {
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(snapshot().await.unwrap(), before);
 }
+
+fn socket(project: &Project) -> PathBuf {
+    project.dir.path().join("rupd.sock")
+}
+
+/// The Messages the Daemon sent to `to`, each with its pushed entry.
+async fn digest_pushes(client: &rpc::Client, to: &str) -> Vec<(Value, Value)> {
+    let listed = client
+        .request("message.list", json!({ "to": to }))
+        .await
+        .unwrap();
+    listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|message| message["from"]["id"] == "rupd")
+        .flat_map(|message| {
+            let body = message["body"].as_str().unwrap();
+            daemon::rollup_entries(body)
+                .into_iter()
+                .map(|text| (message.clone(), entry_of(&text)))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn b21_a_childs_kind_pad_and_todo_changes_each_push_one_entry_to_its_door() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let a_name = rail_tree(&user)
+        .await
+        .into_iter()
+        .find(|node| node.id == rail.a)
+        .unwrap()
+        .name;
+    settled(&user, &rail.m).await;
+
+    // A Kind change.
+    signal(&user, &rail.a, json!({"hook_event_name": "Stop"})).await;
+    let (message, entry) = push_where(&user, &rail.m, |_, e| {
+        e["name"] == a_name.as_str() && e["kind"] == "idle"
+    })
+    .await;
+    assert_eq!(message["kind"], "note");
+    assert_eq!(message["from"]["id"], "rupd");
+    let mut keys: Vec<_> = entry.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(keys, ["kind", "last", "link", "name", "pads", "todos"]);
+
+    // A Pad.
+    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    as_a.request("pad.create", json!({ "name": "notes", "text": "ZEBRA" }))
+        .await
+        .unwrap();
+    let (_, entry) = push_where(&user, &rail.m, |_, e| e["pads"] == json!(["notes"])).await;
+    assert_eq!(entry["name"], a_name.as_str());
+    assert!(!entry.to_string().contains("ZEBRA"));
+}
