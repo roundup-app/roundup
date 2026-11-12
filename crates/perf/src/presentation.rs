@@ -1,8 +1,4 @@
 //! U3010d: consume native presentation evidence without starting an App or window.
-#![deny(clippy::unwrap_used, clippy::expect_used)]
-#![deny(clippy::panic, clippy::indexing_slicing)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-#![cfg_attr(test, allow(clippy::panic, clippy::indexing_slicing))]
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

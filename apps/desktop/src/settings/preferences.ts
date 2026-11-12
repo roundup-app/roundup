@@ -164,6 +164,9 @@ export const applyAppAppearance = () => {
   });
 };
 
+/** The user launch calls that receive the App's engine, Model and permission defaults. */
+const LAUNCHES: ReadonlySet<string> = new Set(["agent.spawn", "rail.startDoor", "agent.restartMode"]);
+
 /** Only user launch calls receive App defaults. A saved Door resumes its own engine/model; only its permission default changes. */
 export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number) => boolean): AppSeam => {
   const rpc: AppSeam["rpc"] = (method, params) => {
@@ -176,7 +179,7 @@ export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number)
       return app.rpc(method, Object.assign({}, params, permission));
     }
 
-    if (method === "agent.spawn" || method === "rail.startDoor") {
+    if (LAUNCHES.has(method)) {
       return app.rpc(method, Object.assign({}, params,
         settings.engine ? { engine: settings.engine } : {},
         settings.model && !(params && "model" in params && params.model) ? { model: settings.model } : {},

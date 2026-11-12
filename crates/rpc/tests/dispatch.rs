@@ -1,4 +1,10 @@
 //! C6493a, C6493b: `dispatch_methods!` decodes once, calls the typed handler, encodes once.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rpc::{Ctx, RpcError, code};

@@ -1,5 +1,11 @@
 //! M12: a Door picks a child's Model from any the Adapter lists. The built `rup mcp <agent-id>`
 //! over stdio against the real `rupd` and the fake `claude`, which records each launch.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 
 #[path = "e2e/daemon.rs"]

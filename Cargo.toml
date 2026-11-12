@@ -31,6 +31,10 @@ unused = { level = "deny", priority = -1 }
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
 
 [patch.crates-io]
 # Tauri tray backend: retain upstream bindings while sharing libloading 0.8.

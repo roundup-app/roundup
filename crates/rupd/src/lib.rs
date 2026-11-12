@@ -2,21 +2,6 @@
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
 #![cfg_attr(test, allow(clippy::disallowed_methods, clippy::disallowed_types))]
-#![deny(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    clippy::indexing_slicing
-)]
-#![cfg_attr(
-    test,
-    allow(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing
-    )
-)]
 
 mod actions;
 mod attention;

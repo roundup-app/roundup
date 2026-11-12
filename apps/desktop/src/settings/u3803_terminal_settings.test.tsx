@@ -6,11 +6,12 @@ import * as xtermModule from "@xterm/xterm";
 import { info, terminal } from "../testing/nodes";
 import { mountPane } from "../terminal/paneHarness";
 import { createXtermEmulators } from "../terminal/emulator";
-import { applyAppAppearance, saveAppSettings, followAppAppearance, appDark } from "./preferences";
+import { DEFAULT_FONT_SIZE } from "../terminal/fontSize";
+import { appSettings, applyAppAppearance, saveAppSettings, followAppAppearance, appDark } from "./preferences";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 
-it("u3517d_settings_and_project_zoom_share_the_default", async () => {
+it("u3517d_settings_and_every_terminal_share_the_size", async () => {
   const { connected, emulators } = await mountPane([terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
   connected.rail.select("a");
   await waitFor(() => expect(emulators.has("t-a")).toBe(true));
@@ -22,21 +23,20 @@ it("u3517d_settings_and_project_zoom_share_the_default", async () => {
   expect(first.disposed).toBe(false);
 });
 
-it("u3517d_saved_absolute_zoom_survives_default_changes_and_reset", async () => {
-  localStorage.setItem("roundup:terminal-font:/p", "19");
+it("u3517d_chords_change_the_app_wide_size_and_zero_restores_the_default", async () => {
+  await saveAppSettings({ fontSize: 16 });
   const { connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
   connected.rail.select("a");
   await waitFor(() => expect(emulators.has("t-a")).toBe(true));
-  await saveAppSettings({ fontSize: 16 });
-  expect(emulators.get("t-a")!.fontSize).toBe(19);
+  fireEvent.keyDown(container.querySelector("[data-terminal]")!, { key: "=", code: "Equal", metaKey: true });
+  await waitFor(() => expect(appSettings().fontSize).toBe(17));
   fireEvent.keyDown(container.querySelector("[data-terminal]")!, { key: "0", code: "Digit0", metaKey: true });
-  expect(emulators.get("t-a")!.fontSize).toBe(16);
-  await saveAppSettings({ fontSize: 18 });
-  await waitFor(() => expect(emulators.get("t-a")!.fontSize).toBe(18));
+  await waitFor(() => expect(appSettings().fontSize).toBe(DEFAULT_FONT_SIZE));
+  expect(emulators.get("t-a")!.fontSize).toBe(DEFAULT_FONT_SIZE);
   cleanup();
   const reopened = await mountPane([terminal("a")], [info("t-a")]);
   reopened.connected.rail.select("a");
-  await waitFor(() => expect(reopened.emulators.get("t-a")?.fontSize).toBe(18));
+  await waitFor(() => expect(reopened.emulators.get("t-a")?.fontSize).toBe(DEFAULT_FONT_SIZE));
 });
 
 it("u4687c_saved_values_reach_existing_and_new_terminals_u3803_font_family_changes_keep_the_same_xterm_and_scrollback", async () => {

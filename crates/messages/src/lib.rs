@@ -2,16 +2,6 @@
 //! Builder. Stores Messages and Routes, answers the user's and an Actor's calls, and on an `idle`
 //! writes it to the receiving Agent's Claude inbox.
 
-#![cfg_attr(
-    not(test),
-    deny(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing
-    )
-)]
-
 pub mod continuation;
 mod delivery;
 pub mod digest;

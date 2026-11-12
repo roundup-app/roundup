@@ -12,31 +12,31 @@ fn attribution(agent: &str) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn a5765e_workstream_attribution_survives_stop_and_reopen_with_or_without_a_mode_prompt() {
+async fn a5765e_workstream_and_mode_attribution_survive_stop_and_reopen() {
     for prompt in [None, Some("Saved Mode prompt")] {
         let f = Fixture::new();
         let source = attribution("1");
-        let created = f
-            .call(
-                "rail.createWorkstream",
-                json!({
-                    "name": "Target work", "start_attribution": source
-                }),
-            )
-            .await
-            .unwrap();
-        assert_eq!(created["start_attribution"], source);
-        if let Some(prompt) = prompt {
+        let created = if let Some(prompt) = prompt {
+            // `agent.restartMode` is the Daemon's; a created Mode already holds its attribution.
             f.call(
-                "workstream.setOpeningPrompt",
-                json!({"id": created["id"], "prompt": prompt}),
+                "agent.createMode",
+                json!({"name":"Target work","prompt":prompt,"start_attribution":source}),
             )
             .await
-            .unwrap();
-        }
-        f.call("rail.startDoor", json!({"id": created["id"]}))
-            .await
-            .unwrap();
+            .unwrap()
+        } else {
+            let workstream = f
+                .call(
+                    "rail.createWorkstream",
+                    json!({"name":"Target work","start_attribution":source}),
+                )
+                .await
+                .unwrap();
+            f.call("rail.startDoor", json!({"id":workstream["id"]}))
+                .await
+                .unwrap()
+        };
+        assert_eq!(created["start_attribution"], source);
         f.call("agent.stop", json!({"id": created["id"]}))
             .await
             .unwrap();
@@ -49,7 +49,7 @@ async fn a5765e_workstream_attribution_survives_stop_and_reopen_with_or_without_
             .find(|n| n["id"] == created["id"])
             .unwrap();
         assert_eq!(node["start_attribution"], source);
-        assert_eq!(node["opening_prompt"], json!(prompt));
+        assert_eq!(node["mode_prompt"], json!(prompt));
     }
 }
 

@@ -1,4 +1,10 @@
 //! T27, LK4 (`scenarios/todos.md`, `scenarios/rup-ext.md`): Pad refs of a Todo and section links, on the real Daemon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;

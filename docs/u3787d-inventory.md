@@ -20,7 +20,7 @@ Capture panel is a separate production entry point and is tested through Capture
 | `todos/CapturePanel.tsx` | Native capture request → native CapturePanel request |
 | `ui/Mentions.tsx` | Project overview → Ask → Ask prompt |
 | `rail/SpawnPromptField.tsx` | Workstreams → ⇧⌘N → Spawn prompt |
-| `rail/OpeningPrompt.tsx` | Workstream native menu → Opening prompt → Opening prompt |
+| `rail/ModePrompt.tsx` | Mode native menu → First prompt… → First prompt |
 | `importer/ImportPanel.tsx` | Project menu → Import Claude Code → Import prompt |
 | `todos/EditableText.tsx` | Open Todo → title double-click / Add notes → Todo title / Todo body |
 | `todos/TodoComments.tsx` | Open Todo → comment field → Todo comment |

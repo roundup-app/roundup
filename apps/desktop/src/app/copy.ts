@@ -80,7 +80,6 @@ export const copy = {
   projectStartFailed: (path: string, id: string, stage: string, cause: string) => `${path}: row ${id} was created; ${stage} failed: ${cause}. Inspect it before retrying.`,
   close: sharedCopy.close,
   closeShelf: sharedCopy.closeShelf,
-  openShelf: sharedCopy.openShelf,
   maximise: sharedCopy.maximise,
   restore: sharedCopy.restore,
   newAgent: sharedCopy.newAgent,

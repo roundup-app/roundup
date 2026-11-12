@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, door } from "../testing/nodes";
+import { agent, mode, workstream } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { CHORDS, LEADER, pressOf, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { endLeader } from "./registry";
@@ -40,16 +40,18 @@ const focusableEmulator = (): EmulatorFactory => () => {
   };
 };
 
-const open = async (openingPrompt = "") => {
+const open = async (prompt = "") => {
   const app = createFakeApp();
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
-    door("w", "idle", "idle", { name: "lead", opening_prompt: openingPrompt }),
+    mode("w", prompt, { name: "lead" }),
+    // U4547e: a Workstream gives the free root Agent a Move destination.
+    workstream("team"),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: id === "i" ? null : "w" })),
   ];
 
-  app.handlers["workstream.restart"] = () => door("w", "idle", "idle", { opening_prompt: openingPrompt });
+  app.handlers["agent.restartMode"] = () => mode("w", prompt, { name: "lead" });
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));
@@ -117,9 +119,9 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
         // `⇧⌘M` opens the Mode dialog, a modal layer that would take every later probe.
         if (press.defaultPrevented && code === "KeyM" && mods.metaKey && mods.shiftKey) {
           // No spawn capacity (an earlier probe's create in flight) binds the key and opens nothing.
-          await waitFor(() => expect(document.querySelector(".opening-prompt-dialog")).not.toBeNull(), { timeout: 300 }).then(async () => {
-            document.querySelector(".opening-prompt-dialog")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-            await waitFor(() => expect(document.querySelector(".opening-prompt-dialog")).toBeNull());
+          await waitFor(() => expect(document.querySelector(".mode-prompt-dialog")).not.toBeNull(), { timeout: 300 }).then(async () => {
+            document.querySelector(".mode-prompt-dialog")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+            await waitFor(() => expect(document.querySelector(".mode-prompt-dialog")).toBeNull());
           }, () => undefined);
         }
 

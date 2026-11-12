@@ -1,4 +1,10 @@
 //! X14: Terminal output is selected per Terminal over the real Daemon's socket.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::sync::Arc;
 use std::time::Duration;

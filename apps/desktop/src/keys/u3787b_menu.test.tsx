@@ -128,10 +128,9 @@ it("u3787b_menu_and_key_share_one_action: Bubble minimise from key", async () =>
 it.each([
   { chord: "⌘=", key: "=", code: "Equal", size: 18 },
   { chord: "⌘-", key: "-", code: "Minus", size: 16 },
-  { chord: "⌘0", key: "0", code: "Digit0", size: 15 },
+  { chord: "⌘0", key: "0", code: "Digit0", size: 13 },
 ])("u3787b_menu_and_key_share_one_action: Terminal font $chord from key", async ({ chord, key, code, size }) => {
-  await saveAppSettings({ fontSize: 15 });
-  localStorage.setItem("roundup:terminal-font:/p", "17");
+  await saveAppSettings({ fontSize: 17 });
   const { connected, daemon, emulators } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));

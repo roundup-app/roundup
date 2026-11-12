@@ -52,7 +52,7 @@ const groups = [
   ["start", "restart", "yolo", "stop", "resume"],
   ["complete"],
   ["folder", "editor", "send", "copy-link", "copy"],
-  ["rename", "alerts", "clear", "opening-prompt", "assign", "make-yours", "move", "move-up", "move-down", "make-workstream", "save-as-mode"],
+  ["rename", "alerts", "clear", "mode-prompt", "assign", "make-yours", "move", "move-up", "move-down", "make-workstream", "save-as-mode"],
   ["add"],
   ["remove", "delete", "close"],
 ];

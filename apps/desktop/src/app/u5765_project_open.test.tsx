@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { saveAppSettings } from "../settings/preferences";
-import { agent, door } from "../testing/nodes";
+import { agent, door, mode } from "../testing/nodes";
 import { App } from "../App";
 import { createProjectDrafts } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -135,28 +135,29 @@ it.each(["agent", "workstream", "mode"] as const)("u5765_start_%s_waits_for_cons
   const targetApp = mounted.app.of(TARGET);
   targetApp.handlers["agent.spawn"] = () => agent("made", "idle", "ready");
   targetApp.handlers["rail.createWorkstream"] = () => door("made", "idle", "ready");
-  targetApp.handlers["workstream.setOpeningPrompt"] = () => null;
+  targetApp.handlers["agent.createMode"] = ({ name, prompt }) => mode("made", prompt, { name });
+  targetApp.handlers["agent.restartMode"] = () => mode("made", prompt, { name: "target-worker" });
   targetApp.handlers["rail.startDoor"] = () => door("made", "idle", "ready");
   const prompt = " exact first prompt\n  é ";
   const reply = mounted.answer({ id: 61, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind, name: "target-worker", prompt } });
   await screen.findByRole("dialog");
-  expect(mounted.app.calls.filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toEqual([]);
+  expect(mounted.app.calls.filter(call => ["agent.spawn", "rail.createWorkstream", "agent.createMode", "agent.restartMode"].includes(call.method))).toEqual([]);
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
   const result = await reply;
   expect(result).not.toHaveProperty("error");
   expect(result).toMatchObject({ id: 61, result: { path: TARGET, kind, id: expect.any(String) } });
   const target = mounted.app.of(TARGET);
-  const created = target.calls.find(call => call.method === (kind === "agent" ? "agent.spawn" : "rail.createWorkstream"));
+  const createMethod = kind === "agent" ? "agent.spawn" : kind === "workstream" ? "rail.createWorkstream" : "agent.createMode";
+  const created = target.calls.find(call => call.method === createMethod);
   expect(created?.params).toMatchObject({ name: "target-worker", start_attribution: { project: SOURCE.path, project_name: SOURCE.name, agent: "1", agent_name: "builder" } });
 
   if (kind === "agent") expect(created?.params).toMatchObject({ cwd: TARGET, prompt });
-  else {
+  else if (kind === "workstream") {
     const launch = target.calls.find(call => call.method === "rail.startDoor");
     expect(launch?.params).toMatchObject({ prompt });
-    const saved = target.calls.findIndex(call => call.method === "workstream.setOpeningPrompt");
-
-    if (kind === "mode") expect(saved).toBeLessThan(target.calls.findIndex(call => call.method === "rail.startDoor"));
-    else expect(saved).toBe(-1);
+  } else {
+    expect(created?.params).toMatchObject({ prompt });
+    expect(target.calls.find(call => call.method === "agent.restartMode")?.params).toEqual({ id: "made", request: "project-start:61" });
   }
 });
 
@@ -167,7 +168,8 @@ it.each(["agent", "workstream", "mode"] as const)("u5765_start_%s_in_open_b_uses
     const target = mounted.app.of(TARGET);
     target.handlers["agent.spawn"] = () => agent("made", "idle", "ready");
     target.handlers["rail.createWorkstream"] = () => door("made", "idle", "ready");
-    target.handlers["workstream.setOpeningPrompt"] = () => null;
+    target.handlers["agent.createMode"] = ({ name, prompt }) => mode("made", prompt, { name });
+    target.handlers["agent.restartMode"] = () => mode("made", "work there", { name: "worker" });
     target.handlers["rail.startDoor"] = () => door("made", "idle", "ready");
     const holder = mounted.drafts(SOURCE.path);
     await holder.edit({ surface: "terminal_selection", object: "original", recipient: "builder" }, { note: " unsent é\n ", excerpt: "source bytes" }, null, "ordinary").retained;
@@ -178,7 +180,7 @@ it.each(["agent", "workstream", "mode"] as const)("u5765_start_%s_in_open_b_uses
     expect(mounted.opening).not.toHaveBeenCalled();
     expect(screen.getByRole("tab", { name: SOURCE.name }).getAttribute("aria-selected")).toBe("true");
     expect(holder.list()).toEqual(before);
-    const launch = target.calls.find(call => call.method === (kind === "agent" ? "agent.spawn" : "rail.startDoor"));
+    const launch = target.calls.find(call => call.method === (kind === "agent" ? "agent.spawn" : kind === "workstream" ? "rail.startDoor" : "agent.restartMode"));
     expect(launch?.params).not.toHaveProperty("mode");
 
     if (permissionMode) expect(launch?.params).toHaveProperty("permissionMode", permissionMode);
@@ -194,15 +196,15 @@ it.each(["agent", "workstream", "mode"] as const)("u5765_refusing_%s_creates_not
   fireEvent.click(screen.getByRole("button", { name: "Refuse" }));
   expect(await pending).toMatchObject({ id: 81, error: { code: -32002 } });
   expect(mounted.opening).not.toHaveBeenCalled();
-  expect(mounted.app.of(TARGET).calls.filter(call => ["agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toEqual([]);
+  expect(mounted.app.of(TARGET).calls.filter(call => ["agent.spawn", "rail.createWorkstream", "agent.createMode", "agent.restartMode", "rail.startDoor"].includes(call.method))).toEqual([]);
 });
 
-it.each(["save", "start"] as const)("u5765_target_%s_failure_reports_the_created_identity_without_retrying", async stage => {
+it("u5765_target_mode_start_failure_reports_the_created_identity_without_retrying", async () => {
   const mounted = await mount(SOURCE.path, true);
   const target = mounted.app.of(TARGET);
   target.handlers["rail.createWorkstream"] = () => door("made", "idle", "ready");
-  target.handlers["workstream.setOpeningPrompt"] = () => null;
-  target.handlers[stage === "save" ? "workstream.setOpeningPrompt" : "rail.startDoor"] = () => { throw new RpcError(-32003, "Vendor unavailable"); };
+  target.handlers["agent.createMode"] = ({ name, prompt }) => mode("made", prompt, { name });
+  target.handlers["agent.restartMode"] = () => { throw new RpcError(-32003, "Vendor unavailable"); };
 
   const result = await mounted.answer({ id: 91, method: "project.start", params: { path: TARGET, source: SOURCE.path, agent: { id: "1", name: "builder" }, kind: "mode", name: "target-worker", prompt: "work there" } });
   expect(result).toMatchObject({ id: 91, error: { code: -32003 } });
@@ -210,9 +212,9 @@ it.each(["save", "start"] as const)("u5765_target_%s_failure_reports_the_created
   if (!("error" in result)) throw new Error("a failed launch must not succeed");
   expect(result.error.message).toContain(TARGET);
   expect(result.error.message).toContain("made");
-  expect(result.error.message).toContain(`${stage} failed`);
-  expect(target.calls.filter(call => call.method === "rail.createWorkstream")).toHaveLength(1);
-  expect(target.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(stage === "save" ? 0 : 1);
+  expect(result.error.message).toContain("start failed");
+  expect(target.calls.filter(call => call.method === "agent.createMode")).toHaveLength(1);
+  expect(target.calls.filter(call => call.method === "agent.restartMode")).toHaveLength(1);
   expect(await screen.findByRole("dialog", { description: /target-worker.*Vendor unavailable/ })).toBeDefined();
 });
 

@@ -1,4 +1,10 @@
 //! LC12–LC13: lean specialists, over the isolated Door lifecycle harness.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 

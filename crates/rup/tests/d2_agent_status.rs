@@ -1,4 +1,10 @@
 //! D2, E3, H15: real Claude drives the Agent status through its hooks and session start.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;

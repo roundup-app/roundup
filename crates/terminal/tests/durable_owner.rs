@@ -1,4 +1,10 @@
 //! X8's real ownership observer crosses client process boundaries.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use contracts::terminal::SpawnParams;
 use serde_json::json;
 use std::collections::BTreeMap;

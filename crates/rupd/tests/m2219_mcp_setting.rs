@@ -1,4 +1,10 @@
 //! M2219: the MCP setting a Project holds, and how `ROUNDUP_MCP` overrides it.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::ffi::OsStr;
 use std::sync::Arc;

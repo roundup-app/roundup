@@ -79,7 +79,15 @@ const surfaces: {
   },
   {
     name: "Bench peek",
-    open: async () => { key("K", { metaKey: true }); key("B", { code: "KeyB" }); await new Promise((done) => setTimeout(done, 400)); await restAtEdge(); },
+    open: async () => {
+      for (let step = 0; step < 4 && document.querySelector('.window[data-shelf="closed"]') === null; step++) {
+        key("K", { metaKey: true });
+        key("B", { code: "KeyB" });
+        await new Promise((done) => setTimeout(done, 400));
+      }
+
+      await restAtEdge();
+    },
     shown: () => document.querySelector('.window[data-shelf="peek"]'),
     focusStays: true,
   },

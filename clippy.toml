@@ -8,3 +8,9 @@ too-many-lines-threshold = 100
 disallowed-methods = [
     { path = "rusqlite::Connection::is_autocommit", reason = "take a `&Transaction`, so the type proves the transaction" },
 ]
+
+# Test-only code may unwrap, expect, panic and index; production code returns errors (RB3798b).
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true

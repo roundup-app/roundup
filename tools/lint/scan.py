@@ -18,7 +18,7 @@ FUNCTION_RULES = {
     'eslint(max-lines-per-function)': r'\((\d+)\)',
 }
 # State-holder lints (U6416): existing sites are exact debt; later Issues move them to a store or a queue.
-HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)', 'anti-slop(no-draft-bypass)', 'anti-slop(no-raw-listener)')
+HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)', 'anti-slop(no-draft-bypass)', 'anti-slop(no-raw-listener)', 'anti-slop(no-repair-effect)')
 TESTS = re.compile(r'\.test\.tsx?$|/testing/|/perf/')
 SECTIONS = {'web': ['size', 'ast', 'typos', 'ruff'], 'rust': ['dependencies']}
 
@@ -170,22 +170,46 @@ def identity(row):
     return json.dumps({k: v for k, v in row.items() if k not in ('reason', 'ceiling', 'location')}, sort_keys=True)
 
 
-def compare(actual, allowed, label, subset=False):
+def compare(actual, allowed, label, subset=False, excused=lambda kind, row: False):
     errors = []
     permitted = {identity(row): row for row in allowed}
     observed = {identity(row): row for row in actual}
     if len(permitted) != len(allowed) or len(observed) != len(actual):
         raise ValueError(f'{label}: duplicate exception identity')
+
+    def report(kind, row, message):
+        if excused(kind, row):
+            print(f'{message} (advisory, not failing this PR)', file=sys.stderr)
+        else:
+            errors.append(message)
+
     for key, row in observed.items():
         if key not in permitted:
-            errors.append(f'{label}: new exception/match {key}' + ((f' measured {row["ceiling"]}, above the threshold' if 'rule' in row else f' measured {row["ceiling"]} newlines, ceiling 1000') if 'ceiling' in row else f' at {row.get("location", "graph")}'))
+            report('new', row, f'{label}: new exception/match {key}' + ((f' measured {row["ceiling"]}, above the threshold' if 'rule' in row else f' measured {row["ceiling"]} newlines, ceiling 1000') if 'ceiling' in row else f' at {row.get("location", "graph")}'))
         elif row.get('ceiling', 0) > permitted[key].get('ceiling', 0):
             errors.append(f'{label}: raised size ceiling {row["path"]}: {row["ceiling"]} > {permitted[key]["ceiling"]}')
         elif not subset and row.get('ceiling') != permitted[key].get('ceiling'):
             errors.append(f'{label}: shrink ceiling to actual {row["path"]}: {row["ceiling"]}')
     if not subset:
-        errors.extend(f'{label}: stale exception {key}' for key in permitted.keys() - observed.keys())
+        for key in permitted.keys() - observed.keys():
+            report('stale', permitted[key], f'{label}: stale exception {key}')
     return errors
+
+
+def advisory_excuse(root, base):
+    """The advisory database moves under an unchanged graph: a PR is no failure for a match it did not bring (T3797a)."""
+    if run(['git', 'rev-parse', 'HEAD'], root).stdout.strip() == base:
+        return lambda kind, row: False
+    unchanged = run(['git', 'diff', '--quiet', base, '--', 'Cargo.lock'], root, (0, 1)).returncode == 0
+    lock = run(['git', 'show', f'{base}:Cargo.lock'], root, (0, 128)).stdout
+    on_base = set(re.findall(r'name = "([^"]+)"\nversion = "([^"]+)"', lock))
+
+    def excused(kind, row):
+        if not row.get('rule', '').startswith('RUSTSEC-'):
+            return False
+        # A stale row goes when the lock is unchanged; a changed lock must drop it or keep it matched.
+        return unchanged or (kind == 'new' and (row['crate'], row['version']) in on_base)
+    return excused
 
 
 def load(text):
@@ -231,10 +255,11 @@ def main():
                 run(['git', 'worktree', 'remove', '--force', checkout], root)
     # Likewise a function-size rule the merge base holds no row of: its first PR records it.
     first = {rule for rule in (*FUNCTION_RULES, *HOLDER_RULES) if not any(row.get('rule') == rule for row in old.get('oxlint', []))}
+    excused = advisory_excuse(root, base)
     for section in sections:
         if section not in unrecorded:
             errors.extend(compare([row for row in debt[section] if row.get('rule') not in first], old[section], f'{section} merge-base', subset=True))
-        errors.extend(compare(actual[section], debt[section], section))
+        errors.extend(compare(actual[section], debt[section], section, excused=excused))
         for row in debt[section]:
             print(f'baseline debt: {section} {json.dumps(row, ensure_ascii=False)}')
     for error in errors:

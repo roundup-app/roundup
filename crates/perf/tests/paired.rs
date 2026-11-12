@@ -1,4 +1,10 @@
 //! R16 same-job comparison, through the production selection and judgment seams.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use perf::machine::{Machine, Provenance};
 use std::collections::BTreeMap;
 

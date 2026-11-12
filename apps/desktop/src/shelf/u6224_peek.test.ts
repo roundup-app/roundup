@@ -6,7 +6,7 @@ import { shelfBrowser } from "./u371Browser";
 
 const { browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
 
-const STORE = "roundup:shelf:/Users/you/harness";
+const STORE = "roundup:viewer";
 
 const calls = (method: string) => evaluate<number>(`window.__fake.app.calls.filter(call => call.method === '${method}').length`);
 
@@ -149,7 +149,7 @@ it("u6224_use_makes_the_peek_the_open_bench", async () => {
   await settle();
   expect(await phase()).toBe("open");
   expect(await calls("terminal.resize")).toBe(1);
-  expect(JSON.parse((await saved())!).open).toBe(true);
+  expect(JSON.parse((await saved())!).frame.open).toBe(true);
 }, 90_000);
 
 it("u6224_the_open_shortcut_makes_the_peek_the_open_bench", async () => {
@@ -159,7 +159,7 @@ it("u6224_the_open_shortcut_makes_the_peek_the_open_bench", async () => {
   await toggle();
   expect(await phase()).toBe("open");
   expect(await calls("terminal.resize")).toBe(1);
-  expect(JSON.parse((await saved())!).open).toBe(true);
+  expect(JSON.parse((await saved())!).frame.open).toBe(true);
 }, 90_000);
 
 it("u6224_a_press_in_the_centre_closes_the_peek_and_reaches_the_terminal", async () => {

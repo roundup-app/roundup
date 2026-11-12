@@ -1,4 +1,10 @@
 //! X14 downstream intake: actual Client, isolated socket, no Daemon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::time::Duration;
 
 use rpc::Client;

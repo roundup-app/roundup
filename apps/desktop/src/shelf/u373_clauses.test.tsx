@@ -85,10 +85,11 @@ describe("u370 the chord and esc", () => {
 
     field.dataset["probe"] = "";
     field.className = "xterm-helper-textarea";
+    // listener-owner: a probe on a detached-by-afterEach field; it dies with the field.
     field.addEventListener("keydown", (press) => reached.push(press));
     field.focus();
 
-    chord({}, field);
+    closeByChord({}, field);
     expect(shelf().hidden).toBe(true);
     chord({}, field);
     expect(shelf().hidden).toBe(false);
@@ -105,13 +106,13 @@ describe("u370 the chord and esc", () => {
     drawer.className = "drawer";
     drawer.dataset["open"] = "true";
     expect(shelf().hidden).toBe(false);
-    chord({}, drawer);
+    closeByChord({}, drawer);
     await waitFor(() => expect(shelf().hidden).toBe(true));
   });
 
   it("u370_caps_lock_is_neutral", async () => {
     await shared();
-    chord({ key: "|", modifierCapsLock: true });
+    closeByChord({ key: "|", modifierCapsLock: true });
     expect(shelf().hidden).toBe(true);
     chord({ key: "\\", modifierCapsLock: true });
     expect(shelf().hidden).toBe(false);
@@ -148,3 +149,8 @@ describe("u370 the chord and esc", () => {
     expect(shelf().hidden).toBe(false);
   });
 });
+
+/** U3721a: `B` rotates, so closing an open Bench takes the presses until it is hidden. */
+const closeByChord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) => {
+  for (let press = 0; press < 4 && !shelf().hidden; press++) chord(init, target);
+};

@@ -46,14 +46,14 @@ describe("u389 the Rail's width is the user's", () => {
   it("u389_a_bad_stored_width_means_the_default", () => {
     // JSON.stringify(NaN) is null; 1e400 exercises a parsed non-finite number.
     for (const rail of ['"wide"', "null", "1e400"]) {
-      localStorage.setItem("roundup:widths:/Users/you/harness", `{"rail":${rail},"shelf":320}`);
+      localStorage.setItem("roundup:viewer", `{"rail":${rail},"shelf":320}`);
       const { result, cleanup: dispose } = renderHook(() => createWidths(() => "/Users/you/harness"));
 
       expect(result.rail.now(), rail).toBe(288);
       dispose();
     }
 
-    localStorage.setItem("roundup:widths:/Users/you/harness", JSON.stringify({ rail: 9999, shelf: 320 }));
+    localStorage.setItem("roundup:viewer", JSON.stringify({ rail: 9999, shelf: 320 }));
     const { result } = renderHook(() => createWidths(() => "/Users/you/harness"));
 
     expect(result.rail.now()).toBe(480);

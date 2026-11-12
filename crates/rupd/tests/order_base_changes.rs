@@ -1,4 +1,10 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/child_run.rs"]
 mod child_run;
 #[path = "support/door_terminals.rs"]

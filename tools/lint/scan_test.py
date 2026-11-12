@@ -245,6 +245,7 @@ class Lints(unittest.TestCase):
         self.write('Cargo.toml', '[package]\nname="fixture"\nversion="0.1.0"\nedition="2024"\nlicense="' + license + '"\n' + dependencies)
         self.write('src/lib.rs', 'pub fn fixture() {}\n')
         subprocess.run(['cargo', 'generate-lockfile'], cwd=self.root, check=True, capture_output=True, timeout=120)
+        self.git('add', 'Cargo.lock')
 
     def test_t3797a_dependency_policy_licenses(self):
         for license, status in [('MIT OR Apache-2.0', 0), ('GPL-3.0-only', 1)]:
@@ -267,6 +268,54 @@ class Lints(unittest.TestCase):
         self.assertIn('RUSTSEC-2026-0386', self.scan('dependencies', 1))
         self.baseline('dependencies')
         self.scan('dependencies', 0)
+
+    TOKIO = '[dependencies]\ntokio="=1.53.1"\n'
+
+    def pull_request(self, change):
+        """Commit the fixture as the merge base, apply `change`, commit it, and return the merge base."""
+        self.commit()
+        base = self.git('rev-parse', 'HEAD').strip()
+        change()
+        if self.git('status', '--porcelain').strip():
+            self.commit()
+        return base
+
+    def test_t3797a_dependency_advisory_main_unchanged_graph(self):
+        self.cargo(dependencies=self.TOKIO)
+        self.commit()
+        self.assertIn('new exception/match', self.scan('dependencies', 1))
+        debt = self.baseline('dependencies')
+        debt['dependencies'] = [dict(row, crate='gone') for row in debt['dependencies']]
+        self.write('tools/lint/debt.json', json.dumps(debt))
+        self.assertIn('stale exception', self.scan('dependencies', 1))
+
+    def test_t3797a_dependency_advisory_pr_unchanged_lock_new_match(self):
+        self.cargo(dependencies=self.TOKIO)
+        base = self.pull_request(lambda: self.write('src/lib.rs', 'pub fn changed() {}\n'))
+        self.assertIn('advisory, not failing this PR', self.scan('dependencies', 0, '--base', base))
+
+    def test_t3797a_dependency_advisory_pr_unchanged_lock_stale_row(self):
+        self.cargo(dependencies=self.TOKIO)
+        debt = self.baseline('dependencies')
+        debt['dependencies'] = [dict(row, crate='gone') for row in debt['dependencies']] + debt['dependencies']
+        self.write('tools/lint/debt.json', json.dumps(debt))
+        base = self.pull_request(lambda: self.write('src/lib.rs', 'pub fn changed() {}\n'))
+        self.assertIn('stale exception', self.scan('dependencies', 0, '--base', base))
+
+    def test_t3797a_dependency_advisory_pr_changed_lock_on_base_graph(self):
+        self.cargo(dependencies=self.TOKIO)
+        base = self.pull_request(lambda: self.cargo(dependencies=self.TOKIO + 'itoa="=1.0.15"\n'))
+        self.assertIn('advisory, not failing this PR', self.scan('dependencies', 0, '--base', base))
+
+    def test_t3797a_dependency_advisory_pr_changed_lock_new_version(self):
+        self.cargo(dependencies='[dependencies]\nitoa="=1.0.15"\n')
+        base = self.pull_request(lambda: self.cargo(dependencies='[dependencies]\nitoa="=1.0.15"\ntokio="=1.53.1"\n'))
+        self.assertIn('RUSTSEC-2026-0386', self.scan('dependencies', 1, '--base', base))
+
+    def test_t3797a_dependency_advisory_pr_adds_row(self):
+        self.cargo(dependencies=self.TOKIO)
+        base = self.pull_request(lambda: self.baseline('dependencies'))
+        self.assertIn('dependencies merge-base: new exception/match', self.scan('dependencies', 1, '--base', base))
 
     def test_t3797a_lint_failures_configuration(self):
         self.write('test.rs', 'fn f() {}')

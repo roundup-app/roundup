@@ -1,4 +1,10 @@
 //! B21/B22 through a real Daemon, the pinned real `claude` on aimock, captured stderr and a fake clock.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "../../rup/tests/e2e/aimock.rs"]
 #[allow(dead_code)]
 mod aimock;

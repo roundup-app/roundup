@@ -57,7 +57,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Workstream | same | room, folder |
 | Workstream state (`WorkstreamState`, `RailNode.workstream_state`; apart from the Door's own Status Kind) | same | — |
 | Group (`NodeKind::Group`, `GroupParams`, `rail.group`, `Rail::group`) | same | — |
-| Mode | same | — |
+| Mode (`agent.createMode`, `agent.setModePrompt`, `agent.restartMode`, `RailNode.mode_prompt`, `CreateModeParams`, `ModePromptParams`, `ModeRestartParams`) | same | — |
 | Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
 | Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
@@ -212,8 +212,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Brief | same | — |
 | Context | same | — |
 | Channel | same | — |
-| Session restart (`RestartParams`, `SessionRestart`, `workstream.restart`, `Agents::opening_prompt`, `session_restart`, `set_session_restart`) | Restart session | — |
-| Mode first prompt (`OpeningPromptParams`, `opening_prompt`, `workstream.setOpeningPrompt`) | First prompt | — |
+| Session restart (`ModeRestartParams`, `SessionRestart`, `agent.restartMode`, `Agents::mode_prompt`, `session_restart`, `set_session_restart`) | Restart session | — |
+| Mode first prompt (`ModePromptParams`, `RailNode.mode_prompt`, `agent.setModePrompt`) | First prompt | — |
 | Claude inbox (`CoordinationSink`, `with_coordination`, `coordinate`) | same | — |
 | Mcp | same | — |
 | Tool call | same | — |
@@ -303,6 +303,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Screen | same | — |
 | Code PR | same | — |
 | Ready PR | same | — |
+| Parked PR (`park`, `Parked:`) | same | — |
 | Build file | same | — |
 | Loop machinery | same | — |
 | Capture | same | — |

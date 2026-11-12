@@ -1,6 +1,12 @@
 //! H18: the App's data is temporary and cleaned up around the real `rupd` it started.
 //! The Daemon here is the built `rupd` executable behind a wrapper that gives its Agents a fake
 //! `claude`; the App is the Tauri mock runtime.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
