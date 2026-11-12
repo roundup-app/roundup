@@ -1,4 +1,10 @@
 //! A5765: public CLI, real source/target Daemons and a registered fake App.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "common/served.rs"]
 mod common;
 

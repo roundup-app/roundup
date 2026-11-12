@@ -1,4 +1,10 @@
 //! X6014: the owner keeps output written while no client is attached.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use contracts::terminal::{CatchUp, SpawnParams};
 use std::collections::BTreeMap;
 use std::time::Duration;

@@ -1,4 +1,10 @@
 //! A4: what an Agent's Claude Code is started with: a per-Agent settings file and a trusted cwd.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};

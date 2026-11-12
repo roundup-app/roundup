@@ -1,5 +1,11 @@
 //! A36, A37: the user picks each Agent's Model and Effort. The real Daemon, with the fake `claude`
 //! recording each launch's arguments and environment to a file the test reads.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 
 #[path = "e2e/daemon.rs"]

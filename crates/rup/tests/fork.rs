@@ -1,4 +1,10 @@
 //! FK5977d: `rup data fork` sends the one `data.fork` call its flags name and prints the result.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::process::Stdio;
 use std::time::Duration;

@@ -1,4 +1,10 @@
 //! U452 (`scenarios/ui-window.md`): the App's supported window width.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use serde_json::Value;
 

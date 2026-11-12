@@ -1,4 +1,10 @@
 //! B28 through a real `rupd`: a failed Messages operation is one stderr line and one `INTERNAL`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;

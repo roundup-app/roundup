@@ -5,6 +5,7 @@ import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { appSettings, saveAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
 import { layoutMoving } from "../resize/motion";
+import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Recovery } from "../ink/ReservedLine";
@@ -214,7 +215,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   };
 
   // Z3788a: Find belongs to the focused Terminal and keeps its query while the Pane lives.
-  const [finding, setFinding] = createSignal(false);
+  const [finding, setFinding] = createRestartable(terminalId, false);
   const [findQuery, setFindQuery] = createSignal("");
 
   const closeFind = (): void => {
@@ -224,8 +225,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
     if (id !== null) screens.emulatorFor(id).focus();
   };
-
-  createEffect(on(terminalId, () => setFinding(false), { defer: true }));
 
   registerKeys({ kind: "region", element: screen }, [
     { action: CHORDS["terminal.text-larger"], chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
@@ -248,7 +247,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   })));
 
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
-  const [dropOver, setDropOver] = createSignal(false);
   let body: HTMLElement | undefined;
 
   const takesDrop = (): string | null => {
@@ -256,6 +254,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
     return id !== null && connected.daemonExit() === null && !screens.exited(id) ? id : null;
   };
+
+  const [dropOver, setDropOver] = createRestartable(takesDrop, false);
 
   const inBody = (x: number, y: number): boolean => {
     const box = body?.getBoundingClientRect();
@@ -285,8 +285,6 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     }
   });
 
-  createEffect(on(terminalId, () => setDropOver(false)));
-  createEffect(() => { if (takesDrop() === null) setDropOver(false); });
   onCleanup(unlistenDrop);
 
   // A Card appearing, growing or going changes the Terminal's room without a window resize.

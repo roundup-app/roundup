@@ -1,4 +1,10 @@
 //! U4547e through a real Daemon: a moved running Agent survives a killed Daemon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]

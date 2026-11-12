@@ -1,4 +1,10 @@
 //! X14 library capability only; production snapshot integration remains separate.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[derive(Default, Debug, PartialEq)]
 struct Titles(Vec<Vec<u8>>, usize, usize);
 impl vt100::Callbacks for Titles {

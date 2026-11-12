@@ -1,4 +1,10 @@
 //! R16: complete pre-rendered replies isolate Client parsing/extraction and socket scheduling.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::io::{BufRead, Write};
 use std::os::unix::net::UnixListener;
 use std::time::Instant;

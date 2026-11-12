@@ -1,13 +1,4 @@
 //! Todos: items with blockers, in SQLite. Owner: todos Builder.
-#![cfg_attr(
-    not(test),
-    deny(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing
-    )
-)]
 
 mod comments;
 mod cycle;

@@ -1,4 +1,10 @@
 //! B6 cleanup completion: Resume completion includes the failed Attempt's physical Terminal cleanup.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 

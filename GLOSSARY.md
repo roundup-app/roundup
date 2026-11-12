@@ -303,6 +303,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Screen | same | — |
 | Code PR | same | — |
 | Ready PR | same | — |
+| Parked PR (`park`, `Parked:`) | same | — |
 | Build file | same | — |
 | Loop machinery | same | — |
 | Capture | same | — |

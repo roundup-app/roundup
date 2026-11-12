@@ -1,3 +1,4 @@
+import { createWritableMemo } from "@solid-primitives/memo";
 import { createEffect, createMemo, createSignal, For, on, type Accessor, type JSX } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/collection";
 import { TreeView } from "../ui/TreeView";
@@ -36,7 +37,12 @@ export const OwnerGroups = <T,>(props: {
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   // A Todo filed before the first group mounts has already counted: the group starts open then.
-  const [closed, setClosed] = createSignal<string[]>(!props.unfold?.() && !props.arrivals?.().includes("unassigned") && props.focus?.() !== "unassigned" && props.groups().some(group => group.id === "unassigned" && group.items.length > 0) ? ["unassigned"] : []);
+  const [closed, setClosed] = createWritableMemo<string[]>(kept => {
+    const reveal = props.reveal();
+    const arrivals = props.arrivals?.() ?? [];
+
+    return kept.filter(each => each !== reveal && !arrivals.includes(each));
+  }, !props.unfold?.() && !props.arrivals?.().includes("unassigned") && props.focus?.() !== "unassigned" && props.groups().some(group => group.id === "unassigned" && group.items.length > 0) ? ["unassigned"] : []);
 
   createEffect(() => props.onClosedChange?.(closed()));
 
@@ -65,8 +71,6 @@ export const OwnerGroups = <T,>(props: {
     rootNode: { id: "root", name: "", children: shown().map(entry) },
     nodeToValue: node => node.id, nodeToString: node => node.name, isNodeDisabled: node => node.id.endsWith(":items"),
   }));
-
-  createEffect(on([props.reveal, () => props.arrivals?.() ?? []], ([reveal, arrivals]) => setClosed(kept => kept.filter(each => each !== reveal && !arrivals.includes(each)))));
 
   createEffect(() => {
     const id = props.focus?.();

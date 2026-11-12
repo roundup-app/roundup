@@ -1,4 +1,10 @@
 //! RO1: an overview is read once, then only what was appended.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::io::Write;
 use std::path::PathBuf;

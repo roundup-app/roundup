@@ -14,10 +14,16 @@ Module: `tools/oxlint/anti-slop/web-assertions`. Source: #4448.
 | Assertion removed but its entry retained (`deleted`) | 1 |
 | New assertion with an exact new entry (`added entry`) | 1 |
 | Assertion changed from `.toBe(10)` to `.toBe(11)` and its entry replaced, without a re-key row (`broadened entry`) | 1 |
+| Edit outside the owning test, entry kept (`edit outside the test`; Python fixture in a Git repo with `origin/main` and baseline history, shaped like #6916's line) | 0 |
+| Edit inside the owning test, assertion text unchanged, entry kept (`owner edited`) | 1, one diagnostic naming the swap |
+| Same edit, entry swapped to the new identity (`owner edited, entry swapped`) | 0 |
+| Same swap plus one added entry (`swap with added entry`) | 1 |
+| Swap whose test name differs (`swap across tests`) | 1 |
+| Second identical assertion reusing the swapped entry (`swap reused`) | 1 |
 
 The timeout case isolates assertion identity; it does not permit an over-limit timeout through T3779a's separate gate (policy).
 
-Policy: remove `rekey.jsonl` and its loading/authorization code from `baseline.mjs`; the timeout-identity migration is already on `main`. Remove the obsolete migration instructions from this module's README. A leftover or newly supplied file at the old re-key path grants no baseline permission. Keep the existing assertion identity, merge-base subset comparison and normal `pnpm lint` entry point; do not regenerate or expand the baseline, change timeout allowances, cut product tests, add dependencies or modify loop machinery. The implementation records each failing fixture separately with its input, diagnostic and exit code, using the existing fixture-report facility. Test accept/reject behavior, never the presence or absence of source text (policy).
+Policy: remove `rekey.jsonl` and its loading/authorization code from `baseline.mjs`; the timeout-identity migration is already on `main`. Remove the obsolete migration instructions from this module's README. A leftover or newly supplied file at the old re-key path grants no baseline permission. An identity depends on the files alone, never on `baseline.jsonl`, its Git history or a rehash of the file text. The lint accepts an identity swap, TS and Python alike: a head entry absent from the merge base replaces a base entry absent from the head, one-to-one, with the same file, test, assertion text and violation kinds, and no net addition. It covers an edit inside the owning test, such as `main()` of a Python test or a TS test body. An entry an edit leaves unmatched fails with one diagnostic naming the stale entry and the identity that replaces it (file, test, both identities). T4448a stays: an edited assertion cannot be swapped. Keep the merge-base subset comparison and normal `pnpm lint` entry point; do not regenerate or expand the baseline, change timeout allowances, cut product tests, add dependencies or modify loop machinery. The implementation records each failing fixture separately with its input, diagnostic and exit code, using the existing fixture-report facility. Test accept/reject behavior, never the presence or absence of source text (policy).
 
 Checks (existing on specification base `4dab889be`; none retired):
 
