@@ -5,8 +5,7 @@
     "icon": ["icons/icon@2x.png"],
     "externalBin": [
       "../../target/app-bundle-inputs/rupd",
-      "../../target/app-bundle-inputs/rup",
-      "../../target/app-bundle-inputs/terminal-owner"
+      "../../target/app-bundle-inputs/rup"
     ],
     "macOS": {
       "files": {

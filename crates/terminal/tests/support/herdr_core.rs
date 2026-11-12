@@ -3,6 +3,10 @@
 //! DATA, RESIZE and CLOSE frames) and runs each requested program on a real PTY. Tests start it
 //! the way the product starts the real core, as a child whose pipe is the connection. It is
 //! dev-only: the `test-support` feature builds it and the daemon never starts it.
+//!
+//! A Daemon whose `$TMPDIR` holds a `herdr-core-persist` file gets a core that outlives it: the
+//! first `connect` starts `herdr-core-test serve` on a socket there and proxies the pipe to it, so a
+//! reopened Daemon finds its terminals live. The server ends once that file is gone.
 use std::collections::HashMap;
 use std::io::{self, BufRead, Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -61,11 +65,13 @@ struct Terminal {
     argv: Vec<String>,
     live: Mutex<Live>,
     master: Mutex<Box<dyn MasterPty + Send>>,
-    writer: Mutex<Box<dyn Write + Send>>,
+    /// Input waits in a queue a thread of its own drains, so a program that reads nothing parks
+    /// that thread and never the core.
+    input: Mutex<std::sync::mpsc::Sender<Vec<u8>>>,
 }
 
 struct Core {
-    out: Mutex<io::Stdout>,
+    out: Mutex<Box<dyn Write + Send>>,
     terminals: Mutex<HashMap<String, Arc<Terminal>>>,
     attached: Mutex<HashMap<u32, Arc<Terminal>>>,
     next_terminal: AtomicU32,
@@ -115,7 +121,17 @@ impl Core {
             failure(
                 "spawn_failed",
                 "check the program name and cwd",
-                format!("cannot start {:?}: {why}", argv.first()),
+                // The OS's reason can carry the whole `PATH`; the core names only argv0.
+                format!(
+                    "cannot start {:?}: {}",
+                    argv.first(),
+                    why.lines()
+                        .next()
+                        .unwrap_or_default()
+                        .split(" because")
+                        .next()
+                        .unwrap_or_default()
+                ),
             )
         };
         // portable-pty silently falls back to $HOME when the cwd is unusable; the core refuses.
@@ -154,6 +170,19 @@ impl Core {
             (Ok(r), Ok(w)) => (r, w),
             (Err(e), _) | (_, Err(e)) => return Err(spawn_failed(e.to_string())),
         };
+        let (input, queued) = std::sync::mpsc::channel::<Vec<u8>>();
+        std::thread::spawn(move || {
+            let mut writer = writer;
+            while let Ok(bytes) = queued.recv() {
+                if writer
+                    .write_all(&bytes)
+                    .and_then(|()| writer.flush())
+                    .is_err()
+                {
+                    return;
+                }
+            }
+        });
         let terminal = Arc::new(Terminal {
             id: id.clone(),
             pid: child.process_id(),
@@ -161,11 +190,12 @@ impl Core {
             argv,
             live: Mutex::default(),
             master: Mutex::new(pair.master),
-            writer: Mutex::new(writer),
+            input: Mutex::new(input),
         });
         lock(&self.terminals).insert(id, terminal.clone());
         let core = self.clone();
         let t = terminal.clone();
+        let (done, drained) = std::sync::mpsc::channel::<()>();
         std::thread::spawn(move || {
             let mut buf = [0u8; 8192];
             // A PTY read fails with EIO once the program is gone: any error is the end.
@@ -177,7 +207,16 @@ impl Core {
                     core.send(&frame(*channel, DATA, chunk));
                 }
             }
-            let exit = match child.wait() {
+            let _ = done.send(());
+        });
+        // The program's end closes its channels even while a descendant still holds the PTY open;
+        // a short grace lets the output the program printed reach them first.
+        let core = self.clone();
+        let t = terminal.clone();
+        std::thread::spawn(move || {
+            let status = child.wait();
+            let _ = drained.recv_timeout(std::time::Duration::from_millis(200));
+            let exit = match status {
                 Ok(status) if status.signal().is_none() => Exit {
                     code: Some(status.exit_code()),
                     reason: "exited",
@@ -261,6 +300,7 @@ impl Core {
     fn call(self: &Arc<Self>, msg: &Value) {
         let id = msg.get("id").cloned().unwrap_or(Value::Null);
         let params = msg.get("params").cloned().unwrap_or(Value::Null);
+        eprintln!("call {msg}");
         let result = match msg
             .get("method")
             .and_then(Value::as_str)
@@ -268,6 +308,21 @@ impl Core {
         {
             "terminal.run" => self.run(&params),
             "terminal.get" => self.terminal(&params).map(|t| self.describe(&t)),
+            "terminal.kill" => self.terminal(&params).and_then(|t| {
+                let pid = t
+                    .pid
+                    .and_then(|pid| i32::try_from(pid).ok())
+                    .ok_or_else(|| {
+                        failure(
+                            "not_found",
+                            "the terminal has no process",
+                            "no process".into(),
+                        )
+                    })?;
+                nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), nix::sys::signal::SIGKILL)
+                    .map_err(|e| failure("not_found", "already gone", e.to_string()))?;
+                Ok(json!({}))
+            }),
             "terminal.attach" => {
                 if let Err(error) = self.attach(&id, &params) {
                     self.reply(&id, Err(error));
@@ -290,8 +345,7 @@ impl Core {
         };
         match (kind, payload) {
             (DATA, bytes) => {
-                let mut w = lock(&t.writer);
-                let _ = w.write_all(bytes).and_then(|()| w.flush());
+                let _ = lock(&t.input).send(bytes.to_vec());
             }
             (RESIZE, [c0, c1, r0, r1]) => resize(
                 &t,
@@ -320,18 +374,120 @@ fn resize(t: &Terminal, cols: u64, rows: u64) {
 }
 
 fn main() -> io::Result<()> {
-    if std::env::args().nth(1).as_deref() != Some("connect") {
-        eprintln!("usage: herdr-core-test connect");
-        std::process::exit(2);
+    let mut args = std::env::args().skip(1);
+    match args.next().as_deref() {
+        Some("connect") => {
+            let tmp = std::env::var_os("TMPDIR").map(std::path::PathBuf::from);
+            match tmp.filter(|t| t.join("herdr-core-persist").exists()) {
+                Some(tmp) => proxy(&tmp),
+                None => serve(&new_core(Box::new(io::stdout())), &mut io::stdin().lock()),
+            }
+        }
+        Some("serve") => {
+            let tmp = std::path::PathBuf::from(args.next().unwrap_or_default());
+            listen(&tmp)
+        }
+        _ => {
+            eprintln!("usage: herdr-core-test connect");
+            std::process::exit(2);
+        }
     }
-    let core = Arc::new(Core {
-        out: Mutex::new(io::stdout()),
+}
+
+fn new_core(out: Box<dyn Write + Send>) -> Arc<Core> {
+    Arc::new(Core {
+        out: Mutex::new(out),
         terminals: Mutex::default(),
         attached: Mutex::default(),
         next_terminal: AtomicU32::new(1),
         next_channel: AtomicU32::new(1),
+    })
+}
+
+/// Waits `ms` on a channel nothing sends to.
+fn pause(ms: u64) {
+    let (_keep, never) = std::sync::mpsc::channel::<()>();
+    let _ = never.recv_timeout(std::time::Duration::from_millis(ms));
+}
+
+/// The persistent server: one connection at a time over a socket in `tmp`, its terminals kept
+/// between connections, ending when the `herdr-core-persist` file goes.
+fn listen(tmp: &std::path::Path) -> io::Result<()> {
+    let marker = tmp.join("herdr-core-persist");
+    let listener = std::os::unix::net::UnixListener::bind(tmp.join("herdr-core.sock"))?;
+    let core = new_core(Box::new(io::sink()));
+    let watch = core.clone();
+    std::thread::spawn(move || {
+        while marker.exists() {
+            pause(300);
+        }
+        for t in lock(&watch.terminals).values() {
+            if let Some(pid) = t.pid {
+                let _ = std::process::Command::new("kill")
+                    .args(["-9", &pid.to_string()])
+                    .status();
+            }
+        }
+        std::process::exit(0);
     });
-    let mut input = io::BufReader::new(io::stdin().lock());
+    for stream in listener.incoming() {
+        let Ok(stream) = stream else { continue };
+        let Ok(writer) = stream.try_clone() else {
+            continue;
+        };
+        *lock(&core.out) = Box::new(writer);
+        lock(&core.attached).clear();
+        for t in lock(&core.terminals).values() {
+            lock(&t.live).channels.clear();
+        }
+        let _ = serve(&core, &mut io::BufReader::new(stream));
+    }
+    Ok(())
+}
+
+/// `connect` against the persistent server, started if it is not running: bytes both ways.
+fn proxy(tmp: &std::path::Path) -> io::Result<()> {
+    use std::os::unix::process::CommandExt;
+    let socket = tmp.join("herdr-core.sock");
+    let mut started = false;
+    let stream = loop {
+        if let Ok(stream) = std::os::unix::net::UnixStream::connect(&socket) {
+            break stream;
+        }
+        if started {
+            pause(50);
+            continue;
+        }
+        let _ = std::fs::remove_file(&socket);
+        std::process::Command::new(std::env::current_exe()?)
+            .arg("serve")
+            .arg(tmp)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .process_group(0)
+            .spawn()?;
+        started = true;
+    };
+    let mut up = stream.try_clone()?;
+    std::thread::spawn(move || {
+        let _ = io::copy(&mut io::stdin().lock(), &mut up);
+        let _ = up.shutdown(std::net::Shutdown::Both);
+    });
+    let mut down = stream;
+    // Stdout is line-buffered: flush each read so a frame without a newline is not held back.
+    let mut out = io::stdout().lock();
+    let mut buf = [0u8; 8192];
+    while let Ok(n) = down.read(&mut buf) {
+        if n == 0 || buf.get(..n).is_none_or(|b| out.write_all(b).is_err()) || out.flush().is_err()
+        {
+            break;
+        }
+    }
+    Ok(())
+}
+
+fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
     let mut line = String::new();
     input.read_line(&mut line)?;
     let hello: Value = serde_json::from_str(&line).unwrap_or(Value::Null);
@@ -342,7 +498,7 @@ fn main() -> io::Result<()> {
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
         json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.18-test","framed":true,
-            "methods":["terminal.run","terminal.get","terminal.attach"]}})
+            "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill"]}})
     } else {
         let msg = format!(
             "protocol generation {} not supported",

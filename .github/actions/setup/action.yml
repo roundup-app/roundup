@@ -91,7 +91,7 @@ runs:
       name: Start daemon build
       shell: bash
       run: |
-        setsid bash -c 'cargo build -p rupd -p rup; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
+        setsid bash -c 'cargo build -p rupd -p rup -p terminal --features terminal/test-support; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: taiki-e/install-action@nextest
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true'

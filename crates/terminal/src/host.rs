@@ -1,5 +1,5 @@
-//! herdr-core as a Terminal's host, beside `remote.rs`: the framed attach stream feeds the same
-//! `Chunk` broadcast, `ScreenState` and status records the PTY reader does, through `pty::read`.
+//! herdr-core as a Terminal's host: the framed attach stream feeds the same
+//! `Chunk` broadcast, `ScreenState` and status records the PTY reader does, through `stream::read`.
 use super::spawn::{OTHER_TERMINALS, check_program};
 use super::*;
 
@@ -38,6 +38,20 @@ impl Read for StreamReader {
         }
         self.taken += n;
         Ok(n)
+    }
+}
+
+/// The core's typing path as the [`Write`] the input thread feeds.
+pub(super) struct StreamWriter(pub(super) herdr::Sender);
+
+impl Write for StreamWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.send(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
 
@@ -81,7 +95,7 @@ pub(super) fn feed(
         taken: 0,
         closed: Arc::clone(&closed),
     };
-    pty::read(
+    stream::read(
         shared,
         number,
         Box::new(reader),
@@ -102,11 +116,88 @@ pub(super) fn core_command(core: &str, vars: &BTreeMap<String, String>) -> Vec<S
     argv
 }
 
+/// The variables a core starts with: what a program needs to find itself, and nothing of the session
+/// the Daemon runs in. A name the Daemon lacks is left out.
+fn core_vars() -> BTreeMap<String, String> {
+    [
+        "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR",
+    ]
+    .into_iter()
+    .filter_map(|name| Some((name.to_owned(), std::env::var(name).ok()?)))
+    .chain(test_vars())
+    .collect()
+}
+
+/// Under `test-support` the test-support core also gets the variables the fake `claude` and the
+/// Daemon's tests set, which a real core never sees.
+#[cfg(feature = "test-support")]
+fn test_vars() -> impl Iterator<Item = (String, String)> {
+    std::env::vars().filter(|(name, _)| {
+        name.starts_with("FAKE_CLAUDE_")
+            || name.starts_with("ROUNDUP_")
+            || name == "CLAUDE_CONFIG_DIR"
+    })
+}
+
+#[cfg(not(feature = "test-support"))]
+fn test_vars() -> impl Iterator<Item = (String, String)> {
+    std::iter::empty()
+}
+
+/// Under `test-support` the core is the test-support one built beside the test binary, so a test
+/// that opens `Terminals` runs on a core; otherwise `herdr-core` from `PATH`.
+pub(super) fn default_core() -> std::path::PathBuf {
+    #[cfg(feature = "test-support")]
+    if let Ok(exe) = std::env::current_exe() {
+        for dir in exe.ancestors().skip(1).take(2) {
+            let core = dir.join("herdr-core-test");
+            if core.is_file() {
+                return core;
+            }
+        }
+    }
+    "herdr-core".into()
+}
+
+impl Terminals {
+    /// Use the herdr-core at `binary`, not the one on `PATH`.
+    pub fn with_core(mut self, binary: impl Into<std::path::PathBuf>) -> Self {
+        self.core_bin = binary.into();
+        self
+    }
+
+    /// The one core connection, started on first use from a clean environment (MC16).
+    pub(super) async fn core(&self) -> Result<Arc<herdr::Conn>, Error> {
+        let conn = self
+            .core
+            .get_or_try_init(|| async {
+                let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
+                let mut command = tokio::process::Command::new("env");
+                command.args(argv.iter().skip(1));
+                herdr::Conn::spawn(command, CORE_TIMEOUT)
+                    .await
+                    .map(Arc::new)
+            })
+            .await
+            .map_err(|err| match err {
+                herdr::Error::Missing => Error::internal("herdr-core is not installed"),
+                other => Error::internal(other),
+            })?;
+        Ok(Arc::clone(conn))
+    }
+}
+
+/// How long a call to the core may take before it is lost.
+const CORE_TIMEOUT: Duration = Duration::from_secs(15);
+
 /// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the
 /// PTY path gave a program. A core may have started in a session that carries other variables, so
-/// every name the program must not see is removed by `env -u` in argv.
+/// every name the program must not see is dropped from `env`, and the core itself starts clean.
 pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, name: &str) -> Value {
-    let mut env = params.env.clone();
+    // The program inherits the Daemon's own environment, as it did on the PTY path (A3507a), with
+    // the launch's variables on top.
+    let mut env: BTreeMap<String, String> = std::env::vars().collect();
+    env.extend(params.env.clone());
     let mut removed: Vec<&str> = shared.clean_env.iter().map(String::as_str).collect();
     removed.extend(params.unset.iter().map(String::as_str));
     removed.extend(OTHER_TERMINALS.iter().copied());
@@ -118,10 +209,9 @@ pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, nam
     env.insert("TERM".into(), "xterm-256color".into());
     env.insert("CLAUDE_CODE_FORCE_SYNC_OUTPUT".into(), "1".into());
     env.insert("ROUNDUP_TERMINAL".into(), number.to_string());
-    let mut argv = vec!["env".to_owned()];
-    for name in removed {
-        argv.extend(["-u".to_owned(), name.to_owned()]);
-    }
+    // The core starts clean (`core_command`), so the program's argv is its own and a bad program
+    // fails the run as `spawn_failed`, which an `env` in front of it would hide.
+    let mut argv = Vec::new();
     match &params.command {
         Some(command) => argv.extend(command.iter().cloned()),
         None => argv.push(std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into())),
@@ -143,13 +233,13 @@ pub(super) async fn run(
     params: &SpawnParams,
     number: u64,
     name: &str,
-) -> Result<(), Error> {
+) -> Result<Value, Error> {
     check_program(params)?;
     match conn
         .call("terminal.run", run_params(shared, params, number, name))
         .await
     {
-        Ok(_) => Ok(()),
+        Ok(ran) => Ok(ran),
         Err(herdr::Error::Rpc(err)) if err.kind == "spawn_failed" => {
             Err(invalid(format!("cannot run the program: {}", err.message)))
         }
@@ -275,7 +365,7 @@ mod tests {
         // The same bytes straight through the reader the PTY path uses answer alike.
         let direct = Mutex::new(ScreenState::new(100, 30));
         let (output, _keep) = broadcast::channel(1 << 16);
-        pty::read(
+        stream::read(
             &got.terminals.shared,
             2,
             Box::new(std::io::Cursor::new(bytes.clone())),
@@ -439,14 +529,13 @@ mod tests {
         let p = run_params(&terminals.shared, &launch(), 4, "rp4");
         // Names the launch or the Daemon removes are neither in env nor left to the core's own.
         assert!(p["env"].get("CLAUDECODE").is_none());
-        let argv = p["argv"].to_string();
         for name in [
             "CLAUDECODE",
             "CLAUDE_CODE_SESSION_ID",
             "TMUX",
             "TERM_PROGRAM",
         ] {
-            assert!(argv.contains(&format!("\"-u\",\"{name}\"")), "{name}");
+            assert!(p["env"].get(name).is_none(), "{name}");
         }
         assert_eq!(p["env"]["ROUNDUP_AGENT"], "7");
     }

@@ -1,11 +1,16 @@
 use super::*;
 
+/// What a reattached Terminal's record needs that the core does not hold.
+pub struct Adopted {
+    pub cwd: String,
+    pub cols: u16,
+    pub rows: u16,
+    pub program: String,
+}
+
 impl Terminals {
     /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
     pub(super) fn evict_for_cap(&self, owner: &str) -> Result<bool, Error> {
-        if self.owner_helper.is_some() {
-            return self.make_remote_space(owner);
-        }
         let mut table = self.shared.table()?;
         let parked: Vec<(u64, bool)> = table
             .iter()
@@ -31,136 +36,148 @@ impl Terminals {
         }
     }
 
+    /// MC12: every Terminal starts through the core: `terminal.run`, then an attach whose stream
+    /// feeds the output, screen and status records on a thread of its own.
     pub(super) async fn start(
         &self,
         params: SpawnParams,
         owner: Option<String>,
     ) -> Result<Spawned, Error> {
-        if let Some(helper) = &self.owner_helper {
-            return self.start_owner(helper, params, owner).await;
-        }
         check_program(&params)?;
-        // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
+        window(params.cols, params.rows)?;
         if !Path::new(&params.cwd).is_dir() {
             return Err(invalid(format!("cwd is not a directory: {}", params.cwd)));
         }
-        // Generate independently of authentication and vendor content; failure starts no program.
+        let conn = self.core().await?;
+        let number = self.next.fetch_add(1, Ordering::Relaxed);
+        let ran = host::run(
+            &conn,
+            &self.shared,
+            &params,
+            number,
+            &format!("roundup-{number}"),
+        )
+        .await?;
+        let core_id = ran
+            .get("terminal")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::internal("terminal.run named no terminal"))?
+            .to_owned();
+        let pid = ran
+            .get("pid")
+            .and_then(Value::as_u64)
+            .and_then(|pid| u32::try_from(pid).ok());
+        self.adopt(
+            conn,
+            core_id,
+            pid,
+            Adopted {
+                cwd: params.cwd,
+                cols: params.cols,
+                rows: params.rows,
+                program: program_name(params.command.as_deref()),
+            },
+            owner,
+            number,
+        )
+        .await
+    }
+
+    /// A12a: the core's id for Terminal `id` and what a reattach needs, or `None` for a Terminal
+    /// that has ended.
+    pub fn core_record(&self, id: &str) -> Result<Option<(String, Adopted)>, Error> {
+        let Ok(number) = id.parse::<u64>() else {
+            return Ok(None);
+        };
+        let table = self.shared.table()?;
+        let Some(entry) = table.get(&number) else {
+            return Ok(None);
+        };
+        let Some(handle) = &entry.handle else {
+            return Ok(None);
+        };
+        let screen = entry.screen.locked("screen")?;
+        Ok(Some((
+            handle.core_id.clone(),
+            Adopted {
+                cwd: entry.info.cwd.clone(),
+                cols: screen.cols,
+                rows: screen.rows,
+                program: entry.info.program.clone(),
+            },
+        )))
+    }
+
+    /// Reattach Terminal `core_id`, which the core kept across the Daemon: attach it again, with
+    /// no launch and no input. A terminal the core no longer holds, or whose program has ended,
+    /// is the caller's error, and its Agent stays `done` (A8).
+    pub async fn reattach(
+        &self,
+        core_id: &str,
+        adopted: Adopted,
+        owner: Option<String>,
+    ) -> Result<Spawned, Error> {
+        window(adopted.cols, adopted.rows)?;
+        let conn = self.core().await?;
+        let got = conn
+            .call("terminal.get", serde_json::json!({"terminal": core_id}))
+            .await
+            .map_err(|err| Error::not_found(format!("terminal {core_id}: {err}")))?;
+        if got.get("state").and_then(Value::as_str) != Some("live") {
+            return Err(Error::not_found(format!("terminal {core_id} is not live")));
+        }
+        let pid = got
+            .get("pid")
+            .and_then(Value::as_u64)
+            .and_then(|pid| u32::try_from(pid).ok());
+        let number = self.next.fetch_add(1, Ordering::Relaxed);
+        self.adopt(conn, core_id.to_owned(), pid, adopted, owner, number)
+            .await
+    }
+
+    /// Attach `core_id` and publish its stream as Terminal `number`.
+    async fn adopt(
+        &self,
+        conn: Arc<herdr::Conn>,
+        core_id: String,
+        pid: Option<u32>,
+        adopted: Adopted,
+        owner: Option<String>,
+        number: u64,
+    ) -> Result<Spawned, Error> {
         let mut nonce = [0u8; 32];
         getrandom::fill(&mut nonce).map_err(Error::internal)?;
         let incarnation = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
-        let pair = native_pty_system()
-            .openpty(window(params.cols, params.rows)?)
+        let params = adopted;
+        let stream = conn
+            .attach(
+                &core_id,
+                params.cols,
+                params.rows,
+                SNAPSHOT_SCROLLBACK as u32,
+            )
+            .await
             .map_err(Error::internal)?;
-        let number = self.next.fetch_add(1, Ordering::Relaxed);
-        let mut command = match &params.command {
-            Some(argv) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
-            None => CommandBuilder::new_default_prog(),
-        };
-        command.cwd(&params.cwd);
-        for (name, value) in &params.env {
-            command.env(name, value);
-        }
-        // Last, so none of them survive even if a caller passed one in `params.env`.
-        for marker in &self.shared.clean_env {
-            command.env_remove(marker);
-        }
-        for name in &params.unset {
-            command.env_remove(name);
-        }
-        claim_only_this_emulator(&mut command);
-        // SK7.2: `rup skill report` writes only where this is set; a caller's value never stands.
-        command.env("ROUNDUP_TERMINAL", number.to_string());
-        // All three threads start before the program, so a thread-creation failure leaves no
-        // program behind. The reaper observes completion independently of PTY EOF.
-        let reader = pair.master.try_clone_reader().map_err(Error::internal)?;
-        let writer = pair.master.take_writer().map_err(Error::internal)?;
+        let tx = stream.sender();
+        let writer: Box<dyn Write + Send> = Box::new(host::StreamWriter(tx.clone()));
         let writer = match &self.input_writer {
             Some(adapt) => adapt(writer),
             None => writer,
         };
         let screen = Arc::new(Mutex::new(ScreenState::new(params.cols, params.rows)));
-        let (program_arrival, program_arrives) = mpsc::channel::<Program>();
-        let (reaped, completion) = mpsc::channel();
         let (ended, program_ended) = watch::channel(false);
-        let program_shared = Arc::clone(&self.shared);
-        std::thread::Builder::new()
-            .name(format!("terminal-{number}-reap"))
-            .spawn(move || {
-                if let Ok(program) = program_arrives.recv() {
-                    let code = program::exit_code(number, reap(&program));
-                    ended.send_replace(true);
-                    if let Ok(mut ends) = program_shared
-                        .program_ends
-                        .locked("terminal program ends lock")
-                    {
-                        ends.remove(&number);
-                    }
-                    let _ = reaped.send(code);
-                }
-            })
-            .map_err(Error::internal)?;
-        let (arrival, child_arrives) = mpsc::channel::<Arc<Handle>>();
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
-        let pump_output = output.clone();
-        let shared = Arc::clone(&self.shared);
-        let reader_screen = Arc::clone(&screen);
-        let exit_hold = self.exit_hold.clone();
-        let recorder = Arc::new(OnceLock::new());
-        std::thread::Builder::new()
-            .name(format!("terminal-{number}"))
-            .spawn(move || {
-                // No child means the program never started: nothing to report.
-                if let Ok(handle) = child_arrives.recv() {
-                    stopped(
-                        number,
-                        "output stopped",
-                        pty::read(
-                            &shared,
-                            number,
-                            reader,
-                            &handle.recorder,
-                            &reader_screen,
-                            &pump_output,
-                        ),
-                    );
-                    // A reaper that vanished without a report leaves an unknown ending, which must not look like a signal.
-                    let code = completion.recv().unwrap_or(Some(i32::MAX));
-                    if let Some(hold) = exit_hold {
-                        hold();
-                    }
-                    drop(pump_output);
-                    stopped(number, "exit not published", shared.finish(number, code));
-                }
-            })
-            .map_err(Error::internal)?;
         let (input, queued) = mpsc::sync_channel(WRITE_BACKLOG);
-        let input_clock = Arc::clone(&self.shared.clock);
-        std::thread::Builder::new()
-            .name(format!("terminal-{number}-input"))
-            .spawn(move || pty::type_queued(number, queued, writer, input_clock))
-            .map_err(Error::internal)?;
-        let argv0 = params
-            .command
-            .as_deref()
-            .and_then(<[String]>::first)
-            .map(String::as_str);
-        let program: Program = Arc::new(Mutex::new(
-            pair.slave
-                .spawn_command(command)
-                .map_err(|err| spawn_error(argv0, &err))?,
-        ));
-        // Only the program may hold the slave end, or reading never sees it close.
-        drop(pair.slave);
-        let pid = program.locked("program lock")?.process_id();
+        let recorder = Arc::new(OnceLock::new());
         let handle = Arc::new(Handle {
+            conn: Arc::clone(&conn),
+            core_id: core_id.clone(),
+            tx,
             input,
-            program: Arc::clone(&program),
-            master: Mutex::new(pair.master),
+            ended: program_ended.clone(),
             recorder,
         });
-
         let (sender, events) = broadcast::channel(EVENT_BACKLOG);
-        // Install the wait registration before list can expose this Terminal.
         self.shared
             .program_ends
             .locked("terminal program ends lock")?
@@ -175,7 +192,7 @@ impl Terminals {
                     incarnation,
                     cwd: params.cwd,
                     title: None,
-                    program: program_name(params.command.as_deref()),
+                    program: params.program,
                     running: true,
                     exit_code: None,
                     owner,
@@ -184,17 +201,44 @@ impl Terminals {
                 events: sender,
                 output: Some(output.clone()),
                 handle: Some(Arc::clone(&handle)),
-                screen,
+                screen: Arc::clone(&screen),
             },
         );
-        assert!(
-            program_arrival.send(program).is_ok(),
-            "the reaper thread waits for its program"
-        );
-        assert!(
-            arrival.send(handle).is_ok(),
-            "the reader thread waits for its child"
-        );
+        let input_clock = Arc::clone(&self.shared.clock);
+        std::thread::Builder::new()
+            .name(format!("terminal-{number}-input"))
+            .spawn(move || stream::type_queued(number, queued, writer, input_clock))
+            .map_err(Error::internal)?;
+        let shared = Arc::clone(&self.shared);
+        let exit_hold = self.exit_hold.clone();
+        let runtime = tokio::runtime::Handle::current();
+        std::thread::Builder::new()
+            .name(format!("terminal-{number}"))
+            .spawn(move || {
+                let closed = host::feed(&shared, number, stream, &screen, &output);
+                let code = match closed {
+                    Ok(Some(code)) => Some(code),
+                    Ok(None) => runtime.block_on(host::finished_code(
+                        &conn,
+                        &core_id,
+                        Duration::from_millis(100),
+                    )),
+                    Err(err) => {
+                        eprintln!("terminal {number}: output stopped: {err}");
+                        Some(i32::MAX)
+                    }
+                };
+                ended.send_replace(true);
+                if let Ok(mut ends) = shared.program_ends.locked("terminal program ends lock") {
+                    ends.remove(&number);
+                }
+                if let Some(hold) = exit_hold {
+                    hold();
+                }
+                drop(output);
+                stopped(number, "exit not published", shared.finish(number, code));
+            })
+            .map_err(Error::internal)?;
         Ok(Spawned {
             id: number.to_string(),
             events,
@@ -225,17 +269,6 @@ pub(super) fn check_program(params: &SpawnParams) -> Result<(), Error> {
         return Err(invalid("env names must be non-empty and contain no '='"));
     }
     Ok(())
-}
-
-/// portable-pty reports an argv[0] it cannot find or run as text that can quote the Daemon's `PATH`;
-/// that is the caller's error and must not leak `PATH`. Any other failure to start is the Daemon's.
-fn spawn_error(program: Option<&str>, err: &impl std::fmt::Display) -> Error {
-    match program {
-        Some(program) if err.to_string().starts_with("Unable to spawn ") => {
-            invalid(format!("cannot run {program}"))
-        }
-        _ => Error::internal(err),
-    }
 }
 
 /// The basename of the program's argv0, else of `$SHELL`, else `terminal`.
@@ -287,15 +320,3 @@ pub(super) const OTHER_TERMINALS: &[&str] = &[
     "TMUX_PANE",
     "STY",
 ];
-
-/// U6144b: the program sees `TERM=xterm-256color` and no other terminal's variables, whatever
-/// launched the Daemon or the caller passed, so it takes only the paths this emulator draws.
-fn claim_only_this_emulator(command: &mut CommandBuilder) {
-    for name in OTHER_TERMINALS {
-        command.env_remove(name);
-    }
-    command.env("TERM", "xterm-256color");
-    // U6418a: Claude Code wraps each redraw in synchronized output only under another terminal's name or
-    // this switch, so the emulator paints the finished frame without claiming a terminal.
-    command.env("CLAUDE_CODE_FORCE_SYNC_OUTPUT", "1");
-}

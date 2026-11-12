@@ -10,7 +10,6 @@
 #[allow(dead_code)]
 mod daemon;
 
-use std::path::PathBuf;
 use std::time::Duration;
 
 use contracts::agent::RailNode;
@@ -26,17 +25,11 @@ use daemon::{rail_tree, wait_until_idle};
 /// one running Terminal, and its retained hooks still reach the reopened Project.
 #[tokio::test]
 async fn u4547e_reparenting_survives_reopen() {
-    let owner = std::env::var_os("ROUNDUP_TEST_APP_BIN")
-        .map(|dir| PathBuf::from(dir).join("terminal-owner"))
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner")
-        });
-    assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
     let logs = tempfile::tempdir().unwrap();
     let launches = logs.path().join("launches");
     let inputs = logs.path().join("inputs");
     let fake = [
-        ("RUPD_TERMINAL_OWNER", owner.to_str().unwrap()),
+        (daemon::CORE_PERSIST, ""),
         ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
         ("FAKE_CLAUDE_INPUT_LOG", inputs.to_str().unwrap()),
     ];
@@ -180,7 +173,8 @@ async fn u4547e_reparenting_survives_reopen() {
             .find(|terminal| Some(&terminal.id) == now.terminal_id.as_ref())
             .unwrap();
         assert!(now_terminal.running);
-        assert_eq!(now_terminal.incarnation, was_terminal.incarnation);
+        // The reopened Daemon mirrors the core's Terminal anew, so a catch-up starts over.
+        assert_ne!(now_terminal.incarnation, was_terminal.incarnation);
         assert_eq!(
             now_terminal.program_pid, was_terminal.program_pid,
             "same Agent's original program"
@@ -271,12 +265,6 @@ async fn u4547e_reparenting_survives_reopen() {
 /// D1/D5/S3, A12a: App exit stops independently owned programs, including recovered ones.
 #[tokio::test]
 async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
-    let owner = std::env::var_os("ROUNDUP_TEST_APP_BIN")
-        .map(|dir| PathBuf::from(dir).join("terminal-owner"))
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner")
-        });
-    assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
     for reopen in [false, true] {
         let logs = tempfile::tempdir().unwrap();
         let child = logs.path().join("child");
@@ -288,7 +276,7 @@ async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
         .unwrap();
         let argv = serde_json::to_string(&["sh", script.to_str().unwrap()]).unwrap();
         let fake = [
-            ("RUPD_TERMINAL_OWNER", owner.to_str().unwrap()),
+            (daemon::CORE_PERSIST, ""),
             ("FAKE_CLAUDE_CHILD_PROCESS", argv.as_str()),
         ];
         let mut project = daemon::start(&fake);

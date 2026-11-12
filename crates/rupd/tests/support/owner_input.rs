@@ -4,16 +4,9 @@ use super::*;
 impl Run {
     async fn owned(input: &str) -> Self {
         let mut run = Self::open(1, false).await;
-        let helper = Self::owner_helper();
-        assert!(
-            helper.is_file(),
-            "cargo build -p terminal --bin terminal-owner"
-        );
-        std::fs::write(
-            run.dir.path().join("owner-helper"),
-            helper.to_str().unwrap(),
-        )
-        .unwrap();
+        let core_tmp = run.dir.path().join("core-tmp");
+        std::fs::create_dir_all(&core_tmp).unwrap();
+        std::fs::write(core_tmp.join("herdr-core-persist"), "").unwrap();
         run.reopen_owner().await;
         run.spawn_with_input(
             (input == "creation").then_some("creation request"),
@@ -180,7 +173,8 @@ impl Run {
             .collect();
         assert_eq!(live.len(), 1);
         assert_eq!(live[0]["id"], self.terminal);
-        assert_eq!(live[0]["incarnation"], before["terminal"]["incarnation"]);
+        // The reopened Daemon mirrors the core's Terminal anew, so a catch-up starts over.
+        assert_ne!(live[0]["incarnation"], before["terminal"]["incarnation"]);
         assert_eq!(live[0]["program_pid"], before["terminal"]["program_pid"]);
         assert_eq!(
             std::fs::read_to_string(self.dir.path().join("launches.jsonl"))

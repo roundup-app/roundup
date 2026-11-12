@@ -40,7 +40,7 @@ impl Write for EndWatch<'_> {
     }
 }
 
-/// Feed queued writes to the PTY. It blocks on a program that does not read, which is why it has a
+/// Feed queued writes to the core. It blocks on a program that does not read, which is why it has a
 /// thread of its own instead of one from the pool `kill` also needs.
 pub(super) fn type_queued(
     number: u64,
@@ -87,7 +87,7 @@ pub(super) fn type_queued(
     }
 }
 
-/// Read until the PTY closes, publishing every chunk before the reader reports the exit.
+/// Read until the stream closes, publishing every chunk before the reader reports the exit.
 pub(super) fn read(
     shared: &Shared,
     number: u64,
@@ -179,30 +179,6 @@ fn only_queries(kitty: &[(usize, scheme::Request)]) -> Seen {
         requests: kitty.iter().map(|(_, request)| *request).collect(),
         ..Seen::default()
     }
-}
-
-/// Exercise the same PTY reader and exit publication with an in-process observer's child.
-#[cfg(test)]
-pub(super) fn pump(
-    shared: &Shared,
-    number: u64,
-    reader: Box<dyn Read + Send>,
-    handle: &Handle,
-    screen: &Mutex<ScreenState>,
-    output: broadcast::Sender<Chunk>,
-    exit_hold: Option<&ExitHold>,
-) {
-    stopped(
-        number,
-        "output stopped",
-        read(shared, number, reader, &handle.recorder, screen, &output),
-    );
-    let code = program::exit_code(number, reap(&handle.program));
-    if let Some(hold) = exit_hold {
-        hold();
-    }
-    drop(output);
-    stopped(number, "exit not published", shared.finish(number, code));
 }
 
 impl Shared {
