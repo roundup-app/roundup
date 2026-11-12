@@ -145,7 +145,7 @@ export const Layout = (props: {
   }, { defer: true }));
 
   // U3721b: the centre takes its final width once, when the slide ends, never by interpolating it.
-  const reserved = createMemo<boolean>(prev => placement().sliding === true ? prev : placement().shown, false);
+  const reserved = createMemo<boolean>(prev => placement().sliding === true ? prev && placement().shown : placement().shown, false);
   createEffect(() => { if (placement().reducedMotion) setShelfSliding(false); });
   onCleanup(() => setShelfSliding(false));
 

@@ -411,7 +411,7 @@ p {
   width: calc(100% - var(--fill-rail) - var(--fill-reserve));
 }
 
-/* U371, U3721b: the centre takes the Shelf's width once, when the slide ends; `data-shelf-reserved` lags `data-shelf-shown` by the slide. */
+/* U371, U3721b: the centre widens at the start of a close and narrows when an open slide ends; `data-shelf-reserved` lags `data-shelf-shown` by the slide. */
 .window[data-shelf-mode="reserved"][data-shelf-reserved="true"] .columns {
   width: calc(100% - var(--shelf-span));
 }
