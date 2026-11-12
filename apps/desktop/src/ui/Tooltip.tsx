@@ -10,7 +10,7 @@ const Ownership = createContext<{ pointer: (event: PointerEvent) => void; focus:
 
 const Root = (props: ArkTooltip.RootProps) => {
   const [owner, setOwner] = createSignal<HTMLElement>();
-  const control = floatingControl(props, owner);
+  const control = floatingControl(props, () => owner());
   let pointer: { x: number; y: number } | undefined;
   // U6236a: a re-render replaces the trigger's element; its id finds the replacement.
   const rect = () => anchorBox(owner(), () => document.getElementById(owner()?.id ?? ""));
