@@ -387,6 +387,7 @@ export const Todos = (props: {
   // is saved here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
   // elsewhere (typing in U16's field, Tab into the pane) never yanks it back.
+  const rows = { get: rowButtonOf };
   const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; reopening: boolean; focus: ReturnType<typeof captureFocus> }[]>([]);
 
   createEffect(() => {
@@ -403,7 +404,9 @@ export const Todos = (props: {
 
         request.focus(() => {
           if (document.activeElement === null || document.activeElement === document.body) {
-            if (request.target !== null) focusRow(request.target);
+            const target = request.target !== null ? rows.get(request.target) : undefined;
+
+            if (target && !target.closest("[hidden], [inert]")) target.focus();
 
             if (document.activeElement === null || document.activeElement === document.body) plusButton?.focus();
           }
@@ -451,7 +454,7 @@ export const Todos = (props: {
     const focus = captureFocus();
     const reopening = todo.done;
     const advance = !reopening ? captureAdvance(todo.id) : undefined;
-    const target = survivorOf(reopening ? foldedDone().map(each => each.id) : untrack(openOrder), todo.id) ?? null;
+    const target = survivorOf(untrack(() => reopening ? foldedDone().map(each => each.id) : openOrder()), todo.id) ?? null;
 
     const message = await changeFailureOf(() => reopening
       ? connected.app.rpc("todo.reopen", { id: todo.id })
@@ -618,9 +621,9 @@ export const Todos = (props: {
       setMoving({ id: todo.id, anchor: button });
       moveAdvance = captureAdvance(todo.id);
     }),
-    triageKey("todo.triage-done", async (todo) => {
+    triageKey("todo.triage-done", (todo) => {
       clearFailures();
-      pickFails.get(todo.id)?.show(await toggle(todo));
+      void toggle(todo).then(message => pickFails.get(todo.id)?.show(message));
     }),
     triageKey("todo.triage-comment", (todo) => {
       if (selectedId() !== todo.id) show(todo, "key");
