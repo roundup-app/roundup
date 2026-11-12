@@ -59,8 +59,13 @@ export function shelfBrowser(initScript?: string) {
     await settle();
   };
 
+  // U3721a: `⌘K` then `B` rotates the Bench, so it opens a closed Bench or a peek; an open one closes by its head's Close button.
   const toggle = async () => {
-    await evaluate(`(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', bubbles: true })); return true; })()`);
+    await evaluate(`(() => {
+      if (document.querySelector('.window').dataset.shelf === 'open') document.querySelector('.shelf [aria-label="Close the Bench"]').click();
+      else { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', bubbles: true })); }
+      return true;
+    })()`);
     await settle();
   };
 
