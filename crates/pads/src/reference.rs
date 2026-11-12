@@ -23,13 +23,16 @@ impl PadRef {
 
 /// Why `url` is no Pad link of the shape LK1 and LK4 describe.
 pub fn parse(url: &str) -> Result<PadRef, Error> {
-    let url = url::Url::parse(url).map_err(|err| Error::BadLink(format!("the URL does not parse ({err})")))?;
+    let url = url::Url::parse(url)
+        .map_err(|err| Error::BadLink(format!("the URL does not parse ({err})")))?;
     if url.scheme() != "roundup" || url.host_str() != Some("pad") {
         return Err(Error::BadLink("it is not a roundup://pad/ link".into()));
     }
     let path = url.path().strip_prefix('/').unwrap_or_default();
     if path.is_empty() || path.contains('/') {
-        return Err(Error::BadLink("the path is not exactly one Pad name".into()));
+        return Err(Error::BadLink(
+            "the path is not exactly one Pad name".into(),
+        ));
     }
     let decode = |text: &str| {
         percent_decode_str(text)
@@ -40,7 +43,9 @@ pub fn parse(url: &str) -> Result<PadRef, Error> {
     let mut project = None;
     for (name, value) in url.query_pairs() {
         if name != "project" || project.replace(value.into_owned()).is_some() {
-            return Err(Error::BadLink("the query is not exactly one `project`".into()));
+            return Err(Error::BadLink(
+                "the query is not exactly one `project`".into(),
+            ));
         }
     }
     let heading = url.fragment().map(decode).transpose()?;
