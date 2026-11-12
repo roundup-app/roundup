@@ -50,14 +50,7 @@ impl Terminals {
         }
         let conn = self.core().await?;
         let number = self.next.fetch_add(1, Ordering::Relaxed);
-        let ran = host::run(
-            &conn,
-            &self.shared,
-            &params,
-            number,
-            &format!("roundup-{number}"),
-        )
-        .await?;
+        let ran = host::run(&conn, &self.shared, &params, number).await?;
         let core_id = ran
             .get("address")
             .and_then(Value::as_str)
