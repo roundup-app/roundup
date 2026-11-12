@@ -1,6 +1,6 @@
 import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus, focusTarget, layerOpen, provideFocusTarget, queueFocus } from "../keys/focus";
-import { createRoot, onCleanup } from "solid-js";
+import { createRoot, onCleanup, untrack } from "solid-js";
 import { CHORDS, TEXT_FIELDS, chordsOf } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { strandedFocus } from "../keys/stranded";
@@ -67,7 +67,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   const tablist = () => focusTarget("shelf.tabs");
   const selectedTab = () => tablist()?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
   const firstControl = () => props.shelf()?.querySelector<HTMLElement>('.shelf-controls button:not([disabled]), .shelf [role=tabpanel] [tabindex="0"], .shelf [role=tabpanel] input:not([disabled])');
-  provideFocusTarget("shelf.first", firstControl);
+  provideFocusTarget("shelf.first", () => untrack(firstControl));
 
   const toggle = (source: ActivationSource = "pointer") => {
     const opening = !props.frame.open();
