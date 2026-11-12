@@ -41,6 +41,8 @@ it("u389_viewer_state_is_the_same_in_every_project", async () => {
   }
 
   fireEvent.click(pick(".rail-tree .section-head"));
+  // U3721a: the Bench steps list, full, closed.
+  leaderKey("KeyB");
   leaderKey("KeyB");
   await waitFor(() => expect(shelf().hidden).toBe(true));
 

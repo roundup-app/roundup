@@ -40,7 +40,7 @@ const size = () => {
   return windowOf().dataset["shelfMaximised"] === "true" ? "full" : "list";
 };
 
-const stored = () => JSON.parse(localStorage.getItem("roundup:shelf:/Users/you/harness") ?? "null");
+const stored = () => JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")?.frame;
 
 const steps = async (expected: string[]) => {
   for (const next of expected) {
