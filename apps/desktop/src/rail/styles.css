@@ -118,7 +118,7 @@
   container-type: inline-size;
   display: flex;
   min-width: 0;
-  margin-inline-end: 0;
+  margin-inline-end: calc(-1 * var(--rail-gap));
   overflow: hidden;
   white-space: nowrap;
   color: var(--grey);
@@ -127,11 +127,7 @@
 }
 
 .rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
-/* At rest the status runs to the row's tail; the quick-icon takes its slot and a --space-3 gap only on hover, focus or selection, and the label gives way to it. */
-.rail-row:is(:hover, :focus-within, [data-selected="true"]) .row-status {
-  margin-inline-end: var(--rail-slot);
-  padding-inline-end: var(--space-3);
-}
+/* The status's right edge is fixed across rest, hover, focus and selection: it takes back the row's gap before the tail, and the quick icons reveal in the tail's slot reserved once. */
 /* pre keeps the separator's leading space, which a flex item would collapse. */
 .rail-row .row-status-age { flex: none; white-space: pre; }
 /* The name keeps its content width up to 60% of the row; the status takes all the shrink, so only the label is cut. */
