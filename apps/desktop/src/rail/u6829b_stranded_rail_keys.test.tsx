@@ -9,7 +9,7 @@ const strand = (id: string) => { fireEvent.click(rowOf(id)); rowOf(id).blur(); e
 
 it("u6829b_rail_keys_work_when_a_click_leaves_focus_on_body (rename)", async () => {
   const { rail } = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
-  rail.select("a");
+  strand("a");
   fireEvent.keyDown(document.body, { key: "F2", code: "F2", repeat: true });
   expect(screen.queryByRole("textbox")).toBeNull();
   fireEvent.keyDown(document.body, { key: "F2", code: "F2" });

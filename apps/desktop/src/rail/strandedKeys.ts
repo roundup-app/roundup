@@ -1,7 +1,7 @@
 import type { registerKeys } from "../keys/registry";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { keyedRowIdAt, noteClick, strandedRow } from "./rows";
+import { forgetClick, keyedRowIdAt, noteClick, strandedRow } from "./rows";
 
 type Deps = {
   nodes: () => readonly RailNode[];
@@ -15,6 +15,7 @@ type Deps = {
 
 /** U6829b: the row arrows on the clicked row while a click has left focus on the page body; Ark's tree walks only from a focused row. */
 export const strandedRowKeys = (deps: Deps): Parameters<typeof registerKeys>[1] => {
+  forgetClick();
   makeEventListener(document, "click", noteClick, true);
 
   const plain = (press: KeyboardEvent) => strandedRow(press) && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && deps.active();
