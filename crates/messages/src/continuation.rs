@@ -235,7 +235,7 @@ impl Messages {
             }
         };
         // After the commit: a failure here is a lost reply, and a retry returns this decision.
-        (self.inner.fault)("continuation_reply").map_err(Error::internal)?;
+        (self.inner.fault)("continuation_reply")?;
         let first = c
             .actions
             .first()

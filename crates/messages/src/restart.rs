@@ -155,7 +155,7 @@ impl Messages {
             .body()
             .ok_or_else(|| Error::conflict("no reserved first prompt"))?
             .to_owned();
-        (self.inner.fault)("record_restart_prompt").map_err(Error::internal)?;
+        (self.inner.fault)("record_restart_prompt")?;
         let message = store.atomically(|s| {
             if let Some(id) = restart.prompt.note() {
                 return s
@@ -192,7 +192,7 @@ impl Messages {
                     .record(&Actor::user(), Verb::Wrote, &item)
                     .map_err(Error::internal)?;
             }
-            (self.inner.fault)("publish_restart_prompt").map_err(Error::internal)?;
+            (self.inner.fault)("publish_restart_prompt")?;
             store.publish_restart_note(agent, key)?;
             self.inner.bus.emit(
                 Actor::user(),
