@@ -10,11 +10,18 @@ const nodes = () => ["a", "b", "c", "d", "e"].map((id, order) => agent(id, "done
 
 const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected=true]')].map(row => row.dataset.id);
 
-const select = (...ids: string[]) => { for (const id of ids) fireEvent.click(rowOf(id), { metaKey: true }); };
+// A press focuses the row before its click, and Ark applies the toggle a task later.
+const select = async (...ids: string[]) => {
+  for (const id of ids) {
+    rowOf(id).focus();
+    fireEvent.click(rowOf(id), { metaKey: true });
+    await waitFor(() => expect(selected()).toContain(id));
+  }
+};
 
-it("u5690a_context_click_uses_the_selected_set_or_replaces_it", async () => {
+it("u5690a_a_context_click_selects_its_target_only_outside_the_selection", async () => {
   const { app, rail } = await mountRail(nodes());
-  select("a", "c");
+  await select("a", "c");
   fireEvent.contextMenu(rowOf("a"));
   expect(selected()).toEqual(["a", "c"]);
   await app.closeMenu();
@@ -25,9 +32,29 @@ it("u5690a_context_click_uses_the_selected_set_or_replaces_it", async () => {
   expect(app.calls.filter(call => /spawn|resume|stop|remove|group/.test(call.method))).toEqual([]);
 });
 
+it("u358_select_all_selects_data_rows_only", async () => {
+  await mountRail(nodes());
+  rowOf("a").focus();
+  fireEvent.keyDown(rowOf("a"), { key: "a", code: "KeyA", metaKey: true });
+  await waitFor(() => expect(selected()).toEqual(["a", "b", "c", "d", "e"]));
+  expect(document.querySelectorAll('.rail-section[data-selected=true], .rail-fold[data-selected=true]')).toHaveLength(0);
+});
+
+it("u358_ctrl_click_opens_the_menu_and_never_toggles", async () => {
+  const { app } = await mountRail(nodes());
+  await select("a");
+  rowOf("c").focus();
+  fireEvent.pointerDown(rowOf("c"), { button: 0, ctrlKey: true });
+  fireEvent.contextMenu(rowOf("c"), { ctrlKey: true });
+  fireEvent.click(rowOf("c"), { ctrlKey: true });
+  expect(app.shownMenus).toHaveLength(1);
+  expect(selected()).toEqual(["c"]);
+  await app.closeMenu();
+});
+
 it("u5690b_selection_menu_has_group_then_remove_all", async () => {
   const { app } = await mountRail(nodes());
-  select("e", "a", "c");
+  await select("e", "a", "c");
   fireEvent.contextMenu(rowOf("c"));
   expect(menuProbe.shown?.map(item => item.id)).toEqual(["group", "remove-selection"]);
   expect(menuProbe.shown?.[1]?.shortcut).toBe("⇧⌘⌫");
@@ -36,7 +63,7 @@ it("u5690b_selection_menu_has_group_then_remove_all", async () => {
 
 it.each(["menu", "key"])("u5690d_remove_menu_and_chord_share_one_selection_question_%s", async entry => {
   const { app, rail } = await mountRail(nodes());
-  select("e", "c", "a");
+  await select("e", "c", "a");
   expect(rail.selected()).toBeNull();
 
   if (entry === "menu") { fireEvent.contextMenu(rowOf("c")); await app.pickMenu("Remove all"); }
@@ -59,7 +86,7 @@ it.each([
   const { app, rail, connected } = await mountRail(tree);
   let finish: ((value: import("@contracts/agent/Removal").Removal) => void) | undefined;
   app.handlers["rail.removeSelection"] = () => new Promise(resolve => { finish = resolve; });
-  select(...ids);
+  await select(...ids);
   const target = rowOf(ids[0]!);
   target.focus();
   const key = { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true };
@@ -88,7 +115,7 @@ it("u5690d_mixed_losses_are_named_once_and_consent_uses_default_scopes", async (
   tree[0]!.worktree = { path: "/p/a", branch: "a", base: "main" };
   tree[2]!.terminal_id = "t-c";
   const { app, connected } = await mountRail(tree);
-  select("e", "c", "a");
+  await select("e", "c", "a");
   app.handlers["rail.removeSelection"] = () => ({ removed: [], kept: [] });
   fireEvent.contextMenu(rowOf("c"));
   await app.pickMenu("Remove all");
@@ -118,7 +145,7 @@ it.each(["Enter", "Escape"])("u5690c_group_collects_in_rail_order_and_focuses_re
 
  return tree[0]!; };
 
-  select("c", "a", "e");
+  await select("c", "a", "e");
   fireEvent.contextMenu(rowOf("a"));
   await app.pickMenu("Group");
   const input = await screen.findByRole("textbox", { name: "Name" });
@@ -136,9 +163,9 @@ it.each(["Enter", "Escape"])("u5690c_group_collects_in_rail_order_and_focuses_re
 
 it.each(["context", "control", "keyboard"])("u5690a_range_selection_and_outside_target_%s", async gesture => {
   const { app } = await mountRail(nodes());
-  select("b");
+  await select("b");
   fireEvent.click(rowOf("d"), { shiftKey: true });
-  expect(selected()).toEqual(["b", "c", "d"]);
+  await waitFor(() => expect(selected()).toEqual(["b", "c", "d"]));
 
   if (gesture === "keyboard") {
     rowOf("c").focus();
@@ -147,7 +174,7 @@ it.each(["context", "control", "keyboard"])("u5690a_range_selection_and_outside_
     if (gesture === "control") fireEvent.pointerDown(rowOf("c"), { button: 0, ctrlKey: true });
     fireEvent.contextMenu(rowOf("c"), { ctrlKey: gesture === "control" });
 
-    if (gesture === "control") fireEvent.click(rowOf("c"));
+    if (gesture === "control") fireEvent.click(rowOf("c"), { ctrlKey: true });
   }
 
   expect(app.shownMenus.at(-1)?.items.map(item => item.id)).toEqual(["group", "remove-selection"]);
@@ -163,7 +190,7 @@ it.each(["context", "control", "keyboard"])("u5690a_range_selection_and_outside_
 it("u5690d_overlapping_selection_removes_each_identity_once", async () => {
   const { app } = await mountRail([workstream("w"), agent("child", "working", "", { parent: "w" }), agent("other", "done", "", { terminal_id: null })]);
   app.handlers["rail.removeSelection"] = () => ({ removed: [], kept: [] });
-  select("child", "w");
+  await select("child", "w");
   fireEvent.contextMenu(rowOf("w"));
   await app.pickMenu("Remove all");
   await waitFor(() => expect(questionProbe.shown).not.toBeNull());
@@ -177,7 +204,7 @@ it("u5690d_overlapping_selection_removes_each_identity_once", async () => {
 it("u5690e_one_row_keeps_its_menu_and_removal_after_outside_click", async () => {
   const { app } = await mountRail(nodes());
   app.handlers["rail.remove"] = ({ id, operation }) => ({ removed: [], kept: [], deletion: { id, project: "p", operation: operation!, restored: false } });
-  select("a", "c", "e");
+  await select("a", "c", "e");
   fireEvent.contextMenu(rowOf("b"));
   expect(selected()).toEqual(["b"]);
   expect(app.shownMenus.at(-1)?.items.map(item => item.id)).toContain("rename");

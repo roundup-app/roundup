@@ -38,7 +38,8 @@ import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "../state/railStorage";
 import { createRailDrag } from "./drag";
-import { createRailSelection } from "./selection";
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
@@ -243,18 +244,19 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(topology(), each.id).includes(id)) : undefined;
 
     const destination = attention?.id ?? id;
-    selection.selection.replace(destination);
-    anchorAt(destination);
+    setSelected([destination]);
     rail.select(destination);
   };
 
-  const focusRow = (id: string) => rowElement(id)?.focus();
+  let treeApi: { focus: (value: string) => void } | undefined;
+  const focusRow = (id: string) => treeApi?.focus(id);
 
-  const { selection, selectClick, selectKey, anchorAt } = createRailSelection(connected, nodeRows, id => rowElement(id), focusRow);
+  const [selected, setSelected] = createSignal<string[]>([]);
+  createEffect(on(rail.selected, id => setSelected(id === null ? [] : [id])));
+  const isNodeId = (value: string) => rail.nodes.some(node => node.id === value);
+  const isSelected = (id: string) => selected().includes(id);
 
-
-
-  const selectedNodes = () => nodeRows().flatMap(row => selection.selection.isSelected(row.node.id) ? [row.node] : []);
+  const selectedNodes = () => nodeRows().flatMap(row => isSelected(row.node.id) ? [row.node] : []);
 
   const removeSelection = (chosen = selectedNodes()) => {
     const before = nodeIds();
@@ -262,8 +264,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     void menu.requestRemoveSelection(chosen, () => {
       void rail.refresh().then(() => {
         const survivors = new Set(nodeIds());
-        const next = before.slice(last + 1).find(id => survivors.has(id)) ?? before.slice(0, last).findLast(id => survivors.has(id));
-        selection.selection.setSelectedValues(next ? [next] : []);
+        const next = afterElseBefore(before, before[last]!, id => survivors.has(id));
+        setSelected(next ? [next] : []);
         rail.select(next ?? null);
 
         if (next) focusRow(next);
@@ -273,10 +275,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   };
 
   const openSelectionMenu = (node: RailNode, x: number, y: number, extra: MenuEntry[] = []) => {
-    if (!selection.selection.isSelected(node.id)) {
-      selection.selection.replace(node.id);
-      anchorAt(node.id);
-    }
+    if (!isSelected(node.id)) setSelected([node.id]);
 
     focusRow(node.id);
     const chosen = selectedNodes();
@@ -297,7 +296,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
         if (rail.collapsed().has(group.id)) rail.toggleCollapsed(group.id);
         rail.select(group.id);
-        selection.selection.replace(group.id);
+        setSelected([group.id]);
         setEditingName(group.id);
       }, node.id) },
       { id: "remove-selection", label: copy.removeAll, shortcut: "⇧⌘⌫", run: () => removeSelection(chosen) },
@@ -327,12 +326,11 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     if (repeat || !node || !row) return;
 
     const ids = nodeIds();
-    const next = ids[ids.indexOf(node.id) + 1] ?? ids[ids.indexOf(node.id) - 1];
+    const next = afterElseBefore(ids, node.id, each => each !== node.id);
     menu.requestRemove(node, rail.exitOf(node), () => untrack(() => {
-      if (next === undefined || rail.selected() !== node.id && !selection.selection.isSelected(node.id)) return;
+      if (next === undefined || rail.selected() !== node.id && !isSelected(node.id)) return;
 
-      selection.selection.replace(next);
-      anchorAt(next);
+      setSelected([next]);
       rail.select(next);
       focusRow(next);
     }));
@@ -603,7 +601,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   } });
 
   registerKeys({ kind: "region", element: container }, [rename()]);
-  registerKeys({ kind: "app" }, [rename(strandedRow), ...strandedRowKeys({ nodes: () => rail.nodes, ids: nodeIds, selected: rail.selected, collapsed, active: () => daemonExit() === null, toggle: rail.toggleCollapsed, go: next => { selection.selection.replace(next); anchorAt(next); rail.select(next); focusRow(next); } })]);
+  registerKeys({ kind: "app" }, [rename(strandedRow), ...strandedRowKeys({ nodes: () => rail.nodes, ids: nodeIds, selected: rail.selected, collapsed, active: () => daemonExit() === null, toggle: rail.toggleCollapsed, go: next => { setSelected([next]); rail.select(next); focusRow(next); } })]);
 
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(
@@ -640,34 +638,27 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       class="rail-tree" data-history-region="rail" tabindex="-1"
       ref={(element) => {
         setContainer(element);
-        element.addEventListener("click", selectClick, true);
-        // Ark walks its collection on a key, so the collection shows the rows as drawn first.
-        element.addEventListener("keydown", event => { settleCollection(); selectKey(event); }, true);
-        let contextClick = false;
-        element.addEventListener("pointerdown", (event) => {
-          contextClick = event.button === 0 && event.ctrlKey;
-
-          // macOS Ctrl-click must not focus a row, blur unfinished input or arm its sort sensor.
-          if (contextClick) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-        }, true);
-        // A native menu may consume the compatibility click; keyboard activation must still work next.
-        element.addEventListener("keydown", () => { contextClick = false; }, true);
-        element.addEventListener("click", (event) => {
-          if (!contextClick && !event.ctrlKey) return;
-
-          contextClick = false;
-          event.preventDefault();
-          event.stopPropagation();
-        }, true);
+        // Ark's keys walk the collection, so it shows the rows as drawn first.
+        makeEventListener(element, "keydown", settleCollection, { capture: true });
+        // macOS Ctrl-click opens the menu: it must not focus a row, blur unfinished input, arm the sort sensor or toggle.
+        const ctrlClick = (event: MouseEvent) => {
+          if (event.button !== 0 || !event.ctrlKey) return;
+          event.preventDefault(); event.stopPropagation();
+        };
+        makeEventListener(element, "pointerdown", ctrlClick, { capture: true });
+        makeEventListener(element, "click", ctrlClick, { capture: true });
       }}
       collection={collection()}
       focusedValue={focused()}
       onFocusChange={details => setFocused(details.focusedValue)}
       expandedValue={expanded()}
-      selectedValue={selection.selection.selectedValues()}
+      selectionMode="multiple"
+      typeahead
+      selectedValue={selected()}
+      onSelectionChange={details => {
+        // Zag's select-all takes every value, section and fold branches included.
+        setSelected(details.selectedValue.filter(isNodeId));
+      }}
       expandOnClick={false}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
@@ -686,6 +677,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       }}
     >
 
+      <TreeView.Context>{api => { treeApi = api(); return null; }}</TreeView.Context>
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
@@ -766,8 +758,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                             return () => { if (copied.get(id) === feedback) copied.delete(id); };
                           }}
                           editing={editingName() === view().node.id}
-                          selected={selection.selection.isSelected(view().node.id)}
-                          multiple={selection.selection.selectedValues().length > 1}
+                          selected={isSelected(view().node.id)}
+                          multiple={selected().length > 1}
                           tabbable={tabbableId() === view().node.id}
                           branch={entryOf(view().node.id).branch}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
