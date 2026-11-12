@@ -274,7 +274,7 @@ export const Strip = (props: {
     </Show>
   );
 
-  registerKeys({ kind: "app" }, strandedTabKeys(paths, props, path => elements.get(path)?.querySelector<HTMLElement>("[role=tab]")?.focus()));
+  registerKeys({ kind: "app" }, strandedTabKeys({ paths: () => paths(), active: () => props.active, focusTab: path => elements.get(path)?.querySelector<HTMLElement>("[role=tab]")?.focus() }));
 
   return (
     <div class="strip" onFocusIn={(press) => { if (!asking() && press.target === closeOpener()) setCloseOpener(undefined); }}>
