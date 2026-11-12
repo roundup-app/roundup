@@ -3,7 +3,7 @@ import { expect } from "vitest";
 import { agent, info, mode, workstream } from "../../testing/nodes";
 import { copy as windowCopy } from "../../window/copy";
 import { createMove } from "../MovePicker";
-import { chooseAction, chooseFooter, exitedTerminal, itemOf, mountRail, rowNames, rowOf } from "../railFixture";
+import { chooseAction, chooseFooter, exitedTerminal, itemOf, mountRail, rowNames, rowOf, settled } from "../railFixture";
 
 /** U5991a: the Rail actions, one row each, shared by the render test and the frame-budget test. */
 
@@ -129,6 +129,7 @@ export const actions: Action[] = [
     method: "rail.group",
     fire: async ({ app }) => {
       for (const id of ["a", "c"]) fireEvent.click(rowOf(id), { metaKey: true });
+      await settled();
       fireEvent.contextMenu(rowOf("a"));
       await app.pickMenu("Group");
     },

@@ -252,8 +252,52 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   let treeApi: { focus: (value: string) => void } | undefined;
   const focusRow = (id: string) => treeApi?.focus(id);
 
-  const [selected, setSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
-  const isNodeId = (value: string) => rail.nodes.some(node => node.id === value);
+  const [selected, replaceSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
+  // A range runs from the anchor, the last single choice or toggled row; with none, a shift-click selects only its row.
+  let anchor: string | undefined;
+  const setSelected = (values: string[]) => {
+    if (values.length === 1) anchor = values[0];
+    replaceSelected(values);
+  };
+  createEffect(on(rail.selected, id => { anchor = id ?? undefined; }));
+  // Only rows the user can act on count: a hidden, inert or disabled row stays out of select-all and ranges.
+  const isNodeId = (value: string) => {
+    const element = rowElement(value);
+
+    return rail.nodes.some(node => node.id === value) && element !== undefined && !element.closest("[hidden], [inert], [aria-disabled=true]");
+  };
+  const selectAll = (event: KeyboardEvent) => {
+    const id = focusedRowId(event);
+
+    if (id === undefined || !isNodeId(id) || daemonExit() !== null || !event.metaKey || event.key.toLowerCase() !== "a" || event.ctrlKey || event.altKey || event.isComposing) return;
+    event.preventDefault(); event.stopPropagation();
+    replaceSelected(nodeRows().map(row => row.node.id).filter(isNodeId));
+  };
+  // A name search chooses the row it lands on; arrows only move focus.
+  let typing = false;
+  const markTyping = (event: KeyboardEvent) => {
+    typing = event.key.length === 1 && event.key !== " " && !event.metaKey && !event.ctrlKey && !event.altKey && !event.isComposing && focusedRowId(event) !== undefined;
+    if (typing) setTimeout(() => { typing = false; });
+  };
+  const modifiedClick = (event: MouseEvent) => {
+    if (event.button !== 0 || event.ctrlKey || !event.metaKey && !event.shiftKey || !(event.target instanceof Element) || event.target.closest("button,input")) return;
+    const id = event.target.closest<HTMLElement>(".rail-row")?.dataset.id;
+
+    if (id === undefined || !isNodeId(id)) return;
+    event.preventDefault(); event.stopPropagation();
+
+    if (event.shiftKey) {
+      const ids = nodeRows().map(row => row.node.id).filter(isNodeId);
+      const from = anchor === undefined ? -1 : ids.indexOf(anchor);
+      const to = ids.indexOf(id);
+      setSelected(from < 0 ? [id] : ids.slice(Math.min(from, to), Math.max(from, to) + 1));
+    } else {
+      replaceSelected(selected().includes(id) ? selected().filter(each => each !== id) : [...selected(), id]);
+      anchor = id;
+    }
+
+    focusRow(id);
+  };
   const isSelected = (id: string) => selected().includes(id);
 
   const selectedNodes = () => nodeRows().flatMap(row => isSelected(row.node.id) ? [row.node] : []);
@@ -642,18 +686,33 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         makeEventListener(element, "keydown", settleCollection, { capture: true });
 
         // macOS Ctrl-click opens the menu: it must not focus a row, blur unfinished input, arm the sort sensor or toggle.
-        const ctrlClick = (event: MouseEvent) => {
-          if (event.button !== 0 || !event.ctrlKey) return;
+        let contextClick = false;
+
+        makeEventListener(element, "pointerdown", (event: PointerEvent) => {
+          contextClick = event.button === 0 && event.ctrlKey;
+
+          if (contextClick) { event.preventDefault(); event.stopPropagation(); }
+        }, { capture: true });
+        // A native menu may consume the compatibility click; keyboard activation must still work next.
+        makeEventListener(element, "keydown", () => { contextClick = false; }, { capture: true });
+        makeEventListener(element, "click", (event: MouseEvent) => {
+          if (!contextClick && !event.ctrlKey) return;
+
+          contextClick = false;
           event.preventDefault();
           event.stopPropagation();
-        };
-
-        makeEventListener(element, "pointerdown", ctrlClick, { capture: true });
-        makeEventListener(element, "click", ctrlClick, { capture: true });
+        }, { capture: true });
+        makeEventListener(element, "click", modifiedClick, { capture: true });
+        makeEventListener(element, "keydown", selectAll, { capture: true });
+        makeEventListener(element, "keydown", markTyping, { capture: true });
       }}
       collection={collection()}
       focusedValue={focused()}
-      onFocusChange={details => setFocused(details.focusedValue)}
+      onFocusChange={details => {
+        setFocused(details.focusedValue);
+
+        if (typing && details.focusedValue !== null && isNodeId(details.focusedValue)) { typing = false; const match = details.focusedValue; setSelected([match]); rail.select(match); focusRow(match); }
+      }}
       expandedValue={expanded()}
       selectionMode="multiple"
       typeahead
