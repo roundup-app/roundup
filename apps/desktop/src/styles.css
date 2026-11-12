@@ -22,8 +22,12 @@ p {
 
 :focus { outline: none; }
 
+.window[data-shelf-key] { --slide-duration: var(--duration-key); }
+
 /* U449: every content region starts beneath the shared window bar. */
 .window {
+  /* U3721b: a pointer change slides in the drawer duration, a key change in the key duration (U6837a). */
+  --slide-duration: var(--duration-drawer);
   --shelf-span: var(--shelf-width);
   /* U409, U430: wider than the Shelf by a step; the centre ends where it begins, and it never covers the Rail. */
   --drawer-span: max(var(--drawer-min-width), calc(var(--shelf-span) + var(--space-5)));
@@ -226,7 +230,7 @@ p {
 }
 
 .shelf-edge-slot[data-animated="true"] {
-  transition: transform var(--duration-drawer) var(--easing-out);
+  transition: transform var(--slide-duration) var(--easing-out);
 }
 
 .shelf-edge {
@@ -277,7 +281,7 @@ p {
 }
 
 .shelf[data-animated="true"] {
-  transition: transform var(--duration-drawer) var(--easing-out);
+  transition: transform var(--slide-duration) var(--easing-out);
 }
 
 /* Surfaces and depth (docs/design-system.md; U134): the Rail sits on `--sunken` and so does the Shelf, which floats; the pane and the Drawer sit on `--ground`. */
@@ -340,13 +344,9 @@ p {
   width: calc(100% - var(--fill-rail) - var(--fill-reserve));
 }
 
-/* U371: match the Shelf transform's displacement, including interrupted slides. */
-.window[data-shelf-mode="reserved"][data-shelf-shown="true"] .columns {
+/* U371, U3721b: the centre takes the Shelf's width once, when the slide ends; `data-shelf-reserved` lags `data-shelf-shown` by the slide. */
+.window[data-shelf-mode="reserved"][data-shelf-reserved="true"] .columns {
   width: calc(100% - var(--shelf-span));
-}
-
-.window[data-shelf-mode="reserved"][data-shelf-animated="true"] .columns {
-  transition: width var(--duration-drawer) var(--easing-out);
 }
 
 .shelf-scrim {
@@ -374,12 +374,12 @@ p {
 }
 
 .window[data-shelf-animated="true"] .shelf-scrim {
-  transition: opacity var(--duration-drawer) var(--easing-out);
+  transition: opacity var(--slide-duration) var(--easing-out);
 }
 
-/* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
-.window[data-shelf-mode]:has(.drawer[data-open="true"]:not([data-fill="true"])) .columns,
-.window[data-shelf-mode][data-shelf-maximised="true"]:has(.drawer[data-open="true"]) .columns {
+/* U430, U3721b: the columns end where the Drawer begins, taking that width once when its slide ends; a width never interpolates. */
+.window[data-shelf-mode]:has(.drawer[data-reserve="true"]:not([data-fill="true"])) .columns,
+.window[data-shelf-mode][data-shelf-maximised="true"]:has(.drawer[data-reserve="true"]) .columns {
   width: calc(100% - var(--drawer-span));
 }
 
@@ -392,10 +392,6 @@ p {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
-.window:has(.drawer[data-motion="slide"][data-mounted="true"]) .columns {
-  transition: width var(--duration-drawer) var(--easing-out);
-}
-
 .drawer[data-open="true"] {
 }
 
@@ -403,7 +399,7 @@ p {
 .window:has(.drawer[data-open="true"]:not([data-fill="true"])) .shelf,
 .window[data-shelf-maximised="true"]:has(.drawer[data-open="true"]) .shelf {
   visibility: hidden;
-  transition: transform var(--duration-drawer) var(--easing-out), visibility var(--duration-drawer) linear;
+  transition: transform var(--slide-duration) var(--easing-out), visibility var(--slide-duration) linear;
 }
 
 /* U2580a: the whole layout settles with a key-driven Drawer, including interrupted slides.

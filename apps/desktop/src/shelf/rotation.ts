@@ -37,7 +37,7 @@ export const createBenchRotation = (props: {
   const close = () => {
     drawer()?.close("key");
 
-    if (props.frame.maximised()) props.frame.toggleMaximise("key");
+    props.frame.unmaximise();
 
     if (props.frame.open()) props.toggle("key");
   };

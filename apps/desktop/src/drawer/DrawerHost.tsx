@@ -38,12 +38,10 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   const maximiseSlide = createMaximiseSlide(panel, () => props.drawer.content() !== null && !props.reducedMotion());
 
   const toggleMaximise = (source: ActivationSource) => {
-    const host = panel();
-    const left = host?.getBoundingClientRect().left;
+    const before = maximiseSlide.visibleWidth();
     maximiseSlide.cancel();
     frame.toggleMaximise(source);
-
-    if (host && left !== undefined && source !== "key") maximiseSlide.start(left - host.getBoundingClientRect().left);
+    maximiseSlide.start(before, source === "key");
   };
 
   createEffect(() => onCleanup(props.drawer.bindSize(() => ({ maximised: frame.maximised(), toggle: toggleMaximise }))));
@@ -58,7 +56,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
   const [edgeHovered, setEdgeHovered] = createSignal(false);
   const isOpen = () => props.drawer.content() !== null;
-  const instant = () => props.reducedMotion() || props.drawer.source() === "key";
+  const instant = () => props.reducedMotion();
   const [settling, setSettling] = createSignal(false);
   let settleFrame: number | undefined;
   let revision = 0;
@@ -132,6 +130,15 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
     }),
   );
 
+  // U3721b: the centre takes the Drawer's width once, when its slide ends; a width never interpolates.
+  const [reserve, setReserve] = createSignal(isOpen());
+
+  createEffect(() => {
+    const open = isOpen();
+
+    if (!lifetime.sliding()) setReserve(open);
+  });
+
   onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 
   const canMaximise = (focus: Element | null) => isOpen() && !!focus && !!panel()?.contains(focus) && !focus.closest('input, textarea, select, [contenteditable], .xterm, .pane-screen, [role=dialog], [role=menu]');
@@ -158,6 +165,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       data-maximised={frame.maximised()}
       data-fill={frame.maximised() && fillsCentre(props.drawer.surface()?.kind)}
       data-mounted={mounted() !== null}
+      data-reserve={reserve()}
       data-motion={instant() ? "none" : "slide"}
       data-settling={settling()}
       ref={setPanel}
@@ -184,7 +192,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         right: "var(--drawer-right)",
         bottom: "var(--drawer-bottom)",
         transform: isOpen() ? "translateX(0)" : "translateX(calc(100% + var(--drawer-right)))",
-        transition: instant() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
+        transition: instant() ? "none" : `transform ${props.drawer.source() === "key" ? "var(--duration-key)" : "var(--duration-drawer)"} ${DRAWER_EASING}`,
       }}
 
     >

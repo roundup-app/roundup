@@ -8,7 +8,7 @@ import type { ActivationSource } from "../keys/registry";
 import { triage } from "../todos/triage";
 import { copy } from "./copy";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
+import { createComputed, createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
@@ -17,7 +17,7 @@ import type { Widths } from "../resize/widths";
 import { railView } from "../rail/slide";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
-export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
+export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; keyed?: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
@@ -119,25 +119,36 @@ export const Layout = (props: {
   }, { defer: true }));
   createEffect(() => { if (placement().sliding === false) setShelfSliding(false); });
   onCleanup(() => placement().onSettle());
-  const maximiseSlide = createMaximiseSlide(() => windowElement?.querySelector<HTMLElement>(".shelf") ?? undefined, () => placement().open && !placement().reducedMotion);
+  const shelfElement = () => windowElement?.querySelector<HTMLElement>(".shelf") ?? undefined;
+  const maximiseSlide = createMaximiseSlide(shelfElement, () => placement().open && !placement().reducedMotion);
 
   const maximised = createMemo(() => placement().maximised === true);
+  let widthBefore = 0;
 
-  createEffect(on(maximised, (expanded) => {
-    const shelf = windowElement?.querySelector<HTMLElement>(".shelf");
-    const offset = maximiseSlide.offset();
+  // U3721b: the width before the change, read while the old size still draws.
+  createComputed(on(maximised, () => { widthBefore = maximiseSlide.visibleWidth(); }, { defer: true }));
+
+  createEffect(on(maximised, () => {
+    const shelf = shelfElement();
     maximiseSlide.cancel();
 
     if (!windowElement || !shelf?.animate || mode() !== "reserved" || !placement().animated || !placement().open) return;
-    const style = getComputedStyle(windowElement);
-    const displacement = windowElement.clientWidth - (windowElement.querySelector(".rail")?.getBoundingClientRect().width ?? 0) - parseFloat(style.getPropertyValue("--shelf-span"));
-    maximiseSlide.start(offset + (expanded ? displacement : -displacement), () => setShelfSliding(false));
+    maximiseSlide.start(widthBefore, placement().keyed === true, () => setShelfSliding(false));
   }, { defer: true }));
+
+  // U3721b: the centre takes its final width once, when the slide ends, never by interpolating it.
+  const [reserved, setReserved] = createSignal(placement().shown);
+
+  createEffect(() => {
+    const shown = placement().shown;
+
+    if (placement().sliding !== true) setReserved(shown);
+  });
   createEffect(() => { if (placement().reducedMotion) setShelfSliding(false); });
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : placement().peeking ? "peek" : "closed"} data-shelf-peek={placement().covering === true} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : placement().peeking ? "peek" : "closed"} data-shelf-peek={placement().covering === true} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-reserved={reserved()} data-shelf-key={placement().keyed || undefined} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
