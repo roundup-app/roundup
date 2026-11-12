@@ -217,12 +217,12 @@ export const connectProject = async (
   const inChildren = <T,>(create: () => T): T => {
     const created = runWithOwner(children, create);
 
-    if (created === undefined) throw new Error("a child created nothing");
+    if (created === undefined) throw new Error(copy.childCreatedNothing);
 
     return created;
   };
 
-  const closed = () => new Error(`${project.path} closed during setup`);
+  const closed = () => new Error(copy.projectClosedDuringSetup(project.path));
 
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
