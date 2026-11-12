@@ -27,7 +27,7 @@ export const railClicked = (): boolean => lastClickInRail;
 export const forgetClick = (): void => { lastClickInRail = false; };
 
 /** Only the surface clicked last owns a body press: a click on a Shelf row or a Project tab releases the Rail's claim. */
-export const noteClick = (click: MouseEvent): void => { lastClickInRail = click.target instanceof Element && click.target.closest(ROW) !== null; };
+export const noteClick = (click: MouseEvent): void => { lastClickInRail = click.target instanceof Element && click.target.closest(ROW) !== null && click.target.closest(".rail-tree") !== null; };
 
 export type RowActions = {
   folder: () => void;
