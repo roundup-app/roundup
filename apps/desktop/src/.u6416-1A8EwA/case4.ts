@@ -1,1 +1,0 @@
-setCount(count => count + 2);
