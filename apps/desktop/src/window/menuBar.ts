@@ -47,6 +47,7 @@ export const watchMenuBar = (options: {
   const { createEffect, createMemo, createSignal, onCleanup } = options.solid;
   const [turn, setTurn] = createSignal(0);
   const waitingSince = new Map<string, { kind: Kind; attempt: string | null; since: number }>();
+
   // U6994a: the projection re-runs on any status change, but its readers run only when what the list shows differs.
   const presentation = createMemo((): MenuBar => {
     turn();
