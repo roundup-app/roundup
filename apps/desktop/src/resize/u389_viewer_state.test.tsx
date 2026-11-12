@@ -6,7 +6,7 @@ import { node, workstream } from "../testing/nodes";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
-const trees = () => ({ a: [node("root", { order: 0 }), workstream("w", { opening_prompt: "Work", order: 1 })], b: [node("root", { order: 0 }), workstream("w", { opening_prompt: "Work", order: 1 })] });
+const trees = () => ({ a: [node("root", { order: 0 }), workstream("w", { mode_prompt: "Work", order: 1 })], b: [node("root", { order: 0 }), workstream("w", { mode_prompt: "Work", order: 1 })] });
 
 const layout = () => ({
   vars: ["--rail-width", "--shelf-span"].map(name => document.querySelector<HTMLElement>(`[style*="${name}"]`)?.style.getPropertyValue(name)),
