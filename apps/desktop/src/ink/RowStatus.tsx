@@ -1,5 +1,5 @@
 import type { Status } from "@contracts/Status";
-import { elapsed } from "../shelf/Age";
+import { elapsed } from "../state/elapsed";
 import { useDisplayNow } from "../state/clock";
 import { copy } from "./copy";
 import { shownKind } from "./FailureLine";

@@ -128,7 +128,7 @@
 .rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
 /* The status's right edge is fixed across rest, hover, focus and selection: the row's gap before the tail is dropped (gap moves to margins, none after the status), and the quick icons reveal in the tail's slot reserved once. */
 .rail-row .line:has(.row-status) { gap: 0; }
-.rail-row .line:has(.row-status) > * + *:not(.row-status + *) { margin-inline-start: var(--rail-gap); }
+.rail-row:has(.row-status) :is(.name, .row-status) { margin-inline-start: var(--rail-gap); }
 /* pre keeps the separator's leading space, which a flex item would collapse. */
 .rail-row .row-status-age { flex: none; white-space: pre; }
 /* The name keeps its content width up to 60% of the row; the status takes all the shrink, so only the label is cut. */
