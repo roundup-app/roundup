@@ -570,7 +570,7 @@ export const App = (props: {
   const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
-  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
+  const shelfFocus = shelfKeys({ frame, shelf: shelfElement, connection: activeConnection });
   // U6224: the bar tabs promote through their own click; counting their press as use would let that click close what it just opened.
   createEdgePeek({ edge: "trailing", region: shelfElement, state: frame, promote: (target) => { if (!target.closest(".shelf-tabs")) frame.promote(); } });
 
@@ -677,12 +677,13 @@ export const App = (props: {
   })));
 
   onCleanup(shelfFocus.stop);
+
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.shelf"], capture: () => {
-    const wasOpen = frame.open();
+    const was = shelfFocus.size();
 
     return {
       available: () => activeConnection() != null,
-      invoke: () => { if (frame.open() === wasOpen) shelfFocus.toggle("key"); },
+      invoke: () => { if (shelfFocus.size() === was) shelfFocus.rotate(); },
     };
   } }]);
 
@@ -867,7 +868,7 @@ export const App = (props: {
               <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={dismissProjectPicker} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
             <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
-            <Help projectOpen={activeConnection() != null} shelfOpen={frame.open()} />
+            <Help projectOpen={activeConnection() != null} />
             <Toasts queue={toasts} />
           </>
         }

@@ -125,7 +125,6 @@ export const copy = {
   done: word.done,
   exitedBySignal: "exited by signal",
   closeShelf: "Close the Bench",
-  openShelf: "Open the Bench",
   maximise: "Maximise",
   restore: "Restore",
   newAgent: "New Agent",
