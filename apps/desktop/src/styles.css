@@ -206,6 +206,73 @@ p {
   left: calc(var(--rail-width) - var(--space-1) - var(--hairline-width));
 }
 
+/* U6228h: the Rail's handle, a half-disc on the Rail's trailing hairline at the Rail's vertical middle. Its hit area is the disc plus --space-2 on the Rail side; it shows while the pointer is over the Rail, its edge or itself, or while it holds keyboard focus, and takes no pointer while hidden. It rides a slide on the edge's own duration. */
+.rail-handle {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--rail-width) - var(--space-2));
+  z-index: var(--layer-drawer);
+  width: var(--space-5);
+  height: var(--space-6);
+  translate: 0 -50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-crossfade) var(--easing-out);
+}
+
+.rail-handle[data-slide] {
+  transition: opacity var(--duration-crossfade) var(--easing-out), left var(--rail-slide-duration, var(--duration-drawer)) var(--easing-out);
+}
+
+.rail-handle[data-collapsed]:not([data-peek]) { left: calc(var(--rail-strip-width) - var(--space-2)); }
+
+.rail-handle[data-peek] { left: calc(var(--rail-peek-width) - var(--space-2)); }
+
+.rail-handle[data-slide="key"] { --rail-slide-duration: var(--duration-key); }
+
+.rail-handle[data-slide="fade"] { --rail-slide-duration: var(--duration-reduced); }
+
+.columns:has(.rail:hover, .rail-edge:hover, .rail-handle:hover) .rail-handle:not([data-dragging]),
+.rail-handle:has(:focus-visible) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rail-handle-button {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0 0 0 var(--space-2);
+  cursor: pointer;
+}
+
+.rail-handle-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--space-4);
+  box-sizing: border-box;
+  border: var(--hairline-width) solid var(--hairline);
+  border-left: 0;
+  border-top-right-radius: var(--radius-pill);
+  border-bottom-right-radius: var(--radius-pill);
+  background-color: var(--rail-ground);
+}
+
+.rail-handle-button .icon { position: relative; }
+
+.rail-handle-button:focus-visible { outline: none; }
+
+.rail-handle-button:focus-visible::before {
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-handle, .rail-handle[data-slide] { transition: none; }
+}
+
 /* The Shelf's leading hairline is drawn here, so it slides with the Shelf: the slot is the Shelf's own width and transform. */
 .shelf-edge-slot {
   position: absolute;

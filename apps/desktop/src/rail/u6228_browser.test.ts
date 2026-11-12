@@ -74,36 +74,51 @@ run("u6228 the Rail collapses to a strip", () => {
     await load();
     const before = await quiet();
 
-    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await page.call(`() => document.querySelector('.rail-handle-button').click()`);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
     expect(await quiet()).toBe(before + 1);
     expect(await saved()).toMatchObject({ collapsed: true });
 
-    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await page.call(`() => document.querySelector('.rail-handle-button').click()`);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
     expect(await quiet()).toBe(before + 2);
     expect(await saved()).toMatchObject({ rail: 288, collapsed: false });
   });
 
-  it("u6228f_a_press_changes_the_collapsed_state_with_one_terminal_resize", async () => {
+  it("u6228h_a_press_changes_the_collapsed_state_with_one_terminal_resize", async () => {
     await load();
     const before = await quiet();
 
-    await page.call(`() => document.querySelector('.rail-toggle').click()`);
-    await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true' && document.querySelector('.rail-toggle').getAttribute('aria-label') === 'Expand the Rail'`);
+    await page.call(`() => document.querySelector('.rail-handle-button').click()`);
+    await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true' && document.querySelector('.rail-handle-button').getAttribute('aria-label') === 'Expand the Rail'`);
     expect(await quiet()).toBe(before + 1);
-    expect(await page.call<number>(`() => document.querySelectorAll('.window-bar [aria-label$="the Rail"]').length`)).toBe(1);
+    expect(await page.call<number>(`() => document.querySelectorAll('.window-bar [aria-label$="the Rail"]').length`)).toBe(0);
+  });
+
+  it("u6228h_tab_reaches_the_handle_after_the_edge_and_enter_toggles_keeping_focus", async () => {
+    await load();
+    await page.call(`() => document.querySelector('[aria-label="Resize Rail"]').focus()`);
+    await page.press("Tab", "Tab");
+    expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Collapse the Rail");
+
+    await page.press("Enter", "Enter");
+    await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
+    expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Expand the Rail");
+
+    await page.press(" ", "Space");
+    await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
+    expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Collapse the Rail");
   });
 
   it("u6228g_a_key_slide_uses_the_key_duration_and_a_click_the_drawer_duration", async () => {
     await load();
     const read = `() => new Promise(resolve => requestAnimationFrame(() => resolve(document.querySelector('.rail').dataset.slide)))`;
 
-    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await page.call(`() => document.querySelector('.rail-handle-button').click()`);
     expect(await page.call<string>(read)).toBe("click");
     await quiet();
 
-    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await page.call(`() => document.querySelector('.rail-handle-button').click()`);
     await quiet();
     await leader("KeyR", "r");
     expect(await page.call<string>(read)).toBe("key");
@@ -114,7 +129,7 @@ run("u6228 the Rail collapses to a strip", () => {
     await quiet();
 
     const running = await page.call<number>(`() => new Promise(resolve => {
-      const toggle = document.querySelector('.rail-toggle');
+      const toggle = document.querySelector('.rail-handle-button');
       toggle.click();
       requestAnimationFrame(() => requestAnimationFrame(() => {
         toggle.click();
@@ -138,7 +153,7 @@ run("u6228 the Rail collapses to a strip", () => {
 
     let before = await quiet();
 
-    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await page.call(`() => document.querySelector('.rail-handle-button').click()`);
     expect(await page.call(fade)).toEqual({ slide: "fade", transform: false });
     expect(await quiet()).toBe(before + 1);
 
@@ -195,7 +210,7 @@ const awayFromRail = async () => {
 };
 
 const collapseByButton = async () => {
-  await page.call(`() => document.querySelector('.rail-toggle').click()`);
+  await page.call(`() => document.querySelector('.rail-handle-button').click()`);
   await page.until(`() => document.querySelector('.rail').dataset.collapsed === 'true'`);
   await awayFromRail();
 };
@@ -257,7 +272,7 @@ run("u6228 the collapsed Rail peeks", () => {
 
     await hover(".rail-mark");
     await page.until(`() => document.querySelector('.rail').dataset.peek === 'true'`);
-    await page.call(`() => document.querySelector('.rail-toggle').click()`);
+    await page.call(`() => document.querySelector('.rail-handle-button').click()`);
     await page.until(`() => document.querySelector('.rail').dataset.collapsed !== 'true'`);
     expect(await quiet()).toBe(before + 1);
     expect(await saved()).toMatchObject({ collapsed: false });

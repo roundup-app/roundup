@@ -947,7 +947,9 @@ async fn dcl10_failed_start_preserves_backlog_and_cause() {
     let digests = run.digests().await;
     let review = digests
         .iter()
-        .filter(|d| d["body"].as_str().unwrap().contains("open todos: 2"))
+        .filter(|d| {
+            d["status"] != "dropped" && d["body"].as_str().unwrap().contains("open todos: 2")
+        })
         .count();
     assert_eq!(review, 1, "fact queued twice: {digests:?}");
     let config = run.dir.path().join("config");
@@ -984,3 +986,5 @@ mod dtc2_quiet_notes;
 
 #[path = "support/dtc3_one_turn.rs"]
 mod dtc3_one_turn;
+#[path = "support/dtc4_catch_up.rs"]
+mod dtc4_catch_up;
