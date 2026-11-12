@@ -20,8 +20,7 @@ import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSc
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import type { TodosState } from "./state";
 
-/** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
-export const TodoDrawer = (props: {
+type DrawerProps = {
   id: number;
   order?: readonly number[];
   /** The list that opened this Drawer keeps its acknowledged deletion available to Undo. */
@@ -31,7 +30,12 @@ export const TodoDrawer = (props: {
   todos: TodosState;
   /** Recovery uses loaded original identities and never fetches or acknowledges History. */
   recovery?: { project: string; revision: string };
-}) => {
+};
+
+/** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. A body lives under one id: moving to another Todo remounts it, so nothing it holds outlives the Todo it was made for. */
+export const TodoDrawer = (props: DrawerProps) => <Show when={props.id} keyed>{id => <TodoDrawerBody {...props} id={id} />}</Show>;
+
+const TodoDrawerBody = (props: DrawerProps) => {
   const connected = useConnectedProject();
   const { app, drawer, drafts, project, events } = connected;
   drafts.validate("todos", todoDraftSchema);
@@ -97,7 +101,6 @@ export const TodoDrawer = (props: {
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
 
-  createEffect(on(() => props.id, () => { clearFailure(); setNoticeDismissed(false); }, { defer: true }));
   onCleanup(events.subscribe(event => {
     if (doesClearTodoFailure(event, props.id)) clearFailure();
   }));

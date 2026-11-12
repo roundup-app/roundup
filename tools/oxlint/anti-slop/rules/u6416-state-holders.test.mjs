@@ -24,6 +24,9 @@ test("u6416_state_holder_lints", () => {
     ["no-repair-effect", "const [a, setA] = createSignal(0); createEffect(on(key, () => setA(0)));", 1],
     ["no-repair-effect", "const [a, setA] = createSignal(0); createEffect(on(key, (value, previous) => { if (previous) setA(0); }));", 0],
     ["no-repair-effect", "const [a, setA] = createSignal(0); createEffect(() => { push(b()); setA(0); });", 0],
+    ["no-stale-counter", "let latest = 0; const run = () => ++latest;", 1],
+    ["no-stale-counter", "let alive = true; onCleanup(() => { alive = false; });", 1],
+    ["no-stale-counter", "let latest = 5; const total = latest + 1;", 0],
     ["no-promise-chain-queue", "const queue = createQueue(); queue.add(() => work());", 0],
   ];
 

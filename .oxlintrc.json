@@ -46,6 +46,7 @@
     "anti-slop/no-module-mocking": "error",
     "anti-slop/no-object-parameters": "error",
     "anti-slop/no-signal-poke": "error",
+    "anti-slop/no-stale-counter": "error",
     "anti-slop/no-repair-effect": "error",
     "anti-slop/no-draft-bypass": "error",
     "anti-slop/no-promise-chain-queue": "error",
