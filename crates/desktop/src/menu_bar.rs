@@ -307,6 +307,7 @@ fn watch_tracking<R: Runtime>(app: &AppHandle<R>) {
     let handle = app.clone();
     WATCHING.set(native::watch_menu_tracking(move |open| {
         let handle = handle.clone();
+        let queue = handle.clone();
         let release = move || {
             let released = handle
                 .state::<MenuBar<R>>()
@@ -323,7 +324,6 @@ fn watch_tracking<R: Runtime>(app: &AppHandle<R>) {
                 );
             }
         };
-        let queue = handle.clone();
         tauri::async_runtime::spawn(async move {
             if let Err(error) = queue.run_on_main_thread(release) {
                 crate::diagnostics::failure("queue menu-bar release", &error);

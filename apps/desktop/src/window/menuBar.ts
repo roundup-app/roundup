@@ -31,6 +31,16 @@ const short = (text: string) => {
   return parts.length > 24 ? parts.slice(0, 23).join("") + "…" : parts.join("");
 };
 
+const sameEntries = (a: MenuBar["entries"], b: MenuBar["entries"]) => a.length === b.length && a.every((x, i) => {
+  const y = b[i]!;
+
+  return x.label === y.label && x.subtitle === y.subtitle && x.state === y.state && x.head === y.head && x.since === y.since
+    && x.action?.kind === y.action?.kind
+    && (x.action?.kind !== "agent" || (y.action?.kind === "agent" && x.action.path === y.action.path && x.action.agent === y.action.agent));
+});
+
+const samePresentation = (a: MenuBar, b: MenuBar) => a.mark === b.mark && sameEntries(a.entries, b.entries) && sameEntries(a.dock, b.dock);
+
 /** U5502: only the connected App owns membership; the native shell presents literal rows. */
 export const watchMenuBar = (options: {
   solid: Pick<typeof Solid, "createEffect" | "createMemo" | "createSignal" | "onCleanup">;
@@ -126,7 +136,7 @@ export const watchMenuBar = (options: {
     };
 
     return { mark: rows.some(row => row.waiting) ? "waiting" : rows.length ? "ready" : "empty", entries: entries(7), dock: entries(5) };
-  }, undefined, { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
+  }, undefined, { equals: samePresentation });
 
   // The line the user sees follows the publication read, whether or not the list changed.
   const failure = createMemo(() => options.tabs().map(tab => options.connection(tab.project.path)?.unseen.publicationFailure()).find(Boolean) ?? null);
