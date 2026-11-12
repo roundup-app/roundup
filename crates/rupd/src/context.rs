@@ -281,6 +281,7 @@ mod tests {
             tool_call: None,
             overview: None,
             work: Some(contracts::agent::Order::clarification("?")),
+            machine: None,
         }
     }
 
