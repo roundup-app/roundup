@@ -255,17 +255,21 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const [selected, replaceSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
   // A range runs from the anchor, the last single choice or toggled row; with none, a shift-click selects only its row.
   let anchor: string | undefined;
+
   const setSelected = (values: string[]) => {
     if (values.length === 1) anchor = values[0];
     replaceSelected(values);
   };
+
   createEffect(on(rail.selected, id => { anchor = id ?? undefined; }));
+
   // Only rows the user can act on count: a hidden, inert or disabled row stays out of select-all and ranges.
   const isNodeId = (value: string) => {
     const element = rowElement(value);
 
     return rail.nodes.some(node => node.id === value) && element !== undefined && !element.closest("[hidden], [inert], [aria-disabled=true]");
   };
+
   const selectAll = (event: KeyboardEvent) => {
     const id = focusedRowId(event);
 
@@ -273,12 +277,16 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     event.preventDefault(); event.stopPropagation();
     replaceSelected(nodeRows().map(row => row.node.id).filter(isNodeId));
   };
+
   // A name search chooses the row it lands on; arrows only move focus.
   let typing = false;
+
   const markTyping = (event: KeyboardEvent) => {
     typing = event.key.length === 1 && event.key !== " " && !event.metaKey && !event.ctrlKey && !event.altKey && !event.isComposing && focusedRowId(event) !== undefined;
+
     if (typing) setTimeout(() => { typing = false; });
   };
+
   const modifiedClick = (event: MouseEvent) => {
     if (event.button !== 0 || event.ctrlKey || !event.metaKey && !event.shiftKey || !(event.target instanceof Element) || event.target.closest("button,input")) return;
     const id = event.target.closest<HTMLElement>(".rail-row")?.dataset.id;
@@ -298,6 +306,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
     focusRow(id);
   };
+
   const isSelected = (id: string) => selected().includes(id);
 
   const selectedNodes = () => nodeRows().flatMap(row => isSelected(row.node.id) ? [row.node] : []);
