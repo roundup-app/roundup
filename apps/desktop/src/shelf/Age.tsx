@@ -1,6 +1,5 @@
 import { copy } from "./copy";
-import { elapsed } from "../state/elapsed";
-import { useDisplayNow } from "../state/clock";
+import { elapsed, useDisplayNow } from "../state/clock";
 import "./age.css";
 
 export const age = (updatedAt: number, now: number): string => {
