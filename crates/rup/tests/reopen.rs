@@ -29,6 +29,7 @@ async fn u4547e_reparenting_survives_reopen() {
     let launches = logs.path().join("launches");
     let inputs = logs.path().join("inputs");
     let fake = [
+        (daemon::CORE_PERSIST, ""),
         ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
         ("FAKE_CLAUDE_INPUT_LOG", inputs.to_str().unwrap()),
     ];
@@ -274,7 +275,10 @@ async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
         )
         .unwrap();
         let argv = serde_json::to_string(&["sh", script.to_str().unwrap()]).unwrap();
-        let fake = [("FAKE_CLAUDE_CHILD_PROCESS", argv.as_str())];
+        let fake = [
+            (daemon::CORE_PERSIST, ""),
+            ("FAKE_CLAUDE_CHILD_PROCESS", argv.as_str()),
+        ];
         let mut project = daemon::start(&fake);
         let c = project.client().await;
         project.spawn_agent(&c).await;

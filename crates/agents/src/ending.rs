@@ -488,13 +488,15 @@ mod tests {
     #[async_trait::async_trait]
     impl crate::KillsTerminals for RecordedKill {
         async fn kill(&self, _id: &str) -> Result<(), rpc::RpcError> {
-            // The program's input thread writes after `Terminals::write` returns.
+            // The core's connection tasks write after `Terminals::write` returns, so each wait
+            // yields to them on the one thread the paused clock runs on.
             for _ in 0..100 {
                 let seen = std::fs::read(&self.0).unwrap_or_default();
                 if seen.len() >= crate::claude_code::EXIT_PRESSES {
                     break;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(20));
+                tokio::task::yield_now().await;
             }
             self.1
                 .lock()

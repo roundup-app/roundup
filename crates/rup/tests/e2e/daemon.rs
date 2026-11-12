@@ -52,6 +52,9 @@ pub fn start(fake: &[(&str, &str)]) -> Project {
     )
 }
 
+/// The `fake` key a test passes for a core that outlives its Daemon.
+pub const CORE_PERSIST: &str = "ROUNDUP_TEST_CORE_PERSIST";
+
 pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, &str)]) -> Project {
     let packaged = std::env::var_os("ROUNDUP_TEST_APP_BIN").map(PathBuf::from);
     let rup = packaged
@@ -65,10 +68,14 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
         rupd.display()
     );
     let sidecar = data.path().join("sidecar");
-    // A core that outlives a killed Daemon: it runs while this file stays (herdr_core.rs).
+    // `CORE_PERSIST` keeps the core alive past a killed Daemon, as the product's core is: it runs
+    // while the `herdr-core-persist` file stays (herdr_core.rs).
     let core_tmp = data.path().join("core-tmp");
-    std::fs::create_dir_all(&core_tmp).unwrap();
-    std::fs::write(core_tmp.join("herdr-core-persist"), "").unwrap();
+    let persist = fake.iter().any(|(key, _)| *key == CORE_PERSIST);
+    if persist {
+        std::fs::create_dir_all(&core_tmp).unwrap();
+        std::fs::write(core_tmp.join("herdr-core-persist"), "").unwrap();
+    }
     if packaged.is_none() {
         let bundled = Command::new("bash")
             .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/sidecar/bundle.sh"))
@@ -97,8 +104,10 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
                 Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/fake_claude.py"),
             )
             .envs(fake.iter().copied())
-            .env("ROUNDUP_DATA_DIR", data.path())
-            .env("TMPDIR", &core_tmp);
+            .env("ROUNDUP_DATA_DIR", data.path());
+        if persist {
+            command.env("TMPDIR", &core_tmp);
+        }
     });
     let mut stderr = daemon.stderr.take().unwrap();
     // Left unread, the pipe would fill and block the Daemon's logging.

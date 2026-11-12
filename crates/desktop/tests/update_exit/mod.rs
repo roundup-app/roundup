@@ -80,13 +80,20 @@ fn parent_of(pid: u32) -> u32 {
 }
 
 impl Real {
-    fn start() -> Self {
+    fn start(persist: bool) -> Self {
         let rupd = built("rupd");
         let rup = built("rup");
         let fake_claude =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../rup/tests/e2e/fake_claude.py");
+        // A core that outlives the Daemon runs while the `herdr-core-persist` file stays
+        // (herdr_core.rs); `exit_for_update` leaves it alive, a quit does not.
+        let persist = if persist {
+            "touch '{dir}/core-tmp/herdr-core-persist'"
+        } else {
+            ":"
+        };
         let body = format!(
-            "export CLAUDE_CONFIG_DIR='{{dir}}/claude-config' FAKE_CLAUDE_LAUNCH_LOG='{{dir}}/launches' ROUNDUP_RUP_BIN='{}' ROUNDUP_CLAUDE_BIN='{}'\nexec '{}' \"$@\"",
+            "mkdir -p '{{dir}}/core-tmp' && {persist}\nexport TMPDIR='{{dir}}/core-tmp' CLAUDE_CONFIG_DIR='{{dir}}/claude-config' FAKE_CLAUDE_LAUNCH_LOG='{{dir}}/launches' ROUNDUP_RUP_BIN='{}' ROUNDUP_CLAUDE_BIN='{}'\nexec '{}' \"$@\"",
             rup.display(),
             fake_claude.display(),
             rupd.display()
@@ -171,7 +178,7 @@ impl Real {
 
 #[test]
 fn s5981a_exit_for_update_leaves_owner_and_agent_programs_alive() {
-    let real = Real::start();
+    let real = Real::start(true);
     let (_, program, owner) = real.spawn_agent();
 
     invoke(&real.webview, "exit_for_update", json!({})).unwrap();
@@ -187,7 +194,7 @@ fn s5981a_exit_for_update_leaves_owner_and_agent_programs_alive() {
 
 #[test]
 fn s5981a_the_next_app_reattaches_the_same_agents() {
-    let real = Real::start();
+    let real = Real::start(true);
     let (id, program, owner) = real.spawn_agent();
     eventually("the fake claude's first launch", || real.launches() >= 1);
     let before = real.rpc("rail.tree", Value::Null).unwrap();
@@ -238,7 +245,7 @@ fn s5981a_the_next_app_reattaches_the_same_agents() {
 
 #[test]
 fn s5981b_quit_stops_every_owner_and_agent_program() {
-    let real = Real::start();
+    let real = Real::start(false);
     let (_, program, owner) = real.spawn_agent();
 
     handle_run_event(real.app.handle(), &RunEvent::Exit);
@@ -250,9 +257,9 @@ fn s5981b_quit_stops_every_owner_and_agent_program() {
 
 #[test]
 fn s5981c_exit_for_update_touches_only_this_apps_owners() {
-    let first = Real::start();
+    let first = Real::start(true);
     let (_, other_program, other_owner) = first.spawn_agent();
-    let second = Real::start();
+    let second = Real::start(true);
     let (_, program, owner) = second.spawn_agent();
 
     invoke(&second.webview, "exit_for_update", json!({})).unwrap();
