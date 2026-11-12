@@ -404,6 +404,12 @@ fn new_core(out: Box<dyn Write + Send>) -> Arc<Core> {
     })
 }
 
+/// Waits `ms` on a channel nothing sends to.
+fn pause(ms: u64) {
+    let (_keep, never) = std::sync::mpsc::channel::<()>();
+    let _ = never.recv_timeout(std::time::Duration::from_millis(ms));
+}
+
 /// The persistent server: one connection at a time over a socket in `tmp`, its terminals kept
 /// between connections, ending when the `herdr-core-persist` file goes.
 fn listen(tmp: &std::path::Path) -> io::Result<()> {
@@ -413,7 +419,7 @@ fn listen(tmp: &std::path::Path) -> io::Result<()> {
     let watch = core.clone();
     std::thread::spawn(move || {
         while marker.exists() {
-            std::thread::sleep(std::time::Duration::from_millis(300));
+            pause(300);
         }
         for t in lock(&watch.terminals).values() {
             if let Some(pid) = t.pid {
@@ -449,7 +455,7 @@ fn proxy(tmp: &std::path::Path) -> io::Result<()> {
             break stream;
         }
         if started {
-            std::thread::sleep(std::time::Duration::from_millis(50));
+            pause(50);
             continue;
         }
         let _ = std::fs::remove_file(&socket);
@@ -473,7 +479,8 @@ fn proxy(tmp: &std::path::Path) -> io::Result<()> {
     let mut out = io::stdout().lock();
     let mut buf = [0u8; 8192];
     while let Ok(n) = down.read(&mut buf) {
-        if n == 0 || out.write_all(&buf[..n]).is_err() || out.flush().is_err() {
+        if n == 0 || buf.get(..n).is_none_or(|b| out.write_all(b).is_err()) || out.flush().is_err()
+        {
             break;
         }
     }

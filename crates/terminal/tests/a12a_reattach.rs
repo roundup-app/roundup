@@ -10,18 +10,9 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use contracts::terminal::{ReadParams, SpawnParams};
+use contracts::terminal::SpawnParams;
 use rpc::Bus;
 use terminal::Terminals;
-
-fn read(id: &str) -> ReadParams {
-    ReadParams {
-        id: id.into(),
-        after: Some(0),
-        reader: None,
-        max: None,
-    }
-}
 
 #[tokio::test]
 async fn a12a_reattach_attaches_the_core_terminal_again() {
@@ -41,21 +32,20 @@ async fn a12a_reattach_attaches_the_core_terminal_again() {
     let (core_id, adopted) = terminals.core_record(&first.id).unwrap().unwrap();
     let again = terminals.reattach(&core_id, adopted, None).await.unwrap();
     assert_ne!(again.id, first.id);
+    let mut output = terminals.subscribe_output(&again.id).unwrap();
     terminals
         .write(&again.id, b"after-reattach\n")
         .await
         .unwrap();
     let seen = tokio::time::timeout(Duration::from_secs(5), async {
-        loop {
-            if terminals
-                .read(&read(&again.id))
-                .unwrap()
-                .text
-                .contains("after-reattach")
-            {
-                break;
+        let mut text = String::new();
+        while let Some(chunk) = output.next().await {
+            if let terminal::Output::Bytes { bytes, .. } = chunk {
+                text.push_str(&String::from_utf8_lossy(&bytes));
+                if text.contains("after-reattach") {
+                    break;
+                }
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
         }
     })
     .await;
