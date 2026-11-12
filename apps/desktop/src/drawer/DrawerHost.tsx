@@ -131,13 +131,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   );
 
   // U3721b: the centre takes the Drawer's width once, when its slide ends; a width never interpolates.
-  const [reserve, setReserve] = createSignal(isOpen());
-
-  createEffect(() => {
-    const open = isOpen();
-
-    if (!lifetime.sliding()) setReserve(open);
-  });
+  const reserve = createMemo<boolean>(held => lifetime.sliding() ? held : isOpen(), isOpen());
 
   onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 
