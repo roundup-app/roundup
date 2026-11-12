@@ -1,6 +1,7 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { debounce } from "@solid-primitives/scheduled";
 import { onCleanup } from "solid-js";
+import { layerOpen } from "../keys/focus";
 
 /** U6224: the pointer must rest this many CSS px from the window's edge for this long before the panel peeks in. */
 export const PEEK_EDGE = 3;
@@ -9,9 +10,6 @@ export const PEEK_DWELL = 250;
 
 /** U6224: a peek slides back this long after the pointer leaves the panel, unless it returns. */
 export const PEEK_GRACE = 350;
-
-/** A Drawer, dialog, menu or drag owns the pointer wherever it is; no panel peeks under one. */
-export const OPEN_LAYER = '.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu], [data-dnd-dragging]';
 
 export type EdgePeek = {
   /** Which window edge the panel slides in from. */
@@ -49,7 +47,7 @@ export const createEdgePeek = (peek: EdgePeek) => {
   const atEdge = (event: PointerEvent) => event.pointerType === "mouse" && event.buttons === 0
     && ((peek.edge === "leading" ? event.clientX < PEEK_EDGE : event.clientX >= document.documentElement.clientWidth - PEEK_EDGE) || onSensor(event))
     && !onHandle(event.target)
-    && document.querySelector(OPEN_LAYER) === null;
+    && !layerOpen(true);
 
   const use = (event: Event) => {
     if (peek.state.peeking() && event.target instanceof Element && inside(event.target)) peek.promote?.(event.target);

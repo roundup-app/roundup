@@ -1,5 +1,5 @@
 import { rowTypeahead } from "../ui/RowCollection";
-import { captureFocus, queueFocus } from "../keys/focus";
+import { captureFocus, focusTarget, layerOpen, provideFocusTarget, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
 import { CHORDS, TEXT_FIELDS, chordsOf } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -13,7 +13,7 @@ export const shelfKeyScope: KeyScope = { kind: "region", element: () => document
 
 const canShelfKey = (event: KeyboardEvent) => !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
   && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .drawer, [role=dialog], [role=alertdialog]")
-  && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]');
+  && !layerOpen();
 
 /** U3723: both lists bind the same keys without changing their selection or pointer paths. */
 export const shelfRowKeys = <Id,>(props: {
@@ -64,9 +64,10 @@ export const shelfRowKeys = <Id,>(props: {
 /** U370: leader `S` toggles, `esc` from inside; focus goes to the open tab on opening and back to where it was on closing. */
 export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement | null; connection?: () => ConnectedProject | Error | undefined }) => {
   let returnTo: HTMLElement | null = null;
-  const tablist = () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined;
+  const tablist = () => focusTarget("shelf.tabs");
   const selectedTab = () => tablist()?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
   const firstControl = () => props.shelf()?.querySelector<HTMLElement>('.shelf-controls button:not([disabled]), .shelf [role=tabpanel] [tabindex="0"], .shelf [role=tabpanel] input:not([disabled])');
+  provideFocusTarget("shelf.first", firstControl);
 
   const toggle = (source: ActivationSource = "pointer") => {
     const opening = !props.frame.open();
@@ -89,7 +90,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     if (opening) queueFocus(() => selectedTab()?.focus({ preventScroll: true }));
   };
 
-  const modalOpen = () => document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]') !== null;
+  const modalOpen = () => layerOpen(true);
 
   const isCloseAvailable = (target: Element, path: EventTarget[] = []) => {
     // U6224: Escape closes a peek from anywhere, the Terminal included, unless a Drawer, dialog or menu owns the key.

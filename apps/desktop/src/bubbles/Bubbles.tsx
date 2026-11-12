@@ -1,6 +1,6 @@
 import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble, onBubbleFocus as trackBubbleFocus, hasTerminalFocus } from "./focus";
 import { outcomeOf } from "../app/seam";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, focusTarget, provideFocusTarget } from "../keys/focus";
 import { createTerminalClose } from "./close";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
@@ -361,7 +361,7 @@ export const Bubbles = (props: {
 
       if (restore) captureFocus(true)(() => {
         if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
-        else document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
+        else focusTarget("terminal.new")?.focus({ preventScroll: true });
       });
     };
 
@@ -437,7 +437,7 @@ export const Bubbles = (props: {
       });
       setOpening(false);
 
-      if (mounted() && focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
+      if (mounted() && focus && failure() !== null && shown().length === 0) focusReturn(() => focusTarget("terminal.new")?.focus({ preventScroll: true }));
     }
   };
 
@@ -682,7 +682,7 @@ export const Bubbles = (props: {
   const mainTerminal = (): string | null => {
     const id = rail.nodes.find((node) => node.id === rail.selected())?.terminal_id ?? null;
 
-    return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
+    return id !== null && focusTarget("pane.terminal") ? id : null;
   };
 
   const switchPair = (focus: Element | null) => {
@@ -796,7 +796,7 @@ export const Bubbles = (props: {
         }}>
           <div class="terminal-tab-list"><For each={shownIds()}>{id => <Tab id={id} ctx={tabContext} />}</For></div>
           <div class="terminal-tabs-actions">
-            <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger()} data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}><Icon name="plus" /></FlatAdd>}</Tip>
+            <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger()} ref={element => provideFocusTarget("terminal.new", element)} data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}><Icon name="plus" /></FlatAdd>}</Tip>
             <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
           </div>
         </div>
