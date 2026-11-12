@@ -143,7 +143,8 @@ impl Store {
             .collect::<rusqlite::Result<Vec<_>>>()?;
         // The query puts positioned rows first; only the rest has a name order, so a positioned Pad never enters a comparison.
         let positioned = rows.partition_point(|(_, position)| position.is_some());
-        rows[positioned..]
+        rows.split_at_mut(positioned)
+            .1
             .sort_by(|(a, _), (b, _)| alphanumeric_sort::compare_str(key(&a.name), key(&b.name)));
         Ok(rows.into_iter().map(|(pad, _)| pad).collect())
     }
