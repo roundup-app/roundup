@@ -287,7 +287,7 @@ fn s1_the_socket_is_unique_to_the_run_and_under_the_unix_limit() {
 
     let too_deep = PathBuf::from(format!("/tmp/{}", "d".repeat(100)));
     let error = Config::locate(None, Path::new("/a/roundup"), &too_deep, 100).unwrap_err();
-    assert!(error.contains("under 104"), "{error}");
+    assert!(error.to_string().contains("under 104"), "{error}");
 }
 
 #[test]
