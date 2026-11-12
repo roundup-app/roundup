@@ -31,7 +31,7 @@ import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
-import { changeFailureOf } from "./failureOf";
+import { changeFailureOf } from "../app/failureOf";
 import { OpenRow } from "./OpenRow";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
@@ -208,8 +208,8 @@ export const Todos = (props: {
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos,
     replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
-    blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
-    remove: ids => connected.drafts.todoUndo.removeTodos(ids, shelf ? "shelf" : "todos"),
+    blocked: () => connected.drafts.undo.pending() || connected.drafts.undo.uncertain(),
+    remove: ids => connected.drafts.undo.removeTodos(ids, shelf ? "shelf" : "todos"),
     reload: async () => {
       await todos.reload();
 

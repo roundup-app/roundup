@@ -70,10 +70,10 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
     fireEvent.click(check);
   }
 
-  await waitFor(() => expect(connected!.drafts.todoUndo.available("rail")).toBe(true));
+  await waitFor(() => expect(connected!.drafts.undo.available("rail")).toBe(true));
   expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
-  expect(connected!.drafts.todoUndo.available("rail")).toBe(true);
-  expect(connected!.drafts.todoUndo.available("shelf")).toBe(false);
+  expect(connected!.drafts.undo.available("rail")).toBe(true);
+  expect(connected!.drafts.undo.available("shelf")).toBe(false);
   // Settle the event-driven refresh before either Undo entry point.
   daemon.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
   await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.tree").length).toBeGreaterThan(1));

@@ -17,6 +17,7 @@ serde_json.workspace = true
 shlex = "2.0.1"
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }
 tempfile.workspace = true
+thiserror.workspace = true
 tokio = { workspace = true, features = ["process", "rt-multi-thread"] }
 
 [[bin]]

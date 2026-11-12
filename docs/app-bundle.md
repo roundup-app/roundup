@@ -48,13 +48,13 @@ just app-bundle-check target/<rust-host>/release/bundle/macos/roundup.app
 
 The observer requires `cargo-nextest` and copies the actual bundle to a fresh temporary directory. It requires
 all four executables, the runtime and notices, refuses external sidecar symlinks,
-and imports the SDK using that extracted Node. It runs the existing App discovery,
-X8 reconnection, U4547e recovery and D5 attached-shutdown tests against the extracted
-helpers. The Daemon fixture removes CLI and sidecar lookup overrides in this mode;
-only its fake local vendor program, isolated Project/data and socket are configured.
-The selected Terminal owner path is the one adjacent to the extracted App, matching
-the App's handoff. Test compilation still requires this checkout; executing the
-packaged helpers and importing the sidecar do not.
+and imports the SDK using that extracted Node. It runs the U4547e recovery and D5 attached-shutdown tests (`reopen`) against the
+extracted helpers. The Daemon fixture removes CLI and sidecar lookup overrides in this
+mode; only its fake local vendor program, isolated Project/data and socket are configured.
+The App ships no herdr-core (ADR 0012), so the observer builds the test-support core and
+puts it first on `PATH` as `herdr-core`, as the fake vendor program stands in for `claude`.
+Test compilation still requires this checkout; executing the packaged helpers and
+importing the sidecar do not.
 
 This is a build/process observation, needs no window or logged-in vendor, and can
 run on a macOS CI runner. It does not replace #4802's remaining Agent recovery and

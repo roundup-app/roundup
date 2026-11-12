@@ -80,6 +80,7 @@ fn select_in(
         budgets[metric].baseline.contains_key(key)
     })
     .map(|class| format!("{}|{}", class.key, class.provenance))
+    .map_err(|error| error.to_string())
 }
 
 #[test]

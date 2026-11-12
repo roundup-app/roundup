@@ -1,8 +1,9 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
+import { command } from "../app/command";
 import type { App, DaemonExit, Project } from "../app/seam";
-import { outcomeOf, retryRead, RpcError } from "../app/seam";
+import { retryRead, RpcError } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { modalOpen, questionPending } from "../keys/registry";
 import { copy } from "./copy";
@@ -87,8 +88,6 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
   const [active, setActive] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [readFailure, setReadFailure] = createSignal<string | null>(null);
-  let reading = false;
-  const [reopening, setReopening] = createSignal(false);
 
   let renameRevision = 0;
   const renames = new Map<string, { committed: Project; acknowledged: number; remaining: number; pending: Map<number, string> }>();
@@ -108,35 +107,29 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     if (path !== null) void saved.write(path);
   };
 
+  const read = command(() => untrack(async () => {
+    const listed = await retryRead(() => app.projects());
+
+    setTabs(inOrder(
+      listed.map(({ name, path, running }) => {
+        const known = tabs().find(tab => tab.project.path === path);
+
+        return known ?? { project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 };
+      }),
+      order.read() ?? [],
+    ));
+
+    const last = active() ?? saved.read();
+    setReadFailure(null);
+
+    setActive(listed.some((entry) => entry.path === last) ? last : (listed.at(-1)?.path ?? null));
+  }), { fail: setReadFailure });
+
   const reload = async () => {
-    if (reading) return;
-    reading = true;
+    if (read.state().kind === "pending") return;
 
-    try {
-      const listed = await retryRead(() => app.projects());
-
-      setTabs(inOrder(
-        listed.map(({ name, path, running }) => {
-          const known = tabs().find(tab => tab.project.path === path);
-
-          return known ?? { project: { name, path }, exit: running ? null : { code: null }, reopenFailure: null, generation: 0 };
-        }),
-        order.read() ?? [],
-      ));
-
-      const last = active() ?? saved.read();
-      setReadFailure(null);
-
-      setActive(listed.some((entry) => entry.path === last) ? last : (listed.at(-1)?.path ?? null));
-    } catch (error) {
-      // The adapter rejects as an RpcError; a rejection that is not an Error is a bug and is rethrown, which surfaces as an unhandled rejection rather than as text.
-      if (!(error instanceof Error)) throw error;
-
-      setReadFailure(error.message);
-    } finally {
-      reading = false;
-      setLoaded(true);
-    }
+    await read();
+    setLoaded(true);
   };
 
   void reload();
@@ -146,7 +139,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     generation: exit.recovery === "connecting" ? tab.generation + 1 : tab.generation,
   }))));
 
-  const openPath = async (path: string) => {
+  const openPath = (path: string) => untrack(async () => {
     const project = await app.openProject(path);
     const known = tabs().find((tab) => tab.project.path === project.path);
 
@@ -158,7 +151,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
     show(project.path);
 
     return project;
-  };
+  });
 
   const opened = async (path: string): Promise<Project | undefined> => {
     const live = tabs().filter(tab => !tab.exit);
@@ -172,6 +165,53 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
     return undefined;
   };
+
+  const fail = setFailure;
+
+  const choosing = command(() => untrack(async () => {
+    const path = await app.chooseProjectPath();
+
+    if (path !== null) await openPath(path);
+  }), { fail });
+
+  const opening = command(openPath, { fail });
+
+  const openingRequested = command(openPath, { fail, rethrow: true });
+  let reopenTarget = "";
+
+  const reopenCall = command(async (path: string) => {
+    const project = await app.openProject(path);
+
+    update(path, (tab) => ({ project, exit: tab.exit, reopenFailure: null, generation: tab.generation + 1 }));
+  }, { fail: (message) => update(reopenTarget, (tab) => (tab.exit ? { ...tab, reopenFailure: message } : tab)) });
+
+  const renaming = command((path: string, name: string, base?: string) => app.renameProject(path, name, base), { fail });
+
+  type Holder = { committed: Project; acknowledged: number };
+
+  const reading = command(() => app.projects());
+
+  // After a failure that may have been applied, the Daemon's own list settles the name.
+  const reconcile = async (path: string, revision: number, holder: Holder, error: Error, showName: () => void) => {
+    const listed = await reading();
+
+    if (listed.kind === "failed") {
+      setFailure(`${error.message}; ${listed.error.message}`);
+
+      return;
+    }
+
+    const project = listed.kind === "applied" ? listed.value.find(entry => entry.path === path) : undefined;
+
+    if (project && revision >= holder.acknowledged) {
+      holder.committed = { path: project.path, name: project.name };
+      showName();
+    }
+  };
+
+  const closing = command((path: string) => app.closeProject(path), { fail });
+
+  const reopening = () => reopenCall.state().kind === "pending";
 
   return {
     opened,
@@ -202,69 +242,31 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
       void order.write(next.map(tab => tab.project.path));
     },
     choose: async () => {
-      try {
-        const path = await app.chooseProjectPath();
-
-        if (path === null) return;
-
-        await openPath(path);
-      } catch (error) {
-        // The adapter rejects as an RpcError; a rejection that is not an Error is a bug and is rethrown, which surfaces as an unhandled rejection rather than as text.
-        if (!(error instanceof Error)) throw error;
-
-        setFailure(error.message);
-      }
+      await choosing();
     },
     openRequested: async (path) => {
       const known = await opened(path);
 
       if (known) return { ...known, path };
 
-      try {
-        return await openPath(path);
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
-        setFailure(error.message);
-        throw error;
-      }
+      const result = await openingRequested(path);
+
+      // `rethrow` leaves only an applied call or a silent `AbortError`.
+      if (result.kind !== "applied") throw result.error;
+
+      return result.value;
     },
     open: async (path) => {
-      try {
-        await openPath(path);
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
-
-        setFailure(error.message);
-      }
+      await opening(path);
     },
     reopen: async (path) => {
       if (reopening()) return;
 
-      setReopening(true);
-
-      try {
-        const project = await app.openProject(path);
-
-        update(path, (tab) => ({ project, exit: tab.exit, reopenFailure: null, generation: tab.generation + 1 }));
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
-
-        update(path, (tab) => (tab.exit ? { ...tab, reopenFailure: error.message } : tab));
-      } finally {
-        setReopening(false);
-      }
+      reopenTarget = path;
+      await reopenCall(path);
     },
     close: async (path) => {
-      try {
-        await app.closeProject(path);
-      } catch (error) {
-        // The adapter rejects as an RpcError; a rejection that is not an Error is a bug and is rethrown, which surfaces as an unhandled rejection rather than as text.
-        if (!(error instanceof Error)) throw error;
-
-        setFailure(error.message);
-
-        return;
-      }
+      if ((await closing(path)).kind !== "applied") return;
 
       setFailure(null);
 
@@ -304,45 +306,38 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
       showName();
 
+      const renamed = await renaming(path, name, base);
+
       try {
-        const project = await app.renameProject(path, name, base);
+        if (renamed.kind === "applied") {
+          const project = renamed.value;
 
-        holder.pending.delete(submission.revision);
+          holder.pending.delete(submission.revision);
 
-        if (submission.revision > holder.acknowledged) {
-          holder.committed = project;
-          holder.acknowledged = submission.revision;
+          if (submission.revision > holder.acknowledged) {
+            holder.committed = project;
+            holder.acknowledged = submission.revision;
+          }
+
+          setFailure(null);
+          showName();
+
+          return { ...submission, status: "acknowledged", project };
         }
 
-        setFailure(null);
-        showName();
-
-        return { ...submission, status: "acknowledged", project };
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
-
         holder.pending.delete(submission.revision);
-        setFailure(error.message);
         showName();
+
+        const { error } = renamed;
 
         // INTERNAL also covers a lost or malformed answer: only a domain refusal establishes rejection.
-        if (error instanceof RpcError && error.code === -32602) {
+        if (renamed.kind === "failed" && error instanceof RpcError && error.code === -32602) {
           return { ...submission, status: "failed", error: error.message };
         }
 
-        try {
-          const project = (await app.projects()).find((project) => project.path === path);
+        await reconcile(path, submission.revision, holder, error, showName);
 
-          if (project && submission.revision >= holder.acknowledged) {
-            holder.committed = { path: project.path, name: project.name };
-            showName();
-          }
-        } catch (readError) {
-          if (!(readError instanceof Error)) throw readError;
-          setFailure(`${error.message}; ${readError.message}`);
-        }
-
-        return { ...submission, status: outcomeOf(error), error: error.message };
+        return { ...submission, status: renamed.kind === "failed" ? renamed.outcome : "unknown", error: error.message };
       } finally {
         holder.remaining--;
 

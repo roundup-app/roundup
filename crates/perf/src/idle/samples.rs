@@ -1,9 +1,10 @@
 use super::Member;
+use crate::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Only the auxiliary ledger is accepted; never a derived total or peak.
-pub fn parse_footprint(raw: &str) -> Result<u64, String> {
+pub fn parse_footprint(raw: &str) -> Result<u64, Error> {
     let rows: Vec<_> = raw
         .lines()
         .filter_map(|line| {
@@ -13,7 +14,9 @@ pub fn parse_footprint(raw: &str) -> Result<u64, String> {
         })
         .collect();
     if rows.len() != 1 {
-        return Err("missing/duplicate phys_footprint ledger".into());
+        return Err(Error::Footprint(
+            "missing/duplicate phys_footprint ledger".into(),
+        ));
     }
     let words: Vec<_> = rows
         .first()
@@ -23,25 +26,29 @@ pub fn parse_footprint(raw: &str) -> Result<u64, String> {
         [bytes] => {
             return bytes
                 .parse::<u64>()
-                .map_err(|_| "invalid forced-byte phys_footprint ledger".into());
+                .map_err(|_| Error::Footprint("invalid forced-byte phys_footprint ledger".into()));
         }
         [number, unit] => (number, unit),
-        _ => return Err("unsupported phys_footprint value/unit".into()),
+        _ => {
+            return Err(Error::Footprint(
+                "unsupported phys_footprint value/unit".into(),
+            ));
+        }
     };
     let value: f64 = number
         .parse()
-        .map_err(|_| "invalid phys_footprint number")?;
+        .map_err(|_| Error::Footprint("invalid phys_footprint number".into()))?;
     // footprint's formatted K/M/G suffixes are binary; -f bytes avoids rounding on native runs.
     let factor = match unit {
         "B" | "bytes" => 1.0,
         "K" | "KB" | "KiB" => 1024.0,
         "M" | "MB" | "MiB" => 1_048_576.0,
         "G" | "GB" | "GiB" => 1_073_741_824.0,
-        _ => return Err("unsupported footprint unit".into()),
+        _ => return Err(Error::Footprint("unsupported footprint unit".into())),
     };
     let bytes = value * factor;
     if !bytes.is_finite() || bytes < 0.0 || bytes >= u64::MAX as f64 || bytes.fract() != 0.0 {
-        return Err("invalid phys_footprint bytes".into());
+        return Err(Error::Footprint("invalid phys_footprint bytes".into()));
     }
     Ok(bytes as u64)
 }
@@ -56,7 +63,7 @@ pub struct Interval {
 
 /// Parse one logging-mode sample, selected columns only, with PID decorations refused.
 type Counters = (BTreeMap<u32, f64>, BTreeMap<u32, u64>);
-pub fn parse_top(raw: &str) -> Result<Counters, String> {
+pub fn parse_top(raw: &str) -> Result<Counters, Error> {
     let mut cpu = BTreeMap::new();
     let mut wakes = BTreeMap::new();
     let mut header = false;
@@ -64,29 +71,33 @@ pub fn parse_top(raw: &str) -> Result<Counters, String> {
         let fields: Vec<_> = line.split_whitespace().collect();
         if fields.first() == Some(&"PID") {
             if header || fields != ["PID", "COMMAND", "%CPU", "IDLEW"] {
-                return Err("unsupported top header/accounting".into());
+                return Err(Error::Top("unsupported top header/accounting".into()));
             }
             header = true;
         } else if header && !fields.is_empty() {
             let [first, .., cpu_field, wakes_field] = fields[..] else {
-                return Err("incomplete top row".into());
+                return Err(Error::Top("incomplete top row".into()));
             };
             if fields.len() < 4 {
-                return Err("incomplete top row".into());
+                return Err(Error::Top("incomplete top row".into()));
             }
-            let pid: u32 = first.parse().map_err(|_| "invalid top PID")?;
-            let c: f64 = cpu_field.parse().map_err(|_| "invalid top CPU")?;
+            let pid: u32 = first
+                .parse()
+                .map_err(|_| Error::Top("invalid top PID".into()))?;
+            let c: f64 = cpu_field
+                .parse()
+                .map_err(|_| Error::Top("invalid top CPU".into()))?;
             let w: u64 = wakes_field
                 .parse()
-                .map_err(|_| "invalid top IDLEW interval count")?;
+                .map_err(|_| Error::Top("invalid top IDLEW interval count".into()))?;
             if !c.is_finite() || c < 0.0 || cpu.insert(pid, c).is_some() {
-                return Err(format!("PID {pid}: invalid/duplicate top CPU"));
+                return Err(Error::Top(format!("PID {pid}: invalid/duplicate top CPU")));
             }
             wakes.insert(pid, w);
         }
     }
     if !header || cpu.is_empty() {
-        return Err("missing top sample/metrics".into());
+        return Err(Error::Top("missing top sample/metrics".into()));
     }
     Ok((cpu, wakes))
 }
@@ -95,13 +106,13 @@ pub(super) fn summarize(
     members: &[Member],
     intervals: &[Interval],
     memory: &BTreeMap<u32, u64>,
-) -> Result<(f64, BTreeMap<u32, f64>, u64), String> {
+) -> Result<(f64, BTreeMap<u32, f64>, u64), Error> {
     let ids: BTreeSet<_> = members.iter().map(|p| p.pid).collect();
     if ids.is_empty()
         || ids.len() != members.len()
         || memory.keys().copied().collect::<BTreeSet<_>>() != ids
     {
-        return Err("missing/duplicate PID footprint".into());
+        return Err(Error::Top("missing/duplicate PID footprint".into()));
     }
     let mut elapsed = 0.0;
     let mut cpu = 0.0;
@@ -113,20 +124,22 @@ pub(super) fn summarize(
             || interval.end_s <= interval.start_s
             || interval.end_s - interval.start_s > 2.5
         {
-            return Err("top sample gap, non-finite time or invalid interval".into());
+            return Err(Error::Top(
+                "top sample gap, non-finite time or invalid interval".into(),
+            ));
         }
         if interval.cpu.keys().copied().collect::<BTreeSet<_>>() != ids
             || interval.idlew.keys().copied().collect::<BTreeSet<_>>() != ids
         {
-            return Err("top sample missing PID/metric".into());
+            return Err(Error::Top("top sample missing PID/metric".into()));
         }
         let dt = interval.end_s - interval.start_s;
         for pid in &ids {
             let (Some(&c), Some(&idle)) = (interval.cpu.get(pid), interval.idlew.get(pid)) else {
-                return Err("top sample missing PID/metric".into());
+                return Err(Error::Top("top sample missing PID/metric".into()));
             };
             if !c.is_finite() || c < 0.0 {
-                return Err(format!("PID {pid}: invalid CPU"));
+                return Err(Error::Top(format!("PID {pid}: invalid CPU")));
             }
             cpu += c * dt;
             *wakes.entry(*pid).or_default() += idle as f64;
@@ -134,10 +147,10 @@ pub(super) fn summarize(
         elapsed = interval.end_s;
     }
     if elapsed < 60.0 {
-        return Err(
+        return Err(Error::Top(
             "incomplete CPU/wake duration (requires 60 seconds after discarded initial sample)"
                 .into(),
-        );
+        ));
     }
     for rate in wakes.values_mut() {
         *rate /= elapsed;
@@ -145,7 +158,7 @@ pub(super) fn summarize(
     let bytes = memory
         .values()
         .try_fold(0_u64, |n, v| n.checked_add(*v))
-        .ok_or("footprint sum overflow")?;
+        .ok_or_else(|| Error::Top("footprint sum overflow".into()))?;
     Ok((cpu / elapsed, wakes, bytes))
 }
 
@@ -160,14 +173,14 @@ pub struct TopSamples {
     intervals: Vec<Interval>,
 }
 impl TopSamples {
-    pub fn push(&mut self, at_s: f64, line: &str) -> Result<bool, String> {
+    pub fn push(&mut self, at_s: f64, line: &str) -> Result<bool, Error> {
         if !at_s.is_finite() || at_s < 0.0 {
-            return Err("invalid top receipt time".into());
+            return Err(Error::Top("invalid top receipt time".into()));
         }
         if line.starts_with("Processes:") {
             if let Some(current) = self.current {
                 if at_s <= current {
-                    return Err("top receipt time did not advance".into());
+                    return Err(Error::Top("top receipt time did not advance".into()));
                 }
                 if let Some(previous) = self.previous {
                     let (cpu, idlew) = parse_top(&self.block)?;
@@ -191,9 +204,9 @@ impl TopSamples {
         self.block.push('\n');
         Ok(false)
     }
-    pub fn finish(self) -> Result<Vec<Interval>, String> {
+    pub fn finish(self) -> Result<Vec<Interval>, Error> {
         if self.intervals.last().is_none_or(|i| i.end_s < 60.0) {
-            return Err("incomplete top sample duration".into());
+            return Err(Error::Top("incomplete top sample duration".into()));
         }
         Ok(self.intervals)
     }

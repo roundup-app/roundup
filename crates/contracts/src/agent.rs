@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use specta::Type;
 
-use crate::common::Status;
+use crate::{Error, common::Status};
 
 mod alert;
 pub use alert::{AlertLevel, SetAlertLevelParams};
@@ -352,7 +352,7 @@ impl Order {
 
     /// O1's shape: the ask or question, a present done condition and every limit, non-empty after
     /// trimming.
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), Error> {
         match self {
             Self::Work {
                 title,
@@ -361,24 +361,24 @@ impl Order {
                 limits,
             } => {
                 if ask.trim().is_empty() {
-                    return Err("order ask must not be empty".into());
+                    return Err(Error::EmptyOrderAsk);
                 }
                 if title
                     .as_deref()
                     .is_some_and(|title| title.trim().is_empty())
                 {
-                    return Err("order title must not be empty".into());
+                    return Err(Error::EmptyOrderTitle);
                 }
                 if done.as_deref().is_some_and(|done| done.trim().is_empty()) {
-                    return Err("order done must not be empty".into());
+                    return Err(Error::EmptyOrderDone);
                 }
                 if limits.iter().any(|limit| limit.trim().is_empty()) {
-                    return Err("order limits must not be empty".into());
+                    return Err(Error::EmptyOrderLimit);
                 }
             }
             Self::Clarification { question } => {
                 if question.trim().is_empty() {
-                    return Err("order question must not be empty".into());
+                    return Err(Error::EmptyOrderQuestion);
                 }
             }
         }
@@ -387,17 +387,17 @@ impl Order {
 
     /// O7: `validate` for an explicit order of a spawn, a Workstream or `agent.setOrder`, which
     /// also holds the ask to `ASK_CAP` characters.
-    pub fn validate_explicit(&self) -> Result<(), String> {
+    pub fn validate_explicit(&self) -> Result<(), Error> {
         self.validate()?;
         if let Self::Work { title, ask, .. } = self {
             if ask.trim().chars().count() > ASK_CAP {
-                return Err(format!("order ask is over {ASK_CAP} characters"));
+                return Err(Error::OrderAskTooLong);
             }
             if title
                 .as_deref()
                 .is_some_and(|title| title.split_whitespace().count() > TITLE_CAP)
             {
-                return Err(format!("order title is over {TITLE_CAP} words"));
+                return Err(Error::OrderTitleTooLong);
             }
         }
         Ok(())

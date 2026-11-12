@@ -22,7 +22,7 @@ pub struct Text<const MAX: usize, const RULE: u8 = TRIMMED>(String);
 
 impl<const MAX: usize, const RULE: u8> Text<MAX, RULE> {
     /// The text, or the refusal the wire reports as INVALID_PARAMS.
-    pub fn new(text: impl Into<String>) -> Result<Self, String> {
+    pub fn new(text: impl Into<String>) -> Result<Self, crate::Error> {
         let text = text.into();
         let blank = match RULE {
             TRIMMED => text.trim().is_empty(),
@@ -30,10 +30,10 @@ impl<const MAX: usize, const RULE: u8> Text<MAX, RULE> {
             _ => false,
         };
         if blank {
-            return Err("must not be empty".into());
+            return Err(crate::Error::TextEmpty);
         }
         if text.len() > MAX {
-            return Err(format!("must be at most {MAX} bytes"));
+            return Err(crate::Error::TextTooLong(MAX));
         }
         Ok(Self(text))
     }
@@ -44,8 +44,8 @@ impl<const MAX: usize, const RULE: u8> Text<MAX, RULE> {
 }
 
 impl<const MAX: usize, const RULE: u8> TryFrom<String> for Text<MAX, RULE> {
-    type Error = String;
-    fn try_from(text: String) -> Result<Self, String> {
+    type Error = crate::Error;
+    fn try_from(text: String) -> Result<Self, crate::Error> {
         Self::new(text)
     }
 }

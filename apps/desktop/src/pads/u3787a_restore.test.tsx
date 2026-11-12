@@ -80,7 +80,7 @@ it("u3787a_app_and_fake_carry_the_original_operation_through_the_real_daemon", a
 it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_restored_operation_%s", async kind => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "redo", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   try {
     const chosen = await app.rpc("todo.create", { title: `chosen ${kind}`, body: null, blockers: null });
@@ -121,7 +121,7 @@ it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_ex
 it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_redo_without_repeating_effects_%s", async kind => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "unknown redo", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
   const requests: unknown[] = [];
   let readable = true;
 
@@ -177,7 +177,7 @@ it("u3787a_retained_redo_refusal_preserves_a_newer_home_and_retries_the_same_req
   } };
 
   const connected = await connectProject(bridge, { name: "refused redo", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   try {
     const chosen = await app.rpc("todo.create", { title: "moved since Undo", body: null, blockers: null });
@@ -217,7 +217,7 @@ it("u3787a_partial_pad_redo_retries_only_failed_members_as_one_undo_step", async
   } };
 
   const connected = await connectProject(bridge, { name: "partial redo", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   try {
     await undo.removePads([first, second]);
@@ -243,7 +243,7 @@ it("u3787a_partial_pad_redo_retries_only_failed_members_as_one_undo_step", async
 it("u3787a_region_history_retains_order_and_clears_only_its_redo", async () => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "regions", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   try {
     const first = await app.rpc("todo.create", { title: "first regional Todo", body: null, blockers: null });
@@ -270,7 +270,7 @@ it("u3787a_region_history_retains_order_and_clears_only_its_redo", async () => {
 it("u3787a_empty_region_does_not_use_another_history", async () => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "empty region", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   try {
     const todo = await app.rpc("todo.create", { title: "stay deleted", body: null, blockers: null });
@@ -288,7 +288,7 @@ it("u3787a_empty_region_does_not_use_another_history", async () => {
 it("u3787a_unknown_delete_keeps_its_region_on_reconciliation", async () => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "regional retry", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   const bridge: AppSeam = { ...app, rpc: async (method, params) => {
     if (method === "todo.deletion") throw new Error("receipt unavailable");
@@ -316,7 +316,7 @@ it("u3787a_unknown_delete_keeps_its_region_on_reconciliation", async () => {
 it.each(["todos", "pads"] as const)("u3787a_drawer_handoff_shares_one_operation_without_duplicate_restore_%s", async kind => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "handoff", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
   let restores = 0;
 
   const bridge: AppSeam = { ...app, rpc: (method, params) => {
@@ -355,7 +355,7 @@ it.each(["todos", "pads"] as const)("u3787a_drawer_handoff_shares_one_operation_
 it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destination_branch_%s", async kind => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "handoff branch", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   try {
     const todo = await app.rpc("todo.create", { title: "source branch", body: null, blockers: null });
@@ -443,7 +443,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   } else fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   const read = async () => isPad ? (await app.rpc("pad.list", null)).some(item => item.incarnation === pad!.incarnation) : (await app.rpc("todo.list", null)).some(item => item.id === todo!.id);
   await waitFor(async () => expect(await read()).toBe(false));
-  await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
+  await waitFor(() => expect(connected!.drafts.undo.pending()).toBe(false));
 
   if (kind.startsWith("drawer-")) await waitFor(() => expect(row.isConnected).toBe(false));
   // BulkDelete's acknowledged readback returns focus after its row refresh.
@@ -500,7 +500,7 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
   fireEvent.keyDown(row, { key: "Backspace", code: "Backspace", metaKey: true, shiftKey: true });
   const present = async () => (await app.rpc("rail.tree", null)).some(node => node.id === item.id);
   await waitFor(async () => expect(await present()).toBe(false));
-  await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
+  await waitFor(() => expect(connected!.drafts.undo.pending()).toBe(false));
   const rail = screen.getByLabelText("Rail", { selector: '[role="tree"]' });
   rail.tabIndex = -1; rail.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Remove round-trip-rail"));
@@ -519,7 +519,7 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
 it("u5690d_reversible_selection_is_one_undo_step", async () => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "selection-history", path: real.dir }, () => true, () => 0);
-  const undo = connected.drafts.todoUndo;
+  const undo = connected.drafts.undo;
 
   try {
     const first = await app.rpc("rail.createWorkstream", { name: "selection-first", parent: null });

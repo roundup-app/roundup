@@ -1,7 +1,7 @@
 import { chooseFooter } from "../rail/railFixture";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { batch, createSignal } from "solid-js";
 import fuzzysort from "fuzzysort";
 import { CHORDS, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
@@ -10,7 +10,7 @@ import { openTabs, tab } from "../header/stripFixture";
 import { agent, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey as press } from "./switcherFixture";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { vi.restoreAllMocks(); batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
 
 it.each(["new", " NeW ", "nsh", "Agent with prompt", "zzzz-no-match", "", "   "])(
   "z3788b_queries_rank_both_groups_and_keep_blank_order: %s", async (query) => {
@@ -292,7 +292,7 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
   }
 });
 
-it("u2572c_Project_changes_dispose_the_opening_actions", async () => {
+it("u2572_actions_are_captured_at_open", async () => {
   const { app } = await openTabs({ api: [agent("a", "idle", "idle")], web: [agent("w", "idle", "idle")] });
   await show();
   const stale = actionRows()[0]!;
@@ -331,12 +331,22 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
 });
 
 it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", async () => {
+  // The Layout measures an overlay: a 1000 px window leaves less than the centre needs beside the Rail and Shelf.
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(1000);
+  const style = getComputedStyle;
+
+  vi.spyOn(globalThis, "getComputedStyle").mockImplementation(element => {
+    const computed = style(element);
+    vi.spyOn(computed, "getPropertyValue").mockImplementation(name => ({ "--rail-width": "300px", "--shelf-span": "500px", "--centre-min-width": "388px" })[name] ?? "");
+
+    return computed;
+  });
   await openTabs({ web: [agent("w", "idle", "idle")] });
   const window = document.querySelector<HTMLElement>(".window")!;
   press("k", { metaKey: true, code: "KeyK" });
   press("b", { code: "KeyB" });
   await waitFor(() => expect(window.dataset.shelf).toBe("open"));
-  window.dataset.shelfMode = "overlay";
+  await waitFor(() => expect(window.dataset.shelfMode).toBe("overlay"));
   await show();
   expect(window.dataset.shelf).toBe("closed");
   await chooseAction("Resize the Bench", "enter");

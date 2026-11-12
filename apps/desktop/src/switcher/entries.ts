@@ -3,16 +3,22 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Pad } from "@contracts/pad/Pad";
-import { railOrder } from "../rail/layout";
+import { railOrder } from "../state/railTopology";
 import type { ActionRow } from "@contracts/action/ActionRow";
 import { ACTION_ROWS } from "../keys/chords";
 import { nameOf } from "../bubbles/places";
 
 /** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it, or a Todo or Pad (U5240b). */
-export type Entry = { value: string; label: string; node?: RailNode; terminal?: TerminalInfo; owner?: string; todo?: Todo; pad?: Pad };
+export type Entry = { value: string; label: string } & (
+  | { kind: "node"; node: RailNode }
+  | { kind: "terminal"; terminal: TerminalInfo; owner: string }
+  | { kind: "todo"; todo: Todo; owner: string }
+  | { kind: "pad"; pad: Pad; owner: string }
+  | { kind: "user" }
+);
 
 const urgency = (entry: Entry): number => {
-  const kind = (entry.node?.status ?? entry.terminal?.status)?.kind;
+  const kind = (entry.kind === "node" ? entry.node.status : entry.kind === "terminal" ? entry.terminal.status : undefined)?.kind;
 
   return kind === "error" ? 0 : kind === "needs-you" ? 1 : 2;
 };
@@ -20,7 +26,7 @@ const urgency = (entry: Entry): number => {
 /** U529: error, then needs-you, then Rail order; Terminals follow in start order, each among the Agents by the Kind its program reported (PS11.3). Terminals that are an Agent's own screen, or have no owner, are not entries. */
 export const entriesOf = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[]): Entry[] => {
   const panes = new Set(nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
-  const rows: Entry[] = railOrder(nodes).map((node) => ({ value: node.id, label: node.name, node }));
+  const rows: Entry[] = railOrder(nodes).map((node) => ({ value: node.id, label: node.name, kind: "node", node }));
 
   const own: Entry[] = terminals
     .filter((terminal) => terminal.owner !== null && !panes.has(terminal.id))
@@ -28,6 +34,7 @@ export const entriesOf = (nodes: readonly RailNode[], terminals: readonly Termin
     .map((terminal) => ({
       value: `terminal:${terminal.id}`,
       label: nameOf(terminal),
+      kind: "terminal",
       terminal,
       owner: nodes.find((node) => node.id === terminal.owner)?.name ?? "",
     }));
@@ -36,7 +43,7 @@ export const entriesOf = (nodes: readonly RailNode[], terminals: readonly Termin
 };
 
 /** Z3788b: blank queries retain domain order; fuzzy matches rank stably within each group. */
-export const matching = (entries: readonly Entry[], text: string): Entry[] => {
+export const matching = <T extends { label: string }>(entries: readonly T[], text: string): T[] => {
   const needle = text.trim();
 
   if (!needle) return [...entries];
@@ -62,8 +69,8 @@ export const itemsMatching = (nodes: readonly RailNode[], todos: readonly Todo[]
   const owner = (home: string | null) => nodes.find((node) => node.id === home)?.name ?? "";
 
   return [
-    ...todos.flatMap((todo): Entry[] => (!todo.done && contains(todo.title, needle) ? [{ value: `todo:${todo.id}`, label: todo.title, todo, owner: owner(todo.home) }] : [])),
-    ...pads.flatMap((pad): Entry[] => (contains(pad.name, needle) ? [{ value: `pad:${pad.incarnation}`, label: pad.name, pad, owner: owner(pad.home) }] : [])),
+    ...todos.flatMap((todo): Entry[] => (!todo.done && contains(todo.title, needle) ? [{ value: `todo:${todo.id}`, label: todo.title, kind: "todo", todo, owner: owner(todo.home) }] : [])),
+    ...pads.flatMap((pad): Entry[] => (contains(pad.name, needle) ? [{ value: `pad:${pad.incarnation}`, label: pad.name, kind: "pad", pad, owner: owner(pad.home) }] : [])),
   ];
 };
 
@@ -71,7 +78,7 @@ export const itemsMatching = (nodes: readonly RailNode[], todos: readonly Todo[]
 export const userActionsOf = (rows: readonly ActionRow[]): Entry[] => {
   const builtIn = new Set(ACTION_ROWS.map(row => row.name));
 
-  return rows.flatMap((row): Entry[] => (builtIn.has(row.name) || row.args.some(arg => arg.required) ? [] : [{ value: `${USER_PREFIX}${row.name}`, label: row.label }]));
+  return rows.flatMap((row): Entry[] => (builtIn.has(row.name) || row.args.some(arg => arg.required) ? [] : [{ value: `${USER_PREFIX}${row.name}`, label: row.label, kind: "user" }]));
 };
 
 export const USER_PREFIX = "action:user:";

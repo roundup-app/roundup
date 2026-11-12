@@ -1,4 +1,5 @@
 use super::{Settings, State};
+use crate::Error;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -67,14 +68,9 @@ pub struct Journal {
 impl Journal {
     /// Complete snapshots only; a final partial line is always loss. Receipt upper bound
     /// keeps launch, producer and renderer clock origins distinct.
-    pub fn parse(
-        raw: &str,
-        first_receipt_s: f64,
-        pid: u32,
-        complete: bool,
-    ) -> Result<Self, String> {
+    pub fn parse(raw: &str, first_receipt_s: f64, pid: u32, complete: bool) -> Result<Self, Error> {
         if !first_receipt_s.is_finite() || first_receipt_s < 0.0 || !raw.ends_with('\n') {
-            return Err("missing/partial App evidence".into());
+            return Err(Error::Evidence("missing/partial App evidence".into()));
         }
         let mut journal = Self {
             origin_upper_s: first_receipt_s,
@@ -84,23 +80,31 @@ impl Journal {
         let mut checkpoint = false;
         for (index, line) in raw.lines().enumerate() {
             let row: Row = serde_json::from_str(line)
-                .map_err(|e| format!("App evidence row {}: {e}", index + 1))?;
+                .map_err(|e| Error::Evidence(format!("App evidence row {}: {e}", index + 1)))?;
             if row.v != 1
                 || row.seq != index as u64 + 1
                 || row.at_us < last
                 || matches!(journal.rows.last().map(|r| &r.event), Some(Event::End(_)))
             {
-                return Err("App evidence sequence/time loss".into());
+                return Err(Error::Evidence("App evidence sequence/time loss".into()));
             }
             if index == 0 && !matches!(row.event, Event::Start { pid: owner } if owner == pid) {
-                return Err("missing/mismatched App start identity".into());
+                return Err(Error::Evidence(
+                    "missing/mismatched App start identity".into(),
+                ));
             }
             match &row.event {
-                Event::Start { .. } if index != 0 => return Err("App evidence restarted".into()),
-                Event::Error(e) => return Err(format!("App collection error: {e}")),
+                Event::Start { .. } if index != 0 => {
+                    return Err(Error::Evidence("App evidence restarted".into()));
+                }
+                Event::Error(e) => {
+                    return Err(Error::Evidence(format!("App collection error: {e}")));
+                }
                 Event::Webview(v) => {
                     if checkpoint {
-                        return Err("renderer event after final checkpoint".into());
+                        return Err(Error::Evidence(
+                            "renderer event after final checkpoint".into(),
+                        ));
                     }
                     if v.seq != journal.web_seq + 1
                         || !v.at_ms.is_finite()
@@ -108,24 +112,24 @@ impl Journal {
                         || v.cause == "collection-lost"
                         || !["visible", "hidden"].contains(&v.visibility.as_str())
                     {
-                        return Err(
-                            "renderer collection lost/invalid sequence/time/visibility".into()
-                        );
+                        return Err(Error::Evidence(
+                            "renderer collection lost/invalid sequence/time/visibility".into(),
+                        ));
                     }
                     journal.web_seq = v.seq;
                     journal.web_time = v.at_ms;
                 }
                 Event::Checkpoint { web_seq } => {
                     if *web_seq == 0 || *web_seq != journal.web_seq {
-                        return Err("incomplete renderer checkpoint".into());
+                        return Err(Error::Evidence("incomplete renderer checkpoint".into()));
                     }
                     checkpoint = true;
                 }
                 Event::End(_) if !checkpoint => {
-                    return Err("end without renderer checkpoint".into());
+                    return Err(Error::Evidence("end without renderer checkpoint".into()));
                 }
                 Event::End(text) if text.is_empty() => {
-                    return Err("missing App exit evidence".into());
+                    return Err(Error::Evidence("missing App exit evidence".into()));
                 }
                 _ => (),
             }
@@ -143,10 +147,12 @@ impl Journal {
                 .any(|r| matches!(r.event, Event::Application { .. }))
             || journal.web_seq == 0
         {
-            return Err("missing initial native/application/webview snapshot".into());
+            return Err(Error::Evidence(
+                "missing initial native/application/webview snapshot".into(),
+            ));
         }
         if complete && !matches!(journal.rows.last().map(|r| &r.event), Some(Event::End(_))) {
-            return Err("missing final checkpoint/end".into());
+            return Err(Error::Evidence("missing final checkpoint/end".into()));
         }
         Ok(journal)
     }
@@ -178,9 +184,9 @@ impl Journal {
         start_s: f64,
         end_s: f64,
         settings: &Settings,
-    ) -> Result<(), String> {
+    ) -> Result<(), Error> {
         if !start_s.is_finite() || !end_s.is_finite() || end_s <= start_s {
-            return Err("invalid phase time".into());
+            return Err(Error::Evidence("invalid phase time".into()));
         }
         let mut native = None;
         let mut hidden = None;
@@ -237,9 +243,9 @@ fn check(
     hidden: Option<bool>,
     view: Option<&View>,
     settings: &Settings,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let (Some(n), Some(h), Some(v)) = (native, hidden, view) else {
-        return Err("missing visibility evidence".into());
+        return Err(Error::Evidence("missing visibility evidence".into()));
     };
     let valid = match state {
         State::Focused => n.focused && n.visible && !h && v.focused && v.visibility == "visible",
@@ -257,7 +263,9 @@ fn check(
         || !n.scale.is_finite()
         || n.scale <= 0.0
     {
-        return Err(format!("invalid native/webview visibility for {state:?}"));
+        return Err(Error::Evidence(format!(
+            "invalid native/webview visibility for {state:?}"
+        )));
     }
     if v.project.as_deref() != Some(&settings.project)
         || v.terminal.as_deref() != Some(&settings.terminal)
@@ -265,7 +273,9 @@ fn check(
         || v.width != settings.width
         || v.height != settings.height
     {
-        return Err("selected Terminal/renderer/window changed".into());
+        return Err(Error::Evidence(
+            "selected Terminal/renderer/window changed".into(),
+        ));
     }
     Ok(())
 }

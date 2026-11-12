@@ -117,20 +117,56 @@ async fn unclaimed_settles(conn: &Conn, want: impl Fn((usize, usize)) -> bool) -
 }
 
 #[tokio::test]
-async fn mc17_orphans_freed_on_close_and_on_connection_drop() {
+async fn mc17_orphans_freed_on_connection_drop() {
     let (conn, core) = core_conn(|mut w, _r| async move {
         w.write_all(&frame(5, DATA, b"a")).await.unwrap();
         w.write_all(&frame(6, DATA, b"b")).await.unwrap();
-        w.write_all(&frame(5, CLOSE, b"{}")).await.unwrap();
         w.flush().await.unwrap();
         // Hold the pipe open until the test has looked, then drop it.
         tokio::time::sleep(Duration::from_millis(500)).await;
     })
     .await;
-    // The CLOSE frees channel 5's frames; channel 6's stay until the drop.
-    assert_eq!(unclaimed_settles(&conn, |h| h == (1, 1)).await, (1, 1));
+    assert_eq!(unclaimed_settles(&conn, |h| h == (2, 2)).await, (2, 2));
     core.await.unwrap();
     assert_eq!(unclaimed_settles(&conn, |h| h.0 == 0).await, (0, 0));
+}
+
+#[tokio::test]
+async fn mc27_a_closed_unclaimed_channel_is_freed_on_connection_drop() {
+    let (conn, core) = core_conn(|mut w, _r| async move {
+        w.write_all(&frame(5, DATA, b"a")).await.unwrap();
+        w.write_all(&frame(5, CLOSE, b"{}")).await.unwrap();
+        w.flush().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    })
+    .await;
+    // The CLOSE is kept with the frame, a frame of no bytes.
+    assert_eq!(unclaimed_settles(&conn, |h| h == (2, 1)).await, (2, 1));
+    core.await.unwrap();
+    assert_eq!(unclaimed_settles(&conn, |h| h.0 == 0).await, (0, 0));
+}
+
+#[tokio::test]
+async fn mc27_close_before_the_attach_reply_reaches_the_stream() {
+    let (conn, _core) = core_conn(|mut w, mut r| async move {
+        let mut buf = [0u8; 512];
+        let n = r.read(&mut buf).await.unwrap();
+        let id = serde_json::from_slice::<Value>(&buf[9..n]).unwrap()["id"].clone();
+        w.write_all(&frame(3, DATA, b"one")).await.unwrap();
+        w.write_all(&frame(3, CLOSE, br#"{"exit_code":0}"#))
+            .await
+            .unwrap();
+        let reply = json!({"jsonrpc":"2.0","id":id,"result":{"channel":3}});
+        let body = serde_json::to_vec(&reply).unwrap();
+        w.write_all(&frame(0, DATA, &body)).await.unwrap();
+        w.flush().await.unwrap();
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    })
+    .await;
+    let mut stream = conn.attach("t", 80, 24, 0).await.unwrap();
+    assert_eq!(stream.next().await, Some(Ev::Data(b"one".to_vec())));
+    assert_eq!(stream.next().await, Some(Ev::Close(json!({"exit_code":0}))));
+    assert_eq!(streams(&conn.channels).unclaimed(), (0, 0));
 }
 
 #[tokio::test]

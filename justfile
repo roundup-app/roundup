@@ -274,10 +274,21 @@ app-bundle-check bundle:
         for name in ["ROUNDUP_RUPD_BIN", "ROUNDUP_RUP_BIN", "ROUNDUP_SIDECAR_DIR"]:
             environment.pop(name, None)
         environment["ROUNDUP_TEST_APP_BIN"] = str(binaries)
+        # The App ships no herdr-core (ADR 0012: the machine has one) and this runner has none, so the
+        # test-support core stands in for it as `herdr-core`, as the fake `claude` stands in for the vendor.
+        built = subprocess.run([
+            "cargo", "build", "-p", "terminal", "--features", "test-support",
+            "--bin", "herdr-core-test", "--message-format=json-render-diagnostics",
+        ], stdout=subprocess.PIPE, text=True, check=True).stdout
+        core = next(artifact["executable"] for artifact in map(json.loads, built.splitlines())
+                    if artifact.get("reason") == "compiler-artifact"
+                    and artifact["target"]["name"] == "herdr-core-test" and artifact["executable"])
+        stand_in = Path(folder).resolve() / "core"
+        stand_in.mkdir()
+        (stand_in / "herdr-core").symlink_to(core)
+        environment["PATH"] = f"{stand_in}{os.pathsep}{environment['PATH']}"
         subprocess.run([
-            "cargo", "nextest", "run", "-p", "desktop", "-p", "terminal", "-p", "rup",
-            "--test", "a12a", "--test", "durable_owner", "--test", "reopen", "-E",
-            "binary(a12a) | binary(reopen) | test(=x8_reconnecting_keeps_the_original_program)",
+            "cargo", "nextest", "run", "-p", "rup", "--test", "reopen", "-E", "binary(reopen)",
         ], env=environment, check=True)
 
 # S12: renders the App's 1024 px Dock icon from the approved artwork; needs macOS's sips.

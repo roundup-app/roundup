@@ -137,6 +137,7 @@ fn r24_tree_membership_excludes_unrelated_and_vendor_children() {
     assert!(
         membership(&inventory, 1, 2)
             .unwrap_err()
+            .to_string()
             .contains("unresolved")
     );
 }
@@ -409,7 +410,12 @@ fn r24_nonuniform_delta_samples_discard_initial_accounting() {
 
 #[test]
 fn r24_window_and_host_guards_precede_side_effects() {
-    assert!(guard(Some("1"), "linux").unwrap_err().contains("linux"));
+    assert!(
+        guard(Some("1"), "linux")
+            .unwrap_err()
+            .to_string()
+            .contains("linux")
+    );
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let forbidden = dir.path().join("forbidden");

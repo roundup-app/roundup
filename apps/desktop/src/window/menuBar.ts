@@ -5,7 +5,7 @@ import type { OpenTab } from "../state/projects";
 import type { App, MenuBar, MenuItem } from "../app/seam";
 import { captureActions } from "../keys/registry";
 import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "../keys/chords";
-import { historyRegion } from "../keys/focus";
+import { historyRegion, isTextEntry } from "../keys/focus";
 import type { Kind } from "@contracts/Kind";
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
@@ -152,7 +152,7 @@ export const watchMenuBar = (options: {
   onCleanup(stop);
 };
 
-type TodoUndo = ReturnType<ReturnType<typeof createProjectDrafts>>["todoUndo"];
+type TodoUndo = ReturnType<ReturnType<typeof createProjectDrafts>>["undo"];
 
 /** The one Undo or Redo the key (⌘Z, ⇧⌘Z) and the Project menu both run; it names what it would do and whether it can. */
 export const undoAction = (history: TodoUndo | null, redo: boolean, focus: Element | null) => {
@@ -165,14 +165,12 @@ export const undoAction = (history: TodoUndo | null, redo: boolean, focus: Eleme
   };
 };
 
-export const TEXT_FIELD = "input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]";
-
 /** The Project menu's rows: Undo and Redo ("edit"), then the creating ("create") and navigating ("navigate") actions the focus can reach. */
 export const projectMenuItems = (focus: Element | null, connected: boolean, history: TodoUndo | null): MenuItem[] => {
   const actions = captureActions(focus);
 
   return [
-    ...(!focus?.closest(TEXT_FIELD) ? ["⌘Z", "⇧⌘Z"].map(keys => {
+    ...(!isTextEntry(focus) ? ["⌘Z", "⇧⌘Z"].map(keys => {
       const undo = undoAction(history, keys === "⇧⌘Z", focus);
 
       return { id: `action:chord:${keys}`, label: undo.label, shortcut: keys, group: "edit" as const, enabled: connected && undo.available };

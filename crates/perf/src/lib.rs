@@ -1,6 +1,8 @@
 //! Rule 7 as a command: measure the Daemon, compare with the budgets file, fail on a miss.
 
 pub mod budget;
+mod error;
+pub use error::{Error, Unmatched};
 pub use measure::flood;
 pub mod gate;
 mod launch;

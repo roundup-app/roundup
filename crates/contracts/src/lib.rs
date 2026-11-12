@@ -13,6 +13,7 @@ pub mod data;
 mod declarations;
 pub mod deliverable;
 pub mod describe;
+mod error;
 pub mod event;
 pub mod export;
 pub mod feedback;
@@ -30,5 +31,6 @@ pub mod todo;
 pub mod workstream;
 
 pub use common::*;
+pub use error::Error;
 pub use event::{Event, EventData};
 pub use text::Text;

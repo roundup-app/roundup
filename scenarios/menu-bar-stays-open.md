@@ -1,0 +1,14 @@
+# The menu-bar list stays open
+
+Module: `apps/desktop/src/window` (`menuBar.ts`) and `crates/desktop` (`menu_bar.rs`), plus `crates/native` only if a menu-open signal is needed there. Ids: U6994a, U6994b. Work order: [#6994](https://github.com/roundup-app/roundup/issues/6994). Journey: Understand → Intervene (`.agents/data/journey.md`, “What must work”). The rows, order and limits stay U5502's and U5959's; only when a presentation is sent and applied changes.
+
+**U6994a an unchanged presentation is not sent.** Given the connected menu-bar watcher (`watchMenuBar`) with Agents working in open Projects, when an Agent's status changes and the presentation `watchMenuBar` would send (mark, `entries`, `dock`) equals the last one sent, then `setMenuBar` is called zero times; a change to any of the three sends once. A status change of an Agent the list never shows (a working Agent, or a Ready Agent folded into `n earlier…`) sends nothing. Test: `u6994a_unchanged_presentation_sends_nothing`, in `apps/desktop/src/app/u5502_menu_bar.test.ts`: a working label and kind change on a hidden Agent leaves the call count at its value, then a change to a Waiting Agent's label raises it by one.
+
+**U6994b an open menu-bar list is never replaced.** Given the menu-bar list is open, when `set_menu_bar` arrives with a new presentation, then neither the tray menu nor the tray icon is replaced while the list is open; when it closes (a row chosen, a click away or Esc) the newest presentation received, and only that one, is applied, so rows show the newest state at the next opening. Without a newer presentation, closing applies nothing. The Dock menu builds its rows when it opens, as U5503 says, and keeps doing so. Test: `u6994b_presentation_waits_for_the_list_to_close`, in `crates/desktop/src/menu_bar.rs`, over the adapter's apply step with a fake tray and an open/closed signal: two presentations arrive while open and replace nothing; closing applies the second once; a presentation arriving while closed applies at once.
+
+Policy: the open/closed signal comes from the native menu's open and close callbacks, in `crates/native` only if `menu_bar.rs` cannot read it from Tauri. P3 (no motion or sound), P9 (zero turn-producing calls) and P12 (row identity unchanged) hold as U5502 states them. Policy/native observer, reported by the user on their Mac: with several Agents working, the list opens, stays open while the pointer moves over it, and a row can be chosen. Chromium cannot show a native menu, so this specification claims no Mac observation. No webview path changes, so no capture is required.
+
+### Main regression checks
+
+1. `scenarios/menu-bar-rows.md`, U5959a to U5970: rows, recency cut and the hour timer still send when their presentation changes.
+2. `scenarios/ui-state-alerts.md`, U5502 and U5503: membership, order, limits and the Dock list.

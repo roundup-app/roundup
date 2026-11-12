@@ -1,7 +1,7 @@
 import * as v from "valibot";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
-import { ancestorsOf } from "../rail/layout";
+import { ancestorsOf } from "../state/railTopology";
 
 /** A bubble's rectangle in the centre pane's pixels, whether it is minimised (U469), and the name the user gave it (U511). */
 export type Place = { x: number; y: number; w: number; h: number; min: boolean; name?: string | undefined; restore?: Rect | undefined };

@@ -23,13 +23,28 @@ import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
 import { openThroughRow } from "../shelf/openItem";
-import { usePadList } from "../rail/pads/padList";
+import { usePadList } from "../pads/padList";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX, type Entry } from "./entries";
 import type { ToastQueue } from "../toasts/queue";
 import { strandedSwitcherKeys } from "./strandedKeys";
 import "./styles.css";
+
+/** How the Switcher closes decides where focus goes: Escape restores the opener; a chosen row, a dismissal, another modal or a made Workstream goes to the pane (a Terminal's bubble when one was chosen); a Todo or Pad opens its own item; an action keeps the focus its run took. */
+type Closing = { kind: "restore" } | { kind: "item" } | { kind: "action"; focus: HTMLElement | null } | { kind: "pane"; terminal: string | null };
+
+const finalFocus = (closing: Closing): HTMLElement | null => {
+  if (closing.kind === "action") return closing.focus?.isConnected ? closing.focus : null;
+
+  if (closing.kind !== "pane") return null;
+
+  if (closing.terminal !== null) return focusTarget(`bubble.${closing.terminal}`) ?? null;
+
+  return focusTarget("thread.composer") ?? focusTarget("pane.terminal") ?? null;
+};
+
+const ownerOf = (entry: Entry): string | undefined => "owner" in entry ? entry.owner : undefined;
 
 const TodoHost = lazy(() => import("../todos/TodoDrawer").then(module => ({ default: module.TodoHost })));
 
@@ -67,27 +82,18 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let input: HTMLInputElement | undefined;
   let panel: HTMLElement | undefined;
 
-  let chosenPane = false;
-  let chosenAction = false;
-  let actionFocus: HTMLElement | null = null;
-  let chosenTerminal: string | null = null;
-  let chosenItem = false;
+  // Where focus goes when the Switcher closes; only Escape leaves it to Ark's return to the opener.
+  let closing: Closing = { kind: "restore" };
 
   const dialog = useDialog(() => ({
     open: open(), modal: false, trapFocus: true, preventScroll: false,
     restoreFocus: true, closeOnInteractOutside: true,
     "aria-label": copy.switcherLabel,
     initialFocusEl: () => openingFocus.target(() => input),
-    finalFocusEl: () => chosenItem ? null : chosenAction && actionFocus?.isConnected
-      ? actionFocus
-      : chosenPane
-      ? chosenTerminal
-        ? document.querySelector<HTMLElement>(`[data-bubble="${chosenTerminal}"] textarea`)
-        : focusTarget("thread.composer") ?? focusTarget("pane.terminal") ?? null
-      : null,
+    finalFocusEl: () => finalFocus(closing),
     // A background layer closing is not a parent dismissal of this independent dialog.
     onRequestDismiss: event => event.preventDefault(),
-    onOpenChange: details => { if (!details.open) close(true); },
+    onOpenChange: details => { if (!details.open) close({ kind: "restore" }); },
   }));
 
   const [opening, setOpening] = createSignal<{ selected: string | null; actions: ReturnType<typeof captureActions> }>({ selected: null, actions: [] });
@@ -205,20 +211,18 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     });
   };
 
-  const close = (restore: boolean): void => {
+  const close = (how: Closing): void => {
     retain();
-    chosenPane = !restore;
+    closing = how;
     setOpen(false);
   };
 
   const choose = (entry: Entry): void => batch(() => {
-    chosenTerminal = entry.terminal?.id ?? null;
-    chosenItem = entry.todo !== undefined || entry.pad !== undefined;
-    close(false);
+    close(entry.kind === "todo" || entry.kind === "pad" ? { kind: "item" } : { kind: "pane", terminal: entry.kind === "terminal" ? entry.terminal.id : null });
     props.onFailure(null);
 
     // U5240b: the Switcher has closed; the item opens as a click on its row does.
-    if (entry.todo !== undefined) {
+    if (entry.kind === "todo") {
       const id = entry.todo.id;
 
       // The Rail's own row opens it when the Shelf is mounted; otherwise the Drawer opens alone.
@@ -227,7 +231,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       return;
     }
 
-    if (entry.pad !== undefined) {
+    if (entry.kind === "pad") {
       const name = entry.pad.name;
 
       if (!openThroughRow("pad", name)) drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
@@ -235,16 +239,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       return;
     }
 
-    if (entry.terminal !== undefined) {
+    if (entry.kind === "terminal") {
       rail.select(entry.terminal.owner === project.path ? null : entry.terminal.owner);
       window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: entry.terminal.id }));
 
       return;
     }
 
-    const node = entry.node!;
-
-    rail.select(node.id);
+    if (entry.kind === "node") rail.select(entry.node.id);
   });
 
   const [making, setMaking] = createSignal(false);
@@ -266,7 +268,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       const failure = await rail.createNamedWorkstream(name);
 
       if (failure !== null) setMakeFailure(failure);
-      else if (open()) { props.onFailure(null); close(false); }
+      else if (open()) { props.onFailure(null); close({ kind: "pane", terminal: null }); }
     } finally { setMaking(false); }
   };
 
@@ -274,7 +276,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const runUserAction = (entry: Entry): void => {
     const name = entry.value.slice(USER_PREFIX.length);
 
-    close(true);
+    close({ kind: "action", focus: null });
     props.onFailure(null);
     app.rpc("action.run", { name, args: [] }).catch((failure: RpcError) => {
       props.notify?.({ key: `${USER_PREFIX}${name}`, item: `${USER_PREFIX}${name}`, project: project.path, kind: "error", name: entry.label, line: failure.message, selected: false, open: () => null });
@@ -292,14 +294,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       if (!openingSurvives() || !action.available()) return;
       // Release modal ownership before invoking native/modal actions, while their
       // originating surface and captured owner are still mounted.
-      chosenAction = true;
+      closing = { kind: "action", focus: null };
       setDispatching(true);
 
       try { action.run(); }
       finally {
-        close(true);
+        close(closing);
         setDispatching(false);
-        const target = actionFocus;
+        const target = closing.kind === "action" ? closing.focus : null;
 
         if (target) queueFocus(() => { if (target.isConnected) target.focus(); });
       }
@@ -312,17 +314,13 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry) choose(entry);
   };
 
-  createEffect(() => { if (open() && !dispatching() && modalOutside(panel)) close(false); });
+  createEffect(() => { if (open() && !dispatching() && modalOutside(panel)) close({ kind: "pane", terminal: null }); });
 
   let openingFocus = captureFocus();
 
   const show = (query?: string): void => {
     if (modalOpen()) return;
-    chosenPane = false;
-    chosenAction = false;
-    actionFocus = null;
-    chosenTerminal = null;
-    chosenItem = false;
+    closing = { kind: "restore" };
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement).filter(action => action.searchable) });
     props.onOpen();
@@ -342,8 +340,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const switcherScope = { kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true } as const;
 
   registerKeys(switcherScope, [
-    { chords: SWITCHER_CLOSE, run: () => close(true) },
-    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === CHORDS["switcher.open"]?.presses[0], run: event => { if (!event.repeat) close(true); } },
+    { chords: SWITCHER_CLOSE, run: () => close({ kind: "restore" }) },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === CHORDS["switcher.open"]?.presses[0], run: event => { if (!event.repeat) close({ kind: "restore" }); } },
     { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
     ...strandedSwitcherKeys({ panel: () => panel, recording, values: () => shown().map(entry => entry.value), highlighted, highlight: setHighlighted, choose: chooseValue, focusInput: () => input?.focus() }),
   ]);
@@ -372,10 +370,18 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     } },
   ]);
 
+  const entryRow = (entry: Entry) => <span class="switcher-row">
+    <Show when={entry.kind === "node" && entry.node.status} fallback={entry.kind === "todo" ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.kind === "pad" ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), entry.kind === "node" && rail.dismissed(entry.node))} decorative />}</Show>
+    <Show when={entry.kind === "todo" || entry.kind === "pad"}><span class="switcher-kind">{entry.kind === "todo" ? copy.kindTodo : copy.kindPad}</span></Show>
+    <span class="switcher-name">{entry.label}</span>
+    <Show when={ownerOf(entry)}><span class="switcher-owner">{ownerOf(entry)}</span></Show>
+    <Show when={entry.kind === "node" && !rail.dismissed(entry.node)}><Show when={errorCause(entry.kind === "node" ? entry.node.status : undefined, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
+  </span>;
+
   return (
     <Show when={open()}>
       <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
-        <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
+        <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close({ kind: "pane", terminal: null })} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
         }} inputEvents={{ // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
           input: () => { restoring = false; setText(input?.value ?? text()); retain(); },
@@ -399,7 +405,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             // Zag can retain its trap until the selecting Combobox batch ends.
             // Keep only the focus destination requested by this synchronous action.
-            if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget)) actionFocus = event.relatedTarget;
+            if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget) && closing.kind === "action") closing = { kind: "action", focus: event.relatedTarget };
 
             // A recovery action must run before blur can retry storage and remove its target.
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
@@ -422,13 +428,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             if (!entry) return null;
 
-            return <span class="switcher-row">
-              <Show when={entry.node?.status} fallback={entry.todo !== undefined ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.pad !== undefined ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
-              <Show when={entry.todo !== undefined || entry.pad !== undefined}><span class="switcher-kind">{entry.todo !== undefined ? copy.kindTodo : copy.kindPad}</span></Show>
-              <span class="switcher-name">{entry.label}</span>
-              <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
-              <Show when={entry.node && !rail.dismissed(entry.node)}><Show when={errorCause(entry.node?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
-            </span>;
+            return entryRow(entry);
           }} />
         <ReservedLine message={makeFailure()} dismiss={() => setMakeFailure(null)} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>

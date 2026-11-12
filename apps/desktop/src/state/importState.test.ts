@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
 import { createImport } from "./importState";
-import { chord, mountRail, railCallsTo } from "./railFixture";
+import { chord, mountRail, railCallsTo } from "../rail/railFixture";
 
 afterEach(cleanup);
 

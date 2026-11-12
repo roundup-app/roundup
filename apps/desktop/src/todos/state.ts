@@ -9,7 +9,7 @@ import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
 import type { Actor } from "@contracts/Actor";
 import { outcomeOf } from "../app/seam";
-import { failureOf } from "./failureOf";
+import { failureOf } from "../app/failureOf";
 
 /** U5172a: a change of a Todo that the Daemon has not answered. `base` is the value before it, so a read that still holds `base` leaves it pending and one that holds another value than `asked` contradicts it. A reorder holds the ids of the whole list in order. */
 export type TodoChange =

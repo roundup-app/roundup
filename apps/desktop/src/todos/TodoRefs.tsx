@@ -6,7 +6,7 @@ import { copy } from "./copy";
 import { activationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { createCutTitle } from "../ui/cutTitle";
-import { changeFailureOf, doesClearTodoFailure, failureOf } from "./failureOf";
+import { changeFailureOf, doesClearTodoFailure, failureOf } from "../app/failureOf";
 import { refTarget } from "./refTarget";
 
 const PadHost = lazy(() => import("../pads/PadDrawer").then(module => ({ default: module.PadHost })));
