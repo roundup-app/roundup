@@ -663,7 +663,10 @@ mod tests {
         (conn, core)
     }
 
-    async fn unclaimed_settles(conn: &Conn, want: impl Fn((usize, usize)) -> bool) -> (usize, usize) {
+    async fn unclaimed_settles(
+        conn: &Conn,
+        want: impl Fn((usize, usize)) -> bool,
+    ) -> (usize, usize) {
         for _ in 0..100_000 {
             let h = streams(&conn.channels).unclaimed();
             if want(h) {
