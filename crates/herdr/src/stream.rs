@@ -39,7 +39,14 @@ pub struct Stream {
     pub(crate) out: mpsc::UnboundedSender<Vec<u8>>,
 }
 
-impl Stream {
+/// The sending half of a [`Stream`], for the thread that types while another reads.
+#[derive(Clone)]
+pub struct Sender {
+    channel: u32,
+    out: mpsc::UnboundedSender<Vec<u8>>,
+}
+
+impl Sender {
     /// Type `bytes` through the fast stream.
     pub fn send(&self, bytes: &[u8]) {
         let _ = self.out.send(frame(self.channel, DATA, bytes));
@@ -55,6 +62,31 @@ impl Stream {
     /// Detach; the program keeps running.
     pub fn close(&self) {
         let _ = self.out.send(frame(self.channel, CLOSE, &[]));
+    }
+}
+
+impl Stream {
+    /// The sending half, which outlives borrowing the stream for reads.
+    pub fn sender(&self) -> Sender {
+        Sender {
+            channel: self.channel,
+            out: self.out.clone(),
+        }
+    }
+
+    /// Type `bytes` through the fast stream.
+    pub fn send(&self, bytes: &[u8]) {
+        self.sender().send(bytes);
+    }
+
+    /// Take the terminal's size (the last active non-observer sets it).
+    pub fn resize(&self, cols: u16, rows: u16) {
+        self.sender().resize(cols, rows);
+    }
+
+    /// Detach; the program keeps running.
+    pub fn close(&self) {
+        self.sender().close();
     }
 
     /// The next event, or `None` once the channel is closed and drained.
