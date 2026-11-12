@@ -58,37 +58,68 @@ export const createSlideLifetime = (elements: Accessor<readonly (HTMLElement | u
   };
 };
 
-/** U4458: Shelf and Drawer retarget the same Token-timed horizontal slide. */
+/** The pixels a running reveal still hides on the panel's leading edge. */
+const hiddenLeft = (host: HTMLElement) => parseFloat(getComputedStyle(host).clipPath.match(/inset\(\S+ \S+ \S+ ([\d.]+)px\)/)?.[1] ?? "0");
+
+/**
+ * U4458, U3721b: a maximise or restore moves for real. The panel takes its final width at once, and a `clip-path`
+ * reveals or hides its leading edge between the two widths; a restore pins the wider box until the reveal ends.
+ */
 export const createMaximiseSlide = (element: Accessor<HTMLElement | undefined>, active: Accessor<boolean>) => {
   let slide: Animation | undefined;
-  const cancel = () => { slide?.cancel(); slide = undefined; };
+
+  const cancel = () => {
+    const host = element();
+
+    slide?.cancel();
+    slide = undefined;
+
+    if (host) host.style.minWidth = "";
+  };
 
   createEffect(() => { if (!active()) cancel(); });
   onCleanup(cancel);
 
   return {
     cancel,
-    offset: () => {
+    /** The width the panel draws now, a running reveal included; read it before the size changes. */
+    visibleWidth: () => {
       const host = element();
 
-      return host && slide && (slide.playState === "running" || slide.playState === "paused")
-        ? new DOMMatrixReadOnly(getComputedStyle(host).transform).m41 : 0;
+      return host ? host.getBoundingClientRect().width - (slide ? hiddenLeft(host) : 0) : 0;
     },
-    start: (displacement: number, settled: () => void = () => {}) => {
+    /** Reveal from `before` to the width the panel has now; `key` picks the key duration (U6837a). */
+    start: (before: number, key: boolean, settled: () => void = () => {}) => {
       cancel();
       const host = element();
 
       if (!active() || !host?.animate) return;
+      const after = host.getBoundingClientRect().width;
+      const hidden = Math.abs(after - before);
+
+      if (hidden < 1) return;
       const style = getComputedStyle(host);
-      const duration = style.getPropertyValue("--duration-drawer").trim();
+      const duration = style.getPropertyValue(key ? "--duration-key" : "--duration-drawer").trim();
+      const grows = after > before;
+
+      if (!grows) host.style.minWidth = `${before}px`;
+
+      const inset = (px: number) => "inset(0 0 0 " + px + "px)";
 
       const current = host.animate([
-        { transform: `translateX(${displacement}px)` },
-        { transform: "translateX(0)" },
+        { clipPath: inset(grows ? hidden : 0) },
+        { clipPath: inset(grows ? 0 : hidden) },
       ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
 
       slide = current;
-      const complete = () => { if (slide === current) settled(); };
+
+      const complete = () => {
+        if (slide !== current) return;
+
+        slide = undefined;
+        host.style.minWidth = "";
+        settled();
+      };
 
       void current.finished.then(complete, complete);
     },

@@ -37,8 +37,12 @@ export type ShelfFrame = {
   shown: Accessor<boolean>;
   /** True from the first toggle of a Project; a restored state never animates (U370). */
   animated: Accessor<boolean>;
+  /** U3721b: the latest change started by a key, so it slides in the key duration. */
+  keyed: Accessor<boolean>;
   maximised: Accessor<boolean>;
   toggleMaximise: (source?: ActivationSource) => void;
+  /** U3721a, U3721b: leave the maximised state with no motion of its own, for a close that already moves; after a closing slide it waits for the slide to end. */
+  unmaximise: () => void;
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
   toggle: (source?: ActivationSource) => void;
@@ -61,6 +65,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const lifetime = createSlideLifetime(() => [element()]);
   const [shown, setShown] = createSignal(initialOpen);
   const [animated, setAnimated] = createSignal(false);
+  const [keyed, setKeyed] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
 
   const save = () => {
@@ -96,10 +101,21 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
 
   const rendered = () => phase() !== "closed" || lifetime.exiting();
 
-  const move = (to: ShelfPhase, slides: boolean, remember: boolean) => {
+  let restoreAfterExit = false;
+
+  createEffect(on(lifetime.exiting, (exiting) => {
+    if (exiting || !restoreAfterExit) return;
+
+    restoreAfterExit = false;
+    setMaximised(false);
+    save();
+  }, { defer: true }));
+
+  const move = (to: ShelfPhase, slides: boolean, remember: boolean, source: ActivationSource = "pointer") => {
     // One update: `rendered` must never read false between the phase and the exit retention changing.
     batch(() => {
       setAnimated(slides);
+      setKeyed(source === "key");
       setCovered(to === "peeking" || (to === "closed" && covered()));
       setPhase(to);
       lifetime.retarget(to !== "closed", slides);
@@ -126,7 +142,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       return;
     }
 
-    move(open() ? "closed" : "open", source !== "key" && !reducedMotion(), true);
+    move(open() ? "closed" : "open", !reducedMotion(), true, source);
   };
 
   const promote = () => {
@@ -162,13 +178,30 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     promote,
     maximised,
     toggleMaximise: (source = "pointer") => {
-      setAnimated(source !== "key" && !reducedMotion());
-      setMaximised(value => !value);
+      batch(() => {
+        setAnimated(!reducedMotion());
+        setKeyed(source === "key");
+        setMaximised(value => !value);
+      });
+      save();
+    },
+    unmaximise: () => {
+      if (!maximised()) return;
+
+      // A closing slide carries the full-width Shelf out whole; the width drops once it has left.
+      if (lifetime.exiting()) {
+        restoreAfterExit = true;
+
+        return;
+      }
+
+      setMaximised(false);
       save();
     },
     rendered,
     shown,
     animated,
+    keyed,
     tab,
     setTab: (next) => {
       setTabSignal(next);
