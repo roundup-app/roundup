@@ -4,7 +4,7 @@ import type { Worktree } from "@contracts/agent/Worktree";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { AppSeam, DaemonExit } from "../app/seam";
 import { copy } from "./copy";
-import { failureOf } from "../todos/failureOf";
+import { failureOf } from "../app/failureOf";
 import type { RailState } from "./rail";
 import { NOW_TICK_MS } from "./clock";
 

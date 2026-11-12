@@ -3,7 +3,7 @@ import { createSignal, For, onCleanup, onMount } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
-import { failureOf } from "../todos/failureOf";
+import { failureOf } from "../app/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
 import { changedPath as absolutePath, statusText } from "./paths";
 import treeStyles from "./tree.styles.css?inline";

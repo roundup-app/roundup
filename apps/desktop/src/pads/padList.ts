@@ -2,8 +2,8 @@ import { createStore, reconcile } from "solid-js/store";
 import { batch, createRoot, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
-import { useConnectedProject } from "../../state/connectedProject";
-import type { ConnectedProject } from "../../state/connectedProject";
+import { useConnectedProject } from "../state/connectedProject";
+import type { ConnectedProject } from "../state/connectedProject";
 
 /** The Project's Pads as `pad.list` last answered them. */
 export type PadList = {

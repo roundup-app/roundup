@@ -18,7 +18,7 @@ import { useTodoList } from "./todoList";
 
 import { TickBox } from "./TickBox";
 import { RowButton } from "./RowButton";
-import { doesClearTodoFailure } from "./failureOf";
+import { doesClearTodoFailure } from "../app/failureOf";
 import { kindOf } from "./todoView";
 
 const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } as const;

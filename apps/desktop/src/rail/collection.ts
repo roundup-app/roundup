@@ -1,6 +1,6 @@
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { copy } from "./copy";
-import { isWorkstream } from "./layout";
+import { isWorkstream } from "../state/railTopology";
 import type { RailRow } from "./layout";
 
 /** What Ark's tree walks: the node's id and name (typeahead jumps by it), and its children. A Workstream is a branch even with none. */

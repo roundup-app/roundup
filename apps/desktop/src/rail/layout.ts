@@ -1,10 +1,8 @@
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
-import type { RailSection } from "./persist/storage";
-import { railTopology, type RailTopology } from "./topology";
+import type { RailSection } from "../state/railStorage";
+import { childrenOf, descendantsOf, indexed, isWorkstream, type RailSource } from "../state/railTopology";
 import { byUrgency } from "../ink/glyph";
-
-export type { RailTopology } from "./topology";
 
 const IDLE_FOLD_MS = 60_000;
 
@@ -26,74 +24,8 @@ export type RailView = {
   selected?: string | null;
 };
 
-export const isWorkstream = (node: RailNode): boolean => node.kind === "workstream";
-
 /** U4547a: a Mode is a root Agent holding a nonblank Mode prompt. */
 export const isMode = (node: RailNode): boolean => node.kind === "agent" && node.parent === null && !!node.mode_prompt?.trim();
-
-/** U6119: an Agent whose parent is a Workstream is the Door's to handle, so it draws no unseen marker of its own. */
-export const isWorkstreamChild = (nodes: readonly RailNode[], node: RailNode): boolean =>
-  node.kind === "agent" && node.parent !== null && nodes.some((each) => each.id === node.parent && isWorkstream(each));
-
-/** U145's resolution: `selected` when it is a Workstream, else the nearest Workstream above it, else `null`. */
-export const resolvedWorkstream = (nodes: readonly RailNode[], selected: string | null): string | null => {
-  const node = nodes.find((candidate) => candidate.id === selected);
-
-  if (node === undefined) return null;
-
-  return isWorkstream(node) ? node.id : node.parent === null ? null : resolvedWorkstream(nodes, node.parent);
-};
-
-export type RailSource = readonly RailNode[] | RailTopology;
-
-const indexed = (source: RailSource): RailTopology => "nodes" in source ? source : railTopology(source);
-
-const childrenOf = (tree: RailTopology, parent: number): number[] => tree.children.slice(tree.starts[parent + 1], tree.starts[parent + 2]);
-
-/** The children of `parent` (`null` is the top level) by `order`. */
-export const siblingsOf = (source: RailSource, parent: string | null): RailNode[] => {
-  const tree = indexed(source);
-  const at = parent === null ? -1 : tree.index.get(parent);
-
-  return at === undefined ? [] : childrenOf(tree, at).map(child => tree.nodes[child]!);
-};
-
-/** The ids of every node above `id`, nearest first. */
-export const ancestorsOf = (source: RailSource, id: string): string[] => {
-  const tree = indexed(source);
-  const ids: string[] = [];
-  let at = tree.index.get(id);
-
-  while (at !== undefined && tree.parent[at] !== -1) {
-    at = tree.parent[at]!;
-    ids.push(tree.nodes[at]!.id);
-  }
-
-  return ids;
-};
-
-/** Every node below `id`, each parent before its children. */
-export const descendantsOf = (source: RailSource, id: string): RailNode[] => {
-  const tree = indexed(source);
-  const result: RailNode[] = [];
-
-  const visit = (at: number) => {
-    for (const child of childrenOf(tree, at)) { result.push(tree.nodes[child]!); visit(child); }
-  };
-
-  const at = tree.index.get(id);
-
-  if (at !== undefined) visit(at);
-
-  return result;
-};
-
-/** Every Project node in Rail order, including children of collapsed Workstreams. */
-export const railOrder = (source: RailSource): RailNode[] => {
-  const tree = indexed(source);
-
-  return siblingsOf(tree, null).flatMap(node => [node, ...descendantsOf(tree, node.id)]);
-};
 
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
 export const agentKindsBelow = (source: RailSource, id: string, dismissed: (node: RailNode) => boolean = () => false, settled: (node: RailNode) => boolean = () => false): Kind[] =>

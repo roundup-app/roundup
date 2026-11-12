@@ -1,4 +1,4 @@
-import { descendantsOf } from "../rail/layout";
+import { descendantsOf } from "../state/railTopology";
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";

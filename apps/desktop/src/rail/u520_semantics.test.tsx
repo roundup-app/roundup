@@ -4,7 +4,7 @@ import { runAxe } from "../testing/axe";
 import { agent, door, event, NOW, workstream } from "../testing/nodes";
 import { message } from "../testing/centreFixture";
 import { createRoot, createSignal } from "solid-js";
-import * as topology from "./topology";
+import * as topology from "../state/railTopology";
 import { createRailTree } from "./railTree";
 import { itemOf, mountRail, rowOf, settled } from "./railFixture";
 

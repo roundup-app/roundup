@@ -19,11 +19,11 @@ import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
-import { failureOf } from "../todos/failureOf";
+import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
 import { outcomeOf, RpcError } from "../app/seam";
-import { usePadList } from "../rail/pads/padList";
-import type { PadList } from "../rail/pads/padList";
+import { usePadList } from "./padList";
+import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
 
 import type { PadEditorHandle } from "./PadRichEditor";
@@ -351,7 +351,7 @@ const PadBody = (props: {
       const close = document.activeElement?.closest(".drawer")?.querySelector<HTMLElement>(".close");
       saveAfterPause.clear();
       due = null;
-      const failures = await connected.drafts.todoUndo.removePads([{ name, incarnation: destination.object }], `pad:${destination.object}`);
+      const failures = await connected.drafts.undo.removePads([{ name, incarnation: destination.object }], `pad:${destination.object}`);
 
       if (failures.length) throw new Error(failures[0]!.message);
       setDeleted(true);
@@ -362,7 +362,7 @@ const PadBody = (props: {
       // A deletion event can remove the focused Delete button before its reply closes the Drawer.
       focus(() => { if (document.activeElement === document.body) close?.focus({ preventScroll: true }); });
       connected.drawer.close(source);
-      queueMicrotask(() => connected.drafts.todoUndo.handoff(`pad:${destination.object}`, historyRegion(document.activeElement)));
+      queueMicrotask(() => connected.drafts.undo.handoff(`pad:${destination.object}`, historyRegion(document.activeElement)));
       await keepRegionFocus(list.reload, ".pad-name");
     });
 
@@ -455,7 +455,7 @@ const PadBody = (props: {
           <IconButton
             style={wholeWord}
             aria-label={copy.delete}
-            disabled={connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain()}
+            disabled={connected.drafts.undo.pending() || connected.drafts.undo.uncertain()}
             onClick={() => {
               actionFailure.clear();
               void remove("key");

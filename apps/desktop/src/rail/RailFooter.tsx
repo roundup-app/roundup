@@ -12,7 +12,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
 import { Menu } from "../ui/Menu";
 import { Portal } from "solid-js/web";
-import type { draftsOf } from "./persist/storage";
+import type { draftsOf } from "../state/railStorage";
 
 export const RailFooter = (props: {
   retained: ReturnType<typeof draftsOf>;

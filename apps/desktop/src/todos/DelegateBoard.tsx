@@ -5,7 +5,7 @@ import { ownersOnRail } from "../shelf/scope";
 import { useConnectedProject } from "../state/connectedProject";
 import { Switch } from "../ui/Switch";
 import { ReservedLine } from "../ink/ReservedLine";
-import { failureOf } from "./failureOf";
+import { failureOf } from "../app/failureOf";
 import { copy } from "./copy";
 
 /** U3309: number hints follow the same authoritative Rail order as owner assignment. */

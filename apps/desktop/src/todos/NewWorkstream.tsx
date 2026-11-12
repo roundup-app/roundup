@@ -14,7 +14,7 @@ import { Combobox } from "../ui/Combobox";
 import { Tip } from "../ui/Tip";
 import { Popover } from "../ui/Popover";
 import { Icon } from "../ink/Icon";
-import { failureOf } from "./failureOf";
+import { failureOf } from "../app/failureOf";
 import { applied } from "../app/pending";
 import { useTodoList } from "./todoList";
 import "./blockerMenu.styles.css";

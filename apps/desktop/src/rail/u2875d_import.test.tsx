@@ -12,7 +12,7 @@ import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, workstream } from "../testing/nodes";
 import { openTabs, tab, path } from "../header/stripFixture";
-import { createImport } from "./importState";
+import { createImport } from "../state/importState";
 import { exitedTerminal, mountRail, rowOf } from "./railFixture";
 
 afterEach(() => { batch(cleanup); localStorage.clear(); });

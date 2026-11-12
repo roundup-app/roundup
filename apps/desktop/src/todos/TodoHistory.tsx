@@ -6,7 +6,7 @@ import type { History } from "@contracts/todo/History";
 import type { Change } from "@contracts/todo/Change";
 
 import { useConnectedProject } from "../state/connectedProject";
-import { doesClearTodoFailure, failureOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 
 const ids = (list: number[]) => [...list].sort((a, b) => a - b).map((id) => `#${id}`).join(", ");
 

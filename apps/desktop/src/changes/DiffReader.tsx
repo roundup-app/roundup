@@ -5,7 +5,7 @@ import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";
 import { ReservedLine } from "../ink/ReservedLine";
-import { failureOf } from "../todos/failureOf";
+import { failureOf } from "../app/failureOf";
 import { reply } from "./notes";
 import type { Note, Notes } from "./notes";
 import { NoteForm } from "./NoteForm";

@@ -8,7 +8,7 @@ import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { errorCause } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { attentionOrder } from "../rail/attention";
-import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { descendantsOf, resolvedWorkstream, siblingsOf } from "../state/railTopology";
 import { Tip } from "../ui/Tip";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { ToolCallLine } from "./ToolCallLine";

@@ -5,7 +5,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "./copy";
-import type { draftsOf } from "./persist/storage";
+import type { draftsOf } from "../state/railStorage";
 
 type Entry = ReturnType<ReturnType<typeof draftsOf>["records"]>[number];
 

@@ -1,5 +1,5 @@
 import type { Event } from "@contracts/Event";
-import { outcomeOf } from "../app/seam";
+import { outcomeOf } from "./seam";
 
 /** The message of a failed call, or `null` when it succeeded. Anything that is not an Error is a bug and escapes. */
 export const failureOf = async <Result>(call: () => Promise<Result>): Promise<string | null> => {
