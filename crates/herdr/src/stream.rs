@@ -51,7 +51,7 @@ pub(crate) fn deliver(channels: &Streams, channel: u32, ev: Ev) {
             let _ = tx.send(ev);
         }
         None => match ev {
-            // A CLOSE is held with the frames, in order: the attach reply may still come (MC27).
+            // A CLOSE is kept with the frames, in order: the attach reply may still come (MC27).
             Ev::Data(d) if state.orphan_bytes + d.len() > MAX_ORPHAN_BYTES => {}
             ev => {
                 if let Ev::Data(d) = &ev {

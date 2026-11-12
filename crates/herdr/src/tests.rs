@@ -140,7 +140,7 @@ async fn mc27_a_closed_unclaimed_channel_is_freed_on_connection_drop() {
         tokio::time::sleep(Duration::from_millis(500)).await;
     })
     .await;
-    // The CLOSE is held with the frame, a frame of no bytes.
+    // The CLOSE is kept with the frame, a frame of no bytes.
     assert_eq!(unclaimed_settles(&conn, |h| h == (2, 1)).await, (2, 1));
     core.await.unwrap();
     assert_eq!(unclaimed_settles(&conn, |h| h.0 == 0).await, (0, 0));
