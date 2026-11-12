@@ -78,6 +78,7 @@ import { Feedback } from "./feedback/Feedback";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
+import type { ShelfRequest } from "./state/projectView";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
@@ -127,6 +128,7 @@ const Connection = (props: {
   /** U6271c: another Project's Rail nodes, and showing it with one of its Workstreams selected. */
   nodes: (path: string) => readonly RailNode[];
   openIn: (path: string, workstream: string) => void;
+  openShelf: ShelfRequest;
 }) => {
   const first = props.tab();
 
@@ -150,7 +152,7 @@ const Connection = (props: {
       const next = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
         await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
           ? props.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
-      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock, { app: props.app, open: props.open, nodes: props.nodes, show: props.openIn });
+      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock, { app: props.app, open: props.open, nodes: props.nodes, show: props.openIn }, props.openShelf);
 
       if (props.tab()?.generation !== generation) {
         next.stopTerminalScheme();
@@ -506,27 +508,16 @@ export const App = (props: {
     if (open && !(open instanceof Error)) props.prepareIdle(open);
   });
 
-  // U370, U373: the Shelf's open state and open tab, kept per Project.
+  // U370, U373, U4457: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
   const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth, props.initialShelfOpen ?? false);
-  createEffect(() => {
-    const connected = activeConnection();
-    const request = connected && !(connected instanceof Error) ? connected.creation() : null;
 
-    if (!request || request.kind === "terminal") return;
-    frame.setTab(request.kind === "todo" ? "todos" : "pads");
+  const openShelf: ShelfRequest = (tab) => {
+    frame.setTab(tab);
 
     if (!frame.open()) frame.toggle("key");
-  });
-  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K B` does, on the Pads tab.
-  createEffect(() => {
-    const connected = activeConnection();
+  };
 
-    if (!connected || connected instanceof Error || connected.padsRequest() === null) return;
-    frame.setTab(connected.padsTab());
-
-    if (!frame.open()) frame.toggle("key");
-  });
   const widths = createWidths(projects.active);
 
   // U6228: the Rail folds to a strip of Workstream marks; focus follows the control the user pressed, and `⌘K R` toggles it.
@@ -620,7 +611,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} nodes={path => railOf(path)?.nodes ?? []} openIn={(path, workstream) => { railOf(path)?.select(workstream, "open"); projects.select(path); }} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} nodes={path => railOf(path)?.nodes ?? []} openIn={(path, workstream) => { railOf(path)?.select(workstream, "open"); projects.select(path); }} openShelf={openShelf} />}
       </For>
       <ProjectOpening opening={opening} />
       <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={hide} />

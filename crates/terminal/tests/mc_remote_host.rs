@@ -29,7 +29,7 @@ async fn run(conn: &Conn, script: &str) -> String {
         )
         .await
         .unwrap();
-    reply["terminal"].as_str().unwrap().to_owned()
+    reply["address"].as_str().unwrap().to_owned()
 }
 
 async fn until(stream: &mut Stream, text: &str) -> String {
@@ -46,6 +46,37 @@ async fn until(stream: &mut Stream, text: &str) -> String {
         }
     }
     seen
+}
+
+/// The text of `raw` without CSI and OSC escape sequences, so a cursor move such as `ESC[30;1H`
+/// holds no number. A screen replay would hide a repeated line, which MC14 looks for.
+fn strip_escapes(raw: &str) -> String {
+    let mut out = String::new();
+    let mut chars = raw.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c != '\x1b' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('[') => {
+                for f in chars.by_ref() {
+                    if ('\u{40}'..='\u{7e}').contains(&f) {
+                        break;
+                    }
+                }
+            }
+            Some(']') => {
+                while let Some(f) = chars.next() {
+                    if f == '\x07' || (f == '\x1b' && chars.next_if_eq(&'\\').is_some()) {
+                        break;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 fn median(mut v: Vec<Duration>) -> Duration {
@@ -122,7 +153,7 @@ async fn mc14_reattach_keeps_program() {
     let mut stream = conn.attach(&id, 100, 30, 5000).await.unwrap();
     stream.resize(100, 30);
     let repaint = until(&mut stream, "tick 30").await;
-    let numbers: Vec<u32> = repaint
+    let numbers: Vec<u32> = strip_escapes(&repaint)
         .split(|c: char| !c.is_ascii_alphanumeric())
         .filter_map(|w| w.parse().ok())
         .collect();
