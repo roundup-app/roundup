@@ -133,10 +133,12 @@
 .rail-row :is(.row-status-sep, .row-status-age) { flex: none; white-space: pre; }
 /* The name keeps its content width up to 60% of the row; the status takes all the shrink, so only the label is cut. */
 .rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 60%; }
-/* The tail reserves room for Stop and Move at rest, so the quick icons reveal by opacity in it, right of the status and a --space-3 gap from it, and the status keeps one width in every state. */
-.rail-row:has(.row-status) .row-tail { min-width: calc(var(--rail-slot) * 2 + var(--space-3)); justify-content: flex-end; }
+/* The tail holds Stop and Move in its flow at rest (Stop is hidden by opacity, not removed), right of the status and a --space-3 gap from it, so the status keeps one width in every state. */
+.rail-row:has(.row-status) .row-tail { min-width: calc(var(--rail-slot) * 2 + var(--space-3)); justify-content: flex-end; gap: var(--space-3); }
+.rail-row:has(.row-status) .row-icons { position: static; inset-inline-end: auto; background: none; }
+.rail-row:has(.row-status) .row-icons::before { content: none; }
 /* The label gives way first, with its separator; the age stays until it no longer fits, then the row stays at the name. */
-@container (max-width: 12ch) { .row-status-label, .row-status-sep { display: none; } }
+@container (max-width: 8ch) { .row-status-label, .row-status-sep { display: none; } }
 @container (max-width: 4ch) { .row-status-age { display: none; } }
 
 [data-part="branch-control"].rail-row .name,
