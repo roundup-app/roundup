@@ -268,6 +268,14 @@ impl Core {
         {
             "terminal.run" => self.run(&params),
             "terminal.get" => self.terminal(&params).map(|t| self.describe(&t)),
+            "terminal.kill" => self.terminal(&params).and_then(|t| {
+                let pid = t.pid.and_then(|pid| i32::try_from(pid).ok()).ok_or_else(|| {
+                    failure("not_found", "the terminal has no process", "no process".into())
+                })?;
+                nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), nix::sys::signal::SIGKILL)
+                    .map_err(|e| failure("not_found", "already gone", e.to_string()))?;
+                Ok(json!({}))
+            }),
             "terminal.attach" => {
                 if let Err(error) = self.attach(&id, &params) {
                     self.reply(&id, Err(error));
@@ -342,7 +350,7 @@ fn main() -> io::Result<()> {
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
         json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.18-test","framed":true,
-            "methods":["terminal.run","terminal.get","terminal.attach"]}})
+            "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill"]}})
     } else {
         let msg = format!(
             "protocol generation {} not supported",

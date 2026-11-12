@@ -1,5 +1,5 @@
-//! herdr-core as a Terminal's host, beside `remote.rs`: the framed attach stream feeds the same
-//! `Chunk` broadcast, `ScreenState` and status records the PTY reader does, through `pty::read`.
+//! herdr-core as a Terminal's host: the framed attach stream feeds the same
+//! `Chunk` broadcast, `ScreenState` and status records the PTY reader does, through `stream::read`.
 use super::spawn::{OTHER_TERMINALS, check_program};
 use super::*;
 
@@ -38,6 +38,20 @@ impl Read for StreamReader {
         }
         self.taken += n;
         Ok(n)
+    }
+}
+
+/// The core's typing path as the [`Write`] the input thread feeds.
+pub(super) struct StreamWriter(pub(super) herdr::Sender);
+
+impl Write for StreamWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.send(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
 
@@ -81,7 +95,7 @@ pub(super) fn feed(
         taken: 0,
         closed: Arc::clone(&closed),
     };
-    pty::read(
+    stream::read(
         shared,
         number,
         Box::new(reader),
@@ -101,6 +115,61 @@ pub(super) fn core_command(core: &str, vars: &BTreeMap<String, String>) -> Vec<S
     argv.extend([core.to_owned(), "connect".to_owned()]);
     argv
 }
+
+/// The variables a core starts with: what a program needs to find itself, and nothing of the session
+/// the Daemon runs in. A name the Daemon lacks is left out.
+fn core_vars() -> BTreeMap<String, String> {
+    ["PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR"]
+        .into_iter()
+        .filter_map(|name| Some((name.to_owned(), std::env::var(name).ok()?)))
+        .collect()
+}
+
+/// Under `test-support` the core is the test-support one built beside the test binary, so a test
+/// that opens `Terminals` runs on a core; otherwise `herdr-core` from `PATH`.
+pub(super) fn default_core() -> std::path::PathBuf {
+    #[cfg(feature = "test-support")]
+    if let Ok(exe) = std::env::current_exe() {
+        for dir in exe.ancestors().skip(1).take(2) {
+            let core = dir.join("herdr-core-test");
+            if core.is_file() {
+                return core;
+            }
+        }
+    }
+    "herdr-core".into()
+}
+
+impl Terminals {
+    /// Use the herdr-core at `binary`, not the one on `PATH`.
+    pub fn with_core(mut self, binary: impl Into<std::path::PathBuf>) -> Self {
+        self.core_bin = binary.into();
+        self
+    }
+
+    /// The one core connection, started on first use from a clean environment (MC16).
+    pub(super) async fn core(&self) -> Result<Arc<herdr::Conn>, Error> {
+        let conn = self
+            .core
+            .get_or_try_init(|| async {
+                let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
+                let mut command = tokio::process::Command::new("env");
+                command.args(argv.iter().skip(1));
+                herdr::Conn::spawn(command, CORE_TIMEOUT)
+                    .await
+                    .map(Arc::new)
+            })
+            .await
+            .map_err(|err| match err {
+                herdr::Error::Missing => Error::internal("herdr-core is not installed"),
+                other => Error::internal(other),
+            })?;
+        Ok(Arc::clone(conn))
+    }
+}
+
+/// How long a call to the core may take before it is lost.
+const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the
 /// PTY path gave a program. A core may have started in a session that carries other variables, so
@@ -143,13 +212,13 @@ pub(super) async fn run(
     params: &SpawnParams,
     number: u64,
     name: &str,
-) -> Result<(), Error> {
+) -> Result<Value, Error> {
     check_program(params)?;
     match conn
         .call("terminal.run", run_params(shared, params, number, name))
         .await
     {
-        Ok(_) => Ok(()),
+        Ok(ran) => Ok(ran),
         Err(herdr::Error::Rpc(err)) if err.kind == "spawn_failed" => {
             Err(invalid(format!("cannot run the program: {}", err.message)))
         }
@@ -275,7 +344,7 @@ mod tests {
         // The same bytes straight through the reader the PTY path uses answer alike.
         let direct = Mutex::new(ScreenState::new(100, 30));
         let (output, _keep) = broadcast::channel(1 << 16);
-        pty::read(
+        stream::read(
             &got.terminals.shared,
             2,
             Box::new(std::io::Cursor::new(bytes.clone())),

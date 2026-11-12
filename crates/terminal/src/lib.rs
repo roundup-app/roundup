@@ -8,20 +8,13 @@ mod contract_handlers;
 mod error;
 pub use error::Error;
 use error::Locked;
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the start path switches to it in the next slice")
-)]
 mod host;
 mod input;
 mod integration;
 mod output;
-mod owner;
-mod remote;
-pub use owner::TerminalOwner;
 mod program;
-mod pty;
-pub use pty::InputEnded;
+mod stream;
+pub use stream::InputEnded;
 mod recorder;
 mod scheme;
 mod screen;
@@ -29,7 +22,6 @@ mod spawn;
 mod status;
 pub use status::{BlockedKind, Change, ProgramState, Record};
 
-use program::Program;
 use screen::{ScreenParser, ScreenState, Seen};
 
 use std::collections::BTreeMap;
@@ -49,8 +41,8 @@ use contracts::terminal::{
     TerminalId, TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
-use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
-use rpc::{Bus, Ctx, Module, OpenError, RpcError, params};
+use portable_pty::PtySize;
+use rpc::{Bus, Ctx, Module, OpenError, RpcError};
 use serde_json::Value;
 use tokio::sync::{broadcast, watch};
 
@@ -64,8 +56,6 @@ const SNAPSHOT_MAX_CELLS: u32 = 65_536;
 const SNAPSHOT_MAX_HISTORY_CELLS: usize = 262_144;
 const TITLE_ROWS: u16 = 24;
 const TITLE_COLS: u16 = 80;
-/// How often the reaper checks whether the original program has ended.
-const REAP_POLL: Duration = Duration::from_millis(5);
 const READ_CHUNK: usize = 8192;
 /// Writes a Terminal accepts ahead of its program reading them. Past this, `write` is `CONFLICT`:
 /// a program that never reads would otherwise hold a thread per write until the blocking pool is
@@ -146,9 +136,13 @@ impl OutputStream {
 
 /// What it takes to drive a running program. Dropped from the Terminal's entry once it is reaped.
 struct Handle {
-    master: Mutex<Box<dyn MasterPty + Send>>,
+    conn: Arc<herdr::Conn>,
+    /// The core's id for this Terminal.
+    core_id: String,
+    tx: herdr::Sender,
     input: SyncSender<Input>,
-    program: Program,
+    /// True once the program has ended and the stream has drained.
+    ended: watch::Receiver<bool>,
     recorder: Arc<OnceLock<Mutex<recorder::Recording>>>,
 }
 
@@ -255,8 +249,9 @@ fn stopped(number: u64, what: &str, result: Result<(), Error>) {
 pub struct Terminals {
     #[cfg(feature = "test-support")]
     test_input: Option<Mutex<Box<dyn Write + Send>>>,
-    owner_helper: Option<std::path::PathBuf>,
-    remotes: Mutex<BTreeMap<u64, Arc<remote::Remote>>>,
+    /// The herdr-core binary, started on first use from a clean environment.
+    core_bin: std::path::PathBuf,
+    core: tokio::sync::OnceCell<Arc<herdr::Conn>>,
     shared: Arc<Shared>,
     /// Where X15's shell integration files are written.
     integration_dir: std::path::PathBuf,
@@ -279,8 +274,8 @@ impl Terminals {
         Ok(Self {
             #[cfg(feature = "test-support")]
             test_input: None,
-            owner_helper: None,
-            remotes: Mutex::new(BTreeMap::new()),
+            core_bin: host::default_core(),
+            core: tokio::sync::OnceCell::new(),
             shared: Arc::new(Shared {
                 bus,
                 clock: recorder::clock(),
@@ -390,9 +385,6 @@ impl Terminals {
     }
 
     async fn close_in(&self, id: &str) -> Result<(), Error> {
-        if self.close_remote(id).await? {
-            return Ok(());
-        }
         let number = parse_terminal_number(id)?;
         let running = {
             let table = self.shared.table()?;
@@ -428,7 +420,6 @@ impl Terminals {
     }
 
     async fn close_owned_by_in(&self, owner: &str) -> Result<(), Error> {
-        let remote_closed = self.close_remote_owned(owner).await?;
         let ids: Vec<u64> = self
             .shared
             .table()?
@@ -446,7 +437,7 @@ impl Terminals {
             self.shared.table()?.remove(number);
             self.shared.changed(*number, Vec::new());
         }
-        if !ids.is_empty() || remote_closed {
+        if !ids.is_empty() {
             self.shared
                 .bus
                 .emit(Actor::daemon(), EventData::TerminalChanged);
@@ -460,18 +451,12 @@ impl Terminals {
     }
 
     async fn resize_in(&self, id: &str, cols: u16, rows: u16) -> Result<(), Error> {
-        if let Some(remote) = self.remote(id)? {
-            return remote.call(
-                "terminal.resize",
-                serde_json::json!({"id":id,"cols":cols,"rows":rows}),
-            );
-        }
         let size = window(cols, rows)?;
         let handle = self.running(id)?;
         let screen = self.screen(id)?;
         let mut state = screen.locked("terminal screen lock")?;
-        let master = handle.master.locked("terminal master lock")?;
-        master.resize(size).map_err(Error::internal)?;
+        // The last active non-observer sets the size, so roundup keeps authority by sending RESIZE.
+        handle.tx.resize(size.cols, size.rows);
         state.cols = cols;
         state.rows = rows;
         if state.snapshot_available
@@ -500,9 +485,6 @@ impl Terminals {
     }
 
     fn snapshot_in(&self, id: &str) -> Result<Snapshot, Error> {
-        if let Some(remote) = self.remote(id)? {
-            return remote.call("terminal.snapshot", serde_json::json!({"id":id}));
-        }
         let screen = self.screen(id)?;
         let mut state = screen.locked("terminal screen lock")?;
         if !state.snapshot_available {
@@ -538,9 +520,6 @@ impl Terminals {
         id: &str,
         max: Option<u32>,
     ) -> Result<contracts::terminal::Screen, Error> {
-        if let Some(remote) = self.remote(id)? {
-            return remote.call("terminal.screen", serde_json::json!({"id":id,"max":max}));
-        }
         let cap = output::cap(max)?;
         let screen = self.screen(id)?;
         let mut state = screen.locked("terminal screen lock")?;
@@ -565,12 +544,6 @@ impl Terminals {
     }
 
     fn read_in(&self, params: &ReadParams) -> Result<contracts::terminal::Read, Error> {
-        if let Some(remote) = self.remote(&params.id)? {
-            return remote.call(
-                "terminal.read",
-                serde_json::to_value(params).map_err(Error::internal)?,
-            );
-        }
         let cap = output::cap(params.max)?;
         let (after, reader) = match (params.after, params.reader.as_deref()) {
             (Some(after), _) => (Some(after), None),
@@ -601,12 +574,6 @@ impl Terminals {
     }
 
     fn search_in(&self, params: &SearchParams) -> Result<contracts::terminal::Search, Error> {
-        if let Some(remote) = self.remote(&params.id)? {
-            return remote.call(
-                "terminal.search",
-                serde_json::to_value(params).map_err(Error::internal)?,
-            );
-        }
         let cap = output::cap(params.max)?;
         let window = self.window(&params.id, params.after.unwrap_or(0))?;
         output::search(&window, &params.pattern, cap)
@@ -629,9 +596,6 @@ impl Terminals {
 
     /// The pid of Terminal `id`'s program, only while it runs (H21).
     pub fn program_pid(&self, id: &str) -> Option<u32> {
-        if let Some(remote) = self.remote(id).ok()? {
-            return remote.info().ok().and_then(|info| info.program_pid);
-        }
         let number = parse_terminal_number(id).ok()?;
         let table = self.shared.table().ok()?;
         table.get(&number).and_then(|entry| entry.pid)
@@ -657,9 +621,6 @@ impl Terminals {
     }
 
     fn subscribe_in(&self, id: &str) -> Result<broadcast::Receiver<Arc<EventData>>, Error> {
-        if let Some(remote) = self.remote(id)? {
-            return remote.subscribe();
-        }
         let number = parse_terminal_number(id)?;
         let table = self.shared.table()?;
         table
@@ -676,9 +637,6 @@ impl Terminals {
     }
 
     fn subscribe_output_in(&self, id: &str) -> Result<OutputStream, Error> {
-        if let Some(remote) = self.remote(id)? {
-            return remote.subscribe_output();
-        }
         let number = parse_terminal_number(id)?;
         let (start, receiver) = {
             let table = self.shared.table()?;
@@ -731,7 +689,6 @@ impl Terminals {
 
     async fn set_scheme_in(&self, params: SchemeParams) -> Result<(), Error> {
         let palette = scheme::Palette::parse(&params)?;
-        self.remote_scheme(&params)?;
         let before = self
             .shared
             .scheme
@@ -757,42 +714,13 @@ impl Terminals {
 
     /// Every Terminal, running or exited, oldest first.
     pub async fn list(&self) -> Vec<TerminalInfo> {
-        let remotes: Vec<_> = self
-            .remotes
-            .locked("remote table")
-            .map(|remotes| remotes.values().cloned().collect())
-            .unwrap_or_else(|err| {
-                eprintln!("terminals not listed: {err}");
-                Vec::new()
-            });
-        let mut asked = tokio::task::JoinSet::new();
-        for remote in remotes {
-            asked.spawn(async move { remote.info_within_deadline().await });
-        }
         let mut infos = Vec::new();
-        while let Some(answer) = asked.join_next().await {
-            infos.extend(answer.ok().and_then(Result::ok));
-        }
         match self.shared.table() {
             Ok(table) => infos.extend(table.values().map(|entry| entry.info.clone())),
             Err(err) => eprintln!("terminals not listed: {err}"),
         }
         infos.sort_by_key(|info| info.id.parse::<u64>().unwrap_or(u64::MAX));
         infos
-    }
-}
-
-/// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
-fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
-    loop {
-        let status = program
-            .locked("terminal program lock")
-            .map_err(std::io::Error::other)?
-            .try_wait()?;
-        match status {
-            Some(status) => return Ok(status),
-            None => std::thread::sleep(REAP_POLL),
-        }
     }
 }
 
