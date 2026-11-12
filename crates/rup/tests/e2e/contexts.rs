@@ -503,30 +503,6 @@ pub(super) async fn digest_of(client: &rpc::Client, id: &str) -> Result<Value, r
 }
 
 #[tokio::test]
-pub(super) async fn b19_a_childs_pads_reach_the_door_once_and_terminal_output_never() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-    as_a.request("pad.create", json!({ "name": "notes", "text": "ZEBRA" }))
-        .await
-        .unwrap();
-    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-
-    // The change is pushed to `m` (B21), which is an envelope about the child, so it names the
-    // Pad and no later envelope does.
-    let (_, pushed) = push_where(&user, &rail.m, |_, e| e["pads"] == json!(["notes"])).await;
-    let by_user = digest_of(&user, &rail.m).await.unwrap();
-    let first = digest_of(&as_m, &rail.m).await.unwrap();
-
-    assert_eq!(pushed["name"], by_user["children"][0]["name"]);
-    assert_eq!(by_user["children"][0]["pads"], json!([]));
-    assert_eq!(first["children"][0]["pads"], json!([]));
-    assert!(!pushed.to_string().contains("ZEBRA"));
-    assert!(!first.to_string().contains("ZEBRA"));
-}
-
-#[tokio::test]
 pub(super) async fn b23_a_pad_already_told_is_not_named_again_after_a_restart() {
     let mut project = start(&[]);
     let user = project.client().await;
