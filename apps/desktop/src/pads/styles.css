@@ -132,19 +132,6 @@
   display: none;
 }
 
-.pad-name {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pad-name .shelf-title {
-  display: block;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .pad-inset .shelf-text {
   position: relative;
 }
@@ -198,24 +185,6 @@
 .visual-drawing:has(.visual-error) {
   height: auto;
   border: 0;
-}
-
-.visual-drawing .excalidraw, .visual-drawing .excalidraw.theme--dark {
-  --color-surface-lowest: var(--ground);
-  --color-surface-low: var(--sunken);
-  --color-primary: var(--accent);
-  --island-bg-color: var(--ground);
-  --default-border-color: var(--hairline);
-  --color-on-surface: var(--text);
-  --font-family: var(--font-ui);
-}
-
-.visual-drawing .excalidraw.theme--dark {
-  --color-surface-mid: var(--ground);
-  --color-surface-high: var(--surface);
-  --overlay-bg-color: var(--scrim);
-  --scrollbar-thumb: var(--grey);
-  --scrollbar-thumb-hover: var(--text);
 }
 
 /* P2544a: the library owns block interactions; the Pad supplies its gutter and ink. */
@@ -341,10 +310,6 @@ li[aria-selected="true"] svg {
   margin: 0 var(--space-2);
   background: var(--hairline);
 }
-
-/* Reserved controls keep the Pad name width stable on focus and selection. */
-.pad-row-head { display: flex; align-items: flex-start; min-width: 0; }
-.pad-row-head .pad-name { flex: 1; }
 
 
 /* Crepe's reset overrides native text selection with its object-selection wash. */

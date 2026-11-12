@@ -24,7 +24,7 @@ export const bundledRenderers: Renderers = {
     };
   },
   canvas: async () => {
-    const [module] = await Promise.all([import("@excalidraw/excalidraw"), import("@excalidraw/excalidraw/index.css")]);
+    const [module] = await Promise.all([import("@excalidraw/excalidraw"), import("@excalidraw/excalidraw/index.css").then(() => import("./excalidraw.css"))]);
 
     return {
       // SAFETY: CanvasProps lists the props this Pad passes, each a subset of what Excalidraw accepts and reports.
