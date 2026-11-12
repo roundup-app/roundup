@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import PadRichEditor from "./PadRichEditor";
 import { openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import { bundledRenderers, useRenderers } from "./visualKinds";
@@ -27,7 +28,7 @@ describe("u149 the canvas loads only when a Drawing is present", () => {
     expect(requested).toBe(0);
   });
 
-  it("u149_inserting_a_drawing_loads_the_module", async () => {
+  it("u149_choosing_drawing_in_the_slash_menu_inserts_one_block_and_loads_the_module", async () => {
     let requested = 0;
 
     useRenderers({
@@ -44,8 +45,8 @@ describe("u149 the canvas loads only when a Drawing is present", () => {
     const field = document.querySelector<HTMLElement>(".ProseMirror")!;
     const paragraph = field.querySelector("p")!;
 
-    paragraph.textContent = "/drawing";
-    getSelection()?.collapse(paragraph.firstChild, 8);
+    paragraph.textContent = "/draw";
+    getSelection()?.collapse(paragraph.firstChild, 5);
     document.dispatchEvent(new Event("selectionchange"));
     // ProseMirror reads the typed text from its mutation observer.
     await new Promise((done) => setTimeout(done, 50));
@@ -55,4 +56,38 @@ describe("u149 the canvas loads only when a Drawing is present", () => {
     await waitFor(() => expect(requested).toBe(1));
     expect(field.querySelector("pre")).not.toBeNull();
   });
+
+  it.each([{ name: "a_todo", item: "todo" as const, readonly: false }, { name: "a_read_only_pad", item: "pad" as const, readonly: true }])(
+    "u149_$name_offers_no_drawing_insert",
+    async ({ item, readonly }) => {
+      let requested = 0;
+
+      useRenderers({
+        ...bundledRenderers,
+        canvas: async () => {
+          requested += 1;
+          throw new Error("The canvas was requested");
+        },
+      });
+      const noop = () => {};
+
+      const onReady = vi.fn();
+
+      render(() => <PadRichEditor item={item} text="" readonly={readonly} onChange={noop} onText={noop} onBlur={noop} onReady={onReady} />);
+      await waitFor(() => expect(onReady).toHaveBeenCalled());
+
+      const field = document.querySelector<HTMLElement>(".ProseMirror")!;
+      const paragraph = field.querySelector("p")!;
+
+      paragraph.textContent = "/draw";
+      getSelection()?.collapse(paragraph.firstChild, 5);
+      document.dispatchEvent(new Event("selectionchange"));
+      await new Promise((done) => setTimeout(done, 50));
+      fireEvent.keyDown(field, { key: "Enter" });
+      await new Promise((done) => setTimeout(done, 50));
+
+      expect(field.querySelector("pre")).toBeNull();
+      expect(requested).toBe(0);
+    },
+  );
 });

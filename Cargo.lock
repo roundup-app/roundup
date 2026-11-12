@@ -105,6 +105,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
+name = "alphanumeric-sort"
+version = "1.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a97de3ad85c4425a2c267a5e91adbe49f9f14e650bd9c78e96b6bc00e5f6673a"
+
+[[package]]
 name = "ambient-authority"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3340,6 +3346,7 @@ checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
 name = "pads"
 version = "0.0.0"
 dependencies = [
+ "alphanumeric-sort",
  "async-trait",
  "caseless",
  "contracts",

@@ -1,0 +1,18 @@
+/* Overrides @excalidraw/excalidraw/index.css, which loads with the drawing. */
+.visual-drawing .excalidraw, .visual-drawing .excalidraw.theme--dark {
+  --color-surface-lowest: var(--ground);
+  --color-surface-low: var(--sunken);
+  --color-primary: var(--accent);
+  --island-bg-color: var(--ground);
+  --default-border-color: var(--hairline);
+  --color-on-surface: var(--text);
+  --font-family: var(--font-ui);
+}
+
+.visual-drawing .excalidraw.theme--dark {
+  --color-surface-mid: var(--ground);
+  --color-surface-high: var(--surface);
+  --overlay-bg-color: var(--scrim);
+  --scrollbar-thumb: var(--grey);
+  --scrollbar-thumb-hover: var(--text);
+}
