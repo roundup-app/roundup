@@ -23,6 +23,7 @@ pub use placement::Call as PlacementCall;
 pub mod plugins;
 pub mod skill_setup;
 mod skills;
+mod status_label;
 mod vendor_list;
 
 use contracts::agent::FinalTextKind;
@@ -40,6 +41,8 @@ pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
 pub use skills::{BANNED, skills};
+use status_label::hook_status;
+pub use status_label::transient_cause;
 pub use vendor_list::{Listed, Listing, Live};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process
@@ -122,6 +125,9 @@ pub struct ClaudeCode {
     /// A new turn without UserPromptSubmit must not inherit an earlier completion.
     /// Native permission resumption continues the same authoritative turn.
     prompt_id: Option<Box<str>>,
+    /// U6909a: a `UserPromptSubmit` or tool Signal opened a turn since the last `Stop`,
+    /// `StopFailure` or session start. A `StopFailure` outside one ended no turn of the Agent's work.
+    prompted: bool,
     /// DCL3: work still running after the foreground turn.
     background: Box<background::Background>,
     /// DCL5: compactions the vendor reported finished, and the last one's payload, so a replay of
@@ -150,6 +156,7 @@ impl ClaudeCode {
             hooked: true,
             final_text: FinalTextKind::Unknown,
             prompt_id: None,
+            prompted: false,
             background: Box::default(),
             compactions: 0,
             last_compaction: None,
@@ -337,6 +344,14 @@ impl ClaudeCode {
             if self.final_text != FinalTextKind::Present {
                 self.final_text = next;
             }
+        }
+        match event {
+            Some("UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PostToolUseFailure") => {
+                self.prompted = true;
+            }
+            Some("SessionStart" | "Stop") => self.prompted = false,
+            Some("StopFailure") if !std::mem::take(&mut self.prompted) => return None,
+            _ => {}
         }
         let (mut kind, mut label) = hook_status(payload)?;
         if event == Some("Stop") {
@@ -716,138 +731,6 @@ pub(super) fn is_uuid(id: &str) -> bool {
             .all(|(i, b)| matches!(i, 8 | 13 | 18 | 23) || b.is_ascii_hexdigit())
 }
 
-/// What one hook payload says about the Agent. `None` for events that say nothing: the late
-/// permission Notification, the spurious `SubagentStop` and display noise; an unknown event also
-/// goes to stderr.
-fn hook_status(payload: &Value) -> Option<(Kind, String)> {
-    let text = |field: &str| payload[field].as_str().map(str::to_owned);
-    // Only the event name is logged: the rest of a payload carries prompts and tool input.
-    let Some(event) = payload["hook_event_name"].as_str() else {
-        eprintln!("agents: ignoring a hook payload with no event name");
-        return None;
-    };
-    match event {
-        "SessionStart" | "Stop" => Some((Kind::Idle, "idle".into())),
-        "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
-            Some((Kind::Working, "working".into()))
-        }
-        "PermissionRequest" => Some((Kind::NeedsYou, permission_label(payload))),
-        "StopFailure" => Some((Kind::Error, failure_label(payload["error"].as_str()))),
-        "SessionEnd" => Some((Kind::Done, session_end_label(text("reason").as_deref()))),
-        "Notification" | "SubagentStart" | "SubagentStop" | "MessageDisplay" | "PostToolBatch" => {
-            None
-        }
-        other => {
-            eprintln!("agents: ignoring an unrecognised hook event {other}");
-            None
-        }
-    }
-}
-
-/// U5151d: what a `SessionEnd` reason means to the owner. An unrecognised reason is kept
-/// verbatim; a missing or empty one reads as plain `done`.
-fn session_end_label(reason: Option<&str>) -> String {
-    match reason.map(str::trim).unwrap_or_default() {
-        "" | "other" => "done".into(),
-        "clear" => "Session cleared; send a message to start again".into(),
-        "resume" => "Session replaced by a resumed one".into(),
-        "logout" => "Claude signed out; sign in from its Terminal, then send a message".into(),
-        "prompt_input_exit" => {
-            "Claude was exited from its prompt; send a message to restart it".into()
-        }
-        "bypass_permissions_disabled" => {
-            "Claude ended because bypassing permissions is disabled; check its settings, then retry"
-                .into()
-        }
-        other => format!("Session ended: {other}"),
-    }
-}
-
-/// U5151b: the cause and next step for a `StopFailure` code. An unrecognised code is kept
-/// verbatim; a missing or empty one says Claude gave no reason. The next turn's status replaces
-/// the failure mark (U5151c).
-fn failure_label(code: Option<&str>) -> String {
-    let (cause, next) = match code.map(str::trim).unwrap_or_default() {
-        "rate_limit" => (
-            "Claude's request limit was reached",
-            "wait, then send a message to retry",
-        ),
-        "overloaded" => ("Claude is overloaded", "wait, then send a message to retry"),
-        "authentication_failed" => (
-            "Claude could not sign in",
-            "open its Terminal, sign in, then retry",
-        ),
-        "oauth_org_not_allowed" => (
-            "This login cannot use the organization",
-            "check Claude's organization and login, then retry",
-        ),
-        "account_on_hold" => (
-            "The account is on hold",
-            "resolve its account restriction, then retry",
-        ),
-        "billing_error" => (
-            "Claude refused the account's billing",
-            "resolve billing in the provider account, then retry",
-        ),
-        "invalid_request" => (
-            "Claude rejected the request",
-            "check the Terminal details and revise the request before retrying",
-        ),
-        "model_not_found" => (
-            "The chosen Model is unavailable",
-            "choose an available Model, then retry",
-        ),
-        "server_error" => (
-            "Claude's servers failed",
-            "send the Agent a message to retry",
-        ),
-        "max_output_tokens" => (
-            "Claude reached its response limit",
-            "send a message asking it to continue in smaller steps",
-        ),
-        "cloud_credential_error" => (
-            "Cloud credentials could not load",
-            "repair the configured credentials, then retry",
-        ),
-        "unknown" => (
-            "Claude failed without a classified cause",
-            "inspect its Terminal, then retry",
-        ),
-        "" => (
-            "Claude ended the turn without a reason",
-            "inspect its Terminal, then retry",
-        ),
-        other => {
-            return format!("Claude failed with {other}; inspect its Terminal, then retry.");
-        }
-    };
-    format!("{cause}; {next}.")
-}
-
-/// U6248b: the cause of a `StopFailure` label that waiting can heal (`overloaded`, `rate_limit`,
-/// `server_error`); `None` for every other label.
-pub fn transient_cause(label: &str) -> Option<&'static str> {
-    [
-        "Claude's request limit was reached",
-        "Claude is overloaded",
-        "Claude's servers failed",
-    ]
-    .into_iter()
-    .find(|cause| label.starts_with(cause))
-}
-
-/// The question being asked; else the tool name, with its command when it has one.
-fn permission_label(payload: &Value) -> String {
-    let text = |pointer: &str| payload.pointer(pointer).and_then(Value::as_str);
-    let tool = text("/tool_name").unwrap_or("tool");
-    let question = text("/tool_input/questions/0/question");
-    match (question, text("/tool_input/command")) {
-        (Some(question), _) => question.to_owned(),
-        (None, Some(command)) => format!("{tool}: {command}"),
-        (None, None) => tool.to_owned(),
-    }
-}
-
 /// LC13: the last recorded usage is the live context, including both cache token counts.
 /// An absent path or usage gives no measurement; an unreadable named file is an error.
 pub fn context_tokens(payload: &Value) -> Result<Option<u64>, rpc::RpcError> {
@@ -918,6 +801,41 @@ mod tests {
         fn title(&mut self, ms: i64, title: &str) -> Option<Kind> {
             self.at(ms, Observation::Title(title.into()))
         }
+    }
+
+    fn failure(a: &mut Clocked, ms: i64) -> Option<Status> {
+        a.now.store(ms, Ordering::SeqCst);
+        let payload = json!({"hook_event_name": "StopFailure", "error": "authentication_failed"});
+        a.adapter.observe(Observation::Signal(payload)).changed
+    }
+
+    #[test]
+    fn u6909a_a_failure_with_no_prompted_turn_shows_nowhere() {
+        let mut a = Clocked::new();
+        a.signal(0, "SessionStart");
+        a.title(100, "◐ Claude Code");
+        a.title(300, "✳ Claude Code");
+        assert_eq!(failure(&mut a, 400), None);
+        assert_eq!(a.adapter.status().map(|s| s.kind), Some(Kind::Idle));
+    }
+
+    #[test]
+    fn u6909a_a_failure_that_ends_a_prompted_turn_still_shows() {
+        let mut a = Clocked::new();
+        a.signal(0, "UserPromptSubmit");
+        let status = failure(&mut a, 100).unwrap();
+        assert_eq!(status.kind, Kind::Error);
+        assert!(
+            status.label.contains("could not sign in"),
+            "{}",
+            status.label
+        );
+
+        let mut b = Clocked::new();
+        b.signal(0, "SessionStart");
+        assert_eq!(failure(&mut b, 100), None);
+        b.signal(200, "UserPromptSubmit");
+        assert_eq!(failure(&mut b, 300).unwrap().kind, Kind::Error);
     }
 
     #[test]
