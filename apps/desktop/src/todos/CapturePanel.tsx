@@ -1,6 +1,5 @@
-import { createSignal, onCleanup, For } from "solid-js";
+import { createSignal, onCleanup, untrack, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
-import { retryRead } from "../app/seam";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import "./capture.styles.css";
@@ -13,15 +12,13 @@ export const CapturePanel = (props: { port: CapturePort }) => {
   const [failure, setFailure] = createSignal<string | null>(null);
   let sequence = 0;
   let input: HTMLTextAreaElement | undefined;
-  let stopped = false;
-  let release: (() => void) | undefined;
 
   const send: CapturePort["act"] = async action => {
     try { await props.port.act(action); setFailure(null); }
     catch (error) { setFailure(String(error)); }
   };
 
-  void retryRead(() => props.port.onState(snapshot => {
+  onCleanup(untrack(() => props.port.onState(snapshot => {
     if (snapshot.session !== state()?.session) sequence = 0;
 
     if (snapshot.sequence >= sequence) setText(snapshot.text);
@@ -29,17 +26,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     document.documentElement.dataset.mode = snapshot.mode;
     document.documentElement.style.colorScheme = snapshot.mode;
     input?.focus({ preventScroll: true });
-  })).then(stop => {
-    if (stopped) {
-      stop();
-
-      return;
-    }
-
-    release = stop;
-    void send({ kind: "ready" });
-  }).catch(error => console.warn(copy.captureOff(String(error))));
-  onCleanup(() => { stopped = true; release?.(); });
+  }, () => untrack(() => void send({ kind: "ready" })))));
 
   const file = (keepOpen: boolean) => {
     const current = state();

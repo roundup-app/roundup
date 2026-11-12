@@ -27,7 +27,7 @@ impl Shared {
         apply: impl FnOnce(&rusqlite::Transaction, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let _lifecycle = self.door_lifecycle.write().await;
-        let door = self.rail().node(id)?;
+        let door = self.rail().node(crate::rail::agent_id(id)?)?;
         if scope == RemoveScope::This
             && let Some(worktree) = &door.worktree
         {
@@ -169,7 +169,7 @@ impl Shared {
                     }
                 }
                 let result = rail.remove_workstream(
-                    &id_owned,
+                    crate::rail::agent_id(&id_owned)?,
                     &mut removal,
                     None,
                     |db, removal| -> Result<_, RpcError> {
@@ -392,7 +392,7 @@ impl Agents {
                 }
             }
             drop(runs);
-            let out=rail.remove_workstream(&id,&mut removal,Some((&actor,&operation)),apply)?;
+            let out=rail.remove_workstream(crate::rail::agent_id(&id)?,&mut removal,Some((&actor,&operation)),apply)?;
             let result=(removal,out);
             // Ended run facts stay in their existing holder so undo recovers their Status.
             // They own no live process, and cannot be addressed while their Rail row is absent.

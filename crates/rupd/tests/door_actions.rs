@@ -1,4 +1,10 @@
 //! B3563d: a Door's action on a child finishes or fails in the call; nothing is stored for later.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/child_run.rs"]
 mod child_run;
 #[path = "support/door_terminals.rs"]

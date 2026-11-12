@@ -1,5 +1,11 @@
 //! One test binary for scenarios/terminal.md (one binary so shared helpers are never dead code).
 //! Each module groups the tests of related scenario ids.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 mod catch_up;
 mod common;

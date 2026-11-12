@@ -436,11 +436,21 @@ impl Seen {
                     .told
                     .get(&key)
                     .is_none_or(|was| was.entry.kind != now.entry.kind);
-                let pushed = if ends {
+                let mut pushed = if ends {
                     self::entry(child, &meta.id, from, after, true).0
                 } else {
                     entry
                 };
+                // DTC5: the Door already holds the summary as the child's own Message.
+                let repeats = ends && repeats_report(child, &meta.id, from, &pushed);
+                if repeats {
+                    pushed.last = cut(&child_label(child), LAST_BYTES);
+                }
+                let nothing_else = repeats
+                    && pushed.todos == 0
+                    && pushed.pads.is_empty()
+                    && child.status.as_ref().is_some_and(|s| s.kind != Kind::Error);
+                let repeated = repeated || nothing_else;
                 let before = (after, book.told.get(&key).cloned());
                 // DCL10a: a refused write leaves the change untold, to be offered again.
                 let waking = ends && is_end(child);
@@ -637,6 +647,30 @@ fn newest_pad(child: &RailNode, from: &Projection) -> i64 {
     from.written(child)
         .last()
         .map_or(i64::MIN, |&(_, pad)| from.pad_time(pad))
+}
+
+/// DTC5: whether the end note of `child` would carry, as its summary, the whole body of a Message
+/// the child sent `meta` that the Door was not refused (`dropped`): the same text twice.
+fn repeats_report(child: &RailNode, meta: &str, from: &Projection, pushed: &DigestEntry) -> bool {
+    if !is_end(child) {
+        return false;
+    }
+    from.ids
+        .get(child.id.as_str())
+        .and_then(|&index| from.messages.get(&(index, meta)))
+        .and_then(|&(_, index)| from.message_text.get(index))
+        .is_some_and(|message| {
+            message.status != contracts::message::MessageStatus::Dropped
+                && message.body == pushed.last
+        })
+}
+
+/// B19's fallback `last` for `child`: its Status label.
+fn child_label(child: &RailNode) -> String {
+    child
+        .status
+        .as_ref()
+        .map_or_else(String::new, |status| status.label.clone())
 }
 
 /// An Agent, or a Workstream whose Door has run.

@@ -180,7 +180,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   const native = row === CAPTURE_ROW ? {
     configure: async () => {}, show: nativeReply.handler, dismiss: async () => {},
     publish: async (state: import("../app/seam").CaptureState) => { states.push(state); }, act: async () => {},
-    onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
+    onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {},
   } : undefined;
 
   const [daemonExit, setDaemonExit] = createSignal<{ code: number | null } | null>(null);

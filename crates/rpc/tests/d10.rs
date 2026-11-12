@@ -1,4 +1,10 @@
 //! D10: an Event the log refuses reaches no subscriber, so every Event a subscriber sees is numbered.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::sync::Arc;
 

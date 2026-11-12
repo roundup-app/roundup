@@ -118,9 +118,7 @@
   container-type: inline-size;
   display: flex;
   min-width: 0;
-  /* The quick-icon slot and a --space-3 gap stay clear, so hover and selection never paint an action over the age. */
-  margin-inline-end: var(--rail-slot);
-  padding-inline-end: var(--space-3);
+  margin-inline-end: 0;
   overflow: hidden;
   white-space: nowrap;
   color: var(--grey);
@@ -129,15 +127,21 @@
 }
 
 .rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+/* At rest the status runs to the row's tail; the quick-icon takes its slot and a --space-3 gap only on hover, focus or selection, and the label gives way to it. */
+.rail-row:is(:hover, :focus-within, [data-selected="true"]) .row-status {
+  margin-inline-end: var(--rail-slot);
+  padding-inline-end: var(--space-3);
+}
 /* pre keeps the separator's leading space, which a flex item would collapse. */
 .rail-row .row-status-age { flex: none; white-space: pre; }
-/* The name keeps its content width up to 70% of the row; the status takes all the shrink, so only the label is cut. */
-.rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 70%; }
+/* The name keeps its content width up to 60% of the row; the status takes all the shrink, so only the label is cut. */
+.rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 60%; }
 /* The label gives way first; the age stays until it no longer fits, then the row stays at the name. */
 @container (max-width: 8ch) { .row-status-label { display: none; } }
 @container (max-width: 4ch) { .row-status-age { display: none; } }
 
-[data-part="branch-control"].rail-row .name {
+[data-part="branch-control"].rail-row .name,
+.rail-row[data-mode] .name {
   font-weight: 600;
 }
 
@@ -681,7 +685,7 @@
 .rail-fold,
 .rail-leaf { --tree-mid: var(--elbow-y); }
 
-.opening-prompt-field [data-part="textarea"] {
+.mode-prompt-field [data-part="textarea"] {
   overscroll-behavior: contain;
   white-space: pre-wrap;
   overflow: auto;
@@ -689,21 +693,21 @@
   min-height: calc(var(--space-6) * 5);
 }
 
-.opening-prompt-dialog { width: calc(var(--dialog-min-width) + var(--space-6) * 3); }
-.opening-prompt-dialog [data-part="title"] {
+.mode-prompt-dialog { width: calc(var(--dialog-min-width) + var(--space-6) * 3); }
+.mode-prompt-dialog [data-part="title"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.opening-prompt-dialog .opening-prompt-field { gap: var(--space-2); }
-.opening-prompt-dialog .app-dialog-actions { align-items: center; }
-.opening-prompt-dialog .reserved-line {
+.mode-prompt-dialog .mode-prompt-field { gap: var(--space-2); }
+.mode-prompt-dialog .app-dialog-actions { align-items: center; }
+.mode-prompt-dialog .reserved-line {
   block-size: auto;
   max-block-size: none;
 }
-.opening-prompt-dialog .reserved-content { align-items: baseline; }
-.opening-prompt-dialog .ink[role="alert"],
-.opening-prompt-dialog .reserved-status {
+.mode-prompt-dialog .reserved-content { align-items: baseline; }
+.mode-prompt-dialog .ink[role="alert"],
+.mode-prompt-dialog .reserved-status {
   white-space: normal;
   overflow-wrap: anywhere;
   text-overflow: clip;
@@ -725,7 +729,7 @@
 .rail .section-head[data-part="branch-control"] { color: var(--grey); }
 .rail .section-head:is(:hover, :focus-visible) { color: var(--text); }
 
-.opening-prompt-dialog form {
+.mode-prompt-dialog form {
   display: grid;
   gap: var(--space-4);
 }

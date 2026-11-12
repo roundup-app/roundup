@@ -101,7 +101,7 @@ button:hover:not([aria-disabled="true"]),
 :is(button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="treeitem"])[data-pressed="true"]:not(input, :disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
   color: var(--ink-pressed);
   opacity: var(--press-opacity);
-  transition: none;
+  transition: scale var(--duration-press) var(--easing-out);
 }
 
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */

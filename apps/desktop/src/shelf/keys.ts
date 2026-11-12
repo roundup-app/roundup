@@ -5,6 +5,8 @@ import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import type { ActivationSource, KeyScope } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
+import { createBenchRotation } from "./rotation";
+import type { ConnectedProject } from "../state/connectedProject";
 
 export const shelfKeyScope: KeyScope = { kind: "region", element: () => document.querySelector<HTMLElement>(".shelf") ?? undefined };
 
@@ -38,7 +40,7 @@ export const shelfRowKeys = <Id,>(props: {
 };
 
 /** U370: leader `S` toggles, `esc` from inside; focus goes to the open tab on opening and back to where it was on closing. */
-export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement | null }) => {
+export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement | null; connection?: () => ConnectedProject | Error | undefined }) => {
   let returnTo: HTMLElement | null = null;
   const tablist = () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined;
   const selectedTab = () => tablist()?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
@@ -123,6 +125,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     toggle,
     moveFocus,
     stop,
+    ...createBenchRotation({ ...props, toggle }),
   };
 };
 

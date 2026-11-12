@@ -7,13 +7,23 @@ Scope: the lint recipes, their tool configuration and behavioral fixtures. Sourc
 | Boundary | Required result | Observer |
 | --- | --- | --- |
 | Import cycles | `lint-web` rejects cycles within `apps/desktop/src`, including `import type`, type re-exports, self-imports and mixed value/type edges, using the desktop tsconfig and both `.ts` and `.tsx`. An acyclic graph passes. Break all five baseline cycles before implementation completion; its final cycle allowlist is empty. | `t3797a_cycles_include_types` |
-| Rust dependencies | `lint-rust` runs `cargo deny check` alongside machete. Unapproved SPDX licences, RustSec advisories and additional crate versions fail. Configure `multiple-versions = "deny"`; each permitted duplicate is an exact crate/version entry with its dependency-chain reason. No crate-wide version wildcard or subtree exemption. Check the workspace graph across supported platforms, including macOS; Linux's active graph alone is insufficient. | `t3797a_dependency_policy` |
+| Rust dependencies | `lint-rust` runs `cargo deny check` alongside machete. Unapproved SPDX licences, RustSec advisories and additional crate versions fail. Configure `multiple-versions = "deny"`; each permitted duplicate is an exact crate/version entry with its dependency-chain reason. No crate-wide version wildcard or subtree exemption. Check the workspace graph across supported platforms, including macOS; Linux's active graph alone is insufficient. An advisory row (`rule` is a RUSTSEC id) follows the next table, since the advisory database moves under an unchanged `Cargo.lock`; duplicate and licence rows and the refusal of PR-added debt rows stay as stated. | `t3797a_dependency_policy` |
 | File size | A new hand-written tracked file with 1001 newline characters fails; 1000 passes. Scan every tracked file, irrespective of extension, without requiring staged changes or installed hooks. Use exactly the generated/binary/vendored/lockfile exemption predicate of Check 3, applied to the checked revision. An existing oversized file may stay at its recorded ceiling or shrink, but cannot grow. | `t3797a_size_cap` |
 | Sleep polling | ast-grep rejects a Rust `loop`, `while` or `for` containing a call to `sleep` or `sleep_until`, including qualified calls and `.await`. A sleep outside a loop passes. Scan tracked `.rs` files outside generated/vendor paths; tests are included. This is a syntactic telltale, not an interprocedural proof. | `t3797a_sleep_polling` |
 | DOM cloning | ast-grep rejects member calls named `cloneNode` in tracked `.ts`/`.tsx` outside generated/vendor paths, with or without arguments. Comments mentioning it and calls to other methods pass. | `t3797a_dom_cloning` |
 | Style overrides | ast-grep rejects a CSS declaration containing `!important` inside a TypeScript/TSX string or template literal, including multiline templates and JSX style values. Ordinary prose and comments pass. Existing standalone CSS stylelint enforcement stays. | `t3797a_style_overrides` |
 | Spelling | `typos` checks repository text with its normal ignore/binary handling. A new misspelling such as `teh` fails, including a new occurrence of a word already present in the baseline. Correct text passes. Do not globally whitelist existing misspelled words or exclude a whole source directory to absorb its violations. | `t3797a_spelling` |
 | Loop Python | `ruff check` covers `loop/` with explicit `E4,E7,E9,F` selection, including test files. A new unused import fails even in a file already containing a baselined diagnostic; clean Python passes. No frozen loop file edit is needed to establish its baseline. | `t3797a_python` |
+
+Advisory rows of the Rust dependencies row, observed by one `test_t3797a_dependency_advisory_<case>` per row in `tools/lint/scan_test.py`:
+
+| Run | `Cargo.lock` vs merge base | Advisory | Lint exit |
+| --- | --- | --- | --- |
+| `main` (HEAD is the merge base) | same | no debt row | 1 |
+| PR | same | new match, or a debt row no longer matched | 0, printed |
+| PR | differs | matched on the merge base graph (same id, crate, version) | 0 |
+| PR | differs | on a crate version the merge base lacks | 1 |
+| PR | any | the PR adds an advisory debt row | 1 |
 
 Each ast-grep rule has positive and negative fixtures; style fixtures distinguish a CSS declaration from prose, and sleep fixtures include qualified asynchronous and synchronous calls. Fixtures demonstrate the rule on a newly introduced occurrence beside an existing allowed one (policy).
 

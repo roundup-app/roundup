@@ -1,5 +1,11 @@
 //! MC4: an unreachable machine layer fails loud, against a fake core replaying the spike's
 //! recorded frames (`spikes/herdr-core-client/raw/q1.txt`: hello, error shape, refusal).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::time::Duration;
 
 use herdr::{Conn, Error};

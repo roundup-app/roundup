@@ -1,4 +1,10 @@
 //! N7: real test launches own data and leave seeded App data untouched.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 

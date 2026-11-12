@@ -46,7 +46,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("g");
 
-    expect(app.menuLabels()).toEqual([copy.startDoor, copy.openFolder, copy.openInEditor, copy.alerts, copy.openingPromptMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.startDoor, copy.openFolder, copy.openInEditor, copy.alerts, copy.addMenu, copy.remove]);
 
   });
 
@@ -81,7 +81,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual([copy.workProgress, ...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.alerts, copy.openingPromptMenu, copy.addMenu, copy.remove]);
+    expect(app.menuLabels()).toEqual([copy.workProgress, ...(!running ? [copy.startDoor] : []), ...actions, copy.openFolder, copy.openInEditor, copy.copyLink, copy.rename, copy.alerts, copy.addMenu, copy.remove]);
   });
 
   it("u4322a_inapplicable_actions_are_absent", async () => {
@@ -391,7 +391,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 it.each([
   {
     name: "Workstream row",
-    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["alerts", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["alerts", "5"], ["add", "6"], ["remove", "7"]],
     receivers: ["a"],
     mount: async () => {
       const { app } = await mountRail([door("w", "idle", "ready"), agent("a", "idle", "ready")]);
@@ -411,7 +411,7 @@ it.each([
   },
   {
     name: "Queued Workstream row",
-    expected: [["start-now", "1"], ["dequeue", "1"], ["move-up", "1"], ["move-down", "1"], ["folder", "4"], ["editor", "4"], ["alerts", "5"], ["opening-prompt", "5"], ["add", "6"], ["remove", "7"]],
+    expected: [["start-now", "1"], ["dequeue", "1"], ["move-up", "1"], ["move-down", "1"], ["folder", "4"], ["editor", "4"], ["alerts", "5"], ["add", "6"], ["remove", "7"]],
     receivers: [],
     mount: async () => {
       const { app, connected } = await mountRail([workstream("first"), workstream("middle", { order: 1 }), workstream("last", { order: 2 })]);

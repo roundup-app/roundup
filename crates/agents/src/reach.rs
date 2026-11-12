@@ -54,7 +54,7 @@ impl Shared {
         id: &str,
         itself: bool,
     ) -> Result<(), RpcError> {
-        self.rail().node(id)?;
+        self.rail().node(crate::rail::agent_id(id)?)?;
         if actor.kind != contracts::ActorKind::Agent || (itself && actor.id == id) {
             return Ok(());
         }
@@ -64,8 +64,8 @@ impl Shared {
         let rail = self.rail();
         Err(RpcError::forbidden(format!(
             "{} is not in the Reach of {}",
-            rail.name(id)?,
-            rail.name(&actor.id)?
+            rail.name_or_gone(id)?,
+            rail.name_or_gone(&actor.id)?
         )))
     }
 
@@ -82,7 +82,7 @@ impl Shared {
         if actor.kind != contracts::ActorKind::Agent {
             return Ok(());
         }
-        let name = self.rail().name(&actor.id)?;
+        let name = self.rail().name_or_gone(&actor.id)?;
         let forbidden = || {
             RpcError::forbidden(format!(
                 "terminal {terminal} is forbidden to {0}: not started by {0} or in its Reach",
@@ -149,7 +149,7 @@ impl Shared {
         if to == actor.id {
             return Err(RpcError::forbidden(format!(
                 "{} may not set a Route to itself",
-                self.rail().name(&actor.id)?
+                self.rail().name_or_gone(&actor.id)?
             )));
         }
         let reach = self.reach(&actor.id)?;
@@ -158,8 +158,8 @@ impl Shared {
                 let rail = self.rail();
                 return Err(RpcError::forbidden(format!(
                     "{} is neither {} nor in its Reach",
-                    rail.name(node)?,
-                    rail.name(&actor.id)?
+                    rail.name_or_gone(node)?,
+                    rail.name_or_gone(&actor.id)?
                 )));
             }
         }
@@ -198,7 +198,10 @@ impl crate::Agents {
             })
         };
         if let Some(agent) = waiting {
-            let name = self.shared.rail().name(&agent.to_string())?;
+            let name = self
+                .shared
+                .rail()
+                .name(crate::rail::agent_id(&agent.to_string())?)?;
             return Err(RpcError::forbidden(format!(
                 "{name} waits on the user in its Terminal"
             )));

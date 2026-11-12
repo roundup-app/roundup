@@ -1,4 +1,10 @@
 //! S2297a (`scenarios/app.md`): the webview renders at the display's rate.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[cfg(target_vendor = "apple")]
 mod capture_panel;

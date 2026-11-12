@@ -40,9 +40,14 @@ it("u6640a_a_rail_row_holds_its_status_and_its_mark_has_no_tooltip", async () =>
 it("u6640b_a_long_status_is_one_cut_line", async () => {
   const label = "Which of the three migration strategies should I take for the payments tables? ".repeat(3).trim();
 
+  vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(400);
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);
   await mountRail([agent("a", "needs-you", label, { name: "alpha", status: { kind: "needs-you", label, ...since() } })]);
-  const status = find(".rail-row[data-id='a'] .row-status");
+  const row = find(".rail-row[data-id='a']");
+  const status = find(".row-status", row);
 
-  expect(status.textContent).toContain(label);
+  expect(find(".row-status-label", status).textContent).toBe(label);
+  expect(status.hasAttribute("data-cut")).toBe(true);
   expect(status.hasAttribute("title")).toBe(false);
+  expect(find(".row-state [role=img]", row).getAttribute("aria-label")).toBe(copy.needsYouGlyph);
 });

@@ -1,4 +1,10 @@
 //! A15: a clean environment for every program the Daemon starts.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 #[path = "common/served.rs"]
 mod common;

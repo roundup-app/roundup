@@ -349,8 +349,8 @@ async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
     for (index, event) in [
         "UserPromptSubmit",
         "Stop",
-        "StopFailure",
         "UserPromptSubmit",
+        "StopFailure",
     ]
     .iter()
     .enumerate()
@@ -788,7 +788,10 @@ async fn u5531c_native_attention_promotes_durably() {
                 ),
             )
             .unwrap();
-        shared.rail().set_visibility(&id, Internal).unwrap();
+        shared
+            .rail()
+            .set_visibility(crate::rail::agent_id(&id).unwrap(), Internal)
+            .unwrap();
         shared
             .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
             .unwrap();
@@ -811,7 +814,10 @@ async fn u5531c_native_attention_promotes_durably() {
             if promoted { Shown } else { Internal }
         );
     }
-    shared.rail().set_visibility(&id, Internal).unwrap();
+    shared
+        .rail()
+        .set_visibility(crate::rail::agent_id(&id).unwrap(), Internal)
+        .unwrap();
     shared
         .observe(
             Actor::daemon(),

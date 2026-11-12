@@ -43,7 +43,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
 
   if (native) app.capture = {
     configure: async () => {}, show: nativeShow, dismiss: async () => {}, publish: async () => {}, act: async () => {},
-    onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
+    onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {},
   };
   const nodes = [workstream("home"), agent("a1", "idle", "ready", { parent: "home" })];
   const shells = [info("existing", { owner: "home", title: "existing" })];
@@ -157,9 +157,11 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   target.focus();
   expect(document.activeElement).toBe(target);
   const selected = fixture?.connected().rail.selected();
-  const shelfBefore = document.querySelector(".window")?.getAttribute("data-shelf");
+  const benchState = () => ["data-shelf", "data-shelf-maximised"].map(name => document.querySelector(".window")?.getAttribute(name)).join();
+  const shelfBefore = benchState();
   const original = fixture?.connected().drafts.list().find(record => record.destination.surface === "ask" && record.value.text === draft);
   const received = vi.fn();
+  // listener-owner: the test spies on what reaches the target; the App removes it with the render.
   target.addEventListener("keydown", received);
 
   const event = chord === "help" ? press("Slash", { key: "?", shiftKey: true })
@@ -224,7 +226,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     expect(document.activeElement).toBe(target);
     press("KeyB");
     expect(leaderArmed()).toBe(false);
-    expect(document.querySelector(".window")?.getAttribute("data-shelf")).not.toBe(shelfBefore);
+    expect(benchState()).not.toBe(shelfBefore);
   } else await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Ask", { selector: '[role="textbox"]' })));
 
   if (!first && !excludedHelp) expect(event.defaultPrevented).toBe(true);

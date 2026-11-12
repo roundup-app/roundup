@@ -28,7 +28,7 @@ impl Agents {
         let Some(owner) = self.shared.terminals.terminal_owner(terminal_id)? else {
             return Ok(());
         };
-        let Some(attempt) = self.shared.rail().node(id)?.attempt else {
+        let Some(attempt) = self.shared.rail().node(crate::rail::agent_id(id)?)?.attempt else {
             return Ok(());
         };
         let file = self.shared.owner_file(id);
@@ -46,6 +46,18 @@ impl Agents {
             .ok_or_else(|| RpcError::internal("owners file has no directory"))?;
         std::fs::create_dir_all(dir).map_err(RpcError::internal)?;
         std::fs::write(file, body).map_err(RpcError::internal)
+    }
+
+    /// Stop the owner an earlier record names for Agent `id` before a new process starts for it,
+    /// so the record this start overwrites never hides a live second copy. A gone, replaced or
+    /// foreign owner fails verification and is left alone.
+    pub(super) async fn stop_recorded_owner(&self, id: &str) {
+        let stored = std::fs::read(self.shared.owner_file(id))
+            .ok()
+            .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
+        if let Some(stored) = stored {
+            self.shared.terminals.stop_owner(&stored.owner).await;
+        }
     }
 
     /// Attach every saved owner whose Agent, Attempt, incarnation and program still match, and
@@ -71,7 +83,16 @@ impl Agents {
                 .ok()
                 .and_then(|body| serde_json::from_slice::<Stored>(&body).ok());
             let attached = match stored {
-                Some(stored) => self.reattach(&id, stored).await,
+                Some(stored) => {
+                    let owner = stored.owner.clone();
+                    let attached = self.reattach(&id, stored).await;
+                    if !attached {
+                        // A12a: an owner nothing adopts is stopped, never left running beside
+                        // the new process a resume starts for the same Agent.
+                        self.shared.terminals.stop_owner(&owner).await;
+                    }
+                    attached
+                }
                 None => false,
             };
             if attached {
@@ -107,7 +128,7 @@ impl Agents {
         let (node, conversation) = {
             let rail = self.shared.rail();
             match (
-                rail.node(id),
+                crate::rail::agent_id(id).and_then(|id| rail.node(id)),
                 crate::rail::agent_id(id).and_then(|id| rail.conversation(id)),
             ) {
                 (Ok(node), Ok(conversation)) => (node, conversation),

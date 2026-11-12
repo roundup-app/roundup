@@ -1,19 +1,4 @@
 //! Agents, the Rail tree and the Claude Code adapter. Owner: agents Builder.
-#![deny(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    clippy::indexing_slicing
-)]
-#![cfg_attr(
-    test,
-    allow(
-        clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing
-    )
-)]
 
 #[cfg(test)]
 #[global_allocator]
@@ -21,8 +6,8 @@ static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::I
 
 #[doc(hidden)]
 pub mod schema;
-use crate::id::AgentId;
 use contracts::agent::Ordinal;
+pub use id::AgentId;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -429,6 +414,11 @@ impl Agents {
             let clock = Arc::clone(&self.shared.clock);
             run.replace_fold(claude_code::hookless(move || clock()));
         }
+    }
+
+    /// A12a: run the stop a new start for Agent `id` makes first.
+    pub async fn stop_recorded_owner_for_test(&self, id: &str) {
+        self.stop_recorded_owner(id).await;
     }
 
     /// X6570b: run `save_owner` for Agent `id`'s Terminal `terminal_id`.

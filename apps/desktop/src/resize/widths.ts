@@ -1,8 +1,7 @@
 import { copy } from "./copy";
 import { createComputed, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
-import * as v from "valibot";
-import { storageSchema, storedValue } from "../state/storage";
+import { saveViewer, viewer } from "./viewer";
 
 type Limits = { min: number; max: number; fallback: number };
 
@@ -21,13 +20,6 @@ export const railEffective = (stored: number): number => limited(stored, RAIL);
 
 /** U453: supported windows leave room for the Shelf's full resize range. */
 export const shelfEffective = (stored: number): number => limited(stored, SHELF);
-
-const finite = (fallback: number) => v.fallback(v.pipe(v.number(), v.finite()), fallback);
-
-const widthsSchema = storageSchema("roundup:widths", v.object({ rail: finite(RAIL.fallback), shelf: finite(SHELF.fallback), collapsed: v.optional(v.fallback(v.boolean(), false), false) }));
-
-/** U389, U390: what the webview keeps per Project, as U100 keeps layout; a stored width that is not a finite number means the default. */
-const storageOf = (path: string) => storedValue(`roundup:widths:${path}`, widthsSchema);
 
 /** One width's handle for its Resize edge. `direction` is the sign a pointer moving right changes the width by. */
 export type Side = {
@@ -64,7 +56,7 @@ export type Widths = {
   attach: (element: HTMLElement) => void;
 };
 
-/** U389, U390: the Rail's and Shelf's widths for the active Project, restored in the frame the Project first shows. */
+/** U389, U390: the Rail's and Shelf's widths, one record for every Project, so a Project switch changes none of them. */
 export const createWidths = (path: Accessor<string | null>): Widths => {
   const [rail, setRail] = createSignal(RAIL.fallback);
 
@@ -80,7 +72,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
   createComputed(
     on(path, (at) => {
-      const stored = at === null ? null : storageOf(at).read();
+      const stored = at === null ? null : viewer();
 
       setRail(stored?.rail ?? RAIL.fallback);
       setShelf(stored?.shelf ?? SHELF.fallback);
@@ -93,9 +85,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
   const shelfNow = () => shelfEffective(shelf());
 
   const save = () => {
-    const at = path();
-
-    if (at !== null) storageOf(at).write({ rail: rail(), shelf: shelf(), collapsed: collapsed() });
+    if (path() !== null) saveViewer({ rail: rail(), shelf: shelf(), collapsed: collapsed() });
   };
 
   const write = (railPx: number, shelfPx: number) => {

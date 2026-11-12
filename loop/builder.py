@@ -67,6 +67,10 @@ CODEX_ACCOUNT = ('chatgpt-codex-connector[bot]', '199175422+chatgpt-codex-connec
 CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}
 # L81: a draft's `Stopped:` paragraph, from that line to the next blank one.
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
+# L82: a parked draft's `Parked:` paragraph, ending in the loop's `Main: <sha>` line; PARKS bounds its PARK comments.
+PARKED = re.compile(r'^Parked:.*(?:\r?\n.*\S.*)*', re.M)
+PARK = '<!-- fix-parked -->'
+PARKS = 3
 # The Issue a PR body's first `Refs`, `Closes` or `Fixes #<n>` line names.
 LINKED = re.compile(r'^(?:Refs|Closes|Fixes) #(\d+)', re.M)
 # A scenario id, such as U467 or V4b.
@@ -88,10 +92,6 @@ PLUMBING_RUNS = 6
 CONFLICT_RUNS = 3
 # L82, L120: a `rules` failure whose only failed step is this one is a merge that kept a stale side of a file.
 MERGE_LOSS_STEP = re.compile(r'rules\.sh merge-loss\b')
-# L82: the paths a fix run's script regenerates instead of a model resolving them, and the command that regenerates them
-# (`crates/contracts` writes `contracts/generated/`).
-GENERATED = ('contracts/generated/',)
-REGENERATE = ('cargo', 'test', '--quiet', '-p', 'contracts')
 # The Issue a build task's first line, `Work order: <url>/issues/<n>`, names.
 WORK_ORDER = re.compile(r'\AWork order: \S+/issues/(\d+)')
 # How long a reject a fix run answered awaits the next verdict before a fix run starts anyway (L82).
@@ -113,6 +113,7 @@ CAUSES = {
                 'and keep the behaviour of both sides. Then run only the test files among those files and '
                 '`loop/rules.sh merge-loss`. Read no scenario and run no full lint: `pre` does that on the push.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
+    'parked': '`main` moved since this PR was parked: `merge_main.py merge` merges it and `builder.py unpark` marks the PR ready, with no model.',
 }
 
 
@@ -697,21 +698,30 @@ def failed(pr):
                               if (check.get('conclusion') or check.get('state')) == 'FAILURE'))
 
 
-def stopped(pr):
-    """The PR body's `Stopped:` paragraph, from that line to the next blank one: the question its Builder ended on for the
-    user; '' for none."""
-    found = STOPPED.search(pr['body'] or '')
+def stopped(pr, start=STOPPED):
+    """The PR body's paragraph `start` matches, from that line to the next blank one: by default its `Stopped:` paragraph,
+    the question its Builder ended on for the user; '' for none."""
+    found = start.search(pr['body'] or '')
     return found[0].strip() if found else ''
 
 
-def repairs(prs, now, taken=frozenset()):
-    """(pr, head, cause) for each open Builder PR that needs a fix run: a conflict, a failed required check, or a draft
-    without a `Stopped:` line whose Issue no build job and which no fix run holds (`taken`, as `codex_slots` reads it)."""
+def parked(pr):
+    """The PR body's `Parked:` paragraph: why it waits for `main` to move (L82); '' for none."""
+    return stopped(pr, PARKED)
+
+
+def repairs(prs, now, taken=frozenset(), main=''):
+    """(pr, head, cause) for each open Builder PR that needs a fix run: a conflict, a failed required check, a parked draft
+    whose `Main:` line names another head than `main` (L82), or a draft without a `Stopped:` or `Parked:` line whose Issue
+    no build job and which no fix run holds (`taken`, as `codex_slots` reads it)."""
     due = []
     for pr in prs:
         if not pr['headRefName'].startswith('build/') or pr['isCrossRepository']:
             continue
-        if pr['isDraft']:
+        if pr['isDraft'] and (held := parked(pr)):
+            if orders.field(held, 'Main', '') != main:
+                due.append((pr['number'], pr['headRefOid'], 'parked'))
+        elif pr['isDraft']:
             if not stopped(pr) and not taken & set(related(pr)):
                 due.append((pr['number'], pr['headRefOid'], 'unfinished'))
         elif pr['mergeable'] == 'CONFLICTING':
@@ -773,7 +783,8 @@ def pick(most):
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,statusCheckRollup')
     taken, free = codex_slots(most, fixing())
-    due = repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time(), taken)
+    main = main_head() if any(pr['isDraft'] and parked(pr) for pr in prs) else ''
+    due = repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time(), taken, main)
     queued = fix_prs() if due else set()
     for pr, head, cause in due:
         if pr in queued:
@@ -984,83 +995,6 @@ def git(*args):
     return subprocess.run(['git', '-c', f'user.name={name}', '-c', f'user.email={email}', *args], text=True, capture_output=True, timeout=3600)
 
 
-def merge_main(regenerate=REGENERATE):
-    """L82: merge `origin/main` into the checked-out branch and commit it when git merged it cleanly or every conflicted
-    path is GENERATED: take main's side, run `regenerate`, and require no conflict marker and no change from a second run.
-    The merge then passes `rules.sh merge-loss`, restoring the files it lists (`restore_merge_loss`) when it does not.
-    Returns whether it committed; any other conflict, a failed `regenerate`, a merge that keeps losing work or a changed second
-    run leaves the branch as it was."""
-    start = git('rev-parse', 'HEAD').stdout.strip()
-
-    def undo(why):
-        print(f'merge-main: {why}; the branch is left as it was', file=sys.stderr)
-        # `merge --abort` refuses a file the index and the worktree hold differently, so the reset comes first.
-        git('reset', '-q', '--hard', start)
-        git('merge', '--abort')
-        git('clean', '-fdq', '--', *GENERATED)
-        return False
-
-    merge = git('merge', '--no-commit', '--no-ff', 'origin/main')
-    conflicted = git('diff', '--name-only', '--diff-filter=U').stdout.split()
-    if merge.returncode and not conflicted:
-        return undo(f'the merge failed: {merge.stderr.strip()}')
-    if other := [path for path in conflicted if not path.startswith(GENERATED)]:
-        return undo(f'{", ".join(other)} conflict and are not generated')
-    for path in conflicted:
-        if git('cat-file', '-e', f'origin/main:{path}').returncode:
-            git('rm', '-q', '-f', '--', path)
-        else:
-            git('checkout', 'origin/main', '--', path)
-    if conflicted:
-        if subprocess.run(regenerate, timeout=3600).returncode:
-            return undo('the regenerate command failed')
-        git('add', '-A', '--', *GENERATED)
-        # The second run must leave the worktree as the index holds it: no change, and no file the first run left unstaged.
-        if subprocess.run(regenerate, timeout=3600).returncode:
-            return undo('the second regenerate failed')
-        if changed := git('status', '--porcelain', '--untracked-files=all').stdout:
-            unstaged = [line for line in changed.splitlines() if line[1] != ' ']
-            if unstaged:
-                return undo(f'the regenerate left changes: {unstaged}')
-        if git('grep', '--cached', '-lE', r'^(<{7}|>{7})( |$)', '--', *GENERATED).stdout:
-            return undo('a conflict marker remains')
-    if git('rev-parse', '-q', '--verify', 'MERGE_HEAD').returncode:
-        return True  # the branch already holds main
-    commit = git('commit', '--no-edit')
-    if commit.returncode:
-        return undo(f'the commit failed: {commit.stderr.strip()} {commit.stdout.strip()}')
-    loss = subprocess.run(['bash', str(ROOT / 'loop/rules.sh'), 'merge-loss', 'origin/main'], text=True, capture_output=True, timeout=600)
-    return not loss.returncode or restore_merge_loss() or undo(f'merge-loss fails: {loss.stderr.strip()}')
-
-
-def restore_merge_loss(main_ref='origin/main', rules=None):
-    """L120: when `rules.sh merge-loss` fails on the checked-out branch, restore the merge base's version of each file it
-    lists (removing one the base lacks), commit that, and rerun it. Returns whether it then passes; a rerun that still fails
-    resets the branch to where it began, so the engine runs as for any fix."""
-    rules = rules or ROOT / 'loop/rules.sh'
-    check = lambda: subprocess.run(['bash', str(rules), 'merge-loss', main_ref], text=True, capture_output=True, timeout=600)
-    start = git('rev-parse', 'HEAD').stdout.strip()
-    first = check()
-    lost = [line.strip() for line in first.stderr.splitlines() if line.startswith('  ')]
-    if not first.returncode or not lost:
-        print(f'restore-merge-loss: no file to restore: {first.stderr.strip()}', file=sys.stderr)
-        return False
-    base = git('merge-base', main_ref, 'HEAD').stdout.strip()
-    for path in lost:
-        if git('cat-file', '-e', f'{base}:{path}').returncode:
-            git('rm', '-q', '-f', '--', path)
-        else:
-            git('checkout', base, '--', path)
-    author = os.environ.get('GITHUB_RUN_ID', '0')
-    commit = git('commit', '-q', '-m', f"Restore main's version of {len(lost)} file(s) a merge lost",
-                 '-m', f'Author-Agent: builder-{author}')
-    after = commit if commit.returncode else check()
-    if after.returncode:
-        print(f'restore-merge-loss: {after.stderr.strip()}; the branch is left as it was', file=sys.stderr)
-        git('reset', '-q', '--hard', start)
-    return not after.returncode
-
-
 def restarted(pr):
     """When the PR's fix runs last started over, else 0: its last reopen or `REVIVE` comment. The fix runs before it no
     longer count (L82)."""
@@ -1069,19 +1003,71 @@ def restarted(pr):
                [orders.created(c['created_at']) for c in orders.marked(pr, REVIVE)], default=0)
 
 
-def approved(pr, head, marker):
-    """Whether the last `marker` comment (`VERDICT:` or `CRITIC:`) naming `head` approves it."""
-    notes = [c['body'] for c in orders.marked(pr, marker) if orders.field(c['body'], 'Head', '') == head]
-    return bool(notes) and notes[-1].startswith(f'{marker} approve')
+def approved(current, marker):
+    """Whether the last `marker` comment (`VERDICT:` or `CRITIC:`) on the PR's diff as its head holds it approves: one
+    naming that head, or an earlier head whose diff has the same patch-id (L24), as a merge of `main` keeps it."""
+    head, now = current['headRefOid'], None
+    for note in reversed(orders.marked(current['number'], marker)):
+        earlier = orders.field(note['body'], 'Head', '')
+        if earlier != head:
+            now = patch_id(head) if now is None else now
+            if not now or patch_id(earlier) != now:
+                continue
+        return note['body'].startswith(f'{marker} approve')
+    return False
+
+
+def cleared(current):
+    """L82: whether review and, for a PR that changes `apps/desktop/src/`, the design critic approved the PR's head."""
+    return approved(current, 'VERDICT:') and (not orders.touches_desktop(current['number']) or approved(current, 'CRITIC:'))
+
+
+def main_head():
+    """The commit `main` points at."""
+    return orders.gh('api', 'repos/{owner}/{repo}/git/ref/heads/main')['object']['sha']
+
+
+def park(current, why):
+    """L82: hold a Builder PR as a draft until `main` moves: keep the `Parked:` paragraph its run wrote, or write one saying
+    `why`, end it with a `Main:` line naming main's head, post a PARK comment and mark the PR a draft. `pick` dispatches
+    cause `parked` once `main` moves."""
+    pr, main = current['number'], main_head()
+    held = parked(current)
+    text = re.sub(r'\nMain: \S+$', '', held or f'Parked: {why}') + f'\nMain: {main}'
+    body = current['body'] or ''
+    body = PARKED.sub(lambda _: text, body, count=1) if held else f'{body.rstrip()}\n\n{text}\n'
+    call('api', '-X', 'PATCH', f'repos/{{owner}}/{{repo}}/pulls/{pr}', '-f', f'body={body}')
+    comment(pr, f"{PARK}\nHead: {current['headRefOid']}\nMain: {main}\n\n{text.splitlines()[0]}")
+    if not current['isDraft']:
+        call('pr', 'ready', str(pr), '--undo')
+
+
+def unpark(pr):
+    """L82: send a parked draft whose `main` moved back to its checks, after `merge_main.py merge` and `keep` pushed the merge: drop
+    its `Parked:` paragraph, mark it ready and arm auto-merge with a fresh App token, whose events start `pre` (L24) where a
+    GitHub token's start none. A PR no longer parked is left as it is."""
+    current = view(pr)
+    if not (current['isDraft'] and parked(current)):
+        print(f'PR #{pr} is not a parked draft; nothing to unpark')
+        return
+    body = re.sub(r'\n{3,}', '\n\n', PARKED.sub('', current['body'], count=1)).strip() + '\n'
+    os.environ['GH_TOKEN'] = app_token()
+    try:
+        call('api', '-X', 'PATCH', f'repos/{{owner}}/{{repo}}/pulls/{pr}', '-f', f'body={body}')
+        call('pr', 'ready', str(pr))
+        try:
+            call('pr', 'merge', str(pr), '--auto', '--merge')
+        except subprocess.CalledProcessError as error:  # a conflict refuses it; the conflict fix run arms it (L82)
+            print(f'::warning::PR #{pr} is ready but auto-merge was refused: {error}', file=sys.stderr)
+    finally:
+        call('api', '-X', 'DELETE', '/installation/token')
 
 
 def revive(current, cause):
-    """L82: give a Builder PR out of fix runs its ATTEMPTS again, once per PR, when review and (for a PR that changes
-    `apps/desktop/src/`) the design critic approved that head: post a `REVIVE` comment naming the head and `cause`.
-    Whether it did."""
+    """L82: give a Builder PR out of fix runs its ATTEMPTS again, once per PR, when its head is `cleared`: post a `REVIVE`
+    comment naming the head and `cause`. Whether it did."""
     pr, head = current['number'], current['headRefOid']
-    if orders.marked(pr, REVIVE) or \
-            not approved(pr, head, 'VERDICT:') or (orders.touches_desktop(pr) and not approved(pr, head, 'CRITIC:')):
+    if orders.marked(pr, REVIVE) or not cleared(current):
         return False
     comment(pr, f'{REVIVE}\nHead: {head}\n\nThis PR used its {fix_attempts()} fix runs, but review and the design critic '
                 f'approved this head, so it stays open once more: its fix runs count again from here, starting with this '
@@ -1096,6 +1082,10 @@ def fix_task(pr, head, cause, run_id=0, output=None):
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
+    held = parked(current) if current['isDraft'] else ''
+    if (cause == 'parked') != bool(held) or (held and orders.field(held, 'Main', '') == main_head()):
+        # A parked draft gets only its `parked` run, once `main` moved; any other PR gets none.
+        return None
     if cause in ('check', 'rules') and cause not in failed(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
@@ -1104,9 +1094,9 @@ def fix_task(pr, head, cause, run_id=0, output=None):
         # The conflict keeps coming back: a fresh build from main costs less than a fourth merge. Its Issue stays open.
         call('pr', 'close', str(pr), '--comment', f'Rebuilt fresh from main after {CONFLICT_RUNS} conflict fixes.', '--delete-branch')
         return None
-    plumbing = cause in PLUMBING and (cause == 'conflict' or rules_failed_only(current, PLUMBING_STEPS)) and \
+    plumbing = cause == 'parked' or cause in PLUMBING and (cause == 'conflict' or rules_failed_only(current, PLUMBING_STEPS)) and \
         plumbing_runs(pr, current['createdAt'], run_id) < PLUMBING_RUNS
-    # L120: the restore script may repair it before any model runs; it counts no attempt (`fixed` sees no model work).
+    # L120: `merge_main.py restore` may repair it before any model runs; it counts no attempt (`fixed` sees no model work).
     merge_loss = cause == 'rules' and rules_failed_only(current, MERGE_LOSS_STEP)
     if output:
         with open(output, 'a') as out:
@@ -1126,13 +1116,21 @@ def fix_task(pr, head, cause, run_id=0, output=None):
         # The head moved, or a fix run answered this reject: its next critic run decides.
         return None
     if len(attempts) >= fix_attempts() and not plumbing and not revive(current, cause):
-        exhaust(current, attempts, verdicts, cause)
+        if cleared(current) and len(orders.marked(pr, PARK, restarted(pr))) < PARKS:
+            park(current, f'it used its {fix_attempts()} fix runs, last on `{cause}`, but review and the design critic '
+                          'approved this head, so it waits for `main` to move instead of closing.')
+        else:
+            exhaust(current, attempts, verdicts, cause)
         return None
     findings = [c['body'] for c in {'review': verdicts, 'critic': criticisms}.get(cause, [])][-1:]
     return '\n\n'.join([f"Fix PR #{pr} on branch `{current['headRefName']}`, head {head}. " +
                         CAUSES[cause].format(cause=cause, pr=pr), *findings,
                         'Push to that branch. End as `.agents/builder.md` says: a ready PR with auto-merge armed, or a '
-                        'draft with a `Stopped:` line.'])
+                        'draft with a `Stopped:` line. When the failure lies outside this PR\'s diff (`main` fails it too, '
+                        'or it comes from outside the repository, such as an advisory database) and no change inside the '
+                        'PR clears it, push nothing and leave a draft whose body holds a paragraph starting `Parked:` '
+                        'naming the failing check, its cause and the evidence: the PR waits for `main` to move, and this '
+                        'run counts no attempt.'])
 
 
 def exhaust(current, attempts, verdicts, cause):
@@ -1176,15 +1174,19 @@ def exhaust(current, attempts, verdicts, cause):
 
 
 def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
-    """After a fix run that worked (`ran`): count the attempt on the PR (a `plumbing` run, L82, counts none), then hand the PR on with its screen `verdict`.
-    A ready head that still holds the reject this run answered, with no `pre` or `check` running on it, gets its review run
-    again: with no push or re-ready, no `pre` run ends to start one (L24)."""
+    """After a fix run that worked (`ran`): count the attempt on the PR (none for a `plumbing` run, L82, or one that left a
+    `Parked:` paragraph on a PR parked under PARKS times), then park the PR or hand it on with its screen `verdict`. A ready
+    head still holding the reject this run answered, with no `pre` or `check` running, gets its review run again (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
-    if not plumbing:
-        comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = link(view(pr))
+    held = parked(current)
+    if not plumbing and not (held and len(orders.marked(pr, PARK, restarted(pr))) < PARKS):
+        comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
+    if held:
+        park(current, '')
+        return
     ended(current, verdict, run_url)
     if cause in ('review', 'critic') and not current['isDraft'] and not {'pre', 'check'} & orders.running(current):
         for run in review_runs(current, 'FAILURE', cause):
@@ -1411,10 +1413,8 @@ def main(args):
                 print(encode(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict))
-        case ['merge-main']:
-            return 0 if merge_main() else 1
-        case ['restore-merge-loss']:
-            return 0 if restore_merge_loss() else 1
+        case ['unpark', pr] if pr.isdigit():
+            unpark(int(pr))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             if codex_slots(slot_count(), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
@@ -1433,7 +1433,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-conflict | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | merge-main | restore-merge-loss | pick | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-conflict | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | unpark <pr> | pick | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',

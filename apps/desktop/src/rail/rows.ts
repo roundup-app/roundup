@@ -14,5 +14,5 @@ export type RowActions = {
 } & (
   | { kind: "workstream"; restart?: { pending: boolean; run: () => void; menu: (click: MouseEvent) => void } }
   | { kind: "group" }
-  | { kind: "agent"; stop?: () => void; resume?: () => void }
+  | { kind: "agent"; restart?: { pending: boolean; run: () => void; menu: (click: MouseEvent) => void }; stop?: () => void; resume?: () => void }
 );

@@ -45,10 +45,19 @@ it("u2228a_a_name_that_fits_has_no_tooltip", async () => {
 });
 
 it("u2228c_a_row_opens_no_tooltip", async () => {
-  layout(400);
-  await mountRail([workstream("w", { name: NAME }), agent("a", "idle", "working on it", { parent: "w" })]);
+  const at = (kind: "blocked" | "needs-you" | "working" | "error" | "idle" | "done", label: string) => ({ kind, label, since: Date.now() - 12 * 60_000 - 1000, finished: "0" } as const);
 
-  for (const row of [rowOf(NAME), document.querySelector<HTMLElement>('.rail-row[data-id="a"]')!]) {
+  layout(400);
+  await mountRail([
+    workstream("w", { name: NAME }),
+    agent("a", "idle", "working on it", { parent: "w" }),
+    agent("b", "blocked", "Waiting on #4", { name: "beta", order: 1, status: at("blocked", "Waiting on #4") }),
+    agent("c", "needs-you", "Waiting for approval", { name: "gamma", order: 2, status: at("needs-you", "Waiting for approval") }),
+    agent("d", "working", "Editing Thread.tsx", { name: "delta", order: 3, status: at("working", "Editing Thread.tsx") }),
+    agent("e", "error", "Quota used up", { name: "epsilon", order: 4, status: at("error", "Quota used up") }),
+  ]);
+
+  for (const row of [rowOf(NAME), document.querySelector<HTMLElement>('.rail-row[data-id="a"]')!, ...["beta", "gamma", "delta", "epsilon"].map(rowOf)]) {
     fireEvent.pointerMove(row, { pointerType: "mouse" });
     fireEvent.click(row);
     row.focus();

@@ -20,11 +20,10 @@ const seed = async () => {
 
   return lane.evaluate<{ plain: string; mode: string }>(`(async () => {
     const plain = await window.__fake.app.rpc('rail.createWorkstream', {name:'Research',parent:null});
-    const mode = await window.__fake.app.rpc('rail.createWorkstream', {name:'Review changes',parent:null});
-    await window.__fake.app.rpc('workstream.setOpeningPrompt', {id:mode.id,prompt:'Review the current changes'});
+    const mode = await window.__fake.app.rpc('agent.createMode', {name:'Review changes',prompt:'Review the current changes'});
     const agents = await window.__fake.app.rpc('rail.tree', null);
     for (const [index, agent] of agents.filter(node => node.kind === 'agent' && node.id !== 'agent-4').entries()) {
-      await window.__fake.app.rpc('rail.move', {id:agent.id,parent:index % 2 ? mode.id : plain.id,index:0});
+      await window.__fake.app.rpc('rail.move', {id:agent.id,parent:plain.id,index});
     }
     window.__fake.app.calls.length = 0;
     return {plain:plain.id,mode:mode.id};
@@ -34,7 +33,7 @@ const seed = async () => {
 const row = (id: string) => `.rail-row[data-id="${id}"]`;
 
 it("u4547e_drag_reparents_the_chosen_agent_without_restarting", async () => {
-  for (const kind of ["plain", "mode"] as const) {
+  for (const kind of ["plain"] as const) {
     const destinations = await seed();
     const parent = destinations[kind];
     await lane.until(`document.querySelector(${JSON.stringify(row(parent))}) !== null`);
@@ -93,6 +92,7 @@ it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   await lane.browser("focus", row("agent-4"));
   await lane.browser("press", "m");
   await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
+  expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=option]')].map(option => option.textContent.trim())")).toEqual(["Research"]);
   await lane.capture("U4547e", "destinations");
   await lane.browser("press", "Escape");
   await lane.until("!document.querySelector('[role=combobox]')");
@@ -101,7 +101,7 @@ it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   await lane.browser("press", "m");
   await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
   await lane.evaluate("window.__fake.failNext(-32003, 'Move refused. Reopen the destination, then retry.')");
-  await lane.browser("fill", "[role=combobox]", "Review");
+  await lane.browser("fill", "[role=combobox]", "Research");
   await lane.until("document.querySelectorAll('[role=option]').length === 1");
   await lane.browser("press", "Enter");
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('Move refused')");

@@ -1,0 +1,5 @@
+An effect never writes a signal from other signals. State that restarts on a key, copies a prop or falls back is a writable memo of its source (`createWritableMemo`, the key read inside the body); a failure that belongs to an item is derived from the item's presence (`createItemFailures`), never pruned by an effect. A repair effect renders the stale value for one pass before it fixes it. Effects stay for the DOM, IO, outside systems, latches (an effect that reads its previous run) and accumulators.
+_Avoid_: `createEffect(() => { if (key() changed) setX(initial); })`, `createEffect(on(key, () => setX(initial)))`, an effect that filters a failure map by the items still present, an effect that falls back a selection when its option leaves.
+Detect: a `createEffect` whose body only reads signals and calls setters of signals the same file made (`anti-slop/no-repair-effect`).
+Not-when: the effect pushes to the DOM, a store or an outside system; keeps a latch or accumulator across runs; or bumps a revision that cancels pending IO.
+Cross-ref: side-effects-visible-at-the-call-site; eliminate-mask-then-surface.

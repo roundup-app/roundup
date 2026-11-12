@@ -20,7 +20,7 @@ A Door's `agent_spawn` (F3) takes the same `order`; B24's policy (fixed limits, 
 
 The Door receives standing guidance through passive startup instructions/Context: wait for the user's message, find its intent, ask whom `agent_context` names under `ask` for missing information, then record a Work order with `agent_set_order`. Loading that guidance writes no inbox Message or Steer. Model compliance is policy; `o3_the_door_receives_passive_clarification_guidance` asserts the production-generated startup instruction/Context carries those actions and waiting condition, and that generating it emits no input. Reuse E3's hook reply and immutable Brief rather than editing cached session files (P9/P10).
 
-Stopping the Door keeps its stored order with the Workstream (existing `o3_a_workstream_gives_its_door_the_order_and_stopping_the_door_keeps_it`). A5556a–c extend the idle-start boundary to every user-started Agent and automatic delivery path; A4452c's user-chosen saved opening prompt and O8/O9's ordered Subagent starts remain.
+Stopping the Door keeps its stored order with the Workstream (existing `o3_a_workstream_gives_its_door_the_order_and_stopping_the_door_keeps_it`). A5556a–c extend the idle-start boundary to every user-started Agent and automatic delivery path; A4452c's user-saved Mode prompt and O8/O9's ordered Subagent starts remain.
 
 **O4 settling an order.** Given `agent.setOrder {id, order}`, then the Agent itself, the Door of its Workstream, or the user may replace its order with any order of O1's shape. The change emits `rail.changed` and records a Touch with the Actor (Provenance).
 

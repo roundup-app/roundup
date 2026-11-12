@@ -1,6 +1,7 @@
 //! What the App keeps between runs, in its data folder (S10): the open Projects in order and the
 //! names the user gave. Reached from Rust only; incompatible reads refuse startup; failed writes retain recoverable memory.
 
+use crate::Unpoisoned;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -115,10 +116,7 @@ impl Store {
     }
 
     fn with<T>(&self, persist: bool, change: impl FnOnce(&mut Saved) -> T) -> Result<T, RpcError> {
-        let mut guard = self
-            .saved
-            .lock()
-            .expect("the store lock is never kept across a panic");
+        let mut guard = self.saved.lock().unpoisoned();
         let saved = guard
             .get_or_insert_with(|| self.read())
             .as_mut()

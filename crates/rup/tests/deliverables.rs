@@ -1,4 +1,10 @@
 //! DV1–DV4: deliberately published results through the real Project Daemon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "common/served.rs"]
 mod common;
 use common::QuotaProject;

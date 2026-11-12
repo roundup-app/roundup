@@ -1,4 +1,10 @@
 //! E11, E12, E14: real Claude takes every model request through aimock, with credentials kept out of hooks and MCP.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;

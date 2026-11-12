@@ -21,6 +21,7 @@ unicode-normalization = "0.1"
 percent-encoding = "2"
 url = "2"
 pulldown-cmark = { version = "0.13.6", default-features = false }
+alphanumeric-sort = "1.5.8"
 
 [dev-dependencies]
 tokio.workspace = true

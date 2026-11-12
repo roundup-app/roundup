@@ -19,7 +19,7 @@ import { registerOpener } from "../shelf/openItem";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -319,6 +319,8 @@ const PadRows = (props: {
     </Sortable.Root>
 );
 
+const selectedPad = (selection: Parameters<typeof PadRows>[0]["selection"], incarnation: string, name: string) => (selection.focused() ?? selection.selected()[0]) === incarnation ? name : undefined;
+
 const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
@@ -341,14 +343,14 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
     connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message, copy.openDraft)} onFailureCleared={() => props.onItemFailure(pad, null, copy.openDraft)} />, source, { kind: "pad", project: connected.project.path });
   };
 
-  // U5240b: the Switcher opens a Pad through its Rail row, as a click then Enter on it does.
+  // U5240b: the Switcher opens a Pad through its Rail row, as a click then Enter on it does. U3721a: the focused or first selected row answers `⌘K B`.
   onCleanup(registerOpener("pad", name => {
     if (name !== pad.name) return false;
     props.selection.replace([pad.incarnation]);
     open("key");
 
     return true;
-  }));
+  }, () => untrack(() => selectedPad(props.selection, pad.incarnation, pad.name))));
 
   const rename = () => { setEditing(true); };
 

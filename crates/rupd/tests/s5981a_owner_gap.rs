@@ -1,5 +1,11 @@
 //! S5981a's byte-loss observer through a real `rupd`: an Agent's program prints a numbered line
 //! every tick while no Daemon runs, and the reopened Project's Terminal holds every number once.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 

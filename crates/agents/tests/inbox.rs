@@ -2,6 +2,12 @@
 //! of `fixtures/inbox/<version>/`, one per Claude Code version recorded from the real program. A
 //! new version needs a fixture only when its session file or transcript differs; the real round
 //! trip is proved by the e2e tests that run the pinned `claude`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::io::{BufRead, BufReader};
 use std::os::unix::fs::PermissionsExt;

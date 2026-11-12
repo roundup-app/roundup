@@ -80,6 +80,9 @@ jobs:
           python3 tools/migrations/guard.test.py
       - name: C9 artifact checker boundaries
         run: python3 tools/release/check.test.py
+      # L82, L120: the merge of `main` and the merge-loss restore a fix run makes with no model; `loop.yml` runs the other loop tests.
+      - name: L82 merge of main with no model
+        run: python3 loop/app-data.py python3 loop/merge_main.test.py
       # N7: every launch reference has an entry; the `mac` lane, which runs the rest of N7, skips App-only PRs.
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan

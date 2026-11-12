@@ -1,6 +1,7 @@
 //! Which Projects are open, in the order they were opened (S8), and the task that owns each
 //! one's Daemon (S6505a).
 
+use crate::Unpoisoned;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -57,9 +58,7 @@ struct Projects {
 
 impl Projects {
     fn slots(&self) -> MutexGuard<'_, IndexMap<String, Slot>> {
-        self.slots
-            .lock()
-            .expect("the projects lock is never kept across a panic")
+        self.slots.lock().unpoisoned()
     }
 
     /// Path and whether its Daemon runs, in open order.
@@ -392,8 +391,9 @@ impl AppState {
                 client.request("terminal.output", json!({ "id": id })),
             )
             .await?;
-        let first = started["offset"]
-            .as_u64()
+        let first = started
+            .get("offset")
+            .and_then(Value::as_u64)
             .ok_or_else(|| RpcError::internal("terminal.output answered no offset"))?;
         let pump = Pump(tauri::async_runtime::spawn(async move {
             // Dropping the client at the end closes the socket, which releases the selection.

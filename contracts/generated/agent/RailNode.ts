@@ -28,8 +28,8 @@ export type RailNode = {
 	alert_level?: agent$AlertLevel.AlertLevel,
 	/**  A3308: the Workstream's Auto choice; absent on an Agent. */
 	auto?: boolean,
-	/**  A4452c: the Workstream's saved opening prompt; absent on an Agent and when none is set. */
-	opening_prompt?: string,
+	/**  A4452c: the Mode Agent's saved prompt; absent on other nodes and when none is set. */
+	mode_prompt?: string,
 	id: string,
 	kind: agent$NodeKind.NodeKind,
 	name: string,

@@ -1,5 +1,6 @@
 //! U449–U451: window operations use the invoking native window, never a webview-selected label.
 
+use crate::Unpoisoned;
 use rpc::{RpcError, code};
 use std::sync::Mutex;
 #[cfg(target_vendor = "apple")]
@@ -14,11 +15,7 @@ fn native_material<R: Runtime>(window: Window<R>) -> bool {
     if window.label() != "main" {
         return false;
     }
-    *window
-        .state::<Material>()
-        .0
-        .lock()
-        .expect("material state poisoned")
+    *window.state::<Material>().0.lock().unpoisoned()
 }
 
 #[tauri::command]
@@ -87,8 +84,7 @@ pub(crate) fn plugin<R: Runtime>() -> TauriPlugin<R> {
                     *window
                         .state::<Material>()
                         .0
-                        .lock()
-                        .expect("material state poisoned") = enabled;
+                        .lock().unpoisoned() = enabled;
                     if let Err(error) = window.emit("native-material", enabled) {
                         crate::diagnostics::failure("deliver native material", &error);
                     }

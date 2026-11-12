@@ -1,4 +1,10 @@
 //! R10 (`scenarios/perf.md`) and R3696c startup attribution.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::process::Command;
 

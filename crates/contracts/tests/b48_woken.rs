@@ -1,4 +1,10 @@
 //! B48: the result of `agent.wake` names why a request that fired nothing waits.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use contracts::agent::Woken;
 

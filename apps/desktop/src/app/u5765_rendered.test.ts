@@ -37,7 +37,7 @@ it("u5765_escape_refuses_and_restores_focus_on_tree_40", async () => {
     const app = window.__fake.app;
     const tree = await app.rpc("rail.tree", null);
     app.handlers['rail.tree'] = () => tree.map(node => ['backend', 'auth', 'migrate'].includes(node.id)
-      ? {...node, ...(node.id === 'auth' ? {opening_prompt: 'Review the requested changes'} : {}), start_attribution: {project: '/source', agent: 'builder-source', project_name: 'moo.md', agent_name: 'builder'}} : node);
+      ? {...node, ...(node.id === 'auth' ? {mode_prompt: 'Review the requested changes'} : {}), start_attribution: {project: '/source', agent: 'builder-source', project_name: 'moo.md', agent_name: 'builder'}} : node);
     window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
     return true;
   })()`);
@@ -151,9 +151,8 @@ it("u5765_target_start_failure_keeps_recovery_reachable", async () => {
   await page.evaluate(`(() => {
     const app = window.__fake.app;
     const target = app.of('/Users/you/Projects/keyboard-target');
-    target.handlers['rail.createWorkstream'] = () => ({id:'created-work',kind:'workstream',name:'target-worker',parent:null});
-    target.handlers['workstream.setOpeningPrompt'] = () => null;
-    target.handlers['rail.startDoor'] = () => { throw window.__fake.refusal(-32003, 'The vendor could not start. Check its configuration.'); };
+    target.handlers['agent.createMode'] = ({name,prompt}) => ({id:'created-work',kind:'agent',name,parent:null,mode_prompt:prompt});
+    target.handlers['agent.restartMode'] = () => { throw window.__fake.refusal(-32003, 'The Mode Agent could not start. Check its configuration.'); };
     window.startResult = null;
     void app.requestAction({id:5774,method:'project.start',params:{source:app.opened.project.path,path:'/Users/you/Projects/keyboard-target',agent:{id:'agent-1',name:'builder'},kind:'mode',name:'target-worker',prompt:'Review the target changes'}}).then(reply=>window.startResult=reply);
     return true;

@@ -1,5 +1,11 @@
 //! N1, N2 and N4: current Project data placement and isolation.
 //! The real `rupd`, with the fake `claude` for every Agent.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 
 #[path = "e2e/daemon.rs"]

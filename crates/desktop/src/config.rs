@@ -76,10 +76,12 @@ impl Config {
         if run == 0 {
             return Ok(self.socket.clone());
         }
-        let file_name = self
-            .socket
-            .file_name()
-            .expect("the socket path has a file name");
+        let Some(file_name) = self.socket.file_name() else {
+            return Err(format!(
+                "{}: the socket path has no file name",
+                self.socket.display()
+            ));
+        };
         let path = self
             .socket
             .with_file_name(format!("{run}-{}", file_name.to_string_lossy()));
@@ -93,7 +95,7 @@ impl Config {
             context.config_mut().build.dev_url = Some(
                 format!("http://localhost:{port}")
                     .parse()
-                    .expect("a port makes a URL"),
+                    .map_err(std::io::Error::other)?,
             );
         }
         if let Some(dir) = &self.data_dir {

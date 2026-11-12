@@ -54,6 +54,11 @@ const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsW
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
   leaderKey("KeyB", init, target);
 
+/** U3721a: `B` rotates, so closing an open Bench takes the presses until it is hidden. */
+const closeByChord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) => {
+  for (let press = 0; press < 4 && !shelf().hidden; press++) chord(init, target);
+};
+
 const counts = () => ["todos", "pads"].map(tab => Number(shelf().querySelector(`#shelf-tab-${tab} .shelf-count`)?.textContent ?? 0));
 
 const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!.textContent!.replace(/\d+$/, "");
@@ -155,7 +160,7 @@ describe("u373 and u370 on one mounted App", () => {
     const field = document.body.appendChild(document.createElement("input"));
 
     for (const from of [document.body, screen.getAllByRole("treeitem")[0]!, field]) {
-      chord({}, from);
+      closeByChord({}, from);
       expect(shelf().hidden).toBe(true);
       chord({}, from);
       expect(shelf().hidden).toBe(false);
@@ -170,10 +175,10 @@ describe("u373 and u370 on one mounted App", () => {
     const row = document.querySelector<HTMLElement>(".rail-row")!;
 
     row.focus();
-    chord();
+    closeByChord();
     chord();
     await waitFor(() => expect(document.activeElement).toBe(tabNamed("Todos")));
-    chord();
+    closeByChord();
     expect(document.activeElement).toBe(row);
   });
 
@@ -194,12 +199,12 @@ describe("u373 the Shelf has two tabs", () => {
     expect(tabs().map((tab) => tab.querySelector(".shelf-count"))).toEqual([null, null]);
   });
 
-  it("u373_the_open_tab_survives_a_restart_per_project", async () => {
+  it("u373_the_open_tab_survives_a_restart", async () => {
     const first = await mountApp("empty-project");
     const chosen = tabNamed("Pads").id;
 
     fireEvent.click(tabNamed("Pads"));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads"));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")?.frame?.tab).toBe("pads"));
 
     batch(cleanup);
     render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
@@ -208,7 +213,7 @@ describe("u373 the Shelf has two tabs", () => {
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
-    localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: true, tab: 7 }));
+    localStorage.setItem("roundup:viewer", JSON.stringify({ frame: { open: true, tab: 7 } }));
     await mountApp("empty-project");
 
     expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
@@ -229,11 +234,11 @@ describe("u373 the Shelf has two tabs", () => {
 
 describe("u370 the Shelf closes and opens", () => {
 
-  it("u370_the_state_survives_a_restart_per_project", async () => {
+  it("u370_the_state_survives_a_restart", async () => {
     const first = await mountApp("empty-project");
 
-    chord();
-    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:shelf:/Users/you/harness") ?? "null")?.open).toBe(false));
+    closeByChord();
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")?.frame?.open).toBe(false));
     batch(cleanup);
     render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByLabelText("Ask", { selector: '[role="region"]' });

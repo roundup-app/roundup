@@ -9,6 +9,16 @@ const visible = (el: Element) => !el.closest('[hidden], [aria-hidden=true]') && 
 
 const nameOf = (el: Element) => `${el.tagName.toLowerCase()}.${el.classList[0] ?? ""}`;
 
+/** Press feedback times scale only: the pressed rule's transition (read from its text, since a var() shorthand reads empty) is none, or one scale entry, so every other property stays instant. */
+const scaleOnly = (transition: string) => transition === "none" || /^scale(?:\s[^,]*)?$/.test(transition.trim());
+
+/** A rule that sets no transition leaves the cascade's: every property but scale has zero duration. */
+const instantBesidesScale = (style: CSSStyleDeclaration) => {
+  const durations = style.transitionDuration.split(",").map(value => parseFloat(value));
+
+  return style.transitionProperty.split(",").every((property, at) => property.trim() === "scale" || durations[at % durations.length] === 0);
+};
+
 /** U133: inspect the instant Token recipe without dispatching input or changing the page. */
 export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
   const view = doc.defaultView!;
@@ -27,7 +37,7 @@ export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
       if (owner !== el && !rule.selectorText.includes(":has(input")) return false;
       const selector = rule.selectorText.replaceAll('[data-pressed="true"]', ":where(*)").replaceAll(":active", ":where(*)");
 
-      try { return owner.matches(selector) && (rule.style.transition === "none" || view.getComputedStyle(owner).transitionDuration.split(",").every(value => parseFloat(value) === 0)); } catch { return false; }
+      try { return owner.matches(selector) && (scaleOnly(rule.style.cssText.match(/(?:^|;)\s*transition:\s*([^;]+)/)?.[1] ?? "") || instantBesidesScale(view.getComputedStyle(owner))); } catch { return false; }
     });
 
     if (!covered) return result({ pressFeedback: "missing" }, nameOf(owner), false);

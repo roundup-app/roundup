@@ -39,7 +39,8 @@ fn word(value: &impl serde::Serialize) -> Result<String, StoreError> {
     }
 }
 
-/// The columns `load_with` selects, in `NodeRow::read`'s order.
+/// The columns `load_with` selects, in `NodeRow::read`'s order. The `opening_prompt` column holds a
+/// Mode's `mode_prompt`: Project migrations only add (MG1), so the column keeps its first name.
 pub(super) const COLUMNS: &str = "SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort,
                 conversation_id, conversation_cwd, auto, finished, opening_prompt, alert_level, start_attribution, visibility FROM nodes";
@@ -60,7 +61,7 @@ pub(super) struct NodeRow {
     can_resume: bool,
     auto: bool,
     pub finished: u64,
-    opening_prompt: Option<String>,
+    mode_prompt: Option<String>,
     alert_level: contracts::agent::AlertLevel,
     start_attribution: Option<StartAttribution>,
     visibility: RailVisibility,
@@ -99,7 +100,7 @@ impl NodeRow {
                 && !matches!(row.get_ref(14)?, ValueRef::Null),
             auto: row.get(15)?,
             finished: row.get::<_, i64>(16)?.cast_unsigned(),
-            opening_prompt: row.get(17)?,
+            mode_prompt: row.get(17)?,
             alert_level: row.get::<_, Json<_>>(18)?.0,
             start_attribution: row
                 .get_ref(19)?
@@ -118,6 +119,9 @@ impl NodeRow {
             NodeKind::Group => None,
         };
         let workstream = kind == NodeKind::Workstream;
+        let mode_prompt = (kind == NodeKind::Agent && self.parent.is_none())
+            .then_some(self.mode_prompt)
+            .flatten();
         RailNode {
             workstream_state: None,
             waiting: None,
@@ -126,7 +130,7 @@ impl NodeRow {
             start_attribution: self.start_attribution,
             visibility: self.visibility,
             alert_level: self.alert_level,
-            opening_prompt: self.opening_prompt.filter(|_| workstream),
+            mode_prompt,
             auto: workstream.then_some(self.auto),
             id: self.id.to_string(),
             kind,
@@ -168,6 +172,7 @@ pub struct NewAgent<'a> {
     pub role: Option<SpawnRole>,
     pub model: Option<&'a str>,
     pub effort: Option<&'a str>,
+    pub mode_prompt: Option<&'a str>,
 }
 
 impl Rail {
@@ -187,8 +192,8 @@ impl Rail {
         let order = siblings(&nodes, new.parent).len() as i64;
         tx.execute(
             "INSERT INTO nodes (kind, name, parent, ord, work, start_attribution, visibility,
-                    spawn_prompt, spawner, role, model, effort)
-                VALUES ('agent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    spawn_prompt, spawner, role, model, effort, opening_prompt)
+                VALUES ('agent', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params![
                 new.name,
                 new.parent,
@@ -201,10 +206,11 @@ impl Rail {
                 role,
                 new.model,
                 new.effort,
+                new.mode_prompt,
             ],
         )?;
         let id = tx.last_insert_rowid().to_string();
         tx.commit()?;
-        self.node(&id)
+        self.node(agent_id(&id)?)
     }
 }
