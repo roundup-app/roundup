@@ -1,6 +1,12 @@
 //! DCL5a: the end and stall facts reach the Door through a real Daemon over its socket, with a
 //! fake `claude` that only reads stdin and an injected clock. Each wait is on the stored note, not
 //! on time.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};

@@ -22,7 +22,7 @@ const mountSurface = async (text: string, kind: "agent" | "workstream" = "agent"
   app.handlers["terminal.list"] = () => [];
   app.handlers["link.read"] = () => kind === "agent" ? { kind, id: "chosen", node: target, digest: null } : { kind, id: "chosen", node: target, children: [] };
   let receive: ((request: NativeOpen) => void) | undefined;
-  app.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = listener => { receive = listener;
 
  return () => {}; };
 

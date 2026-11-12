@@ -2,7 +2,7 @@ import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { path, tab } from "../header/stripFixture";
-import { agent, workstream, info, USER } from "./nodes";
+import { agent, workstream, mode, info, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 import { padOf } from "../pads/padsFixture";
 import { todo } from "../todos/testHarness";
@@ -17,7 +17,7 @@ import { settled } from "../rail/railFixture";
 import { copy } from "./copy";
 
 // Actual App openings, rather than a fixture containing representative fields.
-const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Ask prompt", "Spawn prompt", "Opening prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;
+const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Ask prompt", "Spawn prompt", "Mode prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;
 
 afterEach(() => { batch(cleanup); localStorage.clear(); });
 
@@ -27,7 +27,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
   if (opening === "Project query") app.add(path("other"));
   const daemon = app.of(path("p"));
-  daemon.handlers["rail.tree"] = () => [workstream("home", { name: "Home" }), agent("a", "idle", "ready", { name: "Original", worktree: { path: "/p/work", base: "main", branch: "work" } })];
+  daemon.handlers["rail.tree"] = () => [workstream("home", { name: "Home" }), mode("mode", "Saved", { name: "Mode" }), agent("a", "idle", "ready", { name: "Original", worktree: { path: "/p/work", base: "main", branch: "work" } })];
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Original" }), todo(2, { title: "Other" })] }, () => {}), padHandlers({ pads: [padOf("Original", USER)], history: [] }, () => {}));
   daemon.handlers["project.importDiscover"] = () => ({ candidates: [], excluded: [] });
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
@@ -73,18 +73,18 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   } else if (opening === "Switcher query") {
     leaderKey("KeyK");
     field = await screen.findByRole("combobox", { name: "Switch to" });
-  } else if (opening === "Spawn prompt" || opening === "Opening prompt" || opening === "Terminal rename") {
+  } else if (opening === "Spawn prompt" || opening === "Mode prompt" || opening === "Terminal rename") {
     openProjectPage("view:workstreams", path("p"));
     await screen.findByLabelText("Rail", { selector: '[role="tree"]' });
 
     if (opening === "Spawn prompt") {
       fireEvent.keyDown(document, { key: "n", code: "KeyN", metaKey: true, shiftKey: true });
       field = await screen.findByRole("textbox", { name: "Work" });
-    } else if (opening === "Opening prompt") {
-      const row = document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!;
+    } else if (opening === "Mode prompt") {
+      const row = document.querySelector<HTMLElement>('.rail-row[data-id="mode"]')!;
       fireEvent.contextMenu(row);
-      await app.pickMenu(copy.openingPromptMenu);
-      field = await screen.findByRole("textbox", { name: copy.openingPrompt });
+      await app.pickMenu(copy.modePromptMenu);
+      field = await screen.findByRole("textbox", { name: copy.modePrompt });
     } else {
       fireEvent.keyDown(document, { key: "t", code: "KeyT", metaKey: true });
       const control = await screen.findByRole("button", { name: "Shell" });
@@ -217,8 +217,8 @@ it("u3787d_each_field_keeps_literal_input native CapturePanel request", async ()
   const port: import("../app/seam").CapturePort = {
     configure: async () => {}, show: async () => {}, dismiss: async () => {}, publish: async () => {},
     act: async action => { actions.push(action); },
-    onRequested: async () => () => {}, onAction: async () => () => {},
-    onState: async listener => {
+    onRequested: () => () => {}, onAction: () => () => {},
+    onState: listener => {
       listener({ session: "original", sequence: 0, text: "", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" });
 
       return () => {};

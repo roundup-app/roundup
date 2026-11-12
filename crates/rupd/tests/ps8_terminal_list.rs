@@ -1,4 +1,10 @@
 //! PS8.1 through a real Daemon: a program's status report shows on its `terminal.list` entry.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 

@@ -137,7 +137,7 @@ it("u144_closing_the_socket_fires_daemon_exited", async () => {
   const exits: unknown[] = [];
 
   try {
-    await app.onDaemonExited(value => exits.push(value));
+    app.onDaemonExited(value => exits.push(value));
     await app.subscribe(() => {});
     await expect.poll(() => real.subscriptions.length).toBe(1);
     real.subscriptions[0]!.end();
@@ -306,7 +306,7 @@ it("u2773a_harness_page_lifecycle_releases_and_restores_streams", async () => {
   const exits: unknown[] = [];
 
   try {
-    await app.onDaemonExited(value => exits.push(value));
+    app.onDaemonExited(value => exits.push(value));
     await app.subscribe(event => events.push(event));
     const selected = await app.selectOutput("A", value => messages.push("gap" in value ? value : Array.from(value)));
     await expect.poll(() => real.subscriptions.length).toBe(2);

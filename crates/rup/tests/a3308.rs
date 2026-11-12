@@ -1,5 +1,11 @@
 // T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 //! A3308: a supervisor answers Auto through the public MCP and schema-derived CLI.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "common/served.rs"]
 mod common;
 

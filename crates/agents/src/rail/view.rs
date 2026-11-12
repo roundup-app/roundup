@@ -88,7 +88,7 @@ impl Rail {
             .map(drop)?)
     }
 
-    pub(crate) fn set_opening_prompt(
+    pub(crate) fn set_mode_prompt(
         &mut self,
         id: AgentId,
         prompt: Option<&str>,
@@ -96,7 +96,7 @@ impl Rail {
         Ok(self
             .db
             .execute(
-                "UPDATE nodes SET opening_prompt=?1 WHERE id=?2 AND opening_prompt IS NOT ?1",
+                "UPDATE nodes SET opening_prompt=?1 WHERE id=?2 AND kind='agent' AND parent IS NULL AND opening_prompt IS NOT ?1",
                 params![prompt, id.get()],
             )
             .map(|changed| changed != 0)?)

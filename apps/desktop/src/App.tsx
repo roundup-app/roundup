@@ -245,7 +245,7 @@ const InProject = (props: { open: ConnectedProject | Error | undefined; failed?:
 
 // The fold helper loads after mount so Motion's layout projection stays out of the entry bundle (R3800).
 const documentMotion = (reducedMotion: Accessor<boolean>) => {
-  const stopPress = pressFeedback(document, reducedMotion);
+  const stopPress = pressFeedback(document);
   const fold = import("./ui/fold").then(({ foldMotion }) => foldMotion(document, reducedMotion));
 
   return () => {
@@ -434,9 +434,9 @@ export const App = (props: {
   onMount(() => {
     const owner = getOwner();
     nativeHandler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
-    const stop = props.app.onNativeOpen?.(routeNativeOpen);
-    onCleanup(() => void stop?.then(release => release()));
-    void stop?.catch(error => failNative(String(error)));
+    const stop = props.app.onNativeOpen?.(routeNativeOpen, cause => failNative(cause));
+
+    if (stop) onCleanup(stop);
   });
 
   const [menuBar] = createResource(() => import("./app/menuBar").catch(error => {
@@ -476,17 +476,7 @@ export const App = (props: {
 
   // U348: a drag of files over the window; the Projects' regions hear the drops it lets through.
   const dropTargets = createDropTargets(props.app, { rail: () => railOf(projects.active() ?? ""), select: projects.select });
-  let stopDrag: (() => void) | undefined;
-  let torn = false;
-
-  void dropTargets.start().then((stop) => {
-    if (torn) stop();
-    else stopDrag = stop;
-  });
-  onCleanup(() => {
-    torn = true;
-    stopDrag?.();
-  });
+  onCleanup(dropTargets.start());
 
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 
@@ -577,10 +567,10 @@ export const App = (props: {
     available: () => activeConnection() != null,
     invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
-  const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
+  const railHandle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
-  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
+  const shelfFocus = shelfKeys({ frame, shelf: shelfElement, connection: activeConnection });
   // U6224: the bar tabs promote through their own click; counting their press as use would let that click close what it just opened.
   createEdgePeek({ edge: "trailing", region: shelfElement, state: frame, promote: (target) => { if (!target.closest(".shelf-tabs")) frame.promote(); } });
 
@@ -645,9 +635,7 @@ export const App = (props: {
   };
 
   createEffect(() => { nativeMenu(); void writeMenu(); });
-  let menuEnded = false;
-  let stopMenu: (() => void) | undefined;
-  void props.app.onProjectPage(({ path, command }) => {
+  onCleanup(untrack(() => props.app.onProjectPage(({ path, command }) => {
     if (path !== projects.active()) return;
     const open = connectionOf(path);
 
@@ -658,16 +646,12 @@ export const App = (props: {
 
       if (views.some(([id]) => id === view) && (view !== "resources" || open.rail.nodes.some(node => node.id === open.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null)))) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
     } else captureActions(menuFocus()).find(action => action.value === command && action.available())?.run();
-  }).then(stop => { if (menuEnded) stop(); else stopMenu = stop; });
-  onCleanup(() => { menuEnded = true; stopMenu?.(); });
+  })));
 
   // FS5979a: one sheet, and only with a Project open; a second request while it is open changes nothing.
   const [forkOpen, setForkOpen] = createSignal(false);
   const [forkAsked, setForkAsked] = createSignal(false);
-  let forkEnded = false;
-  let stopFork: (() => void) | undefined;
-  void props.app.onForkSheet(() => { if (projects.tabs().length > 0) { setForkAsked(true); setForkOpen(true); } }).then(stop => { if (forkEnded) stop(); else stopFork = stop; });
-  onCleanup(() => { forkEnded = true; stopFork?.(); });
+  onCleanup(untrack(() => props.app.onForkSheet(() => { if (projects.tabs().length > 0) { setForkAsked(true); setForkOpen(true); } })));
   const forkSources = () => projects.tabs().map(tab => ({ path: tab.project.path, name: tab.project.name, nodes: railOf(tab.project.path)?.nodes ?? [] }));
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
@@ -683,25 +667,23 @@ export const App = (props: {
 
 
   // U5232e: a click on a State alert opens that Agent in its Project, as a click on its Rail row does.
-  let alertClicksEnded = false;
-  let stopAlertClicks: (() => void) | undefined;
-  void props.app.onStateAlertClicked(agent => {
+  onCleanup(untrack(() => props.app.onStateAlertClicked(agent => {
     const path = [...connections().keys()].find(each => railOf(each)?.nodes.some(node => node.id === agent));
 
     if (path === undefined) return;
 
     railOf(path)?.select(agent, "open");
     projects.select(path);
-  }).then(stop => { if (alertClicksEnded) stop(); else stopAlertClicks = stop; });
-  onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
+  })));
 
   onCleanup(shelfFocus.stop);
+
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.shelf"], capture: () => {
-    const wasOpen = frame.open();
+    const was = shelfFocus.size();
 
     return {
       available: () => activeConnection() != null,
-      invoke: () => { if (frame.open() === wasOpen) shelfFocus.toggle("key"); },
+      invoke: () => { if (shelfFocus.size() === was) shelfFocus.rotate(); },
     };
   } }]);
 
@@ -746,7 +728,6 @@ export const App = (props: {
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), peeking: frame.peeking(), covering: frame.covering(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
-            railToggle={railToggle()}
             app={props.app}
             onFailure={setWindowFailure}
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
@@ -766,6 +747,7 @@ export const App = (props: {
             /></Show>
           </WindowBar>
         }
+        railHandle={railHandle()}
         railPeeking={railPeeking()}
         railSlide={railSlide.motion()}
         railStrip={<InProject open={activeConnection()}>{() => <RailStrip />}</InProject>}
@@ -886,7 +868,7 @@ export const App = (props: {
               <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={dismissProjectPicker} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
             </section></Show>
             <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
-            <Help projectOpen={activeConnection() != null} shelfOpen={frame.open()} />
+            <Help projectOpen={activeConnection() != null} />
             <Toasts queue={toasts} />
           </>
         }

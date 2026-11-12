@@ -87,8 +87,8 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         await capture(lane, "tree-40-todo-drawer");
         await browser("press", "Escape");
         await until("!!document.querySelector('.drawer[data-open=false]')");
-        await browser("press", "Meta+k");
-        await browser("press", "b");
+        // U3721a: with a Todo selected `⌘K` then `B` opens it again, so the Bench closes by its head's Close button.
+        await evaluate("document.querySelector('.shelf [aria-label=\"Close the Bench\"]').click() ?? true");
         await until("document.querySelector('.window').dataset.shelf === 'closed'");
       }
 

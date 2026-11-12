@@ -19,6 +19,7 @@ import { noReflectApplyRule } from "./rules/no-reflect-apply.ts";
 import { noReflectGetRule } from "./rules/no-reflect-get.ts";
 import { noPromiseChainQueueRule } from "./rules/no-promise-chain-queue.ts";
 import { noDraftBypassRule } from "./rules/no-draft-bypass.ts";
+import { noRepairEffectRule } from "./rules/no-repair-effect.ts";
 import { noSignalPokeRule } from "./rules/no-signal-poke.ts";
 import { noRuntimeTypeofRule } from "./rules/no-runtime-typeof.ts";
 import { noForbiddenTermInSymbolNamesRule } from "./rules/no-shape-in-symbol-names.ts";
@@ -52,6 +53,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 		"no-module-mocking": noModuleMockingRule,
 		"no-object-parameters": noObjectParametersRule,
 		"no-signal-poke": noSignalPokeRule,
+		"no-repair-effect": noRepairEffectRule,
 		"no-draft-bypass": noDraftBypassRule,
 		"no-promise-chain-queue": noPromiseChainQueueRule,
 		"no-reflect-apply": noReflectApplyRule,

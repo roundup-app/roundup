@@ -1,6 +1,7 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
+import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
@@ -42,8 +43,6 @@ const Values = (props: { memory: string; cpu: string; disk: string }) => (
 /** U444: the centre's last line, under the Terminal, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
 export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined }) => {
   const { app, rail, daemonExit, hasView, hideView } = useConnectedProject();
-  const [result, setResult] = createSignal<Resources | null>(null);
-  const [failed, setFailed] = createSignal(false);
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
 
   const own = createMemo(() => {
@@ -51,6 +50,9 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
 
     return node?.kind === "agent" || node?.kind === "workstream" && node.attempt !== null ? node.id : null;
   });
+
+  const [result, setResult] = createRestartable<Resources | null>(own, null);
+  const [failed, setFailed] = createRestartable(own, false);
 
   const live = () => hasView("resources") && visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node));
 
@@ -60,11 +62,6 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
 
   // No call is pending twice at once, and none is made while the strip is not shown.
   let pending = false;
-
-  createEffect(on(own, () => {
-    setResult(null);
-    setFailed(false);
-  }));
 
   createEffect(() => {
     const selected = own();

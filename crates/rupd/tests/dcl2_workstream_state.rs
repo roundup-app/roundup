@@ -1,5 +1,11 @@
 //! DCL2 through a real Daemon and the pinned real `claude` on aimock: an idle Door still
 //! receives a Message while a child works, and the Workstream state reads working.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "../../rup/tests/e2e/aimock.rs"]
 #[allow(dead_code)]
 mod aimock;

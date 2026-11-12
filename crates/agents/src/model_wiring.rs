@@ -48,7 +48,7 @@ impl Agents {
         }
         let id = id.as_str();
         models::check_listed(model.as_deref(), effort.as_deref())?;
-        let kind = self.shared.rail().node(id)?.kind;
+        let kind = self.shared.rail().node(crate::rail::agent_id(id)?)?.kind;
         let role = match kind {
             NodeKind::Workstream => Role::Door,
             NodeKind::Agent => Role::Agent,
@@ -60,7 +60,12 @@ impl Agents {
             return Ok(parked);
         }
         let live = parked.channel.is_some();
-        if live && !self.shared.rail().has_conversation(id)? {
+        if live
+            && !self
+                .shared
+                .rail()
+                .has_conversation(crate::rail::agent_id(id)?)?
+        {
             return Err(RpcError::conflict(format!(
                 "{id} has no saved conversation yet to resume on the new model"
             )));
@@ -68,9 +73,11 @@ impl Agents {
         if live {
             self.shared.stop(ctx.actor.clone(), id).await?;
         }
-        self.shared
-            .rail()
-            .set_pair(id, pair.model.as_deref(), pair.effort.as_deref())?;
+        self.shared.rail().set_pair(
+            crate::rail::agent_id(id)?,
+            pair.model.as_deref(),
+            pair.effort.as_deref(),
+        )?;
         if live {
             let bound = match kind {
                 NodeKind::Workstream => START_DOOR_ACK_BOUND,

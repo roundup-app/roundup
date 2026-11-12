@@ -10,6 +10,7 @@ getrandom = "0.3"
 nix = { version = "0.28", features = ["signal"] }
 contracts = { path = "../contracts" }
 rpc = { path = "../rpc" }
+herdr = { path = "../herdr" }
 serde_json.workspace = true
 thiserror.workspace = true
 serde.workspace = true
@@ -31,3 +32,10 @@ workspace = true
 
 [features]
 test-support = []
+
+# The test-support herdr-core: tests start it as `herdr-core-test connect`, as the product starts the real core.
+[[bin]]
+name = "herdr-core-test"
+path = "tests/support/herdr_core.rs"
+required-features = ["test-support"]
+test = false

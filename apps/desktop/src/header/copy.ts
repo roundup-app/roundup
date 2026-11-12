@@ -13,8 +13,6 @@ export const copy = {
   draftRetention: sharedCopy.draftRetention,
   copyDraftFailure: sharedCopy.copyDraftFailure,
   close: sharedCopy.close,
-  collapseRail: "Collapse the Rail",
-  expandRail: "Expand the Rail",
   closeOthers: "Close Others",
   closeToLeft: "Close to the Left",
   closeToRight: "Close to the Right",

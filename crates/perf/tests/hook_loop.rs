@@ -1,4 +1,10 @@
 //! Scenario H15 (`scenarios/control.md`): the `hook_loop_ms` metric.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;

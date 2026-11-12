@@ -148,7 +148,7 @@ impl Rail {
     /// available, in one statement, so two starts never both win. `false` when taken.
     pub fn reserve_prepared(
         &mut self,
-        id: &str,
+        id: AgentId,
         plan: &crate::worktree::Provision,
     ) -> Result<bool, StoreError> {
         self.closed_recovery_ready(Some(id))?;
@@ -167,7 +167,7 @@ impl Rail {
                     plan.worktree.base,
                     plan.owner,
                     plan.commit,
-                    id
+                    id.get()
                 ],
             )
             ?;
@@ -221,13 +221,13 @@ impl Rail {
     /// A36: store the Model and Effort node `id` runs on.
     pub fn set_pair(
         &mut self,
-        id: &str,
+        id: AgentId,
         model: Option<&str>,
         effort: Option<&str>,
     ) -> Result<(), StoreError> {
         let changed = self.db.execute(
             "UPDATE nodes SET model = ?, effort = ? WHERE id = ?",
-            params![model, effort, id],
+            params![model, effort, id.get()],
         )?;
         if changed == 0 {
             return Err(StoreError::not_found(GONE_AGENT));

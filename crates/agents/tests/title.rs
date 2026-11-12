@@ -1,6 +1,12 @@
 //! A2: the terminal title closes the gaps no hook covers. Titles come from `screen*.jsonl`, hooks
 //! from the `log*.jsonl` of the same run, interleaved by timestamp and replayed on a clock that
 //! follows those timestamps.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};

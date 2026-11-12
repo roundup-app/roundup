@@ -28,7 +28,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.until("document.querySelector('[role=dialog]') !== null");
   await lane.capture("U4547b", "blank-fields");
   await lane.browser("fill", '[data-part=input]', "Reviewer");
-  await lane.browser("fill", '.opening-prompt-field textarea', "  Review the current changes\nKeep exact spacing  ");
+  await lane.browser("fill", '.mode-prompt-field textarea', "  Review the current changes\nKeep exact spacing  ");
   await lane.capture("U4547b", "enter");
   await lane.evaluate("window.__fake.failNext(-32003, 'Mode could not be created. Retry with your saved input.')");
   await lane.browser("click", 'button[type=submit]');
@@ -37,15 +37,14 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.browser("click", 'button[type=submit]');
   await lane.until("!document.querySelector('[role=dialog]')");
   await lane.until("[...document.querySelectorAll('.rail-tree .section-head')].some(head => head.textContent.includes('MODES'))");
-  await lane.until("document.activeElement?.closest('[data-id]')?.getAttribute('data-id') === window.__fake.app.calls.find(call => call.method === 'workstream.restart').params.id");
+  await lane.until("document.activeElement?.closest('[data-id]')?.getAttribute('data-id') === window.__fake.app.calls.find(call => call.method === 'agent.restartMode').params.id");
   await lane.capture("U4547b", "selected-mode");
 
   const calls = await lane.calls();
-  expect(calls.filter(call => call.method === "workstream.restart")).toHaveLength(1);
-  const id = await lane.evaluate<string>("window.__fake.app.calls.find(call => call.method === 'workstream.restart').params.id");
+  expect(calls.filter(call => call.method === "agent.restartMode")).toHaveLength(1);
+  const id = await lane.evaluate<string>("window.__fake.app.calls.find(call => call.method === 'agent.restartMode').params.id");
   await lane.evaluate(`(async () => {
-    const other = await window.__fake.app.rpc('rail.createWorkstream', { name: 'Reviewer with a deliberately long name', parent: null });
-    await window.__fake.app.rpc('workstream.setOpeningPrompt', { id: other.id, prompt: 'Review the work' });
+    await window.__fake.app.rpc('agent.createMode', { name: 'Reviewer with a deliberately long name', prompt: 'Review the work' });
     return true;
   })()`);
   await lane.until("document.querySelectorAll('.rail-section[aria-label=MODES] .rail-row').length === 2");
@@ -59,9 +58,9 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.browser("press", "Shift+F10");
   await lane.until("window.__fake.app.menuLabels().includes('First prompt…')");
   await lane.evaluate("window.__fake.app.pickMenu('First prompt…')");
-  await lane.until("document.querySelector('.opening-prompt-dialog textarea') !== null");
+  await lane.until("document.querySelector('.mode-prompt-dialog textarea') !== null");
   await lane.capture("U4547c", "edit-first-prompt");
-  await lane.browser("fill", '.opening-prompt-field textarea', "  changed prompt\n ");
+  await lane.browser("fill", '.mode-prompt-field textarea', "  changed prompt\n ");
   await lane.evaluate("window.__fake.failNext(-32003, 'First prompt could not be saved. Retry with your draft.')");
   await lane.browser("click", '[data-part=title]');
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('First prompt could not be saved')");

@@ -6,6 +6,7 @@ import type { Brief as agent_Brief } from "./agent/Brief";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
 import type { CompareFileParams as agent_CompareFileParams } from "./agent/CompareFileParams";
 import type { Context as agent_Context } from "./agent/Context";
+import type { CreateModeParams as agent_CreateModeParams } from "./agent/CreateModeParams";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
 import type { DeletionParams as agent_DeletionParams } from "./agent/DeletionParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
@@ -15,6 +16,8 @@ import type { FileComparison as agent_FileComparison } from "./agent/FileCompari
 import type { GroupParams as agent_GroupParams } from "./agent/GroupParams";
 import type { Instructions as agent_Instructions } from "./agent/Instructions";
 import type { Landed as agent_Landed } from "./agent/Landed";
+import type { ModePromptParams as agent_ModePromptParams } from "./agent/ModePromptParams";
+import type { ModeRestartParams as agent_ModeRestartParams } from "./agent/ModeRestartParams";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
 import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
@@ -173,11 +176,9 @@ import type { UnreadComment as todo_UnreadComment } from "./todo/UnreadComment";
 import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
 import type { AutoParams as workstream_AutoParams } from "./workstream/AutoParams";
 import type { CapParams as workstream_CapParams } from "./workstream/CapParams";
-import type { OpeningPromptParams as workstream_OpeningPromptParams } from "./workstream/OpeningPromptParams";
 import type { QueueMoveParams as workstream_QueueMoveParams } from "./workstream/QueueMoveParams";
 import type { QueueState as workstream_QueueState } from "./workstream/QueueState";
 import type { QueuedWorkstream as workstream_QueuedWorkstream } from "./workstream/QueuedWorkstream";
-import type { RestartParams as workstream_RestartParams } from "./workstream/RestartParams";
 import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
 import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
 import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "./workstream/StartWorkstreamParams";
@@ -185,6 +186,8 @@ import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "
 export type RpcMethods = {
   "terminal.open": { params: terminal_OpenParams; result: terminal_Opened };
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };
+  "agent.createMode": { params: agent_CreateModeParams; result: agent_RailNode };
+  "agent.setModePrompt": { params: agent_ModePromptParams; result: null };
   "agent.extras": { params: null; result: agent_Extras };
   "agent.extras_add": { params: agent_ExtrasAddParams; result: agent_RailNode };
   "agent.stop": { params: agent_NodeId; result: null };
@@ -203,7 +206,6 @@ export type RpcMethods = {
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "rail.tree": { params: null; result: agent_RailNode[] };
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
-  "workstream.setOpeningPrompt": { params: workstream_OpeningPromptParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.group": { params: agent_GroupParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
@@ -350,7 +352,7 @@ export type RpcMethods = {
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
   "message.retryDelivery": { params: agent_NodeId; result: null };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
-  "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
+  "agent.restartMode": { params: agent_ModeRestartParams; result: agent_RailNode };
   "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };
   "workstream.queue": { params: null; result: workstream_QueueState };
   "workstream.dequeue": { params: workstream_QueuedWorkstream; result: null };

@@ -1,18 +1,18 @@
-//! A4452c: fresh Door sessions retain the Workstream and A35's input reservation.
+//! A4452c: Mode restarts retain the root Agent and A35's input reservation.
 use crate::*;
+use contracts::agent::ModeRestartParams;
 use contracts::agent::{NodeKind, RailNode};
-use contracts::workstream::RestartParams;
 use messages::restart::SessionRestart;
 
 impl Daemon {
-    pub(crate) async fn restart_session(
+    pub(crate) async fn restart_mode(
         &self,
         actor: &Actor,
-        p: RestartParams,
+        p: ModeRestartParams,
     ) -> Result<RailNode, RpcError> {
         if actor.kind != ActorKind::User {
             return Err(RpcError::forbidden(
-                "only the user may restart a Door session",
+                "only the user may restart a Mode Agent",
             ));
         }
         let _gate = self.restarting.lock().await;
@@ -22,31 +22,41 @@ impl Daemon {
             .into_iter()
             .find(|n| n.id == p.id)
             .ok_or_else(|| RpcError::not_found(&p.id))?;
-        if node.kind != NodeKind::Workstream {
-            return Err(RpcError::conflict("only a Workstream has a Door"));
+        if node.kind != NodeKind::Agent
+            || node.parent.is_some()
+            || node
+                .mode_prompt
+                .as_deref()
+                .is_none_or(|prompt| prompt.trim().is_empty())
+        {
+            return Err(RpcError::conflict(
+                "only a root Mode Agent can be restarted",
+            ));
         }
         let messages = self
             .sender
             .get()
             .ok_or_else(|| RpcError::internal("Messages unavailable"))?;
-        let key = format!("opening:{}", p.request);
+        let key = format!("mode:{}", p.request);
         // A retry reads the originally reserved text, even after the setting has changed.
         if messages.session_restart(&p.id, &key)?.is_none() {
             messages
-                .reserve_restart(&p.id, &key, node.opening_prompt.as_deref())
+                .reserve_restart(&p.id, &key, node.mode_prompt.as_deref())
                 .await?;
         }
         let (prompt, mut state) = messages
             .session_restart(&p.id, &key)?
             .ok_or_else(|| RpcError::conflict("restart not reserved"))?;
         if matches!(state, SessionRestart::Reserved) {
-            self.agents.stop_door(actor.clone(), &p.id).await?;
+            self.agents
+                .stop_before_restart(actor.clone(), &p.id)
+                .await?;
             messages.set_session_restart(&p.id, &key, SessionRestart::Starting)?;
             let fresh = match self
                 .agents
-                .restart_door(
+                .restart_mode(
                     &self.ctx(actor.clone()),
-                    &p.id,
+                    &p,
                     std::time::Duration::from_secs(15),
                 )
                 .await
@@ -64,7 +74,7 @@ impl Daemon {
             state = SessionRestart::Started {
                 attempt: fresh
                     .attempt
-                    .ok_or_else(|| RpcError::internal("fresh Door has no Attempt"))?
+                    .ok_or_else(|| RpcError::internal("fresh Mode Agent has no Attempt"))?
                     .to_string(),
             };
             messages.set_session_restart(&p.id, &key, state.clone())?;
@@ -78,7 +88,7 @@ impl Daemon {
                         attempt: attempt.clone(),
                     },
                 )?;
-                self.agents.opening_prompt(&p.id, attempt, prompt).await?;
+                self.agents.mode_prompt(&p.id, attempt, prompt).await?;
             }
             state = SessionRestart::Acknowledged {
                 attempt: attempt.clone(),
@@ -97,7 +107,7 @@ impl Daemon {
         }
         if !matches!(state, SessionRestart::Released { .. }) {
             return Err(RpcError::unknown_outcome(
-                "restart or Opening prompt outcome is unknown; it will not be typed again. Inspect the Door's Terminal",
+                "restart or Mode prompt outcome is unknown; it will not be typed again. Inspect the Mode Agent's Terminal",
             ));
         }
         self.rail()

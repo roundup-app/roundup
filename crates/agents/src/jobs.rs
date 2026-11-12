@@ -22,9 +22,8 @@ pub struct JobStop {
 impl Agents {
     /// DCL8: whether `id` is a Door (a Workstream), the one receiver whose Start carries the snapshot.
     pub fn is_door(&self, id: &str) -> bool {
-        self.shared
-            .rail()
-            .node(id)
+        crate::rail::agent_id(id)
+            .and_then(|id| self.shared.rail().node(id))
             .is_ok_and(|node| node.kind == contracts::agent::NodeKind::Workstream)
     }
 
@@ -46,7 +45,7 @@ impl Agents {
         let rail = self.shared.rail();
         let mut open = Vec::new();
         for node in rail.tree()? {
-            if rail.role(&node.id)? != Some(SpawnRole::Job) {
+            if rail.role(crate::rail::agent_id(&node.id)?)? != Some(SpawnRole::Job) {
                 continue;
             }
             let attempt = node.attempt.as_deref().unwrap_or_default().to_owned();

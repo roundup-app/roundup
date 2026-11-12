@@ -27,8 +27,6 @@ pub(super) struct Facts {
     pub output_style: Option<String>,
     pub missing_intent: bool,
     pub delivery: extras::Delivery,
-    /// The Write|Edit guard a Door or Scout adds to `PreToolUse`.
-    pub memory_hooks: Vec<Value>,
     /// The Agent's `PATH`.
     pub path: OsString,
     /// The mode Claude Code takes when none is chosen.
@@ -87,10 +85,6 @@ pub(super) fn plan(spec: &Spec<'_>, facts: Facts) -> Result<Plan, RpcError> {
 
 fn settings(spec: &Spec<'_>, facts: &Facts) -> Result<Value, RpcError> {
     let mut own = settings_json(spec, facts)?;
-    own.pointer_mut("/hooks/PreToolUse")
-        .and_then(Value::as_array_mut)
-        .ok_or_else(|| RpcError::internal("settings lack the state hooks"))?
-        .extend(facts.memory_hooks.iter().cloned());
     if spec.role == Role::Door && spec.mcp() {
         own.pointer_mut("/permissions")
             .and_then(Value::as_object_mut)

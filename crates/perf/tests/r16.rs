@@ -1,4 +1,10 @@
 //! Scenario R16 (`scenarios/perf.md`): a Linux run compares only the baseline measured on its own machine class.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::collections::BTreeMap;
 

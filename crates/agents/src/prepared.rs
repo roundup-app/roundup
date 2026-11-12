@@ -264,7 +264,9 @@ impl Agents {
         let (Some(readiness), Some(ms)) = (config.readiness.clone(), config.timeout_ms) else {
             return Err(invalid("prepared_readiness_missing"));
         };
-        self.shared.rail().resource_node(id)?;
+        self.shared
+            .rail()
+            .resource_node(crate::rail::agent_id(id)?)?;
         let (git, plan_project, plan_id) =
             (self.shared.git.bounded(), project.clone(), id.to_owned());
         let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id))
@@ -284,14 +286,18 @@ impl Agents {
                 continue;
             }
             // The reservation is durable before any git command touches the directory.
-            if !self.shared.rail().reserve_prepared(id, &plan)? {
+            if !self
+                .shared
+                .rail()
+                .reserve_prepared(crate::rail::agent_id(id)?, &plan)?
+            {
                 reasons.push(format!("{dir}: used by an Agent"));
                 continue;
             }
             let release = |why: String| {
                 report_undo(
                     "release the prepared directory",
-                    self.shared.rail().clear_worktree(id),
+                    crate::rail::agent_id(id).and_then(|id| self.shared.rail().clear_worktree(id)),
                 );
                 why
             };
@@ -362,7 +368,7 @@ impl Agents {
         match tokio::task::spawn_blocking(move || git.recover(&project, &plan)).await {
             Ok(Ok(())) => report_undo(
                 "release the prepared directory",
-                self.shared.rail().clear_worktree(id),
+                crate::rail::agent_id(id).and_then(|id| self.shared.rail().clear_worktree(id)),
             ),
             Ok(Err(err)) => eprintln!("agents: prepared directory for {id} kept: {err}"),
             Err(err) => eprintln!("agents: prepared directory for {id} kept: {err}"),

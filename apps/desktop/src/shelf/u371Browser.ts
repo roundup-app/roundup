@@ -53,14 +53,19 @@ export function shelfBrowser(initScript?: string) {
     // Seed on the small fixture to avoid mounting and discarding a full App.
     await browser("open", `${rig.server.resolvedUrls.local[0]}src/ui/u498.html`);
     await browser("wait", "[data-fixture=tabs]");
-    await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
+    await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:viewer', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
     await browser("open", url);
     await browser("wait", seed === "first-run" ? ".window" : ".shelf-tabs");
     await settle();
   };
 
+  // U3721a: `⌘K` then `B` rotates the Bench, so it opens a closed Bench or a peek; an open one closes by its head's Close button.
   const toggle = async () => {
-    await evaluate(`(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', bubbles: true })); return true; })()`);
+    await evaluate(`(() => {
+      if (document.querySelector('.window').dataset.shelf === 'open') document.querySelector('.shelf [aria-label="Close the Bench"]').click();
+      else { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', bubbles: true })); }
+      return true;
+    })()`);
     await settle();
   };
 

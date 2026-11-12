@@ -67,7 +67,12 @@ impl Shared {
     /// G5: stop the Agent and delete its node, Worktree directory and branch whatever their
     /// state.
     pub(super) async fn discard(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
-        if self.rail().node(id)?.worktree.is_none() {
+        if self
+            .rail()
+            .node(crate::rail::agent_id(id)?)?
+            .worktree
+            .is_none()
+        {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         }
         self.end_with(actor, id, Ending::Discard, RailPublication::Immediate)
@@ -90,7 +95,7 @@ impl Shared {
     ) -> Result<(), RpcError> {
         let remove = !matches!(ending, Ending::Stop | Ending::StopForRemoval);
         let checked_node = if ending == Ending::Remove {
-            Some(self.rail().node(id)?)
+            Some(self.rail().node(crate::rail::agent_id(id)?)?)
         } else {
             None
         };
@@ -107,7 +112,7 @@ impl Shared {
         }
         let (terminal_id, worktree) = {
             let rail = self.rail();
-            let mut node = rail.node(id)?;
+            let mut node = rail.node(crate::rail::agent_id(id)?)?;
             if checked_node.as_ref().is_some_and(|checked| {
                 checked.attempt != node.attempt || checked.worktree != node.worktree
             }) {
@@ -202,7 +207,7 @@ impl Shared {
             .await
             .map_err(RpcError::internal)?;
             if let Err(err) = removed {
-                self.rail().detach_terminal(id)?;
+                self.rail().detach_terminal(crate::rail::agent_id(id)?)?;
                 self.release_closing(id, true);
                 if publication == RailPublication::Immediate {
                     self.bus.emit(actor, EventData::RailChanged);
@@ -225,9 +230,9 @@ impl Shared {
                 return Err(err);
             }
             let result = if remove {
-                rail.remove(id)
+                rail.remove(crate::rail::agent_id(id)?)
             } else {
-                rail.detach_terminal(id)
+                rail.detach_terminal(crate::rail::agent_id(id)?)
             };
             if remove {
                 // A failed delete keeps the node, so its facts stay with it.

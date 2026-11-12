@@ -223,7 +223,7 @@ describe("u2773 Project draft integration on real Projects", () => {
         closed.add(path);
         opened = opened.filter((each) => each !== path);
       },
-      onDaemonExited: async () => () => {},
+      onDaemonExited: () => () => {},
     };
   };
 

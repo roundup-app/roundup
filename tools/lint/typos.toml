@@ -2,7 +2,8 @@
 # Tool output contains the exact rejected spellings; scanning it would duplicate each exception.
 # Perf observations embed raw cargo build logs, with crate names typos flags.
 # Patches carry minified vendor bundles, whose identifiers typos flags.
-extend-exclude = ["tools/lint/debt.json", "docs/perf-*.json", "patches/*.patch"]
+# The vendored rmcp carries W3C trace-id hex samples, which typos flags.
+extend-exclude = ["tools/lint/debt.json", "docs/perf-*.json", "patches/*.patch", "vendor/rmcp-3.9.0"]
 
 [default.extend-words]
 # C9d inventories the installed Highlights alias for Extensible Data Notation.

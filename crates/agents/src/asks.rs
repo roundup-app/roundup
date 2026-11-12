@@ -364,7 +364,7 @@ impl Intake {
                 self.emit(id)?;
                 let result = self
                     .agents
-                    .start_door_with(
+                    .start_with_role(
                         ctx,
                         StartDoorParams {
                             prompt: None,
@@ -378,6 +378,8 @@ impl Intake {
                         },
                         None,
                         false,
+                        Role::Door,
+                        NodeKind::Workstream,
                     )
                     .await;
                 match result {
@@ -396,7 +398,10 @@ impl Intake {
                         },
                     },
                     Err(err) => {
-                        self.agents.shared.rail().remove(&workstream)?;
+                        self.agents
+                            .shared
+                            .rail()
+                            .remove(crate::rail::agent_id(&workstream)?)?;
                         ctx.emit(EventData::RailChanged);
                         part.placement = match part.placement {
                             Place::New { title, project, .. } => Place::New {

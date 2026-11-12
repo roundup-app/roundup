@@ -1,4 +1,10 @@
 //! Scenario R13 (`scenarios/perf.md`): a busy machine skips a metric's regression test instead of failing it on noise.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

@@ -92,7 +92,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 const nodes=await app.rpc('rail.tree',{});
                 const plain=nodes.find(n=>n.kind==='workstream') ?? await app.rpc('rail.createWorkstream',{name:'Product work',parent:null});
                 const mode=await app.rpc('rail.createWorkstream',{name:'Review changes with a very long name that must truncate',parent:null});
-                await app.rpc('workstream.setOpeningPrompt',{id:mode.id,prompt:'Review changes'});
+                await app.rpc('agent.setModePrompt',{id:mode.id,prompt:'Review changes'});
                 const agents=nodes.filter(n=>n.kind==='agent');
                 for (const [index,agent] of agents.slice(0,3).entries()) await app.rpc('rail.move',{id:agent.id,parent:index<2?plain.id:mode.id,index});
                 return true;
@@ -165,7 +165,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
             const nodes=await app.rpc('rail.tree',{});
             const plain=nodes.find(n=>n.kind==='workstream');
             const mode=await app.rpc('rail.createWorkstream',{name:'Review changes with a very long name that must truncate',parent:null});
-            await app.rpc('workstream.setOpeningPrompt',{id:mode.id,prompt:'Review changes'});
+            await app.rpc('agent.setModePrompt',{id:mode.id,prompt:'Review changes'});
             const agents=nodes.filter(n=>n.kind==='agent');
             for (const [index,agent] of agents.slice(0,3).entries()) await app.rpc('rail.move',{id:agent.id,parent:index<2?plain.id:mode.id,index});
             await app.rpc('rail.createWorkstream',{name:'Empty workstream',parent:null});
@@ -183,7 +183,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
           const saved = await read("window.__fake.app.rpc('rail.tree',{})");
 
           for (const kind of ["workstreams", "modes", "agents", "empty"]) {
-            await read(`(() => { const saved=${JSON.stringify(saved)}; const kind=${JSON.stringify(kind)}; const roots=saved.filter(n=>n.parent===null && (kind==='agents'?n.kind==='agent':kind==='modes'?!!n.opening_prompt?.trim():kind==='workstreams'?n.kind==='workstream'&&!n.opening_prompt?.trim():false)); window.__fake.app.handlers['rail.tree']=()=>roots.slice(0,1); ${emit}; })()`);
+            await read(`(() => { const saved=${JSON.stringify(saved)}; const kind=${JSON.stringify(kind)}; const roots=saved.filter(n=>n.parent===null && (kind==='agents'?n.kind==='agent':kind==='modes'?!!n.mode_prompt?.trim():kind==='workstreams'?n.kind==='workstream'&&!n.mode_prompt?.trim():false)); window.__fake.app.handlers['rail.tree']=()=>roots.slice(0,1); ${emit}; })()`);
             await wait(`document.querySelectorAll('.rail-tree .section-head').length===${kind === "empty" ? 0 : 1}`);
             await snap(`${prefix}-single-${kind}`);
           }

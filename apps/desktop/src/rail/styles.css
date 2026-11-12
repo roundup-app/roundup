@@ -22,12 +22,6 @@
   border-top-color: var(--hairline);
 }
 
-.rail-create-menu [data-part="item"] {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
-}
-
 .rail-create-menu[data-pointer] {
   transform-origin: var(--transform-origin);
   transition: opacity var(--duration-reduced) var(--easing-out), transform var(--duration-reduced) var(--easing-out);
@@ -42,10 +36,6 @@
     transition-property: opacity;
     @starting-style { transform: none; }
   }
-}
-
-.rail-create-menu [data-disabled] {
-  color: var(--disabled);
 }
 
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */
@@ -122,7 +112,8 @@
   line-height: 1.15;
 }
 
-[data-part="branch-control"].rail-row .name {
+[data-part="branch-control"].rail-row .name,
+.rail-row[data-mode] .name {
   font-weight: 600;
 }
 
@@ -666,7 +657,7 @@
 .rail-fold,
 .rail-leaf { --tree-mid: var(--elbow-y); }
 
-.opening-prompt-field [data-part="textarea"] {
+.mode-prompt-field [data-part="textarea"] {
   overscroll-behavior: contain;
   white-space: pre-wrap;
   overflow: auto;
@@ -674,21 +665,21 @@
   min-height: calc(var(--space-6) * 5);
 }
 
-.opening-prompt-dialog { width: calc(var(--dialog-min-width) + var(--space-6) * 3); }
-.opening-prompt-dialog [data-part="title"] {
+.mode-prompt-dialog { width: calc(var(--dialog-min-width) + var(--space-6) * 3); }
+.mode-prompt-dialog [data-part="title"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.opening-prompt-dialog .opening-prompt-field { gap: var(--space-2); }
-.opening-prompt-dialog .app-dialog-actions { align-items: center; }
-.opening-prompt-dialog .reserved-line {
+.mode-prompt-dialog .mode-prompt-field { gap: var(--space-2); }
+.mode-prompt-dialog .app-dialog-actions { align-items: center; }
+.mode-prompt-dialog .reserved-line {
   block-size: auto;
   max-block-size: none;
 }
-.opening-prompt-dialog .reserved-content { align-items: baseline; }
-.opening-prompt-dialog .ink[role="alert"],
-.opening-prompt-dialog .reserved-status {
+.mode-prompt-dialog .reserved-content { align-items: baseline; }
+.mode-prompt-dialog .ink[role="alert"],
+.mode-prompt-dialog .reserved-status {
   white-space: normal;
   overflow-wrap: anywhere;
   text-overflow: clip;
@@ -710,7 +701,7 @@
 .rail .section-head[data-part="branch-control"] { color: var(--grey); }
 .rail .section-head:is(:hover, :focus-visible) { color: var(--text); }
 
-.opening-prompt-dialog form {
+.mode-prompt-dialog form {
   display: grid;
   gap: var(--space-4);
 }

@@ -442,7 +442,7 @@ export const Todos = (props: {
     connected.drawer.open(content, source, { kind: "todo", project: connected.project.path });
   };
 
-  // U5240b: the Switcher opens a Todo through its Rail row, so the row reads as selected.
+  // U5240b: the Switcher opens a Todo through its Rail row, so the row reads as selected. U3721a: `⌘K B` opens the focused row, or the first selected one.
   onCleanup(registerOpener("todo", id => {
     const todo = todos.byId().get(Number(id));
 
@@ -450,7 +450,7 @@ export const Todos = (props: {
     show(todo, "key");
 
     return true;
-  }));
+  }, () => selection.focused() ?? selection.selected()[0]));
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {
     const focus = captureFocus();

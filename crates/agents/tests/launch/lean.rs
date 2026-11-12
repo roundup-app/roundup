@@ -791,6 +791,38 @@ fn lc16_no_role_hides_slash_commands() {
     }
 }
 
+#[test]
+fn lc26_no_launch_installs_a_file_tool_guard() {
+    for (row, role, pair) in lean_children().into_iter().take(2) {
+        for mcp_off in [false, true] {
+            for resume in [None, Some("conversation")] {
+                for permission in [
+                    agents::claude_code::Permission::Selected(
+                        contracts::agent::PermissionMode::Default,
+                    ),
+                    agents::claude_code::Permission::Bypass,
+                ] {
+                    let s = setup();
+                    let pair = LaunchFacts {
+                        mcp_off,
+                        permission,
+                        ..pair.clone()
+                    };
+                    let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
+                    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                    let case = format!("{row:?} mcp_off={mcp_off} {resume:?} {pair:?}");
+                    let hooks = settings["hooks"]["PreToolUse"].to_string();
+                    assert!(
+                        !hooks.contains("Write") && !hooks.contains("Edit"),
+                        "{case}"
+                    );
+                    assert!(!settings.to_string().contains("claude-memory"), "{case}");
+                }
+            }
+        }
+    }
+}
+
 #[path = "lean/user_setup.rs"]
 mod user_setup;
 
@@ -843,9 +875,6 @@ fn lc18_a_start_without_it_has_no_switch() {
         .unwrap();
     assert!(!has(&argv, "--computer-use-mcp"));
 }
-
-#[path = "lean/memory.rs"]
-mod memory;
 
 #[path = "lean/environment.rs"]
 mod environment;

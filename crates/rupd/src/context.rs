@@ -258,7 +258,7 @@ mod tests {
             alert_level: Default::default(),
             id: id.into(),
             auto: (kind == NodeKind::Workstream).then_some(false),
-            opening_prompt: None,
+            mode_prompt: None,
             kind,
             name: name.into(),
             parent: parent.map(str::to_owned),

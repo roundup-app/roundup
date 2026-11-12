@@ -1,5 +1,6 @@
 //! U2694a: the macOS system menu (`NSMenu`) the webview asks for, popped up at the pointer.
 
+use crate::Unpoisoned;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -25,7 +26,9 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
                 None
             }
         })
-        .expect("Tauri's macOS default starts with the application submenu");
+        .ok_or_else(|| {
+            std::io::Error::other("Tauri's macOS default starts with the application submenu")
+        })?;
     #[cfg(not(target_vendor = "apple"))]
     let application = {
         let submenu = Submenu::new(app, app.package_info().name.clone(), true)?;
@@ -173,7 +176,7 @@ fn open_project_page<R: Runtime>(app: &AppHandle<R>, command: &str) {
         return;
     }
     let selected = app.state::<ProjectMenu>();
-    let path = selected.0.lock().expect("Project menu lock");
+    let path = selected.0.lock().unpoisoned();
     if let Some(path) = path.as_ref()
         && let Err(error) = app.emit(
             "open-project-page",
@@ -280,10 +283,7 @@ pub fn select_project_menu<R: Runtime>(
         #[cfg(target_vendor = "apple")]
         native::project_menu_hints(&app, hints).map_err(internal)?;
     }
-    *app.state::<ProjectMenu>()
-        .0
-        .lock()
-        .expect("Project menu lock") = path;
+    *app.state::<ProjectMenu>().0.lock().unpoisoned() = path;
     Ok(())
 }
 
@@ -305,7 +305,7 @@ pub struct Choice(Mutex<Option<oneshot::Sender<String>>>);
 
 impl Choice {
     pub fn chosen(&self, event: &MenuEvent) {
-        if let Some(sender) = self.0.lock().expect("choice lock").take() {
+        if let Some(sender) = self.0.lock().unpoisoned().take() {
             let _ = sender.send(event.id().0.clone());
         }
     }
@@ -454,7 +454,7 @@ pub async fn show_context_menu<R: Runtime>(
     let menu = Menu::new(app).map_err(internal)?;
     append(app, &menu, &items).map_err(internal)?;
     let (sender, mut receiver) = oneshot::channel();
-    *choice.0.lock().expect("choice lock") = Some(sender);
+    *choice.0.lock().unpoisoned() = Some(sender);
     let (shown, closed) = oneshot::channel();
     let target = window.as_ref().window();
     let popped = target.clone();
@@ -475,7 +475,7 @@ pub async fn show_context_menu<R: Runtime>(
         .await
         .ok()
         .and_then(Result::ok);
-    choice.0.lock().expect("choice lock").take();
+    choice.0.lock().unpoisoned().take();
     Ok(picked)
 }
 

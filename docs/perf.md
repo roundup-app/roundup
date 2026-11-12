@@ -547,11 +547,19 @@ Moved out of the entry: `ui/SegmentGroup` with Ark's segment-group and radio-gro
 
 ## herdr-core arm (MC11)
 
-`perf-herdr` measures the same three rule 7 rows with the Terminals hosted by a local herdr-core: `cold_start_ms` (spawn of the core to the first echoed byte of a Terminal), `write_to_output_p95_ms` (200 one-byte DATA frames in, echoed DATA frame out, over the attach stream) and `rss_extra_mb` (growth of the core's process tree plus this client with ten attached Terminals; the herdr processes count toward the 150 MB). The core starts from `env -i` (MC16) with a scratch `HOME` that `perf-herdr` makes and removes, so the caller's herdr-core state and config are untouched. The core's pid comes from its identity answer, because on macOS `serve` hands the core to a launchd job and exits; the RSS tree starts at that pid, and each run stops the core, its holder and Terminals and waits for them to exit, also on failure. It reports the median of 11 fresh cores, writes `target/perf-herdr.json` and exits 1 on a limit miss, 2 on a harness failure. Run on this Mac beside `just perf`, which stays the PTY arm:
+`perf-herdr` measures the same three rule 7 rows with the Terminals hosted by a local herdr-core: `cold_start_ms` (spawn of the core to the first echoed byte of a Terminal), `write_to_output_p95_ms` (200 one-byte DATA frames in, echoed DATA frame out, over the attach stream) and `rss_extra_mb` (growth of the core's process tree plus this client with ten attached Terminals; the herdr processes count toward the 150 MB). The core starts from `env -i` (MC16) with a scratch `HOME` that `perf-herdr` makes and removes, so the caller's herdr-core state and config are untouched. The core's pid comes from its `server.status` answer, because on macOS `serve` hands the core to a launchd job and exits; the RSS tree starts at that pid, and each run stops the core, its holder and Terminals and waits for them to exit, also on failure. It reports the median of 11 fresh cores, writes `target/perf-herdr.json` and exits 1 on a limit miss, 2 on a harness failure. Run on this Mac beside `just perf`, which stays the PTY arm:
 
 ```
 cargo build --release -p perf
 ./target/release/perf-herdr --core <path to herdr-core> --serve "<args that serve>"
 ```
 
-Recorded numbers: none yet; the Mac reading is a comment on #6713. No Terminal is switched and no budget changes.
+Recorded numbers (Mac, 16 CPUs, 2026-11-08, median of 11 fresh Daemons or cores per arm; herdr-core hc 0.1.18; #6713):
+
+| rule 7 row | PTY arm | herdr arm | limit |
+|---|---|---|---|
+| cold start (ms) | 13.1 | 121.9 | 300 |
+| keystroke write→output p95 (ms) | 0.055 | 0.143 | 16 |
+| 10 idle Terminals, extra RSS (MB) | 3.5 | 15.25 | 150 |
+
+herdr-core passes all three limits. The owner decided on 2026-11-08 that rule 7 means the limits, so the ×2.6 to ×9.3 rise against the PTY arm does not keep the PTY path. No Terminal is switched here and no budget changes.

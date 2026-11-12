@@ -78,25 +78,7 @@ impl Terminals {
             Some(adapt) => adapt(writer),
             None => writer,
         };
-        let snapshot_available = screen::snapshot_size_supported(params.cols, params.rows);
-        let scrollback = if snapshot_available {
-            SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(params.cols))
-        } else {
-            0
-        };
-        let screen = Arc::new(Mutex::new(ScreenState {
-            parser: ScreenParser::Pending,
-            after: 0,
-            log: output::Log::default(),
-            cursors: Default::default(),
-            snapshot_available,
-            scrollback_rows: scrollback,
-            cols: params.cols,
-            rows: params.rows,
-            scheme_notices: false,
-            kitty: Default::default(),
-            status: Default::default(),
-        }));
+        let screen = Arc::new(Mutex::new(ScreenState::new(params.cols, params.rows)));
         let (program_arrival, program_arrives) = mpsc::channel::<Program>();
         let (reaped, completion) = mpsc::channel();
         let (ended, program_ended) = watch::channel(false);
@@ -136,7 +118,7 @@ impl Terminals {
                             &shared,
                             number,
                             reader,
-                            &handle,
+                            &handle.recorder,
                             &reader_screen,
                             &pump_output,
                         ),
@@ -226,7 +208,7 @@ impl Terminals {
 }
 
 /// What the OS would refuse at exec time, caught here so it is the caller's error with a short message.
-fn check_program(params: &SpawnParams) -> Result<(), Error> {
+pub(super) fn check_program(params: &SpawnParams) -> Result<(), Error> {
     let argv = params.command.as_deref().unwrap_or_default();
     if params.command.is_some() && argv.first().is_none_or(String::is_empty) {
         return Err(invalid("command must start with a program name"));
@@ -269,7 +251,7 @@ fn program_name(command: Option<&[String]>) -> String {
 }
 
 /// U6144b: variables other terminals set that a program reads as that terminal's features.
-const OTHER_TERMINALS: &[&str] = &[
+pub(super) const OTHER_TERMINALS: &[&str] = &[
     // Owner decision 2026-11-06: Claude Code's Kitty placeholders break in this emulator.
     "CLAUDE_CODE_FORCE_TERMINAL_IMAGES",
     "TERM_PROGRAM",

@@ -94,8 +94,19 @@ impl Messages {
             .iter()
             .find(|n| n.id == agent)
             .ok_or_else(|| Error::not_found(agent))?;
-        if first_prompt.is_some() && node.kind != contracts::agent::NodeKind::Workstream {
-            return Err(Error::invalid_params("first prompt note requires a Door"));
+        if let Some(prompt) = first_prompt {
+            let retained_target = match node.kind {
+                contracts::agent::NodeKind::Workstream => true,
+                contracts::agent::NodeKind::Agent => {
+                    node.parent.is_none() && node.mode_prompt.as_deref() == Some(prompt)
+                }
+                contracts::agent::NodeKind::Group => false,
+            };
+            if !retained_target {
+                return Err(Error::invalid_params(
+                    "first prompt note requires a Workstream or a root Mode Agent with the saved prompt",
+                ));
+            }
         }
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;

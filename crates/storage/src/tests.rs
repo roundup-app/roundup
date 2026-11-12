@@ -241,3 +241,42 @@ fn n17_old_store_files_never_block_the_open() {
     assert_eq!(nodes, 0);
     assert_eq!(std::fs::read(&old).unwrap(), before);
 }
+
+#[test]
+fn a4452c_a_saved_mode_row_becomes_a_root_agent_keeping_id_prompt_and_children() {
+    let (dir, db, _) = saved_prefix();
+    let prompt = "  keep\tthese bytes \u{e9}\n";
+    db.execute(
+        "UPDATE nodes SET opening_prompt = ?1 WHERE id = 5809",
+        params![prompt],
+    )
+    .unwrap();
+    db.execute(
+        "INSERT INTO nodes(id,kind,name,ord,parent) VALUES(5812,'agent','child',1,5809)",
+        [],
+    )
+    .unwrap();
+    drop(db);
+    for _ in 0..2 {
+        let db = connect(dir.path()).unwrap();
+        let row = |id: i64| -> (String, Option<String>, Option<i64>) {
+            db.query_row(
+                "SELECT kind,opening_prompt,parent FROM nodes WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap()
+        };
+        assert_eq!(row(5809), ("agent".into(), Some(prompt.into()), None));
+        assert_eq!(row(5812), ("agent".into(), None, Some(5809)));
+        assert_eq!(row(5810).0, "workstream");
+        let modes: i64 = db
+            .query_row(
+                "SELECT count(*) FROM nodes WHERE kind='agent' AND parent IS NULL AND opening_prompt IS NOT NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(modes, 1);
+    }
+}

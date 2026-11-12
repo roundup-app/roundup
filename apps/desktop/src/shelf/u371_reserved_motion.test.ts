@@ -10,12 +10,8 @@ it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
   await browser("press", "Enter");
   await browser("wait", ".drawer[data-open=true]");
   await settle();
-  await browser("press", "Meta+k");
-  await browser("press", "b");
-  await settle();
-  await browser("press", "Meta+k");
-  await browser("press", "b");
-  await settle();
+  // U3721a: `⌘K` then `B` no longer closes and reopens the Bench to move focus onto its open tab, so focus it directly.
+  await evaluate(`(() => { document.querySelector('.shelf-tabs [role=tab][aria-selected=true]').focus(); return true; })()`);
   await browser("press", "Escape");
   await settle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(false);

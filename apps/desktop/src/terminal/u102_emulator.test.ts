@@ -4,20 +4,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import { afterEach, expect, it, vi } from "vitest";
 import { createXtermEmulators } from "./emulator";
-import { DEFAULT_FONT_SIZE, fontSizeStorage } from "./fontSize";
+import { DEFAULT_FONT_SIZE } from "./fontSize";
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
-
-it("u102_another_project_does_not_read_the_saved_size", async () => {
-  await fontSizeStorage("/one").write(18);
-  expect(fontSizeStorage("/two").read()).toBeNull();
-  expect(fontSizeStorage("/one").read()).toBe(18);
-});
-
-it("u102_unreadable_storage_is_absent", () => {
-  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); });
-  expect(fontSizeStorage("/p").read()).toBeNull();
-});
 
 it.each([[100, 93, 60], [93, 100, 90], [93, 100, 91], [101, 94, -1], [51, 47, -1]])("u102_rewrap_%s_to_%s_keeps_logical_line_at_row_%s", async (beforeCols, afterCols, row) => {
   const spy = vi.spyOn(xtermModule, "Terminal");

@@ -1,5 +1,10 @@
 //! CL1 to CL4 (`scenarios/rup-ext.md`): the built `rup` against an in-process Daemon on a temp socket.
-
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;

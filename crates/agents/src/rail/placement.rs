@@ -5,25 +5,34 @@ impl Rail {
     /// Put `id` at `index` among the children of `parent`, closing the gap it leaves behind.
     pub fn move_node(
         &mut self,
-        id: &str,
-        parent: Option<&str>,
+        id: AgentId,
+        parent: Option<AgentId>,
         index: u32,
     ) -> Result<(), StoreError> {
         let name = self.name(id)?;
+        let (moved, parent_id) = (id.to_string(), parent);
         let parent_name = parent.map(|id| self.name(id)).transpose()?;
+        let parent = parent.map(|parent| parent.to_string());
+        let parent = parent.as_deref();
         let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
         check_parent(&nodes, node.kind, parent)?;
+        if node.mode_prompt.is_some() && parent.is_some() {
+            return Err(StoreError::conflict(format!(
+                "Mode {} must stay at the Project root",
+                node.name
+            )));
+        }
         if node.kind == NodeKind::Group
             && nodes
                 .iter()
-                .any(|n| n.kind == NodeKind::Workstream && is_within(&nodes, &n.id, id))
+                .any(|n| n.kind == NodeKind::Workstream && is_within(&nodes, &n.id, &moved))
         {
             check_parent(&nodes, NodeKind::Workstream, parent)?;
         }
         // Only a start nests an Agent under an Agent (A6, A26).
-        if let Some(under) = parent.map(|id| find(&nodes, id)).transpose()?
+        if let Some(under) = parent_id.map(|id| find(&nodes, id)).transpose()?
             && node.kind == NodeKind::Agent
             && under.kind == NodeKind::Agent
         {
@@ -32,21 +41,21 @@ impl Rail {
                 parent_name.as_deref().unwrap_or(GONE_AGENT)
             )));
         }
-        if parent.is_some_and(|parent| is_within(&nodes, parent, id)) {
+        if parent.is_some_and(|parent| is_within(&nodes, parent, &moved)) {
             return Err(StoreError::conflict(format!(
                 "{name} cannot move into itself"
             )));
         }
         let without = |parent: Option<&str>| {
             let mut ids = siblings(&nodes, parent);
-            ids.retain(|sibling| sibling != id);
+            ids.retain(|sibling| *sibling != moved);
             ids
         };
         let mut ids = without(parent);
-        ids.insert((index as usize).min(ids.len()), id.to_owned());
+        ids.insert((index as usize).min(ids.len()), moved.clone());
         place(&tx, parent, &ids)?;
         if node.parent.as_deref() != parent {
-            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id])?;
+            tx.execute("UPDATE nodes SET visibility='shown' WHERE id=?", [id.get()])?;
             place(
                 &tx,
                 node.parent.as_deref(),
@@ -61,7 +70,7 @@ impl Rail {
             |r| r.get(0),
         )?;
         if retained {
-            tx.execute("UPDATE rail_deletions SET boundary=json_set(boundary,'$.after',json((SELECT COALESCE(json_group_array(json(value)),'[]') FROM json_each(json_extract(boundary,'$.after')) WHERE json_extract(value,'$.id')<>?))) WHERE restored=0 AND json_type(boundary)='object'", [id])?;
+            tx.execute("UPDATE rail_deletions SET boundary=json_set(boundary,'$.after',json((SELECT COALESCE(json_group_array(json(value)),'[]') FROM json_each(json_extract(boundary,'$.after')) WHERE json_extract(value,'$.id')<>?))) WHERE restored=0 AND json_type(boundary)='object'", [&moved])?;
         }
         Ok(tx.commit()?)
     }
@@ -73,7 +82,7 @@ impl Rail {
         let tx = self.db.transaction()?;
         let nodes = load(&tx)?;
         for id in ids {
-            find(&nodes, id)?;
+            find_stored(&nodes, id)?;
         }
         let chosen: std::collections::HashSet<_> = ids.iter().map(String::as_str).collect();
         if chosen.len() < 2 {
@@ -98,7 +107,7 @@ impl Rail {
         let Some(first_id) = selected.first() else {
             return Err(StoreError::invalid("select at least two Rail rows"));
         };
-        let first = find(&nodes, first_id)?;
+        let first = find_stored(&nodes, first_id)?;
         let mut destination = first.parent.as_deref();
         while let Some(id) = destination {
             if !chosen.contains(id)
@@ -108,7 +117,7 @@ impl Rail {
             {
                 break;
             }
-            destination = find(&nodes, id)?.parent.as_deref();
+            destination = find_stored(&nodes, id)?.parent.as_deref();
         }
         // Selected nodes become direct children; unselected descendants stay attached.
         // The destination is a strict unselected ancestor, so this cannot create a cycle.
@@ -117,7 +126,7 @@ impl Rail {
             let Some(up) = branch.parent.as_deref() else {
                 return Err(StoreError::invalid("no common ancestor"));
             };
-            branch = find(&nodes, up)?;
+            branch = find_stored(&nodes, up)?;
         }
         let siblings_before = siblings(&nodes, destination);
         let index = siblings_before
@@ -132,7 +141,7 @@ impl Rail {
         let group = tx.last_insert_rowid().to_string();
         let mut parents: std::collections::HashSet<Option<&str>> = selected
             .iter()
-            .map(|id| find(&nodes, id).map(|node| node.parent.as_deref()))
+            .map(|id| find_stored(&nodes, id).map(|node| node.parent.as_deref()))
             .collect::<Result<_, _>>()?;
         parents.insert(destination);
         for parent in parents {
@@ -158,6 +167,6 @@ impl Rail {
             }
         }
         tx.commit()?;
-        self.node(&group)
+        self.node(agent_id(&group)?)
     }
 }

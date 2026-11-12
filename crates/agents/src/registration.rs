@@ -21,7 +21,7 @@ impl Shared {
         {
             return Err(RpcError::conflict(format!(
                 "{}: stale start completion",
-                rail.name(id)?
+                rail.name_or_gone(id)?
             )));
         }
         let Some(Slot::Starting { named, parked, .. }) = runs.take(id) else {
@@ -277,7 +277,7 @@ impl Shared {
         payload: Value,
     ) -> Result<Applied, RpcError> {
         if let Err(err) = rail
-            .attach_terminal(id, &terminal_id)
+            .attach_terminal(crate::rail::agent_id(id)?, &terminal_id)
             .map_err(RpcError::from)
         {
             self.fail_resume(
@@ -351,7 +351,7 @@ impl Shared {
             }
         }
         if let Err(err) = save_signal_conversation(rail, &run, id, &payload) {
-            let err = match rail.detach_terminal(id) {
+            let err = match rail.detach_terminal(crate::rail::agent_id(id)?) {
                 Ok(()) => err,
                 Err(detach) => RpcError::new(
                     err.code,
@@ -424,8 +424,8 @@ pub(super) fn save_signal_conversation(
     let Some(conversation_id) = claude_code::see(payload).conversation else {
         return Ok(());
     };
-    rail.save_conversation(id, conversation_id, run.cwd())?;
-    rail.save_conversation_yolo(id, run.yolo())?;
+    rail.save_conversation(crate::rail::agent_id(id)?, conversation_id, run.cwd())?;
+    rail.save_conversation_yolo(crate::rail::agent_id(id)?, run.yolo())?;
     Ok(())
 }
 

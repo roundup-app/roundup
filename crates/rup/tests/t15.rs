@@ -1,4 +1,10 @@
 //! T15/U2773c: Todo history and captured-Change saves through the real Daemon.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;

@@ -1,5 +1,11 @@
 //! A5335b through a real Daemon: after a restart an Agent's resume of a child with no run is
 //! `CONFLICT`, so no Attempt starts for a finished child.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 

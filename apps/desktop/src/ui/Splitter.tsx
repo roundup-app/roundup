@@ -1,6 +1,7 @@
 import { copy } from "./copy";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { useSplitter } from "@ark-ui/solid/splitter";
+import { createWritableMemo } from "@solid-primitives/memo";
 import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, type JSX } from "solid-js";
 import type { Side } from "../resize/widths";
 import "./Splitter.css";
@@ -17,7 +18,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
   const [host, setHost] = createSignal<HTMLElement>();
   const [extent, setExtent] = createSignal(1);
   const [other, setOther] = createSignal(0);
-  const [pixels, setPixels] = createSignal(props.side.now());
+  const [pixels, setPixels] = createWritableMemo(() => props.side.now());
   const [step, setStep] = createSignal(16);
   const index = () => props.side.direction === 1 ? 0 : 2;
   const rootId = () => host()?.id ?? id;
@@ -75,8 +76,6 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     if (0 in handler) handler[0](handler[1], event);
     else handler(event);
   };
-
-  createEffect(on(() => props.side.now(), (value) => setPixels(value)));
 
   onMount(() => {
     const root = edge.closest<HTMLElement>("[data-layout-root]");

@@ -229,10 +229,17 @@ it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_sou
     expect(await read(`document.activeElement === window.__source && !!document.querySelector('.hint-line.leader')`)).toBe(true);
     await browser("mouse", "up", "left");
     await wait(`!document.querySelector('.hint-line.leader')`);
-    expect(await read(`document.querySelector('.window').dataset.shelf`)).toBe("closed");
-    expect(await read(`document.querySelector('.drawer').dataset.maximised`)).toBe(place === "pad-filled" ? "true" : "false");
-    expect(await read(`document.activeElement === window.__source`)).toBe(true);
-    expect(await read(`document.querySelector('.drawer .ProseMirror') === window.__padEditor && window.__padEditor.textContent === window.__padDraft`)).toBe(true);
+
+    // U3721a: the `B` row rotates the Bench. From a Drawer filling the Bench it closes both, so no source survives; from the Drawer beside the list it fills it, and the source and its draft stay.
+    if (place === "pad-filled") {
+      expect(await read(`document.querySelector('.window').dataset.shelf`)).toBe("closed");
+      expect(await read(`document.querySelector('.drawer').dataset.open`)).toBe("false");
+    } else {
+      expect(await read(`document.querySelector('.window').dataset.shelf`)).toBe("open");
+      expect(await read(`document.querySelector('.drawer').dataset.maximised`)).toBe("true");
+      expect(await read(`document.activeElement === window.__source`)).toBe(true);
+      expect(await read(`document.querySelector('.drawer .ProseMirror') === window.__padEditor && window.__padEditor.textContent === window.__padDraft`)).toBe(true);
+    }
   }
 
   expect(await read(`window.__fake.app.calls.filter(call => call.method === 'terminal.write')`)).toEqual([]);

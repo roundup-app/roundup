@@ -23,6 +23,19 @@ mod store;
 mod update;
 mod window;
 
+/// A lock result's guard; a lock a panicking holder poisoned is used as it was left.
+pub(crate) trait Unpoisoned {
+    type Guard;
+    fn unpoisoned(self) -> Self::Guard;
+}
+
+impl<G> Unpoisoned for std::sync::LockResult<G> {
+    type Guard = G;
+    fn unpoisoned(self) -> G {
+        self.unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
 use std::path::{Path, PathBuf};
 
 pub use config::{CALL_BOUND, Config, READY_BOUND};

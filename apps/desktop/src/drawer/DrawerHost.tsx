@@ -46,6 +46,8 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
     if (host && left !== undefined && source !== "key") maximiseSlide.start(left - host.getBoundingClientRect().left);
   };
 
+  createEffect(() => onCleanup(props.drawer.bindSize(() => ({ maximised: frame.maximised(), toggle: toggleMaximise }))));
+
   const [expandHost, setExpandHost] = createSignal<HTMLElement>();
 
   const expand = () => (
