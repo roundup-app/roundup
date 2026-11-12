@@ -7,7 +7,7 @@ import { shelfBrowser } from "../shelf/u371Browser";
 
 const { browser, evaluate, settle, rig } = shelfBrowser(`
   localStorage.clear();
-  localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:288, shelf:320}));
+  localStorage.setItem('roundup:viewer', JSON.stringify({rail:288, shelf:320}));
 `);
 
 const output = captureDir("U4698d");

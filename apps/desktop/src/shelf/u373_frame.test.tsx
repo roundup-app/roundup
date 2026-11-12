@@ -199,12 +199,12 @@ describe("u373 the Shelf has two tabs", () => {
     expect(tabs().map((tab) => tab.querySelector(".shelf-count"))).toEqual([null, null]);
   });
 
-  it("u373_the_open_tab_survives_a_restart_per_project", async () => {
+  it("u373_the_open_tab_survives_a_restart", async () => {
     const first = await mountApp("empty-project");
     const chosen = tabNamed("Pads").id;
 
     fireEvent.click(tabNamed("Pads"));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads"));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")?.frame?.tab).toBe("pads"));
 
     batch(cleanup);
     render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
@@ -213,7 +213,7 @@ describe("u373 the Shelf has two tabs", () => {
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
-    localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: true, tab: 7 }));
+    localStorage.setItem("roundup:viewer", JSON.stringify({ frame: { open: true, tab: 7 } }));
     await mountApp("empty-project");
 
     expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
@@ -234,11 +234,11 @@ describe("u373 the Shelf has two tabs", () => {
 
 describe("u370 the Shelf closes and opens", () => {
 
-  it("u370_the_state_survives_a_restart_per_project", async () => {
+  it("u370_the_state_survives_a_restart", async () => {
     const first = await mountApp("empty-project");
 
     closeByChord();
-    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:shelf:/Users/you/harness") ?? "null")?.open).toBe(false));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")?.frame?.open).toBe(false));
     batch(cleanup);
     render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByLabelText("Ask", { selector: '[role="region"]' });

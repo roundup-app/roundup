@@ -140,7 +140,7 @@ def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
                     browser("set", "viewport", str(width), "800")
                     browser("open", f"http://localhost:{port}/harness.html?seed=tree-40")
                     browser("wait", ".centre")
-                    browser("eval", "localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', " +
+                    browser("eval", "localStorage.clear(); localStorage.setItem('roundup:viewer', " +
                             json.dumps(json.dumps({"rail": rail, "shelf": shelf})) + ");")
                     browser("reload")
                     browser("wait", ".centre")

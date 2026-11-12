@@ -53,7 +53,7 @@ export function shelfBrowser(initScript?: string) {
     // Seed on the small fixture to avoid mounting and discarding a full App.
     await browser("open", `${rig.server.resolvedUrls.local[0]}src/ui/u498.html`);
     await browser("wait", "[data-fixture=tabs]");
-    await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:widths:/Users/you/harness', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
+    await evaluate(`(() => { localStorage.clear(); localStorage.setItem('roundup:viewer', JSON.stringify({rail:${rail}, shelf:${shelf}})); return true; })()`);
     await browser("open", url);
     await browser("wait", seed === "first-run" ? ".window" : ".shelf-tabs");
     await settle();

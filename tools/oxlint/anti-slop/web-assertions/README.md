@@ -25,9 +25,7 @@ There is no command that updates or expands the baseline during lint.
 
 An identity pins exact assertion source, dependency source, enclosing registration
 or helper source, and its AST path. Identical assertions are distinct, without a
-line-number or count exemption. A test's numeric or `timeout:` argument is left out of the pinned registration source, so a timeout repair keeps its legacy entries. Any other edit to an enclosing registration invalidates
-its legacy exceptions: remove its forbidden assertions and their entries rather
-than re-keying them. Deleting a file, test or assertion requires removing its
+line-number or count exemption. A test's numeric or `timeout:` argument is left out of the pinned registration source, so a timeout repair keeps its legacy entries. An identity depends on the files alone, never on the baseline or its history. Any other edit to an enclosing registration changes it; the lint then accepts one swap per entry (a head entry absent from the merge base for a base entry absent from the head, same file, test, assertion text and violation kinds, no net addition) and otherwise rejects the edit, naming the stale entry and its replacement. An edited assertion, or a second identical one, cannot be swapped: remove its forbidden assertions and their entries instead. Deleting a file, test or assertion requires removing its
 entries. Adding a second identical assertion cannot reuse the original's entry.
 
 ## Reproduce and review
