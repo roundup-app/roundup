@@ -374,7 +374,7 @@ mod tests {
     #[cfg(not(feature = "idle-perf"))]
     #[test]
     fn r24_normal_build_does_not_register_the_measurement_command() {
-        let builder = tauri::test::mock_builder().invoke_handler(crate::invoke_handler());
+        let builder = tauri::test::mock_builder().invoke_handler(crate::commands::invoke_handler());
         assert!(
             invoke(builder)
                 .unwrap_err()
