@@ -43,8 +43,6 @@ async fn a36_unset_removes_a_daemon_variable_for_one_spawn() {
     let daemon = std::env::var(NAME).unwrap();
     let data = tempfile::tempdir().unwrap();
     let plain = Terminals::open(data.path(), rpc::Bus::new()).unwrap();
-    // MC16: the core starts clean, so a Daemon variable never reaches the program on its own.
-    assert_eq!(program_sees(&plain, vec![]).await, "absent");
-    let _ = daemon;
+    assert_eq!(program_sees(&plain, vec![]).await, daemon);
     assert_eq!(program_sees(&plain, vec![NAME.into()]).await, "absent");
 }

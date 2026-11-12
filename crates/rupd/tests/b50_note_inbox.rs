@@ -58,6 +58,11 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
         project,
         true,
         |command| {
+            // A core that outlives the Daemon runs while the `herdr-core-persist` file stays.
+            let core_tmp = project.join("core-tmp");
+            if core_tmp.join("herdr-core-persist").exists() {
+                command.env("TMPDIR", core_tmp);
+            }
             command
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
