@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { copy } from "../../todos/copy";
+import { copy } from "../../state/copy";
 import { agent, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 import { createRoot } from "solid-js";
