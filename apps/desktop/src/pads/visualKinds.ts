@@ -58,8 +58,11 @@ export const useRenderers = (next: Renderers) => {
   renderers = next;
 };
 
+/** The empty Drawing the `/` menu inserts. */
+export const emptyDrawing = { language: "excalidraw", body: '{"type":"excalidraw","version":2,"elements":[]}' };
+
 export const visualKinds = () =>
   new Map<string, VisualKind>([
     ["mermaid", { textWhenFocused: true, mount: lazy(renderers.mermaid, mountMermaid) }],
-    ["excalidraw", { textWhenFocused: false, insert: { command: "/drawing", language: "excalidraw", body: '{"type":"excalidraw","version":2,"elements":[]}' }, mount: lazy(renderers.canvas, mountDrawing) }],
+    ["excalidraw", { textWhenFocused: false, mount: lazy(renderers.canvas, mountDrawing) }],
   ]);
