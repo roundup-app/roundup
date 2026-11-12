@@ -254,16 +254,17 @@ p {
   box-sizing: border-box;
   border: var(--hairline-width) solid var(--hairline);
   border-left: 0;
-  border-radius: 0 var(--space-4) var(--space-4) 0;
+  border-top-right-radius: var(--radius-pill);
+  border-bottom-right-radius: var(--radius-pill);
   background-color: var(--rail-ground);
 }
 
-.rail-handle-button > .icon { position: relative; }
+.rail-handle-button .icon { position: relative; }
 
 .rail-handle-button:focus-visible { outline: none; }
 
 .rail-handle-button:focus-visible::before {
-  outline: var(--hairline-width) solid var(--accent);
+  border-color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

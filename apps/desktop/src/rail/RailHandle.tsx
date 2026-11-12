@@ -1,6 +1,7 @@
 import { Icon } from "../ink/Icon";
 import { KeyHint } from "../keys/KeyHint";
 import { LEADER, leaderKeys } from "../keys/chords";
+import { IconButton } from "../ui/IconButton";
 import { Tip } from "../ui/Tip";
 import { copy } from "../header/copy";
 
@@ -11,7 +12,7 @@ export const RailHandle = (props: { collapsed: boolean; peek: boolean; slide: "c
   return (
     <div class="rail-handle" data-peek={props.peek || undefined} data-slide={props.slide} data-dragging={props.dragging || undefined}>
       <Tip class="" content={<KeyHint chipAfter keys={leaderKeys(LEADER["leader.rail"])}>{name()}</KeyHint>}>
-        {(trigger) => <button {...trigger({ type: "button", "aria-label": name(), "aria-expanded": !props.collapsed, onClick: () => props.onToggle() })} data-button="icon" class="word rail-handle-button"><Icon name={props.collapsed ? "right" : "left"} /></button>}
+        {(trigger) => <IconButton bare {...trigger({ type: "button", "aria-expanded": !props.collapsed, onClick: () => props.onToggle() })} aria-label={name()} class="rail-handle-button"><Icon name={props.collapsed ? "right" : "left"} /></IconButton>}
       </Tip>
     </div>
   );
