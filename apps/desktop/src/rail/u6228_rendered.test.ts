@@ -9,6 +9,7 @@ afterAll(async () => { await lane?.close(); });
 
 it("u6228_rendered_strip_collapsed_and_worst_case", async () => {
   await lane.until("!!document.querySelector('.rail-handle-button')");
+  await lane.browser("hover", ".rail");
   await lane.browser("click", ".rail-handle-button");
   await lane.until("document.querySelector('.rail').dataset.collapsed === 'true' && !!document.querySelector('.rail-mark')");
   await lane.capture("U6228a", "collapsed");

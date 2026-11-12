@@ -12,7 +12,6 @@ export const WindowBar = (props: {
   rail: RailState | undefined;
   children: JSX.Element;
   shelf?: JSX.Element;
-  /** U6228f: the Rail's one toggle, after the traffic lights; its name follows `collapsed` (a strip or a peek). */
   onFailure: (message: string | null) => void;
 }) => {
   const title = createMemo(() => {
