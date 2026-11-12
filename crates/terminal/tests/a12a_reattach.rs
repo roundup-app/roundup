@@ -41,7 +41,10 @@ async fn a12a_reattach_attaches_the_core_terminal_again() {
     let (core_id, adopted) = terminals.core_record(&first.id).unwrap().unwrap();
     let again = terminals.reattach(&core_id, adopted, None).await.unwrap();
     assert_ne!(again.id, first.id);
-    terminals.write(&again.id, b"after-reattach\n").await.unwrap();
+    terminals
+        .write(&again.id, b"after-reattach\n")
+        .await
+        .unwrap();
     let seen = tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             if terminals
@@ -81,4 +84,40 @@ async fn a12a_reattach_of_a_terminal_the_core_lost_is_not_found() {
             .await
             .is_err()
     );
+}
+
+/// MC12: no code opens a PTY for a Terminal, and none reads the old owner socket.
+#[test]
+fn mc12_no_owner_socket_reads() {
+    let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let banned = [
+        "portable_pty",
+        "openpty",
+        "terminal-owner",
+        "RUPD_TERMINAL_OWNER",
+        "TerminalOwner",
+    ];
+    let mut hits = Vec::new();
+    let mut dirs = vec![crates];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let name = path.file_name().unwrap().to_string_lossy().into_owned();
+                if name != "target" && name != "tests" && name != "node_modules" {
+                    dirs.push(path);
+                }
+            } else if path.extension().is_some_and(|ext| ext == "rs")
+                && let Ok(text) = std::fs::read_to_string(&path)
+            {
+                hits.extend(
+                    banned
+                        .iter()
+                        .filter(|word| text.contains(*word))
+                        .map(|word| format!("{}: {word}", path.display())),
+                );
+            }
+        }
+    }
+    assert!(hits.is_empty(), "{hits:?}");
 }

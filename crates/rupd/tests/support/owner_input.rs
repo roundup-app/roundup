@@ -4,16 +4,6 @@ use super::*;
 impl Run {
     async fn owned(input: &str) -> Self {
         let mut run = Self::open(1, false).await;
-        let helper = Self::owner_helper();
-        assert!(
-            helper.is_file(),
-            "cargo build -p terminal --bin terminal-owner"
-        );
-        std::fs::write(
-            run.dir.path().join("owner-helper"),
-            helper.to_str().unwrap(),
-        )
-        .unwrap();
         run.reopen_owner().await;
         run.spawn_with_input(
             (input == "creation").then_some("creation request"),

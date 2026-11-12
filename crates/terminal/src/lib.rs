@@ -42,7 +42,6 @@ use contracts::terminal::{
     TerminalId, TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
-use portable_pty::PtySize;
 use rpc::{Bus, Ctx, Module, OpenError, RpcError};
 use serde_json::Value;
 use tokio::sync::{broadcast, watch};
@@ -452,12 +451,12 @@ impl Terminals {
     }
 
     async fn resize_in(&self, id: &str, cols: u16, rows: u16) -> Result<(), Error> {
-        let size = window(cols, rows)?;
+        window(cols, rows)?;
         let handle = self.running(id)?;
         let screen = self.screen(id)?;
         let mut state = screen.locked("terminal screen lock")?;
         // The last active non-observer sets the size, so roundup keeps authority by sending RESIZE.
-        handle.tx.resize(size.cols, size.rows);
+        handle.tx.resize(cols, rows);
         state.cols = cols;
         state.rows = rows;
         if state.snapshot_available
@@ -740,16 +739,11 @@ fn parse_terminal_number(id: &str) -> Result<u64, Error> {
 }
 
 /// Validate Terminal dimensions before allocating launch resources.
-pub fn window(cols: u16, rows: u16) -> Result<PtySize, RpcError> {
+pub fn window(cols: u16, rows: u16) -> Result<(), RpcError> {
     if cols == 0 || rows == 0 {
         return Err(invalid("cols and rows must be at least 1").into());
     }
-    Ok(PtySize {
-        rows,
-        cols,
-        pixel_width: 0,
-        pixel_height: 0,
-    })
+    Ok(())
 }
 
 fn invalid(message: impl Into<String>) -> Error {

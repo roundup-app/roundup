@@ -271,8 +271,7 @@ app-bundle-check bundle:
                        cwd=sidecar, check=True)
         print(json.dumps({"executables": str(binaries), "sidecar": "SDK import passed"}), flush=True)
         environment = os.environ.copy()
-        for name in ["ROUNDUP_RUPD_BIN", "ROUNDUP_RUP_BIN", "ROUNDUP_SIDECAR_DIR",
-                     "RUPD_TERMINAL_OWNER"]:
+        for name in ["ROUNDUP_RUPD_BIN", "ROUNDUP_RUP_BIN", "ROUNDUP_SIDECAR_DIR"]:
             environment.pop(name, None)
         environment["ROUNDUP_TEST_APP_BIN"] = str(binaries)
         subprocess.run([

@@ -211,14 +211,7 @@ async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn u5531a_door_tool_round_trip_and_reopen() {
-    let owner = std::env::var_os("ROUNDUP_TEST_APP_BIN")
-        .map(|dir| std::path::PathBuf::from(dir).join("terminal-owner"))
-        .unwrap_or_else(|| {
-            std::path::PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner")
-        });
-    assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
-    let env = [("RUPD_TERMINAL_OWNER", owner.to_str().unwrap())];
-    let mut fx = b53_fixture_with(&env).await;
+    let mut fx = b53_fixture_with(&[]).await;
     let shim = spawn_shim(&fx.served.socket(), &fx.door).await;
     let before = fx.user.request("rail.tree", Value::Null).await.unwrap();
     let terminals = fx.user.request("terminal.list", Value::Null).await.unwrap();
