@@ -23,6 +23,18 @@ use tauri::{App, Listener, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuil
 use tempfile::TempDir;
 use tokio::net::UnixListener;
 
+/// The line a Daemon prints on its stdout once it is bound, and its first half; shell text for fake Daemons.
+macro_rules! bound {
+    () => {
+        "printf 'rupd-bound\\n'"
+    };
+}
+macro_rules! partial_bound {
+    () => {
+        "printf 'rupd-'"
+    };
+}
+
 /// Every wait in these tests is bounded by this; nothing sleeps for a fixed time.
 const WAIT: Duration = Duration::from_secs(10);
 

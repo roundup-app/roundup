@@ -5,7 +5,7 @@
 use super::*;
 
 #[test]
-fn s1_open_project_starts_rupd_attached_on_the_socket_the_app_chose() {
+fn s1_open_project_starts_daemon_attached_on_the_socket_the_app_chose() {
     let fx = Fixture::new(
         "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nexec cat",
     );
@@ -64,7 +64,7 @@ fn s1_a_daemon_silent_past_the_ready_bound_is_internal() {
 
 #[test]
 fn z3799b_a_socket_without_the_complete_bound_signal_is_not_ready() {
-    for signal in ["", "printf 'rupd-'", "printf 'other-bound\\n'"] {
+    for signal in ["", partial_bound!(), "printf 'other-bound\\n'"] {
         let fx = Fixture::new(&format!(
             "ln -s '{{dir}}/real.sock' \"$RUPD_SOCKET\"\n{signal}\nexec 1>&-\nexec cat > /dev/null"
         ));
@@ -123,7 +123,7 @@ fn s1_stderr_that_is_not_utf8_does_not_stop_the_tail() {
 }
 
 #[test]
-fn s5_reopening_starts_rupd_on_a_socket_path_unique_to_the_new_run() {
+fn s5_reopening_starts_daemon_on_a_socket_path_unique_to_the_new_run() {
     let fx = Fixture::new(
         "printf '%s\\n' \"$@\" > '{dir}/args'\nprintf '%s' \"$RUPD_SOCKET\" > '{dir}/socket'\n{link}\nread go < '{dir}/go'\nexit 0",
     );
