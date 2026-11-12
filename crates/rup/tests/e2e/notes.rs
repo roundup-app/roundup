@@ -337,6 +337,7 @@ async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end() {
     let end = named(&s.project, &s.user, "ending", Some(&s.door)).await;
     ask(&as_door, &[&s.a], true).await.unwrap();
     drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &err, WORK).await;
     drive(&s.user, &err, FAIL).await;
     needs_you(&s.user, &need).await;
     s.user
@@ -369,6 +370,7 @@ async fn b47_the_same_agent_and_kind_twice_is_one_note() {
     let s = scene(&[]).await;
     let a = name_of(&s.user, &s.a).await;
     let head = format!("[digest] {a} is error");
+    drive(&s.user, &s.a, WORK).await;
     drive(&s.user, &s.a, FAIL).await;
     h21_poll("the first note", async || {
         (count(&made(&s.user, &s.door).await, &head) == 1).then_some(())
@@ -386,6 +388,7 @@ async fn b47_the_same_kind_after_another_kind_is_a_new_note() {
     let a = name_of(&s.user, &s.a).await;
     let error = format!("[digest] {a} is error");
     let needs = format!("[digest] {a} is needs-you");
+    drive(&s.user, &s.a, WORK).await;
     drive(&s.user, &s.a, FAIL).await;
     h21_poll("the error note", async || {
         (count(&made(&s.user, &s.door).await, &error) == 1).then_some(())
@@ -396,6 +399,7 @@ async fn b47_the_same_kind_after_another_kind_is_a_new_note() {
         (count(&made(&s.user, &s.door).await, &needs) == 1).then_some(())
     })
     .await;
+    drive(&s.user, &s.a, WORK).await;
     drive(&s.user, &s.a, FAIL).await;
     h21_poll("the second error note", async || {
         (count(&made(&s.user, &s.door).await, &error) == 2).then_some(())
