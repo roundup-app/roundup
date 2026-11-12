@@ -73,6 +73,22 @@ impl Terminals {
         self.attach_owner(project, owner).await
     }
 
+    /// Stop the program of a live owner of this Project that nothing will adopt, so no second
+    /// copy of its work can start beside it. An owner that is gone, replaced or of another
+    /// Project fails verification and is left alone.
+    pub async fn stop_owner(&self, owner: &TerminalOwner) {
+        let Ok(project) = self.project_dir() else {
+            return;
+        };
+        if let Ok(client) = owner.connect(project).await {
+            let _ = tokio::time::timeout(
+                DEADLINE,
+                client.request("terminal.kill", json!({"id":owner.info.id})),
+            )
+            .await;
+        }
+    }
+
     pub(super) async fn start_owner(
         &self,
         helper: &Path,
@@ -89,14 +105,8 @@ impl Terminals {
             TerminalOwner::start_with(helper, project, params, &self.shared.clean_env, scheme)
                 .map_err(Error::internal)?;
         let result = self.attach_owner(project, &owner).await;
-        if result.is_err()
-            && let Ok(client) = owner.connect(project).await
-        {
-            let _ = tokio::time::timeout(
-                DEADLINE,
-                client.request("terminal.kill", json!({"id":owner.info.id})),
-            )
-            .await;
+        if result.is_err() {
+            self.stop_owner(&owner).await;
         }
         std::thread::spawn(move || {
             let _ = child.wait();
