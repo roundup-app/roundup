@@ -157,6 +157,27 @@ pub enum Ev {
 struct Channels {
     live: HashMap<u32, mpsc::UnboundedSender<Ev>>,
     orphans: HashMap<u32, Vec<Ev>>,
+    /// Data bytes held in `orphans`, bounded by [`MAX_ORPHAN_BYTES`].
+    orphan_bytes: usize,
+}
+
+/// The most Data bytes held across channels nobody has claimed; a frame past it is dropped.
+const MAX_ORPHAN_BYTES: usize = 4 << 20;
+
+impl Channels {
+    /// Free what is held for `channel`.
+    fn free(&mut self, channel: u32) {
+        for ev in self.orphans.remove(&channel).unwrap_or_default() {
+            if let Ev::Data(d) = ev {
+                self.orphan_bytes -= d.len();
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn held(&self) -> (usize, usize) {
+        (self.orphans.values().map(Vec::len).sum(), self.orphan_bytes)
+    }
 }
 
 type Streams = Arc<Mutex<Channels>>;
@@ -173,7 +194,17 @@ fn deliver(channels: &Streams, channel: u32, ev: Ev) {
         Some(tx) => {
             let _ = tx.send(ev);
         }
-        None => state.orphans.entry(channel).or_default().push(ev),
+        None => match ev {
+            // An unclaimed channel that closes will never be attached.
+            Ev::Close(_) => state.free(channel),
+            Ev::Data(d) if state.orphan_bytes + d.len() > MAX_ORPHAN_BYTES => {}
+            ev => {
+                if let Ev::Data(d) = &ev {
+                    state.orphan_bytes += d.len();
+                }
+                state.orphans.entry(channel).or_default().push(ev);
+            }
+        },
     }
 }
 
@@ -405,7 +436,10 @@ impl Conn {
             w.calls.clear();
             drop(w);
             let gone = serde_json::json!({"reason":"connection_lost"});
-            for (_, tx) in streams(&routed).live.drain() {
+            let mut state = streams(&routed);
+            state.orphans.clear();
+            state.orphan_bytes = 0;
+            for (_, tx) in state.live.drain() {
                 let _ = tx.send(Ev::Close(gone.clone()));
             }
         });
@@ -485,6 +519,9 @@ impl Conn {
         let (tx, rx) = mpsc::unbounded_channel();
         let mut state = streams(&self.channels);
         for ev in state.orphans.remove(&channel).unwrap_or_default() {
+            if let Ev::Data(d) = &ev {
+                state.orphan_bytes -= d.len();
+            }
             let _ = tx.send(ev);
         }
         state.live.insert(channel, tx);
@@ -595,5 +632,99 @@ mod tests {
     async fn mc48_a_call_registered_after_the_clear_is_closed() {
         let conn = closed_conn().await;
         assert!(matches!(conn.register(99), Err(Error::Closed)));
+    }
+
+    /// A conn over a fake core that answers hello, then runs `script` on its write side.
+    async fn core_conn<F, Fut>(script: F) -> (Conn, tokio::task::JoinHandle<()>)
+    where
+        F: FnOnce(tokio::io::DuplexStream, tokio::io::DuplexStream) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = ()> + Send,
+    {
+        let (mac_r, mut core_w) = duplex(1 << 20);
+        let (core_r, mac_w) = duplex(1 << 20);
+        let (ready_tx, ready_rx) = oneshot::channel();
+        let core = tokio::spawn(async move {
+            let mut r = tokio::io::BufReader::new(core_r);
+            let mut line = String::new();
+            r.read_line(&mut line).await.unwrap();
+            let hello =
+                r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+            core_w
+                .write_all(format!("{hello}\n").as_bytes())
+                .await
+                .unwrap();
+            let _ = ready_rx.await;
+            script(core_w, r.into_inner()).await;
+        });
+        let conn = Conn::over(mac_r, mac_w, Duration::from_secs(5))
+            .await
+            .unwrap();
+        let _ = ready_tx.send(());
+        (conn, core)
+    }
+
+    async fn held_settles(conn: &Conn, want: impl Fn((usize, usize)) -> bool) -> (usize, usize) {
+        for _ in 0..200 {
+            let h = streams(&conn.channels).held();
+            if want(h) {
+                return h;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        streams(&conn.channels).held()
+    }
+
+    #[tokio::test]
+    async fn mc17_orphans_freed_on_close_and_on_connection_drop() {
+        let (conn, core) = core_conn(|mut w, _r| async move {
+            w.write_all(&frame(5, DATA, b"a")).await.unwrap();
+            w.write_all(&frame(6, DATA, b"b")).await.unwrap();
+            w.write_all(&frame(5, CLOSE, b"{}")).await.unwrap();
+            w.flush().await.unwrap();
+            // Hold the pipe open until the test has looked, then drop it.
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        })
+        .await;
+        assert_eq!(held_settles(&conn, |h| h.0 == 1).await, (1, 1));
+        core.await.unwrap();
+        assert_eq!(held_settles(&conn, |h| h.0 == 0).await, (0, 0));
+    }
+
+    #[tokio::test]
+    async fn mc17_unclaimed_frames_are_bounded() {
+        let chunk = vec![7u8; 1 << 20];
+        let (conn, _core) = core_conn(move |mut w, _r| async move {
+            for i in 0..6u32 {
+                w.write_all(&frame(10 + i % 2, DATA, &chunk)).await.unwrap();
+            }
+            w.flush().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        })
+        .await;
+        assert_eq!(
+            held_settles(&conn, |h| h.1 >= MAX_ORPHAN_BYTES).await,
+            (4, MAX_ORPHAN_BYTES)
+        );
+    }
+
+    #[tokio::test]
+    async fn mc17_attach_after_first_paint_gets_frames_in_order() {
+        let (conn, _core) = core_conn(|mut w, mut r| async move {
+            let mut buf = [0u8; 512];
+            let n = r.read(&mut buf).await.unwrap();
+            let id = serde_json::from_slice::<Value>(&buf[9..n]).unwrap()["id"].clone();
+            w.write_all(&frame(3, DATA, b"one")).await.unwrap();
+            w.write_all(&frame(3, DATA, b"two")).await.unwrap();
+            let reply = json!({"jsonrpc":"2.0","id":id,"result":{"channel":3}});
+            let body = serde_json::to_vec(&reply).unwrap();
+            w.write_all(&frame(0, DATA, &body)).await.unwrap();
+            w.flush().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        })
+        .await;
+        let mut stream = conn.attach("t", 80, 24, 0).await.unwrap();
+        assert_eq!(stream.next().await, Some(Ev::Data(b"one".to_vec())));
+        assert_eq!(stream.next().await, Some(Ev::Data(b"two".to_vec())));
+        assert_eq!(streams(&conn.channels).held(), (0, 0));
     }
 }
