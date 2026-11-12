@@ -98,6 +98,7 @@ pub(crate) struct MenuBar<R: Runtime> {
     dispatch: Mutex<Dispatch>,
     entries: Mutex<Vec<Entry>>,
     dock: Mutex<Vec<Entry>>,
+    gate: Mutex<Gate<Presentation>>,
     marker: std::marker::PhantomData<fn() -> R>,
 }
 
@@ -107,8 +108,43 @@ impl<R: Runtime> Default for MenuBar<R> {
             dispatch: Mutex::new(Dispatch::default()),
             entries: Mutex::new(Vec::new()),
             dock: Mutex::new(Vec::new()),
+            gate: Mutex::new(Gate::default()),
             marker: std::marker::PhantomData,
         }
+    }
+}
+
+/// U6994b: while the list is open a presentation waits here; AppKit closes a menu its owner replaces.
+/// Only the newest waits, and closing releases it.
+struct Gate<P> {
+    open: bool,
+    waiting: Option<P>,
+}
+
+impl<P> Default for Gate<P> {
+    fn default() -> Self {
+        Self {
+            open: false,
+            waiting: None,
+        }
+    }
+}
+
+impl<P> Gate<P> {
+    /// The presentation to apply now: `next` when the list is closed, nothing when it waits.
+    fn submit(&mut self, next: P) -> Option<P> {
+        if self.open {
+            self.waiting = Some(next);
+            None
+        } else {
+            Some(next)
+        }
+    }
+
+    /// The waiting presentation, released when the list closes.
+    fn tracking(&mut self, open: bool) -> Option<P> {
+        self.open = open;
+        if open { None } else { self.waiting.take() }
     }
 }
 
@@ -249,6 +285,54 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     app: AppHandle<R>,
     menu: Presentation,
 ) -> Result<(), RpcError> {
+    #[cfg(target_os = "macos")]
+    watch_tracking(&app);
+    let ready = app
+        .state::<MenuBar<R>>()
+        .gate
+        .lock()
+        .unpoisoned()
+        .submit(menu);
+    ready.map_or(Ok(()), |menu| apply(&app, menu))
+}
+
+/// U6994b: the list's open and close come from AppKit's menu tracking. The release runs after the
+/// close returns to the event loop, so a chosen row's action reaches the dispatch it was drawn from.
+#[cfg(target_os = "macos")]
+fn watch_tracking<R: Runtime>(app: &AppHandle<R>) {
+    thread_local! { static WATCHING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+    if WATCHING.get() {
+        return;
+    }
+    let handle = app.clone();
+    WATCHING.set(native::watch_menu_tracking(move |open| {
+        let handle = handle.clone();
+        let release = move || {
+            let released = handle
+                .state::<MenuBar<R>>()
+                .gate
+                .lock()
+                .unpoisoned()
+                .tracking(open);
+            if let Some(menu) = released
+                && let Err(error) = apply(&handle, menu)
+            {
+                crate::diagnostics::failure(
+                    "apply menu-bar presentation",
+                    &tauri::Error::Io(std::io::Error::other(error.to_string())),
+                );
+            }
+        };
+        let queue = handle.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(error) = queue.run_on_main_thread(release) {
+                crate::diagnostics::failure("queue menu-bar release", &error);
+            }
+        });
+    }));
+}
+
+fn apply<R: Runtime>(app: &AppHandle<R>, menu: Presentation) -> Result<(), RpcError> {
     let holder = app.state::<MenuBar<R>>();
     let mut dispatch = holder.dispatch.lock().unpoisoned();
     let next = dispatch.replacement(&menu.entries);
@@ -299,7 +383,7 @@ pub(crate) fn set_menu_bar<R: Runtime>(
                     refresh_looks(tray.app_handle());
                 }
             })
-            .build(&app)
+            .build(app)
             .map_err(internal)?,
     };
     #[cfg(target_os = "macos")]
@@ -307,10 +391,10 @@ pub(crate) fn set_menu_bar<R: Runtime>(
         .map_err(internal)?;
     #[cfg(not(target_os = "macos"))]
     {
-        let native = Menu::new(&app).map_err(internal)?;
+        let native = Menu::new(app).map_err(internal)?;
         for (id, title, enabled) in rows {
             let item =
-                MenuItem::with_id(&app, id, title, enabled, None::<&str>).map_err(internal)?;
+                MenuItem::with_id(app, id, title, enabled, None::<&str>).map_err(internal)?;
             native.append(&item).map_err(internal)?;
         }
         tray.set_menu(Some(native)).map_err(internal)?;
@@ -320,7 +404,7 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     *holder.entries.lock().unpoisoned() = menu.entries;
     *holder.dock.lock().unpoisoned() = menu.dock;
     #[cfg(target_os = "macos")]
-    install_dock(&app)?;
+    install_dock(app)?;
     Ok(())
 }
 
@@ -390,6 +474,25 @@ pub(crate) fn dock_chosen<R: Runtime>(app: &AppHandle<R>, id: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn u6994b_presentation_waits_for_the_list_to_close() {
+        let mut gate = Gate::default();
+        let mut tray: Vec<&str> = Vec::new();
+
+        tray.extend(gate.submit("closed"));
+        gate.tracking(true);
+        tray.extend(gate.submit("first while open"));
+        tray.extend(gate.submit("second while open"));
+        assert_eq!(tray, ["closed"]);
+
+        tray.extend(gate.tracking(false));
+        tray.extend(gate.tracking(false));
+        assert_eq!(tray, ["closed", "second while open"]);
+
+        tray.extend(gate.submit("closed again"));
+        assert_eq!(tray, ["closed", "second while open", "closed again"]);
+    }
 
     #[test]
     fn u5502_rows_keep_identity_and_event_age() {

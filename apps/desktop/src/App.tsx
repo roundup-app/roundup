@@ -415,7 +415,7 @@ export const App = (props: {
   });
 
   untrack(() => watchMenuBar({
-    solid: { createEffect, createSignal, onCleanup }, app: props.app, tabs: projects.tabs,
+    solid: { createEffect, createMemo, createSignal, onCleanup }, app: props.app, tabs: projects.tabs,
     connection: connectionOf, open: () => setFocus("menu"),
     select: (path, agent) => batch(() => {
       settingsView.close(false);
