@@ -19,7 +19,7 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
   const [restarting, setRestarting] = createSignal(false);
   const [restartFailed, setRestartFailed] = createSignal(false);
   const { drafts } = connected;
-  const schema = v.strictObject({ text: v.string(), base: v.optional(v.string()) });
+  const schema = v.strictObject({ text: v.string(), base: v.string() });
   drafts.validate("opening-prompt", schema);
   drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "agent" && node.parent === null && node.id === draft.destination.object) ? "available" : "unavailable");
   const destination = () => ({ surface: "opening-prompt", object: props.id, recipient: null });
@@ -96,11 +96,11 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
       <Dialog.Title>{copy.modePromptFor(current()?.name ?? "")}</Dialog.Title>
       <Field.Root class="mode-prompt-field">
         <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
-          field.keep({ text: event.currentTarget.value, base: draft()?.value.base ?? current()?.mode_prompt ?? "" }, null);
+          field.keep({ text: event.currentTarget.value, base: String(draft()?.value.base ?? current()?.mode_prompt ?? "") }, null);
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.modePromptHint}</Field.HelperText>
       </Field.Root>
-      <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.modePromptConflict} /></Show>
+      <Show when={draft() && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.modePromptConflict} /></Show>
       <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void (restartFailed() ? restart() : save()) }} />
       <div class="app-dialog-actions">
         <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restart}</button>
