@@ -567,7 +567,7 @@ export const App = (props: {
     available: () => activeConnection() != null,
     invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
-  const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
+  const railHandle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement, connection: activeConnection });
@@ -728,7 +728,6 @@ export const App = (props: {
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), peeking: frame.peeking(), covering: frame.covering(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
-            railToggle={railToggle()}
             app={props.app}
             onFailure={setWindowFailure}
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
@@ -748,6 +747,7 @@ export const App = (props: {
             /></Show>
           </WindowBar>
         }
+        railHandle={railHandle()}
         railPeeking={railPeeking()}
         railSlide={railSlide.motion()}
         railStrip={<InProject open={activeConnection()}>{() => <RailStrip />}</InProject>}

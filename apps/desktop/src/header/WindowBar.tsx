@@ -1,8 +1,5 @@
-import { createEffect, createMemo, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
-import PanelLeftClose from "lucide-solid/icons/panel-left-close";
-import PanelLeftOpen from "lucide-solid/icons/panel-left-open";
-import { IconButton } from "../ui/IconButton";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
@@ -16,7 +13,6 @@ export const WindowBar = (props: {
   children: JSX.Element;
   shelf?: JSX.Element;
   /** U6228f: the Rail's one toggle, after the traffic lights; its name follows `collapsed` (a strip or a peek). */
-  railToggle?: { collapsed: boolean; onToggle: () => void } | undefined;
   onFailure: (message: string | null) => void;
 }) => {
   const title = createMemo(() => {
@@ -79,7 +75,6 @@ export const WindowBar = (props: {
       if (event.button === 0 && empty(event.target)) void action(event.detail === 2 ? "zoom" : "drag");
     }}>
       <div class="traffic-lights" aria-hidden="true" />
-      <Show when={props.railToggle}>{toggle => <IconButton class="rail-toggle" aria-label={toggle().collapsed ? copy.expandRail : copy.collapseRail} onClick={() => toggle().onToggle()}>{toggle().collapsed ? <PanelLeftOpen class="icon" aria-hidden="true" /> : <PanelLeftClose class="icon" aria-hidden="true" />}</IconButton>}</Show>
       {props.children}
       {props.shelf}
     </div>
