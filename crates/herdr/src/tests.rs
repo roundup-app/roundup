@@ -117,7 +117,7 @@ async fn unclaimed_settles(conn: &Conn, want: impl Fn((usize, usize)) -> bool) -
 }
 
 #[tokio::test]
-async fn mc17_orphans_freed_on_connection_drop() {
+async fn mc17_orphans_freed_on_close_and_on_connection_drop() {
     let (conn, core) = core_conn(|mut w, _r| async move {
         w.write_all(&frame(5, DATA, b"a")).await.unwrap();
         w.write_all(&frame(6, DATA, b"b")).await.unwrap();
@@ -127,8 +127,7 @@ async fn mc17_orphans_freed_on_connection_drop() {
         tokio::time::sleep(Duration::from_millis(500)).await;
     })
     .await;
-    // The CLOSE keeps its channel's frames: an attach racing the exit still reads them (MC10).
-    assert_eq!(unclaimed_settles(&conn, |h| h.0 == 3).await, (3, 2));
+    assert_eq!(unclaimed_settles(&conn, |h| h.0 == 1).await, (1, 1));
     core.await.unwrap();
     assert_eq!(unclaimed_settles(&conn, |h| h.0 == 0).await, (0, 0));
 }
