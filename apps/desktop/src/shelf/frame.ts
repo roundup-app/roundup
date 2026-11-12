@@ -51,11 +51,16 @@ export type ShelfFrame = {
   sliding: Accessor<boolean>;
   /** Release a slide on a Project switch or removal. */
   settle: () => void;
+  /** Whether the Layout, measured, floats the Shelf over the centre instead of reserving width for it. */
+  overlaid: Accessor<boolean>;
+  /** The Layout publishes its measured mode here. */
+  setOverlaid: (overlaid: boolean) => void;
 };
 
 /** U370, U373: the Shelf's open state and open tab, one record for every Project, so a Project switch changes none of them. */
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: (() => void) | undefined, initialOpen = true, surface: Accessor<string> = () => "shelf", maximisedByDefault: (surface: string) => boolean = () => false): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
+  const [overlaid, setOverlaid] = createSignal(false);
   const [phase, setPhase] = createSignal<ShelfPhase>(initialOpen ? "open" : "closed");
   // A peek keeps covering the centre while it slides back, so the layout does not reserve width for a Shelf that never opened.
   const [covered, setCovered] = createSignal(false);
@@ -211,5 +216,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     attach: setElement,
     sliding: lifetime.sliding,
     settle: lifetime.settle,
+    overlaid,
+    setOverlaid,
   };
 };

@@ -27,7 +27,7 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     expect(rows()).toEqual([]);
   });
 
-  it("u529_enter_on_an_agent_selects_it_and_focuses_the_pane", async () => {
+  it("u529_a_chosen_row_sends_focus_to_the_pane", async () => {
     const { connected } = await mountSwitcher();
 
     openSwitcher();
@@ -41,7 +41,7 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     expect(document.activeElement?.closest(".pane-screen")).not.toBeNull();
   });
 
-  it("u529_enter_on_a_terminal_shows_its_bubble_and_focuses_its_emulator", async () => {
+  it("u530_a_chosen_bubble_takes_focus_once_it_mounts", async () => {
     const { connected } = await mountSwitcher();
 
     openSwitcher();
@@ -66,7 +66,7 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     expect(connected.rail.selected()).toBeNull();
   });
 
-  it("u529_escape_returns_focus_and_calls_nothing", async () => {
+  it("u529_escape_returns_focus_to_the_opener", async () => {
     const { app } = await mountSwitcher();
     const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
 
@@ -130,6 +130,18 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   expect(app.calls.length).toBe(calls);
 });
 
+
+it("u2773b_the_query_draft_survives_a_close", async () => {
+  await mountSwitcher("ann");
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  type("dee");
+  await waitFor(() => expect(rows()).toEqual(["Dee"]));
+  press("Enter", {}, field()!);
+  await waitFor(() => expect(field()).toBeNull());
+  openSwitcher();
+  await waitFor(() => expect(field()?.value).toBe("dee"));
+});
 
 it("u2773a_queries_restores_exact_work", async () => {
   const { app, connected } = await mountSwitcher("ann");

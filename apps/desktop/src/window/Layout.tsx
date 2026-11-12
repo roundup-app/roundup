@@ -50,6 +50,8 @@ export const Layout = (props: {
   /** U389, U390: the Rail's and Shelf's widths; without them the Tokens' defaults apply and no Resize edge shows. */
   widths?: Widths;
   overlay: JSX.Element;
+  /** Publishes whether the Shelf floats over the centre. */
+  onOverlaid?: (overlaid: boolean) => void;
   /** U491 / #2003: an existing edge can find its host with
    * closest('[data-layout-root]') and its panels with [data-layout-panel].
    * These markers also exist without splitter props, so a shared adapter needs
@@ -91,6 +93,7 @@ export const Layout = (props: {
   const [measured, setMeasured] = createSignal<"reserved" | "overlay">("reserved");
   // U6224: a peek covers the centre and reserves nothing, so it lays out as the overlay without its scrim.
   const mode = () => placement().covering ? "overlay" : measured();
+  createEffect(() => props.onOverlaid?.(mode() === "overlay"));
 
   const measure = () => {
     if (!windowElement || windowElement.clientWidth === 0) return;

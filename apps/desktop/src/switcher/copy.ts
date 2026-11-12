@@ -19,6 +19,7 @@ export const copy = {
   kindPad: sharedCopy.pad,
   footerRecord: "Set key",
   pressAKey: sharedCopy.pressAKey,
+  switchProject: sharedCopy.switchProject,
   switcherLabel: "Switch to",
   switcherPlaceholder: sharedCopy.switcherPlaceholder,
   noMatch: sharedCopy.noMatch,
