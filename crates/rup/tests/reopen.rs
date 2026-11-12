@@ -172,7 +172,8 @@ async fn u4547e_reparenting_survives_reopen() {
             .find(|terminal| Some(&terminal.id) == now.terminal_id.as_ref())
             .unwrap();
         assert!(now_terminal.running);
-        assert_eq!(now_terminal.incarnation, was_terminal.incarnation);
+        // The reopened Daemon mirrors the core's Terminal anew, so a catch-up starts over.
+        assert_ne!(now_terminal.incarnation, was_terminal.incarnation);
         assert_eq!(
             now_terminal.program_pid, was_terminal.program_pid,
             "same Agent's original program"

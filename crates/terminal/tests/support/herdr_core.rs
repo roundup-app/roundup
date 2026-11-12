@@ -434,9 +434,7 @@ fn listen(tmp: &std::path::Path) -> io::Result<()> {
         for t in lock(&core.terminals).values() {
             lock(&t.live).channels.clear();
         }
-        eprintln!("accepted");
-        let r = serve(&core, &mut io::BufReader::new(stream));
-        eprintln!("serve ended {r:?}");
+        let _ = serve(&core, &mut io::BufReader::new(stream));
     }
     Ok(())
 }
@@ -460,15 +458,14 @@ fn proxy(tmp: &std::path::Path) -> io::Result<()> {
             .arg(tmp)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::fs::File::create("/tmp/serve.log")?)
+            .stderr(std::process::Stdio::null())
             .process_group(0)
             .spawn()?;
         started = true;
     };
     let mut up = stream.try_clone()?;
     std::thread::spawn(move || {
-        let r = io::copy(&mut io::stdin().lock(), &mut up);
-        let _ = std::fs::write("/tmp/proxy.log", format!("stdin ended {r:?}"));
+        let _ = io::copy(&mut io::stdin().lock(), &mut up);
         let _ = up.shutdown(std::net::Shutdown::Both);
     });
     let mut down = stream;
