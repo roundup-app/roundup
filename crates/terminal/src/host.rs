@@ -249,24 +249,25 @@ impl Terminals {
         self
     }
 
-    /// The one core connection, started on first use from a clean environment (MC16).
+    /// The core connection, started on first use from a clean environment (MC16). A connection whose
+    /// pipe has closed is replaced here, so the next start after a loss reconnects (MC53, MC56).
     pub(super) async fn core(&self) -> Result<Arc<herdr::Conn>, Error> {
-        let conn = self
-            .core
-            .get_or_try_init(|| async {
-                let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
-                let mut command = tokio::process::Command::new("env");
-                command.args(argv.iter().skip(1));
-                herdr::Conn::spawn(command, CORE_TIMEOUT)
-                    .await
-                    .map(Arc::new)
-            })
+        let mut held = self.core.lock().await;
+        if let Some(conn) = held.as_ref().filter(|conn| !conn.is_closed()) {
+            return Ok(Arc::clone(conn));
+        }
+        let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
+        let mut command = tokio::process::Command::new("env");
+        command.args(argv.iter().skip(1));
+        let conn = herdr::Conn::spawn(command, CORE_TIMEOUT)
             .await
+            .map(Arc::new)
             .map_err(|err| match err {
                 herdr::Error::Missing => Error::internal("herdr-core is not installed"),
                 other => Error::internal(other),
             })?;
-        Ok(Arc::clone(conn))
+        *held = Some(Arc::clone(&conn));
+        Ok(conn)
     }
 }
 
