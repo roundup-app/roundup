@@ -130,13 +130,24 @@ impl Store {
             .optional()
     }
 
-    /// Persisted order, initially alphabetical for existing Pads.
+    /// Positioned Pads first in position order, then the rest by name as Finder sorts: ignoring case, digit runs by value.
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self.db.prepare(
-            "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation
-             FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.position IS NULL, p.position, p.name",
+            "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, p.position
+             FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.position IS NULL, p.position",
         )?;
-        stmt.query_map([], row_to_pad)?.collect()
+        let mut rows = stmt
+            .query_map([], |row| {
+                Ok((row_to_pad(row)?, row.get::<_, Option<i64>>(6)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        rows.sort_by(|(a, a_position), (b, b_position)| {
+            if a_position.is_some() || b_position.is_some() {
+                return std::cmp::Ordering::Equal;
+            }
+            alphanumeric_sort::compare_str(key(&a.name), key(&b.name))
+        });
+        Ok(rows.into_iter().map(|(pad, _)| pad).collect())
     }
 
     /// Caller holds the immediate transaction, so a refetch sees the whole accepted order.
