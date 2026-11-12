@@ -62,9 +62,9 @@
 }
 
 .tab-name {
-  /* U3566: the head keeps 5ch and the tail its width, so the dot's column cannot clip the tail. */
+  /* U3566: the tail keeps its width, so the dot's column cannot clip it; U6993: the head takes its text's width, so no gap lies before the tail. */
   display: grid;
-  grid-template-columns: minmax(5ch, max-content) max-content;
+  grid-template-columns: minmax(0, max-content) max-content;
   overflow: hidden;
 }
 
