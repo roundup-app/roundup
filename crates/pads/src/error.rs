@@ -9,6 +9,9 @@ pub enum Error {
     NotFound(String),
     #[error("{0}")]
     Forbidden(String),
+    /// A link that is no Pad link of the shape LK1 and LK4 describe, with the reason.
+    #[error("{0}")]
+    BadLink(String),
     #[error("{0}")]
     Conflict(String),
     #[error("{message}")]
@@ -64,6 +67,7 @@ impl From<Error> for RpcError {
             Error::Internal(message) => RpcError::internal(message),
             Error::NotFound(what) => RpcError::not_found(what),
             Error::Forbidden(message) => RpcError::forbidden(message),
+            Error::BadLink(why) => RpcError::new(rpc::code::INVALID_PARAMS, why),
             Error::Conflict(message) => RpcError::conflict(message),
             Error::Refused { code, message } => RpcError::new(code, message),
             Error::UndoParent { id, name } => RpcError::undo_parent(id, name),

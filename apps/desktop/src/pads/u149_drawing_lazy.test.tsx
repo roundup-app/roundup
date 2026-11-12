@@ -27,7 +27,7 @@ describe("u149 the canvas loads only when a Drawing is present", () => {
     expect(requested).toBe(0);
   });
 
-  it("u149_inserting_a_drawing_loads_the_module", async () => {
+  it("u149_choosing_drawing_in_the_slash_menu_inserts_one_block_and_loads_the_module", async () => {
     let requested = 0;
 
     useRenderers({
@@ -44,8 +44,8 @@ describe("u149 the canvas loads only when a Drawing is present", () => {
     const field = document.querySelector<HTMLElement>(".ProseMirror")!;
     const paragraph = field.querySelector("p")!;
 
-    paragraph.textContent = "/drawing";
-    getSelection()?.collapse(paragraph.firstChild, 8);
+    paragraph.textContent = "/draw";
+    getSelection()?.collapse(paragraph.firstChild, 5);
     document.dispatchEvent(new Event("selectionchange"));
     // ProseMirror reads the typed text from its mutation observer.
     await new Promise((done) => setTimeout(done, 50));
