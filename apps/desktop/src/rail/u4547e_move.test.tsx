@@ -85,3 +85,13 @@ it("u4547e_move_key_uses_the_focused_rail_scope", async () => {
   expect(fireEvent.keyDown(ask, { key: "m", code: "KeyM" })).toBe(true);
   expect(railCallsTo(daemon, "rail.move")).toEqual([]);
 });
+
+it("u4547e_a_mode_row_is_never_announced_draggable_or_disabled", async () => {
+  await mountRail(tree(), []);
+  await settled();
+  const row = rowOf("Review");
+
+  expect(document.querySelectorAll("[aria-roledescription]").length).toBeGreaterThan(0);
+  expect(row.getAttribute("aria-roledescription")).toBeNull();
+  expect(row.getAttribute("aria-disabled")).toBeNull();
+});
