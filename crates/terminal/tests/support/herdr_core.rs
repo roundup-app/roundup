@@ -118,7 +118,16 @@ impl Core {
                 "spawn_failed",
                 "check the program name and cwd",
                 // The OS's reason can carry the whole `PATH`; the core names only argv0.
-                format!("cannot start {:?}: {}", argv.first(), why.lines().next().unwrap_or_default().split(" because").next().unwrap_or_default()),
+                format!(
+                    "cannot start {:?}: {}",
+                    argv.first(),
+                    why.lines()
+                        .next()
+                        .unwrap_or_default()
+                        .split(" because")
+                        .next()
+                        .unwrap_or_default()
+                ),
             )
         };
         // portable-pty silently falls back to $HOME when the cwd is unusable; the core refuses.
@@ -161,7 +170,11 @@ impl Core {
         std::thread::spawn(move || {
             let mut writer = writer;
             while let Ok(bytes) = queued.recv() {
-                if writer.write_all(&bytes).and_then(|()| writer.flush()).is_err() {
+                if writer
+                    .write_all(&bytes)
+                    .and_then(|()| writer.flush())
+                    .is_err()
+                {
                     return;
                 }
             }
@@ -178,8 +191,7 @@ impl Core {
         lock(&self.terminals).insert(id, terminal.clone());
         let core = self.clone();
         let t = terminal.clone();
-        let drained = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let done = drained.clone();
+        let (done, drained) = std::sync::mpsc::channel::<()>();
         std::thread::spawn(move || {
             let mut buf = [0u8; 8192];
             // A PTY read fails with EIO once the program is gone: any error is the end.
@@ -191,7 +203,7 @@ impl Core {
                     core.send(&frame(*channel, DATA, chunk));
                 }
             }
-            done.store(true, Ordering::SeqCst);
+            let _ = done.send(());
         });
         // The program's end closes its channels even while a descendant still holds the PTY open;
         // a short grace lets the output the program printed reach them first.
@@ -199,12 +211,7 @@ impl Core {
         let t = terminal.clone();
         std::thread::spawn(move || {
             let status = child.wait();
-            for _ in 0..40 {
-                if drained.load(Ordering::SeqCst) {
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(5));
-            }
+            let _ = drained.recv_timeout(std::time::Duration::from_millis(200));
             let exit = match status {
                 Ok(status) if status.signal().is_none() => Exit {
                     code: Some(status.exit_code()),
@@ -297,9 +304,16 @@ impl Core {
             "terminal.run" => self.run(&params),
             "terminal.get" => self.terminal(&params).map(|t| self.describe(&t)),
             "terminal.kill" => self.terminal(&params).and_then(|t| {
-                let pid = t.pid.and_then(|pid| i32::try_from(pid).ok()).ok_or_else(|| {
-                    failure("not_found", "the terminal has no process", "no process".into())
-                })?;
+                let pid = t
+                    .pid
+                    .and_then(|pid| i32::try_from(pid).ok())
+                    .ok_or_else(|| {
+                        failure(
+                            "not_found",
+                            "the terminal has no process",
+                            "no process".into(),
+                        )
+                    })?;
                 nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), nix::sys::signal::SIGKILL)
                     .map_err(|e| failure("not_found", "already gone", e.to_string()))?;
                 Ok(json!({}))

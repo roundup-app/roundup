@@ -891,11 +891,6 @@
     "data": "Names rupd when comparing in-process Terminals measurements with Rex; delegates Rex and fake-agent launches to the audited spike harness. Starts no real rupd.",
     "kind": "reference"
   },
-  "crates/rupd/tests/s5981a_owner_gap.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/rupd/tests/dcr1_cut_off_jobs.rs": {
     "cleanup": "In-process test runtime owns the Daemon and its socket; the TempDir closes after both.",
     "data": "Daemon opened with an explicit TempDir data path through test_support; no production fallback resolver.",

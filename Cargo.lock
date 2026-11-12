@@ -5278,7 +5278,6 @@ dependencies = [
  "provenance",
  "regex",
  "rpc",
- "serde",
  "serde_json",
  "stats_alloc",
  "tempfile",

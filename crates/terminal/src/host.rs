@@ -119,10 +119,12 @@ pub(super) fn core_command(core: &str, vars: &BTreeMap<String, String>) -> Vec<S
 /// The variables a core starts with: what a program needs to find itself, and nothing of the session
 /// the Daemon runs in. A name the Daemon lacks is left out.
 fn core_vars() -> BTreeMap<String, String> {
-    ["PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR"]
-        .into_iter()
-        .filter_map(|name| Some((name.to_owned(), std::env::var(name).ok()?)))
-        .collect()
+    [
+        "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR",
+    ]
+    .into_iter()
+    .filter_map(|name| Some((name.to_owned(), std::env::var(name).ok()?)))
+    .collect()
 }
 
 /// Under `test-support` the core is the test-support one built beside the test binary, so a test

@@ -13,7 +13,6 @@ rpc = { path = "../rpc" }
 herdr = { path = "../herdr" }
 serde_json.workspace = true
 thiserror.workspace = true
-serde.workspace = true
 provenance = { path = "../provenance" }
 tempfile.workspace = true
 
