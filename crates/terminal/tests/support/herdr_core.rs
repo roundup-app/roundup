@@ -61,7 +61,9 @@ struct Terminal {
     argv: Vec<String>,
     live: Mutex<Live>,
     master: Mutex<Box<dyn MasterPty + Send>>,
-    writer: Mutex<Box<dyn Write + Send>>,
+    /// Input waits in a queue a thread of its own drains, so a program that reads nothing parks
+    /// that thread and never the core.
+    input: Mutex<std::sync::mpsc::Sender<Vec<u8>>>,
 }
 
 struct Core {
@@ -115,7 +117,8 @@ impl Core {
             failure(
                 "spawn_failed",
                 "check the program name and cwd",
-                format!("cannot start {:?}: {why}", argv.first()),
+                // The OS's reason can carry the whole `PATH`; the core names only argv0.
+                format!("cannot start {:?}: {}", argv.first(), why.lines().next().unwrap_or_default().split(" because").next().unwrap_or_default()),
             )
         };
         // portable-pty silently falls back to $HOME when the cwd is unusable; the core refuses.
@@ -154,6 +157,15 @@ impl Core {
             (Ok(r), Ok(w)) => (r, w),
             (Err(e), _) | (_, Err(e)) => return Err(spawn_failed(e.to_string())),
         };
+        let (input, queued) = std::sync::mpsc::channel::<Vec<u8>>();
+        std::thread::spawn(move || {
+            let mut writer = writer;
+            while let Ok(bytes) = queued.recv() {
+                if writer.write_all(&bytes).and_then(|()| writer.flush()).is_err() {
+                    return;
+                }
+            }
+        });
         let terminal = Arc::new(Terminal {
             id: id.clone(),
             pid: child.process_id(),
@@ -161,11 +173,13 @@ impl Core {
             argv,
             live: Mutex::default(),
             master: Mutex::new(pair.master),
-            writer: Mutex::new(writer),
+            input: Mutex::new(input),
         });
         lock(&self.terminals).insert(id, terminal.clone());
         let core = self.clone();
         let t = terminal.clone();
+        let drained = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let done = drained.clone();
         std::thread::spawn(move || {
             let mut buf = [0u8; 8192];
             // A PTY read fails with EIO once the program is gone: any error is the end.
@@ -177,7 +191,21 @@ impl Core {
                     core.send(&frame(*channel, DATA, chunk));
                 }
             }
-            let exit = match child.wait() {
+            done.store(true, Ordering::SeqCst);
+        });
+        // The program's end closes its channels even while a descendant still holds the PTY open;
+        // a short grace lets the output the program printed reach them first.
+        let core = self.clone();
+        let t = terminal.clone();
+        std::thread::spawn(move || {
+            let status = child.wait();
+            for _ in 0..40 {
+                if drained.load(Ordering::SeqCst) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            let exit = match status {
                 Ok(status) if status.signal().is_none() => Exit {
                     code: Some(status.exit_code()),
                     reason: "exited",
@@ -298,8 +326,7 @@ impl Core {
         };
         match (kind, payload) {
             (DATA, bytes) => {
-                let mut w = lock(&t.writer);
-                let _ = w.write_all(bytes).and_then(|()| w.flush());
+                let _ = lock(&t.input).send(bytes.to_vec());
             }
             (RESIZE, [c0, c1, r0, r1]) => resize(
                 &t,
