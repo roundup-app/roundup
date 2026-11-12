@@ -32,3 +32,10 @@ workspace = true
 
 [features]
 test-support = []
+
+# The test-support herdr-core: tests start it as `herdr-core-test connect`, as the product starts the real core.
+[[bin]]
+name = "herdr-core-test"
+path = "tests/support/herdr_core.rs"
+required-features = ["test-support"]
+test = false
