@@ -486,7 +486,7 @@ export const Bubbles = (props: {
       running.frame ??= requestAnimationFrame(() => apply(running));
     };
 
-    /** Leaves the running Pull; a held frame lands first, so the bubble stays where the last move put it. */
+    /** Leaves the running Pull; a queued frame lands first, so the bubble stays where the last move put it. */
     const leave = (event: "release" | "cancel"): Pulling | null => {
       const was = pull;
 
