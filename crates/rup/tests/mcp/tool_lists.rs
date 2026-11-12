@@ -83,7 +83,7 @@ pub fn quoted_after(file: &str, marker: &str) -> Vec<String> {
 /// The seam commands of `apps/desktop/src/app/seam.ts`, and whether `crates/desktop` registers the same.
 pub fn seam_commands() -> Vec<String> {
     let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
-    let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    let mut registered = quoted_after("crates/desktop/src/commands.rs", "generate_handler![");
     registered.extend(quoted_after(
         "crates/desktop/src/idle.rs",
         "generate_handler![",
