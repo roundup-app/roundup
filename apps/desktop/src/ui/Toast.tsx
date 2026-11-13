@@ -94,7 +94,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
           // U3792: a card behind the newest, while the stack is folded, takes no focus.
           const folded = () => attr(SIBLING) !== undefined && attr(OVERLAP) !== undefined;
 
-          return <>
+          return <div class="app-toast-clip">
             <Show when={card().meta?.body} fallback={<button type="button" data-button="quiet" class="app-toast-action" aria-label={card().meta?.label} tabIndex={folded() ? -1 : undefined}
               onClick={(event) => props.toast.activate(card().id!, activationSource(event))}>
               <span class="app-toast-heading">
@@ -105,7 +105,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
             </button>}>{(body) => <div class="app-toast-body">{body()()}</div>}</Show>
             {/* U3790: the time left, draining while the card runs; it holds still with the timer. */}
             <span class="app-toast-bar" aria-hidden="true" style={{ "--toast-time": `${card().meta?.duration}ms`, "animation-play-state": api().paused || !api().visible ? "paused" : "running" }} />
-          </>;
+          </div>;
         }}</Toast.Context>
       </Toast.Root>;
     }}
