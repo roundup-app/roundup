@@ -405,10 +405,7 @@ fn answer_pixel_queries(t: &Terminal, chunk: &[u8]) {
         .get_size()
         .map_or((0, 0), |s| (u64::from(s.cols), u64::from(s.rows)));
     let text = String::from_utf8_lossy(chunk);
-    for (at, query) in text
-        .match_indices("\x1b[14t")
-        .chain(text.matches("\x1b[16t"))
-    {
+    for query in text.matches("\x1b[14t").chain(text.matches("\x1b[16t")) {
         let reply = match query {
             "\x1b[14t" => format!("\x1b[4;{};{}t", rows * h, cols * w),
             _ => format!("\x1b[6;{h};{w}t"),
