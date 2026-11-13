@@ -167,6 +167,27 @@ pub(crate) fn write_naming(
     Ok(())
 }
 
+/// MC20: the Mark of `agent`, 0 when it has reported nothing.
+pub(crate) fn read_mark(db: &rusqlite::Connection, agent: &str) -> rusqlite::Result<u64> {
+    use rusqlite::OptionalExtension;
+    db.query_row(
+        "SELECT seq FROM report_marks WHERE agent = ?1",
+        [agent],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+    .map(|mark| mark.unwrap_or_default().unsigned_abs())
+}
+
+/// MC20: raise the Mark of `agent` to `seq`; it never goes down.
+pub(crate) fn write_mark(db: &rusqlite::Connection, agent: &str, seq: u64) -> rusqlite::Result<()> {
+    db.execute(
+        "INSERT INTO report_marks VALUES (?1, ?2) ON CONFLICT(agent) DO UPDATE SET seq = max(seq, excluded.seq)",
+        rusqlite::params![agent, i64::try_from(seq).unwrap_or(i64::MAX)],
+    )
+    .map(drop)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,25 +253,4 @@ mod tests {
             assert_eq!(fs::read_to_string(old.join("notes.txt")).unwrap(), "mine");
         }
     }
-}
-
-/// MC20: the Mark of `agent`, 0 when it has reported nothing.
-pub(crate) fn read_mark(db: &rusqlite::Connection, agent: &str) -> rusqlite::Result<u64> {
-    use rusqlite::OptionalExtension;
-    db.query_row(
-        "SELECT seq FROM report_marks WHERE agent = ?1",
-        [agent],
-        |row| row.get::<_, i64>(0),
-    )
-    .optional()
-    .map(|mark| mark.unwrap_or_default().unsigned_abs())
-}
-
-/// MC20: raise the Mark of `agent` to `seq`; it never goes down.
-pub(crate) fn write_mark(db: &rusqlite::Connection, agent: &str, seq: u64) -> rusqlite::Result<()> {
-    db.execute(
-        "INSERT INTO report_marks VALUES (?1, ?2) ON CONFLICT(agent) DO UPDATE SET seq = max(seq, excluded.seq)",
-        rusqlite::params![agent, i64::try_from(seq).unwrap_or(i64::MAX)],
-    )
-    .map(drop)
 }
