@@ -463,5 +463,43 @@ class Orders(unittest.TestCase):
         self.assertEqual(broken.call_count, 1)
 
 
+def added(path, *lines):
+    """The diff of a new file `path` that holds `lines`."""
+    return f'diff --git a/{path} b/{path}\n--- /dev/null\n+++ b/{path}\n@@ -0,0 +1 @@\n' + ''.join(f'+{line}\n' for line in lines)
+
+
+class Delivers(unittest.TestCase):
+    def delivers(self, diff, scenarios='U83', file='ui.md', drop='', extra=''):
+        """`orders.delivers` for PR 9 when `gh pr diff` answers `diff` (raises it, when an exception) and the Issue's body, with
+        its `Scenarios:` and `Specification:` file changed, lacks the line `drop` and ends with `extra`."""
+        body = issue()['body'].replace('Scenarios: U83', f'Scenarios: {scenarios}').replace('ui.md', file).replace(drop, '') + extra
+        with patch.object(orders, 'call', side_effect=diff if isinstance(diff, Exception) else None, return_value=diff), \
+                redirect_stderr(io.StringIO()):
+            return orders.delivers(9, issue(body=body))
+
+    def test_l82_a_pr_delivers_when_it_changes_code_and_adds_a_test_named_after_each_scenario(self):
+        for scenarios, file, tests in [('U83', 'ui.md', ['fn u83_a() {}']), ('V4b', 'proofs.md', ['it("v4b_a")']),
+                                       ('LC11-LC13', 'ui.md', ['fn lc11_a() {}', 'fn lc12_a() {}', 'fn lc13_a() {}']),
+                                       ('U83, V4b', 'ui.md', ['fn u83_a() {}', 'fn v4b_a() {}'])]:
+            with self.subTest(scenarios=scenarios):
+                self.assertTrue(self.delivers(added('crates/x/src/lib.rs', *tests), scenarios, file))
+
+    def test_l82_a_pr_that_delivers_less_leaves_the_issue_open(self):
+        code = added('crates/x/src/lib.rs', 'fn u83_a() {}')
+        old_test = 'diff --git a/x.rs b/x.rs\n@@ -1 +1,2 @@\n fn u83_a() {}\n+fn b() {}\n'
+        for name, answer in {
+                'spec-only': self.delivers(added('scenarios/ui.md', '- test `u83_a`')),
+                'a test for two of three scenarios': self.delivers(added('x.rs', 'fn lc11_a() {}', 'fn lc13_a() {}'), 'LC11-LC13'),
+                'a test whose name only starts like the id': self.delivers(added('x.rs', 'fn u831_a() {}')),
+                'a test the diff does not add': self.delivers(old_test),
+                'Mode: specify': self.delivers(code, extra='Mode: specify\n'),
+                'a scenario main lacks': self.delivers(code, 'U9999'),
+                'an Issue with no queue fields': self.delivers(code, drop='Key: U83\n'),
+                'an order the queue cannot read': self.delivers(code, extra='Mode: skip-review\n'),
+                'a diff GitHub refuses': self.delivers(subprocess.CalledProcessError(1, ['gh']))}.items():
+            with self.subTest(name=name):
+                self.assertFalse(answer)
+
+
 if __name__ == '__main__':
     unittest.main()
