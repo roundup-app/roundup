@@ -475,7 +475,11 @@
   font-variant-numeric: tabular-nums;
 }
 .machine-chip, .machine-status {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-inline-size: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: default;
   color: var(--grey);
