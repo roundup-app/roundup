@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
-import { keyedStore } from "../app/keyedStore";
+import { answered, keyedStore } from "../app/keyedStore";
 import { blockerGraph } from "./todoView";
 import { copy } from "./copy";
 import type { Handed } from "@contracts/todo/Handed";
@@ -111,30 +111,16 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     if (settledIds.length) setAsked(each => Object.fromEntries(Object.entries(each).filter(([key]) => !settledIds.includes(Number(key)))));
   });
 
-  // `createResource` drops a refetch asked in the same microtask as one it started, so a burst of Events shares one read that starts after the last of them.
-  let queued: Promise<void> | null = null;
-  let newest: Promise<unknown> = Promise.resolve();
+  const settled = () => Promise.all([answered(list), answered(facts)]).then(() => undefined);
 
-  /** Resolves once the newest read has answered: a read that an Event superseded answers with the old list, which must not end a wait. */
-  const settled = async () => {
-    let seen: Promise<unknown>;
-
-    do {
-      seen = newest;
-      await seen;
-    } while (seen !== newest);
-  };
-
-  const reload = () => {
+  // `createResource` drops a refetch asked in the same microtask as one it started, so a burst waits one microtask and shares one read that starts after the last of them.
+  const reload = async () => {
     setWaiting(true);
-
-    queued ??= Promise.resolve().then(() => {
-      queued = null;
-      newest = Promise.all([refetch(), refetchFacts()]);
-      setWaiting(false);
-    });
-
-    return queued.then(settled);
+    await Promise.resolve();
+    void refetch();
+    void refetchFacts();
+    setWaiting(false);
+    await settled();
   };
 
   onCleanup(
