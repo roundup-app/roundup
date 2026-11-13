@@ -784,15 +784,14 @@ impl ServerHandler for Shim {
                 Ok(CallToolResult::error(vec![ContentBlock::text(body)]).into())
             }
             Err(gone) => {
-                let applied = match gone {
-                    Gone::Unreachable(_) => "; the call was not sent",
-                    Gone::Away => "",
+                // MC22: the away answer is exactly `{"error":"away"}`.
+                let body = match gone {
+                    Gone::Unreachable(_) => {
+                        format!("{}: {gone}; the call was not sent", request.name)
+                    }
+                    Gone::Away => gone.to_string(),
                 };
-                Ok(CallToolResult::error(vec![ContentBlock::text(format!(
-                    "{}: {gone}{applied}",
-                    request.name
-                ))])
-                .into())
+                Ok(CallToolResult::error(vec![ContentBlock::text(body)]).into())
             }
         }
     }
@@ -818,6 +817,8 @@ async fn serve(actor: Actor) -> Result<(), String> {
     };
     if machine::active() {
         // MC22: the Mac may be away at start; the Channel report waits and only the machine's tools are offered.
+        // The Door's `agent_digest` is on the list: a machine cannot ask whether its Agent is a Door.
+        shim.tools = tools(true);
         shim.tools.retain(|offer| machine::offers(&offer.tool.name));
         let id = shim.actor.id.clone();
         if shim.actor.kind == ActorKind::Agent {

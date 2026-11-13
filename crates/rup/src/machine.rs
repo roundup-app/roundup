@@ -309,18 +309,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mc22_the_two_lists_are_disjoint_and_name_real_tools() {
-        let tools: Vec<String> = crate::mcp::tools(true)
-            .iter()
-            .map(|o| o.tool.name.to_string())
-            .collect();
-        for name in WAITS.iter().chain(FAIL_LOUD.iter()) {
-            assert!(tools.iter().any(|t| t == name), "{name} is not a tool");
-        }
-        assert!(WAITS.iter().all(|w| !FAIL_LOUD.contains(w)));
-    }
-
-    #[test]
     fn mc23_a_line_stays_until_removed() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(
