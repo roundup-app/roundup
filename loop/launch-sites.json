@@ -941,5 +941,10 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/rup/tests/machine.rs": {
+    "cleanup": "Serves the test Daemon in process and kills the relay it starts.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   }
 }
