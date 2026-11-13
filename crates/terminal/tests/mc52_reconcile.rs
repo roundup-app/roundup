@@ -117,8 +117,18 @@ async fn mc52_daemon_open_reconciles_the_list_without_an_agent_start() {
         .reconcile_open("p", &["a".to_owned()])
         .await
         .unwrap();
-    assert_eq!(first.len(), 1, "{first:?}");
-    assert!(matches!(first[0], Step::End(_)), "{first:?}");
+    assert_eq!(first.len(), 2, "{first:?}");
+    assert!(first.iter().any(|s| matches!(s, Step::End(_))), "{first:?}");
+    assert!(
+        first.iter().any(|s| matches!(s, Step::Remove(_))),
+        "{first:?}"
+    );
+    // The finished program's exit code is kept here before the core drops it.
+    let kept = terminals.list().await;
+    assert!(
+        kept.iter().any(|t| !t.running && t.exit_code == Some(0)),
+        "{kept:?}"
+    );
     let again = terminals
         .reconcile_open("p", &["a".to_owned()])
         .await

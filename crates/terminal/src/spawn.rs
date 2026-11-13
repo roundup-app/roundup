@@ -123,8 +123,8 @@ impl Terminals {
     }
 
     /// MC52 when the Daemon opens: read the core's live list for `project`, end the idle extras and
-    /// the Terminals of an Agent not in `agents`. A finished Terminal stays: nothing here keeps its
-    /// screen and exit code yet, and MC52 removes it only once roundup has. Starting and
+    /// the Terminals of an Agent not in `agents`, and keep each finished Terminal (adopt it, so its
+    /// screen and exit code stay in the table) before `terminal.rm` removes it. Starting and
     /// attaching stay with each Agent's start. Answers the steps it carried out. A Terminal without the Project label is no step (MC54).
     pub async fn reconcile_open(
         &self,
@@ -137,12 +137,52 @@ impl Terminals {
             .map_err(|err| Error::core(&err))?;
         let mut done = Vec::new();
         for step in steps {
-            if matches!(step, Step::End(_)) {
-                apply(&conn, &step).await.map_err(|err| Error::core(&err))?;
-                done.push(step);
+            match &step {
+                Step::End(_) => {}
+                Step::Remove(address) => self.keep_finished(&conn, address).await?,
+                Step::Attach(_) | Step::Start(_) => continue,
             }
+            apply(&conn, &step).await.map_err(|err| Error::core(&err))?;
+            done.push(step);
         }
         Ok(done)
+    }
+
+    /// Adopt the finished Terminal `address` and wait for its replayed screen and exit code to land
+    /// in the table, so removing it from the core loses neither.
+    async fn keep_finished(&self, conn: &Arc<herdr::Conn>, address: &str) -> Result<(), Error> {
+        let got = conn
+            .call("terminal.get", serde_json::json!({"terminal": address}))
+            .await
+            .map_err(|err| Error::core(&err))?;
+        let text = |key: &str| got.get(key).and_then(Value::as_str).map(str::to_owned);
+        let number = self.next.fetch_add(1, Ordering::Relaxed);
+        let mut spawned = self
+            .adopt(
+                Arc::clone(conn),
+                address.to_owned(),
+                None,
+                Adopted {
+                    cwd: text("cwd").unwrap_or_default(),
+                    cols: 80,
+                    rows: 24,
+                    program: text("program").unwrap_or_else(|| "terminal".to_owned()),
+                    machine: None,
+                },
+                None,
+                number,
+            )
+            .await?;
+        // The exit event is published after the replayed screen and the code are in the table.
+        let exited = async {
+            while let Ok(event) = spawned.events.recv().await {
+                if matches!(event.as_ref(), EventData::TerminalExited(_)) {
+                    break;
+                }
+            }
+        };
+        let _ = tokio::time::timeout(Duration::from_secs(5), exited).await;
+        Ok(())
     }
 
     /// A12a: the core's id for Terminal `id` and what a reattach needs, or `None` for a Terminal
