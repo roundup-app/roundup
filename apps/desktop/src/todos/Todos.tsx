@@ -235,33 +235,16 @@ export const Todos = (props: {
   const [filed, setFiled] = createSignal(0);
   const [choosing, setChoosing] = createSignal<Choosing | null>(null);
 
-  const picking = () => {
-    const now = choosing();
+  // SAFETY: the kind test just made the union member `kind`.
+  const chosenAs = <K extends Choosing["kind"]>(kind: K) => (choosing()?.kind === kind ? (choosing() as Extract<Choosing, { kind: K }>) : null);
 
-    return now?.kind === "owner" ? now : null;
-  };
+  const picking = () => chosenAs("owner");
+  const moving = () => chosenAs("home");
+  const naming = () => chosenAs("name")?.id ?? null;
+  const advanceOf = (kind: "owner" | "home" | "comment") => chosenAs(kind)?.advance;
 
-  const moving = () => {
-    const now = choosing();
-
-    return now?.kind === "home" ? now : null;
-  };
-
-  const naming = () => {
-    const now = choosing();
-
-    return now?.kind === "name" ? now.id : null;
-  };
-
-  const advanceOf = (kind: "owner" | "home" | "comment") => {
-    const now = choosing();
-
-    return now?.kind === kind ? now.advance : undefined;
-  };
-
-  const choose = (kind: "owner" | "home", id: number, anchor: HTMLElement) => {
-    setChoosing({ kind, id, anchor, focus: captureFocus(true), advance: captureAdvance(id) });
-  };
+  const choose = (kind: "owner" | "home", id: number, anchor: HTMLElement) => setChoosing({ kind, id, anchor, focus: captureFocus(true), advance: captureAdvance(id) });
+  const chooseComment = (id: number) => setChoosing({ kind: "comment", id, focus: captureFocus(), advance: captureAdvance(id) });
 
   const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null; rename: () => void }>();
 
@@ -448,7 +431,7 @@ export const Todos = (props: {
   const selectedId = () => (shown() !== null && connected.drawer.content() === shown()?.content ? shown()?.id : undefined);
 
   const show = (todo: Todo, source: ActivationSource, order = dependencyRows().filter(row => listed().some(todo => todo.id === row.todo.id) && !hidden(row.todo) || unfolded() && foldedDone().some(todo => todo.id === row.todo.id)).map(row => row.todo.id)) => {
-    setChoosing({ kind: "comment", id: todo.id, focus: captureFocus(), advance: captureAdvance(todo.id) });
+    chooseComment(todo.id);
 
     const content = () => <TodoDrawer id={todo.id} todos={todos} order={order} region={shelf ? "shelf" : "todos"} onNavigate={id => { if (todos.byId().has(id)) show(todos.byId().get(id)!, "key", order); }} onComment={focus => focus(() => {
       const advance = advanceOf("comment");
@@ -605,6 +588,12 @@ export const Todos = (props: {
     else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: survivorOf(untrack(openOrder), id) ?? null, reopening: false, focus }]);
   };
 
+  const askComment = (todo: Todo) => {
+    if (selectedId() !== todo.id) show(todo, "key");
+    triage.askComment(todo.id);
+    chooseComment(todo.id);
+  };
+
   registerKeys({ kind: "app" }, [
     {
       chords: [...CHORD_ROWS.filter(row => row.inTriage && row.name !== "todo.triage-leave").flatMap(row => chordsOf(row)), ...chordsOf(CHORDS["todo.assign"])],
@@ -640,11 +629,7 @@ export const Todos = (props: {
       clearFailures();
       void toggle(todo).then(message => pickFails.get(todo.id)?.show(message));
     }),
-    triageKey("todo.triage-comment", (todo) => {
-      if (selectedId() !== todo.id) show(todo, "key");
-      triage.askComment(todo.id);
-      setChoosing({ kind: "comment", id: todo.id, focus: captureFocus(), advance: captureAdvance(todo.id) });
-    }),
+    triageKey("todo.triage-comment", askComment),
   ]);
 
   /** U2694b: Complete (only for open Todos), Send to Agent ▸, Copy Link, Delete, as the system menu of a row; Delete asks as U461 does. */
