@@ -1,4 +1,5 @@
 import { captureFocus } from "../keys/focus";
+import { modalOpen } from "../keys/registry";
 import { createSignal } from "solid-js";
 
 /** U3751: the mode's one flag, a webview state of the Todos tab that is never saved. */
@@ -15,7 +16,7 @@ export const triage = {
     && event.target instanceof Element && (event.target === document.body || event.target.closest(".shelf, .shelf-tabs") !== null)
     && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && (!event.shiftKey || nesting && event.code === "Tab")
     && !event.target.closest("input, textarea, select, [contenteditable]")
-    && !document.querySelector("[role=dialog], [role=alertdialog], [role=menu][data-state=open]"),
+    && !modalOpen(),
   askComment: (id: number | null) => { if (id !== null) commentFocus = captureFocus(true); setCommentFor(id); },
   focusComment: (move: () => void) => commentFocus(move),
 };
