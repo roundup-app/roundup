@@ -77,7 +77,7 @@ class Orders(unittest.TestCase):
                     author=dict(login='app/claude', is_bot=True))
         with patch.object(orders, 'gh', side_effect=[[[]], [item]]), redirect_stderr(io.StringIO()):
             issues = orders.list_issues()
-        rows = orders.classify(issues, {}, [])
+        rows = orders.classify(issues, {}, [], {7})
         self.assertEqual([(row['issue'], row['state']) for row in rows], [(7, 'ready')])
 
     def test_l34_a_cached_closed_issue_still_blocks_a_duplicate_key_and_a_reopened_one_leaves_the_cache(self):
@@ -210,10 +210,17 @@ class Orders(unittest.TestCase):
         self.assertIn('Close this specification Issue', output.getvalue())
         self.assertNotIn('specification-only PR does not close', output.getvalue())
 
-    def test_l34_every_open_issue_the_user_or_a_loop_app_filed_is_work(self):
-        for login in ('saadshahd', 'claude[bot]', 'github-actions[bot]'):
+    def test_l34_an_open_issue_a_loop_app_filed_waits_for_the_user_s_thumbs_up(self):
+        for login in ('claude[bot]', 'github-actions[bot]'):
             with self.subTest(login=login):
-                self.assertEqual(orders.classify([issue(user=dict(login=login))], {}, [])[0]['state'], 'ready')
+                row, = orders.classify([issue(user=dict(login=login))], {}, [])
+                self.assertEqual((row['state'], row['reason']), ('waiting', "filed by a loop App; waits for the user's thumbs-up"))
+
+    def test_l34_only_the_user_s_thumbs_up_releases_a_loop_app_s_issue(self):
+        for who, state in (('saadshahd', 'ready'), ('stranger', 'waiting')):
+            with self.subTest(thumbs_up_by=who):
+                rows, _ = self.read_with([issue(user=dict(login='claude[bot]'))], reactions={1: [dict(user=dict(login=who))]})
+                self.assertEqual(rows[0]['state'], state)
 
     def test_l34_no_one_elses_issue_runs_whatever_its_labels(self):
         for author in ('COLLABORATOR', 'MEMBER', 'NONE'):
@@ -369,9 +376,9 @@ class Orders(unittest.TestCase):
         rows = orders.cool(orders.classify([issue(2, 'U84'), issue(3, 'U85'), issue(4, 'U86')], {}, []), ended, now)
         self.assertEqual([row['state'] for row in rows], ['ready'] * 3)
 
-    def read_with(self, issues, comments=None, blockers=None):
-        """`read_orders` over REST `issues`, GraphQL `comments` and `blockers` (each {Issue: nodes}); returns the rows and the
-        GraphQL queries made."""
+    def read_with(self, issues, comments=None, blockers=None, reactions=None):
+        """`read_orders` over REST `issues`, GraphQL `comments`, `blockers` and `reactions` (each {Issue: nodes}); returns the
+        rows and the GraphQL queries made."""
         queries = []
 
         def api(*args):
@@ -379,7 +386,8 @@ class Orders(unittest.TestCase):
                 return []
             if args[1] == 'graphql':
                 queries.append(args[-1])
-                field, found = ('comments', comments) if 'comments(' in args[-1] else ('blockedBy', blockers)
+                field, found = next(((name, data) for name, data in (('reactions', reactions), ('comments', comments))
+                                     if f'{name}(' in args[-1]), ('blockedBy', blockers))
                 return dict(data=dict(repository={f'i{n}': {field: dict(totalCount=len((found or {}).get(n, [])), nodes=(found or {}).get(n, []))}
                                                   for n in map(int, re.findall(r'i(\d+):', args[-1]))}))
             return [issues]
