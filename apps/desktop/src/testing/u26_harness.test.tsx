@@ -186,6 +186,16 @@ describe("u26 the controls", () => {
     await expect(app.rpc("rail.tree", null)).rejects.toMatchObject({ code: -32001, message: "gone" });
     await expect(app.rpc("rail.tree", null)).resolves.toHaveLength(10);
   });
+
+  it("u26_fail_next_with_a_method_waits_for_that_method", async () => {
+    const { app, failNext } = await listen("agents-10");
+
+    failNext(-32001, "gone", "pad.list");
+
+    await expect(app.rpc("rail.tree", null)).resolves.toHaveLength(10);
+    await expect(app.rpc("pad.list", null)).rejects.toMatchObject({ code: -32001, message: "gone" });
+    await expect(app.rpc("pad.list", null)).resolves.toEqual(expect.any(Array));
+  });
 });
 
 describe("u26 the Daemon's rail methods", () => {
