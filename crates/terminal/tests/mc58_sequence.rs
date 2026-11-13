@@ -325,7 +325,7 @@ struct Daemon {
 }
 
 impl Daemon {
-    async fn open(core: &Core) -> Self {
+    async fn start(core: &Core) -> Self {
         let data = tempfile::tempdir().unwrap();
         let terminals = Terminals::open(data.path(), Bus::new())
             .unwrap()
@@ -512,16 +512,16 @@ async fn run(core: &Core, seed: u64) -> Vec<String> {
     let _seed = Seed(seed);
     let mut agents: Vec<String> = (1..=3).map(|n| format!("a{n}")).collect();
     let mut next = agents.len() + 1;
-    let mut daemons = vec![Daemon::open(core).await];
+    let mut daemons = vec![Daemon::start(core).await];
     let mut shown = daemons[0].settle(core, &agents).await;
     for event in sequence(seed, STEPS) {
         match event {
-            Event::DaemonRestart => daemons[0] = Daemon::open(core).await,
+            Event::DaemonRestart => daemons[0] = Daemon::start(core).await,
             Event::CoreRestart => core.restart().await,
             Event::CoreUpgrade => core.upgrade().await,
             Event::SecondDaemon => {
                 daemons.truncate(1);
-                daemons.push(Daemon::open(core).await);
+                daemons.push(Daemon::start(core).await);
             }
             Event::KillProgram(n) => kill_program(core, n).await,
             Event::DeleteAgent(n) => {
