@@ -483,7 +483,7 @@
 /* The hostname gives way first but never below 8ch, and shows on hover, focus and selection in its reserved space; every chip ends on the row's right edge. */
 .machine-chip {
   flex: 0 1000 auto;
-  min-width: min(8ch, max-content);
+  min-width: min(8ch, 100%);
   max-inline-size: 40%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -495,7 +495,7 @@
 .machine-status {
   flex: none;
   margin-inline-start: var(--space-2);
-  color: var(--amber);
+  color: var(--grey);
 }
 @container (width < env(--query-name-minimal)) {
   .machine-chip, .machine-status { display: none; }
