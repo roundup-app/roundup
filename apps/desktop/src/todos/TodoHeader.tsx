@@ -1,6 +1,6 @@
 import { applied } from "../app/pending";
 import { createSignal } from "solid-js";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, returnFocus } from "../keys/focus";
 import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
 import { Icon } from "../ink/Icon";
@@ -17,6 +17,7 @@ import { copy } from "./copy";
 /** Header actions retain the displayed Todo's authority and use the existing owner and Home pickers. */
 export const TodoHeader = (props: {
   todo: Todo;
+  navigation: string | null;
   order: readonly number[];
   navigate: (id: number) => void;
   remove: () => void;
@@ -55,8 +56,8 @@ export const TodoHeader = (props: {
     <header class="todo-header">
       <div class="todo-breadcrumb"><span>{connected.project.name}</span><Icon name="right" /><span class="todo-breadcrumb-title">{props.todo.title}</span></div>
       <div class="todo-header-actions">
-        <IconButton data-todo-navigation aria-label={copy.previousTodo} disabled={at() <= 0} onClick={() => go(-1)}><Icon name="left" /></IconButton>
-        <IconButton data-todo-navigation aria-label={copy.nextTodo} disabled={at() < 0 || at() >= props.order.length - 1} onClick={() => go(1)}><Icon name="right" /></IconButton>
+        <IconButton data-todo-navigation ref={button => { if (props.navigation === copy.previousTodo) returnFocus(button); }} aria-label={copy.previousTodo} disabled={at() <= 0} onClick={() => go(-1)}><Icon name="left" /></IconButton>
+        <IconButton data-todo-navigation ref={button => { if (props.navigation === copy.nextTodo) returnFocus(button); }} aria-label={copy.nextTodo} disabled={at() < 0 || at() >= props.order.length - 1} onClick={() => go(1)}><Icon name="right" /></IconButton>
         <CopyButton class="word mono" app={connected.app} text={`#${props.todo.id}`} aria-label={copy.copyTodoId} onFailure={error => props.fail(error.message)}>#{props.todo.id}</CopyButton>
         <Menu.Root open={actions()} onOpenChange={({ open }) => setActions(open)} onSelect={({ value }) => {
           if (value === "delete") props.remove();

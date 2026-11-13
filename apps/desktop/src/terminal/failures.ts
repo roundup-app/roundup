@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { coreFailureText } from "./coreFailure";
 
 type FailureEntry = { message: string; order: number; retry: (() => void) | null };
 
@@ -46,7 +47,7 @@ export const createFailures = (): Failures => {
         state.link = null;
       }
 
-      state[kind] = message === null ? null : { message, order: ++order, retry };
+      state[kind] = message === null ? null : { message: coreFailureText(message), order: ++order, retry };
 
       const next = new Map(current);
 
