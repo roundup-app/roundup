@@ -53,6 +53,36 @@
         "properties": {"channel": {"type": "integer", "minimum": 1}}
       }
     },
-    "terminal.kill": {"result": {"type": "object"}}
+    "terminal.kill": {"result": {"type": "object"}},
+    "terminal.list": {
+      "result": {
+        "type": "object",
+        "required": ["terminals"],
+        "properties": {
+          "terminals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["address", "state", "pid", "cwd", "argv"],
+              "properties": {
+                "address": {"type": "string"},
+                "state": {"enum": ["live", "finished"]},
+                "pid": {"type": ["integer", "null"]},
+                "cwd": {"type": "string"},
+                "argv": {"type": "array", "items": {"type": "string"}},
+                "labels": {"type": "object", "additionalProperties": {"type": "string"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "terminal.rm": {
+      "result": {
+        "type": "object",
+        "required": ["removed"],
+        "properties": {"removed": {"type": "string"}}
+      }
+    }
   }
 }

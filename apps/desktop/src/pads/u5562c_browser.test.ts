@@ -167,7 +167,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
     await evaluate(`(() => { document.querySelector('.drawer [aria-label="Restore"]')?.click(); return true; })()`);
     await settle();
     await browser("focus", ".ProseMirror");
-    await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+    await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.', 'pad.write'); true");
     await browser("press", "Control+End");
     await browser("keyboard", "type", "Retained review draft");
     await browser("click", ".pad-head-name");
