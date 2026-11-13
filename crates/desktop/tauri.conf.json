@@ -1,7 +1,7 @@
 {
-  "plugins": { "deep-link": { "desktop": { "schemes": ["roundup"] } } },
+  "plugins": { "deep-link": { "desktop": { "schemes": ["roundup-source"] } } },
   "productName": "roundup",
-  "identifier": "dev.roundup.app",
+  "identifier": "dev.roundup.app.source",
   "build": {
     "devUrl": "http://localhost:5173",
     "frontendDist": "../../apps/desktop/dist"

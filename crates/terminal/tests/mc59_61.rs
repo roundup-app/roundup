@@ -179,3 +179,27 @@ async fn mc61_test_core_run_leaves_real_state_untouched() {
     drop(terminals);
     assert_eq!(entries(&real), before);
 }
+
+#[tokio::test]
+async fn ch7077c_a_named_core_session_reaches_the_core() {
+    let dir = tempfile::tempdir().unwrap();
+    // Records its argv and starts no core, so the spawn fails after the session is named.
+    let wrapper = dir.path().join("core");
+    std::fs::write(
+        &wrapper,
+        format!(
+            "#!/bin/sh\necho \"$@\" > '{}/argv'\nexit 1\n",
+            dir.path().display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let terminals = Terminals::open(dir.path(), Bus::new())
+        .unwrap()
+        .with_core(&wrapper)
+        .with_session("roundup-dev");
+    let _ = terminals.spawn(params(dir.path(), &["cat"], &[])).await;
+    let argv = std::fs::read_to_string(dir.path().join("argv")).unwrap();
+    let session = argv.split("--session").nth(1).unwrap().trim();
+    assert!(session.starts_with("roundup-dev-test-"), "{argv}");
+}

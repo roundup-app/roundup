@@ -520,7 +520,7 @@ fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
         .and_then(|p| p.get("generation"))
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
-        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.18-test","framed":true,
+        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.20-test","framed":true,
             "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill","terminal.list","terminal.rm"]}})
     } else {
         let msg = format!(
