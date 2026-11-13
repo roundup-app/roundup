@@ -73,7 +73,7 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
   await browser("wait", "--fn", `document.querySelector('.shelf-bar [role=switch]').getAttribute('aria-checked') === 'true'`);
   expect(await evaluate(`window.__fake.app.calls.filter(c => c.method === 'workstream.setAuto').map(c => c.params.auto)`)).toEqual([true]);
 
-  await evaluate(`window.__fake.failNext(-32003, 'Supervisor unavailable; start it and retry')`);
+  await evaluate(`window.__fake.failNext(-32003, 'Supervisor unavailable; start it and retry', 'workstream.setAuto')`);
   await browser("click", ".shelf-bar [role=switch]");
   await browser("wait", ".shelf-bar [role=alert]");
   await capture(`${seed}-${width}-refused`);
@@ -90,7 +90,7 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
     await browser("click", "#shelf-tab-todos");
     await browser("click", ".shelf-bar .shelf-add");
     await browser("fill", ".todos-tab .entry-field", "Review this work");
-    await evaluate(`window.__fake.failNext(-32003, 'Todo refused; retry after reconnecting')`);
+    await evaluate(`window.__fake.failNext(-32003, 'Todo refused; retry after reconnecting', 'todo.create')`);
     await browser("press", "Enter");
     await browser("wait", ".todos-tab [role=alert]");
     await capture(`tree-40-${width}-todo-refused`);

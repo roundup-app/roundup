@@ -190,7 +190,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
   await browser("press", "Backspace");
   await settle();
   await browser("type", '.drawer .ProseMirror', "Exact body retained after refusal");
-  await evaluate(`(() => { window.__fake.failNext(-32003, 'Body could not be saved. Retry with the original work intact.'); return true; })()`);
+  await evaluate(`(() => { window.__fake.failNext(-32003, 'Body could not be saved. Retry with the original work intact.', 'todo.update'); return true; })()`);
   await browser("press", "Control+Enter");
   await browser("wait", '.todo-detail-body [role="alert"]');
 
@@ -229,7 +229,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
   await browser("wait", '.todo-detail-title textarea');
   await capture("title-editing");
   await browser("fill", '.todo-detail-title textarea', title + " retained");
-  await evaluate("window.__fake.failNext(-32003, 'Title could not be saved. Keep this draft and retry.'); true");
+  await evaluate("window.__fake.failNext(-32003, 'Title could not be saved. Keep this draft and retry.', 'todo.update'); true");
   await browser("press", "Enter");
   await capture("title-refusal", "Title could not be saved");
   await browser("focus", '.todo-detail-title textarea');
@@ -239,7 +239,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
   await browser("click", '.todo-meta [aria-label="Priority"]');
   await browser("wait", '[role="menu"][data-state="open"]');
   await capture("priority-menu");
-  await evaluate("window.__fake.failNext(-32003, 'Priority could not be saved. Choose a priority to retry.'); true");
+  await evaluate("window.__fake.failNext(-32003, 'Priority could not be saved. Choose a priority to retry.', 'todo.update'); true");
   await browser("click", '[role="menuitem"][data-value="urgent"]');
   await capture("priority-refusal", "Priority could not be saved");
   await browser("click", '.todo-delete-feedback [data-dismiss-failure]');
@@ -256,7 +256,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
 
   await browser("click", '.drawer [aria-label="More actions"]');
   await browser("wait", '[role="menu"][data-state="open"]');
-  await evaluate("window.__fake.failNext(-32003, 'Todo could not be deleted. Keep your work and retry deletion.'); true");
+  await evaluate("window.__fake.failNext(-32003, 'Todo could not be deleted. Keep your work and retry deletion.', 'todo.delete'); true");
   await browser("click", '[role="menuitem"][data-value="delete"]');
   await capture("delete-refusal", "Todo could not be deleted");
   expect(await evaluate("!!document.querySelector('.drawer .todo-detail-title')")).toBe(true);
