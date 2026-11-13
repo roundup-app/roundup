@@ -361,6 +361,7 @@ export const App = (props: {
   // U370, U373, U4457: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
   const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth, props.initialShelfOpen ?? false);
+
   const openShelf: ShelfRequest = (tab) => {
     frame.setTab(tab);
 
