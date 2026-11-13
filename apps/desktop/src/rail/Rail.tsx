@@ -38,7 +38,7 @@ import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "../state/railStorage";
 import { createRailDrag } from "./drag";
-import { createWritableMemo } from "@solid-primitives/memo";
+import { createRowSelection } from "./rowSelection";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
@@ -262,69 +262,11 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   let treeApi: { focus: (value: string) => void } | undefined;
   const focusRow = (id: string) => treeApi?.focus(id);
 
-  const [selected, setSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
   const isNodeId = (value: string) => rail.nodes.some(node => node.id === value);
 
-  const eligible = (id: string) => {
-    const row = rowElement(id);
-
-    return row !== undefined && !row.closest("[hidden], [inert], [aria-disabled=true]");
-  };
-
-  // ⌘A selects the visible eligible data rows; Zag's own select-all takes every collection value.
-  const selectAll = (event: KeyboardEvent) => {
-    if (!event.metaKey || event.key.toLowerCase() !== "a" || event.ctrlKey || event.altKey || event.isComposing) return;
-    const id = focusedRowId(event);
-
-    if (id === undefined || !isNodeId(id) || daemonExit() !== null) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setSelected(nodeIds().filter(eligible));
-  };
-
-  // ⇧-click ranges from the last row a click or key selected; with none it selects its target alone, ⌘-click toggles.
-  let anchor: string | undefined;
-  createEffect(() => {
-    const chosen = selected();
-
-    if (chosen.length <= 1) anchor = chosen[0];
+  const { selected, setSelected, eligible, selectAll, modifierClick, startTyping, chooseTypedMatch, isSelected } = createRowSelection({
+    initial: rail.selected, ids: nodeIds, isNodeId, rowElement, focusedRowId, active: () => daemonExit() === null, pick: id => rail.select(id),
   });
-
-  const modifierClick = (event: MouseEvent) => {
-    const row = event.target instanceof Element ? event.target.closest<HTMLElement>(".rail-row") : null;
-    const id = row?.dataset.id;
-
-    if (event.ctrlKey || id === undefined || !isNodeId(id) || event.target instanceof Element && event.target.closest("button,input") || !event.metaKey && !event.shiftKey) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (!eligible(id)) return;
-
-    if (event.shiftKey) {
-      const order = nodeIds().filter(eligible);
-      const [from, to] = [anchor === undefined ? -1 : order.indexOf(anchor), order.indexOf(id)];
-
-      setSelected(from < 0 ? [id] : order.slice(Math.min(from, to), Math.max(from, to) + 1));
-    } else {
-      anchor = id;
-      setSelected([...toggled(new Set(selected()), id)]);
-    }
-
-    row?.focus();
-  };
-
-  // Set by a name-search key, kept until the next key or pointer press: the focus move it causes picks that row alone.
-  let typing = false;
-
-  const chooseTypedMatch = (match: string | null) => {
-    if (!typing || match === null || !isNodeId(match)) return;
-
-    typing = false;
-    setSelected([match]);
-    rail.select(match);
-  };
-
-  const isSelected = (id: string) => selected().includes(id);
 
   const selectedNodes = () => nodeRows().flatMap(row => isSelected(row.node.id) ? [row.node] : []);
 
@@ -711,8 +653,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         // Ark's keys walk the collection, so it shows the rows as drawn first.
         makeEventListener(element, "keydown", settleCollection, { capture: true });
         makeEventListener(element, "keydown", selectAll, { capture: true });
-        makeEventListener(element, "keydown", press => { typing = isTypeahead(press); }, { capture: true });
-        makeEventListener(element, "pointerdown", () => { typing = false; }, { capture: true });
+        makeEventListener(element, "keydown", press => startTyping(isTypeahead(press)), { capture: true });
+        makeEventListener(element, "pointerdown", () => startTyping(false), { capture: true });
 
         makeEventListener(element, "pointerdown", ctrlClick, { capture: true });
         makeEventListener(element, "click", ctrlClick, { capture: true });
