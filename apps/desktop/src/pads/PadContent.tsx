@@ -71,10 +71,11 @@ const PadBody = (props: {
   const parsed = retained ? v.safeParse(padDraft, retained.value) : null;
   const field = createDraftField(connected.drafts, destination, stored);
 
-  const recovered = parsed?.success ? retained : undefined;
-  const source = parsed?.success ? parsed.output.editorSource ?? parsed.output.source : props.initial.text;
-  const base = parsed?.success ? parsed.output.base : props.initial.text;
-  let sourceRevision = parsed?.success ? parsed.output.baseRevision : props.initial.revision;
+  const draft = parsed?.success ? parsed.output : undefined;
+  const recovered = draft && retained;
+  const source = draft ? draft.editorSource ?? draft.source : props.initial.text;
+  const base = draft ? draft.base : props.initial.text;
+  let sourceRevision = draft ? draft.baseRevision : props.initial.revision;
   let originalBase = base;
   let originalRevision = sourceRevision;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
@@ -104,7 +105,7 @@ const PadBody = (props: {
   };
 
   const [pad, setPad] = createSignal(props.initial);
-  const [shown, setShown] = createSignal(parsed?.success ? parsed.output.source : source);
+  const [shown, setShown] = createSignal(draft ? draft.source : source);
   const [origin, setOrigin] = createSignal(base);
   const [editing, setEditing] = createSignal(Boolean(recovered));
 
@@ -500,7 +501,7 @@ const PadBody = (props: {
             // The editor loads lazily; text adopted before it was ready must still reach it.
             if (!editing()) ready.setText(origin());
 
-            if (parsed?.success && parsed.output.document !== undefined && !ready.restoreDocument(parsed.output.document, parsed.output.editorCaret ?? false)) {
+            if (draft?.document !== undefined && !ready.restoreDocument(draft.document, draft.editorCaret ?? false)) {
               setInvalid(true);
               actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
             }
