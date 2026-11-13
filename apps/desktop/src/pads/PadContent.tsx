@@ -23,7 +23,7 @@ import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
 import { outcomeOf, RpcError } from "../app/seam";
 import { createDraftField } from "../state/draftField";
-import { createSave } from "./padSave";
+import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
 import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
@@ -47,6 +47,14 @@ const padDraft = v.pipe(
     : value.editorSource !== undefined && value.editorCaret !== undefined),
 );
 
+const actorOf = (save: Save) => save.kind === "conflict" ? save.actor : save.kind === "sending" ? save.over ?? null : null;
+
+const conflictText = (actor: Actor | "unknown" | null, nameOf: (actor: Actor) => string) =>
+  actor === null ? "" : actor === "unknown" ? copy.padChanged : copy.changedBy + nameOf(actor);
+
+const restoredSave = (changed: boolean | undefined | null | "" | 0, retained: unknown): Save =>
+  changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" };
+
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
@@ -66,7 +74,8 @@ const PadBody = (props: {
   const [width, setWidth] = createSignal(untrack(() => appSettings().padWidth));
   const name = props.initial.name;
   const destination = { surface: "pads", object: props.initial.incarnation, recipient: null };
-  const retained = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object && (props.revision === undefined || draft.revision === props.revision)).at(-1);
+  const ownDrafts = () => connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
+  const retained = ownDrafts().filter(draft => props.revision === undefined || draft.revision === props.revision).at(-1);
 
   const parsed = retained ? v.safeParse(padDraft, retained.value) : null;
   const field = createDraftField(connected.drafts, destination, stored);
@@ -89,20 +98,16 @@ const PadBody = (props: {
   const sourceLabel = copy.copyField(copy.draftField("source").toLowerCase());
 
   const statusLabel = () => {
-    const status = copy.draftStatus[connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object && (props.revision === undefined || draft.revision === props.revision)).at(-1)?.status ?? "draft"];
+    const status = copy.draftStatus[ownDrafts().filter(draft => props.revision === undefined || draft.revision === props.revision).at(-1)?.status ?? "draft"];
 
     return props.revision === undefined ? copy.draftIdentity(copy.currentDraft, status) : status;
   };
 
   const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
-  const cycle = createSave(changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" });
+  const cycle = createSave(restoredSave(changed, retained));
   const deleted = () => cycle.save().kind === "deleted";
 
-  const conflictActor = () => {
-    const save = cycle.save();
-
-    return save.kind === "conflict" ? save.actor : save.kind === "sending" ? save.over ?? null : null;
-  };
+  const conflictActor = () => actorOf(cycle.save());
 
   const [pad, setPad] = createSignal(props.initial);
   const [shown, setShown] = createSignal(draft ? draft.source : source);
@@ -111,18 +116,18 @@ const PadBody = (props: {
 
   createEffect(() => { if (editing()) onCleanup(connected.drafts.editor(destination)); });
 
-  const conflictLabel = createMemo(() => {
-    const actor = conflictActor();
-
-    return actor === null ? "" : actor === "unknown" ? copy.padChanged : copy.changedBy + connected.rail.nameOf(actor);
-  });
+  const conflictLabel = createMemo(() => conflictText(conflictActor(), connected.rail.nameOf));
 
   const actionFailure = createFailure();
 
   const note = dismissable(() => {
     const save = cycle.save();
+    const problem = retentionProblem();
 
-    return save.kind === "deleted" && !save.byMe ? copy.padDeleted(name) : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : save.kind === "paused" ? statusLabel() : null;
+    if (save.kind === "deleted" && !save.byMe) return copy.padDeleted(name);
+    if (problem) return copy.draftRetention(connected.project.name, copy.pad, problem.cause);
+
+    return conflictActor() ? conflictLabel() : save.kind === "paused" ? statusLabel() : null;
   });
 
   let editor: PadEditorHandle | undefined;
@@ -402,7 +407,7 @@ const PadBody = (props: {
   };
 
   const keepMine = () => {
-    if (cycle.save().kind !== "sending" && connected.drafts.list().some(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object && (draft.status === "unknown" || draft.status === "pending"))) {
+    if (cycle.save().kind !== "sending" && ownDrafts().some(draft => draft.status === "unknown" || draft.status === "pending")) {
       void resume();
 
       return;
@@ -415,7 +420,7 @@ const PadBody = (props: {
   };
 
   const resume = () => act(async () => {
-    const pending = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object && (draft.status === "pending" || draft.status === "unknown"));
+    const pending = ownDrafts().filter(draft => draft.status === "pending" || draft.status === "unknown");
 
     if (pending.length) {
       const current = await connected.app.rpc("pad.read", { name });
