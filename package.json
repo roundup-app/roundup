@@ -14,7 +14,10 @@
     "lint:cycles": "node tools/lint/cycles.mjs ."
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,mts,cjs,cts}": "oxlint --fix --no-error-on-unmatched-pattern --"
+    "*.{js,jsx,ts,tsx,mjs,mts,cjs,cts}": [
+      "sh -c 'oxlint --fix --no-error-on-unmatched-pattern -- \"$@\" || [ $? -eq 1 ]' sh",
+      "sh -c 'case \"$*\" in *apps/desktop/src/*) python3 tools/lint/scan.py oxlint >/dev/null;; esac' sh"
+    ]
   },
   "devDependencies": {
     "@actions/expressions": "^0.3.61",
