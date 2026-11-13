@@ -99,7 +99,11 @@ impl Agents {
             Err(_) => return,
         };
         let project = self.project_dir().to_string_lossy().into_owned();
-        let _ = self.shared.terminals.reconcile_open(&project, &ids).await;
+        let _ = self
+            .shared
+            .terminals
+            .reconcile_at_open(&project, &ids)
+            .await;
     }
 
     /// The sockets the kept owners' programs inherited as `RUPD_SOCKET` (S1, S3): the reopened

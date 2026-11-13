@@ -148,6 +148,21 @@ impl Terminals {
         Ok(done)
     }
 
+    /// `reconcile_open` for the Daemon's own open. A test-support core is one per process (its
+    /// session carries the pid), so a Daemon that has not started one has no list to reconcile and
+    /// starts none: its scratch home would outlive a Daemon that is killed.
+    pub async fn reconcile_at_open(
+        &self,
+        project: &str,
+        agents: &[String],
+    ) -> Result<Vec<Step>, Error> {
+        #[cfg(feature = "test-support")]
+        if self.core.lock().await.is_none() {
+            return Ok(Vec::new());
+        }
+        self.reconcile_open(project, agents).await
+    }
+
     /// Adopt the finished Terminal `address` and wait for its replayed screen and exit code to land
     /// in the table, so removing it from the core loses neither.
     async fn keep_finished(&self, conn: &Arc<herdr::Conn>, address: &str) -> Result<(), Error> {
