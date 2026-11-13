@@ -100,7 +100,7 @@ pub enum Observation {
     /// DCL3: the processes under the Agent's program (`root`), or why they could not be read.
     Processes {
         root: u32,
-        table: Result<Vec<claude_code::background::Process>, String>,
+        table: Result<Vec<claude_code::background::Process>, Error>,
     },
     /// Roundup stopped the Agent's program on purpose.
     Stopped,

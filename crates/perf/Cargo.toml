@@ -36,6 +36,7 @@ name = "perf-idle"
 path = "src/idle_run.rs"
 
 [dev-dependencies]
+rupd = { path = "../rupd", features = ["test-support"] }
 rusqlite.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 

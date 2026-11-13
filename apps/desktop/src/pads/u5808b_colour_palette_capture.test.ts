@@ -83,7 +83,7 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
   await settle();
   await browser("click", ".drawer .ProseMirror p:nth-of-type(3)");
   await browser("press", "Home");
-  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.', 'pad.write'); true");
   await browser("keyboard", "type", "Retained review draft ");
   await browser("click", ".pad-head-name");
   await browser("wait", "--fn", "document.querySelector('.pad-body [role=alert]')?.textContent.includes('Free space and retry.')");

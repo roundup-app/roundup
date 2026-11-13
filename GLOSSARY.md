@@ -191,6 +191,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 |---|---|---|
 | Adapter | same | — |
 | Signal | same | notification |
+| Report id (`report`, `<agent>:<seq>`, `seq::next`) | same | — |
+| Mark (`report_marks`, `read_mark`, `write_mark`) | same | — |
 | Steer (`PromptError`) | same | inject, nudge |
 | First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
 | Interrupt | same | cancel, abort |

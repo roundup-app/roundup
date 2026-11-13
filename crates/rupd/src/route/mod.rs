@@ -18,6 +18,13 @@ pub(crate) struct HomeOnly {
     pub(crate) home: Option<String>,
 }
 
+/// What `report_once` did with a call.
+enum Report {
+    /// A repeat: acked, not applied.
+    Ack(Value),
+    Applied(Result<Value, RpcError>),
+}
+
 impl Daemon {
     /// Answer one request line. Notifications (no `id`) get no answer.
     pub(crate) async fn dispatch(
@@ -75,7 +82,11 @@ impl Daemon {
                         Ok(rpc::Reply::Json(builtin::ping_json(self)))
                     }
                     Entry::Routed => {
-                        let routed = self.route(conn, method, params).await;
+                        let routed = match self.report_once(conn, method, params).await {
+                            Ok(Report::Ack(ack)) => Ok(ack),
+                            Ok(Report::Applied(routed)) => routed,
+                            Err(err) => Err(err),
+                        };
                         if row.after == After::AgentSignal {
                             self.rail_told.recheck.notify_one();
                         }
@@ -98,6 +109,51 @@ impl Daemon {
             )),
             Err(err) => failure(&id, &err).into(),
         })
+    }
+
+    /// MC20: a call whose params carry `report` (`<agent>:<seq>`) applies only above the Agent's
+    /// Mark, which advances once the apply succeeded; a repeat is acked and ignored. A call with
+    /// no `report` is applied as before.
+    async fn report_once(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Report, RpcError> {
+        // Only `agent.signal` takes a `report` id; the Message methods' `report` is another thing.
+        let Some(report) = Some(method)
+            .filter(|m| *m == "agent.signal")
+            .and_then(|_| params.get("report"))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+        else {
+            return Ok(Report::Applied(self.route(conn, method, params).await));
+        };
+        let (agent, seq) = report
+            .rsplit_once(':')
+            .and_then(|(agent, seq)| Some((agent, seq.parse::<u64>().ok().filter(|n| *n > 0)?)))
+            .ok_or_else(|| {
+                RpcError::new(
+                    rpc::code::INVALID_PARAMS,
+                    "report must be <agent>:<seq>, seq from 1",
+                )
+            })?;
+        let _one_at_a_time = self.reports.lock().await;
+        let db = rusqlite::Connection::open(self.data_dir.join("project.db"))
+            .and_then(|db| {
+                db.busy_timeout(std::time::Duration::from_secs(5))
+                    .map(|()| db)
+            })
+            .map_err(RpcError::internal)?;
+        let mark = crate::data::read_mark(&db, agent).map_err(RpcError::internal)?;
+        if seq <= mark {
+            return Ok(Report::Ack(serde_json::json!({ "ack": report })));
+        }
+        let routed = self.route(conn, method, params).await;
+        if routed.is_ok() {
+            crate::data::write_mark(&db, agent, seq).map_err(RpcError::internal)?;
+        }
+        Ok(Report::Applied(routed))
     }
 
     /// `rail.tree`, written without a `Value` tree. No guard in `route_inner`

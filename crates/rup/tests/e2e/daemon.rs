@@ -326,6 +326,7 @@ async fn signal_within(bound: Duration, client: &Client, id: &str, payload: Valu
                 id: id.to_owned(),
                 attempt,
                 payload,
+                report: None,
             },
         ),
     )
