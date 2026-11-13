@@ -475,18 +475,24 @@
   font-variant-numeric: tabular-nums;
 }
 .machine-chip, .machine-status {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-inline-size: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: default;
   color: var(--grey);
   font-size: var(--text-caption);
 }
-.machine-chip { margin-inline-start: var(--rail-gap); }
-.machine-status { margin-inline-start: var(--space-2); }
+/* The hostname gives way first, so the Agent's name and the status stay whole. */
+.machine-chip {
+  flex: 0 1000 auto;
+  min-width: 0;
+  max-inline-size: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-inline-start: var(--rail-gap);
+}
+.machine-status {
+  flex: none;
+  margin-inline-start: var(--space-2);
+}
 @container (width < env(--query-name-minimal)) {
   .machine-chip, .machine-status { display: none; }
 }
