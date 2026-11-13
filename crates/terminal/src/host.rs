@@ -256,10 +256,11 @@ pub(super) fn default_core() -> Option<std::path::PathBuf> {
 /// of it reaches `~/.local/state/herdr-core/roundup/`.
 #[cfg(feature = "test-support")]
 pub(super) fn scratch_home() -> std::path::PathBuf {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.subsec_nanos());
-    std::env::temp_dir().join(format!("roundup-core-{}-{nanos}", std::process::id()))
+    tempfile::Builder::new()
+        .prefix("roundup-core-")
+        .tempdir()
+        .expect("a scratch dir")
+        .keep()
 }
 
 /// Whether `program` is an executable file, as given or found on the launch's `PATH`.
