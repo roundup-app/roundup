@@ -147,7 +147,7 @@ export const leaveTitle = async () => {
   fireEvent.focusIn(within(document.querySelector<HTMLElement>(".drawer")!).getByRole("textbox", { name: "Write a comment" }));
 };
 
-/** Resolves once Ark's Editable has hidden the title field: the edit ended. */
+/** Resolves once Ark's Editable has hidden the title field (autoResize hides by visibility): the edit ended. */
 export const titleClosed = (field: HTMLElement) => waitFor(() => {
-  if (!field.hidden) throw new Error("the title is still editing");
+  if (field.style.visibility !== "hidden") throw new Error("the title is still editing");
 });

@@ -16,6 +16,7 @@ const open = async () => {
 };
 
 const preview = () => document.querySelector<HTMLElement>(".todo-detail-title p[tabindex]")!;
+
 const titleField = () => within(drawer()).findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 
 describe("u445 edit in place", () => {
