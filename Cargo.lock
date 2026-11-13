@@ -5283,6 +5283,7 @@ dependencies = [
  "contracts",
  "getrandom 0.3.4",
  "herdr",
+ "jsonschema",
  "nix",
  "portable-pty",
  "provenance",

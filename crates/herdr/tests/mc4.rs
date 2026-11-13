@@ -154,14 +154,11 @@ async fn mc4_missing_refused_silent_return_coded_error() {
 
 #[tokio::test]
 async fn mc4_connect_entry_points_fail_typed_without_a_core() {
-    // CI has no herdr-core on PATH, and no host answers `.invalid`.
-    if std::env::var_os("PATH")
-        .is_some_and(|p| std::env::split_paths(&p).any(|d| d.join("herdr-core").exists()))
-    {
-        return;
-    }
+    // A program no PATH holds stands for the missing core; no test connects to the user's own.
+    let mut cmd = tokio::process::Command::new("herdr-core-absent-for-test");
+    cmd.arg("connect");
     assert!(matches!(
-        Conn::connect_local(T).await.err().unwrap(),
+        Conn::spawn(cmd, T).await.err().unwrap(),
         Error::Missing
     ));
     assert!(
