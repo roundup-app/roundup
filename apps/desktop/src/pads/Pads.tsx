@@ -281,7 +281,7 @@ const PadRows = (props: {
   onLift: (pad: Pad) => void;
   onDrag: Setter<boolean>;
 }) => {
-  const isSelected = createSelector(props.selection.selected, (incarnation: string, chosen) => chosen.includes(incarnation));
+  const isSelected = createSelector(() => props.selection.selected(), (incarnation: string, chosen) => chosen.includes(incarnation));
 
   return (
     <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
