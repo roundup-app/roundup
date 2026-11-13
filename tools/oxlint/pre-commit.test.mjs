@@ -71,6 +71,35 @@ function lint(cwd, path) {
   return run(cwd, process.execPath, [resolve(repo, "tools/oxlint/anti-slop/web-assertions/lint.mjs"), path]);
 }
 
+// A component that holds two Solid findings, which `tools/lint/debt.json` records for the real tree.
+const held = "export function Hold(props: { shown: boolean }) {\n  if (props.shown) return <div />;\n\n  return <span />;\n}\n";
+
+function recordDebt(cwd, rows) {
+  write(cwd, "tools/lint/debt.json", JSON.stringify({ size: [], ast: [], typos: [], ruff: [], dependencies: [], oxlint: rows.map(row => ({ ...row, reason: "Recorded by the fixture." })) }));
+}
+
+// The fixture plus CI's debt ratchet over a tree whose `main` records `apps/desktop/src/Hold.tsx`'s findings.
+function debtFixture(t) {
+  const cwd = fixture(t);
+
+  for (const path of ["tools/lint/scan.py", "tools/lint/complexity.oxlintrc.json"]) {
+    mkdirSync(dirname(resolve(cwd, path)), { recursive: true });
+    cpSync(resolve(repo, path), resolve(cwd, path));
+  }
+
+  recordDebt(cwd, []);
+  write(cwd, "apps/desktop/src/Hold.tsx", held);
+
+  const recorded = run(cwd, "python3", ["tools/lint/scan.py", "oxlint", "--record"]);
+  assert.equal(recorded.status, 0, recorded.stdout + recorded.stderr);
+  recordDebt(cwd, JSON.parse(recorded.stdout).oxlint);
+  git(cwd, "add", "tools/lint", "apps");
+  git(cwd, "commit", "--quiet", "--no-verify", "-m", "Record the debt of one file");
+  git(cwd, "update-ref", "refs/remotes/origin/main", "HEAD");
+
+  return cwd;
+}
+
 test("t5456a_commit_contains_the_spacing_fix", t => {
   const cwd = fixture(t);
   write(cwd, "source with spaces.ts", unfixed);
@@ -190,6 +219,32 @@ test("t5496a_partial_staging_preserves_unstaged_hunks", t => {
   assert.equal(git(cwd, "diff", "--cached"), "");
   assert.equal(git(cwd, "diff", "--no-ext-diff", "--no-color", "--unified=0", "--", path).replace(/^index .*\n/m, ""), "diff --git a/source with spaces.ts b/source with spaces.ts\n" +
     "--- a/source with spaces.ts\t\n+++ b/source with spaces.ts\t\n@@ -12 +12 @@ export function other() {\n-  return 10;\n+  return 20;\n");
+});
+
+test("t5456d_commit_accepts_a_file_that_holds_recorded_lint_debt", t => {
+  const cwd = debtFixture(t);
+  write(cwd, "apps/desktop/src/Hold.tsx", "// Edited.\n" + held);
+  git(cwd, "add", "apps/desktop/src/Hold.tsx");
+  const committed = run(cwd, "git", ["commit", "-m", "Edit a file that holds recorded debt"]);
+  assert.equal(committed.status, 0, committed.stdout + committed.stderr);
+});
+
+test("t5456e_commit_rejects_lint_debt_the_baseline_does_not_record", t => {
+  const cwd = debtFixture(t);
+  write(cwd, "apps/desktop/src/Fresh.tsx", held);
+  git(cwd, "add", "apps/desktop/src/Fresh.tsx");
+  const committed = run(cwd, "git", ["commit", "-m", "Add debt nobody recorded"]);
+  assert.equal(committed.status, 1, committed.stdout + committed.stderr);
+  assert.match(committed.stdout + committed.stderr, /oxlint: new exception\/match.*apps\/desktop\/src\/Fresh\.tsx/);
+});
+
+test("t5456e_commit_rejects_an_error_the_baseline_cannot_record", t => {
+  const cwd = fixture(t);
+  write(cwd, "source.ts", "export const answer = 42 as number;\n");
+  git(cwd, "add", "source.ts");
+  const committed = run(cwd, "git", ["commit", "-m", "Add an unjustified assertion"]);
+  assert.equal(committed.status, 1, committed.stdout + committed.stderr);
+  assert.match(committed.stdout + committed.stderr, /anti-slop[(/]require-safety-comment-for-type-assertion/);
 });
 
 test("t6011a_fix_applies_the_safe_fixes_and_a_second_run_changes_nothing", t => {

@@ -16,10 +16,12 @@ if (!args.length) {
   if (fixtures.status !== 0) process.exit(fixtures.status ?? 1);
 }
 const json = args.includes("json");
+// `--fix` applies the safe fixes to the named files, then judges them as the run without arguments does: ratcheted findings are left to `scan.py oxlint`, which this mode does not run.
+const fixing = args.includes("--fix");
 const ratcheted = code => /^solid\(|^typescript\(switch-exhaustiveness-check\)$|^anti-slop\((no-signal-poke|no-promise-chain-queue|no-draft-bypass|no-raw-listener|no-document-query|no-repair-effect|no-json-equality|no-stale-counter|no-null-component)\)$/.test(code);
-const lint = spawnSync(resolve(repo, "node_modules/.bin/oxlint"), args.length ? args : ["-f", "json"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+const lint = spawnSync(resolve(repo, "node_modules/.bin/oxlint"), fixing ? ["-f", "json", ...args] : args.length ? args : ["-f", "json"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 if (lint.error) throw lint.error;
-if (!args.length && [0, 1].includes(lint.status)) {
+if ((fixing || !args.length) && [0, 1].includes(lint.status)) {
   // `tools/lint/scan.py oxlint` holds the Solid and exhaustiveness findings as exact debt; they never reach this status; so do the state-holder lints.
   const report = JSON.parse(lint.stdout);
   report.diagnostics = report.diagnostics.filter(item => !ratcheted(item.code));

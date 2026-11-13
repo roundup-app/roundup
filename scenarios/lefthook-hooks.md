@@ -1,6 +1,6 @@
 # Pre-commit hooks by lefthook
 
-Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5496a, T6011a, T6011b, T6011c. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
+Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5456e, T5496a, T6011a, T6011b, T6011c. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
 
 **T3210 a plain install turns the pre-commit hook on.** Given a clean clone, when `pnpm install` runs, then:
 
@@ -80,3 +80,13 @@ Policy — `just fix` runs the lints' own fix modes on the whole tree: Oxlint's 
 **T6011c the lint passes in a checkout reached through a symlink.** Given a checkout whose path passes through a symlink, as macOS's `/var` does to `/private/var`, when the `anti-slop` `web-assertions` and `web-timeout` rules run, then they place each file by its real path, and `pnpm lint` on a clean tree exits 0. Test: the baseline fixtures in `tools/oxlint/anti-slop/web-assertions/assertions.test.mjs` and `tools/oxlint/anti-slop/web-timeout/timeout.test.mjs` sit behind a symlink.
 
 Observer: `node --test tools/oxlint/pre-commit.test.mjs`, `python3 loop/lint-fix.test.py` and `just lint-web` on a Mac pass; the first `pre` failure on a fixable lint after merge gets a lint-fix commit and no fix run.
+
+## The hook judges what CI judges
+
+Source: #7073, #6527. Build tooling only: no product path or Principles gate changes. Gate: does the hook fail a commit CI accepts, or accept one CI fails? Observer: real commits in T5456a's isolated repository, with `tools/lint/scan.py` and a recorded `tools/lint/debt.json` beside it.
+
+**T5456d a commit that edits a file holding recorded lint debt succeeds.** Given an isolated repository whose `origin/main` records the Solid findings of `apps/desktop/src/Hold.tsx` in `tools/lint/debt.json`, when a commit stages an edit to that file that adds no finding, then the commit succeeds. Test: `t5456d_commit_accepts_a_file_that_holds_recorded_lint_debt` in `tools/oxlint/pre-commit.test.mjs`.
+
+**T5456e a commit that adds a finding CI rejects fails.** Given the same repository, when a commit stages a copy of that component at a path the baseline does not record, then the commit fails and the output names the new exception; and when a commit stages a web file whose type assertion lacks a `SAFETY:` comment, a finding no baseline can record, then it fails and names `anti-slop/require-safety-comment-for-type-assertion`. Tests: `t5456e_commit_rejects_lint_debt_the_baseline_does_not_record` and `t5456e_commit_rejects_an_error_the_baseline_cannot_record` in `tools/oxlint/pre-commit.test.mjs`.
+
+Policy — the hook's `lint-web` command is `lint.mjs --fix`: Oxlint's safe fixes, then the findings CI's `pnpm lint` judges in the staged files, with the Solid and state-holder findings it leaves to `scan.py oxlint`. The hook's `lint-web-debt` command runs that scan when a file under `apps/desktop/src` is staged. Lefthook's `stage_fixed` keeps T5496a's staged/unstaged boundary, so `lint-staged` goes. No rule is disabled or weakened and no debt row is added.
