@@ -137,7 +137,7 @@ const WorktreeChips = (props: { id: string }) => {
 /** MC3, MC15: the Machine an Agent runs on as a chip, and its offline status; no chip for this Mac while it is the only one. */
 const MachineChip = (props: { node: RailNode }) => {
   const connected = useConnectedProject();
-  const shown = () => props.node.machine ?? (connected.machines.any() ? copy.thisMac : null);
+  const shown = () => props.node.kind !== "agent" || props.node.status === null ? null : props.node.machine ?? (connected.machines.any() ? copy.thisMac : null);
 
   return <Show when={shown()}>{name => <>
     <span class="machine-chip row-secondary" role="img" aria-label={name()}>{name()}</span>
@@ -257,7 +257,7 @@ export const RailRowView = (props: {
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={statusRead()}>{status => <span class="row-status" data-state="status" data-cut={statusCut[1]() ? "" : undefined} ref={statusCut[0]}><Reveal status={status()} {...(status().kind === "error" ? {} : { label: statusLabel() })} live={false} split /></span>}</Show>
-      <Show when={props.row.node.kind === "agent" && props.row.node.status !== null && !isGroup()}><MachineChip node={props.row.node} /></Show>
+      <Show when={!isGroup()}><MachineChip node={props.row.node} /></Show>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>

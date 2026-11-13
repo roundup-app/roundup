@@ -21,7 +21,7 @@ const other: Machine = { name: "other", details: {} };
 
 it("mc3_chip_names_the_machine", async () => {
   await mountRail(nodes, [], undefined, undefined, { machines: [other] });
-  await waitFor(() => expect(within(itemOf("alpha")).queryByRole("img", { name: alpha.machine })).not.toBeNull());
+  await waitFor(() => expect(within(itemOf("alpha")).queryByRole("img", { name: alpha.machine ?? "" })).not.toBeNull());
 });
 
 it("mc3_no_chip_for_this_mac_when_no_other_machine_exists", async () => {
