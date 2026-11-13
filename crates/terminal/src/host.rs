@@ -655,6 +655,20 @@ mod tests {
         assert_eq!(&argv[argv.len() - 2..], ["claude", "--flag"]);
     }
 
+    #[test]
+    fn mc52_spawn_labelled_names_its_agent_in_the_core_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
+        let labels = crate::reconcile::labels("p", "a", "1");
+        let p = run_params(&terminals.shared, &launch(), 4, Some(&labels));
+        assert_eq!(p["labels"], labels);
+        assert!(
+            run_params(&terminals.shared, &launch(), 4, None)
+                .get("labels")
+                .is_none()
+        );
+    }
+
     #[tokio::test]
     async fn mc16_agent_env_has_no_session_leak() {
         let dir = tempfile::tempdir().unwrap();
