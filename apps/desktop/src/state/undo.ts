@@ -362,12 +362,10 @@ export function createTodoUndo() {
   };
 
   const undoNow = async (region?: string) => {
-    console.log("DBG undoNow", region, stack().length);
     const operation = stack().findLast(action => region === undefined || action.regions.includes(region));
 
     if (!operation) return;
     const wanted: Asked = { kind: "undo", id: operation.id };
-    console.log("DBG gate", JSON.stringify(work()).slice(0, 80), !!connection);
 
     if (!connection || !mayStart(wanted)) {
       block();
