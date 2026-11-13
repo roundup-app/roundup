@@ -262,9 +262,9 @@ pub struct Terminals {
     test_input: Option<Mutex<Box<dyn Write + Send>>>,
     /// The herdr-core binary, started on first use from a clean environment.
     core_bin: Option<std::path::PathBuf>,
-    /// MC59: the `HOME` of a test-support core.
+    /// MC59: the `HOME` of a test-support core, made when the core first starts.
     #[cfg(feature = "test-support")]
-    scratch: std::path::PathBuf,
+    scratch: std::sync::OnceLock<tempfile::TempDir>,
     core: tokio::sync::Mutex<Option<Arc<herdr::Conn>>>,
     /// MC13: the connections to the Machines other than this Mac.
     remotes: Arc<Remotes>,
@@ -292,7 +292,7 @@ impl Terminals {
             test_input: None,
             core_bin: host::default_core(),
             #[cfg(feature = "test-support")]
-            scratch: host::scratch_home()?,
+            scratch: std::sync::OnceLock::new(),
             core: tokio::sync::Mutex::new(None),
             remotes: Arc::new(Remotes::ssh()),
             shared: Arc::new(Shared {
