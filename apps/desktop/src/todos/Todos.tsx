@@ -47,6 +47,7 @@ import { HomePicker } from "./HomePicker";
 import { afterElseBefore, nearest } from "../keys/survivor";
 import { createListModel, focusRow, idOfRow, rowButtonOf, rowRef, survivorOf } from "./listModel";
 import { triage } from "./triage";
+import type { Choosing } from "./choosing";
 import { reorderChange } from "./state";
 import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
@@ -232,11 +233,12 @@ export const Todos = (props: {
 
   const [dragging, setDragging] = createSignal(false);
   const [filed, setFiled] = createSignal(0);
-  const [picking, pick] = createSignal<{ id: number; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
-  const setPicking = (request: { id: number; anchor: HTMLElement } | null) => { pick(request && { ...request, focus: captureFocus(true) }); };
-
-  let pickAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
-  let commentAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
+  const [choosing, setChoosing] = createSignal<Choosing | null>(null);
+  const picking = () => { const now = choosing(); return now?.kind === "owner" ? now : null; };
+  const moving = () => { const now = choosing(); return now?.kind === "home" ? now : null; };
+  const naming = () => { const now = choosing(); return now?.kind === "name" ? now.id : null; };
+  const advanceOf = (kind: "owner" | "home" | "comment") => { const now = choosing(); return now?.kind === kind ? now.advance : undefined; };
+  const choose = (kind: "owner" | "home", id: number, anchor: HTMLElement) => setChoosing(kind === "owner" ? { kind, id, anchor, focus: captureFocus(true), advance: captureAdvance(id) } : { kind, id, anchor, focus: captureFocus(true), advance: captureAdvance(id) });
   const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null; rename: () => void }>();
 
   const targets = todoDropTargets(connected, todos);
@@ -352,31 +354,25 @@ export const Todos = (props: {
   });
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
-  let namingNext: number | null = null;
-
   const stopPicking = () => {
     const id = picking()?.id;
-    const skipRefocus = namingNext !== null || naming() !== null;
 
-    pickAdvance = undefined;
-    setPicking(null);
-
-    // U3743: the dialog opens from the select callback, so the picker's close order cannot lose it; the row keeps no focus then.
-    if (!skipRefocus && id !== undefined) queueFocus(() => rowButtonOf(id)?.focus());
+    if (id === undefined) return;
+    setChoosing(null);
+    queueFocus(() => rowButtonOf(id)?.focus());
   };
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that had focus.
-  const [naming, setNaming] = createSignal<number | null>(null);
 
   const { revealed, arrivals, setRevealed, setRegrouped, assign } = createOwnerAssignment({
-    connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.show(message),
+    connected, todos, advance: () => advanceOf("owner"), fail: (id, message) => pickFails.get(id)?.show(message),
   });
 
   const requestedGroups = createMemo(() => [...arrivals(), ...requestedOpen().map(groupOf)]);
 
   createOwnerPicker({ todos,
     when: event => (!triage.on() || triageTarget(event)?.done === false) && (triage.on() || !rowTypeahead(event)),
-    pick: (id, anchor) => { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); },
+    pick: (id, anchor) => choose("owner", id, anchor),
   });
 
   createOwnerKeys({ connected, todos, active, assign });
@@ -428,12 +424,14 @@ export const Todos = (props: {
   const selectedId = () => (shown() !== null && connected.drawer.content() === shown()?.content ? shown()?.id : undefined);
 
   const show = (todo: Todo, source: ActivationSource, order = dependencyRows().filter(row => listed().some(todo => todo.id === row.todo.id) && !hidden(row.todo) || unfolded() && foldedDone().some(todo => todo.id === row.todo.id)).map(row => row.todo.id)) => {
-    commentAdvance = captureAdvance(todo.id);
+    setChoosing({ kind: "comment", id: todo.id, focus: captureFocus(), advance: captureAdvance(todo.id) });
 
     const content = () => <TodoDrawer id={todo.id} todos={todos} order={order} region={shelf ? "shelf" : "todos"} onNavigate={id => { if (todos.byId().has(id)) show(todos.byId().get(id)!, "key", order); }} onComment={focus => focus(() => {
-      if (!triage.on() || !commentAdvance) return;
+      const advance = advanceOf("comment");
+
+      if (!triage.on() || !advance) return;
       connected.drawer.close("key");
-      void commentAdvance(captureFocus());
+      void advance(captureFocus());
     })} />;
 
     setShown({ id: todo.id, content });
@@ -495,18 +493,15 @@ export const Todos = (props: {
   };
 
   let entry: { id: number | undefined; order: readonly number[] } | null = null;
-  const [moving, move] = createSignal<{ id: number; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
-  const setMoving = (request: { id: number; anchor: HTMLElement } | null) => move(request && { ...request, focus: captureFocus(true) });
 
   const homeOffers = () => homesToOffer(connected.rail.nodes, todos.byId().get(moving()?.id ?? -1)?.home ?? null);
 
   const stopMoving = () => {
     const id = moving()?.id;
 
-    moveAdvance = undefined;
-    setMoving(null);
-
-    if (id !== undefined) queueFocus(() => focusRow(id));
+    if (id === undefined) return;
+    setChoosing(null);
+    queueFocus(() => focusRow(id));
   };
 
   // U6236b: a picker whose Todo is gone has no row to sit against, so it closes.
@@ -576,7 +571,7 @@ export const Todos = (props: {
 
   const moveHome = async (id: number, home: string | null) => {
     const focus = captureFocus();
-    const advance = moveAdvance;
+    const advance = advanceOf("home");
     clearFailures();
     const message = await todos.ask(id, { kind: "home", asked: home, base: todos.byId().get(id)?.home ?? null }, () => connected.app.rpc("todo.move", { id, home }));
 
@@ -585,8 +580,6 @@ export const Todos = (props: {
     if (message === null && advance) await advance();
     else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: survivorOf(untrack(openOrder), id) ?? null, reopening: false, focus }]);
   };
-
-  let moveAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
 
   registerKeys({ kind: "app" }, [
     {
@@ -612,14 +605,12 @@ export const Todos = (props: {
     }, press)),
     triageKey("todo.triage-assign", (todo, button) => {
       clearFailures();
-      setPicking({ id: todo.id, anchor: button });
-      pickAdvance = captureAdvance(todo.id);
+      choose("owner", todo.id, button);
     }),
     triageKey("todo.triage-workstream", (todo, button) => {
       if (homesToOffer(connected.rail.nodes, todo.home).length === 0) return;
       clearFailures();
-      setMoving({ id: todo.id, anchor: button });
-      moveAdvance = captureAdvance(todo.id);
+      choose("home", todo.id, button);
     }),
     triageKey("todo.triage-done", (todo) => {
       clearFailures();
@@ -628,7 +619,7 @@ export const Todos = (props: {
     triageKey("todo.triage-comment", (todo) => {
       if (selectedId() !== todo.id) show(todo, "key");
       triage.askComment(todo.id);
-      commentAdvance = captureAdvance(todo.id);
+      setChoosing({ kind: "comment", id: todo.id, focus: captureFocus(), advance: captureAdvance(todo.id) });
     }),
   ]);
 
@@ -647,7 +638,7 @@ export const Todos = (props: {
       { id: "rename", label: copy.rename, run: () => pickFails.get(todo.id)?.rename() },
       { id: "assign", label: copy.assign, run: () => { const anchor = rowButtonOf(todo.id);
 
- if (anchor) setPicking({ id: todo.id, anchor }); } },
+ if (anchor) setChoosing({ kind: "owner", id: todo.id, anchor, focus: captureFocus(true) }); } },
       ...(!todo.done ? [
         { id: "move-up", label: copy.moveUp, enabled: order.indexOf(todo.id) > 0, run: () => sorted.step(todo.id, -1, order) },
         { id: "move-down", label: copy.moveDown, enabled: order.indexOf(todo.id) < order.length - 1, run: () => sorted.step(todo.id, 1, order) },
@@ -736,7 +727,7 @@ export const Todos = (props: {
               known={todos.byId()}
               onOpen={show}
               onToggle={toggle}
-              onAssign={(item, anchor) => { setPicking({ id: item.id, anchor }); pickAdvance = captureAdvance(item.id); }}
+              onAssign={(item, anchor) => choose("owner", item.id, anchor)}
               failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row} connections={<Trunks depth={row.level - 1} trail={row.trail} stem={total() > 0 && dependency.expanded(todo.id)} />}
@@ -812,18 +803,15 @@ export const Todos = (props: {
         </>; }}</OwnerGroups>
       </Show>
       <HomePicker replacement={() => rowOf(moving())} target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
-      <OwnerPicker replacement={() => rowOf(picking())} label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => {
-        const focus = captureFocus(true);
-        namingNext = id;
-        setTimeout(() => { namingNext = null; focus(() => setNaming(id)); }, 0);
-      }} />
+      <OwnerPicker replacement={() => rowOf(picking())} label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => setChoosing(now => now?.kind === "owner" ? { kind: "name", id, focus: captureFocus(true) } : now)} />
       <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made, focus = captureFocus()) => {
-        if (naming() !== id) return;
-        setNaming(null);
+        const now = choosing();
+
+        if (now?.kind !== "name" || now.id !== id) return;
+        setChoosing(null);
 
         // U3743, U138: the Todo is the new Door's, so its row is found again once `todo.updated` has refetched it.
-        if (made && pickAdvance) focus(() => void pickAdvance?.(captureFocus()));
-        else if (made) {
+        if (made) {
           setRevealed("unassigned");
           setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null }, focus });
         } else queueFocus(() => rowButtonOf(id)?.focus());
