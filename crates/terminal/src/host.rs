@@ -393,6 +393,7 @@ pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64) -> 
         "cwd": params.cwd,
         "env": env,
         "size": {"cols": params.cols, "rows": params.rows},
+        "display": herdr::display(),
     })
 }
 

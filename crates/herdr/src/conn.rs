@@ -319,7 +319,7 @@ impl Conn {
         let reply = self
             .call_claiming(
                 "terminal.attach",
-                json!({"terminal":terminal,"cols":cols,"rows":rows,"history":history}),
+                json!({"terminal":terminal,"cols":cols,"rows":rows,"history":history,"display":display()}),
                 Some(tx),
             )
             .await?;
@@ -349,4 +349,11 @@ impl Conn {
     pub async fn machine_add(&self, name: &str) -> Result<Value> {
         self.call("machine.add", json!({"name": name})).await
     }
+}
+
+/// U7029: the viewer facts herdr-core answers display queries from. A zero `cell` makes its
+/// `CSI 14 t` and `CSI 16 t` replies zero, which a program reads as "size unknown" and stays on
+/// cell mouse reports; the App's xterm, not herdr-core, holds the real cell size.
+pub fn display() -> Value {
+    json!({"cell": [0, 0]})
 }
