@@ -20,6 +20,9 @@ use super::conversation::{context_limit, context_parts, measured_parts, merge_ca
 const POLL: Duration = Duration::from_millis(500);
 /// How long a transcript stays kept current after a `rail.tree` last asked for it.
 const KEEP: Duration = Duration::from_secs(60);
+/// How long the background path waits before asking the SDK again for a transcript it could
+/// not find (RO4): each ask starts the Node sidecar.
+const LOOKUP_RETRY: Duration = Duration::from_secs(30);
 /// Bytes at the start of a transcript that tell a replaced file from a grown one.
 const HEAD: usize = 64;
 
@@ -113,6 +116,8 @@ impl Fold {
 /// One transcript as last read: where, at what size and time, and what its complete lines say.
 struct Entry {
     path: Option<PathBuf>,
+    /// When the SDK last failed to find the transcript, while `path` is unknown.
+    missing_since: Option<Instant>,
     len: u64,
     modified: Option<SystemTime>,
     head: Vec<u8>,
@@ -126,6 +131,7 @@ impl Entry {
     fn new() -> Self {
         Self {
             path: None,
+            missing_since: None,
             len: 0,
             modified: None,
             head: Vec::new(),
@@ -135,10 +141,13 @@ impl Entry {
         }
     }
 
+    /// Forget what was read; keep where the transcript is or when it was last not found.
     fn reset(&mut self) {
-        let path = self.path.take();
-        *self = Self::new();
-        self.path = path;
+        *self = Self {
+            path: self.path.take(),
+            missing_since: self.missing_since.take(),
+            ..Self::new()
+        };
     }
 }
 
@@ -149,6 +158,8 @@ pub(super) struct OverviewCache {
     wanted: Mutex<HashMap<String, (PathBuf, Instant)>>,
     working: AtomicBool,
     parsed: AtomicU64,
+    /// SDK lookups of a transcript's path, each one Node sidecar start.
+    lookups: AtomicU64,
     /// An isolated observer's hold, run before each background read (RO3).
     hold: OnceLock<Box<dyn Fn() + Send + Sync>>,
 }
@@ -225,14 +236,22 @@ impl Launcher {
     /// RO1: bring `id`'s overview up to its transcript, parsing only what was appended. Holds
     /// no lock another call waits on. Whether the overview changed.
     pub fn refresh_overview(&self, cwd: &Path, id: &str) -> bool {
+        self.refresh_after(cwd, id, Duration::ZERO)
+    }
+
+    /// RO1 and RO4: as `refresh_overview`, but a transcript the SDK did not find is looked up
+    /// again only once `retry` has passed since that lookup.
+    fn refresh_after(&self, cwd: &Path, id: &str, retry: Duration) -> bool {
         if let Some(hold) = self.overviews.hold.get() {
             hold();
         }
         let entry = self.overviews.entry(id);
         let mut entry = entry.lock().unwrap_or_else(|e| e.into_inner());
         let before = entry.overview.clone();
-        if entry.path.is_none() {
+        if entry.path.is_none() && entry.missing_since.is_none_or(|at| at.elapsed() >= retry) {
+            self.overviews.lookups.fetch_add(1, Ordering::Relaxed);
             entry.path = self.conversation_path(cwd, id).ok();
+            entry.missing_since = entry.path.is_none().then(Instant::now);
         }
         match entry.path.clone().map(|path| read_new(&path, &mut entry)) {
             Some(Ok(parsed)) => {
@@ -303,7 +322,7 @@ impl Launcher {
                 let reader = launcher.clone();
                 let moved = tokio::task::spawn_blocking(move || {
                     batch.iter().fold(false, |moved, (id, cwd)| {
-                        reader.refresh_overview(cwd, id) | moved
+                        reader.refresh_after(cwd, id, LOOKUP_RETRY) | moved
                     })
                 })
                 .await
@@ -327,5 +346,30 @@ impl Launcher {
     #[cfg(any(test, feature = "test-support"))]
     pub fn overview_bytes_parsed(&self) -> u64 {
         self.overviews.parsed.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+
+    const ID: &str = "11111111-1111-1111-1111-111111111111";
+
+    #[tokio::test(start_paused = true)]
+    async fn ro4_a_missing_transcript_is_looked_up_once_per_retry() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut launcher = Launcher::new(
+            "unused",
+            dir.path().join("claude.json"),
+            dir.path().join("rup"),
+            None,
+        );
+        // No sidecar: every lookup fails at once, as for a stopped Agent with no transcript.
+        launcher.sidecar = None;
+        launcher.keep_overview(dir.path(), ID, || {});
+        tokio::time::sleep(POLL * 10).await;
+        assert_eq!(launcher.overviews.lookups.load(Ordering::Relaxed), 1);
     }
 }
