@@ -35,6 +35,7 @@ pub(crate) fn build_with_feedback<R: Runtime>(
 ) -> Builder<R> {
     let data_dir = config.data_dir.clone();
     let dev_port = config.dev_port.unwrap_or(navigation::DEFAULT_DEV_PORT);
+    let refusal = config.refusal.clone();
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     #[cfg(target_os = "macos")]
     let builder = builder
@@ -73,7 +74,13 @@ pub(crate) fn build_with_feedback<R: Runtime>(
             app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(
                 alert::Plugin(app.handle().clone()),
             ))));
-            log::info!(target: "roundup::shell", "start App {}", env!("CARGO_PKG_VERSION"));
+            log::info!(target: "roundup::shell", "start App {}", app.package_info().version);
+            // CH7077a, CH7077c: a build that must open nothing says why before any Daemon starts.
+            if let Some(refusal) = refusal.clone() {
+                let message = diagnostics::report("open roundup", &refusal);
+                feedback(app.handle(), message, Some(1));
+                return Ok(());
+            }
             show_fork(app, data_dir.as_deref());
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;

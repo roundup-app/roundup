@@ -1,0 +1,11 @@
+{
+  "productName": "roundup Dev",
+  "identifier": "dev.roundup.app.dev",
+  "plugins": {
+    "deep-link": { "desktop": { "schemes": ["roundup-dev"] } },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM0REMxQzQ2RkZEQzhCQkEKUldTNmk5ei9SaHpjTkFqekcxQVY1Rm1FSkppcHVhTGRKM3UrdlJUVEFGS2VzWmxJREdKVmI0YXoK",
+      "endpoints": ["https://github.com/roundup-app/roundup/releases/download/dev/latest.json"]
+    }
+  }
+}

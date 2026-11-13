@@ -167,7 +167,7 @@ impl Terminals {
         let got = conn
             .call("terminal.get", serde_json::json!({"terminal": core_id}))
             .await
-            .map_err(|err| Error::not_found(format!("terminal {core_id}: {err}")))?;
+            .map_err(|err| Error::not_found(format!("terminal {core_id} ({})", err.code())))?;
         if got.get("state").and_then(Value::as_str) != Some("live") {
             return Err(Error::not_found(format!("terminal {core_id} is not live")));
         }
@@ -202,7 +202,7 @@ impl Terminals {
                 SNAPSHOT_SCROLLBACK as u32,
             )
             .await
-            .map_err(Error::internal)?;
+            .map_err(|err| Error::core(&err))?;
         let link = Arc::new(Mutex::new(Link {
             conn: Arc::clone(&conn),
             tx: stream.sender(),

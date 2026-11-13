@@ -174,7 +174,7 @@ fn app(config: Config, folder: Option<PathBuf>) -> (App<MockRuntime>, WebviewWin
 }
 
 /// On Linux, Tauri creates each webview's data folder in the App's local data folder, which the real
-/// context names `dev.roundup.app`; every App folder resolves to the fixture's data folder instead (N8).
+/// context names `dev.roundup.app.source`; every App folder resolves to the fixture's data folder instead (N8).
 fn real_context_app(config: Config) -> (App<MockRuntime>, WebviewWindow<MockRuntime>) {
     let mut context = desktop::context();
     context.config_mut().app.app_directories_override = Some(AppDirectoriesOverride::Root(

@@ -98,7 +98,7 @@ it.each([true, false].flatMap(base => [1280, 1512].map(width => ({base, width}))
     await shot("cancelled");
 
     if (!base) {
-      await browser("eval", "window.__fake.failNext(-32003, 'Cannot move this Todo because its dependency changed. Refresh and try again.')");
+      await browser("eval", "window.__fake.failNext(-32003, 'Cannot move this Todo because its dependency changed. Refresh and try again.', 'todo.setBlockers')");
       await browser("focus", selector);
       await browser("press", "Space");
       await wait("!!document.querySelector('[data-dnd-placeholder]')");

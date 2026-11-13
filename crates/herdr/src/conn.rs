@@ -16,6 +16,8 @@ use crate::wire::{CLOSE, CREDIT, DATA, RESIZE, frame, read_frame};
 
 /// The protocol generation roundup speaks and pins.
 pub const GENERATION: u64 = 1;
+/// CH7077g: the oldest herdr-core this build runs on, the version of `schema/herdr-core-*.json`.
+pub const MIN_CORE: &str = "0.1.20";
 /// What the remote shell runs for `connect_ssh`.
 const REMOTE_CONNECT: &str = "env -i PATH=\"$PATH\" HOME=\"$HOME\" USER=\"$USER\" LOGNAME=\"$LOGNAME\" SHELL=\"$SHELL\" LANG=\"${LANG:-C.UTF-8}\" herdr-core connect";
 /// Exit status of a shell that finds no `herdr-core` on its PATH.
@@ -37,6 +39,18 @@ fn locked(pending: &Pending) -> std::sync::MutexGuard<'_, Waiting> {
     pending
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Whether a core of `version` is at least [`MIN_CORE`]; a pre-release counts as its release.
+fn runs_on(version: &str) -> bool {
+    let triple = |v: &semver::Version| (v.major, v.minor, v.patch);
+    match (
+        semver::Version::parse(version),
+        semver::Version::parse(MIN_CORE),
+    ) {
+        (Ok(found), Ok(min)) => triple(&found) >= triple(&min),
+        _ => false,
+    }
 }
 
 /// One framed connection to a herdr-core. Requests match by id; events go to [`Conn::events`].
@@ -144,6 +158,9 @@ impl Conn {
                 kind: "unsupported_generation".into(),
                 hint: format!("roundup speaks generation {GENERATION}"),
             }));
+        }
+        if !runs_on(&hello.version) {
+            return Err(Error::TooOld(hello.version));
         }
 
         let (out, mut out_rx) = mpsc::unbounded_channel::<Vec<u8>>();

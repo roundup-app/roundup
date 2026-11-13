@@ -42,7 +42,7 @@ async fn closed_conn() -> Conn {
         let mut line = String::new();
         r.read_line(&mut line).await.unwrap();
         let hello =
-            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
         core_w
             .write_all(format!("{hello}\n").as_bytes())
             .await
@@ -90,7 +90,7 @@ where
         let mut line = String::new();
         r.read_line(&mut line).await.unwrap();
         let hello =
-            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
         core_w
             .write_all(format!("{hello}\n").as_bytes())
             .await
@@ -205,4 +205,41 @@ async fn mc17_attach_after_first_paint_gets_frames_in_order() {
     assert_eq!(stream.next().await, Some(Ev::Data(b"one".to_vec())));
     assert_eq!(stream.next().await, Some(Ev::Data(b"two".to_vec())));
     assert_eq!(streams(&conn.channels).unclaimed(), (0, 0));
+}
+
+/// The `Conn::over` answer to a core whose `hello` names `version`.
+async fn hello_from(version: &str) -> crate::Result<Conn> {
+    let (mac_r, mut core_w) = duplex(1 << 16);
+    let (core_r, mac_w) = duplex(1 << 16);
+    let hello = format!(
+        r#"{{"id":0,"jsonrpc":"2.0","result":{{"generation":1,"version":"{version}","methods":[]}}}}"#
+    );
+    tokio::spawn(async move {
+        let mut r = tokio::io::BufReader::new(core_r);
+        let mut line = String::new();
+        r.read_line(&mut line).await.unwrap();
+        core_w
+            .write_all(format!("{hello}\n").as_bytes())
+            .await
+            .unwrap();
+        // Hold the pipe open until the client is done with it.
+        let _ = r.read_line(&mut line).await;
+    });
+    Conn::over(mac_r, mac_w, Duration::from_secs(5)).await
+}
+
+#[tokio::test]
+async fn ch7077g_an_older_core_is_refused_naming_both_versions() {
+    for old in ["0.1.19", "0.0.40", "nightly"] {
+        let refused = hello_from(old).await.err().unwrap();
+        let text = refused.to_string();
+        assert!(matches!(refused, Error::TooOld(_)), "{old}: {text}");
+        assert!(
+            text.contains(old) && text.contains(crate::MIN_CORE),
+            "{text}"
+        );
+    }
+    for new in [crate::MIN_CORE, "0.1.20-rc.1", "0.2.0"] {
+        assert!(hello_from(new).await.is_ok(), "{new}");
+    }
 }

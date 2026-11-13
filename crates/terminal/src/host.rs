@@ -304,6 +304,13 @@ impl Terminals {
         self
     }
 
+    /// CH7077c: keep this Daemon's Terminals in the core session `session`, not `roundup`'s, so
+    /// they never meet another session's.
+    pub fn with_session(mut self, session: impl Into<String>) -> Self {
+        self.session = session.into();
+        self
+    }
+
     /// The one core connection, started on first use from a clean environment (MC16). MC53: a
     /// connection that has closed (the core restarted or was upgraded) is replaced by a new one.
     pub(super) async fn core(&self) -> Result<Arc<herdr::Conn>, Error> {
@@ -327,21 +334,18 @@ impl Terminals {
             };
             (
                 Some(home.path()),
-                format!("{SESSION}-test-{}", std::process::id()),
+                format!("{}-test-{}", self.session, std::process::id()),
             )
         };
         #[cfg(not(feature = "test-support"))]
-        let (scratch, session) = (None, SESSION.to_owned());
+        let (scratch, session) = (None, self.session.clone());
         let argv = core_command(&core_bin.to_string_lossy(), &core_vars(scratch), &session);
         let mut command = tokio::process::Command::new("env");
         command.args(argv.iter().skip(1));
         let conn = herdr::Conn::spawn(command, CORE_TIMEOUT)
             .await
             .map(Arc::new)
-            .map_err(|err| match err {
-                herdr::Error::Missing => Error::internal("herdr-core is not installed"),
-                other => Error::internal(other),
-            })?;
+            .map_err(|err| Error::core(&err))?;
         *slot = Some(Arc::clone(&conn));
         Ok(conn)
     }
@@ -427,7 +431,7 @@ pub(super) async fn run(
         Err(herdr::Error::Rpc(err)) if err.kind == "spawn_failed" => {
             Err(invalid(format!("cannot run the program: {}", err.message)))
         }
-        Err(err) => Err(Error::internal(err)),
+        Err(err) => Err(Error::core(&err)),
     }
 }
 
@@ -457,8 +461,7 @@ mod tests {
             tokio::io::AsyncBufReadExt::read_line(&mut r, &mut line)
                 .await
                 .unwrap();
-            let hello =
-                r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+            let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
             core_w
                 .write_all(format!("{hello}\n").as_bytes())
                 .await
@@ -654,8 +657,7 @@ mod tests {
             tokio::io::AsyncBufReadExt::read_line(&mut r, &mut line)
                 .await
                 .unwrap();
-            let hello =
-                r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+            let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
             core_w
                 .write_all(format!("{hello}\n").as_bytes())
                 .await

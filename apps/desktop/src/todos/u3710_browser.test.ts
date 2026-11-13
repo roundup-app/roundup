@@ -246,7 +246,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     const order = await ids();
     const second = await centre(1);
 
-    await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself'); return true; }`);
+    await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself', 'todo.setBlockers'); return true; }`);
     await drag(second, { x: second.x + 30, y: second.y });
     await page.until(`() => document.querySelector('[role=alert]') !== null`);
     await settled();

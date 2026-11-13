@@ -136,7 +136,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 await snap(`${prefix}-${label}-reopened`);
               }
 
-              await read("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.')");
+              await read("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.', 'rail.createWorkstream')");
               await browser("click", ".rail-actions button");
 
               await wait("!!document.querySelector('.rail-create-menu [data-value=workstream]')");

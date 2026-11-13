@@ -263,7 +263,7 @@ it("u4692_rendered_direct_jump_and_discovery", async () => {
     await lane.browser("set", "media", "dark");
     await lane.until("!!window.__fake && !!document.querySelector('.rail-row')");
     await lane.evaluate(`window.__fake.setStatus('agent-3', 'error', 'Permission denied — choose a writable folder and retry')`);
-    await lane.evaluate(`(() => { document.querySelector('.rail-row').focus(); window.__fake.failNext(-32000, 'Permission denied — choose a writable folder and retry'); })()`);
+    await lane.evaluate(`(() => { document.querySelector('.rail-row').focus(); window.__fake.failNext(-32000, 'Permission denied — choose a writable folder and retry', 'agent.spawn'); })()`);
     await lane.browser("press", "Meta+n");
     await lane.until("document.body.textContent.includes('Permission denied — choose a writable folder and retry')");
     await lane.capture("U4692", "before");

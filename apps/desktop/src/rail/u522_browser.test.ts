@@ -92,7 +92,7 @@ it("u522_conflict_restores_the_row", async () => {
   await load();
   const before = await order();
   await dragBelow("tokens", "logins");
-  await read<void>(`window.__fake.failNext(-32003, 'CONFLICT: cannot move under an agent')`);
+  await read<void>(`window.__fake.failNext(-32003, 'CONFLICT: cannot move under an agent', 'rail.move')`);
   await mouse("up");
   await wait(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('CONFLICT: cannot move under an agent'))`);
   expect(await order()).toEqual(before);

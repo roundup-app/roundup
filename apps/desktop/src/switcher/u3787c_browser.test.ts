@@ -130,7 +130,7 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
     await capture("journey-opening");
     await browser("fill", ".switcher input", "New Terminal");
     await browser(...highlighted("action:chord:⌘T"));
-    await read("window.__fake.failNext(-32003,'Terminal creation rejected: choose another name and try again')");
+    await read("window.__fake.failNext(-32003,'Terminal creation rejected: choose another name and try again', 'terminal.open')");
     await browser("press", "Enter");
     await browser("wait", "--fn", "!document.querySelector('.switcher') && [...document.querySelectorAll('[role=alert]')].some(e=>e.textContent.includes('Terminal creation rejected'))");
     await capture("rejected-action");
