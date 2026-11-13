@@ -30,36 +30,39 @@ export type SaveEvent =
   /** The same incarnation is listed again, as after an undo of the delete. */
   | { kind: "back" };
 
+type Handlers = { [K in SaveEvent["kind"]]: (save: Save, event: Extract<SaveEvent, { kind: K }>) => Save };
+
+const dirty = (due: "autosave" | "keep-mine" | null): Save => ({ kind: "dirty", due });
+
+const handlers: Handlers = {
+  gone: (_, event) => ({ kind: "deleted", byMe: event.byMe }),
+  settled: () => ({ kind: "clean" }),
+  back: save => save,
+  external: (_, event) => ({ kind: "conflict", actor: event.actor, version: event.version }),
+  skipped: save => save.kind === "dirty" ? dirty(null) : save,
+  edited: save => save.kind === "clean" || save.kind === "dirty" && save.due !== "keep-mine" ? dirty(null) : save,
+  due: (save, event) => {
+    if (event.due === "keep-mine") return save.kind === "sending" || save.kind === "conflict" ? save : dirty("keep-mine");
+
+    return save.kind === "dirty" ? dirty(save.due ?? "autosave") : save;
+  },
+  send: (save, event) => {
+    if (!(save.kind === "dirty" && save.due !== null || save.kind === "conflict" && event.mine)) return save;
+
+    return { kind: "sending", text: event.text, version: event.version, ...save.kind === "conflict" && { over: save.actor } };
+  },
+  applied: (save, event) => save.kind === "sending" && save.version === event.version ? { kind: "clean" } : save,
+  refused: save => save.kind === "sending" ? dirty(null) : save,
+  unknown: save => save.kind === "sending" ? { kind: "paused" } : save,
+  resume: save => save.kind === "paused" ? dirty("autosave") : save,
+};
+
 /** Only Keep mine sends out of a conflict; a pause is left by Resume or Keep mine. */
 export const step = (save: Save, event: SaveEvent): Save => {
-  if (save.kind === "deleted") return event.kind === "back" ? { kind: "clean" } : event.kind === "gone" ? { kind: "deleted", byMe: save.byMe || event.byMe } : save;
+  if (save.kind !== "deleted") return (handlers[event.kind] as (save: Save, event: SaveEvent) => Save)(save, event);
+  if (event.kind === "back") return { kind: "clean" };
 
-  switch (event.kind) {
-    case "gone": return { kind: "deleted", byMe: event.byMe };
-    case "settled": return { kind: "clean" };
-    case "back": return save;
-    case "external": return { kind: "conflict", actor: event.actor, version: event.version };
-    case "skipped": return save.kind === "dirty" ? { kind: "dirty", due: null } : save;
-    case "edited": return save.kind === "clean" ? { kind: "dirty", due: null } : save.kind === "dirty" && save.due !== "keep-mine" ? { kind: "dirty", due: null } : save;
-    case "due":
-      if (event.due === "keep-mine") return save.kind === "sending" || save.kind === "conflict" ? save : { kind: "dirty", due: "keep-mine" };
-
-      return save.kind === "dirty" ? { kind: "dirty", due: save.due ?? "autosave" } : save;
-    case "send": {
-      if (!(save.kind === "dirty" && save.due !== null || save.kind === "conflict" && event.mine)) return save;
-
-      const sending: Save = { kind: "sending", text: event.text, version: event.version };
-
-      if (save.kind === "conflict") sending.over = save.actor;
-
-      return sending;
-    }
-
-    case "applied": return save.kind === "sending" && save.version === event.version ? { kind: "clean" } : save;
-    case "refused": return save.kind === "sending" ? { kind: "dirty", due: null } : save;
-    case "unknown": return save.kind === "sending" ? { kind: "paused" } : save;
-    case "resume": return save.kind === "paused" ? { kind: "dirty", due: "autosave" } : save;
-  }
+  return event.kind === "gone" ? { kind: "deleted", byMe: save.byMe || event.byMe } : save;
 };
 
 /** The save cycle as a signal; `version` numbers the external changes so an older reply is told from a newer one. */

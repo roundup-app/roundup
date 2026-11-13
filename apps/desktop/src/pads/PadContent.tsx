@@ -248,6 +248,21 @@ const PadBody = (props: {
     else actionFailure.show(message);
   };
 
+  /** A refusal keeps the draft; only another edit or blur retries it. */
+  const refuse = async (thrown: unknown) => {
+    cycle.send({ kind: outcomeOf(thrown) === "unknown" ? "unknown" : "refused" });
+
+    if (!(thrown instanceof RpcError && thrown.code === -32003)) throw thrown;
+
+    saveAfterPause.clear();
+    cycle.send({ kind: "external", actor: "unknown", version: cycle.next() });
+    await list.reload();
+
+    const failure = list.failure();
+
+    if (failure) throw new Error(failure);
+  };
+
   /** `mine`: the user chose Keep mine, so the write replaces whatever the Pad now holds. */
   const write = (mine = false) =>
     act(async () => {
@@ -296,25 +311,7 @@ const PadBody = (props: {
         return;
       }
 
-      if (sent.kind === "refused") {
-        const thrown = sent.error;
-        // A refusal keeps the draft; only another edit or blur retries it.
-        cycle.send({ kind: outcomeOf(thrown) === "unknown" ? "unknown" : "refused" });
-
-        if (thrown instanceof RpcError && thrown.code === -32003) {
-          saveAfterPause.clear();
-          cycle.send({ kind: "external", actor: "unknown", version: cycle.next() });
-          await list.reload();
-
-          const failure = list.failure();
-
-          if (failure) throw new Error(failure);
-
-          return;
-        }
-
-        throw thrown;
-      }
+      if (sent.kind === "refused") return refuse(sent.error);
 
       const next = sent.result;
       const before = cycle.save();
