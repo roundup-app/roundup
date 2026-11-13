@@ -34,13 +34,13 @@ type DrawerProps = {
 
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. A body lives under one id: moving to another Todo remounts it, so nothing it holds outlives the Todo it was made for. */
 export const TodoDrawer = (props: DrawerProps) => <Show when={props.id} keyed>{id => {
-  const held = document.activeElement;
-  const navigation = held instanceof HTMLElement && held.hasAttribute("data-todo-navigation") ? held.getAttribute("aria-label") : null;
+  const focused = document.activeElement;
+  const navigation = focused instanceof HTMLElement && focused.hasAttribute("data-todo-navigation") ? focused.getAttribute("aria-label") : null;
 
   return <TodoDrawerBody {...props} id={id} navigation={navigation} />;
 }}</Show>;
 
-/** `navigation` names the header button that held focus when the body was replaced, so the new body returns focus to it. */
+/** `navigation` names the header button that had focus when the body was replaced, so the new body returns focus to it. */
 const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const connected = useConnectedProject();
   const { app, drawer, drafts, project, events } = connected;
