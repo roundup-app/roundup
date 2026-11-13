@@ -28,12 +28,13 @@ export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | nu
         }
 
         const box = event.currentTarget;
+        const was = props.todo.done;
         setPending(true);
         void props.onToggle().then((failure) => {
           if (failure !== null) {
             box.checked = shown();
             setPending(false);
-          } else setAsked(true);
+          } else if (props.todo.done === was) setAsked(true);  // A read that already changed the Todo has shown the answer.
         });
       }}
     />

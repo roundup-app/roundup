@@ -1,6 +1,8 @@
-import { applied, applying } from "../app/pending";
+import { confirmed } from "../app/receipt";
 import type { Deletion as RailDeletion } from "@contracts/agent/Deletion";
+import PQueue from "p-queue";
 import { createSignal } from "solid-js";
+import { createStore, produce, unwrap } from "solid-js/store";
 import { copy } from "./copy";
 import type { Deletion as PadDeletion } from "@contracts/pad/Deletion";
 import type { RedoDeleteParams } from "@contracts/pad/RedoDeleteParams";
@@ -27,28 +29,34 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
   const operation = previous?.operation ?? crypto.randomUUID();
   const holder = project;
 
-  const result = (async () => {
-    try {
-      if (previous) {
-        const retained = await app.rpc("todo.deletion", { operation });
+  let first = true;
+  let empty = false;
 
-        if (retained) return retained;
-      }
+  // A retry reads first; an unreadable receipt after the apply is never the answer, the apply's own error is.
+  const read = () => {
+    const initial = first;
+    first = false;
 
-      return await applied(() => app.rpc("todo.delete", { operation, ids: chosen }));
-    } catch (error) {
-      // Even a post-commit server error cannot override an authoritative receipt.
-      const observed = await app.rpc("todo.deletion", { operation }).then(
-        value => ({ known: true as const, value }),
-        () => ({ known: false as const }),
-      );
+    // The first read of a fresh operation has nothing to ask, so the apply starts in the same tick.
+    if (initial && !previous) return null;
 
-      if (observed.known && observed.value) return observed.value;
+    return app.rpc("todo.deletion", { operation }).then(value => {
+      empty = value === null;
 
-      if (observed.known && outcomeOf(error) === "failed") holder.delete(identity);
-      throw error;
-    }
-  })();
+      return value;
+    }, error => {
+      empty = false;
+
+      if (initial) throw error;
+
+      return null;
+    });
+  };
+
+  const result = confirmed(read, () => app.rpc("todo.delete", { operation, ids: chosen }), () => true).catch(error => {
+    if (empty && outcomeOf(error) === "failed") holder.delete(identity);
+    throw error;
+  });
 
   holder.set(identity, { operation, state: "pending", result });
 
@@ -62,23 +70,91 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
   });
 }
 
+type PadAsk = { name: string; incarnation: string; operation: string };
+
+type PadRedo = { receipt: PadDeletion; operation: string; request: RedoDeleteParams | null };
+
+type Stacked = ({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] } | { kind: "rail"; receipt: RailDeletion; name: string }) & { id: string; regions: string[] };
+
+type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string } | { kind: "pads"; source: Extract<Stacked, { kind: "pads" }>; members: PadRedo[] }) & { regions: string[] };
+
+/** U5170c: what a run of the history was asked to do; an unconfirmed one is retried only by the same ask. */
+type Asked =
+  | { kind: "todos"; ids: number[]; region: string }
+  | { kind: "pads"; pads: PadAsk[]; region: string; receipts: PadDeletion[] }
+  | { kind: "rail"; ids: string[]; name: string; project: string | null; operation: string; region: string }
+  | { kind: "undo"; id: string }
+  | { kind: "redo"; action: Redo };
+
+type Work = { kind: "idle" } | { kind: "running"; asked: Asked } | { kind: "unconfirmed"; asked: Asked };
+
+const idle: Work = { kind: "idle" };
+
+const keyOf = (asked: Asked) => {
+  switch (asked.kind) {
+    case "todos": return JSON.stringify([asked.kind, asked.ids]);
+    case "pads": return JSON.stringify([asked.kind, asked.pads.map(pad => pad.incarnation)]);
+    case "rail": return JSON.stringify([asked.kind, asked.ids]);
+    case "undo": return JSON.stringify([asked.kind, asked.id]);
+    case "redo": return JSON.stringify([asked.kind, asked.action.kind === "pads" ? asked.action.source.id : asked.action.operation]);
+  }
+};
+
+/** An undo is never retried as the same work: only the keyed changes and a redo are. */
+const sameWork = (a: Asked, b: Asked) => a.kind !== "undo" && keyOf(a) === keyOf(b);
+
+/** A pad read the Daemon answers `-32001` has no receipt yet. */
+const readPad = (app: AppSeam, operation: string) => app.rpc("pad.getDeletion", { operation }).catch((error): null => {
+  if (!(error instanceof RpcError) || error.code !== -32001) throw error;
+
+  return null;
+});
+
 /** Project-owned receipts, never client snapshots. The current connection may change; the operation does not. */
 export function createTodoUndo() {
-  const [stack, setStack] = createSignal<(({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] } | { kind: "rail"; receipt: RailDeletion; name: string }) & { regions: string[] })[]>([]);
-
-  type Operation = ReturnType<typeof stack>[number];
-
-  type PadRedo = { receipt: PadDeletion; operation: string; request: RedoDeleteParams | null };
-
-  type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string } | { kind: "pads"; source: Extract<Operation, { kind: "pads" }>; members: PadRedo[] }) & { state: "ready" | "unknown"; regions: string[] };
+  const [history, setHistory] = createStore<{ stack: Stacked[] }>({ stack: [] });
+  const stack = () => history.stack;
+  const push = (item: Stacked) => setHistory(produce(draft => { draft.stack.push(item); }));
+  const drop = (id: string) => setHistory(produce(draft => { draft.stack.splice(draft.stack.findIndex(item => item.id === id), 1); }));
 
   /** U5991a: the Rail's drawing of an undo or redo, bound by the Project's Rail state; a call lifts it once the Rail holds the Daemon's result. */
   let railDrawing: ((direction: "undo" | "redo") => (kept: boolean) => Promise<void>) | null = null;
 
   const [redoes, setRedoes] = createSignal<Redo[]>([]);
-  const redoUnknown = () => redoes().some(action => action.state === "unknown");
+  const [work, setWork] = createSignal<Work>(idle);
+  const [failure, setFailure] = createSignal<{ kind: "delete" | "restore" | "blocked"; message: string } | null>(null);
+  let connection: AppSeam | undefined;
+  let forwarding: AppSeam | undefined;
 
-  const actionName = (action: Operation | Redo) => {
+  /** U5170b: an idle history starts anything; an unconfirmed one only starts the work it is waiting on. */
+  const mayStart = (asked: Asked) => {
+    const now = work();
+
+    return now.kind === "idle" || now.kind === "unconfirmed" && sameWork(now.asked, asked);
+  };
+
+  /** A call waiting its turn counts: the history is busy from the call to the answer, with no gap between two calls. */
+  const [line, setLine] = createStore({ queued: 0 });
+  const pending = () => work().kind === "running" || line.queued > 0;
+
+  /** The keyed work the Daemon may hold: unconfirmed, or a keyed delete in flight. */
+  const unsettled = () => work().kind === "unconfirmed" || work().kind === "running" && asking()?.kind !== "undo" && asking()?.kind !== "redo";
+
+  const asking = () => {
+    const now = work();
+
+    return now.kind === "idle" ? undefined : now.asked;
+  };
+
+  /** The unconfirmed ask of one kind, to retry. */
+  const retained = <K extends Asked["kind"]>(kind: K) => {
+    const now = work();
+
+    // SAFETY: `asked.kind === kind` narrows the union to the member for K.
+    return now.kind === "unconfirmed" && now.asked.kind === kind ? now.asked as Extract<Asked, { kind: K }> : null;
+  };
+
+  const actionName = (action: Stacked | Redo) => {
     if (action.kind === "rail") return `${copy.remove} ${action.name}`;
 
     const count = action.kind === "todos" ? action.receipt.deleted.length : "receipts" in action ? action.receipts.length : action.members.length;
@@ -87,111 +163,90 @@ export function createTodoUndo() {
   };
 
   const clearRedoes = (region: string) => setRedoes(all => all.map(action => ({ ...action, regions: action.regions.filter(owner => owner !== region) })).filter(action => action.regions.length > 0));
-  const [pending, setPending] = createSignal(false);
-  const [failure, setFailure] = createSignal<{ kind: "delete" | "restore" | "blocked"; message: string } | null>(null);
-  let connection: AppSeam | undefined;
-  let forwarding: AppSeam | undefined;
-  const [uncertain, setUncertain] = createSignal<number[]>();
-
-  let deleted: number[] = [];
-  let todoRegion = "";
-  let padRegion = "";
-  const [padPending, setPadPending] = createSignal<{ name: string; incarnation: string; operation: string }[]>([]);
-  let padReceipts: PadDeletion[] = [];
-  const [railPending, setRailPending] = createSignal<{ ids: string[]; name: string; project: string; operation: string; region: string }>();
 
   const unconfirmedName = () => {
-    const redo = redoes().find(action => action.state === "unknown");
+    const now = work();
 
-    if (redo) return actionName(redo);
-    const rail = railPending();
+    if (now.kind !== "unconfirmed") return "";
+    const asked = now.asked;
 
-    if (rail) return `${copy.remove} ${rail.name}`;
-
-    if (padPending().length) return padPending().map(pad => pad.name).join(", ");
-    const ids = uncertain();
-
-    return ids ? copy.deleting(ids.map(id => `#${id}`).join(", ")) : "";
+    switch (asked.kind) {
+      case "redo": return actionName(asked.action);
+      case "rail": return `${copy.remove} ${asked.name}`;
+      case "pads": return asked.pads.map(pad => pad.name).join(", ");
+      case "todos": return copy.deleting(asked.ids.map(id => `#${id}`).join(", "));
+      case "undo": return "";
+    }
   };
 
   /** U5170a: what blocks a delete, undo or redo, and what to do; set on the failure line so no gate returns silently. */
   const block = () => {
     const name = unconfirmedName();
-    const message = pending() ? copy.deleteBusy : name ? copy.deleteBlockedBy(name) : !connection || !forwarding ? copy.deleteNotConnected : copy.deleteBusy;
+    const message = work().kind === "running" ? copy.deleteBusy : name ? copy.deleteBlockedBy(name) : !connection || !forwarding ? copy.deleteNotConnected : copy.deleteBusy;
     setFailure({ kind: "blocked", message });
 
     return message;
   };
 
   /** U5991b: Rail removals, undos and redos run one after another in the order fired; none is refused for coming second. */
-  let tail: Promise<unknown> = Promise.resolve();
-  let waiting = 0;
+  const queue = new PQueue({ concurrency: 1 }); // An idle queue starts the call in the same tick; a busy one waits for the earlier calls.
 
   const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
-    // An idle queue starts the call in the same tick; a busy one starts it when the earlier calls have answered.
-    const next = waiting === 0 ? run(...args) : tail.then(() => run(...args));
-    const settle = () => { waiting -= 1; };
+    setLine("queued", count => count + 1);
 
-    waiting += 1;
-    // The caller owns `next`'s rejection; the queue only learns that the call is over.
-    tail = next.then(settle, settle);
-
-    return next;
+    // The count drops in the tick the call settles, so a key on its failure line is not refused. SAFETY: no timeout is set, so `add` resolves with the task's result, never `void`.
+    return queue.add(async () => {
+      try { return await run(...args); } finally { setLine("queued", count => count - 1); }
+    }) as Promise<T>;
   };
-
-  const unconfirmed = () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending();
 
   const removeRailNow = async (ids: readonly string[], name: string, region = "") => {
     const selected = [...new Set(ids)].sort();
+    const wanted: Asked = { kind: "rail", ids: selected, name, project: null, operation: crypto.randomUUID(), region };
 
-    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) {
+    if (!connection || !mayStart(wanted)) {
       block();
 
       return false;
     }
 
-    if (railPending() && JSON.stringify(railPending()!.ids) !== JSON.stringify(selected)) {
-      block();
-
-      return false;
-    }
-
+    const retry = retained("rail");
     const app = connection;
-    setPending(true);
+    // SAFETY: `retained("rail")` returns only a rail Asked, and `wanted` is built as one.
+    let asked = retry ?? wanted as Extract<Asked, { kind: "rail" }>;
+    let after: Work = retry ? { kind: "unconfirmed", asked } : idle;
+    setWork({ kind: "running", asked });
     setFailure(null);
 
     try {
-      const chosen = railPending() ?? { ids: selected, name, project: (await app.rpc("daemon.ping", null)).projectKey, operation: crypto.randomUUID(), region };
-      const retry = !!railPending();
-      setRailPending(chosen);
-      let receipt = retry ? await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation }) : null;
+      const project = asked.project ?? (await app.rpc("daemon.ping", null)).projectKey;
+      asked = { ...asked, project };
+      after = { kind: "unconfirmed", asked };
+      const params = { project, operation: asked.operation };
+      let refused = false;
+      let sent = retry !== null;
+      const chosen = asked;
 
-      if (!receipt) {
-        const removed = await applying(() => chosen.ids.length === 1
+      const receipt = await confirmed(
+        () => sent ? app.rpc("rail.deletion", params) : null,
+        () => (sent = true, chosen.ids.length === 1
           ? app.rpc("rail.remove", { id: chosen.ids[0]!, operation: chosen.operation })
-          : app.rpc("rail.removeSelection", { ids: chosen.ids, operation: chosen.operation }));
-
-        if (removed.kind === "applied") receipt = removed.value;
-        else {
-          const error = removed.error;
-          const observed = await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation });
-
-          if (observed) receipt = observed;
-          else {
-            if (removed.kind === "refused") setRailPending(undefined);
-            throw error;
-          }
-        }
-      }
+          : app.rpc("rail.removeSelection", { ids: chosen.ids, operation: chosen.operation })
+        ).catch(error => { refused = outcomeOf(error) === "failed"; throw error; }),
+        () => true,
+      ).catch(error => {
+        if (refused) after = idle;
+        throw error;
+      });
 
       if (!receipt?.deletion) throw new Error(copy.todoRestoreUnknown);
 
       if (!receipt.deletion.restored) {
-        setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: chosen.name, regions: [chosen.region] }]);
-        clearRedoes(chosen.region);
+        push({ id: crypto.randomUUID(), kind: "rail", receipt: receipt.deletion, name: asked.name, regions: [asked.region] });
+        clearRedoes(asked.region);
       }
 
-      setRailPending(undefined);
+      after = idle;
 
       return true;
     } catch (error) {
@@ -199,121 +254,108 @@ export function createTodoUndo() {
       setFailure({ kind: "delete", message: error.message });
 
       return false;
-    } finally { setPending(false); }
+    } finally { setWork(after); }
   };
 
+  // oxlint-disable-next-line solid/reactivity -- serial runs the call from a queue task, an untracked scope by design.
   const removeRailSelection = serial(removeRailNow);
 
-  const remove = async (ids: number[], region = ""): Promise<boolean> => {
-    if (pending() || redoUnknown() || !forwarding || padPending().length || railPending()) {
+  /** The ids the Daemon deleted. */
+  const removeReceipt = async (ids: number[], region: string): Promise<number[]> => {
+    const wanted: Asked = { kind: "todos", ids: [...ids], region };
+
+    if (!forwarding || !mayStart(wanted)) {
       block();
 
-      return false;
+      return [];
     }
 
-    deleted = [];
-
-    if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) {
-      block();
-
-      return false;
-    }
-
-    if (!uncertain()) todoRegion = region;
-    const chosen = uncertain() ?? [...ids];
-    setUncertain(chosen);
-    setPending(true);
+    // SAFETY: `retained("todos")` returns only a todos Asked, and `wanted` is built as one.
+    const asked = retained("todos") ?? wanted as Extract<Asked, { kind: "todos" }>;
+    const app = forwarding;
+    let after: Work = { kind: "unconfirmed", asked };
+    setWork({ kind: "running", asked });
     setFailure(null);
 
     try {
-      const receipt = await deleteTodos(forwarding, chosen);
-      setUncertain(undefined);
-      deleted = receipt.deleted;
+      const receipt = await deleteTodos(app, asked.ids);
+      after = idle;
 
       if (receipt.state === "deleted" && receipt.deleted.length) {
-        setStack(all => [...all, { kind: "todos", receipt, regions: [todoRegion] }]);
-        clearRedoes(todoRegion);
+        push({ id: crypto.randomUUID(), kind: "todos", receipt, regions: [asked.region] });
+        clearRedoes(asked.region);
       }
 
       if (receipt.missing.length) {
         setFailure({ kind: "delete", message: copy.todoDeleteMissing });
       }
 
-      return receipt.deleted.length > 0;
+      return receipt.deleted;
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      const identity = JSON.stringify([...new Set(chosen)].toSorted((a, b) => a - b));
 
-      if (!calls.get(forwarding)?.has(identity)) setUncertain(undefined);
+      if (!calls.get(app)?.has(JSON.stringify([...new Set(asked.ids)].toSorted((a, b) => a - b)))) after = idle;
       setFailure({ kind: "delete", message: error.message });
 
-      return false;
-    } finally { setPending(false); }
+      return [];
+    } finally { setWork(after); }
   };
 
+  const remove = async (ids: number[], region = ""): Promise<boolean> => (await removeReceipt(ids, region)).length > 0;
+
   const removePads = async (pads: readonly Pick<Pad, "name" | "incarnation">[], region = "") => {
-    if (pending() || redoUnknown() || !connection || uncertain() || railPending()) {
+    const wanted: Asked = { kind: "pads", pads: pads.map(pad => ({ name: pad.name, incarnation: pad.incarnation, operation: crypto.randomUUID() })), region, receipts: [] };
+
+    if (!connection || !mayStart(wanted)) {
       const message = block();
 
       return pads.map(pad => ({ id: pad.incarnation, message }));
     }
 
-    if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) {
-      const message = block();
-
-      return pads.map(pad => ({ id: pad.incarnation, message }));
-    }
-
+    const kept = retained("pads");
+    // SAFETY: `retained("pads")` returns only a pads Asked, and `wanted` is built as one.
+    const asked = kept ?? wanted as Extract<Asked, { kind: "pads" }>;
     const app = connection;
-    const retry = padPending().length > 0;
-
-    if (!retry) padRegion = region;
-    const chosen = retry ? padPending() : pads.map(pad => ({ ...pad, operation: crypto.randomUUID() }));
-    setPadPending(chosen);
-    setPending(true);
+    let after: Work = { kind: "unconfirmed", asked };
+    setWork({ kind: "running", asked });
     setFailure(null);
     const failed: { id: string; message: string }[] = [];
-    const unknown: typeof chosen = [];
+    const unknown: PadAsk[] = [];
+    const receipts = [...asked.receipts];
 
-    for (const pad of chosen) {
-      try {
-        let receipt: PadDeletion | undefined;
+    try {
+      for (const pad of asked.pads) {
+        let applyError: unknown;
+        let sent = kept !== null;
 
-        if (retry) {
-          try { receipt = await app.rpc("pad.getDeletion", { operation: pad.operation }); }
-          catch (error) { if (!(error instanceof RpcError) || error.code !== -32001) throw error; }
+        try {
+          const receipt = await confirmed(
+            () => sent ? readPad(app, pad.operation) : null,
+            () => (sent = true, app.rpc("pad.delete", { name: pad.name, expectedIncarnation: pad.incarnation, operation: pad.operation })).catch(error => { applyError = error; throw error; }),
+            () => true,
+          );
+
+          if (!receipt.restored) receipts.push(receipt);
+        } catch (error) {
+          // A known refusal with no receipt is no pending delete, except on a retry, which stays unconfirmed.
+          const refused = error === applyError && outcomeOf(error) === "failed";
+
+          if (!refused || kept) unknown.push(pad);
+
+          if (!(error instanceof Error)) throw error;
+          failed.push({ id: pad.incarnation, message: error.message });
         }
-
-        if (!receipt) {
-          try { receipt = await applied(() => app.rpc("pad.delete", { name: pad.name, expectedIncarnation: pad.incarnation, operation: pad.operation })); }
-          catch (error) {
-            try { receipt = await app.rpc("pad.getDeletion", { operation: pad.operation }); }
-            catch (readError) {
-              if (!(readError instanceof RpcError) || readError.code !== -32001 || outcomeOf(error) !== "failed") unknown.push(pad);
-              throw error;
-            }
-          }
-        }
-
-        if (!receipt.restored) padReceipts.push(receipt);
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
-
-        if (retry && !unknown.some(item => item.operation === pad.operation)) unknown.push(pad);
-        failed.push({ id: pad.incarnation, message: error.message });
       }
-    }
 
-    setPadPending(unknown);
+      after = unknown.length ? { kind: "unconfirmed", asked: { ...asked, pads: unknown, receipts } } : idle;
 
-    if (!unknown.length && padReceipts.length) {
-      setStack(all => [...all, { kind: "pads", receipts: padReceipts, regions: [padRegion] }]);
-      clearRedoes(padRegion);
-      padReceipts = [];
-    }
+      if (!unknown.length && receipts.length) {
+        push({ id: crypto.randomUUID(), kind: "pads", receipts, regions: [asked.region] });
+        clearRedoes(asked.region);
+      }
 
-    setFailure(failed.length ? { kind: "delete", message: failed.map(item => item.message).join("; ") } : null);
-    setPending(false);
+      setFailure(failed.length ? { kind: "delete", message: failed.map(item => item.message).join("; ") } : null);
+    } finally { setWork(after); }
 
     return failed;
   };
@@ -322,15 +364,16 @@ export function createTodoUndo() {
     const operation = stack().findLast(action => region === undefined || action.regions.includes(region));
 
     if (!operation) return;
+    const wanted: Asked = { kind: "undo", id: operation.id };
 
-    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length || railPending()) {
+    if (!connection || !mayStart(wanted)) {
       block();
 
       return;
     }
 
     const app = connection;
-    setPending(true);
+    setWork({ kind: "running", asked: wanted });
     setFailure(null);
 
     try {
@@ -341,21 +384,11 @@ export function createTodoUndo() {
         try {
           const { project, operation: key } = operation.receipt;
           const params = { project, operation: key };
-          let restored = await app.rpc("rail.deletion", params);
-
-          if (!restored?.deletion?.restored) {
-            try { restored = await app.rpc("rail.restore", params); }
-            catch (error) {
-              const retained = await app.rpc("rail.deletion", params);
-
-              if (!retained?.deletion?.restored) throw error;
-              restored = retained;
-            }
-          }
+          const restored = await confirmed(() => app.rpc("rail.deletion", params), () => app.rpc("rail.restore", params), result => !!result.deletion?.restored);
 
           if (!restored.deletion?.restored) throw new Error(copy.todoRestoreUnknown);
-          setRedoes(all => [...all, { kind: "rail", receipt: restored.deletion!, name: operation.name, operation: crypto.randomUUID(), state: "ready", regions: operation.regions }]);
-          setStack(all => all.filter(item => item !== operation));
+          setRedoes(all => [...all, { kind: "rail", receipt: restored.deletion!, name: operation.name, operation: crypto.randomUUID(), regions: [...operation.regions] }]);
+          drop(operation.id);
           kept = true;
         } finally { await lift?.(kept); }
 
@@ -369,36 +402,34 @@ export function createTodoUndo() {
 
         for (const receipt of operation.receipts) {
           try {
-            let restored = await app.rpc("pad.getDeletion", { operation: receipt.operation });
-
-            if (!restored.restored) {
-              try { restored = await applied(() => app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation })); }
-              catch (error) {
-                const retained = await app.rpc("pad.getDeletion", { operation: receipt.operation });
-
-                if (!retained.restored) throw error;
-                restored = retained;
-              }
-            }
+            const restored = await confirmed(() => readPad(app, receipt.operation), () => app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation }), result => result.restored);
 
             if (!restored.restored) throw new Error(copy.todoRestoreUnknown);
             members.push({ receipt: restored, operation: crypto.randomUUID(), request: null });
           } catch (error) {
             if (!(error instanceof Error)) throw error;
-            failed.push(receipt);
+            failed.push(unwrap(receipt));
             causes.push(`${receipt.pad.name}: ${error.message}`);
           }
         }
 
+        // SAFETY: the stacked action was found by kind "pads" above.
+        const source = unwrap(operation) as Extract<Stacked, { kind: "pads" }>;
+
         if (members.length) setRedoes(all => {
-          const previous = all.find(item => item.kind === "pads" && item.source === operation);
+          const previous = all.find(item => item.kind === "pads" && item.source.id === source.id);
 
           return previous?.kind === "pads"
             ? all.map(item => item === previous ? { ...previous, members: [...previous.members, ...members] } : item)
-            : [...all, { kind: "pads", source: operation, members, state: "ready", regions: operation.regions }];
+            : [...all, { kind: "pads", source, members, regions: [...operation.regions] }];
         });
-        operation.receipts = failed;
-        setStack(all => failed.length ? [...all] : all.filter(item => item !== operation));
+
+        if (failed.length) setHistory(produce(draft => {
+          const at = draft.stack.find(item => item.id === source.id);
+
+          if (at?.kind === "pads") at.receipts = failed;
+        }));
+        else drop(source.id);
         setFailure(causes.length ? { kind: "restore", message: causes.join("; ") } : null);
 
         return;
@@ -406,25 +437,15 @@ export function createTodoUndo() {
 
       const receipt = operation.receipt;
       // Read first: an earlier lost restore acknowledgement may already have consumed it.
-      let restored = await app.rpc("todo.deletion", { operation: receipt.operation });
-
-      if (restored?.state !== "restored") {
-        try { restored = await applied(() => app.rpc("todo.restore", { operation: receipt.operation })); }
-        catch (error) {
-          const retained = await app.rpc("todo.deletion", { operation: receipt.operation });
-
-          if (retained?.state !== "restored") throw error;
-          restored = retained;
-        }
-      }
+      const restored = await confirmed(() => app.rpc("todo.deletion", { operation: receipt.operation }), () => app.rpc("todo.restore", { operation: receipt.operation }), result => result.state === "restored");
 
       if (restored.state !== "restored") throw new Error(copy.todoRestoreUnknown);
-      setRedoes(all => [...all, { kind: "todos", receipt: restored, operation: crypto.randomUUID(), state: "ready", regions: operation.regions }]);
-      setStack(all => all.filter(item => item !== operation));
+      setRedoes(all => [...all, { kind: "todos", receipt: restored, operation: crypto.randomUUID(), regions: [...operation.regions] }]);
+      drop(operation.id);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setFailure({ kind: "restore", message: error.message });
-    } finally { setPending(false); }
+    } finally { setWork(idle); }
   };
 
   // The request keys live with the retained action: an unknown reply retries that exact attempt.
@@ -432,15 +453,17 @@ export function createTodoUndo() {
     const action = redoes().findLast(item => region === undefined || item.regions.includes(region));
 
     if (!action) return;
+    const wanted: Asked = { kind: "redo", action };
 
-    if (pending() || !connection || uncertain() || padPending().length || railPending()) {
+    if (!connection || !mayStart(wanted)) {
       block();
 
       return;
     }
 
     const app = connection;
-    setPending(true);
+    let after: Work = idle;
+    setWork({ kind: "running", asked: wanted });
     setFailure(null);
 
     try {
@@ -448,19 +471,10 @@ export function createTodoUndo() {
         const restoration = action.receipt.restoration;
 
         if (!restoration) throw new Error(copy.todoRestoreUnknown);
-        let receipt = await app.rpc("todo.deletion", { operation: action.operation });
-
-        if (!receipt) {
-          try { receipt = await applied(() => app.rpc("todo.redo", { source: action.receipt.operation, restoration, operation: action.operation })); }
-          catch (error) {
-            receipt = await app.rpc("todo.deletion", { operation: action.operation });
-
-            if (!receipt) throw error;
-          }
-        }
+        const receipt = await confirmed(() => app.rpc("todo.deletion", { operation: action.operation }), () => app.rpc("todo.redo", { source: action.receipt.operation, restoration, operation: action.operation }), () => true);
 
         if (receipt.state !== "deleted") throw new Error(copy.todoRestoreUnknown);
-        setStack(all => [...all, { kind: "todos", receipt, regions: action.regions }]);
+        push({ id: crypto.randomUUID(), kind: "todos", receipt, regions: [...action.regions] });
       } else if (action.kind === "rail") {
         const lift = railDrawing?.("redo");
         let kept = false;
@@ -470,74 +484,62 @@ export function createTodoUndo() {
           const params = { project: action.receipt.project, operation: action.operation };
 
           if (!restoration) throw new Error(copy.todoRestoreUnknown);
-          let receipt = await app.rpc("rail.deletion", params);
-
-          if (!receipt) {
-            try { receipt = await app.rpc("rail.redo", { ...params, source: action.receipt.operation, restoration }); }
-            catch (error) {
-              receipt = await app.rpc("rail.deletion", params);
-
-              if (!receipt) throw error;
-            }
-          }
+          const receipt = await confirmed(() => app.rpc("rail.deletion", params), () => app.rpc("rail.redo", { ...params, source: action.receipt.operation, restoration }), () => true);
 
           if (!receipt.deletion || receipt.deletion.restored) throw new Error(copy.todoRestoreUnknown);
-          setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: action.name, regions: action.regions }]);
+          push({ id: crypto.randomUUID(), kind: "rail", receipt: receipt.deletion, name: action.name, regions: [...action.regions] });
           kept = true;
         } finally { await lift?.(kept); }
       } else {
         const failed: PadRedo[] = [];
-        const causes: Error[] = [];
-        const messages: string[] = [];
+        const causes: { error: Error; message: string }[] = [];
         const receipts: PadDeletion[] = [];
 
         for (const member of action.members) {
-          try {
-            let receipt: PadDeletion | undefined;
+          let applyError: unknown;
 
-            try { receipt = await app.rpc("pad.getDeletion", { operation: member.operation }); }
-            catch (error) { if (!(error instanceof RpcError) || error.code !== -32001) throw error; }
-
-            if (!receipt) {
-              if (!member.request) {
-                const current = await app.rpc("pad.read", { name: member.receipt.pad.name });
-                member.request = { project: member.receipt.project, restoredOperation: member.receipt.operation, operation: member.operation, expectedIncarnation: member.receipt.pad.incarnation, expectedRevision: current.revision, expectedHome: current.home };
-              }
-
-              const request = member.request;
-
-              try { receipt = await applied(() => app.rpc("pad.redoDelete", request)); }
-              catch (error) {
-                try { receipt = await app.rpc("pad.getDeletion", { operation: member.operation }); }
-                catch (readError) {
-                  if (readError instanceof RpcError && readError.code === -32001 && outcomeOf(error) === "failed") member.request = null;
-                  throw readError instanceof RpcError && readError.code === -32001 ? error : readError;
-                }
-              }
+          const requested = async () => {
+            if (!member.request) {
+              const current = await app.rpc("pad.read", { name: member.receipt.pad.name });
+              member.request = { project: member.receipt.project, restoredOperation: member.receipt.operation, operation: member.operation, expectedIncarnation: member.receipt.pad.incarnation, expectedRevision: current.revision, expectedHome: current.home };
             }
+
+            return member.request;
+          };
+
+          try {
+            const receipt = await confirmed(
+              () => readPad(app, member.operation),
+              async () => app.rpc("pad.redoDelete", await requested()).catch(error => { applyError = error; throw error; }),
+              () => true,
+            );
 
             if (receipt.restored) throw new Error(copy.todoRestoreUnknown);
             receipts.push(receipt);
           } catch (error) {
             if (!(error instanceof Error)) throw error;
+            // A known refusal the Daemon holds no receipt for may be asked again from a fresh request.
+
+            if (error === applyError && outcomeOf(error) === "failed") member.request = null;
             failed.push(member);
-            causes.push(error);
-            messages.push(`${member.receipt.pad.name}: ${error.message}`);
+            causes.push({ error, message: `${member.receipt.pad.name}: ${error.message}` });
           }
         }
 
-        if (receipts.length) {
-          action.source.regions = action.regions;
-          action.source.receipts.push(...receipts);
-          setStack(all => all.includes(action.source) ? [...all] : [...all, action.source]);
-        }
+        if (receipts.length) setHistory(produce(draft => {
+          const at = draft.stack.find(item => item.id === action.source.id);
+
+          if (at?.kind === "pads") {
+            at.regions = [...action.regions];
+            at.receipts.push(...receipts);
+          } else draft.stack.push({ ...action.source, regions: [...action.regions], receipts: [...receipts] });
+        }));
 
         action.members = failed;
 
         if (causes.length) {
-          const unknown = causes.find(error => outcomeOf(error) === "unknown");
-          setRedoes(all => all.map(item => item === action ? { ...action, state: unknown ? "unknown" : "ready" } : item));
-          setFailure({ kind: "restore", message: messages.join("; ") });
+          if (causes.some(cause => outcomeOf(cause.error) === "unknown")) after = { kind: "unconfirmed", asked: wanted };
+          setFailure({ kind: "restore", message: causes.map(cause => cause.message).join("; ") });
 
           return;
         }
@@ -546,16 +548,19 @@ export function createTodoUndo() {
       setRedoes(all => all.filter(item => item !== action));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      setRedoes(all => all.map(item => item === action ? { ...item, state: outcomeOf(error) === "failed" ? "ready" : "unknown" } : item));
+
+      if (outcomeOf(error) !== "failed") after = { kind: "unconfirmed", asked: wanted };
       setFailure({ kind: "restore", message: error.message });
-    } finally { setPending(false); }
+    } finally { setWork(after); }
   };
 
+  // oxlint-disable-next-line solid/reactivity -- serial runs the call from a queue task, an untracked scope by design.
   const undo = serial(undoNow);
+  // oxlint-disable-next-line solid/reactivity -- serial runs the call from a queue task, an untracked scope by design.
   const redo = serial(redoNow);
 
-  const available = (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !redoUnknown() && !uncertain() && !padPending().length && !railPending();
-  const redoAvailable = (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && !uncertain() && !padPending().length && !railPending();
+  const available = (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !unsettled();
+  const redoAvailable = (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && (!unsettled() || retained("redo") !== null);
 
   return {
     reconnect(app: AppSeam) {
@@ -565,7 +570,7 @@ export function createTodoUndo() {
     remove, removePads, removeRailSelection,
     removeRail: (id: string, name: string, region = "") => removeRailSelection([id], name, region),
     removeTodos: async (ids: readonly number[], region = "") => {
-      await remove([...ids], region);
+      const deleted = await removeReceipt([...ids], region);
 
       return ids.flatMap(id => deleted.includes(id) ? [] : [{ id, message: failure()?.message ?? copy.todoDeleteMissing }]);
     },
@@ -575,14 +580,15 @@ export function createTodoUndo() {
       const operation = stack().findLast(action => action.regions.includes(from));
 
       if (!operation || operation.regions.includes(to)) return;
-      operation.regions.push(to);
-      setStack(all => [...all]);
+      setHistory(produce(draft => { draft.stack.find(item => item.id === operation.id)?.regions.push(to); }));
     },
     failure: () => failure()?.message ?? null,
     blocked: () => failure()?.kind === "blocked",
     // U5170b: Dismiss drops an unconfirmed state from the blocking set and says the Daemon may still hold it.
     dismiss: () => {
-      if (!unconfirmed()) {
+      const now = work();
+
+      if (now.kind !== "unconfirmed") {
         setFailure(null);
 
         return;
@@ -590,18 +596,14 @@ export function createTodoUndo() {
 
       const name = unconfirmedName();
 
-      if (uncertain()) calls.get(forwarding!)?.delete(JSON.stringify([...new Set(uncertain())].toSorted((a, b) => a - b)));
-      setUncertain(undefined);
-      setPadPending([]);
-      padReceipts = [];
-      setRailPending(undefined);
-      setRedoes(all => all.filter(action => action.state !== "unknown"));
+      if (now.asked.kind === "todos") calls.get(forwarding!)?.delete(JSON.stringify([...new Set(now.asked.ids)].toSorted((a, b) => a - b)));
+      setWork(idle);
       setFailure({ kind: "blocked", message: copy.deleteStaysUnconfirmed(name) });
     },
     feedbackFailure: () => {
       const problem = failure();
 
-      return problem && (problem.kind !== "delete" || uncertain() || padPending().length || railPending()) ? problem.message : null;
+      return problem && (problem.kind !== "delete" || unsettled()) ? problem.message : null;
     },
     undoLabel: (region?: string) => {
       const action = !pending() && available(region) ? stack().findLast(item => region === undefined || item.regions.includes(region)) : undefined;
@@ -615,8 +617,25 @@ export function createTodoUndo() {
     },
     available, redoAvailable,
     bindRail: (drawing: NonNullable<typeof railDrawing>) => { railDrawing = drawing; },
-    retryDelete: () => redoUnknown() ? redo(redoes().findLast(action => action.state === "unknown")!.regions[0]) : railPending() ? removeRailSelection(railPending()!.ids, railPending()!.name) : padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
-    uncertain: () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending(),
-    ids: () => uncertain() ?? [],
+    retryDelete: () => {
+      const now = work();
+
+      if (now.kind !== "unconfirmed") return Promise.resolve(false);
+      const asked = now.asked;
+
+      switch (asked.kind) {
+        case "redo": return redo(asked.action.regions[0]);
+        case "rail": return removeRailSelection(asked.ids, asked.name);
+        case "pads": return removePads(asked.pads);
+        case "todos": return remove(asked.ids);
+        case "undo": return Promise.resolve(false);
+      }
+    },
+    uncertain: unsettled,
+    ids: () => {
+      const asked = asking();
+
+      return asked?.kind === "todos" ? asked.ids : [];
+    },
   };
 }

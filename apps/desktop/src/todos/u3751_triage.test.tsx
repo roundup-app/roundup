@@ -306,6 +306,28 @@ it("u3474b_done_keeps_the_regrouped_nested_row_ready", async () => {
 });
 
 
+it("u3474e_a_finishing_row_stays_in_order_until_it_ends", async () => {
+  const { store } = await mountTodos([todo(1), todo(2), todo(3)], false);
+  await waitFor(() => expect(row(1)?.closest("[hidden]")).toBeNull());
+  row(1).focus();
+  nextKey("t");
+  nextKey("x");
+  await waitFor(() => expect(store.todos.find(item => item.id === 1)?.done).toBe(true));
+  await waitFor(() => expect(document.activeElement).toBe(row(2)));
+  // U3770: the finishing row keeps its place in the open list until its strike ends.
+  const ids = () => [...document.querySelectorAll("[data-todo]")].map(each => each.getAttribute("data-todo")).slice(0, 3);
+  const strike = document.querySelector(`[data-todo="1"] .todo-strike`);
+
+  if (strike) {
+    expect(ids()).toEqual(["1", "2", "3"]);
+    nextKey("j");
+    await waitFor(() => expect(document.activeElement).toBe(row(3)));
+    fireEvent.animationEnd(strike);
+  }
+
+  await waitFor(() => expect(ids()).not.toContain("1"));
+});
+
 const cancelledPickers = ["a", "o", "w"].flatMap(entry => ["Escape", "outside"].map(dismissal => ({ entry, dismissal })));
 
 const cancelPicker = async (entry: string, dismissal: string) => {

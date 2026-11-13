@@ -1,6 +1,6 @@
-import { batch, createMemo, createSignal, onCleanup } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
-import { createStore, reconcile } from "solid-js/store";
+import { answered, keyedStore } from "../app/keyedStore";
 import { blockerGraph } from "./todoView";
 import { copy } from "./copy";
 import type { Handed } from "@contracts/todo/Handed";
@@ -9,7 +9,6 @@ import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
 import type { Actor } from "@contracts/Actor";
 import { outcomeOf } from "../app/seam";
-import { failureOf } from "../app/failureOf";
 
 /** U5172a: a change of a Todo that the Daemon has not answered. `base` is the value before it, so a read that still holds `base` leaves it pending and one that holds another value than `asked` contradicts it. A reorder holds the ids of the whole list in order. */
 export type TodoChange =
@@ -27,6 +26,13 @@ export const reorderChange = (all: readonly Todo[], id: number, before: number |
 };
 
 type Value = string | Actor | readonly number[] | null;
+
+/** What `change` reads in `list` for Todo `id`, or undefined when the list does not hold the Todo. */
+const valueOf = (list: readonly Todo[], id: number, change: TodoChange): Value | undefined => {
+  const todo = list.find(each => each.id === id);
+
+  return todo === undefined ? undefined : change.kind === "reorder" ? list.map(each => each.id) : change.kind === "home" ? todo.home : todo.owner;
+};
 
 const same = (left: Value, right: Value): boolean => JSON.stringify(left) === JSON.stringify(right);
 
@@ -66,81 +72,55 @@ const REFETCH_ON = new Set(["todo.restored", "todo.created", "todo.updated", "to
 
 /** Subscribes before its first fetch, so no Event between the two is lost. */
 export const createTodosState = (app: AppSeam, events: Events, project: string): TodosState => {
-  // Reconciled by id, so a refetch that changes one Todo leaves every other row untouched.
-  const [shelf, setShelf] = createStore<{ todos: Todo[] }>({ todos: [] });
-  const [failure, setFailure] = createSignal<string | null>(null);
-  const [handed, setHanded] = createSignal<readonly Handed[] | null>(null);
-  const [handedFailure, setHandedFailure] = createSignal<string | null>(null);
-  const [isLoaded, setIsLoaded] = createSignal(false);
+  const { storage, rows } = keyedStore<Todo>("id");
+  const [list, { refetch }] = createResource(() => app.rpc("todo.list", null), { storage });
+  const [facts, { refetch: refetchFacts }] = createResource(() => app.rpc("todo.listHanded", null));
+  const [waiting, setWaiting] = createSignal(false);
+  const shelf = () => rows() ?? [];
+  const isLoaded = () => rows() !== undefined;
+  const failure = () => list.error?.message ?? null;
+  // Unknown Hand-offs never hold the ordinary list behind an additional read.
+  const handed = () => waiting() || list.loading || list.error || facts.loading || facts.error ? null : facts.latest ?? null;
+  const handedFailure = () => facts.error?.message ?? null;
 
-  const [asked, setAsked] = createStore<Record<number, TodoChange>>({});
+  const [asked, setAsked] = createSignal<Readonly<Record<number, TodoChange>>>({});
+
+  /** U5172a: a change stays pending while the list still holds its base; a list that holds another value contradicts it. */
+  const pendingOf = (id: number): TodoChange | null => {
+    const change = asked()[id];
+    const value = change && valueOf(shelf(), id, change);
+
+    return change && value !== undefined && same(value, change.base) ? change : null;
+  };
+
   const contradicted = new Set<(id: number, message: string) => void>();
 
-  /** U5172a: a read settles each pending change: the value still at `base` stays pending, `asked` clears the mark, another value clears it and reports one failure. */
-  const settle = (list: readonly Todo[]) => {
-    for (const [key, change] of Object.entries(asked)) {
-      const id = Number(key);
-      const todo = list.find(each => each.id === id);
-      const value = todo === undefined ? undefined : change.kind === "reorder" ? list.map(each => each.id) : change.kind === "home" ? todo.home : todo.owner;
+  // A read that moved a Todo off its base settles the change, so the entry goes once it is judged and a later read cannot revive it.
+  createEffect(() => {
+    const settledIds: number[] = [];
 
-      if (value !== undefined && same(value, change.base)) continue;
-      setAsked(id, undefined!);
+    for (const [key, change] of Object.entries(asked())) {
+      const value = valueOf(shelf(), Number(key), change);
 
-      if (value !== undefined && !same(value, change.asked)) contradicted.forEach(show => show(id, copy.changeDidNotApply));
-    }
-  };
+      if (value === undefined || same(value, change.base)) continue;
+      settledIds.push(Number(key));
 
-  // Overlapping fetches can answer out of order; only the newest one may write.
-  let newest = 0;
-  let latest: Promise<void> = Promise.resolve();
-
-  const refetch = async () => {
-    newest += 1;
-
-    const mine = newest;
-    let list: Todo[] = [];
-    let facts: Handed[] = [];
-    setHanded(null);
-
-    const listRead = failureOf(async () => { list = await app.rpc("todo.list", null); });
-    const factRead = failureOf(async () => { facts = await app.rpc("todo.listHanded", null); });
-    const message = await listRead;
-
-    if (mine !== newest) {
-      await latest;
-
-      return;
+      if (!same(value, change.asked)) contradicted.forEach(show => show(Number(key), copy.changeDidNotApply));
     }
 
-    batch(() => {
-      if (message === null) {
-        setShelf("todos", reconcile(list, { key: "id" }));
-        settle(list);
-        setIsLoaded(true);
-      }
+    if (settledIds.length) setAsked(each => Object.fromEntries(Object.entries(each).filter(([key]) => !settledIds.includes(Number(key)))));
+  });
 
-      setFailure(message);
-    });
+  const settled = () => Promise.all([answered(list), answered(facts)]).then(() => undefined);
 
-    // Unknown Hand-offs never hold the ordinary list behind an additional read.
-    const factMessage = await factRead;
-
-    if (mine !== newest) {
-      await latest;
-
-      return;
-    }
-
-    batch(() => {
-      setHanded(message === null && factMessage === null ? facts : null);
-      setHandedFailure(factMessage);
-    });
-  };
-
-  const reload = () => {
-    latest = refetch();
-
-    return latest;
+  // `createResource` drops a refetch asked in the same microtask as one it started, so a burst waits one microtask and shares one read that starts after the last of them.
+  const reload = async () => {
+    setWaiting(true);
+    await Promise.resolve();
+    void refetch();
+    void refetchFacts();
+    setWaiting(false);
+    await settled();
   };
 
   onCleanup(
@@ -148,7 +128,6 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
       if (REFETCH_ON.has(event.name)) void reload();
     }),
   );
-  void reload();
 
   const [shown, setShown] = createSignal<readonly { todo: Todo; known: ReadonlySet<number> }[]>([]);
 
@@ -157,7 +136,7 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     const claimed = new Set<number>();
 
     return shown().filter(({ todo, known }) => {
-      const arrived = shelf.todos.find(each => !known.has(each.id) && !claimed.has(each.id) && each.title === todo.title && same(each.owner, todo.owner));
+      const arrived = shelf().find(each => !known.has(each.id) && !claimed.has(each.id) && each.title === todo.title && same(each.owner, todo.owner));
 
       if (arrived) claimed.add(arrived.id);
 
@@ -169,7 +148,7 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
 
   const show = (todo: Todo) => {
     setRevealed((count) => count + 1);
-    const row = { todo, known: new Set(shelf.todos.map(each => each.id)) };
+    const row = { todo, known: new Set(shelf().map(each => each.id)) };
 
     setShown((rows) => [...rows, row]);
 
@@ -177,20 +156,22 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
   };
 
   const all = createMemo((): readonly Todo[] => {
-    const changes = Object.entries(asked);
-    let rows: readonly Todo[] = shelf.todos;
+    let todos: readonly Todo[] = shelf();
 
-    for (const [key, change] of changes) {
+    for (const key of Object.keys(asked())) {
       const id = Number(key);
+      const change = pendingOf(id);
+
+      if (!change) continue;
 
       if (change.kind === "reorder") {
         const index = new Map(change.asked.map((each, at) => [each, at]));
 
-        rows = [...rows].sort((left, right) => (index.get(left.id) ?? Infinity) - (index.get(right.id) ?? Infinity));
-      } else rows = rows.map(todo => todo.id !== id ? todo : change.kind === "home" ? { ...todo, home: change.asked } : { ...todo, owner: change.asked });
+        todos = [...todos].sort((left, right) => (index.get(left.id) ?? Infinity) - (index.get(right.id) ?? Infinity));
+      } else todos = todos.map(todo => todo.id !== id ? todo : change.kind === "home" ? { ...todo, home: change.asked } : { ...todo, owner: change.asked });
     }
 
-    return rows;
+    return todos;
   });
 
   const graph = createMemo(() => blockerGraph(all()));
@@ -204,7 +185,7 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
       if (!(thrown instanceof Error)) throw thrown;
 
       if (outcomeOf(thrown) === "failed") return thrown.message;
-      setAsked(id, change);
+      setAsked(each => ({ ...each, [id]: change }));
     }
 
     return null;
@@ -216,5 +197,5 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     return () => contradicted.delete(show);
   };
 
-  return { project, pendingOf: id => asked[id] ?? null, ask, onContradicted: listen, reload, all, pending, show, revealed, byId, blockerGraph: graph, handed, handedFailure, failure, isLoaded };
+  return { project, pendingOf, ask, onContradicted: listen, reload, all, pending, show, revealed, byId, blockerGraph: graph, handed, handedFailure, failure, isLoaded };
 };
