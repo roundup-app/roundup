@@ -52,10 +52,27 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
 // macOS Ctrl-click opens the menu: it must not focus a row, blur unfinished input, arm the sort sensor or toggle.
-const ctrlClick = (event: MouseEvent) => {
-  if (event.button !== 0 || !event.ctrlKey) return;
-  event.preventDefault();
-  event.stopPropagation();
+const ctrlClick = () => {
+  // A native menu may consume the compatibility click; keyboard activation must still work next.
+  let pending = false;
+  const swallow = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  return {
+    pointerdown: (event: PointerEvent) => {
+      pending = event.button === 0 && event.ctrlKey;
+      if (pending) swallow(event);
+    },
+    keydown: () => { pending = false; },
+    click: (event: MouseEvent) => {
+      if (!pending && !event.ctrlKey) return;
+
+      pending = false;
+      swallow(event);
+    },
+  };
 };
 
 // Zag's typeahead only moves focus; U3787c has the row a name search lands on chosen.
@@ -656,8 +673,10 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         makeEventListener(element, "keydown", press => startTyping(isTypeahead(press)), { capture: true });
         makeEventListener(element, "pointerdown", () => startTyping(false), { capture: true });
 
-        makeEventListener(element, "pointerdown", ctrlClick, { capture: true });
-        makeEventListener(element, "click", ctrlClick, { capture: true });
+        const context = ctrlClick();
+        makeEventListener(element, "pointerdown", context.pointerdown, { capture: true });
+        makeEventListener(element, "keydown", context.keydown, { capture: true });
+        makeEventListener(element, "click", context.click, { capture: true });
         makeEventListener(element, "click", modifierClick, { capture: true });
       }}
       collection={collection()}

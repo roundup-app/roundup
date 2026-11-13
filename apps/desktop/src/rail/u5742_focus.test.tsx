@@ -132,8 +132,8 @@ it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   await click("ann", { metaKey: true }, ["ann"]);
   await click("cee", { metaKey: true }, ["ann", "cee"]);
   await click("ann", { metaKey: true }, ["cee"]);
-  await click("dee", { shiftKey: true }, ["cee", "dee"]);
-  await click("bea", { shiftKey: true }, ["bea", "cee"]);
+  await click("dee", { shiftKey: true }, ["ann", "bea", "cee", "dee"]);
+  await click("bea", { shiftKey: true }, ["ann", "bea"]);
   expect(m.connected.rail.selected()).toBeNull();
   expect(m.app.calls.filter(call => ["agent.spawn", "agent.resume", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
   key("ArrowUp");

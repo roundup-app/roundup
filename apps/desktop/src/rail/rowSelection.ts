@@ -1,4 +1,4 @@
-import { createEffect } from "solid-js";
+import { createComputed, on } from "solid-js";
 import { createWritableMemo } from "@solid-primitives/memo";
 
 // The data row a ⌘- or ⇧-click lands on, outside its own buttons and inputs; null for any other click.
@@ -22,7 +22,7 @@ type Deps = {
 
 /** What Zag's tree selection lacks for the Rail: data rows only, visible rows only, no implicit anchor, a name search that picks one row. */
 export const createRowSelection = (deps: Deps) => {
-  const [selected, setSelected] = createWritableMemo<string[]>(() => {
+  const [selected, setRaw] = createWritableMemo<string[]>(() => {
     const chosen = deps.initial();
 
     return chosen === null ? [] : [chosen];
@@ -46,12 +46,14 @@ export const createRowSelection = (deps: Deps) => {
   };
 
   // ⇧-click ranges from the last row a click or key selected; with none it selects its target alone, ⌘-click toggles.
-  let anchor: string | undefined;
-  createEffect(() => {
-    const chosen = selected();
+  let anchor: string | undefined = deps.initial() ?? undefined;
+  // The Rail's own selection replaces the rows chosen, and anchors there.
+  createComputed(on(deps.initial, id => { anchor = id ?? undefined; }, { defer: true }));
 
-    if (chosen.length <= 1) anchor = chosen[0];
-  });
+  const setSelected = (ids: string[]) => {
+    if (ids.length <= 1) anchor = ids[0];
+    setRaw(ids);
+  };
 
   const modifierClick = (event: MouseEvent) => {
     const row = rowOfModifierClick(event);
@@ -70,7 +72,7 @@ export const createRowSelection = (deps: Deps) => {
       setSelected(from < 0 ? [id] : order.slice(Math.min(from, to), Math.max(from, to) + 1));
     } else {
       anchor = id;
-      setSelected(chosen => chosen.includes(id) ? chosen.filter(each => each !== id) : [...chosen, id]);
+      setRaw(chosen => chosen.includes(id) ? chosen.filter(each => each !== id) : [...chosen, id]);
     }
 
     row?.focus();
@@ -86,6 +88,7 @@ export const createRowSelection = (deps: Deps) => {
     typing = false;
     setSelected([match]);
     deps.pick(match);
+    deps.rowElement(match)?.focus();
   };
 
   return { selected, setSelected, eligible, selectAll, modifierClick, startTyping, chooseTypedMatch, isSelected: (id: string) => selected().includes(id) };
