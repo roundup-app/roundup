@@ -358,15 +358,15 @@ export const EditableText = (props: {
     };
 
     return <Editable.Root edit={editing() !== null} activationMode="dblclick" selectOnFocus={false} value={editing() ? typed() : props.todo[props.name]}
-      submitMode={editing()?.recovered ? "none" : "both"} onValueChange={({ value }) => setTyped(value)}
-      onEditChange={({ edit }) => { if (edit) startWith(); else close(); }}
+      submitMode={editing()?.recovered ? "none" : "both"} onValueChange={({ value }) => setTyped(value)} placeholder={copy.noField(props.name)}
+      translations={{ edit: props.todo[props.name] || copy.noField(props.name) }} onEditChange={({ edit }) => { if (edit) startWith(); else close(); }}
       onInteractOutside={event => {
         if (!editing()?.recovered && !keepsDraft(event.target)) return void (ending = "submit");
         event.preventDefault();
         binding?.keep();
       }}>
       <Editable.Context>{api => <Editable.Area style={{ display: "grid", width: "100%" }}>
-        <Editable.Preview asChild={preview => <p {...preview()} />} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
+        <Editable.Preview asChild={preview => <p {...preview()} class={props.todo[props.name] === "" ? "light" : undefined} />} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
           style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", overflow: "visible", "text-overflow": "clip", "min-height": "1.4em" }} />
         <Editable.Input asChild={field => <textarea {...field()} class="field-inline" rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck={false} autocorrect="off" autocapitalize="off"
           class="field-inline" aria-label={copy.title}
@@ -382,7 +382,7 @@ export const EditableText = (props: {
             if (event.key === "Escape") event.stopPropagation();
             else if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); ending = "submit"; api().submit(); }
           }}
-          style={{ "letter-spacing": "inherit", "line-height": "inherit", "text-align": "inherit", "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", resize: "none", overflow: "hidden", "caret-color": "var(--accent)" }} />
+          style={{ "letter-spacing": "inherit", "line-height": "inherit", "text-align": "inherit", "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", padding: "0", "border-width": "0", resize: "none", overflow: "hidden", "caret-color": "var(--accent)" }} />
       </Editable.Area>}</Editable.Context>
     </Editable.Root>;
   };
