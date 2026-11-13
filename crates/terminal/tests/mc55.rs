@@ -74,6 +74,13 @@ async fn mc55_every_fake_reply_matches_the_schema() {
         .await
         .unwrap();
     check(&schema, "terminal.kill", &kill);
+    let list = conn.call("terminal.list", json!({})).await.unwrap();
+    check(&schema, "terminal.list", &list);
+    let rm = conn
+        .call("terminal.rm", json!({"terminal": address}))
+        .await
+        .unwrap();
+    check(&schema, "terminal.rm", &rm);
     for method in conn.hello.methods.iter().filter_map(Value::as_str) {
         assert!(
             schema["methods"][method].is_object(),

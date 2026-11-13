@@ -344,7 +344,7 @@ impl Core {
             "terminal.list" => Ok(self.list(&params)),
             "terminal.rm" => self.terminal(&params).map(|t| {
                 lock(&self.terminals).remove(&t.id);
-                json!({})
+                json!({"removed": t.id})
             }),
             "terminal.attach" => {
                 if let Err(error) = self.attach(&id, &params) {

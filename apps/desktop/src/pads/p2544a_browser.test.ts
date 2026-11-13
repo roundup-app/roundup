@@ -299,7 +299,7 @@ const captureLists = async () => {
     }
   }
 
-  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.')");
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.', 'pad.write')");
   await browser("focus", ".ProseMirror");
   await browser("press", "Control+End");
   await browser("keyboard", "type", "Retained draft");

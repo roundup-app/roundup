@@ -201,7 +201,7 @@ it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_
   await openPad("!!document.querySelector('details[data-pad-agents]')");
   await browser("click", "details[data-pad-agents] summary");
   await wait("document.querySelector('details[data-pad-agents]').open");
-  await read("window.__fake.failNext(-32603, 'Pad not saved: restore write access, then Resume.')");
+  await read("window.__fake.failNext(-32603, 'Pad not saved: restore write access, then Resume.', 'pad.write')");
   const draft = " Agent evidence after a failed save. ";
   await browser("fill", "details[data-pad-agents] textarea", draft);
   await wait("document.body.innerText.includes('restore write access')");
