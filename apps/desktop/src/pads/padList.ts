@@ -1,5 +1,5 @@
 import { createResource, createRoot, onCleanup } from "solid-js";
-import { keyedStore } from "../app/keyedStore";
+import { answered, keyedStore } from "../app/keyedStore";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { useConnectedProject } from "../state/connectedProject";
@@ -23,30 +23,15 @@ const shared = new WeakMap<ConnectedProject, Shared>();
 
 const open = (connected: ConnectedProject): Shared =>
   createRoot((dispose) => {
-    const { storage, rows, revision } = keyedStore<Pad>("incarnation");
-    let reading: Promise<unknown> = Promise.resolve();
-    const [list, { refetch, mutate }] = createResource(() => (reading = connected.app.rpc("pad.list", null)), { storage });
-    let newest: Promise<unknown> = reading.then(() => undefined, () => undefined);
-    let queued: Promise<void> | null = null;
+    const { storage, rows } = keyedStore<Pad>("incarnation");
+    const [list, { refetch, mutate }] = createResource(() => connected.app.rpc("pad.list", null), { storage });
+    const settled = () => answered(list);
 
-    /** Resolves once the newest read has been stored: a read that an Event superseded answers first with the old list. */
-    const settled = async () => {
-      let seen: Promise<unknown>;
-
-      do {
-        seen = newest;
-        await seen;
-      } while (seen !== newest);
-    };
-
-    // `createResource` drops a refetch asked in the same microtask as one it started, so a burst shares one read.
-    const reload = () => {
-      queued ??= Promise.resolve().then(() => {
-        queued = null;
-        newest = Promise.resolve(refetch());
-      });
-
-      return queued.then(settled);
+    // `createResource` drops a refetch asked in the same microtask as one it started, so a burst waits one microtask and shares one read.
+    const reload = async () => {
+      await Promise.resolve();
+      void refetch();
+      await settled();
     };
 
     onCleanup(
@@ -58,7 +43,7 @@ const open = (connected: ConnectedProject): Shared =>
       }),
     );
 
-    return { list: { pads: () => (revision(), rows() ?? []), loaded: () => rows() !== undefined, failure: () => list.error?.message ?? null, reload, settled }, users: 0, dispose };
+    return { list: { pads: () => rows() ?? [], loaded: () => rows() !== undefined, failure: () => list.error?.message ?? null, reload, settled }, users: 0, dispose };
   });
 
 /** One `pad.list`, refetched on every `pad.changed` or `pad.deleted`, serves the Shelf and every Rail row (U58, U18); it logs no Touch. The fetch and the subscription end with the last reader. */

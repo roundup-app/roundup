@@ -96,3 +96,13 @@ it("u5172b_a_stale_todo_list_reply_never_overwrites_a_newer_one", async () => {
   await older;
   expect(todos.all().map(each => each.id)).toEqual([2]);
 });
+
+it("u5172c_a_burst_of_refreshes_shares_one_request", async () => {
+  const { app, todos } = await mountTodos([todo(3)]);
+  const listed = () => app.calls.filter(call => call.method === "todo.list").length;
+  const before = listed();
+
+  await Promise.all([todos.reload(), todos.reload(), todos.reload()]);
+
+  expect(listed()).toBe(before + 1);
+});
