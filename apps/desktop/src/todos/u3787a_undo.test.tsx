@@ -237,9 +237,11 @@ it("u3787a_undo_stays_with_its_project", async () => {
 });
 
 it("u3787a_editor_and_terminal_keep_undo", async () => {
-  const { app, remove } = await mount();
+  const { app, remove, connections } = await mount();
   await remove("/a");
   await acknowledged();
+  // The Drawer hands the receipt to the focused region once its readback ends.
+  await waitFor(() => expect(connections.get("/a")!.drafts.undo.available("")).toBe(true));
 
   for (const markup of ['<input>', '<textarea></textarea>', '<div contenteditable="true" tabindex="0"></div>', '<div class="xterm"><textarea></textarea></div>', '<div role="textbox" tabindex="0"></div>']) {
     const root = document.createElement("div");
