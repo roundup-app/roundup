@@ -838,7 +838,7 @@ pub struct PromptParams {
     pub text: String,
 }
 
-/// One adapter-specific Signal for an Agent; for Claude Code, a hook payload.
+/// A Signal for an Agent (a Claude Code hook payload); `report` (MC20) `<agent>:<seq>` is idempotent.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SignalParams {
     pub id: String,
@@ -846,6 +846,8 @@ pub struct SignalParams {
     pub attempt: Ordinal,
     #[specta(type = std::collections::BTreeMap<String, specta_typescript::Unknown>)]
     pub payload: Value,
+    #[specta(optional)]
+    pub report: Option<String>,
 }
 
 /// What `agent.signal` answers when it has something to say (otherwise `null`): `drop` tells the

@@ -4022,6 +4022,7 @@ dependencies = [
  "rupd",
  "rusqlite",
  "rusqlite_migration",
+ "rustix",
  "schemars 1.2.2",
  "serde_json",
  "tempfile",

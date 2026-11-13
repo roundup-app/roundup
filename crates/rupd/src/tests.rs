@@ -742,3 +742,94 @@ async fn a_watcher_that_ends_early_ends_serve_with_an_error() {
         assert!(err.to_string().contains("watcher"), "{err}");
     }
 }
+
+/// A Daemon whose Rail holds Agent 1, so its Signals apply.
+fn daemon_with_agent(dir: &Path) -> Daemon {
+    let db = storage::connect(dir).unwrap();
+    db.execute(
+        "INSERT OR IGNORE INTO nodes(id,kind,name,parent,ord) VALUES(1,'agent','Direct',NULL,0)",
+        [],
+    )
+    .unwrap();
+    let daemon = daemon_in(dir);
+    daemon.agents.start_for_test("1", None).unwrap();
+    daemon
+}
+
+async fn report(daemon: &Daemon, report: &str) -> Value {
+    ask(
+        daemon,
+        &json!({"jsonrpc":"2.0","id":1,"method":"agent.signal","params":{
+            "id":"1","attempt":"1","payload":{"hook_event_name":"Stop"},"report":report}})
+        .to_string(),
+    )
+    .await
+}
+
+fn mark(daemon: &Daemon, agent: &str) -> u64 {
+    crate::data::read_mark(
+        &rusqlite::Connection::open(daemon.data_dir.join("project.db")).unwrap(),
+        agent,
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn mc20_a_repeated_report_is_acked_and_applied_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = daemon_with_agent(dir.path());
+    let first = report(&daemon, "a1:7").await;
+    assert!(first.get("error").is_none(), "{first}");
+    assert_eq!(mark(&daemon, "a1"), 7);
+    let again = report(&daemon, "a1:7").await;
+    assert_eq!(again["result"], json!({"ack": "a1:7"}));
+    // A lower seq is the same: acked and ignored.
+    assert_eq!(
+        report(&daemon, "a1:3").await["result"],
+        json!({"ack": "a1:3"})
+    );
+    assert_eq!(mark(&daemon, "a1"), 7);
+    // A seq above the Mark applies even when it skips, and a later one below is ignored.
+    assert!(report(&daemon, "a1:9").await.get("error").is_none());
+    assert_eq!(
+        report(&daemon, "a1:8").await["result"],
+        json!({"ack": "a1:8"})
+    );
+    assert_eq!(mark(&daemon, "a1"), 9);
+}
+
+#[tokio::test]
+async fn mc20_marks_are_per_agent() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = daemon_with_agent(dir.path());
+    report(&daemon, "a1:7").await;
+    assert!(report(&daemon, "b2:3").await.get("error").is_none());
+    assert_eq!((mark(&daemon, "a1"), mark(&daemon, "b2")), (7, 3));
+}
+
+#[tokio::test]
+async fn mc20_mark_survives_a_rupd_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    report(&daemon_with_agent(dir.path()), "a1:7").await;
+    let restarted = daemon_with_agent(dir.path());
+    assert_eq!(
+        report(&restarted, "a1:7").await["result"],
+        json!({"ack": "a1:7"})
+    );
+    assert_eq!(mark(&restarted, "a1"), 7);
+}
+
+#[tokio::test]
+async fn mc20_a_failed_apply_does_not_advance_the_mark() {
+    let (_dir, daemon) = daemon();
+    // Agent "nobody" is not on the Rail, so the apply errors.
+    let failed = ask(
+        &daemon,
+        &json!({"jsonrpc":"2.0","id":1,"method":"agent.signal","params":{
+            "id":"nobody","attempt":"1","payload":{},"report":"nobody:4"}})
+        .to_string(),
+    )
+    .await;
+    assert!(failed.get("error").is_some(), "{failed}");
+    assert_eq!(mark(&daemon, "nobody"), 0);
+}

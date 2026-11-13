@@ -117,6 +117,8 @@ pub struct Daemon {
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
     restarting: tokio::sync::Mutex<()>,
+    /// MC20: one report is checked, applied and marked at a time, so a repeat never races its twin.
+    reports: tokio::sync::Mutex<()>,
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
     auto: auto::Auto,
