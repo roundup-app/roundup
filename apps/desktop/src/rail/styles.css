@@ -474,6 +474,32 @@
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
+.machine-chip, .machine-status {
+  white-space: nowrap;
+  cursor: default;
+  color: var(--grey);
+  font-size: var(--text-caption);
+}
+/* The hostname gives way first but never below 8ch, and shows on hover, focus and selection in its reserved space; every chip ends on the row's right edge. */
+.machine-chip {
+  flex: 0 1000 auto;
+  min-width: min(8ch, 100%);
+  max-inline-size: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-inline-start: auto;
+  opacity: 0;
+  pointer-events: none;
+}
+.rail-row:is(:hover, :focus-within, [data-selected="true"]) .machine-chip { opacity: 1; pointer-events: auto; }
+.machine-status {
+  flex: none;
+  margin-inline-start: var(--space-2);
+  color: var(--grey);
+}
+@container (width < env(--query-name-minimal)) {
+  .machine-chip, .machine-status { display: none; }
+}
 .worktree-chips {
   display: flex;
   flex: none;
