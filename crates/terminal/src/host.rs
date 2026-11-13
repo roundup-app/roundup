@@ -322,17 +322,19 @@ pub(super) fn run_params(
         None if remote => argv.push("/bin/sh".into()),
         None => argv.push(std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into())),
     }
-    let mut run = serde_json::json!({
-        "argv": argv,
-        "cwd": params.cwd,
-        "env": env,
-        "size": {"cols": params.cols, "rows": params.rows},
-    });
+    let mut run = serde_json::Map::new();
+    run.insert("argv".into(), serde_json::json!(argv));
+    run.insert("cwd".into(), serde_json::json!(params.cwd));
+    run.insert("env".into(), serde_json::json!(env));
+    run.insert(
+        "size".into(),
+        serde_json::json!({"cols": params.cols, "rows": params.rows}),
+    );
     // MC52: the labels name the Terminal's Project, Agent and Attempt in the core's own list.
     if let Some(labels) = labels {
-        run["labels"] = labels.clone();
+        run.insert("labels".into(), labels.clone());
     }
-    run
+    Value::Object(run)
 }
 
 /// Start `params` in the core. A bad cwd or program is the caller's error
