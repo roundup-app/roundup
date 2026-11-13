@@ -1,6 +1,7 @@
 import type { captureFocus } from "../keys/focus";
 
 export type Permission = ReturnType<typeof captureFocus>;
+
 export type Advance = (permission?: Permission) => Promise<void>;
 
 /**
