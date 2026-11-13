@@ -16,6 +16,7 @@ const CONTEXT_DEADLINE: Duration = Duration::from_secs(4);
 const MAYBE_ARRIVED: &str = "the Signal may or may not have arrived";
 
 mod cli;
+mod machine;
 mod mcp;
 mod seq;
 mod skill;
@@ -105,6 +106,7 @@ async fn main() -> ExitCode {
             print!("{}", skill::help_text());
             return ExitCode::SUCCESS;
         }
+        ["relay"] => machine::relay().await,
         ["ping"] => ping(&options).await,
         ["signal", agent_id] if !agent_id.starts_with('-') => match signal(agent_id).await {
             // B39: the one reason to exit 2, which blocks a prompt that repeats delivered Messages.
@@ -202,8 +204,21 @@ async fn signal(agent_id: &str) -> Result<bool, String> {
     std::io::stdin()
         .read_to_string(&mut input)
         .map_err(|err| format!("cannot read the payload: {err}"))?;
-    let payload =
+    let payload: Value =
         serde_json::from_str(&input).map_err(|err| format!("the payload is not JSON: {err}"))?;
+    if machine::active() {
+        // MC21: the report waits in the Spool; a hook never waits for the Mac.
+        machine::spool(agent_id, "agent.signal", |report| {
+            json!(SignalParams {
+                id: agent_id.to_owned(),
+                attempt,
+                payload,
+                report: Some(report.to_owned()),
+            })
+        })
+        .map_err(|err| format!("cannot spool the report: {err}"))?;
+        return Ok(false);
+    }
     tokio::time::timeout(SIGNAL_DEADLINE, deliver(agent_id, attempt, payload))
         .await
         .map_err(|_| {

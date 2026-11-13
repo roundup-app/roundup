@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use rustix::fs::{FlockOperation, flock};
 
 /// `$RUPQ_DIR`, else `~/.rupq`.
-fn root() -> io::Result<PathBuf> {
+pub(crate) fn root() -> io::Result<PathBuf> {
     if let Some(dir) = std::env::var_os("RUPQ_DIR") {
         return Ok(dir.into());
     }
