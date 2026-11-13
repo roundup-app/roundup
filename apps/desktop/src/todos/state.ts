@@ -95,20 +95,21 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
 
   const contradicted = new Set<(id: number, message: string) => void>();
 
-  createEffect((reported: ReadonlySet<TodoChange>) => {
-    const now = new Set<TodoChange>();
+  // A read that moved a Todo off its base settles the change, so the entry goes once it is judged and a later read cannot revive it.
+  createEffect(() => {
+    const settledIds: number[] = [];
 
     for (const [key, change] of Object.entries(asked())) {
       const value = valueOf(shelf(), Number(key), change);
 
-      if (value === undefined || same(value, change.base) || same(value, change.asked)) continue;
-      now.add(change);
+      if (value === undefined || same(value, change.base)) continue;
+      settledIds.push(Number(key));
 
-      if (!reported.has(change)) contradicted.forEach(show => show(Number(key), copy.changeDidNotApply));
+      if (!same(value, change.asked)) contradicted.forEach(show => show(Number(key), copy.changeDidNotApply));
     }
 
-    return now;
-  }, new Set<TodoChange>());
+    if (settledIds.length) setAsked(each => Object.fromEntries(Object.entries(each).filter(([key]) => !settledIds.includes(Number(key)))));
+  });
 
   // `createResource` drops a refetch asked in the same microtask as one it started, so a burst of Events shares one read that starts after the last of them.
   let queued: Promise<void> | null = null;
