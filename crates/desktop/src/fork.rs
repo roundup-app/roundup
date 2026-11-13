@@ -34,6 +34,17 @@ pub(crate) fn checkout() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
+/// FS5979f: the folder must hold a source checkout (a `.git` and the `justfile` with `app`) before `just app` runs in it.
+pub(crate) fn require_checkout(folder: &Path) -> Result<(), RpcError> {
+    if folder.join(".git").exists() && folder.join("justfile").is_file() {
+        return Ok(());
+    }
+    Err(RpcError::internal(format!(
+        "{}: no source checkout (a git folder with a justfile) to start the branch's App from; start the App from a checkout with `just app`",
+        folder.display()
+    )))
+}
+
 /// Where Forks live: `$ROUNDUP_HOME`, or `~/.roundup`, from the variables `var` reads.
 pub(crate) fn home(var: impl Fn(&str) -> Option<std::ffi::OsString>) -> Option<PathBuf> {
     var("ROUNDUP_HOME")
@@ -207,6 +218,17 @@ mod tests {
     fn fs5979_a_checkout_without_a_branch_is_named_fork() {
         let tmp = tempfile::tempdir().unwrap();
         assert_eq!(branch(tmp.path()), "fork");
+    }
+
+    #[test]
+    fn fs5979f_a_folder_without_a_checkout_is_refused_naming_what_is_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let message = require_checkout(tmp.path()).unwrap_err().message;
+        assert!(message.contains("no source checkout") && message.contains("justfile"));
+        std::fs::create_dir(tmp.path().join(".git")).unwrap();
+        assert!(require_checkout(tmp.path()).is_err());
+        std::fs::write(tmp.path().join("justfile"), "app:\n").unwrap();
+        assert!(require_checkout(tmp.path()).is_ok());
     }
 
     #[test]
