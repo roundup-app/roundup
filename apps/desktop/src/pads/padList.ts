@@ -26,13 +26,27 @@ const open = (connected: ConnectedProject): Shared =>
     const { storage, rows, revision } = keyedStore<Pad>("incarnation");
     let reading: Promise<unknown> = Promise.resolve();
     const [list, { refetch, mutate }] = createResource(() => (reading = connected.app.rpc("pad.list", null)), { storage });
+    let newest: Promise<unknown> = reading.then(() => undefined, () => undefined);
+    let queued: Promise<void> | null = null;
 
-    /** Joins the read in flight, a failed one included. */
-    const settled = () => reading.then(() => undefined, () => undefined);
+    /** Resolves once the newest read has been stored: a read that an Event superseded answers first with the old list. */
+    const settled = async () => {
+      let seen: Promise<unknown>;
 
-    const reload = async () => {
-      await refetch();
-      await settled();
+      do {
+        seen = newest;
+        await seen;
+      } while (seen !== newest);
+    };
+
+    // `createResource` drops a refetch asked in the same microtask as one it started, so a burst shares one read.
+    const reload = () => {
+      queued ??= Promise.resolve().then(() => {
+        queued = null;
+        newest = Promise.resolve(refetch());
+      });
+
+      return queued.then(settled);
     };
 
     onCleanup(

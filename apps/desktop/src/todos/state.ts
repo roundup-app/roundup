@@ -112,18 +112,28 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
 
   // `createResource` drops a refetch asked in the same microtask as one it started, so a burst of Events shares one read that starts after the last of them.
   let queued: Promise<void> | null = null;
+  let newest: Promise<unknown> = Promise.resolve();
+
+  /** Resolves once the newest read has answered: a read that an Event superseded answers with the old list, which must not end a wait. */
+  const settled = async () => {
+    let seen: Promise<unknown>;
+
+    do {
+      seen = newest;
+      await seen;
+    } while (seen !== newest);
+  };
 
   const reload = () => {
     setWaiting(true);
 
-    return queued ??= Promise.resolve().then(async () => {
+    queued ??= Promise.resolve().then(() => {
       queued = null;
-
-      const reads = Promise.all([refetch(), refetchFacts()]);
-
+      newest = Promise.all([refetch(), refetchFacts()]);
       setWaiting(false);
-      await reads;
     });
+
+    return queued.then(settled);
   };
 
   onCleanup(
