@@ -138,8 +138,6 @@ export const Todos = (props: {
     },
   });
 
-  const { hidden, openOrder } = createListModel({ rows: dependencyRows, visible: id => dependency.visible(id), closedGroups, groupOf });
-
   const dependency = createDependencyGroups({
     project: connected, key: () => connected.rail.selected() ?? "overview",
     keys: () => new Set(["overview", ...connected.rail.nodes.map(node => node.id)]),
@@ -178,6 +176,8 @@ export const Todos = (props: {
       });
     },
   });
+
+  const { hidden, openOrder } = createListModel({ rows: dependencyRows, visible: id => dependency.visible(id), closedGroups, groupOf });
 
   // U3770: a Todo ticked in the open list stays in it, drawn done, until its motion ends, then moves to the done fold.
   const finishingRow = (todo: Todo) => todo.done && finishing.row(todo.id);

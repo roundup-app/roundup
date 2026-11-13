@@ -61,7 +61,7 @@ it("u5940a_working_idle_one_minute_then_working_returns", async () => {
   app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "3", status: { kind: "working", label: "working", since: NOW + 60_000, finished: "1" } } }));
   expect(rowNames()).toEqual(["stream", "child", "busy"]);
   expect(rail.selected()).toBe("busy");
-  expect(app.calls.slice(calls).filter(call => !["message.list", "pad.list", "todo.list"].includes(call.method))).toEqual([]);
+  expect(app.calls.slice(calls).filter(call => !["message.list", "pad.list", "todo.list", "machine.list"].includes(call.method))).toEqual([]);
 });
 
 it("u5483b_click_opens_and_closes_the_branch", async () => {

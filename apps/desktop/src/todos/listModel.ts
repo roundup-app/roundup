@@ -1,3 +1,4 @@
+import { createMemo } from "solid-js";
 import { afterElseBefore } from "../keys/survivor";
 import type { Todo } from "@contracts/todo/Todo";
 
@@ -44,7 +45,7 @@ export const createListModel = (input: {
   groupOf: (todo: Todo) => string;
 }) => {
   const hidden = (todo: Todo) => !input.visible(todo.id) || input.closedGroups().includes(input.groupOf(todo));
-  const openOrder = () => input.rows().flatMap(row => !row.todo.done && !hidden(row.todo) ? [row.todo.id] : []);
+  const openOrder = createMemo(() => input.rows().flatMap(row => !row.todo.done && !hidden(row.todo) ? [row.todo.id] : []));
 
   return { hidden, openOrder };
 };
