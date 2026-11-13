@@ -434,7 +434,7 @@ export const Todos = (props: {
     chooseComment(todo.id);
 
     const content = () => <TodoDrawer id={todo.id} todos={todos} order={order} region={shelf ? "shelf" : "todos"} onNavigate={id => { if (todos.byId().has(id)) show(todos.byId().get(id)!, "key", order); }} onComment={focus => focus(() => {
-      const advance = advanceOf("comment");
+      const advance = untrack(() => advanceOf("comment"));
 
       if (!triage.on() || !advance) return;
       connected.drawer.close("key");
@@ -588,12 +588,6 @@ export const Todos = (props: {
     else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: survivorOf(untrack(openOrder), id) ?? null, reopening: false, focus }]);
   };
 
-  const askComment = (todo: Todo) => {
-    if (selectedId() !== todo.id) show(todo, "key");
-    triage.askComment(todo.id);
-    chooseComment(todo.id);
-  };
-
   registerKeys({ kind: "app" }, [
     {
       chords: [...CHORD_ROWS.filter(row => row.inTriage && row.name !== "todo.triage-leave").flatMap(row => chordsOf(row)), ...chordsOf(CHORDS["todo.assign"])],
@@ -629,7 +623,11 @@ export const Todos = (props: {
       clearFailures();
       void toggle(todo).then(message => pickFails.get(todo.id)?.show(message));
     }),
-    triageKey("todo.triage-comment", askComment),
+    triageKey("todo.triage-comment", (todo) => {
+      if (selectedId() !== todo.id) show(todo, "key");
+      triage.askComment(todo.id);
+      chooseComment(todo.id);
+    }),
   ]);
 
   /** U2694b: Complete (only for open Todos), Send to Agent ▸, Copy Link, Delete, as the system menu of a row; Delete asks as U461 does. */
