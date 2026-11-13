@@ -36,6 +36,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Agent | same | bot, worker; and session for an Agent. |
 | Terminal | same | process, console |
 | Terminal preparation (`TerminalPreparation`, `prepareTerminal`, `prepare`, `bind`) | none | — |
+| Terminal labels (`terminal::reconcile::labels`, `Listed`, `Step`, `plan`, `reconcile`: the Project, Agent and Attempt a Terminal in the core carries, and the steps that make the core's live list match the Agents) | none | — |
 | Terminal dimensions (`cols`, `rows`, `terminal::window`) | same | — |
 | Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
 | Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
