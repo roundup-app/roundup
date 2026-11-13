@@ -22,6 +22,7 @@ const emptyReads: Handlers = {
   "daemon.methods": () => OWN_CONTRACT.methods,
   "daemon.ping": () => ({ pong: true, pid: 1, project: "/project", projectKey: "project-0000000000000000", contract: { fingerprint: OWN_CONTRACT.fingerprint } }),
   "rail.tree": () => [],
+  "machine.list": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "terminal.list": () => [],
   "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),

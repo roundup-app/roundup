@@ -182,12 +182,15 @@ pub struct Install {
 impl Install {
     /// The config folder is `CLAUDE_CONFIG_DIR` when set and non-empty, else `HOME/.claude`.
     /// `rup` is the absolute path the hook commands start with.
-    pub fn from_vars(var: impl Fn(&str) -> Option<OsString>, rup: &Path) -> Result<Self, String> {
+    pub fn from_vars(
+        var: impl Fn(&str) -> Option<OsString>,
+        rup: &Path,
+    ) -> Result<Self, crate::Error> {
         let var = |name: &str| var(name).filter(|value| !value.is_empty());
         let config = match (var("CLAUDE_CONFIG_DIR"), var("HOME")) {
             (Some(dir), _) => PathBuf::from(dir),
             (None, Some(home)) => PathBuf::from(home).join(".claude"),
-            (None, None) => return Err("neither CLAUDE_CONFIG_DIR nor HOME is set".into()),
+            (None, None) => return Err(crate::Error::NoConfigDir),
         };
         let claude_found = var("PATH").is_some_and(|path| {
             std::env::split_paths(&path).any(|dir| {
