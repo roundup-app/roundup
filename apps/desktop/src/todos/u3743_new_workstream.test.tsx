@@ -102,3 +102,11 @@ it("u3743_esc_cancels_with_no_call_and_a_refusal_keeps_the_values", async () => 
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "New Workstream" })).toBeNull());
   expect(callsTo(app, "todo.startWorkstream")).toHaveLength(1);
 });
+
+it("u3743_choosing_new_workstream_opens_naming_with_focus_in_it", async () => {
+  await mount();
+  const dialog = await openDialog();
+
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+});
