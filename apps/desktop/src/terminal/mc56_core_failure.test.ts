@@ -44,6 +44,7 @@ describe("MC56", () => {
     expect(failures.shown("t")?.entry.message).toBe(coreFailureLabel("core_closed"));
     failures.set("t", "live", "disk full");
     expect(failures.shown("t")?.entry.message).toBe("disk full");
+    expect(coreFailureText("core_io: io: broken pipe")).toBe(coreFailureLabel("core_io"));
     expect(coreFailureText("unsupported_generation: herdr-core refused")).toBe(coreFailureLabel("unsupported_generation"));
   });
 });
