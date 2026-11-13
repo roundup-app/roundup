@@ -51,15 +51,20 @@ fn params(dir: &Path, command: &[&str], env: &[(&str, &str)]) -> SpawnParams {
 
 /// The screen's text once `needle` shows, or what it held at the bound.
 async fn screen_with(terminals: &Terminals, id: &str, needle: &str) -> String {
-    let mut text = String::new();
-    for _ in 0..100 {
-        text = terminals.read_screen(id, None).unwrap().lines.join("\n");
-        if text.contains(needle) {
-            break;
+    let screen = || terminals.read_screen(id, None).unwrap().lines.join("\n");
+    // Subscribe first, then read: output before the subscription is on the screen already.
+    let Ok(mut output) = terminals.subscribe_output(id) else {
+        return screen();
+    };
+    let wait = async {
+        while !screen().contains(needle) {
+            if output.next().await.is_none() {
+                break;
+            }
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    text
+    };
+    let _ = tokio::time::timeout(Duration::from_secs(10), wait).await;
+    screen()
 }
 
 #[tokio::test]
