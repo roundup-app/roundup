@@ -1,15 +1,17 @@
-import { createMemo } from "solid-js";
+import { createEffect, createRoot, createSignal } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 
-/** A `createResource` `storage` that reconciles each reply by `key`, so a refetch that changes one row leaves every other row untouched. `rows` is the last reply, `revision` counts the replies accepted (an observer of the whole list needs one when a reconcile keeps its array), which a later failed read leaves in place (the resource's own `latest` throws then). */
+/** A `createResource` `storage` that reconciles each reply by `key`, so a refetch that changes one row leaves every other row untouched. `rows` is the last reply, which a later failed read leaves in place (the resource's own `latest` throws then). */
 export const keyedStore = <Row extends object>(key: string) => {
-  const [shelf, setShelf] = createStore<{ rows: Row[] | undefined; revision: number }>({ rows: undefined, revision: 0 });
+  const [shelf, setShelf] = createStore<{ rows: Row[] | undefined }>({ rows: undefined });
 
-  const rows = createMemo(() => shelf.rows, undefined, { equals: false });
+  // A reconcile keeps the array, so the signal, not the store, tells an observer of the whole list that a reply landed.
+  const [rows, setRows] = createSignal<Row[] | undefined>(undefined, { equals: false });
 
   const storage = (init: Row[] | undefined): [Accessor<Row[] | undefined>, Setter<Row[] | undefined>] => {
     setShelf("rows", init);
+    setRows(() => shelf.rows);
 
     // `createResource` hands its setter a reply from `mutate` and a function returning it from a fetch.
     const write = (next: Row[] | undefined | (() => Row[] | undefined)) => {
@@ -17,7 +19,8 @@ export const keyedStore = <Row extends object>(key: string) => {
 
       // SAFETY: `reconcile` takes the array, and `undefined` only reaches it from the initial value, which `createResource` never writes.
       setShelf("rows", reconcile(reply as Row[], { key }));
-      setShelf("revision", shelf.revision + 1);
+
+      setRows(() => shelf.rows);
 
       return shelf.rows;
     };
@@ -26,5 +29,17 @@ export const keyedStore = <Row extends object>(key: string) => {
     return [rows, write as Setter<Row[] | undefined>];
   };
 
-  return { storage, rows, revision: () => shelf.revision };
+  return { storage, rows };
 };
+
+/** Resolves once `resource.loading` is false: `createResource` keeps it true across a superseding read, so it ends only when the newest read has answered. */
+export const answered = (resource: { readonly loading: boolean }): Promise<void> =>
+  new Promise((resolve) => {
+    createRoot((dispose) => {
+      createEffect(() => {
+        if (resource.loading) return;
+        dispose();
+        resolve();
+      });
+    });
+  });

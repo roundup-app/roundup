@@ -48,6 +48,28 @@ describe("u18 list and ownership", () => {
     expect(document.querySelector('[data-pad="keep"]')).not.toBeNull();
   });
 
+  it("u5172c_a_burst_of_refreshes_shares_one_request", async () => {
+    const { app, state, calls } = await openShelf([padOf("auth-notes", AGENT)]);
+    await screen.findByText("auth-notes");
+    const before = calls().filter(method => method === "pad.list").length;
+    state.pads = [...state.pads, padOf("newest", AGENT)];
+
+    for (const name of ["a", "b", "c"]) app.emit({ actor: AGENT, name: "pad.changed", data: { name } });
+    await screen.findByText("newest");
+
+    expect(calls().filter(method => method === "pad.list").length).toBe(before + 1);
+  });
+
+  it("u5172c_a_pad_changed_event_refreshes_without_a_revision", async () => {
+    const { app, state } = await openShelf([padOf("auth-notes", AGENT)]);
+    await screen.findByText("auth-notes");
+    state.pads = [{ ...padOf("auth-notes", AGENT), text: "edited" }, padOf("added", AGENT)];
+
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "added" } });
+
+    await screen.findByText("added");
+  });
+
   it("u18_an_older_pad_list_reply_that_arrives_late_never_wins", async () => {
     const { app } = await openShelf([padOf("auth-notes", AGENT)]);
     await screen.findByText("auth-notes");
