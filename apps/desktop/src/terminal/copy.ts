@@ -49,4 +49,11 @@ export const copy = {
   linkNotOpened: (cause: string) => `link not opened: ${cause}`,
   /** @prose */
   pathNotFound: (path: string, tried: string) => `path not found: ${path} (tried ${tried})`,
+  coreFailure_core_missing: "Terminals are not available on this Mac.",
+  coreFailure_unsupported_generation: "Terminals need an update before they can start.",
+  coreFailure_core_closed: "The Terminal connection was lost.",
+  coreFailure_core_silent: "Terminals did not answer.",
+  coreFailure_core_error: "The Terminal could not start.",
+  coreFailure_core_protocol: "Terminals answered in a way the App cannot read.",
+  coreFailure_core_io: "Terminals could not be reached.",
 } as const;

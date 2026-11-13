@@ -20,8 +20,7 @@ import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSc
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import type { TodosState } from "./state";
 
-/** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
-export const TodoDrawer = (props: {
+type DrawerProps = {
   id: number;
   order?: readonly number[];
   /** The list that opened this Drawer keeps its acknowledged deletion available to Undo. */
@@ -31,7 +30,18 @@ export const TodoDrawer = (props: {
   todos: TodosState;
   /** Recovery uses loaded original identities and never fetches or acknowledges History. */
   recovery?: { project: string; revision: string };
-}) => {
+};
+
+/** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. A body lives under one id: moving to another Todo remounts it, so nothing it holds outlives the Todo it was made for. */
+export const TodoDrawer = (props: DrawerProps) => <Show when={props.id} keyed>{id => {
+  const focused = document.activeElement;
+  const navigation = focused instanceof HTMLElement && focused.hasAttribute("data-todo-navigation") ? focused.getAttribute("aria-label") : null;
+
+  return <TodoDrawerBody {...props} id={id} navigation={navigation} />;
+}}</Show>;
+
+/** `navigation` names the header button that had focus when the body was replaced, so the new body returns focus to it. */
+const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const connected = useConnectedProject();
   const { app, drawer, drafts, project, events } = connected;
   drafts.validate("todos", todoDraftSchema);
@@ -97,7 +107,6 @@ export const TodoDrawer = (props: {
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
 
-  createEffect(on(() => props.id, () => { clearFailure(); setNoticeDismissed(false); }, { defer: true }));
   onCleanup(events.subscribe(event => {
     if (doesClearTodoFailure(event, props.id)) clearFailure();
   }));
@@ -286,7 +295,7 @@ export const TodoDrawer = (props: {
   return (
     <>
       <div class="todo-detail" tabIndex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
-        <Show when={todo()}>{current => <TodoHeader todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
+        <Show when={todo()}>{current => <TodoHeader navigation={props.navigation} todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
         <ReservedLine class="todo-delete-feedback"
           aria-live={drafts.undo.uncertain() ? undefined : "polite"} aria-atomic="true"
           message={deletionRefusal() && drafts.undo.uncertain() ? deletionRefusal() : failure()}
