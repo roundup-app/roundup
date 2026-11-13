@@ -66,7 +66,7 @@ pub use dock::{DockMenu, Row};
 #[cfg(target_os = "macos")]
 mod rows;
 #[cfg(target_os = "macos")]
-pub use rows::{TrayRow, apply as apply_rows, set_tray_menu, style_tray};
+pub use rows::{TrayRow, apply as apply_rows, set_tray_menu, style_tray, watch_menu_tracking};
 
 mod look;
 pub use look::{Look, Tone};
