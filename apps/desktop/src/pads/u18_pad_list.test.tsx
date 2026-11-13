@@ -33,6 +33,21 @@ describe("u18 list and ownership", () => {
     await waitFor(() => expect(calls()).not.toContain("pad.read"));
   });
 
+  it("u5172b_an_event_patch_and_a_refetch_do_not_race", async () => {
+    const { app } = await openShelf([padOf("auth-notes", AGENT), padOf("keep", AGENT)]);
+    await screen.findByText("auth-notes");
+    const reply = deferred<Pad[]>();
+
+    app.handlers["pad.list"] = () => reply.promise;
+    app.emit({ actor: AGENT, name: "pad.deleted", data: { name: "auth-notes" } });
+    await waitFor(() => expect(document.querySelector('[data-pad="auth-notes"]')).toBeNull());
+    expect(document.querySelector('[data-pad="keep"]')).not.toBeNull();
+    reply.resolve([padOf("keep", AGENT)]);
+    await new Promise((done) => setTimeout(done, 0));
+    expect(document.querySelector('[data-pad="auth-notes"]')).toBeNull();
+    expect(document.querySelector('[data-pad="keep"]')).not.toBeNull();
+  });
+
   it("u18_an_older_pad_list_reply_that_arrives_late_never_wins", async () => {
     const { app } = await openShelf([padOf("auth-notes", AGENT)]);
     await screen.findByText("auth-notes");
