@@ -431,7 +431,7 @@ impl ClaudeCode {
     fn observe_processes(
         &mut self,
         root: u32,
-        snapshot: Result<&[background::Process], String>,
+        snapshot: Result<&[background::Process], &crate::Error>,
     ) -> Option<Status> {
         if self.ending != Ending::Running {
             return None;
@@ -515,7 +515,7 @@ impl ClaudeCode {
             }
             Observation::Tick => self.tick(),
             Observation::Processes { root, table } => {
-                self.observe_processes(root, table.as_deref().map_err(Clone::clone))
+                self.observe_processes(root, table.as_deref())
             }
             Observation::Signal(payload) => {
                 self.active_at = (self.clock)();

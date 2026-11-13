@@ -739,8 +739,8 @@ impl Shared {
         };
         let table = match tokio::task::spawn_blocking(claude_code::background::read_table).await {
             Ok(Ok(table)) => Ok(claude_code::background::snapshot(&table, (self.clock)())),
-            Ok(Err(err)) => Err(format!("cannot read the process table: {err}")),
-            Err(err) => Err(format!("the process scan stopped: {err}")),
+            Ok(Err(err)) => Err(crate::Error::ProcessTableUnreadable(err)),
+            Err(err) => Err(crate::Error::from(err)),
         };
         self.observe(
             Actor::daemon(),
