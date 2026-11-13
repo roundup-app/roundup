@@ -264,6 +264,8 @@ async fn n16_all_stores_share_one_project_database() {
     // M5159c: no migration drops the retired Checkpoint tables; no store creates or reads them.
     actual.remove("checkpoints");
     actual.remove("marks");
+    // MC20: the report Marks are the Daemon's own; they are proved through its RPC.
+    actual.remove("report_marks");
     assert_eq!(actual, expected);
     assert_eq!(
         Migrations::new(storage::migrations())
