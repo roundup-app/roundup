@@ -33,7 +33,11 @@ it("u3512d_reopen_owns_exit_completion", async () => {
     const menu = await screen.findByRole("menu", { name: "Owners for #1" });
     fireEvent.pointerDown(within(menu).getByText("New Workstream…"), { pointerType: "mouse", button: 0 });
     fireEvent.click(within(menu).getByText("New Workstream…"), { detail: 1 });
-    await waitFor(() => expect(screen.getByRole("dialog", { name: "New Workstream" })).toHaveProperty("inert", false));
+    // U3743: the dialog opens once the menu's exit completes, which waits on a frame.
+    await waitFor(() => {
+      vi.advanceTimersToNextFrame();
+      expect(screen.getByRole("dialog", { name: "New Workstream" })).toHaveProperty("inert", false);
+    });
 
     return screen.getByRole("dialog", { name: "New Workstream" });
   };
