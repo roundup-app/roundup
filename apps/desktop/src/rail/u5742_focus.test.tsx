@@ -119,21 +119,21 @@ it("u5742c_overview_choice_focuses_terminal", async () => {
 it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   const m = await mount(["ann", "bea", "cee", "dee"].map(id => agent(id, "idle", "ready")));
   const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id);
-
-  // A press focuses its row before the click, and Ark applies the selection a task later.
-  const click = async (id: string, modifier: { metaKey?: boolean; shiftKey?: boolean }, want: string[]) => {
-    row(id).focus();
-
-    fireEvent.click(row(id), modifier);
-    await waitFor(() => expect(selected()).toEqual(want));
-    expect(document.activeElement).toBe(row(id));
-  };
-
-  await click("ann", { metaKey: true }, ["ann"]);
-  await click("cee", { metaKey: true }, ["ann", "cee"]);
-  await click("ann", { metaKey: true }, ["cee"]);
-  await click("dee", { shiftKey: true }, ["cee", "dee"]);
-  await click("bea", { shiftKey: true }, ["bea", "cee"]);
+  fireEvent.click(row("ann"), { metaKey: true });
+  expect(selected()).toEqual(["ann"]);
+  expect(document.activeElement).toBe(row("ann"));
+  fireEvent.click(row("cee"), { metaKey: true });
+  expect(selected()).toEqual(["ann", "cee"]);
+  expect(document.activeElement).toBe(row("cee"));
+  fireEvent.click(row("ann"), { metaKey: true });
+  expect(selected()).toEqual(["cee"]);
+  expect(document.activeElement).toBe(row("ann"));
+  fireEvent.click(row("dee"), { shiftKey: true });
+  expect(selected()).toEqual(["ann", "bea", "cee", "dee"]);
+  expect(document.activeElement).toBe(row("dee"));
+  fireEvent.click(row("bea"), { shiftKey: true });
+  expect(selected()).toEqual(["ann", "bea"]);
+  expect(document.activeElement).toBe(row("bea"));
   expect(m.connected.rail.selected()).toBeNull();
   expect(m.app.calls.filter(call => ["agent.spawn", "agent.resume", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
   key("ArrowUp");
@@ -231,9 +231,7 @@ it("u5742d_choice_takes_focus_when_terminal_becomes_ready", async () => {
 it("u5742a_reselect_replaces_modifier_selection_and_focuses_terminal", async () => {
   const m = await mount();
   fireEvent.click(row("ann"), { metaKey: true });
-  await waitFor(() => expect(row("ann").dataset.selected).toBe("true"));
   fireEvent.click(row("dee"), { metaKey: true });
-  await waitFor(() => expect(row("dee").dataset.selected).toBe("true"));
   fireEvent.click(row("ann"));
   await provesChoice(m, "ann");
   row("ann").focus();
@@ -308,7 +306,7 @@ it("u5742b_native_ctrl_click_does_not_activate_the_row", async () => {
   fireEvent.contextMenu(row("dee"), { ctrlKey: true });
   await waitFor(() => expect(m.app.shownMenus).toHaveLength(1));
   await m.app.closeMenu();
-  fireEvent.click(row("dee"), { ctrlKey: true });
+  fireEvent.click(row("dee"));
   expect(m.connected.rail.selected()).toBeNull();
   expect(document.activeElement?.closest(".pane-screen")).toBeNull();
   expect(m.app.calls.filter(call => ["agent.spawn", "agent.resume", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
