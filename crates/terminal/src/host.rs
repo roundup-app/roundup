@@ -345,10 +345,7 @@ impl Terminals {
         let conn = herdr::Conn::spawn(command, CORE_TIMEOUT)
             .await
             .map(Arc::new)
-            .map_err(|err| match err {
-                herdr::Error::Missing => Error::internal("herdr-core is not installed"),
-                other => Error::internal(other),
-            })?;
+            .map_err(|err| Error::core(&err))?;
         *slot = Some(Arc::clone(&conn));
         Ok(conn)
     }
@@ -434,7 +431,7 @@ pub(super) async fn run(
         Err(herdr::Error::Rpc(err)) if err.kind == "spawn_failed" => {
             Err(invalid(format!("cannot run the program: {}", err.message)))
         }
-        Err(err) => Err(Error::internal(err)),
+        Err(err) => Err(Error::core(&err)),
     }
 }
 
