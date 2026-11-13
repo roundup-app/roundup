@@ -255,12 +255,8 @@ pub(super) fn default_core() -> Option<std::path::PathBuf> {
 /// MC59: a scratch `HOME`, and a session that is not `roundup`, for a test-support core, so no path
 /// of it reaches `~/.local/state/herdr-core/roundup/`.
 #[cfg(feature = "test-support")]
-pub(super) fn scratch_home() -> std::path::PathBuf {
-    tempfile::Builder::new()
-        .prefix("roundup-core-")
-        .tempdir()
-        .expect("a scratch dir")
-        .keep()
+pub(super) fn scratch_home() -> std::io::Result<std::path::PathBuf> {
+    Ok(tempfile::Builder::new().prefix("roundup-core-").tempdir()?.keep())
 }
 
 /// Whether `program` is an executable file, as given or found on the launch's `PATH`.

@@ -292,7 +292,7 @@ impl Terminals {
             test_input: None,
             core_bin: host::default_core(),
             #[cfg(feature = "test-support")]
-            scratch: host::scratch_home(),
+            scratch: host::scratch_home()?,
             core: tokio::sync::Mutex::new(None),
             remotes: Arc::new(Remotes::ssh()),
             shared: Arc::new(Shared {
