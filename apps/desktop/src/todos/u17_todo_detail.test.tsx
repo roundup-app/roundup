@@ -2,7 +2,7 @@ import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
-import { assertKind, mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
+import { assertKind, leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 import { USER } from "../testing/nodes";
 
 afterEach(() => {
@@ -138,11 +138,11 @@ describe("u17 Todo detail", () => {
     const { app } = await openDrawerOf(/#5/);
     app.handlers["todo.update"] = () => blocked();
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
-    const field = within(drawer()).getByRole("textbox", { name: "Title" });
+    const field = await within(drawer()).findByRole("textbox", { name: "Title" });
 
     fireEvent.input(field, { target: { value: "session cache" } });
-    fireEvent.blur(field);
-    fireEvent.blur(field);
+    await leaveTitle();
+    await leaveTitle();
 
     await waitFor(() => expect(callsTo(app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 5, title: "session cache", body: null, expected_change: 2 } }]));
   });
@@ -151,7 +151,7 @@ describe("u17 Todo detail", () => {
     const { app } = await openDrawerOf(/#5/);
     app.handlers["todo.update"] = () => blocked();
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
-    const field = within(drawer()).getByRole("textbox", { name: "Title" });
+    const field = await within(drawer()).findByRole("textbox", { name: "Title" });
     field.focus();
 
     fireEvent.input(field, { target: { value: "session cache" } });
@@ -177,7 +177,7 @@ describe("u17 Todo detail", () => {
     const { app } = await openDrawerOf(/#5/);
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
 
-    fireEvent.blur(within(drawer()).getByRole("textbox", { name: "Title" }));
+    await leaveTitle();
 
     expect(callsTo(app, "todo.update")).toEqual([]);
   });
@@ -185,12 +185,12 @@ describe("u17 Todo detail", () => {
   it("u17_leaving_a_field_untouched_after_another_actor_renamed_the_todo_calls_nothing_and_shows_their_title", async () => {
     const { app, store } = await openDrawerOf(/#5/);
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
-    const field = within(drawer()).getByRole("textbox", { name: "Title" });
+    const field = await within(drawer()).findByRole("textbox", { name: "Title" });
     store.todos = shelf().map((each) => (each.id === 5 ? { ...each, title: "their title" } : each));
     app.emit(todoEvent("todo.updated", todo(5)));
     await screen.findByRole("button", { name: /^Blocked #5 their title/ });
 
-    fireEvent.blur(field);
+    await leaveTitle();
 
     expect(callsTo(app, "todo.update")).toEqual([]);
     expect((await within(drawer()).findByText(store.todos.find(item => item.id === 5)!.title, { selector: "p" })).textContent).toBe(store.todos.find(item => item.id === 5)!.title);
@@ -200,9 +200,9 @@ describe("u17 Todo detail", () => {
     const { app } = await openDrawerOf(/#5/);
     app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32602, "title is empty"));
     fireEvent.dblClick(within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }));
-    fireEvent.input(within(drawer()).getByRole("textbox", { name: "Title" }), { target: { value: "typed" } });
+    fireEvent.input(await within(drawer()).findByRole("textbox", { name: "Title" }), { target: { value: "typed" } });
 
-    fireEvent.blur(within(drawer()).getByRole("textbox", { name: "Title" }));
+    await leaveTitle();
 
     await within(drawer()).findByText(/title is empty/);
     expect(within(drawer()).getByRole("textbox", { name: "Title" })).toHaveProperty("value", "typed");
