@@ -86,6 +86,7 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
 
 /// The one reader of a menu item's id text.
 enum MenuCommand<'a> {
+    Update,
     AppSettings,
     ForkSheet,
     /// An id the Project or Edit menu holds, kept whole as the payload's `command`.
@@ -97,6 +98,7 @@ enum MenuCommand<'a> {
 impl<'a> MenuCommand<'a> {
     fn parse(id: &'a str) -> Self {
         match id {
+            crate::updater::ITEM => Self::Update,
             "app-settings" => Self::AppSettings,
             "fork-sheet" => Self::ForkSheet,
             "import-work" | "project-settings" => Self::Project(id),
@@ -108,6 +110,7 @@ impl<'a> MenuCommand<'a> {
 
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     match MenuCommand::parse(event.id().0.as_str()) {
+        MenuCommand::Update => crate::updater::choose(app),
         MenuCommand::AppSettings => {
             if let Err(error) = app.emit("open-app-settings", ()) {
                 crate::diagnostics::failure("open Settings", &error);
