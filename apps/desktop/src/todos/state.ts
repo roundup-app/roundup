@@ -75,11 +75,12 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
   const { storage, rows } = keyedStore<Todo>("id");
   const [list, { refetch }] = createResource(() => app.rpc("todo.list", null), { storage });
   const [facts, { refetch: refetchFacts }] = createResource(() => app.rpc("todo.listHanded", null));
+  const [waiting, setWaiting] = createSignal(false);
   const shelf = () => rows() ?? [];
   const isLoaded = () => rows() !== undefined;
   const failure = () => list.error?.message ?? null;
   // Unknown Hand-offs never hold the ordinary list behind an additional read.
-  const handed = () => list.loading || list.error || facts.loading || facts.error ? null : facts.latest ?? null;
+  const handed = () => waiting() || list.loading || list.error || facts.loading || facts.error ? null : facts.latest ?? null;
   const handedFailure = () => facts.error?.message ?? null;
 
   const [asked, setAsked] = createSignal<Readonly<Record<number, TodoChange>>>({});
@@ -112,10 +113,18 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
   // `createResource` drops a refetch asked in the same microtask as one it started, so a burst of Events shares one read that starts after the last of them.
   let queued: Promise<void> | null = null;
 
-  const reload = () => queued ??= Promise.resolve().then(async () => {
-    queued = null;
-    await Promise.all([refetch(), refetchFacts()]);
-  });
+  const reload = () => {
+    setWaiting(true);
+
+    return queued ??= Promise.resolve().then(async () => {
+      queued = null;
+
+      const reads = Promise.all([refetch(), refetchFacts()]);
+
+      setWaiting(false);
+      await reads;
+    });
+  };
 
   onCleanup(
     events.subscribe((event) => {

@@ -5,10 +5,21 @@ import { goesLine, staysLine, judgeRemoval, removalQuestion } from "./removal";
 import { todo } from "../../todos/testHarness";
 import { padOf } from "../../pads/padsFixture";
 import { RpcError } from "../../app/seam";
-import { agent, info, workstream } from "../../testing/nodes";
+import { agent, event, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
+
+/** The Rail removes from the lists it last read, so a test that changes what the Daemon answers has the Rail read again first. */
+const reread = async (app: ReturnType<typeof createFakeApp>) => {
+  const reads = () => app.calls.filter(call => call.method === "todo.list" || call.method === "pad.list").length;
+  const before = reads();
+
+  app.emit(event({ name: "todo.updated", data: todo(1) }));
+  app.emit(event({ name: "pad.changed", data: { name: "notes" } }));
+  await waitFor(() => expect(reads()).toBeGreaterThanOrEqual(before + 2));
+  await settled();
+};
 
 it("u4601_buttons_follow_what_stays_nonempty", async () => {
   const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
@@ -30,6 +41,7 @@ it("u4601_the_native_request_uses_the_plan", async () => {
   app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "dirty", ahead: id === "ahead" ? 2 : 0, behind: 0 });
   app.handlers["todo.list"] = () => [todo(1, { home: "chosen" })];
   app.handlers["pad.list"] = () => [{ ...padOf("notes", { kind: "agent", id: "running", parent: null }), home: "chosen" }];
+  await reread(app);
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
@@ -159,6 +171,7 @@ it.each(["pad.list", "todo.list"] as const)("u5301a_a_failed_pad_or_todo_read_op
   app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
   app.handlers[method] = () => { throw new RpcError(-32603, `no reply to ${method} within 5s`); };
 
+  await reread(app);
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
