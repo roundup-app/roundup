@@ -23,7 +23,7 @@ const shared = new WeakMap<ConnectedProject, Shared>();
 
 const open = (connected: ConnectedProject): Shared =>
   createRoot((dispose) => {
-    const { storage, rows, revision } = keyedStore<Pad>("incarnation");
+    const { storage, rows } = keyedStore<Pad>("incarnation");
     let reading: Promise<unknown> = Promise.resolve();
     const [list, { refetch, mutate }] = createResource(() => (reading = connected.app.rpc("pad.list", null)), { storage });
 
@@ -44,7 +44,7 @@ const open = (connected: ConnectedProject): Shared =>
       }),
     );
 
-    return { list: { pads: () => (revision(), rows() ?? []), loaded: () => rows() !== undefined, failure: () => list.error?.message ?? null, reload, settled }, users: 0, dispose };
+    return { list: { pads: () => rows()?.slice() ?? [], loaded: () => rows() !== undefined, failure: () => list.error?.message ?? null, reload, settled }, users: 0, dispose };
   });
 
 /** One `pad.list`, refetched on every `pad.changed` or `pad.deleted`, serves the Shelf and every Rail row (U58, U18); it logs no Touch. The fetch and the subscription end with the last reader. */
