@@ -90,7 +90,7 @@ mod tests {
     use serde_json::json;
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, duplex};
 
-    const HELLO: &str = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.18","framed":true,"methods":["machine.list","machine.add"]}}"#;
+    const HELLO: &str = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","framed":true,"methods":["machine.list","machine.add"]}}"#;
 
     fn frame(payload: &Value) -> Vec<u8> {
         let p = serde_json::to_vec(payload).unwrap();

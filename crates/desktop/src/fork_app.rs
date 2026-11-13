@@ -286,7 +286,7 @@ fn shell_quote(path: &Path) -> String {
 /// folder and drops the live App's per-instance variables before it runs the binary.
 fn launcher_script(fork: &Path, binary: &Path) -> String {
     format!(
-        "#!/bin/sh\nunset ROUNDUP_DEV_PORT ROUNDUP_SLOT ROUNDUP_RUPD_BIN\nROUNDUP_DATA_DIR={} exec {} \"$@\"\n",
+        "#!/bin/sh\nunset ROUNDUP_DEV_PORT ROUNDUP_RUPD_BIN\nROUNDUP_DATA_DIR={} exec {} \"$@\"\n",
         shell_quote(fork),
         shell_quote(binary)
     )

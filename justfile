@@ -45,7 +45,6 @@ lint-rust base="": lint-repo
     tools/retired-words.test.sh
     tools/retired-words.sh
     tools/library-reuse.test.sh
-    tools/update/update.test.sh
     tools/library-reuse.sh
     tools/method-policy/guard.sh
     tools/worktree-prefix.sh
@@ -160,10 +159,6 @@ build-debug:
     cargo build -p rupd -p rup -p terminal
     tools/sidecar/bundle.sh target/debug/sidecar --local-node
 
-# SU5982: builds the new main into the spare Build slot and names it `good` once a Fork of the live data opens on it. `--rollback` restores the earlier `good`.
-update *args:
-    tools/update/update.sh {{args}}
-
 # Opens the development App only after its imports transform; an HTML response alone can hide a Vite error.
 app project:
     #!/usr/bin/env bash
@@ -214,9 +209,23 @@ app-release project:
     cargo run --release -p desktop --features custom-protocol -- "$path"
 
 # S1/A12a: assemble a host-architecture macOS App with Tauri. Ordinary Cargo builds use no bundle inputs.
-app-bundle:
+# CH7077f: `just app-bundle stable <n>` builds Stable 0.1.0-alpha.<n>, `just app-bundle dev <n>` Dev 0.1.0-dev.<n>; with TAURI_SIGNING_PRIVATE_KEY set it also signs the update archive.
+app-bundle channel="source" n="":
     #!/usr/bin/env bash
     set -euo pipefail
+    overlay=()
+    case {{quote(channel)}} in
+        source) ;;
+        stable) overlay=(--config tauri.stable.conf.json --config '{"version":"0.1.0-alpha.{{n}}"}') ;;
+        dev) overlay=(--config tauri.dev.conf.json --config '{"version":"0.1.0-dev.{{n}}"}') ;;
+        *) echo "channel is source, stable or dev, not {{channel}}" >&2; exit 2 ;;
+    esac
+    if [ {{quote(channel)}} != source ] && ! [[ {{quote(n)}} =~ ^[1-9][0-9]*$ ]]; then
+        echo "{{channel}} needs its build number, a positive integer" >&2; exit 2
+    fi
+    if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+        overlay+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
+    fi
     [ "$(uname -s)" = Darwin ] || { echo "app-bundle requires macOS" >&2; exit 2; }
     triple=$(rustc -vV | sed -n 's/^host: //p')
     CI=true pnpm install --frozen-lockfile
@@ -228,7 +237,7 @@ app-bundle:
     done
     tools/sidecar/bundle.sh target/app-bundle-inputs/sidecar
     cd crates/desktop
-    npm exec --yes --package=@tauri-apps/cli@2.12.4 -- tauri build --ci --target "$triple" --features custom-protocol --bundles app --no-sign --config tauri.bundle.conf.json
+    npm exec --yes --package=@tauri-apps/cli@2.12.4 -- tauri build --ci --target "$triple" --features custom-protocol --bundles app --no-sign --config tauri.bundle.conf.json ${overlay[@]+"${overlay[@]}"}
 
 # Observe an already-built App after extraction, including the existing recovery and shutdown proofs.
 [positional-arguments]

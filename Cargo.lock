@@ -987,6 +987,7 @@ dependencies = [
  "getrandom 0.3.4",
  "icns",
  "indexmap 2.14.2",
+ "json-patch",
  "log",
  "mac-notification-sys",
  "native",
@@ -1928,6 +1929,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 name = "herdr"
 version = "0.0.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

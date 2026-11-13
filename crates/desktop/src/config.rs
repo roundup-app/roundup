@@ -3,7 +3,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::Error;
+use crate::{Channel, Error};
 
 /// `sockaddr_un.sun_path` on macOS holds 104 bytes including the terminating NUL.
 const SOCKET_PATH_LIMIT: usize = 104;
@@ -29,6 +29,10 @@ pub struct Config {
     pub data_dir: Option<PathBuf>,
     /// `ROUNDUP_DEV_PORT` (S13): the Vite port `just app` gave this run; `devUrl` follows it.
     pub dev_port: Option<u16>,
+    /// CH7077: which build this is.
+    pub channel: Channel,
+    /// CH7077c: why this build opens nothing, said to the user before any Daemon starts.
+    pub refusal: Option<String>,
 }
 
 impl Config {
@@ -55,6 +59,8 @@ impl Config {
             reopen_waits: crate::reopen::WAITS,
             data_dir: None,
             dev_port: None,
+            channel: Channel::Source,
+            refusal: None,
         })
     }
 
@@ -82,8 +88,11 @@ impl Config {
         Ok(path)
     }
 
-    pub(crate) fn context<R: tauri::Runtime>(&self) -> std::io::Result<tauri::Context<R>> {
-        let mut context = crate::context();
+    /// `context` with this run's dev port and data folder applied.
+    pub(crate) fn apply<R: tauri::Runtime>(
+        &self,
+        mut context: tauri::Context<R>,
+    ) -> std::io::Result<tauri::Context<R>> {
         if let (Some(port), true) = (self.dev_port, cfg!(debug_assertions)) {
             context.config_mut().build.dev_url = Some(
                 format!("http://localhost:{port}")
@@ -93,33 +102,79 @@ impl Config {
         }
         if let Some(dir) = &self.data_dir {
             let dir = std::path::absolute(dir)?;
+            let config = context.config_mut();
             // R20: a directory override alone leaves the macOS single-instance socket
             // shared with the installed App, which can consume the launch and exit 0.
-            // Keep it bounded for sun_path and repeatable for this build/profile.
-            let mut identity = DefaultHasher::new();
-            dir.hash(&mut identity);
-            let config = context.config_mut();
-            config.identifier = format!("{}.profile-{:016x}", config.identifier, identity.finish());
+            // Keep it bounded for sun_path and repeatable for this build/profile. An installed
+            // build keeps its own identifier, which no other build shares (CH7077a).
+            if !self.channel.installed() {
+                let mut identity = DefaultHasher::new();
+                dir.hash(&mut identity);
+                config.identifier =
+                    format!("{}.profile-{:016x}", config.identifier, identity.finish());
+            }
             config.app.app_directories_override =
                 Some(tauri::utils::config::AppDirectoriesOverride::Root(dir));
         }
         Ok(context)
     }
 
-    pub fn from_env() -> Result<Self, Error> {
+    pub fn from_env(channel: Channel) -> Result<Self, Error> {
         let exe = std::env::current_exe().map_err(|err| Error::Executable(err.kind()))?;
-        let mut config = Self::locate(
-            std::env::var_os("ROUNDUP_RUPD_BIN"),
+        Self::read(
+            channel,
             &exe,
             &std::env::temp_dir(),
             std::process::id(),
-        )?;
-        config.claude_bin = std::env::var_os("ROUNDUP_CLAUDE_BIN");
-        config.search_path = std::env::var_os("PATH").unwrap_or_default();
-        config.data_dir = std::env::var_os("ROUNDUP_DATA_DIR").map(PathBuf::from);
-        config.dev_port = std::env::var("ROUNDUP_DEV_PORT")
-            .ok()
-            .and_then(|port| port.parse().ok());
+            |name| std::env::var_os(name),
+        )
+    }
+
+    /// The configuration of `channel` from the variables `var` reads. CH7077b: an installed build
+    /// ignores every variable that points at a checkout, and Dev runs on the Fork named Dev
+    /// (CH7077c). Source never opens Stable's data folder.
+    fn read(
+        channel: Channel,
+        exe: &Path,
+        socket_dir: &Path,
+        pid: u32,
+        var: impl Fn(&str) -> Option<OsString>,
+    ) -> Result<Self, Error> {
+        let checkout = |name: &str| {
+            if channel.installed() { None } else { var(name) }
+        };
+        let mut config = Self::locate(checkout("ROUNDUP_RUPD_BIN"), exe, socket_dir, pid)?;
+        config.channel = channel;
+        config.claude_bin = var("ROUNDUP_CLAUDE_BIN");
+        config.search_path = var("PATH").unwrap_or_default();
+        config.dev_port = checkout("ROUNDUP_DEV_PORT")
+            .and_then(|port| port.to_str().and_then(|port| port.parse().ok()));
+        match channel {
+            Channel::Stable => {}
+            Channel::Dev => match crate::fork::home(&var)
+                .map(|home| crate::channel::dev_fork(&home))
+            {
+                Some(Ok(fork)) => config.data_dir = Some(fork),
+                Some(Err(told)) => config.refusal = Some(told),
+                None => {
+                    config.refusal = Some("Dev needs HOME or ROUNDUP_HOME to find its Fork".into())
+                }
+            },
+            Channel::Source => {
+                config.data_dir = var("ROUNDUP_DATA_DIR").map(PathBuf::from);
+                let stable =
+                    dirs::data_dir().map(|dir| dir.join(crate::channel::STABLE_IDENTIFIER));
+                if let (Some(dir), Some(stable)) = (&config.data_dir, stable)
+                    && std::path::absolute(dir).ok() == std::path::absolute(&stable).ok()
+                {
+                    config.refusal = Some(format!(
+                        "{} is the Stable App's data folder, which a build from a checkout never opens; unset ROUNDUP_DATA_DIR",
+                        stable.display()
+                    ));
+                    config.data_dir = None;
+                }
+            }
+        }
         Ok(config)
     }
 }
@@ -147,7 +202,7 @@ pub(crate) mod tests {
     fn s13_the_launch_sets_dev_url_from_the_dev_port_and_keeps_the_config_without_it() {
         let mut config = bare();
         let kept = config
-            .context::<tauri::test::MockRuntime>()
+            .apply(crate::context::<tauri::test::MockRuntime>())
             .unwrap()
             .config()
             .build
@@ -156,7 +211,7 @@ pub(crate) mod tests {
         assert_eq!(kept.unwrap().as_str(), "http://localhost:5173/");
         config.dev_port = Some(5180);
         let url = config
-            .context::<tauri::test::MockRuntime>()
+            .apply(crate::context::<tauri::test::MockRuntime>())
             .unwrap()
             .config()
             .build
@@ -212,7 +267,7 @@ pub(crate) mod tests {
             assert!(fixture.path().join("isolated/projects.json").is_file());
             return;
         }
-        let config = Config::from_env().unwrap();
+        let config = Config::from_env(Channel::Source).unwrap();
         let store = crate::store::Store::new(config.data_dir);
         // Mirrors setup's fallback: resolving the native App folder must not replace
         // the explicit override or restore its saved Projects.
@@ -225,13 +280,19 @@ pub(crate) mod tests {
     fn r20_perf_profile_does_not_share_the_installed_apps_singleton() {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::locate(None, Path::new("/unused/roundup"), dir.path(), 1).unwrap();
-        let installed = config.context::<tauri::test::MockRuntime>().unwrap();
+        let installed = config
+            .apply(crate::context::<tauri::test::MockRuntime>())
+            .unwrap();
         let mut identifiers =
             std::collections::BTreeSet::from([installed.config().identifier.clone()]);
         for name in ["run-one", "run-two"] {
             config.data_dir = Some(dir.path().join(name));
-            let first = config.context::<tauri::test::MockRuntime>().unwrap();
-            let reopened = config.context::<tauri::test::MockRuntime>().unwrap();
+            let first = config
+                .apply(crate::context::<tauri::test::MockRuntime>())
+                .unwrap();
+            let reopened = config
+                .apply(crate::context::<tauri::test::MockRuntime>())
+                .unwrap();
             // The plugin keys its macOS singleton socket by this Tauri identifier.
             // Reopening one profile must find itself, never another run or the installed App.
             assert_eq!(first.config().identifier, reopened.config().identifier);
@@ -240,6 +301,75 @@ pub(crate) mod tests {
                 "isolated profile would forward its Project to another App and exit before setup"
             );
         }
+    }
+
+    /// The config of `channel` with every variable a checkout's `just app` sets pointing at it.
+    fn from_checkout(channel: Channel, extra: &[(&str, &Path)]) -> Config {
+        let vars: std::collections::BTreeMap<&str, OsString> = [
+            ("ROUNDUP_RUPD_BIN", Path::new("/checkout/target/debug/rupd")),
+            ("ROUNDUP_DEV_PORT", Path::new("5180")),
+        ]
+        .iter()
+        .chain(extra)
+        .map(|(name, value)| (*name, value.as_os_str().to_owned()))
+        .collect();
+        Config::read(
+            channel,
+            Path::new("/App.app/Contents/MacOS/roundup"),
+            Path::new("/tmp"),
+            1,
+            |name| vars.get(name).cloned(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn ch7077b_an_installed_build_ignores_the_checkouts_variables() {
+        for channel in [Channel::Stable, Channel::Dev] {
+            let config = from_checkout(channel, &[]);
+            assert_eq!(config.rupd_bin, Path::new("/App.app/Contents/MacOS/rupd"));
+            assert_eq!(config.dev_port, None);
+        }
+        let source = from_checkout(Channel::Source, &[]);
+        assert_eq!(source.rupd_bin, Path::new("/checkout/target/debug/rupd"));
+        assert_eq!(source.dev_port, Some(5180));
+    }
+
+    #[test]
+    fn ch7077a_a_checkout_never_opens_the_stable_data_folder() {
+        let stable = dirs::data_dir()
+            .unwrap()
+            .join(crate::channel::STABLE_IDENTIFIER);
+        let config = from_checkout(Channel::Source, &[("ROUNDUP_DATA_DIR", &stable)]);
+        assert_eq!(config.data_dir, None);
+        assert!(config.refusal.unwrap().contains("Stable"));
+        let other = from_checkout(
+            Channel::Source,
+            &[("ROUNDUP_DATA_DIR", Path::new("/tmp/fork"))],
+        );
+        assert_eq!(other.data_dir.as_deref(), Some(Path::new("/tmp/fork")));
+        assert_eq!(other.refusal, None);
+    }
+
+    #[test]
+    fn ch7077c_dev_opens_the_fork_and_keeps_its_identifier() {
+        let home = tempfile::tempdir().unwrap();
+        let fork = home.path().join("forks/dev");
+        std::fs::create_dir_all(&fork).unwrap();
+        std::fs::write(
+            fork.join("fork.json"),
+            r#"{"name":"Dev","colour":"violet","source":"/live","created_ms":0,"projects":null}"#,
+        )
+        .unwrap();
+        let config = from_checkout(Channel::Dev, &[("ROUNDUP_HOME", home.path())]);
+        assert_eq!(config.data_dir.as_deref(), Some(fork.as_path()));
+        let context = config
+            .apply(crate::context::<tauri::test::MockRuntime>())
+            .unwrap();
+        assert!(!context.config().identifier.contains(".profile-"));
+        let missing = tempfile::tempdir().unwrap();
+        let refused = from_checkout(Channel::Dev, &[("ROUNDUP_HOME", missing.path())]);
+        assert!(refused.refusal.is_some() && refused.data_dir.is_none());
     }
 
     /// Mirrors `s1_a_socket_path_of_103_bytes_is_accepted_and_104_is_rejected` (`tests/app.rs`):

@@ -262,6 +262,8 @@ pub struct Terminals {
     test_input: Option<Mutex<Box<dyn Write + Send>>>,
     /// The herdr-core binary, started on first use from a clean environment.
     core_bin: Option<std::path::PathBuf>,
+    /// MC51, CH7077c: the core session this Daemon's Terminals live in.
+    session: String,
     /// MC59: the `HOME` of a test-support core, made when the core first starts.
     #[cfg(feature = "test-support")]
     scratch: std::sync::OnceLock<tempfile::TempDir>,
@@ -291,6 +293,7 @@ impl Terminals {
             #[cfg(feature = "test-support")]
             test_input: None,
             core_bin: host::default_core(),
+            session: host::SESSION.to_owned(),
             #[cfg(feature = "test-support")]
             scratch: std::sync::OnceLock::new(),
             core: tokio::sync::Mutex::new(None),

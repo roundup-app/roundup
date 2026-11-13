@@ -1,0 +1,25 @@
+# Stable and Dev Apps
+
+Module: `crates/desktop` (`channel.rs`, `config.rs`, `daemon.rs`, `updater.rs`, the three Tauri configs), `crates/herdr` (the oldest herdr-core), `crates/terminal` and `crates/rupd` (Dev's own herdr-core session), `justfile` (`app-bundle`). Ids: CH7077a–CH7077h. Work order: [#7077](https://github.com/roundup-app/roundup/issues/7077). Terms: Channel, Fork, Update exit, Daemon, Agent (`GLOSSARY.md`). Principles served: P5 (`PRINCIPLES.md`). Retires `scenarios/self-update.md` (SU5982a–e): build slots, `just update` and Restart to update. Tests start no window, network, `claude` or real herdr-core.
+
+**CH7077a three builds, three identities.** Given the base config `tauri.conf.json` and the overlays `tauri.stable.conf.json` and `tauri.dev.conf.json`, when a build merges one overlay or none, then Stable is `dev.roundup.app` with scheme `roundup` and the alpha feed, Dev is `dev.roundup.app.dev` with scheme `roundup-dev` and the dev feed, and Source (`just app`, no overlay) is `dev.roundup.app.source` with scheme `roundup-source` and no feed. No two share an identifier, a scheme or a feed, so none forwards its launch to another. Source never opens Stable's data folder: a `ROUNDUP_DATA_DIR` naming it is refused before anything starts. Tests (`ch7077a_`): the merged configs map to their Channel with distinct identities and one feed each; a checkout pointed at Stable's folder is refused.
+
+**CH7077b an installed build loads only from its bundle.** Given Stable or Dev started with `ROUNDUP_RUPD_BIN`, `ROUNDUP_RUP_BIN`, `ROUNDUP_SIDECAR_DIR` and `ROUNDUP_DEV_PORT` set, then it runs the `rupd` beside its own executable, serves its bundled webview, and starts each Daemon without those variables. Source keeps reading them. Tests (`ch7077b_`): the config read for each Channel; the Daemon's command built without starting it.
+
+**CH7077c Dev runs on the Fork named Dev.** Given Dev started, then its data folder is the Fork under `$ROUNDUP_HOME/forks` whose `fork.json` names `Dev`, its identifier gets no profile suffix, and its Daemons put their Terminals in the herdr-core session `roundup-dev`, apart from Stable's `roundup`. With no such Fork, Dev shows how to make it (`rup data fork <home>/forks/dev --name Dev --colour violet`) and starts nothing. Tests (`ch7077c_`): the Fork found among others; the refusal text names the command and folder; the Daemon's `RUPD_CORE_SESSION`; a named session reaches `herdr-core connect --session`.
+
+**CH7077d opened from Finder.** Given Stable or Dev opened from Finder or the Dock, then it takes `PATH` from the login shell through `fix-path-env` before anything starts, so `claude` and `herdr-core` resolve; a failed read is logged and the App goes on with the `PATH` it has. Policy, Mac observer: Stable opened from Finder starts an Agent.
+
+**CH7077e Update available.** Given an installed build, when its feed offers a newer signed version (read at launch and hourly through `tauri-plugin-updater` and the overlay's public key), then the application menu shows "Update available". Choosing it downloads and installs the update, then leaves every Daemon through the Update exit (S5981a), so Agents and their Terminal owners keep running, then relaunches on the new bundle. A failed install says why, leaves the Daemons running and keeps the item. Tests (`ch7077e_`): the Daemons are left only after a successful install, and a failed leave is reported. Policy, Mac observer: updating Dev keeps its running Agents.
+
+**CH7077f versions.** `just app-bundle stable <n>` builds Stable `0.1.0-alpha.<n>`; `just app-bundle dev <n>` builds Dev `0.1.0-dev.<n>`, where the publish work passes `check.yml`'s run number. With `TAURI_SIGNING_PRIVATE_KEY` set it also writes the signed update archive. A channel other than `source`, `stable` or `dev`, or a missing build number, exits 2 before building. `just app-bundle` alone builds Source as before. Policy; publishing the feeds belongs to #7078.
+
+**CH7077g the oldest herdr-core.** Given a build naming `MIN_CORE` (0.1.20), when herdr-core answers `hello` with an older version, then the connection is refused with an error naming both versions and saying to update herdr-core. Tests (`ch7077g_`): an older core is refused with both versions; the current one connects.
+
+**CH7077h settled questions.** herdr-core runs a separate session per name, so Dev's Terminals never reach the live ones (CH7077c). The Update exit ends every Daemon and keeps only Terminal owners and Agents (S5981a), so no old `rupd` survives an update; the new App starts its own.
+
+### Main regression checks
+
+1. Stable is running with an Agent mid-turn. In the main checkout, `git pull`, `pnpm add` a new package, then `rm -rf node_modules target`. The Agent keeps printing and a new Agent starts (Mac observer).
+2. `just app` and Stable run at once; neither forwards its launch to the other, and `just app` never opens Stable's data (CH7077a; Mac observer).
+3. `scenarios/fork-app.md` and `scenarios/ui-fork-sheet.md` U6266a: a Fork's App unsets the live App's variables.

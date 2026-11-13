@@ -221,7 +221,7 @@ mod tests {
                     let mut r = tokio::io::BufReader::new(core_r);
                     let mut line = String::new();
                     r.read_line(&mut line).await.unwrap();
-                    let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0","methods":[]}}"#;
+                    let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
                     core_w
                         .write_all(format!("{hello}\n").as_bytes())
                         .await
