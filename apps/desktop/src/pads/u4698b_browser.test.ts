@@ -167,7 +167,7 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
     await capture(`scrolled-${viewportWidth}`);
     await browser("focus", ".drawer .ProseMirror");
     await browser("press", "Control+End");
-    await evaluate("window.__fake.failNext(-32000, 'The Pad could not be saved'); true");
+    await evaluate("window.__fake.failNext(-32000, 'The Pad could not be saved', 'pad.write'); true");
     await browser("press", "x");
     await browser("wait", ".drawer [data-dismiss-failure]");
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
@@ -406,7 +406,7 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   await browser("focus", ".ProseMirror");
   await settle();
   await save("keyboard-focus");
-  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.', 'pad.write'); true");
   await browser("press", "Control+End");
   await browser("keyboard", "type", "Retained typography draft");
   await browser("click", ".pad-head-name");
@@ -529,7 +529,7 @@ it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns
   await browser("click", '.drawer [aria-label="Maximise"]');
   await settle();
   await browser("focus", ".drawer .ProseMirror");
-  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.'); true");
+  await evaluate("window.__fake.failNext(-32000, 'Pad save rejected: disk is full. Free space and retry.', 'pad.write'); true");
   await browser("press", "Control+End");
   await browser("keyboard", "type", "Retained review draft");
   await browser("click", ".pad-head-name");
