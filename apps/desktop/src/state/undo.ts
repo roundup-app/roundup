@@ -46,6 +46,7 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
       return value;
     } catch (error) {
       empty = false;
+
       if (initial) throw error;
 
       return null;
@@ -136,7 +137,8 @@ export function createTodoUndo() {
   const [queued, setQueued] = createSignal(0);
   const pending = () => work().kind === "running" || queued() > 0;
   /** The keyed work the Daemon may hold: unconfirmed, or a keyed delete in flight. */
-  const held = () => {
+
+  const unsettled = () => {
     const now = work();
 
     return now.kind === "unconfirmed" || now.kind === "running" && now.asked.kind !== "undo" && now.asked.kind !== "redo";
@@ -152,6 +154,7 @@ export function createTodoUndo() {
   const retained = <K extends Asked["kind"]>(kind: K) => {
     const now = work();
 
+    // SAFETY: `asked.kind === kind` narrows the union to the member for K.
     return now.kind === "unconfirmed" && now.asked.kind === kind ? now.asked as Extract<Asked, { kind: K }> : null;
   };
 
@@ -192,6 +195,7 @@ export function createTodoUndo() {
   /** U5991b: Rail removals, undos and redos run one after another in the order fired; none is refused for coming second. */
   const queue = new PQueue({ concurrency: 1 });
   // An idle queue starts the call in the same tick; a busy one starts it when the earlier calls have answered.
+
   const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
     setQueued(queued() + 1);
 
@@ -210,6 +214,7 @@ export function createTodoUndo() {
 
     const retry = retained("rail");
     const app = connection;
+    // SAFETY: `retained("rail")` returns only a rail Asked, and `wanted` is built as one.
     let asked = retry ?? wanted as Extract<Asked, { kind: "rail" }>;
     let after: Work = retry ? { kind: "unconfirmed", asked } : idle;
     setWork({ kind: "running", asked });
@@ -266,6 +271,7 @@ export function createTodoUndo() {
       return [];
     }
 
+    // SAFETY: `retained("todos")` returns only a todos Asked, and `wanted` is built as one.
     const asked = retained("todos") ?? wanted as Extract<Asked, { kind: "todos" }>;
     const app = forwarding;
     let after: Work = { kind: "unconfirmed", asked };
@@ -308,6 +314,7 @@ export function createTodoUndo() {
     }
 
     const kept = retained("pads");
+    // SAFETY: `retained("pads")` returns only a pads Asked, and `wanted` is built as one.
     const asked = kept ?? wanted as Extract<Asked, { kind: "pads" }>;
     const app = connection;
     let after: Work = { kind: "unconfirmed", asked };
@@ -335,6 +342,7 @@ export function createTodoUndo() {
           const refused = error === applyError && outcomeOf(error) === "failed";
 
           if (!refused || kept) unknown.push(pad);
+
           if (!(error instanceof Error)) throw error;
           failed.push({ id: pad.incarnation, message: error.message });
         }
@@ -408,6 +416,7 @@ export function createTodoUndo() {
           }
         }
 
+        // SAFETY: the stacked action was found by kind "pads" above.
         const source = unwrap(operation) as Extract<Stacked, { kind: "pads" }>;
 
         if (members.length) setRedoes(all => {
@@ -512,6 +521,7 @@ export function createTodoUndo() {
           } catch (error) {
             if (!(error instanceof Error)) throw error;
             // A known refusal the Daemon holds no receipt for may be asked again from a fresh request.
+
             if (error === applyError && outcomeOf(error) === "failed") member.request = null;
             failed.push(member);
             causes.push(error);
@@ -541,6 +551,7 @@ export function createTodoUndo() {
       setRedoes(all => all.filter(item => item !== action));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
+
       if (outcomeOf(error) !== "failed") after = { kind: "unconfirmed", asked: wanted };
       setFailure({ kind: "restore", message: error.message });
     } finally { setWork(after); }
@@ -549,8 +560,8 @@ export function createTodoUndo() {
   const undo = serial(undoNow);
   const redo = serial(redoNow);
 
-  const available = (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !held();
-  const redoAvailable = (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && (!held() || retained("redo") !== null);
+  const available = (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !unsettled();
+  const redoAvailable = (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && (!unsettled() || retained("redo") !== null);
 
   return {
     reconnect(app: AppSeam) {
@@ -593,7 +604,7 @@ export function createTodoUndo() {
     feedbackFailure: () => {
       const problem = failure();
 
-      return problem && (problem.kind !== "delete" || held()) ? problem.message : null;
+      return problem && (problem.kind !== "delete" || unsettled()) ? problem.message : null;
     },
     undoLabel: (region?: string) => {
       const action = !pending() && available(region) ? stack().findLast(item => region === undefined || item.regions.includes(region)) : undefined;
@@ -621,7 +632,7 @@ export function createTodoUndo() {
         case "undo": return Promise.resolve(false);
       }
     },
-    uncertain: held,
+    uncertain: unsettled,
     ids: () => {
       const asked = asking();
 

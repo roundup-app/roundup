@@ -4,12 +4,16 @@ import type { AppSeam } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { createTodoUndo } from "./undo";
 
+type Params = { operation: string };
+
+type Reply = object | null;
+
 /** A todoUndo on a stub App; `answer` replaces one method's reply, and every call is logged in order. */
 const harness = () => {
   const calls: string[] = [];
-  const answers = new Map<string, (params: unknown) => unknown>();
+  const answers = new Map<string, (params: Params) => Promise<Reply> | Reply>();
 
-  const rpc = async (method: string, params: unknown): Promise<unknown> => {
+  const rpc = async (method: string, params: Params): Promise<Reply> => {
     calls.push(method);
     const answer = answers.get(method);
 
@@ -17,21 +21,21 @@ const harness = () => {
 
     switch (method) {
       case "daemon.ping": return { projectKey: "p" };
-      case "todo.delete": return { operation: (params as { operation: string }).operation, deleted: [1], missing: [], state: "deleted" };
+      case "todo.delete": return { operation: params.operation, deleted: [1], missing: [], state: "deleted" };
       case "rail.remove": return { deletion: { operation: "o", project: "p", restored: false } };
       default: return null;
     }
   };
 
-  // SAFETY: the todoUndo under test sends only the methods answered above or by `answer`.
-  const app: AppSeam = { ...createFakeApp(), rpc: rpc as AppSeam["rpc"] };
+  // SAFETY: the todoUndo under test sends only the methods answered above or by `answer`, each with a keyed `operation`.
+  const app: AppSeam = { ...createFakeApp(), rpc: rpc as never };
   const undo = createRoot(() => createTodoUndo());
   undo.reconnect(app);
 
-  return { undo, calls, answer: (method: string, reply: (params: unknown) => unknown) => { answers.set(method, reply); } };
+  return { undo, calls, answer: (method: string, reply: (params: Params) => Promise<Reply> | Reply) => { answers.set(method, reply); } };
 };
 
-const restored = (params: unknown) => ({ operation: (params as { operation: string }).operation, deleted: [1], missing: [], state: "restored", restoration: "r" });
+const restored = (params: Params): Reply => ({ operation: params.operation, deleted: [1], missing: [], state: "restored", restoration: "r" });
 
 it("u5170c_a_lost_acknowledgement_never_applies_twice", async () => {
   const { undo, calls, answer } = harness();
