@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
-const PROJECT: &str = "roundup.project";
-const AGENT: &str = "roundup.agent";
+pub(crate) const PROJECT: &str = "roundup.project";
+pub(crate) const AGENT: &str = "roundup.agent";
 const ATTEMPT: &str = "roundup.attempt";
 
 /// What a Terminal roundup starts is labelled with, so the core's list names its owner.
@@ -112,6 +112,30 @@ pub async fn reconcile(
     let listed = parse(project, &reply);
     let steps = plan(&listed, agents);
     Ok((listed, steps))
+}
+
+/// MC52 at an Agent's start: read the live list by the Project label, end every idle extra of
+/// `agent`, and answer the one live program to attach to, or `None` when the Agent has none and a
+/// start is due. Another Agent's Terminal, and a finished one, is no step here.
+pub async fn for_agent(
+    conn: &herdr::Conn,
+    project: &str,
+    agent: &str,
+) -> Result<Option<String>, herdr::Error> {
+    let reply = conn
+        .call("terminal.list", json!({"labels": {PROJECT: project}}))
+        .await?;
+    let mut mine = parse(project, &reply);
+    mine.retain(|t| t.agent == agent && !t.finished);
+    let mut attach = None;
+    for step in plan(&mine, &[agent.to_owned()]) {
+        match step {
+            Step::Attach(address) => attach = Some(address),
+            Step::End(_) => apply(conn, &step).await?,
+            Step::Start(_) | Step::Remove(_) => {}
+        }
+    }
+    Ok(attach)
 }
 
 /// Carry out an `End` or `Remove`: kill a live program, and `terminal.rm` the Terminal.
