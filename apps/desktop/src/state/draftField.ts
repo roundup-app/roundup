@@ -1,5 +1,6 @@
 import { createMemo, createSignal } from "solid-js";
 import * as v from "valibot";
+import { outcomeOf } from "../app/seam";
 import type { draftStorage } from "./storage";
 
 type Drafts = ReturnType<typeof draftStorage>;
@@ -83,7 +84,7 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     const outcome = await Promise.race([reply, silence]);
     clearTimeout(timer);
     // The store consumes exactly this revision; a newer one keeps its own entry.
-    await drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? "failed" : "unknown");
+    await drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? outcomeOf(outcome.error) : "unknown");
 
     return outcome;
   };
