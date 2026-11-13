@@ -429,3 +429,48 @@ fn mc21_seq_never_repeats_across_a_rup_restart() {
     assert_eq!(ids, ["a1:1", "a1:2", "a1:3"]);
     assert_eq!(seen, [1, 2, 3]);
 }
+
+#[test]
+fn mc22_signal_waits() {
+    use std::io::{BufRead, BufReader};
+    use std::os::unix::net::UnixStream;
+    let dir = tempfile::tempdir().unwrap();
+    let (out, _) = rup(
+        dir.path(),
+        &["signal", "a1"],
+        r#"{"hook_event_name":"Stop"}"#,
+    );
+    assert!(out.status.success());
+    // The bridge returns later: the report is delivered once, and gone after its ack.
+    let mut relay = start_relay(dir.path());
+    let mut bridge = UnixStream::connect(dir.path().join("relay.sock")).unwrap();
+    let mut line = String::new();
+    BufReader::new(&bridge).read_line(&mut line).unwrap();
+    let sent: Value = serde_json::from_str(&line).unwrap();
+    assert_eq!(
+        (sent["id"].as_str(), sent["method"].as_str()),
+        (Some("a1:1"), Some("agent.signal"))
+    );
+    bridge.write_all(b"{\"ack\":\"a1:1\"}\n").unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let (_tx, tick) = std::sync::mpsc::channel::<()>();
+    while !spool(dir.path()).is_empty() {
+        assert!(
+            Instant::now() < deadline,
+            "the acked line stayed in the spool"
+        );
+        let _ = tick.recv_timeout(Duration::from_millis(10));
+    }
+    relay.kill().unwrap();
+    relay.wait().unwrap();
+}
+
+#[test]
+fn mc21_signal_p50_as_a_whole_process_is_within_5_ms_of_the_spike() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut took: Vec<Duration> = (0..31)
+        .map(|_| rup(dir.path(), &["signal", "a1"], "{}").1)
+        .collect();
+    took.sort();
+    assert!(took[15] < Duration::from_millis(6), "p50 {:?}", took[15]);
+}
