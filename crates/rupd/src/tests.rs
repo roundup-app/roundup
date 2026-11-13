@@ -756,14 +756,18 @@ fn daemon_with_agent(dir: &Path) -> Daemon {
     daemon
 }
 
-async fn report(daemon: &Daemon, report: &str) -> Value {
+async fn report_of(daemon: &Daemon, payload: Value, report: &str) -> Value {
     ask(
         daemon,
         &json!({"jsonrpc":"2.0","id":1,"method":"agent.signal","params":{
-            "id":"1","attempt":"1","payload":{"hook_event_name":"Stop"},"report":report}})
+            "id":"1","attempt":"1","payload":payload,"report":report}})
         .to_string(),
     )
     .await
+}
+
+async fn report(daemon: &Daemon, report: &str) -> Value {
+    report_of(daemon, json!({"hook_event_name":"Stop"}), report).await
 }
 
 fn mark(daemon: &Daemon, agent: &str) -> u64 {
@@ -832,4 +836,101 @@ async fn mc20_a_failed_apply_does_not_advance_the_mark() {
     .await;
     assert!(failed.get("error").is_some(), "{failed}");
     assert_eq!(mark(&daemon, "nobody"), 0);
+}
+
+/// MC20b: a Mark write that cannot finish, as a death between the apply and the Mark leaves it.
+const MARK_WRITE_FAILS: &str = "CREATE TRIGGER mc20b_full BEFORE INSERT ON report_marks BEGIN SELECT RAISE(ABORT, 'disk full'); END";
+
+fn announced(
+    events: &mut tokio::sync::broadcast::Receiver<contracts::Event>,
+) -> Vec<contracts::EventData> {
+    std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| event.data)
+        .collect()
+}
+
+#[tokio::test]
+async fn mc20b_a_failed_mark_write_does_not_double_the_effect() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = daemon_with_agent(dir.path());
+    let (mut events, _) = daemon.subscribe();
+    let db = storage::connect(&daemon.data_dir).unwrap();
+    let call = json!({"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"},"tool_use_id":"t1"});
+    db.execute_batch(MARK_WRITE_FAILS).unwrap();
+    assert!(
+        report_of(&daemon, call.clone(), "a1:7")
+            .await
+            .get("error")
+            .is_some()
+    );
+    assert_eq!(mark(&daemon, "a1"), 0);
+    db.execute_batch("DROP TRIGGER mc20b_full").unwrap();
+    assert!(
+        announced(&mut events)
+            .iter()
+            .any(|event| matches!(event, contracts::EventData::AgentToolCall(_))),
+        "the first apply announces the call"
+    );
+    assert!(
+        report_of(&daemon, call.clone(), "a1:7")
+            .await
+            .get("error")
+            .is_none()
+    );
+    assert!(
+        announced(&mut events).is_empty(),
+        "the retry announced again"
+    );
+    assert_eq!(mark(&daemon, "a1"), 7);
+    assert_eq!(
+        report_of(&daemon, call, "a1:7").await["result"],
+        json!({"ack": "a1:7"})
+    );
+}
+
+#[tokio::test]
+async fn mc20b_a_death_after_the_effect_does_not_double_it() {
+    const SESSION: &str = "5b0c6a52-3e9e-4a43-9a5d-1d7d2d1f6f10";
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = daemon_with_agent(dir.path());
+    let db = storage::connect(&daemon.data_dir).unwrap();
+    let saved = || {
+        db.query_row(
+            "SELECT conversation_id FROM nodes WHERE id = 1",
+            [],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .unwrap()
+    };
+    let start = json!({"hook_event_name":"SessionStart","source":"startup","session_id":SESSION});
+    db.execute_batch(MARK_WRITE_FAILS).unwrap();
+    assert!(
+        report_of(&daemon, start.clone(), "a1:7")
+            .await
+            .get("error")
+            .is_some()
+    );
+    assert_eq!(saved().as_deref(), Some(SESSION));
+    drop(daemon);
+    db.execute_batch("DROP TRIGGER mc20b_full").unwrap();
+    let restarted = daemon_with_agent(dir.path());
+    let (mut events, _) = restarted.subscribe();
+    assert!(
+        report_of(&restarted, start.clone(), "a1:7")
+            .await
+            .get("error")
+            .is_none()
+    );
+    assert_eq!(
+        (
+            saved().as_deref(),
+            announced(&mut events).len(),
+            mark(&restarted, "a1")
+        ),
+        (Some(SESSION), 0, 7)
+    );
+    assert_eq!(
+        report_of(&restarted, start, "a1:7").await["result"],
+        json!({"ack": "a1:7"})
+    );
 }
