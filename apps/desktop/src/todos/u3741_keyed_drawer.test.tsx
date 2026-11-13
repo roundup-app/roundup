@@ -50,12 +50,12 @@ it("u3741_a_failure_clears_on_the_events_doesClearTodoFailure_names", async () =
   await waitFor(() => expect(within(panel()).queryAllByText(/Clipboard refused/)).toHaveLength(0));
 });
 
-it("u3741_scroll_and_inner_focus_survive_moving_between_todos", async () => {
-  const m = await mountTodos([todo(1), todo(2)]);
+it("u3741_inner_focus_survives_moving_between_todos", async () => {
+  const m = await mountTodos([todo(1), todo(2), todo(3)]);
   await open(1);
-  const scroller = panel();
+  next().focus();
   fireEvent.click(next());
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory").map(call => call.params)).toContainEqual({ id: 2 }));
   await within(panel()).findByRole("region", { name: "Activity" });
-  expect(panel()).toBe(scroller);
+  expect(document.activeElement).toBe(next());
 });

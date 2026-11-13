@@ -33,9 +33,15 @@ type DrawerProps = {
 };
 
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. A body lives under one id: moving to another Todo remounts it, so nothing it holds outlives the Todo it was made for. */
-export const TodoDrawer = (props: DrawerProps) => <Show when={props.id} keyed>{id => <TodoDrawerBody {...props} id={id} />}</Show>;
+export const TodoDrawer = (props: DrawerProps) => <Show when={props.id} keyed>{id => {
+  const held = document.activeElement;
+  const navigation = held instanceof HTMLElement && held.hasAttribute("data-todo-navigation") ? held.getAttribute("aria-label") : null;
 
-const TodoDrawerBody = (props: DrawerProps) => {
+  return <TodoDrawerBody {...props} id={id} navigation={navigation} />;
+}}</Show>;
+
+/** `navigation` names the header button that held focus when the body was replaced, so the new body returns focus to it. */
+const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const connected = useConnectedProject();
   const { app, drawer, drafts, project, events } = connected;
   drafts.validate("todos", todoDraftSchema);
@@ -289,7 +295,7 @@ const TodoDrawerBody = (props: DrawerProps) => {
   return (
     <>
       <div class="todo-detail" tabIndex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
-        <Show when={todo()}>{current => <TodoHeader todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
+        <Show when={todo()}>{current => <TodoHeader navigation={props.navigation} todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
         <ReservedLine class="todo-delete-feedback"
           aria-live={drafts.undo.uncertain() ? undefined : "polite"} aria-atomic="true"
           message={deletionRefusal() && drafts.undo.uncertain() ? deletionRefusal() : failure()}
