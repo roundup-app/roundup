@@ -190,27 +190,32 @@ pub(super) const SESSION: &str = "roundup";
 /// MC16: the argv that starts a core on this Mac from a clean environment: `env -i` with only the
 /// named variables, since an empty-string value would set a variable rather than remove it. MC51:
 /// it connects to roundup's own session.
-pub(super) fn core_command(core: &str, vars: &BTreeMap<String, String>) -> Vec<String> {
+pub(super) fn core_command(
+    core: &str,
+    vars: &BTreeMap<String, String>,
+    session: &str,
+) -> Vec<String> {
     let mut argv = vec!["env".to_owned(), "-i".to_owned()];
     argv.extend(vars.iter().map(|(name, value)| format!("{name}={value}")));
     argv.extend([
         core.to_owned(),
         "connect".to_owned(),
         "--session".to_owned(),
-        SESSION.to_owned(),
+        session.to_owned(),
     ]);
     argv
 }
 
 /// The variables a core starts with: what a program needs to find itself, and nothing of the session
 /// the Daemon runs in. A name the Daemon lacks is left out.
-fn core_vars() -> BTreeMap<String, String> {
+fn core_vars(scratch: Option<&std::path::Path>) -> BTreeMap<String, String> {
     [
         "PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "TMPDIR",
     ]
     .into_iter()
     .filter_map(|name| Some((name.to_owned(), std::env::var(name).ok()?)))
     .chain(test_vars())
+    .chain(scratch.map(|dir| ("HOME".to_owned(), dir.to_string_lossy().into_owned())))
     .collect()
 }
 
@@ -230,19 +235,60 @@ fn test_vars() -> impl Iterator<Item = (String, String)> {
     std::iter::empty()
 }
 
-/// Under `test-support` the core is the test-support one built beside the test binary, so a test
-/// that opens `Terminals` runs on a core; otherwise `herdr-core` from `PATH`.
-pub(super) fn default_core() -> std::path::PathBuf {
+/// The core to start. Under `test-support` it is the test-support one built beside the test binary,
+/// or none (MC59): a test never falls back to the user's `herdr-core` on `PATH`. Otherwise
+/// `herdr-core` from `PATH`.
+pub(super) fn default_core() -> Option<std::path::PathBuf> {
     #[cfg(feature = "test-support")]
-    if let Ok(exe) = std::env::current_exe() {
-        for dir in exe.ancestors().skip(1).take(2) {
-            let core = dir.join("herdr-core-test");
-            if core.is_file() {
-                return core;
-            }
-        }
+    {
+        let exe = std::env::current_exe().ok()?;
+        exe.ancestors()
+            .skip(1)
+            .take(2)
+            .map(|dir| dir.join("herdr-core-test"))
+            .find(|core| core.is_file())
     }
-    "herdr-core".into()
+    #[cfg(not(feature = "test-support"))]
+    Some("herdr-core".into())
+}
+
+/// MC59: a scratch `HOME`, and a session that is not `roundup`, for a test-support core, so no path
+/// of it reaches `~/.local/state/herdr-core/roundup/`.
+#[cfg(feature = "test-support")]
+pub(super) fn scratch_home() -> std::io::Result<tempfile::TempDir> {
+    tempfile::Builder::new().prefix("roundup-core-").tempdir()
+}
+
+/// Whether `program` is an executable file, as given or found on the launch's `PATH`.
+fn runnable(program: &str, env: &BTreeMap<String, String>) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    let executable = |path: &std::path::Path| {
+        path.metadata()
+            .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+    };
+    if program.contains('/') {
+        return executable(std::path::Path::new(program));
+    }
+    let path = env.get("PATH").map_or("", String::as_str);
+    std::env::split_paths(path).any(|dir| executable(&dir.join(program)))
+}
+
+/// MC60: a holder's own environment never decides a program's. The program runs under a `sh` that
+/// unsets every `CLAUDE_CONFIG_DIR`, `ROUNDUP_*` and `FAKE_CLAUDE_*` the holder carries and the launch
+/// did not name, then `exec`s the argv, so only the App's values reach it.
+fn scrub_holder_env(env: &BTreeMap<String, String>, argv: Vec<String>) -> Vec<String> {
+    const SCRIPT: &str = r#"keep=" $1 "; shift
+for name in $(env | sed -n 's/^\(\(CLAUDE_CONFIG_DIR\|ROUNDUP_[A-Za-z0-9_]*\|FAKE_CLAUDE_[A-Za-z0-9_]*\)\)=.*/\1/p'); do
+  case "$keep" in *" $name "*) ;; *) unset "$name" ;; esac
+done
+exec "$@""#;
+    let names = env.keys().cloned().collect::<Vec<_>>().join(" ");
+    let mut wrapped: Vec<String> = ["/bin/sh", "-c", SCRIPT, "sh", &names]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    wrapped.extend(argv);
+    wrapped
 }
 
 impl Terminals {
@@ -254,7 +300,7 @@ impl Terminals {
 
     /// Use the herdr-core at `binary`, not the one on `PATH`.
     pub fn with_core(mut self, binary: impl Into<std::path::PathBuf>) -> Self {
-        self.core_bin = binary.into();
+        self.core_bin = Some(binary.into());
         self
     }
 
@@ -265,7 +311,28 @@ impl Terminals {
         if let Some(conn) = slot.as_ref().filter(|conn| !conn.is_closed()) {
             return Ok(Arc::clone(conn));
         }
-        let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
+        let Some(core_bin) = &self.core_bin else {
+            return Err(Error::internal(
+                "test_core_missing: herdr-core-test is not beside the test binary",
+            ));
+        };
+        #[cfg(feature = "test-support")]
+        let (scratch, session) = {
+            let home = match self.scratch.get() {
+                Some(home) => home,
+                None => {
+                    let home = scratch_home().map_err(Error::internal)?;
+                    self.scratch.get_or_init(|| home)
+                }
+            };
+            (
+                Some(home.path()),
+                format!("{SESSION}-test-{}", std::process::id()),
+            )
+        };
+        #[cfg(not(feature = "test-support"))]
+        let (scratch, session) = (None, SESSION.to_owned());
+        let argv = core_command(&core_bin.to_string_lossy(), &core_vars(scratch), &session);
         let mut command = tokio::process::Command::new("env");
         command.args(argv.iter().skip(1));
         let conn = herdr::Conn::spawn(command, CORE_TIMEOUT)
@@ -316,6 +383,10 @@ pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64) -> 
         Some(command) => argv.extend(command.iter().cloned()),
         None if remote => argv.push("/bin/sh".into()),
         None => argv.push(std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into())),
+    }
+    // A program that cannot run stays the core's own `spawn_failed`, which a `sh` in front would hide.
+    if !remote && argv.first().is_some_and(|program| runnable(program, &env)) {
+        argv = scrub_holder_env(&env, argv);
     }
     serde_json::json!({
         "argv": argv,
@@ -663,17 +734,26 @@ mod tests {
     #[test]
     fn mc16_core_starts_from_clean_environment() {
         let vars = [("PATH".to_owned(), "/usr/bin".to_owned())].into();
-        let argv = core_command("/bin/herdr-core", &vars);
+        let argv = core_command("/bin/herdr-core", &vars, "roundup");
         assert_eq!(argv[..3], ["env", "-i", "PATH=/usr/bin"]);
     }
 
     #[test]
     fn mc51_connect_names_the_roundup_session() {
-        let argv = core_command("/bin/herdr-core", &BTreeMap::new());
+        let argv = core_command("/bin/herdr-core", &BTreeMap::new(), "roundup");
         assert_eq!(
             argv[2..],
             ["/bin/herdr-core", "connect", "--session", "roundup"]
         );
+    }
+
+    #[tokio::test]
+    async fn mc59_missing_test_core_fails_loud_without_path_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        terminals.core_bin = None;
+        let err = terminals.core().await.err().unwrap();
+        assert!(err.to_string().starts_with("test_core_missing"), "{err}");
     }
 
     #[tokio::test]
