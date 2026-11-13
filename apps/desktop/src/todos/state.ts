@@ -109,9 +109,13 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     return now;
   }, new Set<TodoChange>());
 
-  const reload = async () => {
+  // `createResource` drops a refetch asked in the same microtask as one it started, so a burst of Events shares one read that starts after the last of them.
+  let queued: Promise<void> | null = null;
+
+  const reload = () => queued ??= Promise.resolve().then(async () => {
+    queued = null;
     await Promise.all([refetch(), refetchFacts()]);
-  };
+  });
 
   onCleanup(
     events.subscribe((event) => {
