@@ -249,7 +249,7 @@ const PadBody = (props: {
   };
 
   /** A refusal keeps the draft; only another edit or blur retries it. */
-  const refuse = async (thrown: unknown) => {
+  const refuse = async (thrown: Error) => {
     cycle.send({ kind: outcomeOf(thrown) === "unknown" ? "unknown" : "refused" });
 
     if (!(thrown instanceof RpcError && thrown.code === -32003)) throw thrown;

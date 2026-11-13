@@ -59,7 +59,12 @@ const handlers: Handlers = {
 
 /** Only Keep mine sends out of a conflict; a pause is left by Resume or Keep mine. */
 export const step = (save: Save, event: SaveEvent): Save => {
-  if (save.kind !== "deleted") return (handlers[event.kind] as (save: Save, event: SaveEvent) => Save)(save, event);
+  if (save.kind !== "deleted") {
+    // SAFETY: `handlers` is keyed by event kind, so the entry for `event.kind` takes exactly that event.
+    return (handlers[event.kind] as (save: Save, event: SaveEvent) => Save)(save, event);
+  }
+
+
   if (event.kind === "back") return { kind: "clean" };
 
   return event.kind === "gone" ? { kind: "deleted", byMe: save.byMe || event.byMe } : save;
