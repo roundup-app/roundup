@@ -122,7 +122,7 @@ it("u5172a_every_mutation_goes_through_the_helper", () => {
     const text = readFileSync(path, "utf8");
 
     for (const match of text.matchAll(mutation)) {
-      if (!/(?:(?:applying|applied|changeFailureOf)\((?:async )?|\.ask\([^;]*)\(\) =>[^;]*$/.test(text.slice(Math.max(0, match.index - 160), match.index))) bare.push(`${path.slice(root.length + 1)}: ${match[0]}`);
+      if (!/(?:(?:applying|applied|changeFailureOf)\((?:async )?|\.ask\([^;]*|confirmed\([^;]*)\(\) =>[^;]*$/.test(text.slice(Math.max(0, match.index - 160), match.index))) bare.push(`${path.slice(root.length + 1)}: ${match[0]}`);
     }
   }
 

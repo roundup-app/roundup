@@ -20,6 +20,15 @@ export const idOfRow = (element: Element | null): number | undefined => {
   return undefined;
 };
 
+/** The id whose row (its button's `[data-todo]` element) contains `node`, or undefined outside every row. */
+export const rowIdContaining = (node: Node | null): number | undefined => {
+  if (!node) return undefined;
+
+  for (const [id, button] of rows) if (button.closest("[data-todo]")?.contains(node)) return id;
+
+  return undefined;
+};
+
 /** Focus the row a model choice named; false when it is gone or under an inert ancestor such as an open modal. */
 export const focusRow = (id: number): boolean => {
   const button = rows.get(id);

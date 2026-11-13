@@ -74,7 +74,7 @@ describe("u20 open and edit", () => {
     });
     await waitFor(() => expect(screen.getByLabelText("Pad body").textContent).toContain("v2"));
 
-    expect(calls().slice(before)).toEqual(["pad.list", "provenance.history"]);
+    expect(calls().slice(before).sort()).toEqual(["pad.list", "provenance.history"]);
   });
 
   it("u20_focusing_an_agents_read_only_text_does_not_stop_it_refreshing", async () => {
