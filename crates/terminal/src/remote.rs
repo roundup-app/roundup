@@ -77,7 +77,7 @@ impl Remotes {
             Err(err) => {
                 conns.remove(machine);
                 self.mark(machine, false);
-                Err(Error::internal(format!("{machine}: {}: {err}", err.code())))
+                Err(Error::internal(format!("{machine}: {}", Error::core(&err))))
             }
         }
     }
