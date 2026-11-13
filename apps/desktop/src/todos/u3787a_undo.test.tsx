@@ -240,8 +240,9 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
   const { app, remove, connections } = await mount();
   await remove("/a");
   await acknowledged();
-  // The Drawer hands the receipt to the focused region once its readback ends.
-  await waitFor(() => expect(connections.get("/a")!.drafts.undo.available("")).toBe(true));
+  // The Drawer hands the receipt to the focus it returns to once it closes.
+  await waitFor(() => expect([connections.get("/a")!.drawer.content()]).toEqual([null]));
+  await new Promise<void>(resolve => queueMicrotask(resolve));
 
   for (const markup of ['<input>', '<textarea></textarea>', '<div contenteditable="true" tabindex="0"></div>', '<div class="xterm"><textarea></textarea></div>', '<div role="textbox" tabindex="0"></div>']) {
     const root = document.createElement("div");
@@ -422,6 +423,8 @@ for (const entry of ["selection", "single", "drawer"] as const) {
     }
 
     await acknowledged();
+    await waitFor(() => expect([connections.get("/a")!.drawer.content()]).toEqual([null]));
+    await new Promise<void>(resolve => queueMicrotask(resolve));
     expect(connections.get("/a")!.drafts.undo.available(entry === "drawer" ? "pad:fixture-first" : "shelf")).toBe(true);
     expect(connections.get("/a")!.drafts.undo.available("pads")).toBe(false);
     expect([questionProbe.shown]).toEqual([null]);
