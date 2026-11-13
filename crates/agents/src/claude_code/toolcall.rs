@@ -19,7 +19,8 @@ pub struct Tracked {
 }
 
 /// Fold `payload`, which arrived at `now` (milliseconds), into `current`. `root` is the directory
-/// that paths are shown relative to. Returns whether `current` changed.
+/// that paths are shown relative to. Returns whether `current` changed; a `PreToolUse` of the call
+/// `current` already holds changes nothing.
 pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64) -> bool {
     let id = payload["tool_use_id"].as_str().unwrap_or_default();
     match payload["hook_event_name"].as_str() {
@@ -28,19 +29,29 @@ pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64
                 return false;
             };
             let input = &payload["tool_input"];
-            *current = Some(Tracked {
-                id: id.to_owned(),
-                call: ToolCall {
-                    tool: cleaned(tool, 64, false),
-                    summary: summary(tool, input, root),
-                    arguments: preview(input),
-                    result: None,
-                    state: ToolCallState::Running,
-                    started: now,
-                    duration_ms: None,
-                },
+            let call = ToolCall {
+                tool: cleaned(tool, 64, false),
+                summary: summary(tool, input, root),
+                arguments: preview(input),
+                result: None,
+                state: ToolCallState::Running,
+                started: now,
+                duration_ms: None,
+            };
+            // MC20b: a retried report repeats the call it announced; its vendor id marks the repeat.
+            let repeated = current.as_ref().is_some_and(|tracked| {
+                !id.is_empty()
+                    && tracked.id == id
+                    && tracked.call.tool == call.tool
+                    && tracked.call.arguments == call.arguments
             });
-            true
+            if !repeated {
+                *current = Some(Tracked {
+                    id: id.to_owned(),
+                    call,
+                });
+            }
+            !repeated
         }
         Some(event @ ("PostToolUse" | "PostToolUseFailure")) => {
             let Some(tracked) = current else {
