@@ -13,7 +13,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use contracts::terminal::SpawnParams;
 use rpc::Bus;
@@ -121,12 +121,17 @@ fn kill(pid: u32) {
     );
 }
 
-async fn until(what: &str, mut done: impl FnMut() -> bool) {
-    let start = Instant::now();
-    while !done() {
-        assert!(start.elapsed() < TIMEOUT, "{what}");
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+/// Check `done` every 10 ms until it holds, and fail naming `what` after `TIMEOUT`: a process
+/// this test did not start, and the core's own files, send no event to wait on.
+async fn until<F: Future<Output = bool>>(what: &str, mut done: impl FnMut() -> F) {
+    let mut tick = tokio::time::interval(Duration::from_millis(10));
+    tokio::time::timeout(TIMEOUT, async {
+        while !done().await {
+            tick.tick().await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("never: {what}"));
 }
 
 /// The core a sequence runs against. `wrapper` starts a connection to it the way `Terminals` starts
@@ -265,14 +270,14 @@ impl Core {
             Self::Test { dir } => {
                 let socket = dir.path().join("herdr-core.sock");
                 until("the test core ends", || {
-                    std::os::unix::net::UnixStream::connect(&socket).is_err()
+                    std::future::ready(std::os::unix::net::UnixStream::connect(&socket).is_err())
                 })
                 .await;
             }
             Self::Real { .. } => {
                 until("the real core and its holders end", || {
                     let running = ps();
-                    gone.iter().all(|pid| !running.contains_key(pid))
+                    std::future::ready(gone.iter().all(|pid| !running.contains_key(pid)))
                 })
                 .await;
             }
@@ -285,7 +290,10 @@ impl Core {
             Self::Test { dir } => {
                 let file = dir.path().join("herdr-core-upgrade");
                 std::fs::write(&file, "").unwrap();
-                until("the test core closes its connections", || !file.exists()).await;
+                until("the test core closes its connections", || {
+                    std::future::ready(!file.exists())
+                })
+                .await;
             }
             Self::Real { bin, home, session } => {
                 self.processes();
@@ -419,22 +427,15 @@ async fn kill_program(core: &Core, n: usize) {
     };
     kill(pid);
     let conn = core.connect().await;
-    let start = Instant::now();
-    loop {
+    let conn = &conn;
+    until(&format!("{} finished", target.address), || async move {
         let got = conn
             .call("terminal.get", json!({"terminal": target.address}))
             .await
             .unwrap();
-        if got["state"] == "finished" {
-            return;
-        }
-        assert!(
-            start.elapsed() < TIMEOUT,
-            "{} never finished",
-            target.address
-        );
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+        got["state"] == "finished"
+    })
+    .await;
 }
 
 /// Whether the App shows `message` with a herdr-core word in it. The App's `coreFailureText`
