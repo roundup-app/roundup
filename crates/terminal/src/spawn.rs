@@ -44,6 +44,7 @@ impl Terminals {
         &self,
         params: SpawnParams,
         owner: Option<String>,
+        labels: Option<Value>,
     ) -> Result<Spawned, Error> {
         check_program(&params)?;
         window(params.cols, params.rows)?;
@@ -61,7 +62,7 @@ impl Terminals {
             }
         };
         let number = self.next.fetch_add(1, Ordering::Relaxed);
-        let ran = host::run(&conn, &self.shared, &params, number).await?;
+        let ran = host::run(&conn, &self.shared, &params, number, labels.as_ref()).await?;
         let core_id = ran
             .get("address")
             .and_then(Value::as_str)
