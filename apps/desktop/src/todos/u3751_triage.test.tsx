@@ -89,7 +89,7 @@ it("u3751_t_is_ignored_in_fields_and_with_modifiers", async () => {
   expect(shelf().getAttribute("data-triage")).toBe("off");
 });
 
-it("u3753_j_and_k_move_focus_across_groups_and_call_nothing", async () => {
+it("u3751_j_and_k_follow_the_rendered_order_across_owner_groups", async () => {
   const { app } = await enter();
   const order = [...document.querySelectorAll<HTMLElement>(".todos-tab [data-shelf-row][data-todo]")].flatMap(each => each.closest(".todo-done-fold") ? [] : [Number(each.dataset.todo)]);
 
