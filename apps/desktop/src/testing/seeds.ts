@@ -14,6 +14,7 @@ import type { ImportOutcome } from "@contracts/project/ImportOutcome";
 import type { Removal } from "@contracts/agent/Removal";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
+import type { RpcMethodName } from "@contracts/methods";
 import { RpcError } from "../app/seam";
 import type { Project } from "../app/seam";
 import { createFakeApp } from "./fakeApp";
@@ -67,8 +68,8 @@ export type Controls = {
   writeOutput(terminalId: string, text: string): void;
   /** Makes the Todos and Pads created from now on belong to `actor`, as when that Agent made them; the user until called. */
   actAs(actor: Actor): void;
-  /** Makes the next `rpc` call, whatever its method, reject with `code` and `message`. */
-  failNext(code: number, message: string): void;
+  /** Makes the next `rpc` call reject with `code` and `message`: the next of `method` when given, else the next of any method. A periodic read (the Machines tick) can land first, so a test that waits seconds before the call it means to fail names it. */
+  failNext(code: number, message: string, method?: RpcMethodName): void;
   /** The error a Daemon refusal throws, for a handler that must refuse one method. */
   refusal(code: number, message: string): Error;
 };
@@ -505,13 +506,13 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     });
   }
 
-  let failure: RpcError | null = null;
+  let failure: { error: RpcError; method: string | undefined } | null = null;
   const rpc = app.rpc;
   app.rpc = async (method, params) => {
-    if (failure) {
-      const failing = failure;
+    if (failure && (failure.method === undefined || failure.method === method)) {
+      const { error } = failure;
       failure = null;
-      throw failing;
+      throw error;
     }
 
     return rpc(method, params);
@@ -534,8 +535,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
       write(terminalId, text);
     },
     refusal: (code, message) => new RpcError(code, message),
-    failNext: (code, message) => {
-      failure = new RpcError(code, message);
+    failNext: (code, message, method) => {
+      failure = { error: new RpcError(code, message), method };
     },
   };
 };
