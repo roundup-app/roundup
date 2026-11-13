@@ -4,6 +4,7 @@ import { afterEach } from "vitest";
 import { createSignal, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { DaemonExit } from "../app/seam";
+import type { Machine } from "@contracts/machine/Machine";
 import type { Pad } from "@contracts/pad/Pad";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -28,7 +29,7 @@ export const exitedTerminal = (id: string, exit_code: number | null): TerminalIn
   info(`t-${id}`, { running: false, exit_code });
 
 /** What else to mount alongside the Rail: a Pane (an `EmulatorFactory` gives it a focusable screen) or the DrawerHost. */
-type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean };
+type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean; machines?: Machine[] };
 
 /** The Rail on a fake Daemon whose tree is `tree` and whose clock is a signal the test can advance. */
 export const mountRail = async (
@@ -44,12 +45,14 @@ export const mountRail = async (
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => terminals;
   app.handlers["pad.list"] = () => pads;
+  app.handlers["machine.list"] = () => neighbors.machines ?? [];
 
   const [now, setNow] = createSignal(NOW);
   const connected = await connectProject(app, project, reducedMotion, now, daemonExit);
 
   render(() => {
     connected.worktrees.watch(() => true);
+    connected.machines.watch(() => true);
 
     return (
       <ConnectedProjectContext.Provider value={connected}>
