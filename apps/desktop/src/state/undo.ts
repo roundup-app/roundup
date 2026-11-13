@@ -33,24 +33,24 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
   let empty = false;
 
   // A retry reads first; an unreadable receipt after the apply is never the answer, the apply's own error is.
-  const read = async () => {
+  const read = () => {
     const initial = first;
     first = false;
 
+    // The first read of a fresh operation has nothing to ask, so the apply starts in the same tick.
     if (initial && !previous) return null;
 
-    try {
-      const value = await app.rpc("todo.deletion", { operation });
+    return app.rpc("todo.deletion", { operation }).then(value => {
       empty = value === null;
 
       return value;
-    } catch (error) {
+    }, error => {
       empty = false;
 
       if (initial) throw error;
 
       return null;
-    }
+    });
   };
 
   const result = confirmed(read, () => app.rpc("todo.delete", { operation, ids: chosen }), () => true).catch(error => {
@@ -92,11 +92,11 @@ const idle: Work = { kind: "idle" };
 
 const keyOf = (asked: Asked) => {
   switch (asked.kind) {
-    case "todos": return `todos${JSON.stringify(asked.ids)}`;
-    case "pads": return `pads${JSON.stringify(asked.pads.map(pad => pad.incarnation))}`;
-    case "rail": return `rail${JSON.stringify(asked.ids)}`;
-    case "undo": return `undo${asked.id}`;
-    case "redo": return `redo${asked.action.kind === "pads" ? asked.action.source.id : asked.action.operation}`;
+    case "todos": return JSON.stringify([asked.kind, asked.ids]);
+    case "pads": return JSON.stringify([asked.kind, asked.pads.map(pad => pad.incarnation)]);
+    case "rail": return JSON.stringify([asked.kind, asked.ids]);
+    case "undo": return JSON.stringify([asked.kind, asked.id]);
+    case "redo": return JSON.stringify([asked.kind, asked.action.kind === "pads" ? asked.action.source.id : asked.action.operation]);
   }
 };
 
@@ -199,7 +199,10 @@ export function createTodoUndo() {
   const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
     setQueued(queued() + 1);
 
-    return queue.add(() => run(...args)).finally(() => setQueued(queued() - 1));
+    // The count drops inside the task, in the tick the call settles, so a key pressed on its failure line is not refused.
+    return queue.add(async () => {
+      try { return await run(...args); } finally { setQueued(queued() - 1); }
+    }) as Promise<T>;
   };
 
   const removeRailNow = async (ids: readonly string[], name: string, region = "") => {
