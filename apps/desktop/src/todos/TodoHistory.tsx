@@ -1,12 +1,13 @@
 import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
-import type { History } from "@contracts/todo/History";
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import type { Event } from "@contracts/Event";
 import type { Change } from "@contracts/todo/Change";
 
 import { useConnectedProject } from "../state/connectedProject";
-import { doesClearTodoFailure, failureOf } from "../app/failureOf";
+import { doesClearTodoFailure } from "../app/failureOf";
+import { createSavedFailure } from "./EditableText";
 
 const ids = (list: number[]) => [...list].sort((a, b) => a - b).map((id) => `#${id}`).join(", ");
 
@@ -46,80 +47,52 @@ const lines = (change: Change, agentName: (id: string) => string, now: number): 
   return change.changed_at === null ? named : named.map((line) => copy.changeAt(line, copy.commentTime(change.changed_at!, now)));
 };
 
+/** Deleting a blocker changes surviving Todos' history without changing their own fields in that Event. */
+const changesHistory = (event: Event, id: number) =>
+  (event.name === "todo.updated" || event.name === "todo.unblocked") && event.data.id === id
+  || (event.name === "todo.restored" || event.name === "todo.deleted") && event.data.id !== id;
+
 /** History loads with the Drawer, but entries render and the read is sent only once the user opens the line. */
 export const createTodoHistory = (props: { id: number; saved?: (() => number) | undefined; onCapture?: ((change: Change | undefined) => void) | undefined; exposed: () => boolean }) => {
   const { app, events, drawer, rail, now } = useConnectedProject();
   const content = drawer.content();
-  const [loaded, setLoaded] = createSignal<History | null>(null);
-  const [failure, setFailure] = createSignal<string | null>(null);
-  const [copyFailure, failCopy] = createSignal<string | null>(null);
-  createEffect(on(props.saved ?? (() => 0), () => failCopy(null), { defer: true }));
+  const [copyFailure, failCopy] = createSavedFailure(() => props.saved?.() ?? 0);
+  const [history, { refetch }] = createResource(() => props.id, id => app.rpc("todo.getHistory", { id }));
+  const loaded = () => history.error || history.state === "pending" ? undefined : history.latest;
+  const firstSeq = createMemo<number | null>(previous => previous ?? loaded()?.changes.at(-1)?.seq ?? (loaded() ? 0 : null), null);
 
-  let latest = 0;
-  let alive = true;
-  let baseline: number | null = null;
-  let through = 0;
-  let acknowledged = false;
-  let reading: Promise<null> | null = null;
+  // The opened section reads the entries it showed on opening, once per Drawer: closing it again does not read twice.
+  const opened = createMemo(previous => previous || props.exposed() && drawer.content() === content, false);
 
-  // The opened section reads the entries it shows, once per Drawer.
-  const read = async () => {
-    const fetched = loaded();
-    const id = props.id;
+  const [read, { refetch: reread }] = createResource(
+    () => opened() && (firstSeq() ?? 0) > 0 && { id: props.id, through: firstSeq() ?? 0 },
+    args => app.rpc("todo.readHistory", args),
+  );
 
-    if (!props.exposed() || !fetched || reading || acknowledged || drawer.content() !== content || !alive) return;
-    through = baseline ?? 0;
+  const [dismissed, dismiss] = createSignal<unknown>(null);
+  const problem = () => history.error ?? read.error;
 
-    if (through === 0) return;
-    reading = app.rpc("todo.readHistory", { id, through }).then(() => null);
-    const message = await failureOf(async () => { await reading; });
+  const failure = () => {
+    const error: unknown = problem();
 
-    if (message !== null) reading = null;
-    else if (alive && id === props.id) acknowledged = true;
-
-    if (alive && id === props.id) setFailure(message);
+    return error && error !== dismissed() ? (error instanceof Error ? error.message : String(error)) : null;
   };
 
-  const refresh = async () => {
-    if (drawer.content() !== content) return;
-    const mine = ++latest;
-    const id = props.id;
+  createEffect(() => {
+    const latest = loaded();
 
-    const message = await failureOf(async () => {
-      const fetched = await app.rpc("todo.getHistory", { id });
+    if (latest) props.onCapture?.(latest.changes.at(-1));
+  });
 
-      if (!alive || mine !== latest || id !== props.id || drawer.content() !== content) return;
-      props.onCapture?.(fetched.changes.at(-1));
-
-      if (baseline === null) baseline = fetched.changes.at(-1)?.seq ?? 0;
-
-      setLoaded(fetched);
-    });
-
-    if (alive && mine === latest && id === props.id && drawer.content() === content) setFailure(message);
-    await read();
-  };
-
-  createEffect(on(() => props.id, () => {
-    baseline = null; through = 0; acknowledged = false; reading = null;
-    setLoaded(null); setFailure(null); failCopy(null);
-    void refresh();
-  }));
   onCleanup(events.subscribe((event) => {
     if (doesClearTodoFailure(event, props.id)) failCopy(null);
 
-    if ((event.name === "todo.updated" || event.name === "todo.unblocked") && event.data.id === props.id) void refresh();
-
-    // Deleting a blocker changes surviving Todos' history without changing their own fields in this Event.
-    if ((event.name === "todo.restored" || event.name === "todo.deleted") && event.data.id !== props.id) void refresh();
+    if (changesHistory(event, props.id)) void refetch();
   }));
-  onCleanup(() => { alive = false; latest++; });
-
-  createEffect(() => { if (props.exposed()) void read(); });
 
   return {
     changes: () => loaded()?.changes,
-    feedback: <ReservedLine message={copyFailure() ?? failure()} dismiss={() => { failCopy(null); setFailure(null); }} recover={{ run: () => void refresh(), label: copy.retryHistory }} />,
+    feedback: <ReservedLine message={copyFailure() ?? failure()} dismiss={() => { failCopy(null); dismiss(problem()); }} recover={{ run: () => { void refetch(); void reread(); }, label: copy.retryHistory }} />,
     copy: <Show when={loaded()}>{record => <CopyButton app={app} text={JSON.stringify({
       lines: record().changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())),
       history: record(), failure: failure(),
