@@ -139,3 +139,10 @@ export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done
   expect(mark.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
   expect(mark.textContent).toBe("");
 };
+
+/** Focus moving to another control in the Drawer: how Ark's Editable sees the user leave the title field. */
+export const leaveTitle = async () => {
+  // Ark starts watching for outside focus a frame after the edit opens.
+  await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+  fireEvent.focusIn(within(document.querySelector<HTMLElement>(".drawer")!).getByRole("textbox", { name: "Write a comment" }));
+};
