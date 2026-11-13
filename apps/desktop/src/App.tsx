@@ -185,7 +185,10 @@ const Connection = (props: {
   createEffect(() => {
     const open = connected();
 
-    if (open && !(open instanceof Error)) open.worktrees.watch(props.active);
+    if (open && !(open instanceof Error)) {
+      open.worktrees.watch(props.active);
+      open.machines.watch(props.active);
+    }
   });
 
   // M8: rename keeps its request Event; open completes through the registered App relay.

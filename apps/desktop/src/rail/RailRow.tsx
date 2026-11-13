@@ -134,6 +134,17 @@ const WorktreeChips = (props: { id: string }) => {
   </span>;
 };
 
+/** MC3, MC15: the Machine an Agent runs on as a chip, and its offline status; no chip for this Mac while it is the only one. */
+const MachineChip = (props: { node: RailNode }) => {
+  const connected = useConnectedProject();
+  const shown = () => props.node.machine ?? (connected.machines.any() ? copy.thisMac : null);
+
+  return <Show when={shown()}>{name => <>
+    <span class="machine-chip row-secondary" role="img" aria-label={name()}>{name()}</span>
+    <Show when={props.node.machine !== undefined && connected.machines.offline(props.node.machine)}><span class="machine-status" role="img" aria-label={copy.machineOfflineState(name())}>{copy.machineOffline}</span></Show>
+  </>}</Show>;
+};
+
 /** The count a row shows for children it hides: those folded under it while a drag holds it (U6550a), else its collapsed Agents. */
 const FoldedCount = (props: { folded: boolean; topology: RailTopology; id: string; hidden: number | undefined }) => {
   const lifted = () => props.folded ? descendantsOf(props.topology, props.id).length : 0;
@@ -246,6 +257,7 @@ export const RailRowView = (props: {
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={statusRead()}>{status => <span class="row-status" data-state="status" data-cut={statusCut[1]() ? "" : undefined} ref={statusCut[0]}><Reveal status={status()} {...(status().kind === "error" ? {} : { label: statusLabel() })} live={false} split /></span>}</Show>
+      <Show when={props.row.node.kind === "agent" && props.row.node.status !== null && !isGroup()}><MachineChip node={props.row.node} /></Show>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>

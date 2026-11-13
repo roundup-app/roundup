@@ -18,6 +18,7 @@ import type { AppSeam, DaemonExit, Project } from "../app/seam";
 import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
 import { createWorktreeState } from "./worktrees";
+import { createMachines } from "./machines";
 import { createAsks } from "./asks";
 import type { AsksState, AskRouting } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
@@ -120,6 +121,8 @@ export type ConnectedProject = ProjectView & {
   queue: QueueView;
   importing: ReturnType<typeof createImport>;
   worktrees: ReturnType<typeof createWorktreeState>;
+  /** MC3, MC15: the Machines Agents run on. */
+  machines: ReturnType<typeof createMachines>;
   drawer: DrawerState;
   /** U504: the Asks the user sent and where each part went. */
   asks: AsksState;
@@ -145,7 +148,7 @@ const reads = new Set<RpcMethodName>([
   "terminal.snapshot", "terminal.screen", "terminal.read", "terminal.search",
   "todo.list", "todo.get", "todo.listHanded", "todo.getHistory", "todo.comments",
   "todo.unread", "todo.refs", "todo.deletion", "pad.list", "pad.read", "pad.getDeletion",
-  "agent.worktreeState", "agent.changedFiles", "agent.compareFile", "agent.spawnPrompt",
+  "agent.worktreeState", "machine.list", "agent.changedFiles", "agent.compareFile", "agent.spawnPrompt",
   "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
   "project.get", "project.resources", "models.list", "import.list", "project.importDiscover",
   "message.get", "message.list",
@@ -266,7 +269,7 @@ export const connectProject = async (
 
   const projectView = createProjectView(rail.selected, openShelf);
 
-  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
+  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
