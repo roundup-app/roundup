@@ -104,5 +104,11 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     return draft ? drafts.discard(draft.revision) : Promise.resolve(null);
   };
 
-  return { value, recovered, owned: () => latest() !== undefined && owned().has(latest()!.revision), keep, save, send, discard };
+  const ownsLatest = () => {
+    const draft = latest();
+
+    return draft !== undefined && owned().has(draft.revision);
+  };
+
+  return { value, recovered, owned: ownsLatest, keep, save, send, discard };
 };

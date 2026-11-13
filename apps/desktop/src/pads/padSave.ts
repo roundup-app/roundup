@@ -61,6 +61,15 @@ const handlers: Handlers = {
   resume: save => save.kind === "paused" ? dirty("autosave") : save.kind === "conflict" && save.paused ? { kind: "conflict", actor: save.actor, version: save.version } : save,
 };
 
+/** A paused or recovered-conflict Pad waits for Resume. */
+export const awaitsResume = (save: Save): boolean => save.kind === "paused" || save.kind === "conflict" && save.paused === true;
+
+/** An unresolved external change leaves the baseline to an explicit choice. */
+export const holdsBaseline = (save: Save): boolean => save.kind === "sending" || save.kind === "conflict";
+
+/** Keep mine was pressed during a write that ended in a conflict: the next write follows the reply. */
+export const followsReply = (before: Save, after: Save): boolean => before.kind === "sending" && before.mine === true && after.kind === "conflict";
+
 /** Only Keep mine sends out of a conflict; a pause is left by Resume or Keep mine. */
 export const step = (save: Save, event: SaveEvent): Save => {
   if (save.kind !== "deleted") {

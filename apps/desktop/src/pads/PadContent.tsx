@@ -23,7 +23,7 @@ import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
 import { outcomeOf, RpcError } from "../app/seam";
 import { createDraftField } from "../state/draftField";
-import { createSave, type Save } from "./padSave";
+import { awaitsResume, createSave, followsReply, holdsBaseline, type Save } from "./padSave";
 import { usePadList } from "./padList";
 import type { PadList } from "./padList";
 import { wholeWord } from "./nameLine";
@@ -54,6 +54,32 @@ const conflictText = (actor: Actor | "unknown" | null, nameOf: (actor: Actor) =>
 
 const restoredSave = (changed: boolean, retained: boolean): Save =>
   changed ? { kind: "conflict", actor: "unknown", version: 0, ...retained && { paused: true as const } } : retained ? { kind: "paused" } : { kind: "clean" };
+
+const PadHead = (props: { name: string; deleted: boolean; onExport: () => void; onDelete: () => void }) => {
+  const connected = useConnectedProject();
+  const nameCut = createCutTitle(() => props.name);
+
+  return (
+    <div class="pad-head">
+      <span class="pad-head-title">
+        <span {...nameCut.attrs()} class="pad-head-name">{props.name}</span>
+      </span>
+      <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={props.onExport}>
+        <Icon name="export" />
+      </IconButton>
+      <Show when={!props.deleted}>
+        <IconButton
+          style={wholeWord}
+          aria-label={copy.delete}
+          disabled={connected.drafts.undo.pending() || connected.drafts.undo.uncertain()}
+          onClick={props.onDelete}
+        >
+          <Icon name="trash" />
+        </IconButton>
+      </Show>
+    </div>
+  );
+};
 
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
@@ -106,8 +132,6 @@ const PadBody = (props: {
   const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
   const cycle = createSave(restoredSave(Boolean(changed), Boolean(retained)));
   const deleted = () => cycle.save().kind === "deleted";
-
-  const awaitingResume = () => { const save = cycle.save(); return save.kind === "paused" || save.kind === "conflict" && save.paused === true; };
 
   const conflictActor = () => actorOf(cycle.save());
 
@@ -248,13 +272,15 @@ const PadBody = (props: {
   });
 
   /** A call that fails after the Drawer closed has no ✕ line to land on, so it goes to the Shelf's. */
+  const report = (message: string, kind?: "source-mapping") => {
+    if (closed) props.onLateFailure(message);
+    else actionFailure.show(message, kind);
+  };
+
   const act = async (work: () => Promise<void>) => {
     const message = await failureOf(work);
 
-    if (message === null) return;
-
-    if (closed) props.onLateFailure(message);
-    else actionFailure.show(message);
+    if (message !== null) report(message);
   };
 
   /** A refusal keeps the draft; only another edit or blur retries it. */
@@ -272,6 +298,8 @@ const PadBody = (props: {
     if (failure) throw new Error(failure);
   };
 
+  const outgoing = () => finalDraft === undefined ? currentDraft() : finalDraft;
+
   /** `mine`: the user chose Keep mine, so the write replaces whatever the Pad now holds. */
   const write = (mine = false) =>
     act(async () => {
@@ -282,14 +310,11 @@ const PadBody = (props: {
 
       const version = save.kind === "conflict" ? save.version : cycle.version();
       const expectedRevision = resolveConflict ? pad().revision : sourceRevision;
-      const text = finalDraft === undefined ? currentDraft() : finalDraft;
+      const text = outgoing();
 
       if (text === null) {
         cycle.send({ kind: "skipped" });
-        const message = copy.padSourceMappingFailed;
-
-        if (closed) props.onLateFailure(message);
-        else actionFailure.show(message, "source-mapping");
+        report(copy.padSourceMappingFailed, "source-mapping");
 
         return;
       }
@@ -330,13 +355,13 @@ const PadBody = (props: {
 
       // A newer explicit choice owns its baseline; an older reply cannot undo it.
       if (before.kind === "sending" && before.version === version) adopt(next);
-      else if (before.kind === "sending" || before.kind === "conflict") {
+      else if (holdsBaseline(before)) {
         // An unresolved external change still needs an explicit choice.
         sourceRevision = next.revision;
         setOrigin(next.text);
       }
 
-      if (before.kind === "sending" && before.mine && cycle.save().kind === "conflict") {
+      if (followsReply(before, cycle.save())) {
         props.onAcknowledged?.(destination.object);
         void write(true);
 
@@ -460,31 +485,12 @@ const PadBody = (props: {
     settle(pad());
   };
 
-  const nameCut = createCutTitle(() => name);
-
   return (
     <div class="pad-body" data-pad-width={maximised() ? width() : undefined} data-history-region={`pad:${destination.object}`}>
-      <div class="pad-head">
-        <span class="pad-head-title">
-          <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
-        </span>
-        <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
-          <Icon name="export" />
-        </IconButton>
-        <Show when={!deleted()}>
-          <IconButton
-            style={wholeWord}
-            aria-label={copy.delete}
-            disabled={connected.drafts.undo.pending() || connected.drafts.undo.uncertain()}
-            onClick={() => {
-              actionFailure.clear();
-              void remove("key");
-            }}
-          >
-            <Icon name="trash" />
-          </IconButton>
-        </Show>
-      </div>
+      <PadHead name={name} deleted={deleted()} onExport={() => void exportToFile()} onDelete={() => {
+        actionFailure.clear();
+        void remove("key");
+      }} />
       <ReservedLine data-state={saved() && cycle.save().kind === "clean" ? "saved" : undefined} message={actionFailure.message() ?? note.message()}
         status={saved() && cycle.save().kind === "clean" ? copy.padSaved : null} dismiss={() => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); }} recover={retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined} action={<>
         <Show when={retentionProblem()}>
@@ -494,7 +500,7 @@ const PadBody = (props: {
         <Show when={actionFailure.kind() === "source-mapping"}>
           <CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton>
         </Show>
-        <Show when={awaitingResume() && !retentionProblem()}><button data-button="primary" type="button" disabled={invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
+        <Show when={awaitsResume(cycle.save()) && !retentionProblem()}><button data-button="primary" type="button" disabled={invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
         <Show when={conflictActor()}>
           <button data-button="quiet" type="button" class="word" onClick={() => keepMine()}>{copy.keepMine}</button>
           <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>
