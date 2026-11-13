@@ -847,23 +847,23 @@ def issue_of(branch):
 
 
 def link(pr, issue=None):
-    """L82: the loop writes PR `pr`'s `Refs #<issue>` and `Scenarios:` lines, never the Builder: the Issue is `issue`, else
-    the one the branch's work Key names, else the one the body links; `Scenarios:` comes from that Issue's own line, else
-    from the scenarios the diff adds or changes. A wrong or missing line is replaced in place, with no comment and no fix
-    run; a `Closes` or `Fixes` line already naming the Issue stays. Returns the PR with its new body."""
+    """L82: the loop writes PR `pr`'s `Closes #<issue>` when `orders.delivers` finds all the Issue's work in it, else
+    `Refs #<issue>`, and its `Scenarios:` line, never the Builder: the Issue is `issue`, else the one the branch's work Key
+    names, else the one the body links; `Scenarios:` is the Issue's line, else the diff's scenarios. A wrong or missing
+    line is replaced in place; `Closes` or `Fixes` naming the Issue stays, `Refs` becomes `Closes`. Returns the PR with its new body."""
     body = original = pr['body'] or ''
     found = LINKED.search(body)
     issue = issue or issue_of(pr['headRefName']) or (int(found[1]) if found else None)
     ids = ''
     if issue is None:
-        print(f"PR #{pr['number']} names no Issue and no work Key finds one; no Refs line to write", file=sys.stderr)
+        print(f"PR #{pr['number']} names no Issue and no work Key finds one; no Closes or Refs line to write", file=sys.stderr)
     else:
-        if not found or int(found[1]) != issue:
-            body = f"Refs #{issue}\n{re.sub(r'^(?:Refs|Closes|Fixes):? #?\d+.*\n?', '', body, count=1, flags=re.M)}"
-        ids = orders.field(orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')['body'] or '', 'Scenarios', '')
+        verb = 'Closes' if orders.delivers(pr['number'], target := orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')) else 'Refs'
+        if not found or int(found[1]) != issue or (verb == 'Closes' and found[0].startswith('Refs')):
+            body = f"{verb} #{issue}\n{re.sub(r'^(?:Refs|Closes|Fixes):? #?\d+.*\n?', '', body, count=1, flags=re.M)}"
+        ids = orders.field(target['body'] or '', 'Scenarios', '')
     ids = ids or ', '.join(changed_scenarios(pr['number'], pr['headRefOid']))
-    if ids and f'Scenarios: {ids}' not in body.splitlines():
-        line = f'Scenarios: {ids}'
+    if ids and (line := f'Scenarios: {ids}') not in body.splitlines():
         body = re.sub(r'^Scenarios:.*\n?', '', body, count=1, flags=re.M)
         body = re.sub(r'^((?:Refs|Closes|Fixes) #\d+.*)$', lambda m: f'{m[1]}\n{line}', body, count=1, flags=re.M) \
             if LINKED.search(body) else f'{line}\n{body}'
