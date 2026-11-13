@@ -88,6 +88,7 @@ for line in sys.stdin:
         wake_gate: Default::default(),
         sender: Default::default(),
         restarting: Default::default(),
+        reports: Default::default(),
         queue: Default::default(),
         auto: Default::default(),
     };

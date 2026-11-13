@@ -40,6 +40,7 @@ fn rup(socket: &Path, args: &[&str], stdin: &str, attempt: Option<&str>) -> Outp
     let mut rup = command
         .args(args)
         .env("RUPD_SOCKET", socket)
+        .env("RUPQ_DIR", socket.with_file_name("rupq"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -100,6 +101,21 @@ async fn a4_signal_signals_the_agent_as_that_agent() {
     let (actor, status) = event;
     assert_eq!((actor.kind, actor.id.as_str()), (ActorKind::Agent, id));
     assert_eq!((status.id.as_str(), status.status.kind), (id, Kind::Idle));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn mc20_each_signal_carries_the_next_seq_and_the_counter_is_on_disk() {
+    let served = Served::start("#!/bin/sh\nsleep 30\n", &[]).await;
+    // Each run takes a number whether or not the Daemon applies the report: a number is never reused.
+    for _ in 0..2 {
+        served.signal("999", "1", r#"{"hook_event_name":"Stop"}"#);
+    }
+    let counter = served
+        .socket()
+        .with_file_name("rupq")
+        .join("seq")
+        .join("999");
+    assert_eq!(std::fs::read_to_string(counter).unwrap(), "2");
 }
 
 #[tokio::test(flavor = "multi_thread")]

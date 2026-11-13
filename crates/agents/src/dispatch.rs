@@ -294,6 +294,7 @@ impl Agents {
                 id,
                 attempt,
                 payload,
+                report: _,
             } = p;
             shared.events.inbox.scan(&id, &payload);
             shared.observe(

@@ -17,6 +17,7 @@ const MAYBE_ARRIVED: &str = "the Signal may or may not have arrived";
 
 mod cli;
 mod mcp;
+mod seq;
 mod skill;
 
 /// What comes before the command.
@@ -283,11 +284,13 @@ async fn deliver(
     attempt: contracts::agent::Ordinal,
     payload: Value,
 ) -> Result<bool, String> {
+    let report = seq::next(agent_id).map_err(|err| format!("cannot number the report: {err}"))?;
     let client = identified(agent_id).await?;
     let signal = SignalParams {
         id: agent_id.to_owned(),
         attempt,
         payload,
+        report: Some(report),
     };
     client
         .request("agent.signal", signal)
