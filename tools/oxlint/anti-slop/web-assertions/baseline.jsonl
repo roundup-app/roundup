@@ -53,7 +53,7 @@
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"3b19cf46c0cf04b9a4c36239c1ea013287db7253895e1401cf5b66b75dfae670"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"5dd949e0a0a9405bfdc64257d7154c1cc5f207b329d57048c8cc082ff5bddd51"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"755dd706c77401c84d2361bf2fa1888595d9996ce51731306b8cffc299cce51f"}
-{"file":"apps/desktop/src/drawer/u430_browser.test.py","test":"main","identity":"3288f6d5da1c159a3f31caae45ad8950f79acd6ed776ae5e1fd5026d32d8322a"}
+{"file":"apps/desktop/src/drawer/u430_browser.test.py","test":"main","identity":"e23e1f7a18348cfe77bf62055b83a82b706616ebeb53f8d0fd2134102441bf84"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_the_drawer_shows_a_light_close_word_that_closes_it","identity":"d9f39510e74ffc740ff85e4259d88ea64fe9e2e93c29ba1a0a82e0dd16283aae"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_a_closed_drawer_unmounts_its_content_at_once_under_reduced_motion","identity":"b8cd6c6f8d3b6b5ed71c7820273d499d391fe8228552ab38fdcb4d2fcffa84b4"}
 {"file":"apps/desktop/src/header/u179_strip.test.tsx","test":"u179 the header is the strip > u179_a_tab_shows_nothing_else_until_hover","identity":"cbd91ddadab007b8305aceb4cc04f51fbb8c5143504d36df2f5fadbfd25ef79c"}
@@ -273,10 +273,10 @@
 {"file":"apps/desktop/src/todos/u461_browser.test.py","test":"restarted","identity":"7f85483eb02d0a68cb4f3744b7c61ed919456dac0cf20c4748c54f58743cdb43"}
 {"file":"apps/desktop/src/todos/u461_browser.test.py","test":"restarted","identity":"4e85dae339a7e7365c2c631652feeab87923e4db46922a1a763a5672b87b9340"}
 {"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u461b_fresh_profile_uses_requested_emulation","identity":"63fd7512f670471a191f3b1853d83afb502d6c8de2b7d793d365312329e47c79"}
-{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"b91003803c5e7890dc693aa23f606de3fb6f67d7208bb78c732f91fa656b566f"}
-{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"1e97816d754f3bfa35679d13962464092c8284ec1870ac80773ee63a66e18704"}
-{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"0932006987da09359085a57e70959af8b864150435e12a50a128818cdd86d591"}
-{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"afcdeb96a500a064cc7aa62049d4ae91a9b8cb7502e572143d1f3ab3b9eea677"}
+{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"53c32abd6c8dbc9895f5625406519ce86894083896bd2068b6106e9c845dc272"}
+{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"88c1f8102b0676fdf645960ea89d4450769b43b3c3d6efc77fb23442f734e204"}
+{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"b4954428be08efa5720aab9f61bca165165e179a736e0d98f7e41ffb9c861079"}
+{"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"a4c173689ec222e519fbb8664a7b7cf0831d63cf47b9502a100481b16c17a9b2"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_dialog_owned_controls_still_work: %s","identity":"62f1153f81dc8c35b488d4823504ee6f3cadb18822573e3902be9d0ac557c62b"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_dialog_owned_controls_still_work: nested portalled Dialog","identity":"d297ca979fdf5018f4b443cd1a56a5d88f691292e8df5ca0cb993dce972bcbc7"}
 {"file":"apps/desktop/src/ui/u3310_browser.test.ts","test":"u3310_the_switch_is_a_labelled_keyboard_reachable_switch","identity":"f85a11cf4a7c2d254f21c1a6ad12d4d0c8be7149736bcbd13232bbfd60967c5d"}

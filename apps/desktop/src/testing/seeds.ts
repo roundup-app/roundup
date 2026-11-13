@@ -15,6 +15,7 @@ import type { Removal } from "@contracts/agent/Removal";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import type { RpcMethodName } from "@contracts/methods";
+import { CONTRACT } from "@contracts/contract";
 import { RpcError } from "../app/seam";
 import type { Project } from "../app/seam";
 import { createFakeApp } from "./fakeApp";
@@ -68,7 +69,7 @@ export type Controls = {
   writeOutput(terminalId: string, text: string): void;
   /** Makes the Todos and Pads created from now on belong to `actor`, as when that Agent made them; the user until called. */
   actAs(actor: Actor): void;
-  /** Makes the next `rpc` call of `method` reject with `code` and `message`; the App's own polls, such as `machine.list` on its tick, never take it. */
+  /** Makes the next `rpc` call of `method` reject with `code` and `message`; the App's own polls, such as `machine.list` on its tick, never take it. Throws at once when `method` is no Daemon method, as a typo in a page-evaluated call would otherwise never fire. */
   failNext(code: number, message: string, method: RpcMethodName): void;
   /** The error a Daemon refusal throws, for a handler that must refuse one method. */
   refusal(code: number, message: string): Error;
@@ -536,6 +537,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     },
     refusal: (code, message) => new RpcError(code, message),
     failNext: (code, message, method) => {
+      if (!(method in CONTRACT.methods)) throw new Error(`failNext: ${String(method)} is no Daemon method`);
+
       failure = { error: new RpcError(code, message), method };
     },
   };
@@ -675,6 +678,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       armed = false;
       throw new RpcError(CONFLICT, "name already taken");
     };
+
     afterFirstLoad(app, () => {
       armed = true;
     });
