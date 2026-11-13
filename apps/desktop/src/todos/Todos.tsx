@@ -234,11 +234,35 @@ export const Todos = (props: {
   const [dragging, setDragging] = createSignal(false);
   const [filed, setFiled] = createSignal(0);
   const [choosing, setChoosing] = createSignal<Choosing | null>(null);
-  const picking = () => { const now = choosing(); return now?.kind === "owner" ? now : null; };
-  const moving = () => { const now = choosing(); return now?.kind === "home" ? now : null; };
-  const naming = () => { const now = choosing(); return now?.kind === "name" ? now.id : null; };
-  const advanceOf = (kind: "owner" | "home" | "comment") => { const now = choosing(); return now?.kind === kind ? now.advance : undefined; };
-  const choose = (kind: "owner" | "home", id: number, anchor: HTMLElement) => setChoosing(kind === "owner" ? { kind, id, anchor, focus: captureFocus(true), advance: captureAdvance(id) } : { kind, id, anchor, focus: captureFocus(true), advance: captureAdvance(id) });
+
+  const picking = () => {
+    const now = choosing();
+
+    return now?.kind === "owner" ? now : null;
+  };
+
+  const moving = () => {
+    const now = choosing();
+
+    return now?.kind === "home" ? now : null;
+  };
+
+  const naming = () => {
+    const now = choosing();
+
+    return now?.kind === "name" ? now.id : null;
+  };
+
+  const advanceOf = (kind: "owner" | "home" | "comment") => {
+    const now = choosing();
+
+    return now?.kind === kind ? now.advance : undefined;
+  };
+
+  const choose = (kind: "owner" | "home", id: number, anchor: HTMLElement) => {
+    setChoosing({ kind, id, anchor, focus: captureFocus(true), advance: captureAdvance(id) });
+  };
+
   const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null; rename: () => void }>();
 
   const targets = todoDropTargets(connected, todos);
@@ -808,6 +832,7 @@ export const Todos = (props: {
         const now = choosing();
 
         if (now?.kind !== "name" || now.id !== id) return;
+
         setChoosing(null);
 
         // U3743, U138: the Todo is the new Door's, so its row is found again once `todo.updated` has refetched it.
