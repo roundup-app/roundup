@@ -5,7 +5,8 @@ import type { Actor } from "@contracts/Actor";
 export type Save =
   | { kind: "clean" }
   | { kind: "dirty"; due: "autosave" | "keep-mine" | null }
-  | { kind: "sending"; text: string; version: number }
+  /** `over`: the conflict a Keep mine write resolves, still shown until its reply. */
+  | { kind: "sending"; text: string; version: number; over?: Actor | "unknown" }
   | { kind: "conflict"; actor: Actor | "unknown"; version: number }
   /** An unknown reply or a recovered draft: the user chooses. */
   | { kind: "paused" }
@@ -44,7 +45,7 @@ export const step = (save: Save, event: SaveEvent): Save => {
       if (event.due === "keep-mine") return save.kind === "sending" || save.kind === "conflict" ? save : { kind: "dirty", due: "keep-mine" };
 
       return save.kind === "dirty" ? { kind: "dirty", due: save.due ?? "autosave" } : save;
-    case "send": return save.kind === "dirty" && save.due !== null || save.kind === "conflict" && event.mine ? { kind: "sending", text: event.text, version: event.version } : save;
+    case "send": return save.kind === "dirty" && save.due !== null || save.kind === "conflict" && event.mine ? { kind: "sending", text: event.text, version: event.version, ...(save.kind === "conflict" ? { over: save.actor } : {}) } : save;
     case "applied": return save.kind === "sending" && save.version === event.version ? { kind: "clean" } : save;
     case "refused": return save.kind === "sending" ? { kind: "dirty", due: null } : save;
     case "unknown": return save.kind === "sending" ? { kind: "paused" } : save;

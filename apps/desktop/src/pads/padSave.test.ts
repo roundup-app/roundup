@@ -17,7 +17,7 @@ const rows: [string, Save, SaveEvent, Save][] = [
   ["Keep mine keeps the conflict until it sends", { kind: "conflict", actor: alice, version: 2 }, { kind: "due", due: "keep-mine" }, { kind: "conflict", actor: alice, version: 2 }],
   ["a due write sends", { kind: "dirty", due: "autosave" }, { kind: "send", text: "a", version: 0, mine: false }, { kind: "sending", text: "a", version: 0 }],
   ["a conflict sends only for Keep mine", { kind: "conflict", actor: alice, version: 2 }, { kind: "send", text: "a", version: 2, mine: false }, { kind: "conflict", actor: alice, version: 2 }],
-  ["Keep mine sends from a conflict", { kind: "conflict", actor: alice, version: 2 }, { kind: "send", text: "a", version: 2, mine: true }, { kind: "sending", text: "a", version: 2 }],
+  ["Keep mine sends from a conflict", { kind: "conflict", actor: alice, version: 2 }, { kind: "send", text: "a", version: 2, mine: true }, { kind: "sending", text: "a", version: 2, over: alice }],
   ["a reply for the sent version cleans", { kind: "sending", text: "a", version: 2 }, { kind: "applied", version: 2 }, { kind: "clean" }],
   ["a refusal keeps the draft dirty", { kind: "sending", text: "a", version: 2 }, { kind: "refused" }, { kind: "dirty", due: null }],
   ["an unknown reply pauses", { kind: "sending", text: "a", version: 2 }, { kind: "unknown" }, { kind: "paused" }],

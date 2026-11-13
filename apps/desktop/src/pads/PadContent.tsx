@@ -96,7 +96,7 @@ const PadBody = (props: {
   const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
   const cycle = createSave(changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" });
   const deleted = () => cycle.save().kind === "deleted";
-  const conflictActor = () => { const save = cycle.save(); return save.kind === "conflict" ? save.actor : null; };
+  const conflictActor = () => { const save = cycle.save(); return save.kind === "conflict" ? save.actor : save.kind === "sending" ? save.over ?? null : null; };
   const [pad, setPad] = createSignal(props.initial);
   const [shown, setShown] = createSignal(parsed?.success ? parsed.output.source : source);
   const [origin, setOrigin] = createSignal(base);
@@ -113,7 +113,7 @@ const PadBody = (props: {
   const note = dismissable(() => {
     const save = cycle.save();
 
-    return save.kind === "deleted" && !save.byMe ? copy.padDeleted(name) : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : save.kind === "conflict" ? conflictLabel() : save.kind === "paused" ? statusLabel() : null;
+    return save.kind === "deleted" && !save.byMe ? copy.padDeleted(name) : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : save.kind === "paused" ? statusLabel() : null;
   });
   let editor: PadEditorHandle | undefined;
   let pendingActor: Actor | null = null;
