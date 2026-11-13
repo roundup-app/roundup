@@ -51,6 +51,26 @@ const CreateMode = lazy(() => import("./CreateMode").then(module => ({ default: 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
+// macOS Ctrl-click opens the menu: it must not focus a row, blur unfinished input, arm the sort sensor or toggle.
+const ctrlClick = (event: MouseEvent) => {
+  if (event.button !== 0 || !event.ctrlKey) return;
+  event.preventDefault();
+  event.stopPropagation();
+};
+
+// Zag's typeahead only moves focus, a task later; U3787c has the row a name search lands on chosen.
+const chooseTypedMatchAfter = (press: KeyboardEvent, focused: () => string | null, isNodeId: (value: string) => boolean, choose: (id: string) => void) => {
+  const from = focusedRowId(press);
+
+  if (from === undefined || press.key.length !== 1 || press.key === " " || press.metaKey || press.ctrlKey || press.altKey || press.isComposing) return;
+
+  setTimeout(() => {
+    const match = focused();
+
+    if (match !== null && match !== from && isNodeId(match)) choose(match);
+  });
+};
+
 export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
@@ -255,21 +275,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const [selected, setSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
   const isNodeId = (value: string) => rail.nodes.some(node => node.id === value);
 
-  // Zag's typeahead only moves focus, a task later; U3787c has the row a name search lands on chosen.
-  const chooseTypedMatch = (press: KeyboardEvent) => {
-    const from = focusedRowId(press);
-
-    if (from === undefined || press.key.length !== 1 || press.key === " " || press.metaKey || press.ctrlKey || press.altKey || press.isComposing) return;
-
-    setTimeout(() => {
-      const match = focused();
-
-      if (match === null || match === from || !isNodeId(match)) return;
-
-      setSelected([match]);
-      rail.select(match);
-    });
-  };
+  const chooseTypedMatch = (press: KeyboardEvent) => chooseTypedMatchAfter(press, focused, isNodeId, match => { setSelected([match]); rail.select(match); });
 
   const isSelected = (id: string) => selected().includes(id);
 
@@ -657,13 +663,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         setContainer(element);
         // Ark's keys walk the collection, so it shows the rows as drawn first.
         makeEventListener(element, "keydown", settleCollection, { capture: true });
-
-        // macOS Ctrl-click opens the menu: it must not focus a row, blur unfinished input, arm the sort sensor or toggle.
-        const ctrlClick = (event: MouseEvent) => {
-          if (event.button !== 0 || !event.ctrlKey) return;
-          event.preventDefault();
-          event.stopPropagation();
-        };
 
         makeEventListener(element, "pointerdown", ctrlClick, { capture: true });
         makeEventListener(element, "click", ctrlClick, { capture: true });
