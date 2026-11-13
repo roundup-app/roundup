@@ -23,7 +23,7 @@ import { EmptyState } from "../ink/EmptyState";
 import * as v from "valibot";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
 import { registerOpener } from "../shelf/openItem";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -44,13 +44,15 @@ import { NewWorkstream } from "./NewWorkstream";
 import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
 import { CHORDS, CHORD_ROWS, type ChordName, chordsOf } from "../keys/chords";
 import { HomePicker } from "./HomePicker";
-import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
+import { afterElseBefore, nearest } from "../keys/survivor";
+import { createListModel, focusRow, idOfRow, rowButtonOf, rowRef, survivorOf } from "./listModel";
+import { triage } from "./triage";
 import { reorderChange } from "./state";
 import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeCollection, treeRows, type NestedRow } from "./todoView";
+import { doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS: readonly ChordName[] = ["todo.triage-move", "todo.triage-assign", "todo.triage-done"];
@@ -120,7 +122,6 @@ export const Todos = (props: {
   const dependencyRows = createMemo(() => ownerGroups(connected, inScope(), todo => todo.owner).flatMap(group => treeRows(group.items)));
   const memberIds = createMemo(() => new Set(dependencyRows().flatMap(row => row.parent === null ? [] : [row.todo.id, row.parent])));
   const foldedDone = createMemo(() => done().filter(todo => !memberIds().has(todo.id)));
-  const rows = new Map<number, HTMLButtonElement>();
   const [closedGroups, setClosedGroups] = createSignal<readonly string[]>(["unassigned"]);
 
   const finishing = createFinishMotion({
@@ -130,15 +131,14 @@ export const Todos = (props: {
     reduced: connected.reducedMotion,
     open: createMemo(() => open().map(todo => todo.id)),
     shown: (id, wasDone) => {
-      if (!dependency.visible(id)) return false;
-
-      if (wasDone && !memberIds().has(id)) return unfolded();
-
+      if (wasDone && !memberIds().has(id)) return dependency.visible(id) && unfolded();
       const todo = inScope().find(todo => todo.id === id);
 
-      return todo !== undefined && !closedGroups().includes(groupOf(todo));
+      return todo !== undefined && !hidden(todo);
     },
   });
+
+  const { hidden, openOrder } = createListModel({ rows: dependencyRows, visible: id => dependency.visible(id), closedGroups, groupOf });
 
   const dependency = createDependencyGroups({
     project: connected, key: () => connected.rail.selected() ?? "overview",
@@ -154,10 +154,10 @@ export const Todos = (props: {
 
       return !!todo && !closedGroups().includes(groupOf(todo));
     },
-    focusAfterClose: hidden => {
+    focusAfterClose: closing => {
       const kept = document.activeElement?.closest<HTMLElement>("[data-todo]");
 
-      if (!kept || !hidden.has(Number(kept.dataset.todo))) return;
+      if (!kept || !closing.has(Number(kept.dataset.todo))) return;
       const order = dependencyRows().map(row => row.todo.id);
       const at = order.indexOf(Number(kept.dataset.todo));
 
@@ -165,16 +165,16 @@ export const Todos = (props: {
         const active = document.activeElement;
         const current = active?.closest<HTMLElement>("[data-todo]");
 
-        if (active && active !== document.body && (!current || !hidden.has(Number(current.dataset.todo)))) return;
+        if (active && active !== document.body && (!current || !closing.has(Number(current.dataset.todo)))) return;
         const candidates = [...order.slice(at + 1), ...order.slice(0, at).reverse()];
 
         const target = candidates.find(id => {
           const todo = todos.byId().get(id);
 
-          return todo && !todo.done && !hidden.has(id) && dependency.visible(id) && !closedGroups().includes(groupOf(todo));
+          return todo && !todo.done && !closing.has(id) && !hidden(todo);
         });
 
-        (target === undefined ? plusButton : rowButtonOf(target) ?? plusButton)?.focus();
+        if (target === undefined || !focusRow(target)) plusButton?.focus();
       });
     },
   });
@@ -189,9 +189,7 @@ export const Todos = (props: {
     return inScope().filter(todo => kept.has(todo.id));
   });
 
-  const selection = createSelection(() => [...listed().filter(todo => {
-    return dependency.visible(todo.id) && !closedGroups().includes(groupOf(todo));
-  }), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
+  const selection = createSelection(() => [...listed().filter(todo => !hidden(todo)), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
 
   const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
 
@@ -229,7 +227,7 @@ export const Todos = (props: {
   const pending = createMemo(() => todos.pending().filter(includes));
   const isEmpty = createMemo(() => todos.isLoaded() && inScope().length === 0 && pending().length === 0);
   createEffect(() => {
-    for (const todo of inScope()) if (finishing.row(todo.id) && (!dependency.visible(todo.id) || closedGroups().includes(groupOf(todo)))) finishing.rowEnded(todo.id);
+    for (const todo of inScope()) if (finishing.row(todo.id) && hidden(todo)) finishing.rowEnded(todo.id);
   });
 
   const [dragging, setDragging] = createSignal(false);
@@ -332,7 +330,6 @@ export const Todos = (props: {
 
   let plusButton: HTMLButtonElement | undefined;
 
-  const rowButtonOf = triageRowOf;
   const requestedOpen = createMemo(() => requested().filter(todo => !todo.done));
 
   createEffect(() => {
@@ -390,6 +387,7 @@ export const Todos = (props: {
   // is saved here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
   // elsewhere (typing in U16's field, Tab into the pane) never yanks it back.
+  const rows = { get: rowButtonOf };
   const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; reopening: boolean; focus: ReturnType<typeof captureFocus> }[]>([]);
 
   createEffect(() => {
@@ -429,7 +427,7 @@ export const Todos = (props: {
   const [shown, setShown] = createSignal<{ id: number; content: () => JSX.Element } | null>(null);
   const selectedId = () => (shown() !== null && connected.drawer.content() === shown()?.content ? shown()?.id : undefined);
 
-  const show = (todo: Todo, source: ActivationSource, order = dependencyRows().filter(row => listed().some(todo => todo.id === row.todo.id) && dependency.visible(row.todo.id) && !closedGroups().includes(groupOf(row.todo)) || unfolded() && foldedDone().some(todo => todo.id === row.todo.id)).map(row => row.todo.id)) => {
+  const show = (todo: Todo, source: ActivationSource, order = dependencyRows().filter(row => listed().some(todo => todo.id === row.todo.id) && !hidden(row.todo) || unfolded() && foldedDone().some(todo => todo.id === row.todo.id)).map(row => row.todo.id)) => {
     commentAdvance = captureAdvance(todo.id);
 
     const content = () => <TodoDrawer id={todo.id} todos={todos} order={order} region={shelf ? "shelf" : "todos"} onNavigate={id => { if (todos.byId().has(id)) show(todos.byId().get(id)!, "key", order); }} onComment={focus => focus(() => {
@@ -452,11 +450,11 @@ export const Todos = (props: {
     return true;
   }, () => selection.focused() ?? selection.selected()[0]));
 
-  const toggle = async (todo: Todo, ids: readonly number[]) => {
+  const toggle = async (todo: Todo) => {
     const focus = captureFocus();
     const reopening = todo.done;
     const advance = !reopening ? captureAdvance(todo.id) : undefined;
-    const target = rowAfter(todo.id, ids);
+    const target = survivorOf(untrack(() => reopening ? foldedDone().map(each => each.id) : openOrder()), todo.id) ?? null;
 
     const message = await changeFailureOf(() => reopening
       ? connected.app.rpc("todo.reopen", { id: todo.id })
@@ -472,15 +470,11 @@ export const Todos = (props: {
   let section: HTMLElement | undefined;
   const triageButton = () => section?.closest(".shelf")?.querySelector<HTMLButtonElement>("[data-triage-toggle]") ?? section?.querySelector<HTMLButtonElement>("[data-triage-toggle]");
 
-  const triageButtons = () => openRowButtons().filter(button => todos.byId().get(idOfRow(button) ?? -1)?.done === false);
-
   // U3474b: retain rendered order before a picker, editor or mutation can move the row.
   const captureAdvance = (id: number) => {
     if (!triage.on()) return undefined;
     const focus = captureFocus();
-    const order = triageButtons().map(idOfRow);
-    const at = order.indexOf(id);
-    const candidates = [...order.slice(at + 1), ...order.slice(0, at).reverse(), id];
+    const order = untrack(openOrder);
 
     return async (permission = focus) => {
       await todos.reload();
@@ -492,14 +486,15 @@ export const Todos = (props: {
         const kept = document.activeElement;
 
         if (kept instanceof Element && kept !== document.body && !kept.closest(".todos-tab, .owner-picker, .todo-comment-field, .todo-comments-send")) return;
-        const visible = triageButtons();
-        const next = candidates.map(candidate => visible.find(button => idOfRow(button) === candidate)).find(button => button !== undefined);
-        (next ?? triageButton())?.focus();
+        const open = new Set(untrack(openOrder));
+        const next = afterElseBefore(order.map(String), String(id), each => open.has(Number(each)));
+
+        if (next === undefined || !focusRow(Number(next))) triageButton()?.focus();
       }));
     };
   };
 
-  let entry: { id: number | undefined; order: (number | undefined)[] } | null = null;
+  let entry: { id: number | undefined; order: readonly number[] } | null = null;
   const [moving, move] = createSignal<{ id: number; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
   const setMoving = (request: { id: number; anchor: HTMLElement } | null) => move(request && { ...request, focus: captureFocus(true) });
 
@@ -511,7 +506,7 @@ export const Todos = (props: {
     moveAdvance = undefined;
     setMoving(null);
 
-    if (id !== undefined) queueFocus(() => triageRowOf(id)?.focus());
+    if (id !== undefined) queueFocus(() => focusRow(id));
   };
 
   // U6236b: a picker whose Todo is gone has no row to sit against, so it closes.
@@ -524,14 +519,21 @@ export const Todos = (props: {
     if (gone(moving())) stopMoving();
   });
 
-  const enterTriage = () => {
-    const buttons = triageButtons();
-    const kept = idOfRow(document.activeElement);
-    const start = kept !== undefined && todos.byId().get(kept)?.done === false ? triageRowOf(kept) : buttons[0] ?? null;
+  const focusFirst = () => {
+    const first = openOrder()[0];
 
-    entry = { id: idOfRow(start), order: buttons.map(idOfRow) };
+    if (first === undefined || !focusRow(first)) triageButton()?.focus();
+  };
+
+  const enterTriage = () => {
+    const order = openOrder();
+    const kept = idOfRow(document.activeElement);
+    const start = kept !== undefined && order.includes(kept) ? kept : order[0];
+
+    entry = { id: start, order: [...order] };
     triage.set(true);
-    (start ?? triageButton())?.focus();
+
+    if (start === undefined || !focusRow(start)) triageButton()?.focus();
   };
 
   /** U3751: the row that had focus at entry, else the nearest open one in the order the list had then. */
@@ -543,16 +545,10 @@ export const Todos = (props: {
 
     if (!kept) return;
 
-    const at = kept.order.indexOf(kept.id);
-    const near = kept.order.flatMap((_, step) => [kept.order[at + step], kept.order[at - step]]);
+    const open = new Set(openOrder());
+    const near = kept.id === undefined ? undefined : nearest(kept.order.map(String), String(kept.id), each => open.has(Number(each)));
 
-    for (const id of near) {
-      const button = id === undefined ? null : triageRowOf(id);
-
-      if (button && !button.closest("[hidden], [inert]") && todos.byId().get(id!)?.done === false) return button.focus();
-    }
-
-    triageButton()?.focus();
+    if (near === undefined || !focusRow(Number(near))) triageButton()?.focus();
   };
 
   createEffect(() => section?.closest(".shelf")?.setAttribute("data-triage", triage.on() ? "on" : "off"));
@@ -587,7 +583,7 @@ export const Todos = (props: {
     pickFails.get(id)?.show(message);
 
     if (message === null && advance) await advance();
-    else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, triageButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false, focus }]);
+    else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: survivorOf(untrack(openOrder), id) ?? null, reopening: false, focus }]);
   };
 
   let moveAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
@@ -596,7 +592,7 @@ export const Todos = (props: {
     {
       chords: [...CHORD_ROWS.filter(row => row.inTriage && row.name !== "todo.triage-leave").flatMap(row => chordsOf(row)), ...chordsOf(CHORDS["todo.assign"])],
       when: event => triage.on() && canTriage(event, true) && triageTarget(event)?.done !== false && (!event.shiftKey || event.code === "Tab"),
-      run: () => (triageButtons()[0] ?? triageButton())?.focus(),
+      run: focusFirst,
     },
     {
       action: CHORDS["todo.triage-enter"], searchable: false,
@@ -608,11 +604,11 @@ export const Todos = (props: {
       when: event => triage.on() && canTriage(event),
       capture: focus => ({ available: () => triage.on() && focus?.isConnected === true && (focus === document.body || !!focus.closest(".shelf, .shelf-tabs")) && !focus.closest("input,textarea,select,[contenteditable]"), invoke: leaveTriage }),
     },
-    ...["KeyJ", "KeyK"].map(press => triageKey("todo.triage-move", (_todo, button) => {
-      const buttons = triageButtons();
-      const at = buttons.indexOf(button);
+    ...["KeyJ", "KeyK"].map(press => triageKey("todo.triage-move", todo => {
+      const order = untrack(openOrder);
+      const at = order.indexOf(todo.id);
 
-      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (press === "KeyJ" ? 1 : -1)))]?.focus();
+      if (at !== -1) focusRow(order[Math.min(order.length - 1, Math.max(0, at + (press === "KeyJ" ? 1 : -1)))]!);
     }, press)),
     triageKey("todo.triage-assign", (todo, button) => {
       clearFailures();
@@ -625,9 +621,9 @@ export const Todos = (props: {
       setMoving({ id: todo.id, anchor: button });
       moveAdvance = captureAdvance(todo.id);
     }),
-    triageKey("todo.triage-done", async (todo) => {
+    triageKey("todo.triage-done", (todo) => {
       clearFailures();
-      pickFails.get(todo.id)?.show(await toggle(todo, triageButtons().map(idOfRow).filter(each => each !== undefined)));
+      void toggle(todo).then(message => pickFails.get(todo.id)?.show(message));
     }),
     triageKey("todo.triage-comment", (todo) => {
       if (selectedId() !== todo.id) show(todo, "key");
@@ -657,7 +653,7 @@ export const Todos = (props: {
         { id: "move-down", label: copy.moveDown, enabled: order.indexOf(todo.id) < order.length - 1, run: () => sorted.step(todo.id, 1, order) },
       ] : []),
       { id: "move", label: copy.move, children: homesToOffer(connected.rail.nodes, todo.home).map(home => ({ id: `home:${home.home ?? "root"}`, label: home.name, run: () => moveHome(todo.id, home.home) })) },
-      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: () => void toggle(todo, open().map(candidate => candidate.id)) }] : []),
+      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: () => void toggle(todo) }] : []),
       ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure, () => setCreateFailure(null), copied.get(todo.id)),
       { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
     ], x, y));
@@ -739,7 +735,7 @@ export const Todos = (props: {
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
-              onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
+              onToggle={toggle}
               onAssign={(item, anchor) => { setPicking({ id: item.id, anchor }); pickAdvance = captureAdvance(item.id); }}
               failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
@@ -748,10 +744,10 @@ export const Todos = (props: {
               registerRow={(id, row) => {
                 if (row) {
                   registered = row;
-                  rows.set(id, row);
+                  rowRef(id, row);
                   selection.register(id, row);
-                } else if (rows.get(id) === registered) {
-                  rows.delete(id);
+                } else if (registered && rowButtonOf(id) === registered) {
+                  rowRef(id, null, registered);
                   selection.register(id, null);
                 }
               }}
@@ -850,7 +846,7 @@ export const Todos = (props: {
                   onMotionEnd={() => finishing.rowEnded(todo.id)}
                   known={todos.byId()}
                   onOpen={show}
-                  onToggle={todo => toggle(todo, foldedDone().map(candidate => candidate.id))}
+                  onToggle={toggle}
                   failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
                   selected={shown()?.id === todo.id}
                   pressed={selection.selected().includes(todo.id)}
@@ -860,7 +856,7 @@ export const Todos = (props: {
                   registerRow={(id, row) => {
                     selection.register(id, row);
 
-                    if (row) rows.set(id, row); else rows.delete(id);
+                    rowRef(id, row);
                   }}
                 />
               )}

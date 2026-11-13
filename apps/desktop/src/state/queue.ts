@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import type { QueueEntry } from "@contracts/workstream/QueueEntry";
 import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
@@ -22,7 +22,7 @@ export const createQueue = (app: AppSeam, events: Events, rail: RailState): Queu
     }
   };
 
-  events.subscribe(event => { if (event.name === "workstream.queueChanged") void refresh(); });
+  onCleanup(events.subscribe(event => { if (event.name === "workstream.queueChanged") void refresh(); }));
 
   // Only a Workstream whose Door never started can be queued, so none waiting means nothing to ask.
   // A Row drawn before the Daemon holds it (U5991a) is not one, and a drawing alone asks nothing.
