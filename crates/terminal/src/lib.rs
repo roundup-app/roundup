@@ -14,6 +14,7 @@ mod integration;
 mod output;
 mod program;
 mod reattach;
+pub mod reconcile;
 mod remote;
 mod stream;
 pub use stream::InputEnded;

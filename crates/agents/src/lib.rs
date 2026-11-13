@@ -4,9 +4,11 @@
 #[global_allocator]
 static ALLOCATOR: &stats_alloc::StatsAlloc<std::alloc::System> = &stats_alloc::INSTRUMENTED_SYSTEM;
 
+mod error;
 #[doc(hidden)]
 pub mod schema;
 use contracts::agent::Ordinal;
+pub use error::Error;
 pub use id::AgentId;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
