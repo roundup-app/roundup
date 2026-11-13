@@ -52,6 +52,14 @@ it("u358_ctrl_click_opens_the_menu_and_never_toggles", async () => {
   await app.closeMenu();
 });
 
+it("u3787c_typing_a_name_prefix_selects_the_matching_row", async () => {
+  const { rail } = await mountRail(["alpha", "beta", "gamma"].map((id, order) => agent(id, "done", "", { order })));
+  await select("gamma");
+  fireEvent.keyDown(rowOf("gamma"), { key: "b", code: "KeyB" });
+  await waitFor(() => expect(selected()).toEqual(["beta"]));
+  expect(rail.selected()).toBe("beta");
+});
+
 it("u5690b_selection_menu_has_group_then_remove_all", async () => {
   const { app } = await mountRail(nodes());
   await select("e", "a", "c");
