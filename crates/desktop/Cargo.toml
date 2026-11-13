@@ -49,7 +49,7 @@ tauri-build = { version = "2", features = [] }
 [dev-dependencies]
 tauri-plugin-global-shortcut = "=2.4.1"
 native = { path = "../native", features = ["idle-perf"] }
-rupd = { path = "../rupd" }
+rupd = { path = "../rupd", features = ["test-support"] }
 tauri = { version = "2", features = ["test"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
