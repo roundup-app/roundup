@@ -499,18 +499,19 @@ export function createTodoUndo() {
 
         for (const member of action.members) {
           let applyError: unknown;
+          const requested = async () => {
+            if (!member.request) {
+              const current = await app.rpc("pad.read", { name: member.receipt.pad.name });
+              member.request = { project: member.receipt.project, restoredOperation: member.receipt.operation, operation: member.operation, expectedIncarnation: member.receipt.pad.incarnation, expectedRevision: current.revision, expectedHome: current.home };
+            }
+
+            return member.request;
+          };
 
           try {
             const receipt = await confirmed(
               () => readPad(app, member.operation),
-              async () => {
-                if (!member.request) {
-                  const current = await app.rpc("pad.read", { name: member.receipt.pad.name });
-                  member.request = { project: member.receipt.project, restoredOperation: member.receipt.operation, operation: member.operation, expectedIncarnation: member.receipt.pad.incarnation, expectedRevision: current.revision, expectedHome: current.home };
-                }
-
-                return app.rpc("pad.redoDelete", member.request).catch(error => { applyError = error; throw error; });
-              },
+              async () => app.rpc("pad.redoDelete", await requested()).catch(error => { applyError = error; throw error; }),
               () => true,
             );
 
