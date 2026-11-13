@@ -29,12 +29,16 @@ pub(crate) fn branch(checkout: &Path) -> String {
         .unwrap_or_else(|| "fork".into())
 }
 
-/// The checkout the live App runs from: its slot under `$ROUNDUP_HOME`, else the working folder.
+/// The checkout the live App runs from: the working folder.
 pub(crate) fn checkout() -> PathBuf {
-    match (std::env::var("ROUNDUP_SLOT"), crate::update::home()) {
-        (Ok(slot), Some(home)) => home.join("slots").join(slot),
-        _ => std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
-    }
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+/// Where Forks live: `$ROUNDUP_HOME`, or `~/.roundup`, from the variables `var` reads.
+pub(crate) fn home(var: impl Fn(&str) -> Option<std::ffi::OsString>) -> Option<PathBuf> {
+    var("ROUNDUP_HOME")
+        .map(PathBuf::from)
+        .or_else(|| var("HOME").map(|home| Path::new(&home).join(".roundup")))
 }
 
 /// `data.fork`'s key of the Project folder `path`: its data folder's name.
@@ -118,7 +122,7 @@ pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
 pub(crate) const STARTED: &str = "roundup: starting the App";
 
 /// The live App's per-instance variables: the Fork's App takes its own, never these.
-const LIVE_ONLY: [&str; 3] = ["ROUNDUP_DEV_PORT", "ROUNDUP_SLOT", "ROUNDUP_RUPD_BIN"];
+const LIVE_ONLY: [&str; 2] = ["ROUNDUP_DEV_PORT", "ROUNDUP_RUPD_BIN"];
 
 /// U6266a: the command that starts the branch's App on the Fork from the source checkout, with an
 /// environment of its own: the Fork's data folder and none of the live App's per-instance variables.

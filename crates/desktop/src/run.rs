@@ -4,7 +4,7 @@ use tauri::{AppHandle, Manager, RunEvent, Runtime};
 
 #[cfg(feature = "idle-perf")]
 use crate::idle;
-use crate::{AppState, Config, build_with_feedback, diagnostics};
+use crate::{AppState, Channel, Config, build_with_feedback, diagnostics};
 
 /// The Tauri context built from `tauri.conf.json` and `capabilities/`; tests build it on the mock
 /// runtime to check what the webview is allowed to call. Defined once because embedding it twice
@@ -36,10 +36,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     .inspect_err(|cause| {
         diagnostics::report("check idle performance profile", cause);
     })?;
-    let config = Config::from_env().inspect_err(|cause| {
+    let context = crate::context();
+    let channel = Channel::of(&context.config().identifier);
+    let config = Config::from_env(channel).inspect_err(|cause| {
         diagnostics::report("configure App", &cause.to_string());
     })?;
-    let context = config.context().inspect_err(|error| {
+    let context = config.apply(context).inspect_err(|error| {
         diagnostics::report("resolve App context", &format!("IO {:?}", error.kind()));
     })?;
     let project_dir = std::env::args_os()

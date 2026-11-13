@@ -6,7 +6,7 @@ import { RpcError } from "../app/seam";
 import { Todos } from "./Todos";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TodoDrawer } from "./TodoDrawer";
-import { mountTodos, todo, todoCallsTo } from "./testHarness";
+import { mountTodos, titleClosed, todo, todoCallsTo } from "./testHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -178,14 +178,15 @@ it("u2773a_todos_title_survives_escape_without_submission", async () => {
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   fireEvent.dblClick(within(drawer).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
-  const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 
   fireEvent.input(field, { target: { value: "  title e\u0301 🧪  " } });
   field.setSelectionRange(1, 5, "backward");
   fireEvent.select(field);
   fireEvent.keyDown(field, { key: "Escape" });
+  await titleClosed(field);
   fireEvent.dblClick(within(drawer).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
-  const recovered = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
+  const recovered = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 
   await waitFor(() => expect(recovered.selectionStart).toBe(1));
   expect([recovered.value, recovered.selectionStart, recovered.selectionEnd, recovered.selectionDirection]).toEqual(["  title e\u0301 🧪  ", 1, 5, "backward"]);
@@ -347,7 +348,7 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   fireEvent.click(await screen.findByRole("button", { name: "1 change" }));
   await waitFor(() => expect(todoCallsTo(app, "todo.readHistory")).toHaveLength(1));
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
+  fireEvent.input(await screen.findByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
   app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
   document.activeElement instanceof HTMLElement && document.activeElement.blur();
   fireEvent.click(screen.getByRole("button", { name: "Save" }));

@@ -19,6 +19,8 @@ pub struct Observers {
     pub(crate) digest_observer: Option<PathBuf>,
     /// AMG2: bytes Agents may hold, from `RUPD_MEMORY_BUDGET`; half the machine's RAM when unset.
     pub(crate) memory_budget: Option<u64>,
+    /// CH7077c: the herdr-core session for this Daemon's Terminals, from `RUPD_CORE_SESSION`.
+    pub(crate) core_session: Option<String>,
 }
 
 impl Observers {
@@ -45,6 +47,9 @@ impl Observers {
             memory_budget: std::env::var("RUPD_MEMORY_BUDGET")
                 .ok()
                 .and_then(|bytes| bytes.parse().ok()),
+            core_session: std::env::var("RUPD_CORE_SESSION")
+                .ok()
+                .filter(|session| !session.is_empty()),
         }
     }
 }

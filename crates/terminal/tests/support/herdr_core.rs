@@ -66,6 +66,9 @@ struct Terminal {
     /// MC52: the labels `terminal.run` was given; a terminal without any is the user's own.
     labels: Value,
     live: Mutex<Live>,
+    /// The viewer's `display.cell` (width, height in pixels), as herdr-core 0.1.20 answers `14 t`
+    /// and `16 t` from it; without one it answers Ghostty's 10 x 20.
+    cell: (u64, u64),
     master: Mutex<Box<dyn MasterPty + Send>>,
     /// Input waits in a queue a thread of its own drains, so a program that reads nothing parks
     /// that thread and never the core.
@@ -192,6 +195,7 @@ impl Core {
             argv,
             labels: params.get("labels").cloned().unwrap_or_else(|| json!({})),
             live: Mutex::default(),
+            cell: cell_of(params),
             master: Mutex::new(pair.master),
             input: Mutex::new(input),
         });
@@ -204,6 +208,7 @@ impl Core {
             // A PTY read fails with EIO once the program is gone: any error is the end.
             while let Ok(n @ 1..) = reader.read(&mut buf) {
                 let chunk = buf.get(..n).unwrap_or_default();
+                answer_pixel_queries(&t, chunk);
                 let mut live = lock(&t.live);
                 live.output.extend_from_slice(chunk);
                 for channel in &live.channels {
@@ -384,6 +389,31 @@ impl Core {
     }
 }
 
+fn cell_of(params: &Value) -> (u64, u64) {
+    let cell = params.get("display").and_then(|d| d.get("cell"));
+    let at = |i: usize| cell.and_then(|c| c.get(i)).and_then(Value::as_u64);
+    match (at(0), at(1)) {
+        (Some(w), Some(h)) => (w, h),
+        _ => (10, 20),
+    }
+}
+
+/// herdr-core answers `CSI 14 t` and `CSI 16 t` itself, from the viewer's cell size.
+fn answer_pixel_queries(t: &Terminal, chunk: &[u8]) {
+    let (w, h) = t.cell;
+    let (cols, rows) = lock(&t.master)
+        .get_size()
+        .map_or((0, 0), |s| (u64::from(s.cols), u64::from(s.rows)));
+    let text = String::from_utf8_lossy(chunk);
+    for query in text.matches("\x1b[14t").chain(text.matches("\x1b[16t")) {
+        let reply = match query {
+            "\x1b[14t" => format!("\x1b[4;{};{}t", rows * h, cols * w),
+            _ => format!("\x1b[6;{h};{w}t"),
+        };
+        let _ = lock(&t.input).send(reply.into_bytes());
+    }
+}
+
 fn resize(t: &Terminal, cols: u64, rows: u64) {
     let (Ok(cols), Ok(rows)) = (u16::try_from(cols), u16::try_from(rows)) else {
         return;
@@ -520,7 +550,7 @@ fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
         .and_then(|p| p.get("generation"))
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
-        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.18-test","framed":true,
+        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.20-test","framed":true,
             "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill","terminal.list","terminal.rm"]}})
     } else {
         let msg = format!(

@@ -1,4 +1,5 @@
 import { createSignal, onCleanup, untrack, For } from "solid-js";
+import { makeEventListener } from "@solid-primitives/event-listener";
 import type { CapturePort, CaptureState } from "../app/seam";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
@@ -40,8 +41,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     if (current) void send({ kind: "dismiss", session: current.session });
   };
 
-  window.addEventListener("blur", dismiss);
-  onCleanup(() => window.removeEventListener("blur", dismiss));
+  makeEventListener(window, "blur", dismiss);
 
   return <section class="capture capture-native" aria-label={copy.captureLabel} onKeyDown={event => {
     if (event.key === "Escape") { event.preventDefault(); dismiss(); }

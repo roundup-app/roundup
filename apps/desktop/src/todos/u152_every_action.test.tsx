@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
-import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
+import { leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(() => { batch(cleanup); vi.restoreAllMocks(); });
 
@@ -70,7 +70,7 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       fireEvent.input(field, { target: { value: "renamed" } });
       fireEvent.change(field, { target: { value: "renamed" } });
-      fireEvent.blur(field);
+      await leaveTitle();
       await waitFor(() => expect(callsTo(mounted.app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 2, title: "renamed", body: null, expected_change: 2 } }]));
       refetch(mounted);
 
@@ -312,7 +312,8 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
         const dismiss = within(failure.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" });
         const editor = within(drawer()).queryByRole("textbox", { name: fieldName });
 
-        if (editor) fireEvent.blur(editor, { relatedTarget: dismiss });
+        if (editor && fieldName === "Title") fireEvent.focusIn(dismiss);
+        else if (editor) fireEvent.blur(editor, { relatedTarget: dismiss });
         fireEvent.click(dismiss);
       }
 

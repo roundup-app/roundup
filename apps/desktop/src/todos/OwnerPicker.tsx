@@ -7,7 +7,7 @@ import type { TodosState } from "./state";
 import type { ConnectedProject } from "../state/connectedProject";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { captureFocus } from "../keys/focus";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Actor } from "@contracts/Actor";
@@ -34,27 +34,30 @@ export const OwnerPicker = <Id extends number | string>(props: {
   close: () => void;
 }) => {
   // U3743: `New Workstream…` hands over only once the picker has exited, so its close cannot return focus over the dialog.
-  const [leaving, setLeaving] = createSignal<Id | null>(null);
+  // U3743b: the hand-over belongs to the target it was chosen for; a gone or newer target ends it, so an exit that never completes cannot keep the picker shut.
+  const [leaving, setLeaving] = createSignal<ReturnType<typeof props.target>>(null);
+  const handingOver = () => leaving() !== null && leaving() === props.target();
 
   return (
   <Menu.Root initialFocus={props.target()?.focus}
     lazyMount
     unmountOnExit
-    open={props.target() !== null && leaving() === null && (props.offers().length > 0 || !!props.newWorkstream)}
+    open={props.target() !== null && !handingOver() && (props.offers().length > 0 || !!props.newWorkstream)}
     onExitComplete={() => {
-      const id = leaving();
+      const chosen = leaving();
 
-      if (id === null) return;
+      if (chosen === null) return;
       setLeaving(null);
-      props.newWorkstream?.(id);
+
+      if (chosen === props.target()) props.newWorkstream?.(chosen.id);
     }}
     positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, props.replacement) }}
-    onOpenChange={({ open }) => { if (!open && leaving() === null) props.close(); }}
+    onOpenChange={({ open }) => { if (!open && !handingOver()) props.close(); }}
     onSelect={({ value }) => {
       const target = props.target();
       const offer = props.offers().find(each => each.id === value);
 
-      if (target && value === NEW_WORKSTREAM) setLeaving(() => target.id);
+      if (target && value === NEW_WORKSTREAM) setLeaving(target);
       else if (target && offer) props.choose(target.id, offer.actor);
     }}
   >
@@ -83,7 +86,6 @@ export const OwnerCommand = (props: {
 }) => {
   const [assigning, setAssigning] = createSignal<number | null>(null);
   const [ownerQuery, setOwnerQuery] = createSignal("");
-  const [ownerHighlight, setOwnerHighlight] = createSignal<string | null>(null);
   let ownerPanel: HTMLElement | undefined;
   let ownerFocus = captureFocus();
 
@@ -94,7 +96,8 @@ export const OwnerCommand = (props: {
   };
 
   const ownerMatches = () => eligible(assigning()).filter(owner => owner.name.toLowerCase().includes(ownerQuery().toLowerCase()));
-  createEffect(() => { if (!ownerMatches().some(owner => owner.id === ownerHighlight())) setOwnerHighlight(ownerMatches()[0]?.id ?? null); });
+  const [ownerPicked, setOwnerPicked] = createSignal<string | null>(null);
+  const ownerHighlight = () => ownerMatches().some(owner => owner.id === ownerPicked()) ? ownerPicked() : ownerMatches()[0]?.id ?? null;
   const assignable = (id: number | undefined) => props.active() && id !== undefined && props.todos.byId().get(id)?.done === false && eligible(id).length > 0;
 
   // U4453b: an unavailable assignment yields to the Rail's Ask action.
@@ -111,7 +114,7 @@ export const OwnerCommand = (props: {
   ]);
 
   return <>      <Show when={assigning() !== null}><section class="switcher" ref={ownerPanel}>
-        <Combobox.Root items={ownerMatches().map(owner => ({ value: owner.id, label: owner.name }))} inputValue={ownerQuery()} onInput={setOwnerQuery} highlightedValue={ownerHighlight()} onHighlightChange={setOwnerHighlight} initialFocus={ownerFocus} focusScope={() => ownerPanel} onDismiss={() => setAssigning(null)} label={copy.assignTodo} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} onSelect={value => {
+        <Combobox.Root items={ownerMatches().map(owner => ({ value: owner.id, label: owner.name }))} inputValue={ownerQuery()} onInput={setOwnerQuery} highlightedValue={ownerHighlight()} onHighlightChange={setOwnerPicked} initialFocus={ownerFocus} focusScope={() => ownerPanel} onDismiss={() => setAssigning(null)} label={copy.assignTodo} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} onSelect={value => {
           const id = assigning(); const owner = ownerMatches().find(owner => owner.id === value);
           setAssigning(null);
 

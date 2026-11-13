@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, duplex};
 
 const T: Duration = Duration::from_millis(300);
-const HELLO: &str = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.18","framed":true,"methods":["machine.list","machine.add"]}}"#;
+const HELLO: &str = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","framed":true,"methods":["machine.list","machine.add"]}}"#;
 const REFUSED: &str = r#"{"error":{"code":-32000,"data":{"hint":"this core speaks generation 1","kind":"unsupported_generation"},"message":"protocol generation 2 not supported"},"id":0,"jsonrpc":"2.0"}"#;
 
 fn frame(payload: &Value) -> Vec<u8> {
@@ -76,7 +76,7 @@ fn list_core(req: &Value) -> Option<Vec<Value>> {
 async fn mc4_machine_list_returns_recorded_list_and_typed_errors() {
     let (r, w) = fake_core(HELLO, list_core);
     let mut conn = Conn::over(r, w, T).await.unwrap();
-    assert_eq!(conn.hello.version, "0.1.18");
+    assert_eq!(conn.hello.version, "0.1.20");
     let names: Vec<_> = conn
         .machine_list()
         .await
