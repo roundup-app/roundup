@@ -20,18 +20,4 @@ export const triage = {
   focusComment: (move: () => void) => commentFocus(move),
 };
 
-/** The row button of an open Todo in the Shelf's list, or null once it left. */
-export const rowButtonOf = (id: number): HTMLButtonElement | null =>
-  document.querySelector<HTMLButtonElement>(`.todos-tab [data-todo="${id}"][data-shelf-row] .row-head .todo-row-button`);
-
-/** Open rows in list order across owner groups, folded and done rows left out. */
-export const openRowButtons = (): HTMLButtonElement[] =>
-  [...document.querySelectorAll<HTMLButtonElement>(".todos-tab [data-shelf-row][data-todo] .row-head .todo-row-button")]
-    .filter((button) => !button.closest(".todo-done-fold, [hidden], [inert]") && !button.closest("[data-todo]")?.querySelector<HTMLInputElement>(".todo-tick")?.checked);
-
-/** The id of the Todo whose row button is `element`, else undefined. */
-export const idOfRow = (element: Element | null): number | undefined => {
-  const row = element instanceof HTMLElement && element.matches(".todo-row-button") ? element.closest<HTMLElement>("[data-shelf-row][data-todo]") : null;
-
-  return row ? Number(row.dataset.todo) : undefined;
-};
+export { idOfRow, rowButtonOf } from "./listModel";

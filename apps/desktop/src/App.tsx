@@ -1,6 +1,6 @@
 import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
-import { historyRegion, isTextEntry } from "./keys/focus";
+import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
@@ -11,13 +11,12 @@ import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
 import { createSettingsView } from "./state/settingsView";
-import { applyConfig } from "./settings/configApply";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
-import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "./keys/chords";
+import { CHORDS, LEADER } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { batch, lazy, createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
+import { batch, lazy, createEffect, createMemo, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyShelf } from "./window/FirstRun";
 import { EmptyRail } from "./rail/EmptyRail";
@@ -28,10 +27,9 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./window/Reopen";
 import { createDropTargets } from "./window/dropTargets";
-import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
 import type { OpenRequest } from "./window/nativeOpen";
-import type { App as AppCalls, DaemonExit, MenuItem, ActionRequest, ActionReply, Project } from "./app/seam";
+import type { App as AppCalls, DaemonExit } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -44,10 +42,7 @@ import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
 import { createProjectAlerts } from "./state/projectAlerts";
-import type { ProjectAlerts } from "./state/projectAlerts";
 import { createStateAlerts } from "./rail/stateAlerts";
-import type { StateAlerts } from "./rail/stateAlerts";
-import { railStorage } from "./state/railStorage";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
 import { createRailSlide } from "./rail/slide";
@@ -59,15 +54,14 @@ import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
-import type { OpenTab } from "./state/projects";
-import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
+import { createProjectDrafts, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
+import { connectedEntries, connectedOf, createConnections } from "./state/connections";
 import { lazyXtermEmulators } from "./terminal/lazyEmulator";
 import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
 import { createToastQueue } from "./toasts/queue";
-import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
@@ -101,151 +95,10 @@ const linkedItem = (content: LinkContent, onLateFailure: (message: string) => vo
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
-type Connections = ReadonlyMap<string, ConnectedProject | Error>;
-
-/** One Project's live connection to its Daemon, kept while its tab is open and its regions are not on screen, so its Tab mark stays current (U181). */
-const Connection = (props: {
-  app: AppCalls;
-  tab: () => OpenTab | undefined;
-  reducedMotion: Accessor<boolean>;
-  now: Accessor<number>;
-  clock: Clock;
-  drafts: ReturnType<typeof createProjectDrafts>;
-  onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
-  onRecovered: (path: string, generation: number) => void;
-  onRequested: (request: Requested) => void;
-  onOpen: (request: Extract<ActionRequest, { method: "project.open" | "project.start" }>, signal: AbortSignal) => Promise<ActionReply>;
-  toasts: ToastQueue;
-  alerts: StateAlerts;
-  /** U6220d: the open Project's alert level. */
-  projectAlerts: () => ProjectAlerts;
-  active: () => boolean;
-  /** U3566: this Project is on screen in a visible, focused window. */
-  viewing: () => boolean;
-  show: () => void;
-  /** U6271a: every open Project, so a placed part reaches its own Daemon. */
-  open: () => readonly Project[];
-  /** U6271c: another Project's Rail nodes, and showing it with one of its Workstreams selected. */
-  nodes: (path: string) => readonly RailNode[];
-  openIn: (path: string, workstream: string) => void;
-  openShelf: ShelfRequest;
-}) => {
-  const first = props.tab();
-
-  if (!first) return null;
-
-  const { path } = first.project;
-  let mine: ConnectedProject | Error | undefined;
-  let registration = new AbortController();
-  onCleanup(() => registration.abort());
-  createEffect(() => { if (props.tab()?.exit) registration.abort(); });
-
-  const [connected] = createResource(() => props.tab()?.generation, async (generation) => {
-    const exit = props.tab()?.exit;
-
-    try {
-      registration.abort();
-      registration = new AbortController();
-      const captured = registration;
-      const calls = props.app.forProject(path);
-
-      const next = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
-        await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
-          ? props.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
-      } }, first.project, props.reducedMotion, props.now, () => props.tab()?.generation === generation ? props.tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), props.drafts(path), props.viewing, props.clock, { app: props.app, open: props.open, nodes: props.nodes, show: props.openIn }, props.openShelf);
-
-      if (props.tab()?.generation !== generation) {
-        next.stopTerminalScheme();
-
-        return mine;
-      }
-
-      // Clearing a newer exit would hide its Reopen action.
-      if (props.tab()?.exit === exit) props.onRecovered(path, generation);
-
-      return next;
-    } catch (failure) {
-      if (!(failure instanceof Error)) throw failure;
-
-      return failure;
-    }
-  });
-
-  createEffect(() => {
-    const next = connected.latest;
-
-    // A failed replacement keeps the last valid content while the native owner retries.
-    if (next instanceof Error && props.tab()?.exit) return;
-
-    mine = next;
-
-    if (mine) props.onConnected(path, mine);
-  });
-
-  createEffect(() => {
-    const open = connected();
-
-    if (open && !(open instanceof Error)) open.worktrees.watch(props.active);
-  });
-
-  // M8: rename keeps its request Event; open completes through the registered App relay.
-  createEffect(() => {
-    const open = connected();
-
-    if (!open || open instanceof Error) return;
-
-    // MC40, MC41: the owner's look and keys files, read on connect and on each save; the App's own refusal of keys shows as the Daemon's problems do.
-    const toasts = props.toasts;
-
-    const config = () => void applyConfig(open.app, (file, cause) => {
-      const item = `config:${file}:${cause}`;
-
-      toasts.push({ key: item, item, kind: "error", name: file, line: cause, selected: false, open: () => null, project: path });
-    });
-
-    config();
-
-    const stop = open.events.subscribe((event) => {
-      if (event.name === "project.requested") props.onRequested(event.data);
-      else if (event.name === "config.changed") config();
-    });
-
-    onCleanup(stop);
-  });
-
-  // U410: the Events of this Project that make a Toast.
-  createEffect(() => {
-    const open = connected();
-
-    if (!open || open instanceof Error) return;
-
-    // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle, props.alerts, props.toasts.suppress, props.projectAlerts)));
-  });
-
-  createEffect(() => {
-    const open = connected();
-
-    if (open && !(open instanceof Error)) onCleanup(open.stopTerminalScheme);
-  });
-
-  onCleanup(() => {
-    if (mine) props.onConnected(path, null);
-  });
-
-  return null;
-};
-
 /** Project regions show loading until their connection is ready, and failure if setup fails. */
-const InProject = (props: { open: ConnectedProject | Error | undefined; failed?: (failure: Error) => JSX.Element; pending?: JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
-  <Show when={props.open} keyed fallback={props.pending}>
-    {(open) =>
-      open instanceof Error ? (
-        props.failed?.(open)
-      ) : (
-        <ConnectedProjectContext.Provider value={open}>{props.children(open)}</ConnectedProjectContext.Provider>
-      )
-    }
+const InProject = (props: { open: ConnectedProject | undefined; failure?: Error | undefined; failed?: (failure: Error) => JSX.Element; pending?: JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
+  <Show when={props.open} keyed fallback={<Show when={props.failure} keyed fallback={props.pending}>{(failure) => props.failed?.(failure)}</Show>}>
+    {(open) => <ConnectedProjectContext.Provider value={open}>{props.children(open)}</ConnectedProjectContext.Provider>}
   </Show>
 );
 
@@ -317,33 +170,55 @@ export const App = (props: {
     },
   })));
   const tabsId = createUniqueId();
-  const [connections, setConnections] = createSignal<Connections>(new Map());
   const { focus, setFocus, menuFocus, visible } = createWindowFocus();
 
-  const isWorking = () => projects.tabs().some((tab) => {
-    const connection = connections().get(tab.project.path);
+  // U413: roundup is in front while its window has focus and is visible.
+  const inFront = () => document.hasFocus() && document.visibilityState === "visible";
+  const toasts = createToastQueue(inFront, props.chime ?? webChime());
+  /** U6249d: a failure of OS integration (Dock badge, State alert, menu bar) is not the user's to act on; the log holds its cause and the screen shows nothing. */
+  const hide = (cause: string) => console.error(cause);
+  const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, cause => { if (cause !== null) hide(cause); });
+  const projectAlerts = createProjectAlerts();
+  // U348: a drag of files over the window; the Projects' regions hear the drops it lets through.
+  const dropTargets = createDropTargets(props.app, { rail: () => railOf(projects.active() ?? ""), select: projects.select });
+  onCleanup(dropTargets.start());
 
-    return !tab.exit && connection && !(connection instanceof Error)
+  const keys = createMemo(() => projects.tabs().map((tab) => tab.project.path));
+
+  const connections = createConnections(keys, {
+    app: dropTargets.app, tabOf: path => projects.tabs().find(tab => tab.project.path === path), reducedMotion: () => props.reducedMotion(),
+    now: () => pollingNow(), clock: () => props.clock(), drafts, onRecovered: projects.connected,
+    onRequested: request => answer(request), onOpen: (request, signal) => opening.answer(request, signal),
+    configFailure: (path, file, cause) => { const item = `config:${file}:${cause}`; toasts.push({ key: item, item, kind: "error", name: file, line: cause, selected: false, open: () => null, project: path }); },
+    watch: open => watchProject(open, toasts.push, () => projects.select(open.project.path), () => projects.active() === open.project.path, toasts.settle, alerts, toasts.suppress, () => projectAlerts.level(open.project.path)),
+    active: path => projects.active() === path,
+    viewing: path => projects.active() === path && visible() && focus() === "focused" && !settingsOpen(),
+    open: () => projects.tabs().map(tab => tab.project), nodes: path => railOf(path)?.nodes ?? [],
+    openIn: (path, workstream) => { railOf(path)?.select(workstream, "open"); projects.select(path); },
+    openShelf: tab => openShelf(tab),
+  });
+
+  const connectionOf = (path: string): ConnectedProject | undefined => connectedOf(connections().get(path));
+
+  const railOf = (path: string): ConnectedProject["rail"] | undefined => connectionOf(path)?.rail;
+
+  const isWorking = () => projects.tabs().some((tab) => {
+    const connection = connectedOf(connections().get(tab.project.path));
+
+    return !tab.exit && connection
       && connection.rail.nodes.some((node) => node.status?.kind === "working");
   });
 
   const now = createNow(props.clock, isWorking, visible);
   // Display demand must not enable the Worktree RPC cadence.
   const pollingNow = createMemo<number>((previous) => visible() && isWorking() ? now() : previous ?? untrack(now));
-  // U413: roundup is in front while its window has focus and is visible.
-  const inFront = () => document.hasFocus() && document.visibilityState === "visible";
-  const toasts = createToastQueue(inFront, props.chime ?? webChime());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
-  /** U6249d: a failure of OS integration (Dock badge, State alert, menu bar) is not the user's to act on; the log holds its cause and the screen shows nothing. */
-  const hide = (cause: string) => console.error(cause);
   // U5541: a failed publication read keeps its line; the menu bar's own refusals go to the log.
   const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
   const railFailure = () => windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() : null) ?? menuBarFailure();
   const railLine = dismissable(railFailure);
   const storageLine = dismissable(() => storageFailures().length > 0 ? storageCopy.failure(storageFailures()) : null);
-  const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, cause => { if (cause !== null) hide(cause); });
-  const projectAlerts = createProjectAlerts();
   const capture = props.app.capture;
   onMount(() => {
     // U6249d: C1 retries twice, at 0.5 s and 2 s, then goes to the log.
@@ -352,19 +227,6 @@ export const App = (props: {
   onCleanup(() => { void capture?.configure(null); });
 
   createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
-
-  const connect = (path: string, connection: ConnectedProject | Error | null) =>
-    setConnections((all) => {
-      const next = new Map(all);
-
-      if (connection) next.set(path, connection);
-      else next.delete(path);
-
-      return next;
-    });
-
-  // Keep the last connection visible until its replacement has finished setup.
-  const keys = createMemo(() => projects.tabs().map((tab) => tab.project.path));
 
   const [renamingProjects, setRenamingProjects] = createSignal<ReadonlyMap<string, { name: string; revision: number }>>(new Map());
   let renameRevision = 0;
@@ -377,12 +239,7 @@ export const App = (props: {
     const outcome = await projects.rename(path, name, base);
 
     if (renamingProjects().get(path)?.revision !== revision) return outcome;
-    setRenamingProjects((all) => {
-      const next = new Map(all);
-      next.delete(path);
-
-      return next;
-    });
+    setRenamingProjects((all) => new Map([...all].filter(([key]) => key !== path)));
 
     return outcome;
   };
@@ -391,18 +248,6 @@ export const App = (props: {
   const answer = (request: Requested) => void renameProject(request.path, request.name);
 
   const tabOf = (path: string) => () => projects.tabs().find((tab) => tab.project.path === path);
-
-  const railOf = (path: string): ConnectedProject["rail"] | undefined => {
-    const connection = connections().get(path);
-
-    return connection instanceof Error ? undefined : connection?.rail;
-  };
-
-  const connectionOf = (path: string): ConnectedProject | undefined => {
-    const connection = connections().get(path);
-
-    return connection instanceof Error ? undefined : connection;
-  };
 
   const [nativeFailure, setNativeFailure] = createSignal<{ message: string; action?: { label: string; run: () => void } } | null>(null);
   const failNative = (message: string | null, action?: { label: string; run: () => void }) => setNativeFailure(message === null ? null : action ? { message, action } : { message });
@@ -438,24 +283,24 @@ export const App = (props: {
         name: tab.project.name,
         base: projects.base(tab.project.path),
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
-        busy: !connections().has(tab.project.path),
+        busy: connections().get(tab.project.path)?.kind === "connecting",
         ...attentionCounts(attentionHolders(nodes, railOf(tab.project.path)?.terminals() ?? [], railOf(tab.project.path)?.dismissed)),
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
   );
 
-  // U348: a drag of files over the window; the Projects' regions hear the drops it lets through.
-  const dropTargets = createDropTargets(props.app, { rail: () => railOf(projects.active() ?? ""), select: projects.select });
-  onCleanup(dropTargets.start());
-
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 
-  const activeConnection = createMemo(() => {
-    const path = projects.active();
+  const activeConnection = createMemo(() => connectionOf(projects.active() ?? ""));
 
-    return path === null ? undefined : connections().get(path);
+  const activeFailure = createMemo(() => {
+    const connection = connections().get(projects.active() ?? "");
+
+    return connection?.kind === "failed" && !connection.last ? connection.error : undefined;
   });
+
+  const activeBusy = () => projects.tabs().length > 0 && activeConnection() === undefined && activeFailure() === undefined;
 
   const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
   const captureOwner = () => captureConnection() ?? activeConnection();
@@ -495,7 +340,7 @@ export const App = (props: {
 
   const storageFailures = createMemo(() => {
     const open = activeConnection();
-    const railKey = open && !(open instanceof Error) ? `roundup:rail:${open.project.path}` : null;
+    const railKey = open ? `roundup:rail:${open.project.path}` : null;
 
     return storageProblems().filter(problem => problem.key !== railKey);
   });
@@ -505,7 +350,7 @@ export const App = (props: {
 
     const open = activeConnection();
 
-    if (open && !(open instanceof Error)) props.prepareIdle(open);
+    if (open) props.prepareIdle(open);
   });
 
   // U370, U373, U4457: the Shelf's open state and open tab, kept per Project.
@@ -544,7 +389,7 @@ export const App = (props: {
     const connected = activeConnection();
     const path = projects.active();
 
-    return { path, items: projectMenuItems(menuFocus(), connected !== undefined && !(connected instanceof Error), path ? drafts(path).undo : null) };
+    return { path, items: projectMenuItems(menuFocus(), connected !== undefined, path ? drafts(path).undo : null) };
   });
 
   const writeMenu = untrack(() => createMenuWriter(props.app, setWindowFailure));
@@ -610,11 +455,8 @@ export const App = (props: {
 
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
-      <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} clock={props.clock} onConnected={connect} onRecovered={projects.connected} onRequested={answer} onOpen={opening.answer} toasts={toasts} alerts={alerts} projectAlerts={() => projectAlerts.level(key)} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focus() === "focused" && !settingsOpen()} show={() => projects.select(key)} open={() => projects.tabs().map(tab => tab.project)} nodes={path => railOf(path)?.nodes ?? []} openIn={(path, workstream) => { railOf(path)?.select(workstream, "open"); projects.select(path); }} openShelf={openShelf} />}
-      </For>
       <ProjectOpening opening={opening} />
-      <DockBadge app={props.app} rails={() => [...connections()].flatMap(([path, connection]) => (connection instanceof Error ? [] : [{ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }]))} onFailure={hide} />
+      <DockBadge app={props.app} rails={() => connectedEntries(connections()).map(([path, connection]) => ({ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }))} onFailure={hide} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
           trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,
@@ -626,7 +468,7 @@ export const App = (props: {
         widths={widths}
         onOverlaid={frame.setOverlaid}
         railOpen={projects.tabs().length > 0}
-        busy={projects.tabs().length > 0 && activeConnection() === undefined}
+        busy={activeBusy()}
         shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), peeking: frame.peeking(), covering: frame.covering(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), keyed: frame.keyed(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
@@ -652,14 +494,14 @@ export const App = (props: {
         railHandle={railHandle()}
         railPeeking={railPeeking()}
         railSlide={railSlide.motion()}
-        railStrip={<InProject open={activeConnection()}>{() => <RailStrip />}</InProject>}
+        railStrip={<InProject open={activeConnection()} failure={activeFailure()}>{() => <RailStrip />}</InProject>}
         rail={
           <>
             <ReservedLine overlay message={railLine.message()} dismiss={railLine.dismiss} recover={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => void projects.reload() } : undefined} action={<>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </>} />
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
-              <InProject open={activeConnection()}>
+              <InProject open={activeConnection()} failure={activeFailure()}>
                 {() => (
                   <>
                     <AttentionKey />
@@ -694,7 +536,7 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <InProject open={activeConnection()} failed={failure => failureLine(failure, () => void projects.reopen(projects.active()!))} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
+            <InProject open={activeConnection()} failure={activeFailure()} failed={failure => failureLine(failure, () => void projects.reopen(projects.active()!))} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();
@@ -734,21 +576,21 @@ export const App = (props: {
           <AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
             const open = activeConnection();
 
-            return `${projects.active()}\n${open instanceof Error ? "" : open?.rail.selected()}`;
+            return `${projects.active()}\n${open?.rail.selected()}`;
           }} />
           </div>
           </div>
           </div>
         }
         shelfTabs={<Tabs.RootProvider value={shelfTabs} style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
-          <Show when={frame.rendered()}><InProject open={activeConnection()} failed={() => <ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
+          <Show when={frame.rendered()}><InProject open={activeConnection()} failure={activeFailure()} failed={() => <ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
             {() => <ProjectShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}
           </InProject></Show>
         </Tabs.RootProvider>}
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
             <Show when={projects.tabs().length > 0} fallback={<Show when={frame.rendered()}><Tabs.Content value={frame.tab()} class="shelf-panel"><EmptyShelf /></Tabs.Content></Show>}>
-              <InProject open={activeConnection()} failed={() => <Tabs.Content value={frame.tab()} class="shelf-panel" />}>
+              <InProject open={activeConnection()} failure={activeFailure()} failed={() => <Tabs.Content value={frame.tab()} class="shelf-panel" />}>
                 {() => <Show when={frame.rendered()}><Shelf open={frame.open} /></Show>}
               </InProject>
             </Show>
@@ -756,7 +598,7 @@ export const App = (props: {
         }
         overlay={
           <>
-            <InProject open={activeConnection()}>
+            <InProject open={activeConnection()} failure={activeFailure()}>
               {(open) => (
                 <>
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
