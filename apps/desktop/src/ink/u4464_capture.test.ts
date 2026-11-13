@@ -194,7 +194,7 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
       await browser("click", '[aria-label="Create"]');
       await wait(`!!document.querySelector('[data-part="item"][data-value="workstream"]')`);
       expect(await read(`window.__u5606Calls`)).toBe(0);
-      await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name')`);
+      await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name', 'rail.createWorkstream')`);
       await browser("click", '[data-part="item"][data-value="workstream"]');
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected: choose another Workstream name')`);
       await snap(`${theme}-dense-failure`);

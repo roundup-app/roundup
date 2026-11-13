@@ -49,7 +49,7 @@ it("u4547a_rendered_heading_keys_preserve_focus_without_calls", async () => {
   expect(await lane.evaluate("document.activeElement.closest('[role=treeitem]').getAttribute('aria-level')")).toBe("1");
   expect(await lane.calls()).toEqual([]);
   await lane.capture("U4547a", "reopened");
-  await lane.evaluate("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.')");
+  await lane.evaluate("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.', 'rail.createWorkstream')");
   await lane.browser("click", ".rail-actions button");
   await lane.until("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
   await lane.browser("click", '.rail-create-menu [data-value="workstream"]');

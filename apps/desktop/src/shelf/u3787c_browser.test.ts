@@ -46,7 +46,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_shelf_selection_is_instant_on
         await lane.capture("U3787c", `${seed}-${kind}-selected`);
       }
 
-      await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Denied. Retry.'); [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'Delete 6').click(); return true; })()");
+      await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Denied. Retry.', 'pad.delete'); [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'Delete 6').click(); return true; })()");
       await lane.until("document.body.textContent.includes('Could not delete')");
       await lane.capture("U3787c", `${seed}-partial-failure`);
     } finally { if (dir) await lane.browser("record", "stop"); }

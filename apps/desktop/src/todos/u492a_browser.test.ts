@@ -37,7 +37,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.browser("press", "Alt+ArrowDown");
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id !== '${one}'`);
     await read(lane, "reorder");
-    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot reorder'); return true; })()");
+    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot reorder', 'todo.reorder'); return true; })()");
     // A click anywhere clears a row's failure, and the fake Daemon answers within the click, so the chord stands in for the control.
     await lane.browser("focus", `.shelf [data-todo="${one}"] .todo-row-button`);
     await lane.browser("press", "Alt+ArrowUp");
@@ -154,7 +154,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     const ids = (await lane.order()).toSorted((left, right) => left - right);
 
     // An injected move error shows on its row.
-    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot move this Todo because the Daemon refused it'); return true; })()");
+    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot move this Todo because the Daemon refused it', 'todo.reorder'); return true; })()");
     await lane.browser("focus", `.shelf [data-todo="${ids[0]}"] .todo-row-button`);
     await lane.browser("press", "Alt+ArrowDown");
     await lane.until("document.querySelector('.shelf [role=alert]')?.textContent.includes('cannot move this Todo')");
@@ -167,7 +167,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.browser("press", "Meta+Enter");
     await lane.browser("focus", `.shelf [data-todo="${ids[2]}"] .todo-row-button`);
     await lane.browser("press", "Meta+Enter");
-    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot delete this Todo because the Daemon refused it'); return true; })()");
+    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot delete this Todo because the Daemon refused it', 'todo.delete'); return true; })()");
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('cannot delete this Todo')");
     await read(lane, "dense-failure");

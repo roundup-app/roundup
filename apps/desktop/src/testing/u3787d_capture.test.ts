@@ -35,7 +35,7 @@ it.skipIf(!captureDir("U3787d")).each(["tree-40", "tabs-8", "conflict"])("u3787d
         await lane.browser("press", "t");
         await lane.until("document.activeElement === document.querySelector('.capture-field:not([readonly])')");
         await lane.browser("fill", ".capture-field:not([readonly])", "  é 🧭 日本語 /a_b --x='yes';  ");
-        await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Storage unavailable. Retry.'); return true; })()");
+        await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Storage unavailable. Retry.', 'todo.create'); return true; })()");
         await lane.browser("press", "Enter");
         await lane.until("document.body.textContent.includes('Storage unavailable. Retry.')");
         await lane.capture("U3787d", `${seed}-failed-create-full`);
