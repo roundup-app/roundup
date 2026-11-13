@@ -40,7 +40,7 @@ it("u3512a_lint_rejects_inline_delete_confirmation_copy", () => {
     ["copy.ts", 'export const copy = { ownsItYouMayDeleteAnyPad: name => `${name} owns it` };', 1],
     ["pads/PadDrawer.tsx", 'const view = <p>{copy.padDeleteQuestion(name)}</p>;', 1],
     ["todos/TodoDrawer.tsx", 'const view = <p>{copy["deleteTodoQuestion"]}</p>;', 1],
-    ["pads/PadDrawer.tsx", 'const NativeAlert = (_props) => null;\n\nconst view = <NativeAlert question={{ title: copy.padDeleteQuestion(name), message: copy.padDeleteUnsaved }} />;', 0],
+    ["pads/PadDrawer.tsx", 'const NativeAlert = (_props) => <dialog />;\n\nconst view = <NativeAlert question={{ title: copy.padDeleteQuestion(name), message: copy.padDeleteUnsaved }} />;', 0],
     ["copy.ts", 'export const copy = { padDeleteQuestion: name => `Delete ${name}?`, delete: "Delete" };', 0],
     ["bubbles/Bubbles.tsx", 'app.ask({ title: copy.closeQuestion(name), message: copy.closeTerminalWarning });', 0],
   ] as const;
