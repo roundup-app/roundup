@@ -38,7 +38,7 @@ import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "../state/railStorage";
 import { createRailDrag } from "./drag";
-import { createRowSelection } from "./rowSelection";
+import { createWritableMemo } from "@solid-primitives/memo";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
@@ -52,29 +52,11 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
 // macOS Ctrl-click opens the menu: it must not focus a row, blur unfinished input, arm the sort sensor or toggle.
-const ctrlClick = () => {
-  // A native menu may consume the compatibility click; keyboard activation must still work next.
-  let pending = false;
+const ctrlClick = (event: MouseEvent) => {
+  if (event.button !== 0 || !event.ctrlKey) return;
 
-  const swallow = (event: Event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  return {
-    pointerdown: (event: PointerEvent) => {
-      pending = event.button === 0 && event.ctrlKey;
-
-      if (pending) swallow(event);
-    },
-    keydown: () => { pending = false; },
-    click: (event: MouseEvent) => {
-      if (!pending && !event.ctrlKey) return;
-
-      pending = false;
-      swallow(event);
-    },
-  };
+  event.preventDefault();
+  event.stopPropagation();
 };
 
 // Zag's typeahead only moves focus; U3787c has the row a name search lands on chosen.
@@ -283,9 +265,12 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   const isNodeId = (value: string) => rail.nodes.some(node => node.id === value);
 
-  const { selected, setSelected, eligible, selectAll, modifierClick, startTyping, chooseTypedMatch, isSelected } = createRowSelection({
-    initial: rail.selected, ids: nodeIds, isNodeId, rowElement, focusedRowId, active: () => daemonExit() === null, pick: id => rail.select(id),
-  });
+  // The rows chosen: Zag's tree-view owns range, toggle and select-all; the Rail's own selection replaces them.
+  const [selected, setSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
+  const isSelected = (id: string) => selected().includes(id);
+
+  // Zag's typeahead (focusMatchedNode) only moves focus; U3787c has the row a name search lands on chosen.
+  let typing = false;
 
   const selectedNodes = () => nodeRows().flatMap(row => isSelected(row.node.id) ? [row.node] : []);
 
@@ -669,29 +654,26 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       class="rail-tree" data-history-region="rail" tabindex="-1"
       ref={(element) => {
         setContainer(element);
-        // Ark's keys walk the collection, so it shows the rows as drawn first.
-        makeEventListener(element, "keydown", settleCollection, { capture: true });
-        makeEventListener(element, "keydown", selectAll, { capture: true });
-        makeEventListener(element, "keydown", press => startTyping(isTypeahead(press)), { capture: true });
-        makeEventListener(element, "pointerdown", () => startTyping(false), { capture: true });
-
-        const context = ctrlClick();
-        makeEventListener(element, "pointerdown", context.pointerdown, { capture: true });
-        makeEventListener(element, "keydown", context.keydown, { capture: true });
-        makeEventListener(element, "click", context.click, { capture: true });
-        makeEventListener(element, "click", modifierClick, { capture: true });
+        // Ark's keys walk the collection, so it shows the rows as drawn first; a name-search key arms the pick.
+        makeEventListener(element, "keydown", press => { settleCollection(); typing = isTypeahead(press); }, { capture: true });
+        makeEventListener(element, "pointerdown", ctrlClick, { capture: true });
+        makeEventListener(element, "click", ctrlClick, { capture: true });
       }}
       collection={collection()}
       focusedValue={focused()}
-      onFocusChange={details => { setFocused(details.focusedValue); chooseTypedMatch(details.focusedValue); }}
+      onPointerDown={() => { typing = false; }}
+      onFocusChange={details => {
+        const match = details.focusedValue;
+        setFocused(match);
+
+        if (typing && match !== null && isNodeId(match)) { typing = false; setSelected([match]); rail.select(match); }
+      }}
       expandedValue={expanded()}
       selectionMode="multiple"
       typeahead
       selectedValue={selected()}
-      onSelectionChange={details => {
-        // Zag's select-all takes every value, section and fold branches included.
-        setSelected(details.selectedValue.filter(id => isNodeId(id) && eligible(id)));
-      }}
+      // Zag's select-all takes every value, section and fold branches included.
+      onSelectionChange={details => setSelected(details.selectedValue.filter(isNodeId))}
       expandOnClick={false}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
