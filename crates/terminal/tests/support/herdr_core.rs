@@ -63,6 +63,8 @@ struct Terminal {
     pid: Option<u32>,
     cwd: String,
     argv: Vec<String>,
+    /// MC52: the labels `terminal.run` was given; a terminal without any is the user's own.
+    labels: Value,
     live: Mutex<Live>,
     master: Mutex<Box<dyn MasterPty + Send>>,
     /// Input waits in a queue a thread of its own drains, so a program that reads nothing parks
@@ -188,6 +190,7 @@ impl Core {
             pid: child.process_id(),
             cwd: cwd.to_owned(),
             argv,
+            labels: params.get("labels").cloned().unwrap_or_else(|| json!({})),
             live: Mutex::default(),
             master: Mutex::new(pair.master),
             input: Mutex::new(input),
@@ -250,7 +253,22 @@ impl Core {
             "exit_code": exit.as_ref().and_then(|e| e.code),
             "reason": exit.as_ref().map(|e| e.reason),
             "signal": null,
+            "labels": t.labels,
         })
+    }
+
+    /// `terminal.list`: every terminal whose labels hold each pair of the optional `labels` filter.
+    fn list(&self, params: &Value) -> Value {
+        let want = params.get("labels").and_then(Value::as_object);
+        let mut found: Vec<Arc<Terminal>> = lock(&self.terminals)
+            .values()
+            .filter(|t| {
+                want.is_none_or(|want| want.iter().all(|(k, v)| t.labels.get(k) == Some(v)))
+            })
+            .cloned()
+            .collect();
+        found.sort_by_key(|t| t.id.clone());
+        json!({"terminals": found.iter().map(|t| self.describe(t)).collect::<Vec<_>>()})
     }
 
     fn terminal(&self, params: &Value) -> Result<Arc<Terminal>, Value> {
@@ -322,6 +340,11 @@ impl Core {
                 nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), nix::sys::signal::SIGKILL)
                     .map_err(|e| failure("not_found", "already gone", e.to_string()))?;
                 Ok(json!({}))
+            }),
+            "terminal.list" => Ok(self.list(&params)),
+            "terminal.rm" => self.terminal(&params).map(|t| {
+                lock(&self.terminals).remove(&t.id);
+                json!({})
             }),
             "terminal.attach" => {
                 if let Err(error) = self.attach(&id, &params) {
@@ -498,7 +521,7 @@ fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
         json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.18-test","framed":true,
-            "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill"]}})
+            "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill","terminal.list","terminal.rm"]}})
     } else {
         let msg = format!(
             "protocol generation {} not supported",
