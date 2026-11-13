@@ -27,6 +27,8 @@ test("u6416_state_holder_lints", () => {
     ["no-stale-counter", "let latest = 0; const run = () => ++latest;", 1],
     ["no-stale-counter", "let alive = true; onCleanup(() => { alive = false; });", 1],
     ["no-stale-counter", "let latest = 5; const total = latest + 1;", 0],
+    ["no-null-component", "const Host = (props) => { createEffect(() => props.on()); return null; };", 1],
+    ["no-null-component", "const Host = (props) => { createEffect(() => props.on()); return document.title; };", 0],
     ["no-promise-chain-queue", "const queue = createQueue(); queue.add(() => work());", 0],
   ];
 

@@ -184,12 +184,21 @@ pub(super) fn feed(
     Ok(reason.as_ref().and_then(exit_code))
 }
 
+/// MC51: the session roundup's own core runs under, apart from Herdr.app's.
+pub(super) const SESSION: &str = "roundup";
+
 /// MC16: the argv that starts a core on this Mac from a clean environment: `env -i` with only the
-/// named variables, since an empty-string value would set a variable rather than remove it.
+/// named variables, since an empty-string value would set a variable rather than remove it. MC51:
+/// it connects to roundup's own session.
 pub(super) fn core_command(core: &str, vars: &BTreeMap<String, String>) -> Vec<String> {
     let mut argv = vec!["env".to_owned(), "-i".to_owned()];
     argv.extend(vars.iter().map(|(name, value)| format!("{name}={value}")));
-    argv.extend([core.to_owned(), "connect".to_owned()]);
+    argv.extend([
+        core.to_owned(),
+        "connect".to_owned(),
+        "--session".to_owned(),
+        SESSION.to_owned(),
+    ]);
     argv
 }
 
@@ -249,24 +258,25 @@ impl Terminals {
         self
     }
 
-    /// The one core connection, started on first use from a clean environment (MC16).
+    /// The one core connection, started on first use from a clean environment (MC16). MC53: a
+    /// connection that has closed (the core restarted or was upgraded) is replaced by a new one.
     pub(super) async fn core(&self) -> Result<Arc<herdr::Conn>, Error> {
-        let conn = self
-            .core
-            .get_or_try_init(|| async {
-                let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
-                let mut command = tokio::process::Command::new("env");
-                command.args(argv.iter().skip(1));
-                herdr::Conn::spawn(command, CORE_TIMEOUT)
-                    .await
-                    .map(Arc::new)
-            })
+        let mut slot = self.core.lock().await;
+        if let Some(conn) = slot.as_ref().filter(|conn| !conn.is_closed()) {
+            return Ok(Arc::clone(conn));
+        }
+        let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
+        let mut command = tokio::process::Command::new("env");
+        command.args(argv.iter().skip(1));
+        let conn = herdr::Conn::spawn(command, CORE_TIMEOUT)
             .await
+            .map(Arc::new)
             .map_err(|err| match err {
                 herdr::Error::Missing => Error::internal("herdr-core is not installed"),
                 other => Error::internal(other),
             })?;
-        Ok(Arc::clone(conn))
+        *slot = Some(Arc::clone(&conn));
+        Ok(conn)
     }
 }
 
@@ -653,9 +663,16 @@ mod tests {
     #[test]
     fn mc16_core_starts_from_clean_environment() {
         let vars = [("PATH".to_owned(), "/usr/bin".to_owned())].into();
+        let argv = core_command("/bin/herdr-core", &vars);
+        assert_eq!(argv[..3], ["env", "-i", "PATH=/usr/bin"]);
+    }
+
+    #[test]
+    fn mc51_connect_names_the_roundup_session() {
+        let argv = core_command("/bin/herdr-core", &BTreeMap::new());
         assert_eq!(
-            core_command("/bin/herdr-core", &vars),
-            ["env", "-i", "PATH=/usr/bin", "/bin/herdr-core", "connect"]
+            argv[2..],
+            ["/bin/herdr-core", "connect", "--session", "roundup"]
         );
     }
 

@@ -1,4 +1,4 @@
-import { batch, createEffect, createSignal } from "solid-js";
+import { batch, createEffect, createSignal, onCleanup } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
@@ -147,9 +147,9 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
     setAsks((all) => [ask, ...all.filter((each) => each.id !== ask.id)].sort((a, b) => Number(b.at) - Number(a.at)));
   };
 
-  events.subscribe((event) => {
+  onCleanup(events.subscribe((event) => {
     if (event.name === "ask.changed") upsert(event.data.ask);
-  });
+  }));
 
   createEffect(() => {
     const target = viewed?.target();
