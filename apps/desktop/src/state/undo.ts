@@ -134,8 +134,8 @@ export function createTodoUndo() {
   };
 
   /** A call waiting its turn counts: the history is busy from the call to the answer, with no gap between two calls. */
-  const [calls, setCalls] = createStore({ queued: 0 });
-  const pending = () => work().kind === "running" || calls.queued > 0;
+  const [line, setLine] = createStore({ queued: 0 });
+  const pending = () => work().kind === "running" || line.queued > 0;
 
   /** The keyed work the Daemon may hold: unconfirmed, or a keyed delete in flight. */
   const unsettled = () => work().kind === "unconfirmed" || work().kind === "running" && asking()?.kind !== "undo" && asking()?.kind !== "redo";
@@ -192,11 +192,11 @@ export function createTodoUndo() {
   const queue = new PQueue({ concurrency: 1 }); // An idle queue starts the call in the same tick; a busy one waits for the earlier calls.
 
   const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
-    setCalls("queued", count => count + 1);
+    setLine("queued", count => count + 1);
 
     // The count drops in the tick the call settles, so a key on its failure line is not refused. SAFETY: no timeout is set, so `add` resolves with the task's result, never `void`.
     return queue.add(async () => {
-      try { return await run(...args); } finally { setCalls("queued", count => count - 1); }
+      try { return await run(...args); } finally { setLine("queued", count => count - 1); }
     }) as Promise<T>;
   };
 
@@ -257,6 +257,7 @@ export function createTodoUndo() {
     } finally { setWork(after); }
   };
 
+  // oxlint-disable-next-line solid/reactivity -- serial runs the call from a queue task, an untracked scope by design.
   const removeRailSelection = serial(removeRailNow);
 
   /** The ids the Daemon deleted. */
@@ -553,7 +554,9 @@ export function createTodoUndo() {
     } finally { setWork(after); }
   };
 
+  // oxlint-disable-next-line solid/reactivity -- serial runs the call from a queue task, an untracked scope by design.
   const undo = serial(undoNow);
+  // oxlint-disable-next-line solid/reactivity -- serial runs the call from a queue task, an untracked scope by design.
   const redo = serial(redoNow);
 
   const available = (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !unsettled();
