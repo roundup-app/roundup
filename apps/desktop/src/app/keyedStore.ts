@@ -14,14 +14,17 @@ export const keyedStore = <Row extends object>(key: string) => {
 
     // `createResource` hands its setter a reply from `mutate` and a function returning it from a fetch.
     const write = (next: Row[] | undefined | (() => Row[] | undefined)) => {
-      setShelf("rows", reconcile((typeof next === "function" ? next() : next) as Row[], { key }));
+      const reply = next instanceof Function ? next() : next;
+
+      // SAFETY: `reconcile` takes the array, and `undefined` only reaches it from the initial value, which `createResource` never writes.
+      setShelf("rows", reconcile(reply as Row[], { key }));
 
       setRevision(count => count + 1);
 
       return shelf.rows;
     };
 
-    // Cast: Solid types the setter for any value, and `createResource` calls it with the two forms `write` takes.
+    // SAFETY: Solid types the setter for any value, and `createResource` calls it with the two forms `write` takes.
     return [read, write as Setter<Row[] | undefined>];
   };
 

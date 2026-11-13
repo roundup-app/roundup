@@ -29,6 +29,7 @@ const open = (connected: ConnectedProject): Shared =>
 
     /** Joins the read in flight, a failed one included. */
     const settled = () => reading.then(() => undefined, () => undefined);
+
     const reload = async () => {
       await refetch();
       await settled();
@@ -43,7 +44,7 @@ const open = (connected: ConnectedProject): Shared =>
       }),
     );
 
-    return { list: { pads: () => { revision(); return rows() ?? []; }, loaded: () => rows() !== undefined, failure: () => list.error?.message ?? null, reload, settled }, users: 0, dispose };
+    return { list: { pads: () => (revision(), rows() ?? []), loaded: () => rows() !== undefined, failure: () => list.error?.message ?? null, reload, settled }, users: 0, dispose };
   });
 
 /** One `pad.list`, refetched on every `pad.changed` or `pad.deleted`, serves the Shelf and every Rail row (U58, U18); it logs no Touch. The fetch and the subscription end with the last reader. */

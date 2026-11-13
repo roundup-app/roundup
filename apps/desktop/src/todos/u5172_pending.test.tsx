@@ -90,9 +90,9 @@ it("u5172b_a_stale_todo_list_reply_never_overwrites_a_newer_one", async () => {
   const newer = todos.reload();
   await waitFor(() => expect(replies).toHaveLength(2));
 
-  replies[1]!.resolve([todo(2)]);
+  replies[1]?.resolve([todo(2)]);
   await newer;
-  replies[0]!.resolve([todo(1)]);
+  replies[0]?.resolve([todo(1)]);
   await older;
   expect(todos.all().map(each => each.id)).toEqual([2]);
 });

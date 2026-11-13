@@ -40,12 +40,12 @@ describe("u18 list and ownership", () => {
 
     app.handlers["pad.list"] = () => reply.promise;
     app.emit({ actor: AGENT, name: "pad.deleted", data: { name: "auth-notes" } });
-    await waitFor(() => expect(screen.queryByText("auth-notes")).toBeNull());
-    expect(screen.getByText("keep")).toBeTruthy();
+    await waitFor(() => expect(document.querySelector('[data-pad="auth-notes"]')).toBeNull());
+    expect(document.querySelector('[data-pad="keep"]')).not.toBeNull();
     reply.resolve([padOf("keep", AGENT)]);
     await new Promise((done) => setTimeout(done, 0));
-    expect(screen.queryByText("auth-notes")).toBeNull();
-    expect(screen.getByText("keep")).toBeTruthy();
+    expect(document.querySelector('[data-pad="auth-notes"]')).toBeNull();
+    expect(document.querySelector('[data-pad="keep"]')).not.toBeNull();
   });
 
   it("u18_an_older_pad_list_reply_that_arrives_late_never_wins", async () => {
