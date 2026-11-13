@@ -10,7 +10,7 @@ import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense } from "solid-js";
+import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense, untrack } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
 import "../pads/styles.css";
@@ -34,7 +34,10 @@ const snapshotSchema = v.strictObject({ title: v.string(), body: v.optional(v.st
 
 export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchema, snapshotSchema, commentSchema]);
 
-type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: number; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
+type Editing = { form: v.InferOutput<typeof formSchema>; text: string; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
+
+/** Leaving toward a Close, recovery or navigation control, or out of the Drawer, keeps the draft without sending it. */
+const keepsDraft = (target: EventTarget | null) => target instanceof Element && (!!target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer"));
 
 /** A failure carries the save count it belongs to and hides once that count moves on. */
 export const createSavedFailure = (count: () => number): [() => string | null, (message: string | null) => void] => {
@@ -160,7 +163,7 @@ export const EditableText = (props: {
     });
   }, { defer: true }));
 
-  const startWith = (width = shown()?.getBoundingClientRect().width ?? 0) => {
+  const startWith = () => {
     captureFocus(true);
 
     const saved = props.revision === undefined
@@ -184,20 +187,16 @@ export const EditableText = (props: {
 
     setActiveRevision(saved?.revision ?? null);
     setTyped(form.text);
-    setEditing({ form, text: form.text, width, recovered: parsed.success, selection: saved?.selection ?? null });
+    setEditing({ form, text: form.text, recovered: parsed.success, selection: saved?.selection ?? null });
   };
 
-  if (props.revision !== undefined) startWith(0);
+  if (props.revision !== undefined) untrack(startWith);
 
   let save: (() => Promise<void>) | undefined;
   let key: ((event: KeyboardEvent) => void) | undefined;
 
-  // Leaving toward a Close, recovery or navigation control, or out of the Drawer, keeps the draft without sending it.
-  const keepsDraft = (target: EventTarget | null) => target instanceof Element && (!!target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer"));
-
   const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void) => {
     const focus = captureFocus();
-    // Fitted again once attached: `scrollHeight` is 0 before then.
     queueMicrotask(() => {
       if (!alive) return;
       focus(focusField);
@@ -297,7 +296,7 @@ export const EditableText = (props: {
           setFailure(error.message);
 
           if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(() => startWith(started.width));
+            && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(() => startWith());
         }
       }
     };
@@ -351,11 +350,7 @@ export const EditableText = (props: {
 
       ending = "cancel";
 
-      if (submitting) {
-        void save?.();
-
-        return;
-      }
+      if (submitting) return void save?.();
 
       binding?.keep();
       setEditing(null);
@@ -366,16 +361,9 @@ export const EditableText = (props: {
       submitMode={editing()?.recovered ? "none" : "both"} onValueChange={({ value }) => setTyped(value)}
       onEditChange={({ edit }) => { if (edit) startWith(); else close(); }}
       onInteractOutside={event => {
-        const target = event.target;
-
-        if (editing()?.recovered || keepsDraft(target)) {
-          event.preventDefault();
-          binding?.keep();
-
-          return;
-        }
-
-        ending = "submit";
+        if (!editing()?.recovered && !keepsDraft(event.target)) return void (ending = "submit");
+        event.preventDefault();
+        binding?.keep();
       }}>
       <Editable.Context>{api => <Editable.Area style={{ display: "grid", width: "100%" }}>
         <Editable.Preview asChild={preview => <p {...preview()} />} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
@@ -456,7 +444,7 @@ export const EditableText = (props: {
             fallback={<RichBody />}
           >
             {/* U3732: an empty body offers its own edit, where the body will read. */}
-            <button data-button="quiet" type="button" class="word todo-add-notes" onClick={() => startWith(0)}>{copy.addNotes}</button>
+            <button data-button="quiet" type="button" class="word todo-add-notes" onClick={() => startWith()}>{copy.addNotes}</button>
           </Show>
         }
         keyed

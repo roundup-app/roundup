@@ -23,7 +23,7 @@ import { EmptyState } from "../ink/EmptyState";
 import * as v from "valibot";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
 import { registerOpener } from "../shelf/openItem";
-import { createEffect, createMemo, createSelector, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -191,7 +191,6 @@ export const Todos = (props: {
   });
 
   const selection = createSelection(() => [...listed().filter(todo => !hidden(todo)), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
-  const isPicked = createSelector(createMemo(() => new Set(selection.selected())), (id: number, chosen) => chosen.has(id));
 
   const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
 
@@ -727,8 +726,8 @@ export const Todos = (props: {
               onMotionEnd={() => finishing.rowEnded(todo.id)}
               treeItem={itemProps()}
               todo={todo}
-              selected={isPicked(todo.id) || selectedId() === todo.id}
-              pressed={isPicked(todo.id)}
+              selected={selection.isSelected(todo.id) || selectedId() === todo.id}
+              pressed={selection.isSelected(todo.id)}
               selectionActive={selection.selected().length > 0}
               onPick={(item, event) => !bulk.pending() && selection.click(item.id, event)}
               onSelectionKey={selectionKey}
@@ -846,7 +845,7 @@ export const Todos = (props: {
                   onToggle={toggle}
                   failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
                   selected={shown()?.id === todo.id}
-                  pressed={isPicked(todo.id)}
+                  pressed={selection.isSelected(todo.id)}
                   selectionActive={selection.selected().length > 0}
                   onPick={(picked, event) => !bulk.pending() && selection.click(picked.id, event)}
                   onSelectionKey={selectionKey}

@@ -1,4 +1,4 @@
-import { createEffect, createMemo, on, onCleanup, untrack, useContext } from "solid-js";
+import { createEffect, createMemo, createSelector, on, onCleanup, untrack, useContext } from "solid-js";
 import { ShelfActions } from "./BulkDelete";
 import { createRowCollection } from "../ui/RowCollection";
 import type { Accessor } from "solid-js";
@@ -13,6 +13,9 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
 
     return ids().filter(id => chosen.has(String(id)));
   });
+
+  // Each row tracks only its own answer, so a pick re-renders the rows it changes, not every row.
+  const isSelected = createSelector(createMemo(() => new Set(selected())), (id: Id, chosen) => chosen.has(id));
 
   const setSelected = (values: readonly Id[]) => untrack(() => list.selection.setSelectedValues(values.map(String)));
   let anchor: Id | undefined;
@@ -129,7 +132,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
       return row?.isConnected && !row.closest("[hidden], [inert]") ? only : undefined;
     },
     move: (id: Id, event: KeyboardEvent) => key(id, event),
-    selected, clear, click, key, toggle,
+    selected, isSelected, clear, click, key, toggle,
     cancel: () => { const row = rowOf(selected()[0]!); clear(); row?.focus(); },
     replace: (values: readonly Id[]) => setSelected([...new Set(values)]),
     register: (id: Id, row: HTMLButtonElement | null) => { if (row) { rows.set(id, row); list.register(row, String(id)); } else rows.delete(id); },
