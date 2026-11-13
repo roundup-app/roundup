@@ -120,8 +120,10 @@ impl Daemon {
         method: &str,
         params: Value,
     ) -> Result<Report, RpcError> {
-        let Some(report) = params
-            .get("report")
+        // Only `agent.signal` takes a `report` id; the Message methods' `report` is another thing.
+        let Some(report) = Some(method)
+            .filter(|m| *m == "agent.signal")
+            .and_then(|_| params.get("report"))
             .and_then(Value::as_str)
             .map(str::to_owned)
         else {
