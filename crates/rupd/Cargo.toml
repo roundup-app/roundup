@@ -5,7 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [features]
-test-support = ["agents/test-support"]
+test-support = ["agents/test-support", "terminal/test-support"]
 
 [dependencies]
 async-trait.workspace = true
@@ -40,7 +40,6 @@ reflink-copy = "0.1.32"
 rusqlite_migration.workspace = true
 rupd = { path = ".", features = ["test-support"] }
 allocation-counter = "0.8.1"
-terminal = { path = "../terminal", features = ["test-support"] }
 tokio = { workspace = true, features = ["test-util"] }
 agents = { path = "../agents", features = ["test-support"] }
 jsonschema = { version = "0.60.2", default-features = false }
