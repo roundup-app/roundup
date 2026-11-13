@@ -1,7 +1,7 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { batch } from "solid-js";
+import { batch, createRoot } from "solid-js";
 import { App } from "../App";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
@@ -9,7 +9,7 @@ import { rowOf, settled } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { endLeader } from "./registry";
+import { endLeader, registerKeys } from "./registry";
 import { CHORDS, hintsFor, pressOf, CHORD_ROWS } from "./chords";
 import type { HintPlace } from "./chords";
 
@@ -243,6 +243,8 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
 
 
 it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps_the_current_keyboard_owner: %s", async owner => {
+  let disposeLayer = () => {};
+
   await open();
   showShelfTab("Todos");
   await waitFor(() => expect(document.querySelector("[data-triage-toggle]")).not.toBeNull());
@@ -261,6 +263,10 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
       surface.append(control);
       document.querySelector(".shelf")!.append(surface);
       control.focus();
+
+      if (owner === "dialog" || owner === "menu") disposeLayer = createRoot(dispose => { registerKeys({ kind: "layer", element: () => surface, active: () => true, modal: true }, []);
+
+ return dispose; });
     }
   }
 
@@ -268,6 +274,7 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
   document.activeElement!.dispatchEvent(event);
   expect(event.defaultPrevented).toBe(false);
   expect(document.querySelector("[data-triage-toggle]")?.getAttribute("aria-pressed")).toBe("false");
+  disposeLayer();
 });
 
 

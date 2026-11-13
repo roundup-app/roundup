@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import importlib.util
 import os
+import re
 import time
 import unittest
 from pathlib import Path
@@ -28,9 +29,9 @@ BUILD_PR = dict(number=9, headRefName='build/U1', isCrossRepository=False, label
 class GitHub:
     """Answers stall.py's reads from fixed data and records its writes."""
 
-    def __init__(self, merged_ago=None, issues=(), prs=(), runs=(), jobs=None):
+    def __init__(self, merged_ago=None, issues=(), prs=(), runs=(), jobs=None, reactions=None):
         self.merged_ago, self.issues, self.prs, self.runs = merged_ago, list(issues), list(prs), list(runs)
-        self.jobs = jobs or {}
+        self.jobs, self.reactions = jobs or {}, reactions or {}
         self.writes = []
 
     def read(self, *args):
@@ -38,6 +39,9 @@ class GitHub:
             if 'merged' in args:
                 return [] if self.merged_ago is None else [dict(number=5, url='https://x/pull/5', mergedAt=stamp(self.merged_ago))]
             return self.prs
+        if args[1] == 'graphql':
+            return dict(data=dict(repository={f'i{n}': dict(reactions=dict(nodes=self.reactions.get(n, [])))
+                                              for n in map(int, re.findall(r'i(\d+):', args[-1]))}))
         path = args[1]
         if '/jobs' in path:
             return dict(jobs=self.jobs.get(int(path.split('/runs/')[1].split('/')[0]), []))
@@ -119,6 +123,12 @@ class Stall(unittest.TestCase):
         for issue in (flagged, outside, pull):
             with self.subTest(issue=issue):
                 self.assertEqual(self.go(GitHub(merged_ago=HOUR * 4, issues=[issue])).writes, [])
+
+    def test_l94_a_loop_app_s_issue_is_waiting_work_only_with_the_user_s_thumbs_up(self):
+        app = dict(READY, user=dict(login='claude[bot]'))
+        self.assertEqual(self.go(GitHub(merged_ago=HOUR * 4, issues=[app])).writes, [])
+        approved = GitHub(merged_ago=HOUR * 4, issues=[app], reactions={7: [dict(user=dict(login='saadshahd'))]})
+        self.assertTrue(self.go(approved).writes)
 
     def test_l94_a_cross_repository_pr_is_not_waiting_work(self):
         pr = dict(BUILD_PR, isCrossRepository=True)

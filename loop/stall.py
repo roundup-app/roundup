@@ -112,7 +112,9 @@ def stall(now):
     open_stalls = [i for i in open_stalls if not (merge and merge[2] > orders.created(i['created_at']))]
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,isCrossRepository,labels')
-    found = waiting(issues, prs)
+    # An App's Issue the user has not approved is not work yet; a prerequisite shows through the Issue it blocks.
+    may_build = orders.released(issues, {}, orders.approvals(issues))
+    found = waiting([i for i in issues if i['number'] in may_build], prs)
     since = merge[2] if merge else now - ASK
     if not found or (merge and now - merge[2] < STALL):
         return

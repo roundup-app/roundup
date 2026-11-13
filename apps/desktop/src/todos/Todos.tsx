@@ -45,7 +45,7 @@ import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
 import { CHORDS, CHORD_ROWS, type ChordName, chordsOf } from "../keys/chords";
 import { HomePicker } from "./HomePicker";
 import { afterElseBefore, nearest } from "../keys/survivor";
-import { createListModel, focusRow, idOfRow, rowButtonOf, rowRef, survivorOf } from "./listModel";
+import { createListModel, focusRow, idOfRow, rowButtonOf, rowIdContaining, rowRef, survivorOf } from "./listModel";
 import { triage } from "./triage";
 import type { Choosing } from "./choosing";
 import { reorderChange } from "./state";
@@ -154,17 +154,17 @@ export const Todos = (props: {
       return !!todo && !closedGroups().includes(groupOf(todo));
     },
     focusAfterClose: closing => {
-      const kept = document.activeElement?.closest<HTMLElement>("[data-todo]");
+      const kept = rowIdContaining(document.activeElement);
 
-      if (!kept || !closing.has(Number(kept.dataset.todo))) return;
+      if (kept === undefined || !closing.has(kept)) return;
       const order = dependencyRows().map(row => row.todo.id);
-      const at = order.indexOf(Number(kept.dataset.todo));
+      const at = order.indexOf(kept);
 
       queueFocus(() => {
         const active = document.activeElement;
-        const current = active?.closest<HTMLElement>("[data-todo]");
+        const current = rowIdContaining(active);
 
-        if (active && active !== document.body && (!current || !closing.has(Number(current.dataset.todo)))) return;
+        if (active && active !== document.body && (current === undefined || !closing.has(current))) return;
         const candidates = [...order.slice(at + 1), ...order.slice(0, at).reverse()];
 
         const target = candidates.find(id => {

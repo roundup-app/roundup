@@ -40,7 +40,7 @@ it("u5172a_unanswered_pad_rename_shows_the_asked_name_marked_applying", async ()
 
 const user = { kind: "user", id: "you", parent: null } as const;
 
-it("u5172a_unanswered_todo_assign_shows_the_asked_owner_marked_until_a_read_settles_it", async () => {
+it("u5172a_a_change_stays_pending_until_the_list_leaves_its_base", async () => {
   const { app, todos, store } = await mountTodos([todo(3), todo(4)]);
   const outcome = await todos.ask(3, { kind: "owner", asked: user, base: null }, () => Promise.reject(noReply("todo.assign")));
 
@@ -55,7 +55,7 @@ it("u5172a_unanswered_todo_assign_shows_the_asked_owner_marked_until_a_read_sett
   expect(todos.byId().get(3)?.owner).toEqual(user);
 });
 
-it("u5172a_unanswered_todo_reorder_shows_the_asked_order_and_a_contradicting_read_shows_one_failure", async () => {
+it("u5172a_a_contradicted_change_is_reported", async () => {
   const { todos, store } = await mountTodos([todo(3), todo(4), todo(5)]);
   const failures: string[] = [];
   todos.onContradicted((_, message) => failures.push(message));
@@ -70,4 +70,39 @@ it("u5172a_unanswered_todo_reorder_shows_the_asked_order_and_a_contradicting_rea
   expect(todos.pendingOf(5)).toBeNull();
   expect(todos.all().map(each => each.id)).toEqual([3, 5, 4]);
   expect(failures).toHaveLength(1);
+});
+
+it("u5172b_a_stale_todo_list_reply_never_overwrites_a_newer_one", async () => {
+  const { app, todos } = await mountTodos([todo(1)]);
+  const replies: PromiseWithResolvers<ReturnType<typeof todo>[]>[] = [];
+
+  app.handlers["todo.list"] = () => {
+    const reply = Promise.withResolvers<ReturnType<typeof todo>[]>();
+
+    replies.push(reply);
+
+    return reply.promise;
+  };
+
+  const older = todos.reload();
+
+  await waitFor(() => expect(replies).toHaveLength(1));
+  const newer = todos.reload();
+  await waitFor(() => expect(replies).toHaveLength(2));
+
+  replies[1]?.resolve([todo(2)]);
+  await newer;
+  replies[0]?.resolve([todo(1)]);
+  await older;
+  expect(todos.all().map(each => each.id)).toEqual([2]);
+});
+
+it("u5172c_a_burst_of_refreshes_shares_one_request", async () => {
+  const { app, todos } = await mountTodos([todo(3)]);
+  const listed = () => app.calls.filter(call => call.method === "todo.list").length;
+  const before = listed();
+
+  await Promise.all([todos.reload(), todos.reload(), todos.reload()]);
+
+  expect(listed()).toBe(before + 1);
 });

@@ -1,5 +1,5 @@
-import { createStore, reconcile } from "solid-js/store";
-import { batch, createRoot, createSignal, onCleanup } from "solid-js";
+import { createResource, createRoot, onCleanup } from "solid-js";
+import { answered, keyedStore } from "../app/keyedStore";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { useConnectedProject } from "../state/connectedProject";
@@ -21,78 +21,30 @@ type Shared = { list: PadList; users: number; dispose: () => void };
 
 const shared = new WeakMap<ConnectedProject, Shared>();
 
-const open = (connected: ConnectedProject): Shared => {
-  let newest = 0;
+const open = (connected: ConnectedProject): Shared =>
+  createRoot((dispose) => {
+    const { storage, rows } = keyedStore<Pad>("incarnation");
+    const [list, { refetch, mutate }] = createResource(() => connected.app.rpc("pad.list", null), { storage });
+    const settled = () => answered(list);
 
-  return createRoot((dispose) => {
-    const [state, setState] = createStore<{ pads: Pad[] }>({ pads: [] });
-    const [refetched, setRefetched] = createSignal(0);
-
-    // Reconciliation preserves rows; callers observing the whole list still need each accepted read.
-    const pads = () => { refetched();
-
- return state.pads; };
-
-    const [loaded, setLoaded] = createSignal(false);
-    const [failure, setFailure] = createSignal<string | null>(null);
-
-    let latest: Promise<void> = Promise.resolve();
-
-    /** Only the newest request may set the list, its failure or `loaded`: a slower, older reply must not put stale Pads back, overwrite a later failure, or flash the empty line while a retry is in flight. */
-    const refetch = async () => {
-      newest += 1;
-
-      const mine = newest;
-
-      try {
-        const listed = await connected.app.rpc("pad.list", null);
-
-        if (mine !== newest) {
-          await latest;
-
-          return;
-        }
-
-        batch(() => {
-          setState("pads", reconcile(listed, { key: "incarnation" }));
-          setRefetched(count => count + 1);
-        });
-        setFailure(null);
-        setLoaded(true);
-      } catch (thrown) {
-        if (!(thrown instanceof Error)) throw thrown;
-
-        if (mine !== newest) {
-          await latest;
-
-          return;
-        }
-
-        setFailure(thrown.message);
-      }
-
-    };
-
-    const reload = () => {
-      latest = refetch();
-
-      return latest;
+    // `createResource` drops a refetch asked in the same microtask as one it started, so a burst waits one microtask and shares one read.
+    const reload = async () => {
+      await Promise.resolve();
+      void refetch();
+      await settled();
     };
 
     onCleanup(
       connected.events.subscribe((event) => {
         if (event.name === "pad.deleted") {
-          batch(() => { setState("pads", reconcile(pads().filter(pad => pad.name !== event.data.name), { key: "incarnation" })); setRefetched(count => count + 1); });
+          mutate((rows() ?? []).filter(pad => pad.name !== event.data.name));
           void reload();
         } else if (event.name === "pad.changed") void reload();
       }),
     );
 
-    void reload();
-
-    return { list: { pads, loaded, failure, reload, settled: () => latest }, users: 0, dispose };
+    return { list: { pads: () => rows() ?? [], loaded: () => rows() !== undefined, failure: () => list.error?.message ?? null, reload, settled }, users: 0, dispose };
   });
-};
 
 /** One `pad.list`, refetched on every `pad.changed` or `pad.deleted`, serves the Shelf and every Rail row (U58, U18); it logs no Touch. The fetch and the subscription end with the last reader. */
 export const usePadList = (): PadList => {
