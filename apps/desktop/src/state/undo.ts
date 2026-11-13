@@ -493,12 +493,12 @@ export function createTodoUndo() {
         } finally { await lift?.(kept); }
       } else {
         const failed: PadRedo[] = [];
-        const causes: Error[] = [];
-        const messages: string[] = [];
+        const causes: { error: Error; message: string }[] = [];
         const receipts: PadDeletion[] = [];
 
         for (const member of action.members) {
           let applyError: unknown;
+
           const requested = async () => {
             if (!member.request) {
               const current = await app.rpc("pad.read", { name: member.receipt.pad.name });
@@ -523,8 +523,7 @@ export function createTodoUndo() {
 
             if (error === applyError && outcomeOf(error) === "failed") member.request = null;
             failed.push(member);
-            causes.push(error);
-            messages.push(`${member.receipt.pad.name}: ${error.message}`);
+            causes.push({ error, message: `${member.receipt.pad.name}: ${error.message}` });
           }
         }
 
@@ -540,8 +539,8 @@ export function createTodoUndo() {
         action.members = failed;
 
         if (causes.length) {
-          if (causes.some(error => outcomeOf(error) === "unknown")) after = { kind: "unconfirmed", asked: wanted };
-          setFailure({ kind: "restore", message: messages.join("; ") });
+          if (causes.some(cause => outcomeOf(cause.error) === "unknown")) after = { kind: "unconfirmed", asked: wanted };
+          setFailure({ kind: "restore", message: causes.map(cause => cause.message).join("; ") });
 
           return;
         }
