@@ -2,6 +2,7 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
+import { Editable } from "../ui/Editable";
 import { copy } from "./copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
@@ -9,7 +10,7 @@ import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense } from "solid-js";
+import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense, untrack } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
 import "../pads/styles.css";
@@ -33,7 +34,10 @@ const snapshotSchema = v.strictObject({ title: v.string(), body: v.optional(v.st
 
 export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchema, snapshotSchema, commentSchema]);
 
-type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: number; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
+type Editing = { form: v.InferOutput<typeof formSchema>; text: string; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
+
+/** Leaving toward a Close, recovery or navigation control, or out of the Drawer, keeps the draft without sending it. */
+const keepsDraft = (target: EventTarget | null) => target instanceof Element && (!!target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer"));
 
 /** A failure carries the save count it belongs to and hides once that count moves on. */
 export const createSavedFailure = (count: () => number): [() => string | null, (message: string | null) => void] => {
@@ -130,6 +134,7 @@ export const EditableText = (props: {
   const [editing, setEditing] = createSignal<Editing | null>(null);
 
   const [activeRevision, setActiveRevision] = createSignal<string | null>(null);
+  const [typed, setTyped] = createSignal("");
 
   createEffect(() => {
     const revision = activeRevision();
@@ -158,7 +163,7 @@ export const EditableText = (props: {
     });
   }, { defer: true }));
 
-  const startWith = (width = shown()?.getBoundingClientRect().width ?? 0) => {
+  const startWith = () => {
     captureFocus(true);
 
     const saved = props.revision === undefined
@@ -181,22 +186,17 @@ export const EditableText = (props: {
       home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
 
     setActiveRevision(saved?.revision ?? null);
-    setEditing({ form, text: form.text, width, recovered: parsed.success, selection: saved?.selection ?? null });
+    setTyped(form.text);
+    setEditing({ form, text: form.text, recovered: parsed.success, selection: saved?.selection ?? null });
   };
 
-  if (props.revision !== undefined) startWith(0);
-
-  const fit = (element: HTMLTextAreaElement) => {
-    element.style.height = "auto";
-    element.style.height = `${element.scrollHeight}px`;
-  };
+  if (props.revision !== undefined) untrack(startWith);
 
   let save: (() => Promise<void>) | undefined;
   let key: ((event: KeyboardEvent) => void) | undefined;
 
   const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void) => {
     const focus = captureFocus();
-    // Fitted again once attached: `scrollHeight` is 0 before then.
     queueMicrotask(() => {
       if (!alive) return;
       focus(focusField);
@@ -225,12 +225,9 @@ export const EditableText = (props: {
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
     onCleanup(() => { left = true; });
-    element.addEventListener("select", () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); });
-    element.addEventListener("input", () => {
-      if (left) return;
+    const select = () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); };
 
-      retain();
-    });
+    const input = () => { if (!left) retain(); };
 
     const submit = async (destination?: EventTarget | null) => {
       if (left) return;
@@ -299,7 +296,7 @@ export const EditableText = (props: {
           setFailure(error.message);
 
           if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(() => startWith(started.width));
+            && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(() => startWith());
         }
       }
     };
@@ -322,30 +319,72 @@ export const EditableText = (props: {
       if (read() !== started.form.base || started.recovered) retain();
       queueMicrotask(() => {
         if (!alive || connected.drawer.content() !== content || started.recovered
-          || (target instanceof Element && (target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer")))) return;
+          || keepsDraft(target)) return;
         void submit(target);
       });
     };
 
-    element.addEventListener("blur", event => blur(event.relatedTarget));
     // Explicit Save authorizes restored work; restoration alone never resumes blur submission.
     save = submit;
 
-    return { retain, blur };
+    return { retain, blur, select, input, submit, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
   };
 
-  const field = (started: Editing) => (element: HTMLTextAreaElement) => {
-    element.value = started.text;
-    element.addEventListener("input", () => {
-      if (!props.multiline) element.value = element.value.replace(/\r?\n/g, " ");
-      fit(element);
-    });
-    bind(started, element, () => element.value,
-      () => ({ start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection }), () => {
-        fit(element); element.focus({ preventScroll: true });
+  const TitleField = () => {
+    let input: HTMLTextAreaElement | undefined;
+    let binding: ReturnType<typeof bind> | undefined;
+    let ending: "submit" | "cancel" = "cancel";
 
-        if (started.selection) element.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
+    createEffect(on(editing, started => {
+      if (!started || !input) return;
+      const field = input;
+      binding = bind(started, field, () => field.value, () => ({ start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }), () => {
+        field.focus({ preventScroll: true });
+
+        if (started.selection) field.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
       });
+    }));
+
+    const close = () => {
+      const submitting = ending === "submit";
+
+      ending = "cancel";
+
+      if (submitting) return void save?.();
+
+      binding?.keep();
+      setEditing(null);
+      queueFocus(() => shown()?.focus());
+    };
+
+    return <Editable.Root edit={editing() !== null} activationMode="dblclick" selectOnFocus={false} value={editing() ? typed() : props.todo[props.name]}
+      submitMode={editing()?.recovered ? "none" : "both"} onValueChange={({ value }) => setTyped(value)} placeholder={copy.noField(props.name)}
+      translations={{ edit: props.todo[props.name] || copy.noField(props.name) }} onEditChange={({ edit }) => { if (edit) startWith(); else close(); }}
+      onInteractOutside={event => {
+        if (!editing()?.recovered && !keepsDraft(event.target)) return void (ending = "submit");
+        event.preventDefault();
+        binding?.keep();
+      }}>
+      <Editable.Context>{api => <Editable.Area style={{ display: "grid", width: "100%" }}>
+        <Editable.Preview asChild={preview => <p {...preview()} class={props.todo[props.name] === "" ? "light" : undefined} />} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
+          style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", overflow: "visible", "text-overflow": "clip", "min-height": "1.4em" }} />
+        <Editable.Input asChild={field => <textarea {...field()} class="field-inline" rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck={false} autocorrect="off" autocapitalize="off"
+          class="field-inline" aria-label={copy.title}
+          onInput={event => {
+            const field = event.currentTarget;
+
+            if (/\n/.test(field.value)) field.value = field.value.replace(/\r?\n/g, " ");
+            setTyped(field.value);
+            binding?.input();
+          }}
+          onSelect={() => binding?.select()}
+          onKeyDown={event => {
+            if (event.key === "Escape") event.stopPropagation();
+            else if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); ending = "submit"; api().submit(); }
+          }}
+          style={{ "letter-spacing": "inherit", "line-height": "inherit", "text-align": "inherit", "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", padding: "0", "border-width": "0", resize: "none", overflow: "hidden", "caret-color": "var(--accent)" }} />
+      </Editable.Area>}</Editable.Context>
+    </Editable.Root>;
   };
 
   const RichBody = (rich: { started?: Editing }) => {
@@ -393,56 +432,25 @@ export const EditableText = (props: {
   return (
     <div class="todo-editable" ref={container}>
     <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())} dismiss={() => retentionFailure() ? setRetentionFailure(null) : setFailure(null)} />
-    <Show
-      when={editing()}
-      fallback={
-        <Show
-          when={props.name === "body" && props.todo.body === ""}
-          fallback={
-            <Show when={props.multiline} fallback={<p
-              tabIndex={0}
-              onDblClick={() => startWith()}
-              onKeyDown={(key) => {
-                if (key.key === "Enter") startWith();
-              }}
-              style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", "flex-shrink": props.multiline ? "0" : "1" }}
-            >
-              <Show when={props.todo[props.name] !== ""} fallback={<span class="light">{copy.noField(props.name)}</span>}>
-                {props.todo[props.name]}
-              </Show>
-            </p>}><RichBody /></Show>
-          }
-        >
-          {/* U3732: an empty body offers its own edit, where the body will read. */}
-          <button data-button="quiet" type="button" class="word todo-add-notes" onClick={() => startWith(0)}>{copy.addNotes}</button>
-        </Show>
-      }
-      keyed
-    >
-      {(started) => (<>
-        <ReservedLine status={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />
-        <Show when={props.multiline} fallback={<textarea spellcheck={false} autocorrect="off" autocapitalize="off"
-          class="field-inline"
-          ref={field(started)}
-          aria-label={props.name === "title" ? copy.title : copy.body}
-          rows={1}
-          onKeyDown={event => key?.(event)}
-          style={{
-            display: "block",
-            "letter-spacing": "inherit",
-            "line-height": "inherit",
-            "text-align": "inherit",
-            "white-space": "pre-wrap",
-            "overflow-wrap": "anywhere",
-            width: started.width > 0 ? `${started.width}px` : "100%",
-            "flex-shrink": "0",
-            "min-height": "1.4em",
-            resize: "none",
-            overflow: "hidden",
-            "caret-color": "var(--accent)",
-          }}
-        />}><RichBody started={started} /></Show>
-      </>)}
+    <Show when={editing()} keyed>
+      {(started) => <ReservedLine status={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />}
+    </Show>
+    <Show when={props.multiline} fallback={<TitleField />}>
+      <Show
+        when={editing()}
+        fallback={
+          <Show
+            when={props.todo.body === ""}
+            fallback={<RichBody />}
+          >
+            {/* U3732: an empty body offers its own edit, where the body will read. */}
+            <button data-button="quiet" type="button" class="word todo-add-notes" onClick={() => startWith()}>{copy.addNotes}</button>
+          </Show>
+        }
+        keyed
+      >
+        {(started) => <RichBody started={started} />}
+      </Show>
     </Show>
     <Show when={editing()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void save?.()}>{copy.save}</button></Show>
     </div>

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
-import { mountTodos, todo, todoCallsTo } from "./testHarness";
+import { leaveTitle, mountTodos, todo, todoCallsTo } from "./testHarness";
 import { TodoHost } from "./TodoDrawer";
 
 afterEach(cleanup);
@@ -78,17 +78,17 @@ it("u2773a_todos_header_navigation_keeps_the_exact_title_draft", async () => {
 
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   fireEvent.dblClick(await within(panel).findByText("todo 1", { selector: "p" }));
-  const field = within(panel).getByRole("textbox", { name: "Title" });
+  const field = await within(panel).findByRole("textbox", { name: "Title" });
   const text = "  unfinished e\u0301 🧭  ";
   fireEvent.input(field, { target: { value: text } });
   const drafts = connected.drafts.list();
   const next = within(panel).getByRole("button", { name: "Next Todo" });
-  fireEvent.blur(field, { relatedTarget: next });
+  await leaveTitle(next);
   fireEvent.click(next);
   await within(panel).findByRole("checkbox", { name: "Complete todo 2" });
   fireEvent.click(within(panel).getByRole("button", { name: "Previous Todo" }));
   fireEvent.dblClick(await within(panel).findByText("todo 1", { selector: "p" }));
-  expect(within(panel).getByRole("textbox", { name: "Title" })).toHaveProperty("value", text);
+  expect(await within(panel).findByRole("textbox", { name: "Title" })).toHaveProperty("value", text);
   expect(connected.drafts.list()).toEqual(drafts);
   expect(todoCallsTo(app, "todo.update")).toEqual([]);
   expect(todoCallsTo(app, "todo.get").map(call => call.params)).toEqual([{ id: 2 }, { id: 1 }]);

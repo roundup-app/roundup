@@ -726,8 +726,8 @@ export const Todos = (props: {
               onMotionEnd={() => finishing.rowEnded(todo.id)}
               treeItem={itemProps()}
               todo={todo}
-              selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
-              pressed={selection.selected().includes(todo.id)}
+              selected={selection.isSelected(todo.id) || selectedId() === todo.id}
+              pressed={selection.isSelected(todo.id)}
               selectionActive={selection.selected().length > 0}
               onPick={(item, event) => !bulk.pending() && selection.click(item.id, event)}
               onSelectionKey={selectionKey}
@@ -845,7 +845,7 @@ export const Todos = (props: {
                   onToggle={toggle}
                   failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
                   selected={shown()?.id === todo.id}
-                  pressed={selection.selected().includes(todo.id)}
+                  pressed={selection.isSelected(todo.id)}
                   selectionActive={selection.selected().length > 0}
                   onPick={(picked, event) => !bulk.pending() && selection.click(picked.id, event)}
                   onSelectionKey={selectionKey}
