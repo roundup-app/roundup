@@ -1,6 +1,7 @@
 //! MC1, MC2: `machine.list` and `machine.add` are herdr-core's own; the Daemon opens a connection
 //! to the local core when asked and keeps no Machine row.
 
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -44,10 +45,12 @@ fn failed(err: herdr::Error) -> RpcError {
     RpcError::internal(format!("{}: {err}", err.code()))
 }
 
-fn listed(machines: Vec<herdr::Machine>) -> Vec<Machine> {
+/// MC15: each Machine with whether roundup's ssh to it last answered, when roundup has tried it.
+fn listed(machines: Vec<herdr::Machine>, reach: &BTreeMap<String, bool>) -> Vec<Machine> {
     machines
         .into_iter()
         .map(|m| Machine {
+            reachable: reach.get(&m.name).copied(),
             name: m.name,
             details: Value::Object(m.rest),
         })
@@ -57,7 +60,10 @@ fn listed(machines: Vec<herdr::Machine>) -> Vec<Machine> {
 impl Daemon {
     pub(super) async fn machine_list(&self, _conn: &mut Conn) -> Result<Vec<Machine>, RpcError> {
         let core = (self.machine_core.0)().await.map_err(failed)?;
-        Ok(listed(core.machine_list().await.map_err(failed)?))
+        Ok(listed(
+            core.machine_list().await.map_err(failed)?,
+            &self.terminals.machine_reachability(),
+        ))
     }
 
     /// Adds through the core, then answers the core's list as it stands.
@@ -68,7 +74,10 @@ impl Daemon {
     ) -> Result<Vec<Machine>, RpcError> {
         let core = (self.machine_core.0)().await.map_err(failed)?;
         core.machine_add(&params.name).await.map_err(failed)?;
-        Ok(listed(core.machine_list().await.map_err(failed)?))
+        Ok(listed(
+            core.machine_list().await.map_err(failed)?,
+            &self.terminals.machine_reachability(),
+        ))
     }
 }
 

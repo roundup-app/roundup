@@ -16,6 +16,8 @@ use crate::wire::{CLOSE, CREDIT, DATA, RESIZE, frame, read_frame};
 
 /// The protocol generation roundup speaks and pins.
 pub const GENERATION: u64 = 1;
+/// What the remote shell runs for `connect_ssh`.
+const REMOTE_CONNECT: &str = "env -i PATH=\"$PATH\" HOME=\"$HOME\" USER=\"$USER\" LOGNAME=\"$LOGNAME\" SHELL=\"$SHELL\" LANG=\"${LANG:-C.UTF-8}\" herdr-core connect";
 /// Exit status of a shell that finds no `herdr-core` on its PATH.
 const NOT_FOUND_EXIT: i32 = 127;
 
@@ -58,18 +60,18 @@ impl Conn {
         Self::spawn(cmd, timeout).await
     }
 
-    /// `ssh <host> herdr-core connect`, through the user's own ssh config.
+    /// `ssh <host> herdr-core connect`, through the user's own ssh config. The core inherits the
+    /// environment of the session that starts it and gives it to every terminal, so it starts from
+    /// `env -i` with only the names a program finds itself by (MC16); the remote shell fills them in.
     pub async fn connect_ssh(host: &str, timeout: Duration) -> Result<Conn> {
         let mut cmd = Command::new("ssh");
-        cmd.args([
-            "-T",
-            "-o",
-            "BatchMode=yes",
-            "--",
-            host,
-            "herdr-core connect",
-        ]);
+        cmd.args(["-T", "-o", "BatchMode=yes", "--", host, REMOTE_CONNECT]);
         Self::spawn(cmd, timeout).await
+    }
+
+    /// True once the pipe to the core is gone: every later call fails with `Closed`.
+    pub fn is_closed(&self) -> bool {
+        locked(&self.pending).closed
     }
 
     /// Run `cmd` as the core's pipe and say hello over it.

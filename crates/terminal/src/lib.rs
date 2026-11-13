@@ -13,6 +13,8 @@ mod input;
 mod integration;
 mod output;
 mod program;
+mod reattach;
+mod remote;
 mod stream;
 pub use stream::InputEnded;
 mod recorder;
@@ -45,6 +47,8 @@ use contracts::{Actor, EventData};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError};
 use serde_json::Value;
 use tokio::sync::{broadcast, watch};
+
+use remote::{Link, Remotes};
 
 /// Events a slow subscriber may fall behind by before it is told it lagged (it never blocks the reader).
 const EVENT_BACKLOG: usize = 1024;
@@ -136,10 +140,12 @@ impl OutputStream {
 
 /// What it takes to drive a running program. Dropped from the Terminal's entry once it is reaped.
 struct Handle {
-    conn: Arc<herdr::Conn>,
+    /// The core's connection and the channel's sending half; a remote Terminal's change on a reattach.
+    link: Arc<Mutex<Link>>,
     /// The core's id for this Terminal.
     core_id: String,
-    tx: herdr::Sender,
+    /// The Machine it runs on; `None` is this Mac.
+    machine: Option<String>,
     input: SyncSender<Input>,
     /// True once the program has ended and the stream has drained.
     ended: watch::Receiver<bool>,
@@ -147,6 +153,10 @@ struct Handle {
 }
 
 impl Handle {
+    fn conn(&self) -> Result<Arc<herdr::Conn>, Error> {
+        Ok(Arc::clone(&self.link.locked("terminal link")?.conn))
+    }
+
     fn enqueue(&self, id: &str, input: Input) -> Result<(), Error> {
         match self.input.try_send(input) {
             Ok(()) => Ok(()),
@@ -251,7 +261,9 @@ pub struct Terminals {
     test_input: Option<Mutex<Box<dyn Write + Send>>>,
     /// The herdr-core binary, started on first use from a clean environment.
     core_bin: std::path::PathBuf,
-    core: tokio::sync::OnceCell<Arc<herdr::Conn>>,
+    core: tokio::sync::Mutex<Option<Arc<herdr::Conn>>>,
+    /// MC13: the connections to the Machines other than this Mac.
+    remotes: Arc<Remotes>,
     shared: Arc<Shared>,
     /// Where X15's shell integration files are written.
     integration_dir: std::path::PathBuf,
@@ -275,7 +287,8 @@ impl Terminals {
             #[cfg(feature = "test-support")]
             test_input: None,
             core_bin: host::default_core(),
-            core: tokio::sync::OnceCell::new(),
+            core: tokio::sync::Mutex::new(None),
+            remotes: Arc::new(Remotes::ssh()),
             shared: Arc::new(Shared {
                 bus,
                 clock: recorder::clock(),
@@ -373,6 +386,7 @@ impl Terminals {
                 unset: Vec::new(),
                 cols: size.0,
                 rows: size.1,
+                machine: None,
             },
             owner,
         )
@@ -456,7 +470,7 @@ impl Terminals {
         let screen = self.screen(id)?;
         let mut state = screen.locked("terminal screen lock")?;
         // The last active non-observer sets the size, so roundup keeps authority by sending RESIZE.
-        handle.tx.resize(cols, rows);
+        handle.link.locked("terminal link")?.tx.resize(cols, rows);
         state.cols = cols;
         state.rows = rows;
         if state.snapshot_available && screen::snapshot_size_supported(cols, rows) {

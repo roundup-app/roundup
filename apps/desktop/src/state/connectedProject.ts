@@ -5,8 +5,8 @@ import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
 import { withAppSettings } from "../settings/preferences";
-import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, untrack, useContext } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, runWithOwner, untrack, useContext } from "solid-js";
+import type { Accessor, Owner } from "solid-js";
 import { createImport } from "./importState";
 import { draftStorage } from "./storage";
 import { copy } from "./copy";
@@ -29,6 +29,8 @@ import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
 import { createNoteQueue } from "./noteQueue";
 import type { NoteQueue } from "./noteQueue";
+import { createProjectView } from "./projectView";
+import type { ProjectView, ShelfRequest } from "./projectView";
 import type { RailStorage } from "./railStorage";
 import type { RailState } from "./rail";
 
@@ -104,7 +106,7 @@ export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { pat
 };
 
 /** Everything a region of an open Project reads: the Project and its live connection to the Daemon. */
-export type ConnectedProject = {
+export type ConnectedProject = ProjectView & {
   project: Project;
   /** App-owned across surface disposal and connection replacement; keyed by original path. */
   drafts: ProjectDrafts;
@@ -117,22 +119,6 @@ export type ConnectedProject = {
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
   importing: ReturnType<typeof createImport>;
-  creation: Accessor<{ kind: "todo" | "pad" | "terminal"; home: string } | null>;
-  createIn: (kind: "todo" | "pad" | "terminal", home: string) => void;
-  finishCreation: () => void;
-  /** U4457: the Agent whose Pads group the Shelf is asked to show, until the Pads tab has taken it. */
-  padsRequest: Accessor<string | null>;
-  padsOwner: Accessor<string | null>;
-  showPadsOf: (agent: string, tab?: "todos") => void;
-  padsTab: Accessor<"pads" | "todos">;
-  finishPadsRequest: () => void;
-  view: Accessor<string | null>;
-  hasView: (view: string) => boolean;
-  hideView: (view: string) => void;
-  showView: (view: string | null) => void;
-  /** U6249c2: the published Deliverable the Made panel marks as chosen; a link sets it, and the panel's own opens do. */
-  madeSelected: Accessor<string | null>;
-  selectMade: (id: string | null) => void;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
   /** U504: the Asks the user sent and where each part went. */
@@ -181,6 +167,8 @@ export const connectProject = async (
   viewing: Accessor<boolean> = () => true,
   clock: Accessor<number> = now,
   routing?: AskRouting,
+  /** Opens the Shelf on a tab when a request is made. */
+  openShelf?: ShelfRequest,
 ): Promise<ConnectedProject> => {
   drafts.undo.reconnect(app);
   const original = app;
@@ -205,65 +193,66 @@ export const connectProject = async (
   // including a tab closed before setup finishes, or its recovery resource would retain it.
   if (getOwner()) onCleanup(() => { ended = true; });
 
+  // The Rail, unseen, queue and asks children run under this one root, with one stop.
+  let children: Owner | null = null;
+
+  const stopChildren = createRoot(dispose => {
+    children = getOwner();
+
+    return dispose;
+  });
+
+  const inChildren = <T,>(create: () => T): T => {
+    const created = runWithOwner(children, create);
+
+    if (created === undefined) throw new Error(copy.childCreatedNothing);
+
+    return created;
+  };
+
+  const closed = () => new Error(copy.projectClosedDuringSetup(project.path));
+
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
   const [terminalScheme, events, { createUnseen, unseenStorage }, { createQueue }] = await Promise.all([syncTerminalScheme(app), connectEvents(app), import("./unseen"), import("./queue")]);
-  let stopRail = () => {};
+
+  if (ended) {
+    terminalScheme.stop();
+    stopChildren();
+
+    throw closed();
+  }
 
   // NA6: from here the Daemon can relay `action.list` and `action.run` to this window.
   serveActions(app).catch(error => console.error(copy.actionsUnregistered, error));
 
-  const rail = createRoot(dispose => {
-    stopRail = dispose;
-
-    return createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path));
-  });
+  const rail = inChildren(() => createRailState(app, events, storage, dismissalStorage(project.path), resumptionStorage(project.path)));
 
   drafts.undo.bindRail(direction => rail.drawHistory(direction));
 
-  if (ended) stopRail();
-
   await rail.settled();
+
+  if (ended) {
+    terminalScheme.stop();
+    stopChildren();
+
+    throw closed();
+  }
 
   // U6249d A13: held alerts are best-effort; a failed write goes to the log.
   const held = createHeld(project.path, cause => console.error(cause));
   const settingsView = drafts.settingsView;
-  let stopUnseen = () => {};
 
-  const unseen = createRoot((dispose) => {
-    stopUnseen = dispose;
+  const unseen = inChildren(() => createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path, observedAt: clock() }));
+  const queue = inChildren(() => createQueue(app, events, rail));
 
-    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path, observedAt: clock() });
-  });
+  const asks = inChildren(() => createAsks(app, events, { path: project.path, target: () => {
+    if (!viewing() || settingsView.open() || daemonExit() !== null) return null;
 
-  if (ended) stopUnseen();
+    const node = rail.nodes.find(node => node.id === rail.selected());
 
-  let stopQueue = () => {};
-
-  const queue = createRoot((dispose) => {
-    stopQueue = dispose;
-
-    return createQueue(app, events, rail);
-  });
-
-  if (ended) stopQueue();
-
-
-  let stopAsks = () => {};
-
-  const asks = createRoot(dispose => {
-    stopAsks = dispose;
-
-    return createAsks(app, events, { path: project.path, target: () => {
-      if (!viewing() || settingsView.open() || daemonExit() !== null) return null;
-
-      const node = rail.nodes.find(node => node.id === rail.selected());
-
-      return node?.kind === "workstream" && node.terminal_id !== null ? node.id : null;
-    } }, routing);
-  });
-
-  if (ended) stopAsks();
+    return node?.kind === "workstream" && node.terminal_id !== null ? node.id : null;
+  } }, routing));
 
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
@@ -276,37 +265,9 @@ export const connectProject = async (
   drafts.importing = importing;
 
 
-  const [creation, setCreation] = createSignal<{ kind: "todo" | "pad" | "terminal"; home: string } | null>(null);
-  const createIn = (kind: "todo" | "pad" | "terminal", home: string) => setCreation({ kind, home });
-  const finishCreation = () => setCreation(null);
-  const [padsRequest, setPadsRequest] = createSignal<string | null>(null);
-  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "todos" } | null>(null);
+  const projectView = createProjectView(rail.selected, openShelf);
 
-  const padsOwner = () => {
-    const destination = padsDestination();
-
-    return destination?.selection === rail.selected() ? destination.agent : null;
-  };
-
-  const padsTab = () => padsDestination()?.tab ?? "todos";
-
-  const showPadsOf = (agent: string, tab: "todos" = "todos") => {
-    setPadsDestination({ agent, selection: rail.selected(), tab });
-    setPadsRequest(agent);
-  };
-
-  const finishPadsRequest = () => setPadsRequest(null);
-
-  const [views, setViews] = createSignal<readonly string[]>([]);
-  const view = () => views().at(-1) ?? null;
-  const hasView = (name: string) => views().includes(name);
-  const showView = (name: string | null) => { setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]); };
-
-  const [madeSelected, selectMade] = createSignal<string | null>(null);
-
-  const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
-
-  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, madeSelected, selectMade, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
+  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

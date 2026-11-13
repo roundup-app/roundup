@@ -4,7 +4,7 @@ import { createItemFailure } from "./itemFailure";
 import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
 import { applying } from "../app/pending";
-import { batch, createMemo, createSignal } from "solid-js";
+import { batch, createMemo, createSignal, onCleanup } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
@@ -570,7 +570,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const createWorkstream = async (): Promise<void> => { await makeWorkstream(null); };
 
-  events.subscribe((event) => apply([event]));
+  onCleanup(events.subscribe((event) => apply([event])));
   fetching(async () => {
     await Promise.all([fetchTree(), fetchTerminals()]);
   });

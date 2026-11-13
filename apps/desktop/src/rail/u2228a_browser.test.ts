@@ -1,7 +1,8 @@
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
-const NAME = "token-rotation-across-every-auth-service";
+// The `tokens` row holds its status beside the name (U6640a), so the widest Rail leaves the name less room than the row's width: a name the widest Rail holds, and the narrow end cuts.
+const NAME = "token-rotation-and-audit";
 
 const title = `document.querySelector('.rail-row[data-id="tokens"]').getAttribute('title')`;
 

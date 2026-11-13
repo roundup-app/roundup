@@ -3,6 +3,14 @@
 use super::spawn::{OTHER_TERMINALS, check_program};
 use super::*;
 
+/// How a Terminal on a remote Machine finds its channel again after the ssh to it is lost: waits
+/// for the Machine, attaches with the history a gap needs, and answers `None` once the program
+/// has ended. It blocks, so it runs on the Terminal's own thread.
+pub(super) type Relink = Box<dyn FnMut() -> Option<herdr::Stream> + Send>;
+
+/// How long a reattach's repaint may stay quiet while its seam is looked for.
+const SEAM_QUIET: Duration = Duration::from_millis(300);
+
 /// The bytes of one attached channel as a [`Read`]. Frames are cut anywhere, a UTF-8 character
 /// included, so bytes pass through undecoded and the screen parser decodes once.
 struct StreamReader {
@@ -11,24 +19,83 @@ struct StreamReader {
     taken: usize,
     /// The core's reason object from the channel's CLOSE.
     closed: Arc<Mutex<Option<Value>>>,
+    /// MC14: set for a remote Terminal, whose lost connection is followed by a reattach.
+    relink: Option<Relink>,
+    seam: reattach::Seam,
+    runtime: tokio::runtime::Handle,
+}
+
+impl StreamReader {
+    /// The next event; while a repaint is kept back, `None` for the stream going quiet.
+    fn next(&mut self) -> Option<Option<herdr::Ev>> {
+        if !self.seam.waiting() {
+            return Some(self.stream.blocking_next());
+        }
+        let stream = &mut self.stream;
+        self.runtime
+            .block_on(async { tokio::time::timeout(SEAM_QUIET, stream.next()).await })
+            .ok()
+    }
+
+    /// Reattach after a lost connection; false when the program is gone.
+    fn relinked(&mut self) -> bool {
+        let Some(relink) = self.relink.as_mut() else {
+            return false;
+        };
+        let Some(stream) = relink() else {
+            return false;
+        };
+        self.stream = stream;
+        self.seam.reattached();
+        true
+    }
+
+    fn deliver(&mut self, bytes: Vec<u8>) {
+        if self.relink.is_some() {
+            self.seam.delivered(&bytes);
+        }
+        self.frame = bytes;
+        self.taken = 0;
+    }
+}
+
+/// Whether a CLOSE names a lost connection rather than the program's end or a detach.
+fn connection_lost(reason: &Value) -> bool {
+    reason.get("reason").and_then(Value::as_str) == Some("connection_lost")
 }
 
 impl Read for StreamReader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         while self.taken == self.frame.len() {
-            match self.stream.blocking_next() {
-                Some(herdr::Ev::Data(bytes)) => {
+            match self.next() {
+                None => {
+                    let repaint = self.seam.give_up();
+                    self.deliver(repaint);
+                }
+                Some(Some(herdr::Ev::Data(bytes))) if self.relink.is_some() => {
+                    let out = self.seam.feed(bytes);
+                    self.deliver(out);
+                }
+                Some(Some(herdr::Ev::Data(bytes))) => {
                     self.frame = bytes;
                     self.taken = 0;
                 }
-                Some(herdr::Ev::Resize(..)) => {}
-                Some(herdr::Ev::Close(reason)) => {
+                Some(Some(herdr::Ev::Resize(..))) => {}
+                Some(Some(herdr::Ev::Close(reason))) => {
+                    if connection_lost(&reason) && self.relinked() {
+                        continue;
+                    }
                     if let Ok(mut closed) = self.closed.lock() {
                         *closed = Some(reason);
                     }
                     return Ok(0);
                 }
-                None => return Ok(0),
+                Some(None) => {
+                    if self.relinked() {
+                        continue;
+                    }
+                    return Ok(0);
+                }
             }
         }
         let rest = within(&self.frame, self.taken..);
@@ -41,12 +108,15 @@ impl Read for StreamReader {
     }
 }
 
-/// The core's typing path as the [`Write`] the input thread feeds.
-pub(super) struct StreamWriter(pub(super) herdr::Sender);
+/// The core's typing path as the [`Write`] the input thread feeds; after a reattach it types into
+/// the new channel.
+pub(super) struct StreamWriter(pub(super) Arc<Mutex<Link>>);
 
 impl Write for StreamWriter {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.send(bytes);
+        if let Ok(link) = self.0.lock() {
+            link.tx.send(bytes);
+        }
         Ok(bytes.len())
     }
 
@@ -81,10 +151,14 @@ pub(super) async fn finished_code(
 /// Publish everything `stream` carries to Terminal `number`'s output, screen, log and status
 /// records until the channel closes; returns the exit code the CLOSE named. Blocks: run it on
 /// the Terminal's own thread, never on the runtime.
+/// MC10: as above; and when `relink` is given (MC14), again on the channel it finds after each lost
+/// connection, `runtime` driving the waits in between.
 pub(super) fn feed(
     shared: &Shared,
     number: u64,
     stream: herdr::Stream,
+    relink: Option<Relink>,
+    runtime: tokio::runtime::Handle,
     screen: &Mutex<ScreenState>,
     output: &broadcast::Sender<Chunk>,
 ) -> Result<Option<i32>, Error> {
@@ -94,6 +168,9 @@ pub(super) fn feed(
         frame: Vec::new(),
         taken: 0,
         closed: Arc::clone(&closed),
+        relink,
+        seam: reattach::Seam::default(),
+        runtime,
     };
     stream::read(
         shared,
@@ -107,12 +184,21 @@ pub(super) fn feed(
     Ok(reason.as_ref().and_then(exit_code))
 }
 
+/// MC51: the session roundup's own core runs under, apart from Herdr.app's.
+pub(super) const SESSION: &str = "roundup";
+
 /// MC16: the argv that starts a core on this Mac from a clean environment: `env -i` with only the
-/// named variables, since an empty-string value would set a variable rather than remove it.
+/// named variables, since an empty-string value would set a variable rather than remove it. MC51:
+/// it connects to roundup's own session.
 pub(super) fn core_command(core: &str, vars: &BTreeMap<String, String>) -> Vec<String> {
     let mut argv = vec!["env".to_owned(), "-i".to_owned()];
     argv.extend(vars.iter().map(|(name, value)| format!("{name}={value}")));
-    argv.extend([core.to_owned(), "connect".to_owned()]);
+    argv.extend([
+        core.to_owned(),
+        "connect".to_owned(),
+        "--session".to_owned(),
+        SESSION.to_owned(),
+    ]);
     argv
 }
 
@@ -160,43 +246,57 @@ pub(super) fn default_core() -> std::path::PathBuf {
 }
 
 impl Terminals {
+    /// MC15: whether the ssh to each remote Machine roundup has tried last answered, for a surface to
+    /// show on the Machine's Agents; none is shown here.
+    pub fn machine_reachability(&self) -> BTreeMap<String, bool> {
+        self.remotes.reachability()
+    }
+
     /// Use the herdr-core at `binary`, not the one on `PATH`.
     pub fn with_core(mut self, binary: impl Into<std::path::PathBuf>) -> Self {
         self.core_bin = binary.into();
         self
     }
 
-    /// The one core connection, started on first use from a clean environment (MC16).
+    /// The one core connection, started on first use from a clean environment (MC16). MC53: a
+    /// connection that has closed (the core restarted or was upgraded) is replaced by a new one.
     pub(super) async fn core(&self) -> Result<Arc<herdr::Conn>, Error> {
-        let conn = self
-            .core
-            .get_or_try_init(|| async {
-                let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
-                let mut command = tokio::process::Command::new("env");
-                command.args(argv.iter().skip(1));
-                herdr::Conn::spawn(command, CORE_TIMEOUT)
-                    .await
-                    .map(Arc::new)
-            })
+        let mut slot = self.core.lock().await;
+        if let Some(conn) = slot.as_ref().filter(|conn| !conn.is_closed()) {
+            return Ok(Arc::clone(conn));
+        }
+        let argv = core_command(&self.core_bin.to_string_lossy(), &core_vars());
+        let mut command = tokio::process::Command::new("env");
+        command.args(argv.iter().skip(1));
+        let conn = herdr::Conn::spawn(command, CORE_TIMEOUT)
             .await
+            .map(Arc::new)
             .map_err(|err| match err {
                 herdr::Error::Missing => Error::internal("herdr-core is not installed"),
                 other => Error::internal(other),
             })?;
-        Ok(Arc::clone(conn))
+        *slot = Some(Arc::clone(&conn));
+        Ok(conn)
     }
 }
 
 /// How long a call to the core may take before it is lost.
-const CORE_TIMEOUT: Duration = Duration::from_secs(15);
+pub(super) const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the
 /// PTY path gave a program. A core may have started in a session that carries other variables, so
-/// every name the program must not see is dropped from `env`, and the core itself starts clean.
-pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, name: &str) -> Value {
+/// every name the program must not see is dropped from `env`, and the core itself starts clean. It
+/// names no terminal: a core's names are unique among its live terminals, and one core serves every
+/// Daemon on the machine and outlives each, so the core's `address` is the only id.
+pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64) -> Value {
     // The program inherits the Daemon's own environment, as it did on the PTY path (A3507a), with
     // the launch's variables on top.
-    let mut env: BTreeMap<String, String> = std::env::vars().collect();
+    // A Machine's program is no child of the Daemon: it gets the launch's variables and none of this Mac's.
+    let remote = params.machine.is_some();
+    let mut env: BTreeMap<String, String> = match remote {
+        true => BTreeMap::new(),
+        false => std::env::vars().collect(),
+    };
     env.extend(params.env.clone());
     let mut removed: Vec<&str> = shared.clean_env.iter().map(String::as_str).collect();
     removed.extend(params.unset.iter().map(String::as_str));
@@ -214,29 +314,28 @@ pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64, nam
     let mut argv = Vec::new();
     match &params.command {
         Some(command) => argv.extend(command.iter().cloned()),
+        None if remote => argv.push("/bin/sh".into()),
         None => argv.push(std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into())),
     }
     serde_json::json!({
         "argv": argv,
         "cwd": params.cwd,
         "env": env,
-        "name": name,
         "size": {"cols": params.cols, "rows": params.rows},
     })
 }
 
-/// Start `params` in the core as terminal `name`. A bad cwd or program is the caller's error
+/// Start `params` in the core. A bad cwd or program is the caller's error
 /// (`spawn_failed`); anything else is the Daemon's.
 pub(super) async fn run(
     conn: &herdr::Conn,
     shared: &Shared,
     params: &SpawnParams,
     number: u64,
-    name: &str,
 ) -> Result<Value, Error> {
     check_program(params)?;
     match conn
-        .call("terminal.run", run_params(shared, params, number, name))
+        .call("terminal.run", run_params(shared, params, number))
         .await
     {
         Ok(ran) => Ok(ran),
@@ -252,6 +351,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
+    use tokio::runtime::Handle;
 
     fn frame(channel: u32, kind: u8, payload: &[u8]) -> Vec<u8> {
         let mut v = channel.to_le_bytes().to_vec();
@@ -330,7 +430,16 @@ mod tests {
         let (output, out) = broadcast::channel(1 << 16);
         let (shared, mirror) = (terminals.shared.clone(), screen.clone());
         let code = tokio::task::spawn_blocking(move || {
-            feed(&shared, 1, stream, &mirror, &output).unwrap()
+            feed(
+                &shared,
+                1,
+                stream,
+                None,
+                Handle::current(),
+                &mirror,
+                &output,
+            )
+            .unwrap()
         })
         .await
         .unwrap();
@@ -418,9 +527,20 @@ mod tests {
         let screen = Mutex::new(ScreenState::new(100, 30));
         let (output, _keep) = broadcast::channel(16);
         let shared = terminals.shared.clone();
-        tokio::task::spawn_blocking(move || feed(&shared, 7, stream, &screen, &output).unwrap())
-            .await
-            .unwrap();
+        tokio::task::spawn_blocking(move || {
+            feed(
+                &shared,
+                7,
+                stream,
+                None,
+                Handle::current(),
+                &screen,
+                &output,
+            )
+            .unwrap()
+        })
+        .await
+        .unwrap();
         let change = changes.try_recv().unwrap();
         assert_eq!(change.terminal, "7");
         assert!(!change.records.is_empty());
@@ -494,6 +614,7 @@ mod tests {
             unset: vec!["CLAUDE_CODE_SESSION_ID".into()],
             cols: 100,
             rows: 30,
+            machine: None,
         }
     }
 
@@ -502,13 +623,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
         let (conn, mut seen) = run_core(json!({"state":"live"})).await;
-        run(&conn, &terminals.shared, &launch(), 4, "rp4")
-            .await
-            .unwrap();
+        run(&conn, &terminals.shared, &launch(), 4).await.unwrap();
         let call = seen.recv().await.unwrap();
         assert_eq!(call["method"], "terminal.run");
         let p = &call["params"];
-        assert_eq!((&p["cwd"], &p["name"]), (&json!("/work"), &json!("rp4")));
+        assert_eq!(p["cwd"], "/work");
+        assert!(p.get("name").is_none(), "a name collides across Daemons");
         assert_eq!(p["size"], json!({"cols":100,"rows":30}));
         assert_eq!(p["env"]["ROUNDUP_AGENT"], "7");
         assert_eq!(p["env"]["ROUNDUP_TERMINAL"], "4");
@@ -526,7 +646,7 @@ mod tests {
     async fn mc16_agent_env_has_no_session_leak() {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
-        let p = run_params(&terminals.shared, &launch(), 4, "rp4");
+        let p = run_params(&terminals.shared, &launch(), 4);
         // Names the launch or the Daemon removes are neither in env nor left to the core's own.
         assert!(p["env"].get("CLAUDECODE").is_none());
         for name in [
@@ -543,9 +663,16 @@ mod tests {
     #[test]
     fn mc16_core_starts_from_clean_environment() {
         let vars = [("PATH".to_owned(), "/usr/bin".to_owned())].into();
+        let argv = core_command("/bin/herdr-core", &vars);
+        assert_eq!(argv[..3], ["env", "-i", "PATH=/usr/bin"]);
+    }
+
+    #[test]
+    fn mc51_connect_names_the_roundup_session() {
+        let argv = core_command("/bin/herdr-core", &BTreeMap::new());
         assert_eq!(
-            core_command("/bin/herdr-core", &vars),
-            ["env", "-i", "PATH=/usr/bin", "/bin/herdr-core", "connect"]
+            argv[2..],
+            ["/bin/herdr-core", "connect", "--session", "roundup"]
         );
     }
 
@@ -557,7 +684,7 @@ mod tests {
             json!({"code":-32000,"message":"no such directory","data":{"kind":"spawn_failed"}}),
         )
         .await;
-        let err = run(&conn, &terminals.shared, &launch(), 1, "rp1")
+        let err = run(&conn, &terminals.shared, &launch(), 1)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("cannot run"), "{err}");

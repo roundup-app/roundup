@@ -89,6 +89,7 @@ async fn spawn_stubborn_program(client: &mut rpc::Client, cwd: &Path) -> Program
         unset: Vec::new(),
         cols: 80,
         rows: 24,
+        machine: None,
     };
     let reply = client.request("terminal.spawn", params).await.unwrap();
     let TerminalId { id } = serde_json::from_value(reply).unwrap();
@@ -156,6 +157,7 @@ async fn d1_attached_daemon_exits_cleanly_when_programs_end_by_themselves_during
             unset: Vec::new(),
             cols: 80,
             rows: 24,
+            machine: None,
         };
         client.request("terminal.spawn", params).await.unwrap();
     }

@@ -140,6 +140,7 @@ impl Real {
             scout: None,
             specialist: None,
             extras: None,
+            machine: None,
         };
         let node = self.rpc("agent.spawn", json!(params)).unwrap();
         let id = node["id"].as_str().unwrap().to_owned();

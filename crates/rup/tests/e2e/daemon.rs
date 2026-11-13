@@ -234,6 +234,7 @@ impl Project {
             scout: None,
             specialist: None,
             extras: None,
+            machine: None,
         };
         let node = client.request("agent.spawn", params).await.unwrap();
         serde_json::from_value(node).unwrap()
