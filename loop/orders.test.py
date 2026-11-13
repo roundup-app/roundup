@@ -155,7 +155,8 @@ class Orders(unittest.TestCase):
 
     def test_l96_task_for_an_invalid_order_is_a_repair(self):
         output = io.StringIO()
-        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), redirect_stdout(output):
+        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), \
+             patch.object(orders, 'read_orders', return_value=orders.classify([issue(body=NO_SPEC)], {}, [])), redirect_stdout(output):
             orders.task(1)
         self.assertIn('needs one Specification: line', output.getvalue())
         self.assertIn('Open no PR; edit Issue #1', output.getvalue())
@@ -215,6 +216,21 @@ class Orders(unittest.TestCase):
             with self.subTest(login=login):
                 row, = orders.classify([issue(user=dict(login=login))], {}, [])
                 self.assertEqual((row['state'], row['reason']), ('waiting', "filed by a loop App; waits for the user's thumbs-up"))
+        # A repair run edits the Issue, which is work before the approval: the queue counts no such order as invalid.
+        self.assertEqual(orders.invalid(orders.classify([issue(user=dict(login='claude[bot]'), body=NO_SPEC)], {}, [])), [])
+
+    def test_l34_a_loop_app_s_issue_that_blocks_an_issue_that_builds_builds_with_it(self):
+        def app(number, key):
+            return issue(number, key, user=dict(login='claude[bot]'))
+
+        def blocked_by(*numbers):
+            return [dict(number=n, state='open', state_reason=None) for n in numbers]
+
+        # #1 is the user's, #2 blocks it, #3 blocks #2; #4 blocks only #5, an App Issue nobody approved.
+        issues = [issue(1, 'U1'), app(2, 'U2'), app(3, 'U3'), app(4, 'U4'), app(5, 'U5')]
+        rows = orders.classify(issues, {1: blocked_by(2), 2: blocked_by(3), 5: blocked_by(4)}, [])
+        self.assertEqual({row['issue']: row['state'] for row in rows}, {1: 'waiting', 2: 'waiting', 3: 'ready', 4: 'waiting', 5: 'waiting'})
+        self.assertEqual(rows[3]['reason'], "filed by a loop App; waits for the user's thumbs-up")
 
     def test_l34_only_the_user_s_thumbs_up_releases_a_loop_app_s_issue(self):
         for who, state in (('saadshahd', 'ready'), ('stranger', 'waiting')):

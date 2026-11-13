@@ -174,9 +174,19 @@ def approvals(issues):
             if any((reaction['user'] or {}).get('login') == OWNER for reaction in found[f'i{n}']['reactions']['nodes'])}
 
 
-def waits_for_approval(issue, approved):
-    """Whether a loop App's Issue still waits for the user's thumbs-up: `approved` is what `approvals` found."""
-    return filer(issue) in APPS and issue['number'] not in approved
+def released(issues, dependencies, approved):
+    """The numbers of the open Issues among `issues` that may build: the user filed them, `approved` (from `approvals`)
+    holds them, or they block an open Issue that may build, so a Builder's prerequisite or split builds as the Issue it
+    serves does. `dependencies` maps an Issue to its blockers, as `classify` reads them."""
+    work = {issue['number'] for issue in issues if issue['state'] == 'open' and work_issue(issue)}
+    may = {issue['number'] for issue in issues if issue['number'] in work and (filer(issue) == OWNER or issue['number'] in approved)}
+    pending = list(may)
+    while pending:
+        for dep in dependencies.get(pending.pop(), []):
+            if dep['number'] in work and dep['number'] not in may:
+                may.add(dep['number'])
+                pending.append(dep['number'])
+    return may
 
 
 def frozen(issue):
@@ -236,7 +246,8 @@ def holds(dep):
 
 def classify(issues, dependencies, prs, approved=frozenset()):
     """Return observable states; malformed orders and unavailable dependencies never become ready. An open Issue a loop
-    App filed is `waiting` unless `approved` (from `approvals`) holds it."""
+    App filed is `waiting` unless `released` finds it may build."""
+    may_build = released(issues, dependencies, approved)
     rows = []
     keys = {}
     cycles = set()
@@ -260,7 +271,6 @@ def classify(issues, dependencies, prs, approved=frozenset()):
             row.update(state='unspecified', reason='filed by someone other than the user or a loop App; it never runs')
             rows.append(row)
             continue
-        unapproved = waits_for_approval(issue, approved)
         try:
             row = order(issue)
             keys.setdefault(row['slug'], []).append(number)
@@ -277,7 +287,7 @@ def classify(issues, dependencies, prs, approved=frozenset()):
                     row.update(state='in-flight', reason=' '.join(f'#{n}' for n in active))
                 elif frozen(issue):
                     row.update(state='waiting', reason='loop machinery; only the user changes it (L118)')
-                elif unapproved:
+                elif number not in may_build:
                     row.update(state='waiting', reason="filed by a loop App; waits for the user's thumbs-up")
                 elif held := waits(issue):
                     row.update(state='waiting', reason=f'waits on {WAITS[held[0]]} ({held[0]})')
@@ -290,7 +300,7 @@ def classify(issues, dependencies, prs, approved=frozenset()):
         except (KeyError, TypeError, ValueError) as error:
             # An Issue still waiting for the user's thumbs-up gets no repair run: that run would build before the approval.
             row.update(state='blocked', reason=f'invalid work order: {error}',
-                       invalid=issue.get('state') == 'open' and not unapproved, flagged=bool(waits(issue)))
+                       invalid=issue.get('state') == 'open' and number in may_build, flagged=bool(waits(issue)))
         rows.append(row)
     for row in rows:
         if row['state'] not in ('done', 'cancelled') and len(keys.get(row['slug'], [])) > 1:
@@ -438,11 +448,15 @@ def queued(number):
 def task(number):
     """Print the Builder's task for a ready Issue; raise NotReady when another run or a person took it."""
     issue = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}')
-    if issue['state'] != 'open' or not work_issue(issue) or waits_for_approval(issue, approvals([issue])):
+    if issue['state'] != 'open' or not work_issue(issue):
         raise NotReady(f'Issue #{number} is no longer authorized for execution')
+    now = current(number)
     try:
         row = order(issue)
     except (KeyError, TypeError, ValueError) as error:
+        # A repair run edits the Issue, so only an order the queue itself counts as invalid gets one: not one waiting for a thumbs-up.
+        if now is None or not now.get('invalid'):
+            raise NotReady(f'Issue #{number} is no longer authorized for a repair run')
         print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n"
               f'Repair run: the queue cannot read this work Issue ({error}). Add the missing or malformed field from the '
               "Issue's Scenarios IDs and the scenario file that holds them, edit the Issue, and run "
@@ -450,7 +464,6 @@ def task(number):
               f'reason on the Issue; label it `{NEEDS_USER}` only when the missing field is a product choice. '
               f'Open no PR; edit Issue #{number}.')
         return
-    now = current(number)
     if now is None or now['state'] != 'ready':
         raise NotReady(f'Issue #{number} is no longer ready')
     # L34: a cancelled blocker holds nothing, so the Builder is told which ones to weigh.
