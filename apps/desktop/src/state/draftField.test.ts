@@ -2,6 +2,7 @@ import { createRoot } from "solid-js";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { createDraftField } from "./draftField";
+import { RpcError } from "../app/seam";
 import { draftStorage } from "./storage";
 
 const destination = { surface: "pads", object: "1", recipient: null };
@@ -42,7 +43,7 @@ it("u2773b_a_refused_send_keeps_both_revisions", async () => {
   const drafts = open("b");
   const pad = field(drafts);
   pad.keep({ text: "A" }, null);
-  const sending = pad.send(() => Promise.reject(new Error("no")));
+  const sending = pad.send(() => Promise.reject(new RpcError(-32003, "no")));
   await vi.waitFor(() => expect(drafts.list()[0]?.status).toBe("pending"));
   pad.keep({ text: "B" }, null);
 

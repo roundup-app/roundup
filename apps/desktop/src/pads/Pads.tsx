@@ -70,8 +70,11 @@ export const Pads = (props: {
 
   const capture = () => {
     if (invalid()) return;
+
+    // A recovered revision stays as it was until its text or Home changes.
+    if (parsed?.success && !draft.owned() && name() === parsed.output.name && home === parsed.output.home) return;
     const caret = input ? { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" } : null;
-    draft.keep({ name: name(), home }, caret);
+    draft.keep({ name: name(), home }, caret, restored?.revision);
   };
 
   const forget = () => { void draft.discard(); setName(""); };

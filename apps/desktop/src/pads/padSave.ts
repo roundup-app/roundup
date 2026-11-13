@@ -5,9 +5,10 @@ import type { Actor } from "@contracts/Actor";
 export type Save =
   | { kind: "clean" }
   | { kind: "dirty"; due: "autosave" | "keep-mine" | null }
-  /** `over`: the conflict a Keep mine write resolves, still shown until its reply. */
-  | { kind: "sending"; text: string; version: number; over?: Actor | "unknown" }
-  | { kind: "conflict"; actor: Actor | "unknown"; version: number }
+  /** `over`: the conflict this write resolves or an external change that arrived meanwhile, shown until the reply; `mine`: Keep mine was pressed meanwhile, so the next write follows the reply. */
+  | { kind: "sending"; text: string; version: number; over?: Actor | "unknown"; mine?: true }
+  /** `paused`: a recovered draft that also awaits Resume. */
+  | { kind: "conflict"; actor: Actor | "unknown"; version: number; paused?: true }
   /** An unknown reply or a recovered draft: the user chooses. */
   | { kind: "paused" }
   | { kind: "deleted"; byMe: boolean };
@@ -26,6 +27,8 @@ export type SaveEvent =
   | { kind: "resume" }
   /** The text now equals the Pad's, by choosing theirs or by a settled write. */
   | { kind: "settled" }
+  /** Theirs was chosen: a pause or conflict ends. */
+  | { kind: "discarded" }
   | { kind: "gone"; byMe: boolean }
   /** The same incarnation is listed again, as after an undo of the delete. */
   | { kind: "back" };
@@ -36,13 +39,14 @@ const dirty = (due: "autosave" | "keep-mine" | null): Save => ({ kind: "dirty", 
 
 const handlers: Handlers = {
   gone: (_, event) => ({ kind: "deleted", byMe: event.byMe }),
-  settled: () => ({ kind: "clean" }),
+  settled: save => save.kind === "paused" ? save : { kind: "clean" },
+  discarded: () => ({ kind: "clean" }),
   back: save => save,
-  external: (_, event) => ({ kind: "conflict", actor: event.actor, version: event.version }),
+  external: (save, event) => save.kind === "sending" ? { ...save, version: event.version, over: event.actor } : ({ kind: "conflict", actor: event.actor, version: event.version, ...(save.kind === "paused" || save.kind === "conflict" && save.paused) && { paused: true as const } }),
   skipped: save => save.kind === "dirty" ? dirty(null) : save,
   edited: save => save.kind === "clean" || save.kind === "dirty" && save.due !== "keep-mine" ? dirty(null) : save,
   due: (save, event) => {
-    if (event.due === "keep-mine") return save.kind === "sending" || save.kind === "conflict" ? save : dirty("keep-mine");
+    if (event.due === "keep-mine") return save.kind === "sending" ? { ...save, mine: true } : save.kind === "conflict" ? save : dirty("keep-mine");
 
     return save.kind === "dirty" ? dirty(save.due ?? "autosave") : save;
   },
@@ -51,10 +55,10 @@ const handlers: Handlers = {
 
     return { kind: "sending", text: event.text, version: event.version, ...save.kind === "conflict" && { over: save.actor } };
   },
-  applied: (save, event) => save.kind === "sending" && save.version === event.version ? { kind: "clean" } : save,
+  applied: (save, event) => save.kind !== "sending" ? save : save.version === event.version ? { kind: "clean" } : { kind: "conflict", actor: save.over ?? "unknown", version: save.version },
   refused: save => save.kind === "sending" ? dirty(null) : save,
   unknown: save => save.kind === "sending" ? { kind: "paused" } : save,
-  resume: save => save.kind === "paused" ? dirty("autosave") : save,
+  resume: save => save.kind === "paused" ? dirty("autosave") : save.kind === "conflict" && save.paused ? { ...save, paused: undefined } : save,
 };
 
 /** Only Keep mine sends out of a conflict; a pause is left by Resume or Keep mine. */

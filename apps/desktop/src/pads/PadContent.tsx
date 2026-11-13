@@ -53,7 +53,7 @@ const conflictText = (actor: Actor | "unknown" | null, nameOf: (actor: Actor) =>
   actor === null ? "" : actor === "unknown" ? copy.padChanged : copy.changedBy + nameOf(actor);
 
 const restoredSave = (changed: boolean, retained: boolean): Save =>
-  changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" };
+  changed ? { kind: "conflict", actor: "unknown", version: 0, ...retained && { paused: true as const } } : retained ? { kind: "paused" } : { kind: "clean" };
 
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
@@ -106,6 +106,8 @@ const PadBody = (props: {
   const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
   const cycle = createSave(restoredSave(Boolean(changed), Boolean(retained)));
   const deleted = () => cycle.save().kind === "deleted";
+
+  const awaitingResume = () => { const save = cycle.save(); return save.kind === "paused" || save.kind === "conflict" && save.paused === true; };
 
   const conflictActor = () => actorOf(cycle.save());
 
@@ -328,10 +330,17 @@ const PadBody = (props: {
 
       // A newer explicit choice owns its baseline; an older reply cannot undo it.
       if (before.kind === "sending" && before.version === version) adopt(next);
-      else if (before.kind === "conflict") {
+      else if (before.kind === "sending" || before.kind === "conflict") {
         // An unresolved external change still needs an explicit choice.
         sourceRevision = next.revision;
         setOrigin(next.text);
+      }
+
+      if (before.kind === "sending" && before.mine && cycle.save().kind === "conflict") {
+        props.onAcknowledged?.(destination.object);
+        void write(true);
+
+        return;
       }
 
       const stale = cycle.save().kind === "clean" && currentDraft() !== next.text;
@@ -446,6 +455,7 @@ const PadBody = (props: {
 
   const useTheirs = () => {
     void field.discard();
+    cycle.send({ kind: "discarded" });
     setInvalid(false);
     settle(pad());
   };
@@ -484,7 +494,7 @@ const PadBody = (props: {
         <Show when={actionFailure.kind() === "source-mapping"}>
           <CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton>
         </Show>
-        <Show when={cycle.save().kind === "paused" && !retentionProblem()}><button data-button="primary" type="button" disabled={invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
+        <Show when={awaitingResume() && !retentionProblem()}><button data-button="primary" type="button" disabled={invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
         <Show when={conflictActor()}>
           <button data-button="quiet" type="button" class="word" onClick={() => keepMine()}>{copy.keepMine}</button>
           <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>

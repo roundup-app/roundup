@@ -39,6 +39,6 @@ it("u2773b_an_older_reply_never_consumes_a_newer_revision", () => {
   const sending = step({ kind: "dirty", due: "autosave" }, { kind: "send", text: "a", version: 0, mine: false });
   const conflicted = step(sending, { kind: "external", actor: alice, version: 1 });
 
-  expect(step(conflicted, { kind: "applied", version: 0 })).toEqual(conflicted);
+  expect(step(conflicted, { kind: "applied", version: 0 })).toEqual({ kind: "conflict", actor: alice, version: 1 });
   expect(step({ kind: "clean" }, { kind: "applied", version: 0 })).toEqual({ kind: "clean" });
 });

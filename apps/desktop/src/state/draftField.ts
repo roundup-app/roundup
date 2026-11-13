@@ -46,16 +46,25 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
 
   const own = (revision: string) => setOwned(previous => new Set(previous).add(revision));
 
-  const keep = (next: Value, caret: Caret) => {
+  /** `from`: the recovered revision this surface opened, which its first edit replaces instead of the newest one. */
+  const keep = (next: Value, caret: Caret, from?: string) => {
     const draft = latest();
 
+    // The revision in flight already holds exactly this value.
+    if (draft?.status === "pending" && sameValue(draft.value, next)) return;
+
     if (draft?.status === "draft" && sameValue(draft.value, next)) {
+      // A recovered draft's uncaptured caret takes the editor's initial position without a revision.
+      if (draft.selection === null && !owned().has(draft.revision)) return;
+
       if (JSON.stringify(draft.selection) !== JSON.stringify(caret)) void drafts.setSelection(draft.revision, caret);
 
       return;
     }
 
-    own(drafts.edit(destination, next, caret, "ordinary", draft?.status === "draft" ? draft.revision : null).draft.revision);
+    const replaces = draft !== undefined && !owned().has(draft.revision) && from !== undefined ? from : draft?.status === "draft" ? draft.revision : null;
+
+    own(drafts.edit(destination, next, caret, "ordinary", replaces).draft.revision);
   };
 
   /** The owner leaves the recovered state. */
@@ -95,5 +104,5 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     return draft ? drafts.discard(draft.revision) : Promise.resolve(null);
   };
 
-  return { value, recovered, keep, save, send, discard };
+  return { value, recovered, owned: () => latest() !== undefined && owned().has(latest()!.revision), keep, save, send, discard };
 };
