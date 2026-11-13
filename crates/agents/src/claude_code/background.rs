@@ -174,11 +174,11 @@ impl Background {
 
     /// Replace the process facts with what `snapshot` shows under `root`; an `Err` keeps them and
     /// records the cause. Only a tool shell and what runs under it is work (DCL3d).
-    pub fn observe(&mut self, root: u32, snapshot: Result<&[Process], String>) {
+    pub fn observe(&mut self, root: u32, snapshot: Result<&[Process], &crate::Error>) {
         let snapshot = match snapshot {
             Ok(snapshot) => snapshot,
             Err(cause) => {
-                self.unavailable = Some(cause);
+                self.unavailable = Some(cause.to_string());
                 return;
             }
         };
