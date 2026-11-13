@@ -55,6 +55,7 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 const ctrlClick = () => {
   // A native menu may consume the compatibility click; keyboard activation must still work next.
   let pending = false;
+
   const swallow = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -63,6 +64,7 @@ const ctrlClick = () => {
   return {
     pointerdown: (event: PointerEvent) => {
       pending = event.button === 0 && event.ctrlKey;
+
       if (pending) swallow(event);
     },
     keydown: () => { pending = false; },
