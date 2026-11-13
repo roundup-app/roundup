@@ -199,7 +199,7 @@ export function createTodoUndo() {
   const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
     setQueued(queued() + 1);
 
-    // The count drops inside the task, in the tick the call settles, so a key pressed on its failure line is not refused.
+    // The count drops in the tick the call settles, so a key on its failure line is not refused. SAFETY: no timeout is set, so `add` resolves with the task's result, never `void`.
     return queue.add(async () => {
       try { return await run(...args); } finally { setQueued(queued() - 1); }
     }) as Promise<T>;
