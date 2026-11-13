@@ -32,18 +32,29 @@ export const OwnerPicker = <Id extends number | string>(props: {
   /** U3743: `New Workstream…` for the target Todo, after the picker has closed. */
   newWorkstream?: (id: Id) => void;
   close: () => void;
-}) => (
+}) => {
+  // U3743: `New Workstream…` hands over only once the picker has exited, so its close cannot return focus over the dialog.
+  const [leaving, setLeaving] = createSignal<Id | null>(null);
+
+  return (
   <Menu.Root initialFocus={props.target()?.focus}
     lazyMount
     unmountOnExit
-    open={props.target() !== null && (props.offers().length > 0 || !!props.newWorkstream)}
+    open={props.target() !== null && leaving() === null && (props.offers().length > 0 || !!props.newWorkstream)}
+    onExitComplete={() => {
+      const id = leaving();
+
+      if (id === null) return;
+      setLeaving(null);
+      props.newWorkstream?.(id);
+    }}
     positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, props.replacement) }}
-    onOpenChange={({ open }) => { if (!open) props.close(); }}
+    onOpenChange={({ open }) => { if (!open && leaving() === null) props.close(); }}
     onSelect={({ value }) => {
       const target = props.target();
       const offer = props.offers().find(each => each.id === value);
 
-      if (target && value === NEW_WORKSTREAM) props.newWorkstream?.(target.id);
+      if (target && value === NEW_WORKSTREAM) setLeaving(() => target.id);
       else if (target && offer) props.choose(target.id, offer.actor);
     }}
   >
@@ -59,7 +70,8 @@ export const OwnerPicker = <Id extends number | string>(props: {
       </Menu.Positioner>
     </Portal>
   </Menu.Root>
-);
+  );
+};
 
 /** U2539b: the retained Todo selection is captured before the owner filter takes focus. */
 export const OwnerCommand = (props: {
