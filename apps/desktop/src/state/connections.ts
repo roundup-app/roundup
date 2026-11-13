@@ -113,7 +113,6 @@ const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connecti
   const open = createMemo(() => connectedOf(connection()));
 
   createEffect(() => open()?.worktrees.watch(() => deps.active(path)));
-  createEffect(() => open()?.machines.watch(() => deps.active(path)));
 
   // M8: rename keeps its request Event; open completes through the registered App relay.
   createEffect(on(open, (current) => {
