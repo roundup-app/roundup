@@ -357,8 +357,14 @@ impl Core {
                             "no process".into(),
                         )
                     })?;
-                nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), nix::sys::signal::SIGKILL)
-                    .map_err(|e| failure("not_found", "already gone", e.to_string()))?;
+                // A program already reaped, its end not yet recorded, is gone too: wait for it.
+                match nix::sys::signal::kill(
+                    nix::unistd::Pid::from_raw(pid),
+                    nix::sys::signal::SIGKILL,
+                ) {
+                    Ok(()) | Err(nix::errno::Errno::ESRCH) => {}
+                    Err(e) => return Err(failure("not_found", "already gone", e.to_string())),
+                }
                 // As the real core, answer once the program is seen to end.
                 for _ in 0..250 {
                     if lock(&t.live).exit.is_some() {
