@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { leaveTitle, mountTodos, todo, todoCallsTo as callsTo } from "./testHarness";
+import { leaveTitle, titleClosed, mountTodos, todo, todoCallsTo as callsTo } from "./testHarness";
 
 afterEach(cleanup);
 
@@ -42,8 +42,7 @@ describe("u445 edit in place", () => {
 
     fireEvent.input(field, { target: { value: "typed" } });
     fireEvent.keyDown(field, { key: "Escape" });
-
-    await waitFor(() => expect(within(drawer()).queryByRole("textbox", { name: "Title" })).toBeNull());
+    await titleClosed(field);
     expect(callsTo(app, "todo.update")).toEqual([]);
     fireEvent.dblClick(preview());
     expect((await titleField()).value).toBe("typed");
@@ -52,15 +51,19 @@ describe("u445 edit in place", () => {
   it("u445_blur_submits_only_changed_non_restored_text", async () => {
     const { app } = await open();
     fireEvent.dblClick(preview());
-    await titleField();
+    const idle = await titleField();
+
     await leaveTitle();
-    await waitFor(() => expect(within(drawer()).queryByRole("textbox", { name: "Title" })).toBeNull());
+    await titleClosed(idle);
     expect(callsTo(app, "todo.update")).toEqual([]);
 
     fireEvent.dblClick(preview());
-    fireEvent.input(await titleField(), { target: { value: "typed" } });
-    fireEvent.keyDown(await titleField(), { key: "Escape" });
-    await waitFor(() => expect(within(drawer()).queryByRole("textbox", { name: "Title" })).toBeNull());
+
+    const typed = await titleField();
+
+    fireEvent.input(typed, { target: { value: "typed" } });
+    fireEvent.keyDown(typed, { key: "Escape" });
+    await titleClosed(typed);
     fireEvent.dblClick(preview());
     await titleField();
     await leaveTitle();

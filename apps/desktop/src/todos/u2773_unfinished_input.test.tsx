@@ -6,7 +6,7 @@ import { RpcError } from "../app/seam";
 import { Todos } from "./Todos";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TodoDrawer } from "./TodoDrawer";
-import { mountTodos, todo, todoCallsTo } from "./testHarness";
+import { mountTodos, titleClosed, todo, todoCallsTo } from "./testHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -184,7 +184,7 @@ it("u2773a_todos_title_survives_escape_without_submission", async () => {
   field.setSelectionRange(1, 5, "backward");
   fireEvent.select(field);
   fireEvent.keyDown(field, { key: "Escape" });
-  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull());
+  await titleClosed(field);
   fireEvent.dblClick(within(drawer).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   const recovered = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 

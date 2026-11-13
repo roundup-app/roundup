@@ -193,7 +193,7 @@ export const EditableText = (props: {
   let key: ((event: KeyboardEvent) => void) | undefined;
 
   // Leaving toward a Close, recovery or navigation control, or out of the Drawer, keeps the draft without sending it.
-  const holds = (target: EventTarget | null) => target instanceof Element && (!!target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer"));
+  const keepsDraft = (target: EventTarget | null) => target instanceof Element && (!!target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer"));
 
   const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void) => {
     const focus = captureFocus();
@@ -227,6 +227,7 @@ export const EditableText = (props: {
     let left = false;
     onCleanup(() => { left = true; });
     const select = () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); };
+
     const input = () => { if (!left) retain(); };
 
     const submit = async (destination?: EventTarget | null) => {
@@ -319,7 +320,7 @@ export const EditableText = (props: {
       if (read() !== started.form.base || started.recovered) retain();
       queueMicrotask(() => {
         if (!alive || connected.drawer.content() !== content || started.recovered
-          || holds(target)) return;
+          || keepsDraft(target)) return;
         void submit(target);
       });
     };
@@ -327,7 +328,7 @@ export const EditableText = (props: {
     // Explicit Save authorizes restored work; restoration alone never resumes blur submission.
     save = submit;
 
-    return { retain, blur, select, input, submit, held: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
+    return { retain, blur, select, input, submit, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
   };
 
   const TitleField = () => {
@@ -350,9 +351,13 @@ export const EditableText = (props: {
 
       ending = "cancel";
 
-      if (submitting) { void save?.(); return; }
+      if (submitting) {
+        void save?.();
 
-      binding?.held();
+        return;
+      }
+
+      binding?.keep();
       setEditing(null);
       queueFocus(() => shown()?.focus());
     };
@@ -363,14 +368,19 @@ export const EditableText = (props: {
       onInteractOutside={event => {
         const target = event.target;
 
-        if (editing()?.recovered || holds(target)) { event.preventDefault(); binding?.held(); return; }
+        if (editing()?.recovered || keepsDraft(target)) {
+          event.preventDefault();
+          binding?.keep();
+
+          return;
+        }
 
         ending = "submit";
       }}>
       <Editable.Context>{api => <Editable.Area style={{ display: "grid", width: "100%" }}>
         <Editable.Preview asChild={preview => <p {...preview()} />} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
           style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", overflow: "visible", "text-overflow": "clip", "min-height": "1.4em" }} />
-        <Editable.Input asChild={field => <textarea {...field()} rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck={false} autocorrect="off" autocapitalize="off"
+        <Editable.Input asChild={field => <textarea {...field()} class="field-inline" rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck={false} autocorrect="off" autocapitalize="off"
           class="field-inline" aria-label={copy.title}
           onInput={event => {
             const field = event.currentTarget;

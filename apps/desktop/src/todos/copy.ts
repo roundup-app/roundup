@@ -151,7 +151,6 @@ export const copy = {
   copy: sharedCopy.copy,
   reorder: "Move with Alt+Up or Alt+Down.",
   addNotes: "Add notes",
-  noField: (name: string) => `No ${name}`,
   triage: sharedCopy.triage,
   triageKeys: "Triage keys",
   triageMore: "More",
