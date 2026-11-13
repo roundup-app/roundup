@@ -1,4 +1,5 @@
 use super::*;
+use crate::reconcile::{Step, apply, reconcile};
 
 /// What a reattached Terminal's record needs that the core does not hold.
 pub struct Adopted {
@@ -119,6 +120,28 @@ impl Terminals {
             .await
             .ok()
             .flatten()
+    }
+
+    /// MC52 when the Daemon opens: read the core's live list for `project`, end the idle extras and
+    /// the Terminals of an Agent not in `agents`, and remove the finished ones. Starting and
+    /// attaching stay with each Agent's start. Answers the steps it carried out. A Terminal without the Project label is no step (MC54).
+    pub async fn reconcile_open(
+        &self,
+        project: &str,
+        agents: &[String],
+    ) -> Result<Vec<Step>, Error> {
+        let conn = self.core().await?;
+        let (_, steps) = reconcile(&conn, project, agents)
+            .await
+            .map_err(|err| Error::core(&err))?;
+        let mut done = Vec::new();
+        for step in steps {
+            if matches!(step, Step::End(_) | Step::Remove(_)) {
+                apply(&conn, &step).await.map_err(|err| Error::core(&err))?;
+                done.push(step);
+            }
+        }
+        Ok(done)
     }
 
     /// A12a: the core's id for Terminal `id` and what a reattach needs, or `None` for a Terminal

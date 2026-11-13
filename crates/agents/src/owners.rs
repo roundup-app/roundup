@@ -87,7 +87,21 @@ impl Agents {
                 let _ = std::fs::remove_file(&path);
             }
         }
+        if !forked {
+            self.reconcile_core().await;
+        }
         kept
+    }
+
+    /// MC52 at the Daemon's open: the core's live list for this Project is made to match its
+    /// Agents. A core that cannot be reached leaves each Agent's start to read the list (MC53).
+    async fn reconcile_core(&self) {
+        let ids: Vec<String> = match self.shared.rail().tree() {
+            Ok(nodes) => nodes.into_iter().map(|node| node.id).collect(),
+            Err(_) => return,
+        };
+        let project = self.project_dir().to_string_lossy().into_owned();
+        let _ = self.shared.terminals.reconcile_open(&project, &ids).await;
     }
 
     /// The sockets the kept owners' programs inherited as `RUPD_SOCKET` (S1, S3): the reopened
