@@ -46,7 +46,7 @@ impl Channel {
         self != Self::Source
     }
 
-    /// The herdr-core session its Daemons' Terminals live in; `None` keeps rupd's own.
+    /// The herdr-core session its Daemons' Terminals live in; `None` keeps the Daemon's default.
     pub(crate) fn core_session(self) -> Option<&'static str> {
         (self == Self::Dev).then_some("roundup-dev")
     }
