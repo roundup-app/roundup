@@ -123,7 +123,8 @@ impl Terminals {
     }
 
     /// MC52 when the Daemon opens: read the core's live list for `project`, end the idle extras and
-    /// the Terminals of an Agent not in `agents`, and remove the finished ones. Starting and
+    /// the Terminals of an Agent not in `agents`. A finished Terminal stays: nothing here keeps its
+    /// screen and exit code yet, and MC52 removes it only once roundup has. Starting and
     /// attaching stay with each Agent's start. Answers the steps it carried out. A Terminal without the Project label is no step (MC54).
     pub async fn reconcile_open(
         &self,
@@ -136,7 +137,7 @@ impl Terminals {
             .map_err(|err| Error::core(&err))?;
         let mut done = Vec::new();
         for step in steps {
-            if matches!(step, Step::End(_) | Step::Remove(_)) {
+            if matches!(step, Step::End(_)) {
                 apply(&conn, &step).await.map_err(|err| Error::core(&err))?;
                 done.push(step);
             }

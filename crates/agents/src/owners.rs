@@ -61,10 +61,8 @@ impl Agents {
     pub async fn reattach_owners(&self) -> Vec<String> {
         let mut kept = Vec::new();
         let forked = self.forked;
-        let Ok(entries) = std::fs::read_dir(self.dir.join("owners")) else {
-            return kept;
-        };
-        for entry in entries.flatten() {
+        let entries = std::fs::read_dir(self.dir.join("owners")).ok();
+        for entry in entries.into_iter().flatten().flatten() {
             let path = entry.path();
             let Some(id) = path.file_stem().and_then(|s| s.to_str()).map(str::to_owned) else {
                 continue;

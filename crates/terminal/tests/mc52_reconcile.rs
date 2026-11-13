@@ -117,8 +117,8 @@ async fn mc52_daemon_open_reconciles_the_list_without_an_agent_start() {
         .reconcile_open("p", &["a".to_owned()])
         .await
         .unwrap();
-    assert_eq!(first.len(), 2, "{first:?}");
-    assert!(matches!(first[0], Step::Remove(_)) && matches!(first[1], Step::End(_)));
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert!(matches!(first[0], Step::End(_)), "{first:?}");
     let again = terminals
         .reconcile_open("p", &["a".to_owned()])
         .await
