@@ -22,6 +22,7 @@ import { Icon } from "../ink/Icon";
 import { mergeProps } from "@zag-js/solid";
 import { Reveal, reads } from "../ink/RowStatus";
 import { createCut } from "../ink/Tip";
+import { Tip } from "../ui/Tip";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
 import { isMode } from "./layout";
@@ -140,7 +141,7 @@ const MachineChip = (props: { node: RailNode }) => {
   const shown = () => props.node.kind !== "agent" || props.node.status === null ? null : props.node.machine ?? (connected.machines.any() ? copy.thisMac : null);
 
   return <Show when={shown()}>{name => <>
-    <span class="machine-chip row-secondary" role="img" aria-label={name()}>{name()}</span>
+    <Tip text={name()}>{trigger => <span {...trigger()} class="machine-chip" role="img" aria-label={name()}>{name()}</span>}</Tip>
     <Show when={props.node.machine !== undefined && connected.machines.offline(props.node.machine)}><span class="machine-status" role="img" aria-label={copy.machineOfflineState(name())}>{copy.machineOffline}</span></Show>
   </>}</Show>;
 };
