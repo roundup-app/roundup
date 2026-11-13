@@ -10,6 +10,22 @@ Use `@ark-ui/solid` behind thin styled App wrappers in `apps/desktop/src/ui/`. K
 
 [Kobalte AlertDialog](https://kobalte.dev/docs/core/components/alert-dialog/) provides a Solid alternative with focus trapping and Escape dismissal; [corvu Dialog](https://corvu.dev/docs/primitives/dialog/) supplies additional Solid primitives. Neither is rejected for a demonstrated defect: defer this combination because the owner selected Ark and one behaviour layer avoids mixing component conventions. Use it only after a reproducible Ark performance miss. No size or latency advantage has been measured in this specification run.
 
+## Bubble move and resize: Ark FloatingPanel rejected (#6536)
+
+Decision, 2026-11-13: `bubbles/Bubble.tsx` keeps its hand-written move and resize; `FloatingPanel` is not added to the stack table. Source read: `@zag-js/floating-panel` 1.45.0 as installed, behind `@ark-ui/solid` 5.39.3 (1.47.0 is latest and was not diffed; neither changelog is evidence here, only the installed source).
+
+Held, through configuration: Escape restores the position and size a drag began with (`dragging` and `resizing` states handle `ESCAPE`); `getBoundaryEl` clamps size and position, so U4459's measured extent can be a sized element; the Ark root `open` prop can fold a bubble to its tab chip (U2224) if the `minimized` stage is unused (gap 3 is met by not calling `minimize`); the top layer orders the open bubble (U2307b) however Zag ranks its `panelStack`, but the positioner's inline `z-index: var(--z-index)` fails `u2307b_the_bubble_is_a_library_layer_and_no_z_index_orders_it` unless that test is loosened (gap 2 is a scenario change, not a blocker alone).
+
+Missing capabilities that fail it:
+
+1. **Centred resize (U2236 call 1).** `setSizeFromDrag` picks `scalingOriginMode: event.altKey ? "center" : "extent"` from the pointer event and `lockAspectRatio` from `event.shiftKey`. No prop selects the centre origin as the default, so a bubble would resize from the opposite edge unless a synthetic event carries `altKey`, which rule 9 forbids. Changing the calculation means patching Zag.
+2. **Cancel on focus loss (gap 1).** The only exits from `dragging` and `resizing` are `DRAG_END` (pointerup, pointercancel, contextmenu, a mouse move with no button down) and `ESCAPE` (a keydown on the panel content). The API exposes no cancel; `Bubble.tsx` cancels and restores on `blur` and `focusin`. A wrapper could only dispatch a synthetic Escape.
+3. **Hit zones (U2236 call 2).** Zag's resize triggers sit inside the content box at its edge; U2236 centres the 8 px strips on the edge line and uses 16 px corners clear of the header controls. This is styleable, not a blocker alone.
+
+Other candidates: `@dnd-kit/solid` 0.5.0 (installed) drags but has no resize and no boundary clamp. Both would still leave the U2236 and U4459 rules (`bubbles/places.ts`) hand-written.
+
+Selected: the current hand-written code. Rule 7 was not measured: with the capability above failing, a prototype's drag-frame p95, bundle delta and K1 to K3 could not change the decision, so no number is claimed. Revisit if Zag gains a default centre-origin option and a cancel event, and then measure drag-frame p95 against 16.7 ms (#6342), the entry and `bubbles` chunk sizes with `rollup-plugin-visualizer`, and K1 to K3 (`scenarios/perf.md`); a Mac run is a `flag:needs-mac` request. `scenarios/ui-bubble-resize.md` needs no proposed headings.
+
 ## Stack and migration boundary
 
 | Need | Choice | Replaces |
