@@ -45,7 +45,16 @@ export const step = (save: Save, event: SaveEvent): Save => {
       if (event.due === "keep-mine") return save.kind === "sending" || save.kind === "conflict" ? save : { kind: "dirty", due: "keep-mine" };
 
       return save.kind === "dirty" ? { kind: "dirty", due: save.due ?? "autosave" } : save;
-    case "send": return save.kind === "dirty" && save.due !== null || save.kind === "conflict" && event.mine ? { kind: "sending", text: event.text, version: event.version, ...(save.kind === "conflict" ? { over: save.actor } : {}) } : save;
+    case "send": {
+      if (!(save.kind === "dirty" && save.due !== null || save.kind === "conflict" && event.mine)) return save;
+
+      const sending: Save = { kind: "sending", text: event.text, version: event.version };
+
+      if (save.kind === "conflict") sending.over = save.actor;
+
+      return sending;
+    }
+
     case "applied": return save.kind === "sending" && save.version === event.version ? { kind: "clean" } : save;
     case "refused": return save.kind === "sending" ? { kind: "dirty", due: null } : save;
     case "unknown": return save.kind === "sending" ? { kind: "paused" } : save;

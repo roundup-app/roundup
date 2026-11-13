@@ -96,6 +96,7 @@ const PadBody = (props: {
   const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
   const cycle = createSave(changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" });
   const deleted = () => cycle.save().kind === "deleted";
+
   const conflictActor = () => {
     const save = cycle.save();
 
@@ -116,6 +117,7 @@ const PadBody = (props: {
   });
 
   const actionFailure = createFailure();
+
   const note = dismissable(() => {
     const save = cycle.save();
 
