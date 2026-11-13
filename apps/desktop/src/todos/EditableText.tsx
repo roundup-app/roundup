@@ -35,12 +35,23 @@ export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchem
 
 type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: number; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
 
+/** A failure carries the save count it belongs to and hides once that count moves on. */
+export const createSavedFailure = (count: () => number): [() => string | null, (message: string | null) => void] => {
+  const [kept, keep] = createSignal<{ message: string; saved: number } | null>(null);
+
+  const shown = () => {
+    const current = kept();
+
+    return current && current.saved === count() ? current.message : null;
+  };
+
+  return [shown, message => keep(message === null ? null : { message, saved: count() })];
+};
+
 /** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
 export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; saved?: () => number; onDiscard?: (revision: string) => void }) => {
   const { app, drafts, project, drawer, events } = useConnectedProject();
-  const [failure, setFailure] = createSignal<string | null>(null);
-  createEffect(on(props.saved ?? (() => 0), () => setFailure(null), { defer: true }));
-  createEffect(on(() => props.object, () => setFailure(null), { defer: true }));
+  const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
   onCleanup(events.subscribe(event => {
     if (doesClearTodoFailure(event, Number(props.object))) setFailure(null);
   }));
@@ -108,9 +119,8 @@ export const EditableText = (props: {
   const connected = useConnectedProject();
   const draftDestination = { surface: "todos", object: String(props.todo.id), recipient: props.name };
   const records = () => connected.drafts.list().filter(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.todo.id) && draft.destination.recipient === props.name);
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
   const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
-  createEffect(on(props.saved ?? (() => 0), () => setFailure(null), { defer: true }));
   onCleanup(connected.events.subscribe(event => {
     if (doesClearTodoFailure(event, props.todo.id)) setFailure(null);
   }));

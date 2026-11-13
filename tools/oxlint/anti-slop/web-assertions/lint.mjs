@@ -16,7 +16,7 @@ if (!args.length) {
   if (fixtures.status !== 0) process.exit(fixtures.status ?? 1);
 }
 const json = args.includes("json");
-const ratcheted = code => /^solid\(|^typescript\(switch-exhaustiveness-check\)$|^anti-slop\((no-signal-poke|no-promise-chain-queue|no-draft-bypass|no-raw-listener|no-document-query|no-repair-effect|no-json-equality|no-null-component)\)$/.test(code);
+const ratcheted = code => /^solid\(|^typescript\(switch-exhaustiveness-check\)$|^anti-slop\((no-signal-poke|no-promise-chain-queue|no-draft-bypass|no-raw-listener|no-document-query|no-repair-effect|no-json-equality|no-stale-counter|no-null-component)\)$/.test(code);
 const lint = spawnSync(resolve(repo, "node_modules/.bin/oxlint"), args.length ? args : ["-f", "json"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 if (lint.error) throw lint.error;
 if (!args.length && [0, 1].includes(lint.status)) {

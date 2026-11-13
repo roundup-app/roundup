@@ -1,6 +1,6 @@
 import { applied } from "../app/pending";
 import { captureFocus } from "../keys/focus";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Change } from "@contracts/todo/Change";
 import { createTodoHistory } from "./TodoHistory";
@@ -14,6 +14,7 @@ import { FailureLine, shownKind } from "../ink/FailureLine";
 import { Collapsible } from "../ui/Collapsible";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
+import { createSavedFailure } from "./EditableText";
 import { rowButtonOf, triage } from "./triage";
 
 // Rows are keyed by id so fold state, focus and fade survive an arrival.
@@ -60,9 +61,8 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const { app, events, rail, drawer, drafts, now } = useConnectedProject();
   // Keyed by id so a refresh keeps each comment's row, fold state and focus (U3776).
   const [thread, setThread] = createStore<Comment[]>([]);
-  const [failure, setFailure] = createSignal<string | null>(null);
-  const [sendFailure, setSendFailure] = createSignal<string | null>(null);
-  createEffect(on(props.saved ?? (() => 0), () => setSendFailure(null), { defer: true }));
+  const content = drawer.content();
+  const [sendFailure, setSendFailure] = createSavedFailure(() => props.saved?.() ?? 0);
   const records = () => drafts.list().filter(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id) && draft.destination.recipient === "comment");
   const current = () => records().at(-1);
   const text = () => String(current()?.value.text ?? "");
@@ -73,7 +73,24 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
   createEffect(() => onCleanup(drafts.editor({ surface: "todos", object: String(props.id), recipient: "comment" })));
   const [expanded, setExpanded] = createSignal(false);
-  const [commentsLoaded, setCommentsLoaded] = createSignal(false);
+
+  // Opening reads the thread and marks it read; a failed mark rides with the thread it belongs to.
+  // A read asked for again replaces the one in flight; `refetch` would let it stand.
+  const [reads, setReads] = createSignal({});
+  const refetch = () => setReads({});
+
+  const [comments] = createResource(() => ({ id: props.id, read: reads() }), async ({ id }) => {
+    let list: Comment[] | undefined;
+    const reading = await failureOf(async () => { list = await app.rpc("todo.comments", { id }); });
+    const marking = list?.some(comment => !comment.read) ? await failureOf(() => app.rpc("todo.markCommentsRead", { id })) : null;
+
+    return { list, failure: reading ?? marking };
+  });
+
+  const loaded = () => comments.state === "pending" ? undefined : comments.latest;
+  const [dismissed, dismiss] = createSignal<unknown>(null);
+  const failure = () => loaded() === dismissed() ? null : loaded()?.failure ?? null;
+
   const [historyExpanded, setHistoryExpanded] = createSignal(false);
 
   type Entry = { key: string; at: number; seq: number; comment: Comment };
@@ -81,7 +98,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   let cutoff: Entry | undefined;
   let initialized = false;
 
-  const history = createTodoHistory({ get id() { return props.id; }, saved: props.saved, onCapture: props.onCapture,
+  const history = createTodoHistory({ get id() { return props.id; }, get saved() { return props.saved; }, onCapture: props.onCapture,
     exposed: historyExpanded });
 
   const compare = (a: Entry, b: Entry) => a.at - b.at || a.seq - b.seq;
@@ -91,7 +108,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     all.sort(compare);
 
-    if (!initialized && all.length > 0 && (commentsLoaded() || failure() !== null)) {
+    if (!initialized && all.length > 0 && loaded() !== undefined) {
       // Anchor the oldest exposed entry: recovery may insert entries on either side.
       cutoff = all.length > 20 ? all[all.length - 20] : undefined;
       initialized = true;
@@ -106,41 +123,28 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   // U3776: the comments shown once the Drawer has read them; later arrivals are announced once.
   const [announcement, setAnnouncement] = createSignal("");
   let shown: Set<number> | null = null;
-  let latest = 0;
-  let alive = true;
   let field: HTMLTextAreaElement | undefined;
 
   // The rendered text, never the `::status` marker or indent; it stays until the next arrival replaces it.
   const spoken = (comment: Comment) => partsOf(comment.body, comment.author.kind === "agent").map((part) => "summary" in part ? `${part.summary}\n${part.details}` : part.text).join("\n");
 
-  // Only the newest fetch may write or mark, so overlapping answers neither reorder the thread nor mark twice.
-  const refresh = async () => {
-    const mine = ++latest;
-    const id = props.id;
+  // The store follows the thread the resource holds; a comment not shown before is announced once.
+  createEffect(() => {
+    const list = loaded()?.list;
 
-    const message = await failureOf(async () => {
-      const comments = await app.rpc("todo.comments", { id });
+    if (!list) return;
+    const arrived = shown === null ? [] : list.filter(comment => !shown!.has(comment.id));
+    shown = new Set(list.map(comment => comment.id));
 
-      if (!alive || mine !== latest || id !== props.id) return;
-      const arrived = shown === null ? [] : comments.filter((comment) => !shown!.has(comment.id));
-      shown = new Set(comments.map((comment) => comment.id));
+    if (arrived.length > 0) setAnnouncement(arrived.map(comment => `${author(comment)}: ${spoken(comment)}`).join("\n"));
+    setThread(reconcile(list, byId));
+  });
 
-      if (arrived.length > 0) setAnnouncement(arrived.map((comment) => `${author(comment)}: ${spoken(comment)}`).join("\n"));
-      setThread(reconcile(comments, byId));
-      setCommentsLoaded(true);
-
-      if (comments.some((comment) => !comment.read)) await app.rpc("todo.markCommentsRead", { id });
-    });
-
-    if (alive && mine === latest && id === props.id) setFailure(message);
-  };
-
-  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setCommentsLoaded(false); initialized = false; cutoff = undefined; setExpanded(false); setHistoryExpanded(false); void refresh(); }));
-  onCleanup(events.subscribe((event) => {
+  onCleanup(events.subscribe(event => {
     if (doesClearTodoFailure(event, props.id)) setSendFailure(null);
 
-    if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
-  onCleanup(() => { alive = false; latest++; });
+    if (event.name === "todo.commented" && event.data.id === props.id) void refetch();
+  }));
 
   // U3753: `c` on a triage row asks for this Todo's field.
   createEffect(() => {
@@ -175,11 +179,11 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     setSending(false);
 
-    if (!alive || id !== props.id) return;
+    if (drawer.content() !== content) return;
     setSendFailure(message);
 
     // A rejected call keeps the typed text; the thread catches up through `todo.commented`.
-    if (message === null) { props.onSaved?.(); await refresh(); props.onSent?.(focus); }
+    if (message === null) { props.onSaved?.(); await refetch(); props.onSent?.(focus); }
   };
 
   const renderEntry = (entry: Entry) => renderComment(entry.comment);
@@ -199,7 +203,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   return <section class="todo-comments" aria-label={copy.activity}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     {history.feedback}
-    <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void refresh(), label: copy.commentRetry }} />
+    <ReservedLine message={failure()} dismiss={() => dismiss(loaded())} recover={{ run: () => void refetch(), label: copy.commentRetry }} />
     <Show when={(history.changes()?.length ?? 0) > 0}>
       <Collapsible.Root lazyMount unmountOnExit open={historyExpanded()} onOpenChange={details => setHistoryExpanded(details.open)}>
         <Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={historyExpanded() ? "down" : "right"} />{copy.historyEntries(history.changes()!.length)}</Collapsible.Trigger>

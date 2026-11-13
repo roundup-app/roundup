@@ -18,7 +18,7 @@ FUNCTION_RULES = {
     'eslint(max-lines-per-function)': r'\((\d+)\)',
 }
 # State-holder lints (U6416): existing sites are exact debt; later Issues move them to a store or a queue.
-HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)', 'anti-slop(no-draft-bypass)', 'anti-slop(no-raw-listener)', 'anti-slop(no-document-query)', 'anti-slop(no-repair-effect)', 'anti-slop(no-json-equality)', 'anti-slop(no-null-component)')
+HOLDER_RULES = ('anti-slop(no-signal-poke)', 'anti-slop(no-promise-chain-queue)', 'anti-slop(no-draft-bypass)', 'anti-slop(no-raw-listener)', 'anti-slop(no-document-query)', 'anti-slop(no-repair-effect)', 'anti-slop(no-json-equality)', 'anti-slop(no-null-component)', 'anti-slop(no-stale-counter)')
 TESTS = re.compile(r'\.test\.tsx?$|/testing/|/perf/')
 SECTIONS = {'web': ['size', 'ast', 'typos', 'ruff'], 'rust': ['dependencies']}
 
@@ -257,6 +257,22 @@ def main():
     # A file the PR renamed keeps its debt: compare the merge base's rows at their new paths.
     renames = dict(line.split('\t')[1:] for line in run(['git', 'diff', '--name-status', '-M', base], root).stdout.splitlines() if line.startswith('R'))
     old = {section: [{**row, 'path': renames.get(row['path'], row['path'])} if 'path' in row else row for row in rows] for section, rows in old.items()}
+    # A function renamed within its file keeps its row: a merge-base row of the same rule and path, with a ceiling no lower, stands for it.
+    for section, rows in debt.items():
+        base_rows = old.get(section, [])
+        known = {identity(row) for row in base_rows}
+        taken = {identity(row) for row in rows}
+
+        for row in rows:
+            if row.get('rule') not in FUNCTION_RULES or identity(row) in known:
+                continue
+
+            stand = next((prior for prior in base_rows if identity(prior) not in taken and prior.get('rule') == row['rule'] and prior.get('path') == row['path'] and prior.get('ceiling', 0) >= row.get('ceiling', 0)), None)
+
+            if stand:
+                base_rows[base_rows.index(stand)] = {**stand, 'source': row['source']}
+                known.add(identity(row))
+
     # Likewise a function-size rule the merge base holds no row of: its first PR records it.
     first = {rule for rule in (*FUNCTION_RULES, *HOLDER_RULES) if not any(row.get('rule') == rule for row in old.get('oxlint', []))}
     excused = advisory_excuse(root, base)
