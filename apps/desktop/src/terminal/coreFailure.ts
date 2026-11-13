@@ -1,12 +1,14 @@
+import { copy } from "./copy";
+
 /** MC56: the Daemon's coded answer when the Terminal host fails, in App words: no host name, code or hint. */
 const LABELS = {
-  core_missing: "Terminals are not available on this Mac.",
-  unsupported_generation: "Terminals need an update before they can start.",
-  core_closed: "The Terminal connection was lost.",
-  core_silent: "Terminals did not answer.",
-  core_error: "The Terminal could not start.",
-  core_protocol: "Terminals answered in a way the App cannot read.",
-  core_io: "Terminals could not be reached.",
+  core_missing: copy.coreFailure_core_missing,
+  unsupported_generation: copy.coreFailure_unsupported_generation,
+  core_closed: copy.coreFailure_core_closed,
+  core_silent: copy.coreFailure_core_silent,
+  core_error: copy.coreFailure_core_error,
+  core_protocol: copy.coreFailure_core_protocol,
+  core_io: copy.coreFailure_core_io,
 } as const;
 
 export type CoreFailureCode = keyof typeof LABELS;
