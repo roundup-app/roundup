@@ -51,9 +51,10 @@ fn start_relay(dir: &Path) -> Child {
         .spawn()
         .unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
+    let (_tx, tick) = std::sync::mpsc::channel::<()>();
     while !dir.join("relay.sock").exists() || !dir.join("live.sock").exists() {
         assert!(Instant::now() < deadline, "the relay did not start");
-        std::thread::sleep(Duration::from_millis(10));
+        let _ = tick.recv_timeout(Duration::from_millis(10));
     }
     child
 }
