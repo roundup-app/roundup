@@ -78,3 +78,23 @@ it("u492_tab_leaves_toast_for_next_document_control", async () => {
   await browser("press", "Shift+Tab");
   expect(await read<boolean>(`document.activeElement?.matches('.app-toast-action')`)).toBe(true);
 }, 90_000);
+
+it("u7059_pointer_in_a_gap_keeps_the_stack_fanned_out", async () => {
+  await browser("set", "viewport", "1280", "800");
+  await load();
+  await read(`(() => { for (const id of ['a', 'b', 'c']) window.__providers.toast.show({ id, name: 'Card ' + id, content: 'Body ' + id, duration: Infinity }); })()`);
+  await wait(`document.querySelectorAll('.app-toast').length === 3`);
+  // The fixture lacks the two Tokens the group's bottom offset reads, which leaves the group at the top of the page.
+  await read(`document.documentElement.style.cssText += '--hint-row-height: 24px; --rail-actions-height: 24px;'`);
+  const rects = `[...document.querySelectorAll('.app-toast')].map((card) => card.getBoundingClientRect()).sort((a, b) => a.top - b.top)`;
+  const front = await read<{ x: number, y: number }>(`(() => { const rect = [...document.querySelectorAll('.app-toast:not([data-sibling])')][0].getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
+  await browser("mouse", "move", String(front.x), String(front.y));
+  await wait(`!document.querySelector('.app-toast[data-sibling]').hasAttribute('data-overlap')`);
+  const state = `(() => ({ folded: [...document.querySelectorAll('.app-toast')].map((card) => card.hasAttribute('data-overlap')) }))()`;
+  await wait(`${rects}.every((rect, index, all) => index === 0 || rect.top >= all[index - 1].bottom)`);
+  const before = await read<unknown>(state);
+  const gap = await read<{ x: number, y: number }>(`(() => { const all = ${rects}; return { x: all[0].x + all[0].width / 2, y: (all[0].bottom + all[1].top) / 2 }; })()`);
+  await browser("mouse", "move", String(gap.x), String(gap.y));
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  expect(await read<unknown>(state)).toEqual(before);
+}, 90_000);

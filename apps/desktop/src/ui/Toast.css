@@ -5,7 +5,6 @@
   max-width: calc(100vw - var(--space-6));
   background-color: var(--ground);
   border-radius: var(--radius-control);
-  overflow: hidden;
   translate: var(--x) var(--y);
   scale: var(--scale, 1);
   transform-origin: bottom center;
@@ -14,6 +13,8 @@
   will-change: translate, scale, opacity;
   transition: translate var(--duration-toast-in) var(--easing-out), scale var(--duration-toast-in) var(--easing-out), opacity var(--duration-toast-in) var(--easing-out);
 }
+
+/* U7059: the card is not clipped, so Ark's ghost strip over each gap keeps the stack's hover; the bar rounds itself instead. */
 
 /* Ark marks the front card so its folded siblings stay behind it. */
 .app-toast:not([data-sibling]) {
@@ -37,6 +38,7 @@
 
 .app-toast-bar {
   position: absolute;
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
   inset: auto 0 0;
   height: var(--stroke-width);
   background-color: var(--grey);
