@@ -362,7 +362,12 @@ pub(super) const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 /// every name the program must not see is dropped from `env`, and the core itself starts clean. It
 /// names no terminal: a core's names are unique among its live terminals, and one core serves every
 /// Daemon on the machine and outlives each, so the core's `address` is the only id.
-pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64) -> Value {
+pub(super) fn run_params(
+    shared: &Shared,
+    params: &SpawnParams,
+    number: u64,
+    labels: Option<&Value>,
+) -> Value {
     // The program inherits the Daemon's own environment, as it did on the PTY path (A3507a), with
     // the launch's variables on top.
     // A Machine's program is no child of the Daemon: it gets the launch's variables and none of this Mac's.
@@ -395,12 +400,20 @@ pub(super) fn run_params(shared: &Shared, params: &SpawnParams, number: u64) -> 
     if !remote && argv.first().is_some_and(|program| runnable(program, &env)) {
         argv = scrub_holder_env(&env, argv);
     }
-    serde_json::json!({
-        "argv": argv,
-        "cwd": params.cwd,
-        "env": env,
-        "size": {"cols": params.cols, "rows": params.rows},
-    })
+    let mut run = serde_json::Map::new();
+    run.insert("argv".into(), serde_json::json!(argv));
+    run.insert("cwd".into(), serde_json::json!(params.cwd));
+    run.insert("env".into(), serde_json::json!(env));
+    run.insert(
+        "size".into(),
+        serde_json::json!({"cols": params.cols, "rows": params.rows}),
+    );
+    run.insert("display".into(), herdr::display());
+    // MC52: the labels name the Terminal's Project, Agent and Attempt in the core's own list.
+    if let Some(labels) = labels {
+        run.insert("labels".into(), labels.clone());
+    }
+    Value::Object(run)
 }
 
 /// Start `params` in the core. A bad cwd or program is the caller's error
@@ -410,10 +423,11 @@ pub(super) async fn run(
     shared: &Shared,
     params: &SpawnParams,
     number: u64,
+    labels: Option<&Value>,
 ) -> Result<Value, Error> {
     check_program(params)?;
     match conn
-        .call("terminal.run", run_params(shared, params, number))
+        .call("terminal.run", run_params(shared, params, number, labels))
         .await
     {
         Ok(ran) => Ok(ran),
@@ -699,7 +713,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
         let (conn, mut seen) = run_core(json!({"state":"live"})).await;
-        run(&conn, &terminals.shared, &launch(), 4).await.unwrap();
+        run(&conn, &terminals.shared, &launch(), 4, None)
+            .await
+            .unwrap();
         let call = seen.recv().await.unwrap();
         assert_eq!(call["method"], "terminal.run");
         let p = &call["params"];
@@ -718,11 +734,25 @@ mod tests {
         assert_eq!(&argv[argv.len() - 2..], ["claude", "--flag"]);
     }
 
+    #[test]
+    fn mc52_spawn_labelled_names_its_agent_in_the_core_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
+        let labels = crate::reconcile::labels("p", "a", "1");
+        let p = run_params(&terminals.shared, &launch(), 4, Some(&labels));
+        assert_eq!(p["labels"], labels);
+        assert!(
+            run_params(&terminals.shared, &launch(), 4, None)
+                .get("labels")
+                .is_none()
+        );
+    }
+
     #[tokio::test]
     async fn mc16_agent_env_has_no_session_leak() {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open_with(dir.path(), Bus::new(), &["CLAUDECODE"]).unwrap();
-        let p = run_params(&terminals.shared, &launch(), 4);
+        let p = run_params(&terminals.shared, &launch(), 4, None);
         // Names the launch or the Daemon removes are neither in env nor left to the core's own.
         assert!(p["env"].get("CLAUDECODE").is_none());
         for name in [
@@ -769,7 +799,7 @@ mod tests {
             json!({"code":-32000,"message":"no such directory","data":{"kind":"spawn_failed"}}),
         )
         .await;
-        let err = run(&conn, &terminals.shared, &launch(), 1)
+        let err = run(&conn, &terminals.shared, &launch(), 1, None)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("cannot run"), "{err}");

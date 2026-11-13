@@ -195,6 +195,16 @@ def frozen(issue):
     return re.search(r'^Specification: \[scenarios/loop-', issue['body'] or '', re.M) is not None
 
 
+def scenario_ids(text):
+    """The scenario ids a `Scenarios:` line names. A lettered ID such as V4b names one scenario; an unlettered one may
+    open a range such as O1-O6 or LC11-LC13, which names each id in it."""
+    names = []
+    for lettered, prefix, first, last in re.findall(
+            r'\b([A-Z]+[0-9]+[a-z])\b|\b([A-Z]+)([0-9]+)(?:\s*(?:–|-|to)\s*[A-Z]*([0-9]+))?\b', text):
+        names.extend([lettered] if lettered else (prefix + str(n) for n in range(int(first), int(last or first) + 1)))
+    return names
+
+
 def order(issue):
     body = issue['body'] or ''
     if not re.search(r'^Key: ', body, re.M):
@@ -220,16 +230,29 @@ def order(issue):
                file=match[1], slug=key, priority=priority, request=False, respecify=False)
     headings = {name for path in Path('scenarios').glob('*.md')
                 for name in re.findall(r'^\*\*([A-Z]+[0-9]+[a-z]?)[ .]', path.read_text(), re.M)}
-    names = []
-    # A lettered ID such as V4b names one scenario; an unlettered one may open a range such as O1-O6 or LC11-LC13.
-    for lettered, prefix, first, last in re.findall(
-            r'\b([A-Z]+[0-9]+[a-z])\b|\b([A-Z]+)([0-9]+)(?:\s*(?:–|-|to)\s*[A-Z]*([0-9]+))?\b', row['ids']):
-        names.extend([lettered] if lettered else (prefix + str(n) for n in range(int(first), int(last or first) + 1)))
+    names = scenario_ids(row['ids'])
     if row['mode'] == 'implement' and (not names or not Path(row['file']).is_file() or
                                        any(name not in headings for name in names)):
         # Its acceptance is not on this checkout: a Builder specifies it first, then the queue implements it.
         row.update(mode='specify', respecify=True)
     return row
+
+
+def delivers(pr, issue):
+    """L82: whether PR number `pr` delivers all the work of `issue` (its JSON): an implementation order whose scenarios
+    `main` holds, a change outside `scenarios/`, and for each scenario id a line the diff adds that names a test after it
+    (`u1_…`). An order the queue cannot read, or a diff GitHub refuses (over 300 files), delivers nothing."""
+    try:
+        row = order(issue)
+        if row['mode'] != 'implement':
+            return False
+        diff = call('pr', 'diff', str(pr), '--allow-escape-sequences')
+    except (KeyError, TypeError, ValueError, subprocess.CalledProcessError) as error:
+        print(f'PR #{pr}: the Issue order or the diff is unreadable, so no Closes line: {error}', file=sys.stderr)
+        return False
+    added = '\n'.join(line for line in diff.splitlines() if line.startswith('+') and not line.startswith('+++ '))
+    return any(not path.startswith('scenarios/') for path in re.findall(r'^diff --git a/(\S+) b/', diff, re.M)) and \
+        all(re.search(rf'\b{name.lower()}_', added) for name in scenario_ids(row['ids']))
 
 
 def waits(item):
@@ -483,9 +506,11 @@ def task(number):
                       f'stays in its dependent Issue. Use Closes #{number} when that condition holds.')
     else:
         completion = ('Close this implementation Issue only when its full acceptance is demonstrated; a specification-only PR '
-                      f'does not close it. Use Closes #{number} when that condition holds.')
+                      f'does not close it. The loop writes Closes #{number} instead when the PR changes a file outside '
+                      'scenarios/ and adds a test named after each scenario id; write it yourself only for acceptance that rule '
+                      'cannot see.')
     print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n"
-          f"Mode: {row['mode']}. Use this Issue as the canonical work order. Link the PR with Refs #{number}. {completion} "
+          f"Mode: {row['mode']}. Use this Issue as the canonical work order. The loop links the PR with Refs #{number} (L82). {completion} "
           "Put progress and unresolved engineering questions on the Issue, not in scenario Work tables." + cancelled)
 
 

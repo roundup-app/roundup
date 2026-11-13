@@ -44,6 +44,7 @@ impl Terminals {
         &self,
         params: SpawnParams,
         owner: Option<String>,
+        labels: Option<Value>,
     ) -> Result<Spawned, Error> {
         check_program(&params)?;
         window(params.cols, params.rows)?;
@@ -61,7 +62,25 @@ impl Terminals {
             }
         };
         let number = self.next.fetch_add(1, Ordering::Relaxed);
-        let ran = host::run(&conn, &self.shared, &params, number).await?;
+        // MC52: the core's list is read first; an Agent's one live program is attached, never
+        // started a second time.
+        if let Some(address) = self.live_program(&conn, labels.as_ref()).await {
+            let pid = conn
+                .call("terminal.get", serde_json::json!({"terminal": address}))
+                .await
+                .ok()
+                .and_then(|got| got.get("pid").and_then(Value::as_u64))
+                .and_then(|pid| u32::try_from(pid).ok());
+            let adopted = Adopted {
+                cwd: params.cwd,
+                cols: params.cols,
+                rows: params.rows,
+                program: program_name(params.command.as_deref()),
+                machine: params.machine,
+            };
+            return self.adopt(conn, address, pid, adopted, owner, number).await;
+        }
+        let ran = host::run(&conn, &self.shared, &params, number, labels.as_ref()).await?;
         let core_id = ran
             .get("address")
             .and_then(Value::as_str)
@@ -86,6 +105,20 @@ impl Terminals {
             number,
         )
         .await
+    }
+
+    /// The live program the core already holds for the Agent `labels` name, after ending its idle
+    /// extras; `None` for no labels, no program, or a list that cannot be read (the start goes on).
+    async fn live_program(&self, conn: &herdr::Conn, labels: Option<&Value>) -> Option<String> {
+        let label = |key: &str| labels?.get(key)?.as_str();
+        let (project, agent) = (
+            label(crate::reconcile::PROJECT)?,
+            label(crate::reconcile::AGENT)?,
+        );
+        crate::reconcile::for_agent(conn, project, agent)
+            .await
+            .ok()
+            .flatten()
     }
 
     /// A12a: the core's id for Terminal `id` and what a reattach needs, or `None` for a Terminal

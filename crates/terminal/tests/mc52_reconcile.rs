@@ -58,3 +58,33 @@ async fn mc52_mc54_the_list_is_read_by_labels_and_extras_end() {
         .await
         .unwrap();
 }
+
+#[tokio::test]
+async fn mc52_agent_start_reads_the_list_first() {
+    use std::collections::BTreeMap;
+    let dir = tempfile::tempdir().unwrap();
+    let terminals = terminal::Terminals::open(dir.path(), rpc::Bus::new()).unwrap();
+    let start = || {
+        terminals.spawn_labelled(
+            contracts::terminal::SpawnParams {
+                cwd: dir.path().to_string_lossy().into_owned(),
+                command: Some(vec!["cat".into()]),
+                env: BTreeMap::new(),
+                unset: Vec::new(),
+                cols: 80,
+                rows: 24,
+                machine: None,
+            },
+            labels(&dir.path().to_string_lossy(), "a", "1"),
+        )
+    };
+    start().await.unwrap();
+    start().await.unwrap();
+    let pids: std::collections::BTreeSet<_> = terminals
+        .list()
+        .await
+        .into_iter()
+        .filter_map(|t| t.program_pid)
+        .collect();
+    assert_eq!(pids.len(), 1, "two starts of one Agent ran {pids:?}");
+}
