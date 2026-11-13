@@ -58,7 +58,7 @@ const handlers: Handlers = {
   applied: (save, event) => save.kind !== "sending" ? save : save.version === event.version ? { kind: "clean" } : { kind: "conflict", actor: save.over ?? "unknown", version: save.version },
   refused: save => save.kind === "sending" ? dirty(null) : save,
   unknown: save => save.kind === "sending" ? { kind: "paused" } : save,
-  resume: save => save.kind === "paused" ? dirty("autosave") : save.kind === "conflict" && save.paused ? { ...save, paused: undefined } : save,
+  resume: save => save.kind === "paused" ? dirty("autosave") : save.kind === "conflict" && save.paused ? { kind: "conflict", actor: save.actor, version: save.version } : save,
 };
 
 /** Only Keep mine sends out of a conflict; a pause is left by Resume or Keep mine. */
