@@ -95,7 +95,7 @@ class GitHub:
                     return dict(jobs=jobs)
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
         return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels],
-                    title='Hide archived Agents', body=self.order)
+                    title='Hide archived Agents', body=self.order, number=1, html_url='')
 
     def write(self, *args):
         if args[:2] == ('pr', 'diff'):
@@ -803,22 +803,22 @@ diff --git a/loop/x.py b/loop/x.py
 class Body(unittest.TestCase):
     PATCH = ('api', '-X', 'PATCH', 'repos/{owner}/{repo}/pulls/9', '-f')
 
-    def test_l82_the_loop_writes_the_refs_and_scenarios_lines(self):
-        # (body the run left, body the loop leaves): None where the body already holds both lines.
-        cases = (('', 'Refs #1\nScenarios: U1\n'),
-                 ('Scenarios: U9\nprose', 'Refs #1\nScenarios: U1\nprose'),
-                 ('Refs #7\nScenarios: U1\nprose', 'Refs #1\nScenarios: U1\nprose'),
-                 ('Refs #1\nScenarios: U1\nprose', None),
-                 ('Closes #1\nScenarios: U1\nprose', None))
-        for body, written in cases:
-            for how in ('built', 'fixed'):
-                with self.subTest(body=body, how=how):
+    def test_l82_the_loop_writes_the_closes_or_refs_and_scenarios_lines(self):
+        # (body the run left, body the loop leaves for a PR that does not deliver the Issue's work, for one that does):
+        # None where the body already holds both lines.
+        cases = (('', 'Refs #1\nScenarios: U1\n', 'Closes #1\nScenarios: U1\n'),
+                 ('Scenarios: U9\nprose', 'Refs #1\nScenarios: U1\nprose', 'Closes #1\nScenarios: U1\nprose'),
+                 ('Refs #7\nScenarios: U1\nprose', 'Refs #1\nScenarios: U1\nprose', 'Closes #1\nScenarios: U1\nprose'),
+                 ('Refs #1\nScenarios: U1\nprose', None, 'Closes #1\nScenarios: U1\nprose'),
+                 ('Closes #1\nScenarios: U1\nprose', None, None))
+        for body, refs, closes in cases:
+            for how, delivers, written in (('built', False, refs), ('fixed', False, refs), ('built', True, closes), ('fixed', True, closes)):
+                with self.subTest(body=body, how=how, delivers=delivers), patch.object(builder.orders, 'delivers', return_value=delivers), \
+                        GitHub(prs=[pr(body=body)], view=pr(body=body)) as github:
                     if how == 'built':
-                        with GitHub(prs=[pr(body=body)]) as github:
-                            builder.built(1, 'U1', True, '', 'https://run/1')
+                        builder.built(1, 'U1', True, '', 'https://run/1')
                     else:
-                        with GitHub(view=pr(body=body)) as github:
-                            builder.fixed(9, 'check', True, 'https://run/2')
+                        builder.fixed(9, 'check', True, 'https://run/2')
                     self.assertEqual(github.bodies_set(), [written] if written else [])
                     self.assertFalse([w for w in github.writes if 'comments' in w[1]
                                       and 'fix-attempt' not in w[3]])
