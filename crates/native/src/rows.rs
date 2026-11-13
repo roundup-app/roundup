@@ -114,6 +114,40 @@ pub fn set_tray_menu<R: tauri::Runtime>(
     .map_err(|error| error.to_string())?
 }
 
+/// U6994b: tell `changed(true)` when any menu opens and `changed(false)` when it closes, on the main
+/// thread; AppKit closes a menu whose owner replaces it, so the tray waits for the close. One
+/// registration lives for the process; the answer is false off the main thread, where none is made.
+pub fn watch_menu_tracking(changed: impl Fn(bool) + 'static) -> bool {
+    use block2::RcBlock;
+    use objc2_foundation::{NSNotification, NSNotificationCenter};
+    use std::{ptr::NonNull, rc::Rc};
+
+    if MainThreadMarker::new().is_none() {
+        return false;
+    }
+    let changed = Rc::new(changed);
+    let center = NSNotificationCenter::defaultCenter();
+    for (name, open) in [
+        ("NSMenuDidBeginTrackingNotification", true),
+        ("NSMenuDidEndTrackingNotification", false),
+    ] {
+        let changed = Rc::clone(&changed);
+        let block = RcBlock::new(move |_notification: NonNull<NSNotification>| changed(open));
+        // SAFETY: AppKit posts menu tracking on the main thread; the block owns its captures.
+        let token = unsafe {
+            center.addObserverForName_object_queue_usingBlock(
+                Some(&NSString::from_str(name)),
+                None,
+                None,
+                &block,
+            )
+        };
+        // The observer lives as long as the process.
+        std::mem::forget(token);
+    }
+    true
+}
+
 /// Style the menu of a Tauri tray icon on the main thread; used at each opening, when the status
 /// item holds it: ages and light/dark tones stay current.
 pub fn style_tray<R: tauri::Runtime>(

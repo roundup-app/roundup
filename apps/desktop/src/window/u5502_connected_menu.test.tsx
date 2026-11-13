@@ -355,3 +355,23 @@ it("u5970_the_next_cut_is_scheduled_not_polled", async () => {
   expect(actions(app)).toHaveLength(0);
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it("u6994a_unchanged_presentation_sends_nothing", async () => {
+  const { app } = await openTabs({ api: [agent("hidden", "working", "running"), agent("waiting", "needs-you", "question")] });
+  await waitFor(() => expect(actions(app)).toHaveLength(1));
+  let sent = 0;
+  let latest = app.menuBar;
+  Object.defineProperty(app, "menuBar", { get: () => latest, set: (menu: typeof latest) => { sent++; latest = menu; } });
+
+  const status = (id: string, kind: "working" | "needs-you", label: string, revision: string) => app.of(path("api")).emit(event({ name: "agent.status", data: {
+    id, attempt: "1", status_revision: revision, status: { kind, label, since: 60_000, finished: "0" },
+  } }));
+
+  status("hidden", "working", "reading", "2");
+  status("hidden", "working", "writing", "3");
+  await settled();
+  expect(sent).toBe(0);
+
+  status("waiting", "needs-you", "another question", "2");
+  await waitFor(() => expect(sent).toBe(1));
+});
