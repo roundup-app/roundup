@@ -77,7 +77,7 @@ class Orders(unittest.TestCase):
                     author=dict(login='app/claude', is_bot=True))
         with patch.object(orders, 'gh', side_effect=[[[]], [item]]), redirect_stderr(io.StringIO()):
             issues = orders.list_issues()
-        rows = orders.classify(issues, {}, [])
+        rows = orders.classify(issues, {}, [], {7})
         self.assertEqual([(row['issue'], row['state']) for row in rows], [(7, 'ready')])
 
     def test_l34_a_cached_closed_issue_still_blocks_a_duplicate_key_and_a_reopened_one_leaves_the_cache(self):
@@ -155,7 +155,8 @@ class Orders(unittest.TestCase):
 
     def test_l96_task_for_an_invalid_order_is_a_repair(self):
         output = io.StringIO()
-        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), redirect_stdout(output):
+        with patch.object(orders, 'gh', return_value=issue(body=NO_SPEC)), \
+             patch.object(orders, 'read_orders', return_value=orders.classify([issue(body=NO_SPEC)], {}, [])), redirect_stdout(output):
             orders.task(1)
         self.assertIn('needs one Specification: line', output.getvalue())
         self.assertIn('Open no PR; edit Issue #1', output.getvalue())
@@ -210,10 +211,32 @@ class Orders(unittest.TestCase):
         self.assertIn('Close this specification Issue', output.getvalue())
         self.assertNotIn('specification-only PR does not close', output.getvalue())
 
-    def test_l34_every_open_issue_the_user_or_a_loop_app_filed_is_work(self):
-        for login in ('saadshahd', 'claude[bot]', 'github-actions[bot]'):
+    def test_l34_an_open_issue_a_loop_app_filed_waits_for_the_user_s_thumbs_up(self):
+        for login in ('claude[bot]', 'github-actions[bot]'):
             with self.subTest(login=login):
-                self.assertEqual(orders.classify([issue(user=dict(login=login))], {}, [])[0]['state'], 'ready')
+                row, = orders.classify([issue(user=dict(login=login))], {}, [])
+                self.assertEqual((row['state'], row['reason']), ('waiting', "filed by a loop App; waits for the user's thumbs-up"))
+        # A repair run edits the Issue, which is work before the approval: the queue counts no such order as invalid.
+        self.assertEqual(orders.invalid(orders.classify([issue(user=dict(login='claude[bot]'), body=NO_SPEC)], {}, [])), [])
+
+    def test_l34_a_loop_app_s_issue_that_blocks_an_issue_that_builds_builds_with_it(self):
+        def app(number, key):
+            return issue(number, key, user=dict(login='claude[bot]'))
+
+        def blocked_by(*numbers):
+            return [dict(number=n, state='open', state_reason=None) for n in numbers]
+
+        # #1 is the user's, #2 blocks it, #3 blocks #2; #4 blocks only #5, an App Issue nobody approved.
+        issues = [issue(1, 'U1'), app(2, 'U2'), app(3, 'U3'), app(4, 'U4'), app(5, 'U5')]
+        rows = orders.classify(issues, {1: blocked_by(2), 2: blocked_by(3), 5: blocked_by(4)}, [])
+        self.assertEqual({row['issue']: row['state'] for row in rows}, {1: 'waiting', 2: 'waiting', 3: 'ready', 4: 'waiting', 5: 'waiting'})
+        self.assertEqual(rows[3]['reason'], "filed by a loop App; waits for the user's thumbs-up")
+
+    def test_l34_only_the_user_s_thumbs_up_releases_a_loop_app_s_issue(self):
+        for who, state in (('saadshahd', 'ready'), ('stranger', 'waiting')):
+            with self.subTest(thumbs_up_by=who):
+                rows, _ = self.read_with([issue(user=dict(login='claude[bot]'))], reactions={1: [dict(user=dict(login=who))]})
+                self.assertEqual(rows[0]['state'], state)
 
     def test_l34_no_one_elses_issue_runs_whatever_its_labels(self):
         for author in ('COLLABORATOR', 'MEMBER', 'NONE'):
@@ -369,9 +392,9 @@ class Orders(unittest.TestCase):
         rows = orders.cool(orders.classify([issue(2, 'U84'), issue(3, 'U85'), issue(4, 'U86')], {}, []), ended, now)
         self.assertEqual([row['state'] for row in rows], ['ready'] * 3)
 
-    def read_with(self, issues, comments=None, blockers=None):
-        """`read_orders` over REST `issues`, GraphQL `comments` and `blockers` (each {Issue: nodes}); returns the rows and the
-        GraphQL queries made."""
+    def read_with(self, issues, comments=None, blockers=None, reactions=None):
+        """`read_orders` over REST `issues`, GraphQL `comments`, `blockers` and `reactions` (each {Issue: nodes}); returns the
+        rows and the GraphQL queries made."""
         queries = []
 
         def api(*args):
@@ -379,7 +402,8 @@ class Orders(unittest.TestCase):
                 return []
             if args[1] == 'graphql':
                 queries.append(args[-1])
-                field, found = ('comments', comments) if 'comments(' in args[-1] else ('blockedBy', blockers)
+                field, found = next(((name, data) for name, data in (('reactions', reactions), ('comments', comments))
+                                     if f'{name}(' in args[-1]), ('blockedBy', blockers))
                 return dict(data=dict(repository={f'i{n}': {field: dict(totalCount=len((found or {}).get(n, [])), nodes=(found or {}).get(n, []))}
                                                   for n in map(int, re.findall(r'i(\d+):', args[-1]))}))
             return [issues]
