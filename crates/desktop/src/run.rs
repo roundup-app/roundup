@@ -38,18 +38,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     })?;
     let context = crate::context();
     let channel = Channel::of(&context.config().identifier);
-    // CH7077d: opened from Finder, an installed build has launchd's PATH; it takes the login
-    // shell's, so `claude` and `herdr-core` resolve. Before any thread starts, as it sets PATH.
-    if channel.installed()
-        && let Err(error) = fix_path_env::fix()
-    {
-        let cause = match error {
-            fix_path_env::Error::Shell(error) => format!("IO {:?}", error.kind()),
-            fix_path_env::Error::InvalidOutput(_) => "unreadable shell output".to_owned(),
-            fix_path_env::Error::EchoFailed(_) => "the login shell failed".to_owned(),
-        };
-        diagnostics::report("read the login shell's PATH", &cause);
-    }
     let config = Config::from_env(channel).inspect_err(|cause| {
         diagnostics::report("configure App", &cause.to_string());
     })?;

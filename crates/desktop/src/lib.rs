@@ -22,7 +22,6 @@ mod project_task;
 mod projects;
 mod reopen;
 mod store;
-mod updater;
 mod window;
 
 mod builder;
