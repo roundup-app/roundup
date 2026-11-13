@@ -75,25 +75,21 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const [expanded, setExpanded] = createSignal(false);
 
   // Opening reads the thread and marks it read; a failed mark rides with the thread it belongs to.
-  const [comments, { refetch }] = createResource(() => props.id, async id => {
-    const list = await app.rpc("todo.comments", { id });
-    const marking = list.some(comment => !comment.read) ? await failureOf(() => app.rpc("todo.markCommentsRead", { id })) : null;
+  // A read asked for again replaces the one in flight; `refetch` would let it stand.
+  const [reads, setReads] = createSignal({});
+  const refetch = () => setReads({});
 
-    return { list, marking };
+  const [comments] = createResource(() => ({ id: props.id, read: reads() }), async ({ id }) => {
+    let list: Comment[] | undefined;
+    const reading = await failureOf(async () => { list = await app.rpc("todo.comments", { id }); });
+    const marking = list?.some(comment => !comment.read) ? await failureOf(() => app.rpc("todo.markCommentsRead", { id })) : null;
+
+    return { list, failure: reading ?? marking };
   });
 
-  const loaded = () => comments.error || comments.state === "pending" ? undefined : comments.latest;
+  const loaded = () => comments.state === "pending" ? undefined : comments.latest;
   const [dismissed, dismiss] = createSignal<unknown>(null);
-
-  const problem = (): Error | object | undefined => comments.error ?? (loaded()?.marking ? loaded() : undefined);
-
-  const failure = () => {
-    const found = problem();
-
-    if (!found || found === dismissed()) return null;
-
-    return found instanceof Error ? found.message : loaded()?.marking ?? String(found);
-  };
+  const failure = () => loaded() === dismissed() ? null : loaded()?.failure ?? null;
 
   const [historyExpanded, setHistoryExpanded] = createSignal(false);
 
@@ -102,7 +98,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   let cutoff: Entry | undefined;
   let initialized = false;
 
-  const history = createTodoHistory({ get id() { return props.id; }, saved: props.saved, onCapture: props.onCapture,
+  const history = createTodoHistory({ get id() { return props.id; }, get saved() { return props.saved; }, onCapture: props.onCapture,
     exposed: historyExpanded });
 
   const compare = (a: Entry, b: Entry) => a.at - b.at || a.seq - b.seq;
@@ -112,7 +108,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     all.sort(compare);
 
-    if (!initialized && all.length > 0 && (loaded() !== undefined || failure() !== null)) {
+    if (!initialized && all.length > 0 && loaded() !== undefined) {
       // Anchor the oldest exposed entry: recovery may insert entries on either side.
       cutoff = all.length > 20 ? all[all.length - 20] : undefined;
       initialized = true;
@@ -207,7 +203,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   return <section class="todo-comments" aria-label={copy.activity}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     {history.feedback}
-    <ReservedLine message={failure()} dismiss={() => dismiss(problem())} recover={{ run: () => void refetch(), label: copy.commentRetry }} />
+    <ReservedLine message={failure()} dismiss={() => dismiss(loaded())} recover={{ run: () => void refetch(), label: copy.commentRetry }} />
     <Show when={(history.changes()?.length ?? 0) > 0}>
       <Collapsible.Root lazyMount unmountOnExit open={historyExpanded()} onOpenChange={details => setHistoryExpanded(details.open)}>
         <Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={historyExpanded() ? "down" : "right"} />{copy.historyEntries(history.changes()!.length)}</Collapsible.Trigger>

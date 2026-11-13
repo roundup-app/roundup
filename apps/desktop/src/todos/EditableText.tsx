@@ -37,15 +37,15 @@ type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: nu
 
 /** A failure carries the save count it belongs to and hides once that count moves on. */
 export const createSavedFailure = (count: () => number): [() => string | null, (message: string | null) => void] => {
-  const [held, hold] = createSignal<{ message: string; saved: number } | null>(null);
+  const [kept, keep] = createSignal<{ message: string; saved: number } | null>(null);
 
   const shown = () => {
-    const current = held();
+    const current = kept();
 
     return current && current.saved === count() ? current.message : null;
   };
 
-  return [shown, message => hold(message === null ? null : { message, saved: count() })];
+  return [shown, message => keep(message === null ? null : { message, saved: count() })];
 };
 
 /** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
