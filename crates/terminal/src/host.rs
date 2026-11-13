@@ -401,6 +401,7 @@ pub(super) fn run_params(
         "size".into(),
         serde_json::json!({"cols": params.cols, "rows": params.rows}),
     );
+    run.insert("display".into(), herdr::display());
     // MC52: the labels name the Terminal's Project, Agent and Attempt in the core's own list.
     if let Some(labels) = labels {
         run.insert("labels".into(), labels.clone());

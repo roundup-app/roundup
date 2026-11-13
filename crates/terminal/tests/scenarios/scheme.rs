@@ -177,8 +177,23 @@ async fn u6144a_the_kitty_ok_reaches_the_program_before_da1_in_one_chunk() {
         .spawn(sh(dir.path(), &script(&PROBE_BATCH.concat())))
         .await
         .unwrap();
-    let expected = hex("\x1b_Gi=31;OK\x1b\\\x1b[?62;22c");
+    let expected = hex("\x1b[6;0;0t\x1b_Gi=31;OK\x1b\\\x1b[?62;22c");
     assert_eq!(typed_back(&mut spawned).await, expected);
+}
+
+#[tokio::test]
+async fn u7029_the_daemon_sends_no_pixel_size_reply() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let mut spawned = terminals
+        .spawn(sh(dir.path(), &script(r"\033[14t\033[16t")))
+        .await
+        .unwrap();
+    // A zero size is "unknown" to Claude Code, which then stays on cell mouse reports.
+    assert_eq!(
+        typed_back(&mut spawned).await,
+        hex("\x1b[4;0;0t\x1b[6;0;0t")
+    );
 }
 
 #[tokio::test]
@@ -191,7 +206,7 @@ async fn u6144a_the_order_holds_when_the_chunk_splits_inside_the_kitty_query() {
         PROBE_BATCH[0], PROBE_BATCH[1]
     );
     let mut spawned = terminals.spawn(sh(dir.path(), &split)).await.unwrap();
-    let expected = hex("\x1b_Gi=31;OK\x1b\\\x1b[?62;22c");
+    let expected = hex("\x1b[6;0;0t\x1b_Gi=31;OK\x1b\\\x1b[?62;22c");
     assert_eq!(typed_back(&mut spawned).await, expected);
 }
 
