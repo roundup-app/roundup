@@ -292,15 +292,10 @@ export const App = (props: {
 
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 
-  const activeConnection = createMemo(() => {
-    const path = projects.active();
-
-    return path === null ? undefined : connectionOf(path);
-  });
+  const activeConnection = createMemo(() => connectionOf(projects.active() ?? ""));
 
   const activeFailure = createMemo(() => {
-    const path = projects.active();
-    const connection = path === null ? undefined : connections().get(path);
+    const connection = connections().get(projects.active() ?? "");
 
     return connection?.kind === "failed" && !connection.last ? connection.error : undefined;
   });
