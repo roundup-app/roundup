@@ -52,7 +52,7 @@ const actorOf = (save: Save) => save.kind === "conflict" ? save.actor : save.kin
 const conflictText = (actor: Actor | "unknown" | null, nameOf: (actor: Actor) => string) =>
   actor === null ? "" : actor === "unknown" ? copy.padChanged : copy.changedBy + nameOf(actor);
 
-const restoredSave = (changed: boolean | undefined | null | "" | 0, retained: unknown): Save =>
+const restoredSave = (changed: boolean, retained: boolean): Save =>
   changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" };
 
 const PadBody = (props: {
@@ -104,7 +104,7 @@ const PadBody = (props: {
   };
 
   const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
-  const cycle = createSave(restoredSave(changed, retained));
+  const cycle = createSave(restoredSave(Boolean(changed), Boolean(retained)));
   const deleted = () => cycle.save().kind === "deleted";
 
   const conflictActor = () => actorOf(cycle.save());
@@ -125,6 +125,7 @@ const PadBody = (props: {
     const problem = retentionProblem();
 
     if (save.kind === "deleted" && !save.byMe) return copy.padDeleted(name);
+
     if (problem) return copy.draftRetention(connected.project.name, copy.pad, problem.cause);
 
     return conflictActor() ? conflictLabel() : save.kind === "paused" ? statusLabel() : null;
