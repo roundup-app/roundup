@@ -135,6 +135,8 @@ export const copy = {
   worktreeUnavailableMark: dash,
   worktreeUnavailable: "Worktree state unavailable",
   thisMac: "This Mac",
+  startMachine: "Machine",
+  startMachineAuto: "Picked for you",
   machineOffline: "offline",
   machineOfflineState: (name: string) => `${name} is offline`,
   worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 })}↑`,
