@@ -6,8 +6,8 @@
 
 mod contract_handlers;
 mod error;
-pub use error::Error;
 use error::Locked;
+pub use error::{Error, FileError};
 mod host;
 mod input;
 mod integration;
@@ -753,6 +753,26 @@ impl Terminals {
         conn.exec(argv, cwd, limit)
             .await
             .map_err(|err| Error::core(&err).into())
+    }
+
+    /// MC32: the file at `path` on `machine`, through the core's `file.read`.
+    pub async fn file_read(&self, machine: &str, path: &str) -> Result<String, FileError> {
+        let conn = self.remotes.conn(machine).await.map_err(FileError::from)?;
+        conn.file_read(path, None).await.map_err(FileError::core)
+    }
+
+    /// MC32: `bytes` as the file at `path` on `machine`, through the core's `file.write`.
+    pub async fn file_write(
+        &self,
+        machine: &str,
+        path: &str,
+        bytes: &[u8],
+    ) -> Result<(), FileError> {
+        let conn = self.remotes.conn(machine).await.map_err(FileError::from)?;
+        conn.file_write(path, None, bytes)
+            .await
+            .map(drop)
+            .map_err(FileError::core)
     }
 
     /// MC30: the names of the Machines herdr-core lists, from this Mac's core.
