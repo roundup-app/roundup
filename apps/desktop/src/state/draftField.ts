@@ -58,9 +58,10 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
 
   const keep = (next: Value, caret: Caret) => {
     const draft = latest();
+    const read = value();
 
-    // The same value is no new work: a recovered, sent or settled revision keeps its caret; the owner's open one takes the new caret.
-    if (draft && sameValue(draft.value, next)) {
+    // The same value, as the schema reads it, is no new work: a recovered, sent or settled revision keeps its caret; the owner's open one takes the new caret.
+    if (draft && read.success && sameValue(read.output, next)) {
       if (draft.status === "draft" && !recovered() && !sameCaret(draft.selection, caret)) void drafts.setSelection(draft.revision, caret);
 
       return;
