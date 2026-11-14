@@ -10,6 +10,8 @@ export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: 
   return {
     /** Whether any other Machine exists; an Agent on this Mac shows a chip only then. */
     any: () => list().length > 0,
+    /** MC34: the Machines the user may name for a start. */
+    names: () => list().map(machine => machine.name),
     /** MC15: false only once roundup's ssh to the named Machine has failed to answer. */
     offline: (name: string) => list().find(machine => machine.name === name)?.reachable === false,
     /** Called once by the connected Project's rendered owner. */

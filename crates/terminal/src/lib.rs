@@ -9,6 +9,7 @@ mod error;
 use error::Locked;
 pub use error::{Error, FileError};
 mod host;
+pub use host::MachineLoad;
 mod input;
 mod integration;
 mod output;

@@ -298,6 +298,44 @@ impl Terminals {
         self.remotes.reachability()
     }
 
+    /// MC33: each Machine herdr-core lists with whether it answers and how many Terminals live on
+    /// it; this Mac is the entry named `None`. A Machine that does not answer in time is `live: None`.
+    pub async fn machine_load(&self) -> Result<MachineLoad, RpcError> {
+        let names = self.machine_names().await?;
+        self.load_among(names).await
+    }
+
+    pub(super) async fn load_among(&self, names: Vec<String>) -> Result<MachineLoad, RpcError> {
+        let (mut mac, mut live) = (0, BTreeMap::<String, usize>::new());
+        for entry in self.shared.table()?.values() {
+            if !entry.info.running {
+                continue;
+            }
+            match entry.handle.as_ref().and_then(|h| h.machine.clone()) {
+                Some(machine) => *live.entry(machine).or_default() += 1,
+                None => mac += 1,
+            }
+        }
+        let probes: Vec<_> = names
+            .into_iter()
+            .map(|name| {
+                let remotes = Arc::clone(&self.remotes);
+                let count = live.get(&name).copied().unwrap_or(0);
+                tokio::spawn(async move {
+                    let reachable = tokio::time::timeout(PICK_TIMEOUT, remotes.conn(&name))
+                        .await
+                        .is_ok_and(|conn| conn.is_ok());
+                    (name, reachable.then_some(count))
+                })
+            })
+            .collect();
+        let mut machines = Vec::new();
+        for probe in probes {
+            machines.extend(probe.await.ok());
+        }
+        Ok(MachineLoad { mac, machines })
+    }
+
     /// Use the herdr-core at `binary`, not the one on `PATH`.
     pub fn with_core(mut self, binary: impl Into<std::path::PathBuf>) -> Self {
         self.core_bin = Some(binary.into());
@@ -352,6 +390,15 @@ impl Terminals {
 }
 
 /// How long a call to the core may take before it is lost.
+/// MC33: how long the Door waits on a Machine before it picks another.
+const PICK_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// MC33: the Terminals alive on this Mac and on each listed Machine; `None` is unreachable.
+pub struct MachineLoad {
+    pub mac: usize,
+    pub machines: Vec<(String, Option<usize>)>,
+}
+
 pub(super) const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the

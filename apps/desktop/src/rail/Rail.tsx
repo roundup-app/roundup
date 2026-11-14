@@ -43,6 +43,7 @@ import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
+import { StartMachine } from "./StartMachine";
 import { createLaunch, railCommand } from "./railCommands";
 import { createDraftField } from "../state/draftField";
 import "./styles.css";
@@ -225,7 +226,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     if (prompt !== undefined) keepDraft(String(prompt));
   };
 
-  const endCompose = () => setComposing(false);
+  const endCompose = () => { setComposing(false); setStartMachine(""); };
 
   const { topology, sectionRows, rows, collection, settleCollection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id), () => container());
 
@@ -436,9 +437,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const launch = createLaunch(rail);
 
   /** U6000a, U6000d: the row shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired. Resolves with the new Agent's id. */
+  const [startMachine, setStartMachine] = createSignal("");
   const spawn = (prompt: string | null) => ({
     draw: () => rail.drawNew("agent", copy.newAgent, null),
-    call: async () => (await launch(size => app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, ...size }))).id,
+    call: async () => {
+      const machine = startMachine() || undefined;
+
+      return (await launch(size => app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, machine, ...size }))).id;
+    },
   });
 
   const spawnAgent = () => {
@@ -672,8 +678,9 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           onSubmit={(prompt) => {
             if (canSpawn()) submitPrompt(prompt);
           }}
-          onCancel={() => { setComposing(false); returnFocus(composeOpener); }}
+          onCancel={() => { endCompose(); returnFocus(composeOpener); }}
         />
+        <Show when={connected.machines.names().length > 0}><StartMachine names={connected.machines.names()} value={startMachine()} onChange={setStartMachine} /></Show>
       </Show>
       <Sortable.Root
         class="rail-sortable"

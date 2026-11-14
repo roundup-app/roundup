@@ -116,7 +116,14 @@ impl Agents {
 
     /// Put a new Agent in the Rail and start Claude Code for it in a Terminal.
     pub(super) async fn spawn(&self, ctx: &Ctx, params: SpawnParams) -> Result<RailNode, RpcError> {
-        let request = self.spawn_request(ctx, params)?;
+        let mut request = self.spawn_request(ctx, params)?;
+        if request.machine.is_none() {
+            // MC33: a folder on no Machine yet starts where the most capacity is free; this Mac
+            // when herdr-core cannot be read.
+            if let Ok(load) = self.shared.terminals.machine_load().await {
+                request.machine = crate::pick::pick(&load);
+            }
+        }
         let (id, attempt) = self.insert_spawned(&request)?;
         // U6000e: the starting row is published before the worktree, config and launch steps.
         ctx.emit(EventData::RailChanged);
