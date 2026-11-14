@@ -106,6 +106,11 @@ async fn main() -> ExitCode {
             print!("{}", skill::help_text());
             return ExitCode::SUCCESS;
         }
+        // MC25: the Mac compares this line with the one a machine's `rup` prints.
+        ["--version" | "-V"] => {
+            println!("rup {}", env!("CARGO_PKG_VERSION"));
+            return ExitCode::SUCCESS;
+        }
         ["relay"] => machine::relay().await,
         ["ping"] => ping(&options).await,
         ["signal", agent_id] if !agent_id.starts_with('-') => match signal(agent_id).await {

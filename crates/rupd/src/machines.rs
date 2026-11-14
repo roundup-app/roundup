@@ -1,4 +1,4 @@
-//! MC1, MC2: `machine.list` and `machine.add` are herdr-core's own; the Daemon opens a connection
+//! MC1, MC2, MC25: `machine.list` and `machine.add` are herdr-core's own; the Daemon opens a connection
 //! to the local core when asked and keeps no Machine row.
 
 use std::collections::BTreeMap;
@@ -11,6 +11,7 @@ use contracts::machine::{AddParams, Machine};
 use rpc::RpcError;
 use serde_json::Value;
 
+use crate::machine_install::{Setup, install};
 use crate::{Conn, Daemon};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -20,11 +21,14 @@ type Connect =
 
 /// Where a Machine call finds herdr-core: the local `herdr-core` program, unless a test says other.
 #[derive(Clone)]
-pub(crate) struct Core(Arc<Connect>);
+pub(crate) struct Core(Arc<Connect>, Option<Setup>);
 
 impl Default for Core {
     fn default() -> Self {
-        Self(Arc::new(|| Box::pin(herdr::Conn::connect_local(TIMEOUT))))
+        Self(
+            Arc::new(|| Box::pin(herdr::Conn::connect_local(TIMEOUT))),
+            Some(Setup::system()),
+        )
     }
 }
 
@@ -36,7 +40,13 @@ impl Core {
         + Sync
         + 'static,
     ) -> Self {
-        Self(Arc::new(connect))
+        Self(Arc::new(connect), None)
+    }
+
+    /// MC25: a core whose added machines are set up through `setup`.
+    pub(crate) fn with_setup(mut self, setup: Setup) -> Self {
+        self.1 = Some(setup);
+        self
     }
 }
 
@@ -74,6 +84,12 @@ impl Daemon {
     ) -> Result<Vec<Machine>, RpcError> {
         let core = (self.machine_core.0)().await.map_err(failed)?;
         core.machine_add(&params.name).await.map_err(failed)?;
+        if let Some(setup) = &self.machine_core.1 {
+            // MC25: the machine's Agents get roundup's hooks and tools.
+            install(setup, &params.name)
+                .await
+                .map_err(|f| RpcError::internal(format!("{}: {}", f.code, f.message)))?;
+        }
         Ok(listed(
             core.machine_list().await.map_err(failed)?,
             &self.terminals.machine_reachability(),
@@ -204,5 +220,28 @@ mod tests {
             .map(|m| m["name"].as_str().unwrap())
             .collect();
         assert_eq!(names, ["roundup-ci-control", "build-box"]);
+    }
+
+    #[tokio::test]
+    async fn mc25_add_sets_the_machine_up_and_a_missing_socat_fails_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _) = fake_core();
+        let setup = Setup::new(dir.path().into(), |_, _, _| {
+            Box::pin(async {
+                Ok(crate::machine_install::Ran {
+                    ok: true,
+                    stdout: "arch=x86_64\nsocat=no\n".into(),
+                })
+            })
+        });
+        let mut daemon = daemon_in(dir.path());
+        daemon.machine_core = core.with_setup(setup);
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":1,"method":"machine.add","params":{"name":"build-box"}}"#,
+        )
+        .await;
+        let message = reply["error"]["message"].as_str().unwrap();
+        assert!(message.starts_with("socat_missing"), "{message}");
     }
 }
