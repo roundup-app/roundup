@@ -305,8 +305,7 @@ export const App = (props: {
   const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
   const captureOwner = () => captureConnection() ?? activeConnection();
 
-  const [captureShow, setCaptureShow] = createSignal<() => void>();
-  const [capturePending, setCapturePending] = createSignal(false);
+  const [captureOpen, setCaptureOpen] = createSignal(false);
   const [captureChoosing, setCaptureChoosing] = createSignal(false);
 
   const openCapture = async () => {
@@ -320,16 +319,9 @@ export const App = (props: {
       if (projects.active() === null) return;
     }
 
-    setCapturePending(true);
+    setCaptureOpen(true);
   };
 
-  createEffect(() => {
-    const show = captureShow();
-
-    if (!capturePending() || !show) return;
-    setCapturePending(false);
-    show();
-  });
   createEffect(() => registerKeys({ kind: "app" }, [{
     action: CHORDS["todo.capture"],
     capture: () => ({
@@ -609,7 +601,7 @@ export const App = (props: {
               )}
             </InProject>
             <ProjectPicker projects={projects} />
-            <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
+            <InProject open={captureOwner()}>{(open) => <Capture open={captureOpen()} onOpenChange={setCaptureOpen} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
             <Help projectOpen={activeConnection() != null} />
             <Toasts queue={toasts} />
           </>
