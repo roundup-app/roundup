@@ -42,8 +42,8 @@ async fn on(f: &Fixture) -> (String, std::path::PathBuf) {
         .await
         .unwrap();
     let node = f.spawn(None, None).await.unwrap();
-    let path = node.worktree.expect("a Worktree").path.into();
-    (node.id, path)
+    let path = node.worktree().expect("a Worktree").path.into();
+    (node.base.id, path)
 }
 
 #[tokio::test]

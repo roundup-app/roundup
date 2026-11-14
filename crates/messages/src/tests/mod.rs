@@ -46,7 +46,7 @@ impl Module for FakeRail {
 }
 
 mod node;
-pub(crate) use node::node;
+pub(crate) use node::{at, edit, node, workstream};
 
 fn agent_node(id: &str, kind: Kind) -> RailNode {
     node(

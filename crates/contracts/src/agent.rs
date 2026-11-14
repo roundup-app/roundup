@@ -15,6 +15,8 @@ mod digest;
 pub use digest::{Digest, DigestEntry, DigestItem};
 mod ordinal;
 pub use ordinal::Ordinal;
+mod rail_node;
+pub use rail_node::{AgentNode, DoorFacts, NodeBase, RailNode, Role, WorkstreamNode};
 mod launch;
 pub use launch::{
     CreateModeParams, CreateWorkstreamParams, Extras, ExtrasAddParams, ModeRestartParams,
@@ -409,107 +411,6 @@ pub const ASK_CAP: usize = 200;
 
 /// O14: the most words of a Work order's `title`, split on whitespace.
 pub const TITLE_CAP: usize = 6;
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
-pub struct RailNode {
-    /// DCL2: on a Workstream, the most urgent state among its Door and all its descendant Agents;
-    /// apart from the Door's own `status`. Absent on every other node.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = WorkstreamState)]
-    pub workstream_state: Option<WorkstreamState>,
-    /// A5765e: captured foreign source identity, descriptive only; absent for ordinary Add.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = StartAttribution)]
-    pub start_attribution: Option<StartAttribution>,
-    #[serde(default)]
-    #[specta(optional)]
-    pub visibility: RailVisibility,
-    /// U5501: authoritative per-Agent choice; a Workstream stores its Door choice.
-    #[serde(default)]
-    #[specta(optional)]
-    pub alert_level: AlertLevel,
-    /// A3308: the Workstream's Auto choice; absent on an Agent.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = bool)]
-    pub auto: Option<bool>,
-    /// A4452c: the Mode Agent's saved prompt; absent on other nodes and when none is set.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub mode_prompt: Option<String>,
-    /// MC13: the Machine the Agent runs on; absent on this Mac and on every other node.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub machine: Option<String>,
-    pub id: String,
-    pub kind: NodeKind,
-    pub name: String,
-    pub parent: Option<String>,
-    /// Position among siblings; lower first.
-    pub order: u32,
-    /// `None` for Terminals.
-    pub status: Option<Status>,
-    /// Last allocated program attempt; present even after stop or reopen.
-    #[specta(type = Option<String>)]
-    pub attempt: Option<Ordinal>,
-    /// Status transition within the current Attempt; absent after reopen.
-    #[specta(type = Option<String>)]
-    pub status_revision: Option<Ordinal>,
-    /// U5483c: only authoritative known-empty final text can permit folding.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = FinalText)]
-    pub final_text: Option<FinalText>,
-    /// The Terminal behind an Agent or Terminal node.
-    pub terminal_id: Option<String>,
-    /// `None` for a Terminal, or when the Project's `worktrees` setting was off.
-    pub worktree: Option<Worktree>,
-    /// A22: true only for an exited Agent or Door with saved conversation data (A21) and no
-    /// start in flight. `false` for a Terminal.
-    pub can_resume: bool,
-    /// A5287: true exactly when `agent.makeWorkstream` would not refuse the node: an Agent with a
-    /// saved conversation that is no child of a Workstream, running or exited.
-    #[serde(default)]
-    pub can_make_workstream: bool,
-    /// A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup started.
-    #[serde(default)]
-    pub can_save_as_mode: bool,
-    /// Permission prompts are off for the last acknowledged Attempt; cleared on reopen.
-    #[serde(default)]
-    pub yolo: bool,
-    /// E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is no Door, a Terminal, and an Agent with no live Terminal.
-    pub channel: Option<Channel>,
-    /// O1: the order of an Agent or a Workstream's Door; `None` for a Terminal. Named `work` because `order` is the position among siblings.
-    pub work: Option<Order>,
-    /// F5: processes in a Door's Terminal tree that carry a vendor program's name and that the Daemon did not register. Empty for every other node, and for a Door with none.
-    pub stray: Vec<Stray>,
-    /// A36: the Model the Agent runs on; `None` passes none. `None` for a Terminal.
-    pub model: Option<String>,
-    /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
-    pub effort: Option<String>,
-    /// B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest check; absent before the first check and on a Terminal.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = Inbox)]
-    pub inbox: Option<Inbox>,
-    /// U3780a: the Agent's current or last tool call; absent until its first.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = ToolCall)]
-    pub tool_call: Option<ToolCall>,
-    /// DCL10: on a Workstream, the changes its Door has not received (stored backlog); absent when none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = u32)]
-    pub waiting: Option<u32>,
-    /// DCL1: why Messages to this Agent, or to a Workstream's Door, have not reached it (`inbox write failed`); absent when none is failing.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub unreachable: Option<String>,
-    /// U6248b: the Agent's turn ended on a Claude service error and roundup resumes it; absent when none does.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = ResumeWait)]
-    pub resume: Option<ResumeWait>,
-    /// A2681a: available conversation parts, only after the Agent's program exits.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = ConversationOverview)]
-    pub overview: Option<ConversationOverview>,
-}
 
 /// U6248b: where an Agent's resume stands. `at` is when, in milliseconds since the Unix epoch, the
 /// next resume is sent; `None` once the third was sent, when the row offers Resume.

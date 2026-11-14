@@ -13,9 +13,9 @@ async fn a4_spawn_runs_claude_with_the_agents_settings_and_lists_an_agent() {
     f.changed();
     let node = f.spawn(None, None).await.unwrap();
 
-    assert_eq!(node.kind, NodeKind::Agent);
-    assert!(node.terminal_id.is_some());
-    assert_eq!(node.status.as_ref().map(|s| s.kind), Some(Kind::Working));
+    assert_eq!(node.kind(), NodeKind::Agent);
+    assert!(node.terminal_id().is_some());
+    assert_eq!(node.status().map(|s| s.kind), Some(Kind::Working));
     assert_eq!(f.tree().await, std::slice::from_ref(&node));
     assert_eq!(f.changed(), 2, "the starting row, then the started one");
 
@@ -132,8 +132,8 @@ async fn a8_an_agent_whose_terminal_is_gone_comes_back_done() {
     let node = f.spawn(None, None).await.unwrap();
     let tree = f.reopen().tree().await;
     assert_eq!(tree[0].id, node.id);
-    assert_eq!(tree[0].status.as_ref().map(|s| s.kind), Some(Kind::Done));
-    assert_eq!(tree[0].terminal_id, None);
+    assert_eq!(tree[0].status().map(|s| s.kind), Some(Kind::Done));
+    assert_eq!(tree[0].terminal_id(), None);
 }
 
 #[tokio::test]
@@ -287,7 +287,7 @@ async fn u6000e_a_failed_spawn_leaves_no_starting_node() {
     };
     f.until(|t| {
         t.iter()
-            .any(|n| n.status.as_ref().is_some_and(|s| s.label == "starting"))
+            .any(|n| n.status().is_some_and(|s| s.label == "starting"))
     })
     .await;
     std::fs::remove_file(f.dir.path().join("fake-claude")).unwrap();

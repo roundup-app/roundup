@@ -23,7 +23,7 @@ impl<'a> RailIndex<'a> {
     pub(crate) fn workstream_of(&self, id: &str) -> Option<&'a RailNode> {
         let mut at = self.by_id.get(id).copied();
         while let Some(node) = at {
-            if node.kind == NodeKind::Workstream {
+            if node.kind() == NodeKind::Workstream {
                 return Some(node);
             }
             at = node

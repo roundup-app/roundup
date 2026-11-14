@@ -8,9 +8,17 @@ async fn a35_a_previously_stopped_door_restarts_with_its_retained_messages() {
         .send(Actor::user(), "door", "retained across the stop")
         .await;
     h.status("1", "2", Kind::Done).await;
-    h.rail.0.lock().unwrap()[0].status.as_mut().unwrap().kind = Kind::Done;
-    h.rail.0.lock().unwrap()[0].status_revision =
-        Some(contracts::agent::Ordinal::parse("2").unwrap());
+    h.rail.0.lock().unwrap()[0]
+        .door_mut()
+        .unwrap()
+        .status
+        .as_mut()
+        .unwrap()
+        .kind = Kind::Done;
+    h.rail.0.lock().unwrap()[0]
+        .door_mut()
+        .unwrap()
+        .status_revision = Some(contracts::agent::Ordinal::parse("2").unwrap());
     h.messages.reserve_restart("door", "c", None).await.unwrap();
     h.next();
     h.messages.release_restart("door", "c", "2").await.unwrap();
@@ -36,10 +44,9 @@ async fn a35_retirement_preserves_records_after_removal_and_old_events() {
         MessageStatus::Delivered
     );
     assert_eq!(h.messages.thread("door").unwrap()[0].id, delivered.id);
-    h.rail.0.lock().unwrap()[0] = RailNode {
-        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        ..agent_node("door", Kind::Working)
-    };
+    h.rail.0.lock().unwrap()[0] = edit(agent_node("door", Kind::Working), |door| {
+        door.status_revision = contracts::agent::Ordinal::parse("2");
+    });
     let written = h.inbox.written();
     h.send(Actor::user(), "door", "pending").await;
     h.send(agent("a"), "door", "second").await;
@@ -250,19 +257,16 @@ async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
     let h = RestartHarness::new(dir.path());
     let pending = h.send(Actor::user(), "door", "ordinary stop").await;
     h.status("1", "2", Kind::Done).await;
-    h.rail.0.lock().unwrap()[0] = RailNode {
-        visibility: Default::default(),
-        status: Some(Status {
+    h.rail.0.lock().unwrap()[0] = edit(workstream(agent_node("door", Kind::Done)), |door| {
+        door.status = Some(Status {
             kind: Kind::Done,
             label: "stopped".into(),
             since: 0,
             finished: "0".into(),
-        }),
-        status_revision: None,
-        terminal_id: None,
-        kind: NodeKind::Workstream,
-        ..agent_node("door", Kind::Done)
-    };
+        });
+        door.status_revision = None;
+        door.terminal_id = None;
+    });
     let before = h.messages.thread("door").unwrap();
     assert_eq!(
         (before[0].id, before[0].status, before[0].reason),

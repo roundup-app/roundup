@@ -114,7 +114,7 @@ fn r16_loaded_rail_keeps_complete_conversation_availability_in_tree_order() {
     let tree = rail.tree().unwrap();
     assert_eq!(
         tree.iter()
-            .map(|n| (n.id.as_str(), n.can_resume))
+            .map(|n| (n.id.as_str(), n.can_resume()))
             .collect::<Vec<_>>(),
         [
             (first.id.as_str(), false),
@@ -125,7 +125,7 @@ fn r16_loaded_rail_keeps_complete_conversation_availability_in_tree_order() {
     assert!(
         rail.node(crate::rail::agent_id(&child.id).unwrap())
             .unwrap()
-            .can_resume
+            .can_resume()
     );
 }
 
@@ -243,7 +243,7 @@ fn a8_reopening_unlinks_every_terminal_id() {
         .tree()
         .unwrap()
         .into_iter()
-        .map(|n| n.terminal_id)
+        .map(|n| n.terminal_id())
         .collect();
     assert_eq!(ids, [None, None]);
 }
@@ -255,6 +255,7 @@ fn a6_removing_a_node_closes_the_gap_among_its_siblings() {
         .map(|name| {
             rail.insert(NodeKind::Workstream, name, None, None)
                 .unwrap()
+                .base
                 .id
         })
         .into();
@@ -303,7 +304,7 @@ fn u6550c_placement_table_is_check_parent() {
     .unwrap();
     let make = |rail: &mut Rail, kind: NodeKind, name: &str| {
         let leaf = (kind == NodeKind::Agent).then_some("1");
-        rail.insert(kind, name, None, leaf).unwrap().id
+        rail.insert(kind, name, None, leaf).unwrap().base.id
     };
     let kinds = [
         (NodeKind::Workstream, "workstream"),
@@ -389,8 +390,8 @@ fn mc13_an_agent_records_its_machine_across_a_reopen() {
     let rail = Rail::open(&dir.path().join("agents.db")).unwrap();
     let id = |id: &str| super::agent_id(id).unwrap();
     assert_eq!(
-        rail.node(id(&remote.id)).unwrap().machine.as_deref(),
+        rail.node(id(&remote.id)).unwrap().machine(),
         Some("build-box")
     );
-    assert_eq!(rail.node(id(&local.id)).unwrap().machine, None);
+    assert_eq!(rail.node(id(&local.id)).unwrap().machine(), None);
 }

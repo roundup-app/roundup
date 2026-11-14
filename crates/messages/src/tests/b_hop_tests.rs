@@ -151,15 +151,16 @@ impl Hops {
             .iter_mut()
             .filter(|n| n.id == id)
         {
-            node.status = Some(status.clone());
+            node.door_mut().unwrap().status = Some(status.clone());
             revision = node
-                .status_revision
+                .status_revision()
                 .as_deref()
                 .unwrap()
                 .parse::<i64>()
                 .unwrap()
                 + 1;
-            node.status_revision = Some(contracts::agent::Ordinal::new(revision).unwrap());
+            node.door_mut().unwrap().status_revision =
+                Some(contracts::agent::Ordinal::new(revision).unwrap());
         }
         self.bus.emit(
             Actor::daemon(),
@@ -180,7 +181,7 @@ impl Hops {
 fn idle(h: &Hops, ids: &[&str]) {
     for node in h.rail.0.lock().unwrap().iter_mut() {
         if ids.contains(&node.id.as_str()) {
-            node.status = Some(Status {
+            node.door_mut().unwrap().status = Some(Status {
                 kind: Kind::Idle,
                 label: "x".into(),
                 since: 0,

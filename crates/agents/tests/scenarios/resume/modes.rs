@@ -14,7 +14,7 @@ async fn a2693a_missing_data_does_not_stop_the_target() {
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+        .find(|t| Some(&t.id) == node.terminal_id())
         .unwrap();
     assert!(terminal.running);
 }
@@ -32,9 +32,9 @@ async fn a2693a_yolo_argv_and_node_agree_after_ack() {
         })
     };
     let pending = f
-        .until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .until_attempt_changed(&node.id, node.attempt().unwrap())
         .await;
-    assert!(!pending.iter().find(|n| n.id == node.id).unwrap().yolo);
+    assert!(!pending.iter().find(|n| n.id == node.id).unwrap().yolo());
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
         .unwrap();
@@ -84,15 +84,15 @@ async fn a2693a_running_and_exited_targets_continue_once_in_each_mode() {
                 assert_eq!(resumed.name, node.name);
                 assert_eq!(resumed.parent, node.parent);
                 assert_eq!(resumed.order, node.order);
-                assert_eq!(resumed.worktree, node.worktree);
-                assert_ne!(resumed.terminal_id, node.terminal_id);
+                assert_eq!(resumed.worktree(), node.worktree());
+                assert_ne!(resumed.terminal_id(), node.terminal_id());
                 let terminals = f.terminals.list().await;
                 assert_eq!(terminals.len(), 2, "exactly one next launch");
                 assert_eq!(terminals.iter().filter(|t| t.running).count(), 1);
                 assert!(
                     !terminals
                         .iter()
-                        .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+                        .find(|t| Some(&t.id) == node.terminal_id())
                         .unwrap()
                         .running
                 );
@@ -133,7 +133,7 @@ async fn a2693a_every_normal_launch_clears_yolo() {
                 let id = node.id.clone();
                 tokio::spawn(async move { start_door(&f, &id).await })
             };
-            f.until_attempt_changed(&node.id, yolo.attempt.as_deref().unwrap())
+            f.until_attempt_changed(&node.id, yolo.attempt().unwrap())
                 .await;
             f.session_start(&node.id, CONVERSATION, "resume")
                 .await
@@ -142,7 +142,7 @@ async fn a2693a_every_normal_launch_clears_yolo() {
         } else {
             resume_in_mode(&f, &yolo, mode).await
         };
-        assert!(!normal.yolo);
+        assert!(!normal.yolo());
         assert!(
             !until_resumed(&f)
                 .await
@@ -163,7 +163,7 @@ async fn a2693a_concurrent_actions_never_launch_twice() {
         let id = node.id.clone();
         tokio::spawn(async move { f.call("agent.resume", json!({"id":id,"mode":"yolo"})).await })
     };
-    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+    f.until_attempt_changed(&node.id, node.attempt().unwrap())
         .await;
     for method in ["agent.resume", "agent.stop", "rail.remove"] {
         let err = f
@@ -199,7 +199,7 @@ async fn a2693a_exit_keeps_and_reopen_clears_the_attempt_mode() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .yolo
+            .yolo()
     );
     let f = Arc::try_unwrap(f).ok().unwrap().reopen();
     assert!(
@@ -208,7 +208,7 @@ async fn a2693a_exit_keeps_and_reopen_clears_the_attempt_mode() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .yolo
+            .yolo()
     );
 }
 
@@ -228,8 +228,8 @@ async fn a2693a_failed_start_does_not_publish_the_requested_mode() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    assert!(!after.yolo);
-    assert_eq!(after.terminal_id, node.terminal_id);
+    assert!(!after.yolo());
+    assert_eq!(after.terminal_id(), node.terminal_id());
 }
 
 #[tokio::test]
@@ -312,7 +312,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
     tokio::time::timeout(Duration::from_secs(10), async {
         while f
             .terminals
-            .snapshot(node.terminal_id.as_deref().unwrap())
+            .snapshot(node.terminal_id().unwrap())
             .unwrap()
             .after
             == 0
@@ -322,10 +322,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
     })
     .await
     .unwrap();
-    let mut exit = f
-        .terminals
-        .subscribe(node.terminal_id.as_deref().unwrap())
-        .unwrap();
+    let mut exit = f.terminals.subscribe(node.terminal_id().unwrap()).unwrap();
     f.call("agent.stop", json!({"id":node.id})).await.unwrap();
     tokio::time::timeout(Duration::from_secs(10), async {
         while !matches!(
@@ -341,10 +338,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    let before = f
-        .terminals
-        .snapshot(node.terminal_id.as_deref().unwrap())
-        .unwrap();
+    let before = f.terminals.snapshot(node.terminal_id().unwrap()).unwrap();
     let err = f
         .call("agent.resume", json!({"id":node.id,"mode":"yolo"}))
         .await
@@ -356,13 +350,13 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    assert_eq!(after.terminal_id, old_node.terminal_id);
+    assert_eq!(after.terminal_id(), old_node.terminal_id());
     assert_eq!(after.name, node.name);
-    assert!(!after.yolo);
+    assert!(!after.yolo());
     assert!(f.terminals.list().await.iter().all(|t| !t.running));
     assert_eq!(
         f.terminals
-            .snapshot(node.terminal_id.as_deref().unwrap())
+            .snapshot(node.terminal_id().unwrap())
             .unwrap()
             .data,
         before.data
@@ -399,7 +393,7 @@ async fn a2693a_cleanup_stop_keeps_the_last_acknowledged_mode() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .yolo
+            .yolo()
     );
     fail.store(false, Ordering::SeqCst);
     f.call("agent.stop", json!({"id":node.id})).await.unwrap();
@@ -409,6 +403,6 @@ async fn a2693a_cleanup_stop_keeps_the_last_acknowledged_mode() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .yolo
+            .yolo()
     );
 }

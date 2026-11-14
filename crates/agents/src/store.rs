@@ -107,7 +107,7 @@ impl Agents {
             } else {
                 recovery.recover(project, &plan).and_then(|()| {
                     Launcher::discard(dir, &node.id).map_err(RpcError::internal)?;
-                    if node.kind == NodeKind::Agent {
+                    if node.kind() == NodeKind::Agent {
                         Ok(rail.remove(crate::rail::agent_id(&node.id)?)?)
                     } else {
                         Ok(rail.clear_worktree(crate::rail::agent_id(&node.id)?)?)
@@ -642,6 +642,7 @@ pub(super) mod tests {
             .rail()
             .insert(NodeKind::Agent, "a", parent, Some("1"))
             .unwrap()
+            .base
             .id;
         shared
             .runs()
@@ -655,6 +656,7 @@ pub(super) mod tests {
             .rail()
             .insert(NodeKind::Agent, "t", parent, Some("1"))
             .unwrap()
+            .base
             .id
     }
 

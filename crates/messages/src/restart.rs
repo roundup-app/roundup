@@ -95,10 +95,10 @@ impl Messages {
             .find(|n| n.id == agent)
             .ok_or_else(|| Error::not_found(agent))?;
         if let Some(prompt) = first_prompt {
-            let retained_target = match node.kind {
+            let retained_target = match node.kind() {
                 contracts::agent::NodeKind::Workstream => true,
                 contracts::agent::NodeKind::Agent => {
-                    node.parent.is_none() && node.mode_prompt.as_deref() == Some(prompt)
+                    node.parent.is_none() && node.mode_prompt().as_deref() == Some(prompt)
                 }
                 contracts::agent::NodeKind::Group => false,
             };
@@ -276,7 +276,7 @@ impl Messages {
         if at.0 != attempt
             || attempt <= restart.before
             || ended(node)
-            || node.status_revision.is_none()
+            || node.status_revision().is_none()
         {
             return Err(Error::conflict("matching restarted Attempt not live"));
         }

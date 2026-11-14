@@ -47,7 +47,13 @@ async fn u3780a_calls_stay_with_their_agent() {
     assert_eq!(done[0].call.duration_ms, Some(9));
 
     let tree = f.tree().await;
-    let of = |id: &str| tree.iter().find(|n| n.id == id).unwrap().tool_call.clone();
+    let of = |id: &str| {
+        tree.iter()
+            .find(|n| n.id == id)
+            .unwrap()
+            .tool_call()
+            .cloned()
+    };
     assert_eq!(of(&a.id).unwrap().state, ToolCallState::Done);
     assert_eq!(of(&b.id), None);
 }
@@ -73,7 +79,7 @@ async fn a3360a_a_megabyte_tool_name_is_cut_to_64_characters() {
         .iter()
         .find(|n| n.id == node.id)
         .unwrap()
-        .tool_call
+        .tool_call()
         .as_ref()
         .unwrap();
     assert_eq!(call, &announced[0].call);
@@ -103,7 +109,7 @@ async fn a3360a_the_cut_falls_on_a_character_boundary() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .tool_call
+            .tool_call()
             .as_ref()
             .unwrap();
         assert_eq!(call.tool, expected);

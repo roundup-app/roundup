@@ -16,7 +16,7 @@ fn shape(tree: &[RailNode]) -> Vec<(String, Option<String>, u32)> {
 async fn a26_create_workstream_with_a_parent_is_conflict_and_changes_nothing() {
     let mut f = Fixture::new();
     let w = f.workstream("w", None).await;
-    let agent = f.spawn(Some(&w), None).await.unwrap().id;
+    let agent = f.spawn(Some(&w), None).await.unwrap().base.id;
     let before = shape(&f.tree().await);
     f.changed();
     for parent in [&w, &agent] {
@@ -38,7 +38,7 @@ async fn a26_move_a_workstream_under_a_workstream_or_agent_is_conflict() {
     let mut f = Fixture::new();
     let a = f.workstream("a", None).await;
     let b = f.workstream("b", None).await;
-    let agent = f.spawn(Some(&b), None).await.unwrap().id;
+    let agent = f.spawn(Some(&b), None).await.unwrap().base.id;
     let before = shape(&f.tree().await);
     f.changed();
     for parent in [&b, &agent] {
@@ -59,7 +59,7 @@ async fn a26_a_new_workstream_holds_its_door_alone() {
     let tree = f.tree().await;
     assert_eq!(tree.len(), 1);
     assert_eq!(
-        (tree[0].id.as_str(), tree[0].kind),
+        (tree[0].id.as_str(), tree[0].kind()),
         (w.as_str(), NodeKind::Workstream)
     );
 }
@@ -68,7 +68,7 @@ async fn a26_a_new_workstream_holds_its_door_alone() {
 async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door() {
     let f = Fixture::new();
     let d = f.workstream("d", None).await;
-    let a = f.spawn_as(&d, None).await.unwrap().id;
+    let a = f.spawn_as(&d, None).await.unwrap().base.id;
     let b = f.spawn_as_agent(&a).await;
     let tree = f.tree().await;
     let ids: Vec<_> = tree.iter().map(|n| n.id.as_str()).collect();
@@ -82,7 +82,7 @@ async fn a26_an_agent_parent_param_from_an_agent_is_ignored() {
     let f = Fixture::new();
     let d = f.workstream("d", None).await;
     let other = f.workstream("other", None).await;
-    let a = f.spawn_as(&d, None).await.unwrap().id;
+    let a = f.spawn_as(&d, None).await.unwrap().base.id;
     let b = f.spawn_as(&a, Some(&other)).await.unwrap();
     assert_eq!(b.parent.as_deref(), Some(a.as_str()));
 }
@@ -91,8 +91,8 @@ async fn a26_an_agent_parent_param_from_an_agent_is_ignored() {
 async fn a26_move_an_agent_under_an_agent_is_conflict() {
     let mut f = Fixture::new();
     let w = f.workstream("w", None).await;
-    let a = f.spawn(Some(&w), None).await.unwrap().id;
-    let b = f.spawn(Some(&w), None).await.unwrap().id;
+    let a = f.spawn(Some(&w), None).await.unwrap().base.id;
+    let b = f.spawn(Some(&w), None).await.unwrap().base.id;
     let before = shape(&f.tree().await);
     f.changed();
     let err = f

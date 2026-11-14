@@ -164,7 +164,7 @@ impl Intake {
                     .find_map(|(at, _)| {
                         rail.iter()
                             .any(|node| {
-                                node.kind == NodeKind::Workstream
+                                node.kind() == NodeKind::Workstream
                                     && node.name.to_lowercase() == rest[..at].to_lowercase()
                             })
                             .then_some((&rest[..at], &rest[at + 1..]))
@@ -174,7 +174,7 @@ impl Intake {
         let parts = if let Some((workstream, project, first)) = captured {
             if !rail
                 .iter()
-                .any(|node| node.id == workstream && node.kind == NodeKind::Workstream)
+                .any(|node| node.id == workstream && node.kind() == NodeKind::Workstream)
             {
                 return self.fail(
                     &ask.id,
@@ -192,7 +192,7 @@ impl Intake {
             let ids: Vec<_> = rail
                 .iter()
                 .filter(|node| {
-                    node.kind == NodeKind::Workstream
+                    node.kind() == NodeKind::Workstream
                         && node.name.to_lowercase() == name.to_lowercase()
                 })
                 .map(|node| node.id.clone())
@@ -383,7 +383,7 @@ impl Intake {
                     )
                     .await;
                 match result {
-                    Ok(node) => match node.attempt {
+                    Ok(node) => match node.attempt() {
                         None => Err(RpcError::internal("started Door has no attempt")),
                         Some(attempt) => match self
                             .agents
@@ -478,7 +478,7 @@ impl Intake {
             let result: Result<(), String> = match node {
                 Err(_) => Err("the Workstream was removed".to_owned()),
                 Ok(node) => {
-                    if node.terminal_id.is_none() {
+                    if node.terminal_id().is_none() {
                         match self
                             .agents
                             .start_door(
@@ -497,7 +497,7 @@ impl Intake {
                             .await
                         {
                             Ok(started) => {
-                                if let Some(attempt) = started.attempt {
+                                if let Some(attempt) = started.attempt() {
                                     match self
                                         .agents
                                         .first_steer_completion(workstream, &attempt)
@@ -707,7 +707,7 @@ impl Asks {
                 }
                 if let Some(id) = &workstream {
                     let node = shared.agents.shared.node(id)?;
-                    if node.kind != NodeKind::Workstream {
+                    if node.kind() != NodeKind::Workstream {
                         return Err(RpcError::new(
                             code::INVALID_PARAMS,
                             "target must be a Workstream",
@@ -870,7 +870,7 @@ impl Asks {
                         .shared
                         .node(&id)
                         .map_err(|_| RpcError::new(code::INVALID_PARAMS, "unknown Workstream"))?
-                        .kind
+                        .kind()
                         != NodeKind::Workstream
                     {
                         return Err(RpcError::new(
@@ -944,7 +944,7 @@ fn placed_parts(
                 return Err(invalid("placed parts must be spans of the Ask text"));
             }
             if let Place::Routed { workstream, .. } = &part.placement
-                && shared.agents.shared.node(workstream)?.kind != NodeKind::Workstream
+                && shared.agents.shared.node(workstream)?.kind() != NodeKind::Workstream
             {
                 return Err(invalid("target must be a Workstream"));
             }

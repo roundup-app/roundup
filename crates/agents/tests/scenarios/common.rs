@@ -271,7 +271,7 @@ impl Fixture {
 
     /// The id of the Agent that Agent `caller` starts.
     pub async fn spawn_as_agent(&self, caller: &str) -> String {
-        self.spawn_as(caller, None).await.unwrap().id
+        self.spawn_as(caller, None).await.unwrap().base.id
     }
 
     pub async fn workstream(&self, name: &str, parent: Option<&str>) -> String {
@@ -290,7 +290,7 @@ impl Fixture {
             .await
             .into_iter()
             .find(|n| n.id == id)
-            .and_then(|n| n.attempt.map(String::from))
+            .and_then(|n| n.attempt().map(String::from))
             .unwrap_or_else(|| "1".into())
     }
 
@@ -337,7 +337,7 @@ pub async fn until_file(path: &Path) -> String {
 pub fn status_of<'a>(tree: &'a [RailNode], id: &str) -> &'a Status {
     tree.iter()
         .find(|node| node.id == id)
-        .and_then(|node| node.status.as_ref())
+        .and_then(|node| node.status())
         .expect("an Agent has a Status")
 }
 

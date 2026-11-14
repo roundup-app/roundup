@@ -30,7 +30,8 @@ impl Module for StaleOnce {
         }
         let stale = self.stale.swap(false, std::sync::atomic::Ordering::SeqCst);
         let mut node = agent_node("b", if stale { Kind::Working } else { Kind::Idle });
-        node.status_revision = contracts::agent::Ordinal::parse(if stale { "1" } else { "2" });
+        node.door_mut().unwrap().status_revision =
+            contracts::agent::Ordinal::parse(if stale { "1" } else { "2" });
         Ok(serde_json::to_value(vec![node]).unwrap())
     }
 }
@@ -99,7 +100,7 @@ async fn b2_initial_acknowledgement_waits_for_idle_reconciliation() {
 /// `failure` and records no receipt; `kind` is sent once.
 async fn recovering_note(dir: &Path, kind: &str, failure: contracts::agent::Inbox) -> Harness {
     let mut receiver = agent_node("b", Kind::Idle);
-    receiver.terminal_id = Some("terminal-b".into());
+    receiver.door_mut().unwrap().terminal_id = Some("terminal-b".into());
     let h = Harness::with_inbox(dir, vec![agent_node("a", Kind::Working), receiver]);
     h.inbox.receipt(false);
     h.inbox.set(failure);
@@ -122,7 +123,7 @@ async fn recovering_note(dir: &Path, kind: &str, failure: contracts::agent::Inbo
 
 fn rail_for_recovery() -> Vec<RailNode> {
     let mut receiver = agent_node("b", Kind::Idle);
-    receiver.terminal_id = Some("terminal-b".into());
+    receiver.door_mut().unwrap().terminal_id = Some("terminal-b".into());
     vec![agent_node("a", Kind::Working), receiver]
 }
 

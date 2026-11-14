@@ -588,7 +588,7 @@ pub(crate) async fn is_door(client: &rpc::Client, id: &str) -> Result<bool, Stri
             serde_json::from_value::<Vec<agent::RailNode>>(tree).is_ok_and(|nodes| {
                 nodes
                     .iter()
-                    .any(|node| node.id == id && node.kind == agent::NodeKind::Workstream)
+                    .any(|node| node.id == id && node.kind() == agent::NodeKind::Workstream)
             }),
         ),
         Ok(Err(err)) => Err(format!("the Daemon would not show the Rail: {err}")),

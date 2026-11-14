@@ -30,12 +30,12 @@ pub(crate) fn derive(nodes: &mut [RailNode], stalled: &HashSet<String>) {
         .collect();
     let workstreams: HashSet<&str> = nodes
         .iter()
-        .filter(|n| n.kind == NodeKind::Workstream)
+        .filter(|n| n.kind() == NodeKind::Workstream)
         .map(|n| n.id.as_str())
         .collect();
     let mut states: HashMap<String, WorkstreamState> = HashMap::new();
     for node in nodes.iter() {
-        let Some(mut add) = node.status.as_ref().and_then(|s| contribution(s.kind)) else {
+        let Some(mut add) = node.status().and_then(|s| contribution(s.kind)) else {
             continue;
         };
         // DCL5: a working Agent with no activity is stalled, which outranks working.
@@ -56,13 +56,12 @@ pub(crate) fn derive(nodes: &mut [RailNode], stalled: &HashSet<String>) {
         }
     }
     for node in nodes.iter_mut() {
-        if node.kind == NodeKind::Workstream {
-            node.workstream_state = Some(
-                states
-                    .get(&node.id)
-                    .copied()
-                    .unwrap_or(WorkstreamState::Idle),
-            );
+        let state = states
+            .get(&node.base.id)
+            .copied()
+            .unwrap_or(WorkstreamState::Idle);
+        if let Some(workstream) = node.workstream_mut() {
+            workstream.workstream_state = Some(state);
         }
     }
 }
@@ -78,15 +77,18 @@ pub(crate) fn present(
     for node in nodes.iter_mut() {
         // DCL1: the cause rides the Agent's row and, through its Door, the Workstream's.
         let cause = messages.and_then(|messages| messages.delivery_failure(&node.id));
-        node.unreachable = cause.map(str::to_owned);
-        if node.kind == NodeKind::Workstream {
-            node.waiting = counts
-                .get(&node.id)
-                .copied()
-                .filter(|n| *n > 0 && messages::ended(node));
-            if stalled.contains(&node.id)
-                && let Some(status) = node.status.as_mut()
-            {
+        let ended = messages::ended(node);
+        let waiting = counts
+            .get(&node.base.id)
+            .copied()
+            .filter(|n| *n > 0 && ended);
+        let stall = stalled.contains(&node.base.id);
+        if let Some(door) = node.door_mut() {
+            door.unreachable = cause.map(str::to_owned);
+        }
+        if let Some(workstream) = node.workstream_mut() {
+            workstream.waiting = waiting;
+            if stall && let Some(status) = workstream.door.status.as_mut() {
                 status.label = "stalled".into();
             }
         }
@@ -103,14 +105,14 @@ pub(crate) fn told_of(nodes: &[RailNode]) -> Told {
     nodes
         .iter()
         .map(|n| {
-            let stalled = n.kind == NodeKind::Workstream
-                && n.status.as_ref().is_some_and(|s| s.label == "stalled");
+            let stalled = n.kind() == NodeKind::Workstream
+                && n.status().is_some_and(|s| s.label == "stalled");
             (
                 n.id.clone(),
                 (
-                    n.workstream_state,
-                    n.waiting,
-                    n.unreachable.clone(),
+                    n.workstream().and_then(|w| w.workstream_state),
+                    n.workstream().and_then(|w| w.waiting),
+                    n.door().and_then(|d| d.unreachable.clone()),
                     stalled,
                 ),
             )

@@ -126,7 +126,7 @@ async fn terminal_cwd(f: &Fixture, node: &RailNode) -> String {
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+        .find(|t| Some(&t.id) == node.terminal_id())
         .unwrap()
         .cwd
 }
@@ -156,13 +156,13 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
     set_worktrees(&f, true, None).await;
     let id = f.workstream("workstream", None).await;
     let node = start_door(&f, &id).await.unwrap();
-    let path = PathBuf::from(node.worktree.unwrap().path);
+    let path = PathBuf::from(node.worktree().unwrap().path);
     crate::common::until_file(&path.join("ready")).await;
     std::fs::remove_file(path.join("ready")).unwrap();
     std::fs::write(path.join("dirty"), "keep").unwrap();
     f.call(
         "agent.signal",
-        json!({"id":id,"attempt":node.attempt,"payload":{"hook_event_name":"Stop"}}),
+        json!({"id":id,"attempt":node.attempt(),"payload":{"hook_event_name":"Stop"}}),
     )
     .await
     .unwrap();
@@ -172,16 +172,13 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
         tokio::spawn(async move { f.call("rail.remove", json!({"id":id})).await })
     };
     crate::common::until_file(&parked).await;
-    let mut titles = f
-        .terminals
-        .subscribe(node.terminal_id.as_ref().unwrap())
-        .unwrap();
+    let mut titles = f.terminals.subscribe(node.terminal_id().unwrap()).unwrap();
     // The Working a title brings after a Stop lasts until DCL3's next process-table read
     // (one `ps`, about 40 ms on macOS, less on Linux), so the test reads `agent.status` events
     // and never polls the tree for it.
     let mut statuses = f.bus.subscribe();
     f.terminals
-        .write(node.terminal_id.as_ref().unwrap(), b"title\n")
+        .write(node.terminal_id().unwrap(), b"title\n")
         .await
         .unwrap();
     let mut title_received = false;
@@ -206,16 +203,16 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
     let refused = removing.await.unwrap().unwrap_err();
     assert!(refused.message.starts_with("worktree_unlanded:"));
     f.terminals
-        .write(node.terminal_id.as_ref().unwrap(), b"exit\n")
+        .write(node.terminal_id().unwrap(), b"exit\n")
         .await
         .unwrap();
     assert!(
         observed.is_ok(),
         "a rejected removal must not revoke its live watcher; title_received={title_received}; tree={:?}; terminal={:?}",
         f.tree().await,
-        f.terminals.snapshot(node.terminal_id.as_ref().unwrap())
+        f.terminals.snapshot(node.terminal_id().unwrap())
     );
-    f.until(|tree| tree[0].status.as_ref().unwrap().kind == contracts::Kind::Done)
+    f.until(|tree| tree[0].status().unwrap().kind == contracts::Kind::Done)
         .await;
 }
 
@@ -304,7 +301,7 @@ mod prepared {
             "readiness ran in the enrolled directory, already on the Agent branch"
         );
         assert_eq!(lines.next().unwrap(), "launch");
-        let worktree = node.worktree.expect("a Worktree");
+        let worktree = node.worktree().expect("a Worktree");
         assert_eq!(PathBuf::from(&worktree.path), dir);
         assert_eq!(git(&dir, &["rev-parse", "HEAD"]), commit);
         assert_eq!(head(&dir), worktree.branch);
@@ -772,7 +769,7 @@ mod prepared {
             .await
             .unwrap_err();
         assert!(err.message.contains("worktree_unlanded"), "{}", err.message);
-        assert_eq!(head(&dir), node.worktree.as_ref().unwrap().branch);
+        assert_eq!(head(&dir), node.worktree().unwrap().branch);
         assert_eq!(f.tree().await.len(), 1);
         let err = f.spawn(None, None).await.unwrap_err();
         assert!(err.message.starts_with("no_prepared_directory"));
@@ -895,7 +892,7 @@ mod prepared {
                     // any work in it, and no second start can take it.
                     let tree = f.tree().await;
                     assert_eq!(tree.len(), 1);
-                    let branch = tree[0].worktree.as_ref().unwrap().branch.clone();
+                    let branch = tree[0].worktree().unwrap().branch.clone();
                     assert_eq!(head(&dir), branch);
                     if dirty {
                         assert_eq!(std::fs::read(dir.join("scratch.txt")).unwrap(), b"work\n");
@@ -926,7 +923,7 @@ mod prepared {
                     "{}",
                     err.message
                 );
-                assert_eq!(owner.worktree.unwrap().path, dir.to_string_lossy());
+                assert_eq!(owner.worktree().unwrap().path, dir.to_string_lossy());
             }
         }
     }
@@ -977,7 +974,7 @@ mod prepared {
 
         let tree = f.tree().await;
         assert_eq!(tree.len(), 1);
-        assert_eq!(tree[0].worktree, node.worktree);
+        assert_eq!(tree[0].worktree(), node.worktree());
         assert_eq!(std::fs::read(dir.join("work.txt")).unwrap(), b"mine");
         let err = f.spawn(None, None).await.unwrap_err();
         assert!(

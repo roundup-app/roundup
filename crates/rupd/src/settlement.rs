@@ -91,7 +91,7 @@ fn descendants<'a>(nodes: &'a [RailNode], door: &str) -> Vec<&'a RailNode> {
             .iter()
             .filter(|n| n.parent.as_deref() == Some(&parent))
         {
-            if node.kind == NodeKind::Agent {
+            if node.kind() == NodeKind::Agent {
                 found.push(node);
             }
             parents.push(node.id.clone());
@@ -106,8 +106,14 @@ fn marker(children: &[&RailNode]) -> String {
     let mut parts: Vec<String> = children
         .iter()
         .map(|c| {
-            let finished = c.status.as_ref().map_or("0", |s| s.finished.as_str());
-            format!("{}/{}/{finished}", c.id, c.attempt.as_deref().unwrap_or(""))
+            let finished = c.status().map_or("0", |s| s.finished.as_str());
+            format!(
+                "{}/{}/{finished}",
+                c.id,
+                c.attempt()
+                    .as_ref()
+                    .map_or("", contracts::agent::Ordinal::as_str)
+            )
         })
         .collect();
     parts.sort();
@@ -118,7 +124,7 @@ fn marker(children: &[&RailNode]) -> String {
 /// A child is at work, waiting on something or asking the user.
 fn busy(child: &RailNode) -> bool {
     child
-        .status
+        .status()
         .as_ref()
         .is_some_and(|s| matches!(s.kind, Kind::Working | Kind::Blocked | Kind::NeedsYou))
 }
@@ -146,7 +152,7 @@ fn due(
     quiet: &mut Option<i64>,
 ) -> Vec<Due> {
     let mut due = Vec::new();
-    for door in nodes.iter().filter(|n| n.kind == NodeKind::Workstream) {
+    for door in nodes.iter().filter(|n| n.kind() == NodeKind::Workstream) {
         let children = descendants(nodes, &door.id);
         let ids: HashSet<&str> = children
             .iter()
@@ -161,9 +167,9 @@ fn due(
         // A child that never finished a turn changed nothing worth settling.
         let finished = children
             .iter()
-            .any(|c| c.status.as_ref().is_some_and(|s| s.finished != "0"));
+            .any(|c| c.status().is_some_and(|s| s.finished != "0"));
         // A stopped Door is told nothing; its changes wait for the start, as B21's entries do.
-        let stopped = door.status.as_ref().is_some_and(|s| s.kind == Kind::Done);
+        let stopped = door.status().is_some_and(|s| s.kind == Kind::Done);
         if !finished
             || stopped
             || pending
@@ -176,7 +182,7 @@ fn due(
         // The children have rested for the quiet period, or the pass after it comes back.
         let last = children
             .iter()
-            .filter_map(|c| c.status.as_ref().map(|s| s.since))
+            .filter_map(|c| c.status().map(|s| s.since))
             .max()
             .unwrap_or(0);
         let left = last + store.1 - now;

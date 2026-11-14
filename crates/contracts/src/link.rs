@@ -31,7 +31,7 @@ pub fn object_link(kind: &str, id: &str, key: &str) -> String {
 /// under `workstream`.
 #[must_use]
 pub fn node_link(key: &str, node: &RailNode) -> Option<String> {
-    let kind = match node.kind {
+    let kind = match node.kind() {
         NodeKind::Agent => "agent",
         NodeKind::Workstream => "workstream",
         NodeKind::Group => return None,

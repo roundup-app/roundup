@@ -115,7 +115,7 @@ impl Agents {
 
     fn import_agent_list(&self, agent: &str) -> Result<ImportList, RpcError> {
         let node = self.shared.rail().node(crate::rail::agent_id(agent)?)?;
-        if node.kind != NodeKind::Agent {
+        if node.kind() != NodeKind::Agent {
             return Err(RpcError::forbidden("the listing identity must be an Agent"));
         }
         let file = std::fs::File::open(

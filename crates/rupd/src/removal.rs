@@ -63,7 +63,7 @@ impl Daemon {
         if let Some(operation) = p.operation {
             let homes: Vec<_> = tree
                 .iter()
-                .filter(|n| p.ids.contains(&n.id) && n.kind == NodeKind::Workstream)
+                .filter(|n| p.ids.contains(&n.id) && n.kind() == NodeKind::Workstream)
                 .map(|n| n.id.clone())
                 .collect();
             let todos = Arc::clone(&self.todos);
@@ -120,7 +120,7 @@ impl Daemon {
                 .iter()
                 .find(|n| n.id == *id)
                 .ok_or_else(|| RpcError::not_found("Rail selection"))?;
-            if node.kind == NodeKind::Workstream {
+            if node.kind() == NodeKind::Workstream {
                 let removal: Removal = serde_json::from_value(
                     self.remove_workstream(actor, id, RemoveScope::This).await?,
                 )

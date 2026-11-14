@@ -11,13 +11,13 @@ pub(super) fn status(kind: Kind, label: &str) -> Status {
 }
 
 fn node(id: &str, kind: NodeKind, parent: Option<&str>, label: &str) -> RailNode {
-    RailNode {
-        name: format!("{id}-name"),
-        parent: parent.map(Into::into),
-        status: Some(status(Kind::Working, label)),
-        status_revision: None,
-        ..crate::tests::node(id, kind, false, None)
-    }
+    let mut node = crate::tests::edit(crate::tests::node(id, kind, false, None), |door| {
+        door.status = Some(status(Kind::Working, label));
+        door.status_revision = None;
+    });
+    node.base.name = format!("{id}-name");
+    node.base.parent = parent.map(Into::into);
+    node
 }
 
 pub(super) fn todo(id: u32, creator: &str, done: bool) -> Todo {
@@ -415,7 +415,7 @@ fn b21_only_a_change_to_kind_todos_or_pads_is_pushed_and_once() {
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
 
     // A Kind change.
-    nodes[1].status = Some(status(Kind::Idle, "done"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "done"));
     let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
     assert_eq!(pushes.len(), 1);
     assert_eq!(pushes[0].meta, "m");
@@ -424,7 +424,7 @@ fn b21_only_a_change_to_kind_todos_or_pads_is_pushed_and_once() {
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
 
     // A label that leaves Kind, Todos and Pads as they were.
-    nodes[1].status = Some(status(Kind::Idle, "still done"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "still done"));
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
 
     // A Todo, then a Pad.
@@ -452,7 +452,7 @@ fn b35_ten_idle_working_flips_push_nothing() {
         } else {
             Kind::Working
         };
-        nodes[1].status = Some(status(kind, "reading"));
+        nodes[1].door_mut().unwrap().status = Some(status(kind, "reading"));
         assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
     }
 }
@@ -473,9 +473,9 @@ fn b35_a_flip_pair_between_two_changes_leaves_the_weight_total_exact() {
         total += u32::try_from(pushes.len()).unwrap();
     };
     step(&nodes, &one, 1);
-    nodes[1].status = Some(status(Kind::Idle, "reading"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "reading"));
     step(&nodes, &one, 0);
-    nodes[1].status = Some(status(Kind::Working, "reading"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Working, "reading"));
     step(&nodes, &one, 0);
     step(&nodes, &two, 1);
     assert_eq!(total, 2);
@@ -487,7 +487,7 @@ fn b35_a_flip_with_a_new_last_line_is_pushed() {
     let mut nodes = rail();
     let none: Vec<Todo> = vec![];
     seen.baseline(&sources(&nodes, &none, &[], &[]));
-    nodes[1].status = Some(status(Kind::Idle, "I filed #1077"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "I filed #1077"));
     let pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
     assert_eq!(pushes.len(), 1);
     assert_eq!(pushes[0].entry.last, "I filed #1077");
@@ -500,7 +500,7 @@ fn b35_entering_each_of_blocked_and_done_is_pushed() {
         let mut nodes = rail();
         let none: Vec<Todo> = vec![];
         seen.baseline(&sources(&nodes, &none, &[], &[]));
-        nodes[1].status = Some(status(kind, "reading"));
+        nodes[1].door_mut().unwrap().status = Some(status(kind, "reading"));
         assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
     }
 }
@@ -512,10 +512,10 @@ fn b43_other_kind_changes_are_pushed_as_b21_says() {
         let mut nodes = rail();
         let none: Vec<Todo> = vec![];
         seen.baseline(&sources(&nodes, &none, &[], &[]));
-        nodes[1].status = Some(status(kind, "reading"));
+        nodes[1].door_mut().unwrap().status = Some(status(kind, "reading"));
         assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
         // The change is told, so the way out of it is a change again.
-        nodes[1].status = Some(status(Kind::Done, "reading"));
+        nodes[1].door_mut().unwrap().status = Some(status(Kind::Done, "reading"));
         assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
     }
 }
@@ -526,7 +526,7 @@ fn b21_a_push_is_told_at_once_and_offered_again_once_released() {
     let mut nodes = rail();
     let none: Vec<Todo> = vec![];
     seen.baseline(&sources(&nodes, &none, &[], &[]));
-    nodes[1].status = Some(status(Kind::Idle, "done"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "done"));
     let mut pushes = seen.changed(&sources(&nodes, &none, &[], &[]));
     assert_eq!(pushes.len(), 1);
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
@@ -578,7 +578,7 @@ fn b23_a_child_that_ended_before_it_was_removed_and_one_that_moved_get_no_second
     let mut nodes = rail();
     nodes.push(node("n", NodeKind::Workstream, None, "other"));
     seen.baseline(&sources(&nodes, &none, &[], &[]));
-    nodes[1].status = Some(status(Kind::Done, "finished"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Done, "finished"));
     assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
 
     nodes.remove(1);
@@ -633,8 +633,8 @@ fn b23_a_last_push_that_failed_is_offered_again() {
 #[test]
 fn a5482c_non_door_coordinator_receives_the_fallback() {
     let mut nodes = rail();
-    nodes[0].kind = NodeKind::Agent;
-    let attempt = nodes[1].attempt.clone().unwrap();
+    nodes[0].kind() = NodeKind::Agent;
+    let attempt = nodes[1].attempt().unwrap();
     let seen = Seen::default();
     let mut from = sources(&nodes, &[], &[], &[]);
     seen.baseline(&from);
@@ -667,13 +667,13 @@ fn a5482c_non_door_coordinator_receives_the_fallback() {
 fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
     for (pushed, since) in [(false, 30), (true, 30), (false, 60), (true, 60)] {
         let mut nodes = rail();
-        nodes[1].status = Some(Status {
+        nodes[1].door_mut().unwrap().status = Some(Status {
             // A same-turn permission prompt can advance Status after the note.
             since,
             finished: "1".into(),
             ..status(Kind::Working, "reading page two")
         });
-        let attempt = nodes[1].attempt.clone().unwrap();
+        let attempt = nodes[1].attempt().unwrap();
         let seen = Seen::default();
         let notes = [sent(40, "a", "m", "starting page two")];
         let mut from = sources(&nodes, &[], &[], &[]);
@@ -710,12 +710,12 @@ fn b5519a_a_later_turn_note_replaces_the_previous_final_text() {
 #[test]
 fn b5519a_the_next_completed_turn_replaces_its_progress_note() {
     let mut nodes = rail();
-    nodes[1].status = Some(Status {
+    nodes[1].door_mut().unwrap().status = Some(Status {
         since: 50,
         finished: "2".into(),
         ..status(Kind::Idle, "idle")
     });
-    let attempt = nodes[1].attempt.clone().unwrap();
+    let attempt = nodes[1].attempt().unwrap();
     let notes = [sent(40, "a", "m", "starting page two")];
     let mut from = sources(&nodes, &[], &[], &notes);
     from.completed.insert(
@@ -730,13 +730,15 @@ fn b5519a_the_next_completed_turn_replaces_its_progress_note() {
 fn b37_an_older_idle_snapshot_cannot_supersede_a_needs_you_digest() {
     let seen = Seen::default();
     let mut idle = rail();
-    idle[1].status = Some(status(Kind::Idle, "idle"));
-    idle[1].status_revision = Some(contracts::agent::Ordinal::parse("4").unwrap());
+    idle[1].door_mut().unwrap().status = Some(status(Kind::Idle, "idle"));
+    idle[1].door_mut().unwrap().status_revision =
+        Some(contracts::agent::Ordinal::parse("4").unwrap());
     seen.baseline(&sources(&idle, &[], &[], &[]));
 
     let mut asking = idle.clone();
-    asking[1].status = Some(status(Kind::NeedsYou, "Bash: ls"));
-    asking[1].status_revision = Some(contracts::agent::Ordinal::parse("5").unwrap());
+    asking[1].door_mut().unwrap().status = Some(status(Kind::NeedsYou, "Bash: ls"));
+    asking[1].door_mut().unwrap().status_revision =
+        Some(contracts::agent::Ordinal::parse("5").unwrap());
     seen.entry_of("a", &sources(&asking, &[], &[], &[]), true)
         .unwrap();
 
@@ -864,7 +866,7 @@ fn b5641d_no_change_work_and_allocations() {
 #[test]
 fn b5641b_projection_preserves_entries_and_pushes() {
     let mut data = projection_fixture(24, 100);
-    data.0[3].status = None;
+    data.0[3].door_mut().unwrap().status = None;
     data.1[1].creator.kind = ActorKind::Ext;
     data.1[2].creator.kind = ActorKind::User;
     data.2[0].name = "成果-10-prefix".into();
@@ -895,7 +897,7 @@ fn b5641b_projection_preserves_entries_and_pushes() {
     let touches = from.touches.clone();
     seen.baseline(&from);
     let before = seen.ask(&Actor::user(), "m", &from).unwrap();
-    data.0[2].status = Some(status(Kind::Done, "done"));
+    data.0[2].door_mut().unwrap().status = Some(status(Kind::Done, "done"));
     let mut from = projection_sources(&data);
     from.touches = touches;
     let pushes = seen.changed(&from);
@@ -913,10 +915,10 @@ fn b5641c_fresh_sources_keep_delivery_history() {
     seen.baseline(&projection_sources(&data));
     drop(data);
     let mut replacement = projection_fixture(2, 0);
-    replacement.0[2].status = Some(status(Kind::Blocked, "blocked"));
+    replacement.0[2].door_mut().unwrap().status = Some(status(Kind::Blocked, "blocked"));
     let fresh = || {
         let mut from = projection_sources(&replacement);
-        let attempt = replacement.0[2].attempt.as_ref().unwrap();
+        let attempt = replacement.0[2].attempt().unwrap();
         from.completed.insert(
             "c0".into(),
             (format!("{attempt}:1"), 10, 20, "answer".into()),
@@ -952,7 +954,8 @@ fn b5641b_completion_keeps_question_and_note_time_bounds() {
         (None, 19, "1", "final"),
     ] {
         let mut nodes = rail();
-        nodes[1].attempt = Some(contracts::agent::Ordinal::parse(attempt).unwrap());
+        nodes[1].door_mut().unwrap().attempt =
+            Some(contracts::agent::Ordinal::parse(attempt).unwrap());
         let mut note = sent(10, "a", "m", "note");
         note.at = note_at;
         let mut messages = vec![note];
@@ -981,7 +984,7 @@ fn b5641b_end_entries_keep_the_child_summary_and_bounds() {
         let seen = Seen::default();
         let mut nodes = rail();
         seen.baseline(&sources(&nodes, &[], &[], &[]));
-        nodes[1].status = Some(status(Kind::Done, "done"));
+        nodes[1].door_mut().unwrap().status = Some(status(Kind::Done, "done"));
         let mut messages = vec![sent(100, "b", "m", "another child's summary")];
         if let Some(body) = body {
             messages.push(sent(1, "a", "m", &body));

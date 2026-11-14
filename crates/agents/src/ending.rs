@@ -14,7 +14,7 @@ impl Agents {
     pub async fn exit_running(&self) -> Result<(), RpcError> {
         let nodes = self.shared.rail().tree()?;
         let mut exits = tokio::task::JoinSet::new();
-        for terminal_id in nodes.into_iter().filter_map(|node| node.terminal_id) {
+        for terminal_id in nodes.into_iter().filter_map(|node| node.terminal_id()) {
             let terminals = Arc::clone(&self.shared.terminals);
             exits.spawn(async move {
                 if let Ok(mut exit) = terminals.subscribe(&terminal_id) {
@@ -70,7 +70,7 @@ impl Shared {
         if self
             .rail()
             .node(crate::rail::agent_id(id)?)?
-            .worktree
+            .worktree()
             .is_none()
         {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
@@ -99,13 +99,10 @@ impl Shared {
         } else {
             None
         };
-        if let Some(worktree) = checked_node
-            .as_ref()
-            .and_then(|node| node.worktree.as_ref())
-        {
+        if let Some(worktree) = checked_node.as_ref().and_then(|node| node.worktree()) {
             let git = self.git.bounded();
             let project = self.project_dir.clone();
-            let worktree = worktree::Worktree::from(worktree);
+            let worktree = worktree::Worktree::from(&worktree);
             tokio::task::spawn_blocking(move || git.require_landed(&project, &worktree))
                 .await
                 .map_err(RpcError::internal)??;
@@ -114,7 +111,7 @@ impl Shared {
             let rail = self.rail();
             let mut node = rail.node(crate::rail::agent_id(id)?)?;
             if checked_node.as_ref().is_some_and(|checked| {
-                checked.attempt != node.attempt || checked.worktree != node.worktree
+                checked.attempt() != node.attempt() || checked.worktree() != node.worktree()
             }) {
                 return Err(RpcError::conflict(format!(
                     "{id} changed during Worktree precheck"
@@ -122,7 +119,7 @@ impl Shared {
             }
             let mut runs = self.runs();
             if !remove
-                && node.terminal_id.is_none()
+                && node.terminal_id().is_none()
                 && runs
                     .slot(id)
                     .is_none_or(|s| matches!(s, Slot::Running(r) if r.ended()))
@@ -141,7 +138,9 @@ impl Shared {
                     if !run.begin_closing() {
                         return Err(RpcError::conflict(format!("{id} is stopping")));
                     }
-                    node.terminal_id = Some(run.terminal_id().to_owned());
+                    if let Some(door) = node.door_mut() {
+                        door.terminal_id = Some(run.terminal_id().to_owned());
+                    }
                 }
                 None | Some(Slot::Gone) => {
                     runs.put(id, Slot::Closing);
@@ -155,7 +154,9 @@ impl Shared {
                     if *pending {
                         return Err(error.clone());
                     }
-                    node.terminal_id = Some(terminal_id.clone());
+                    if let Some(door) = node.door_mut() {
+                        door.terminal_id = Some(terminal_id.clone());
+                    }
                     *pending = true;
                 }
                 Some(Slot::Closing) => {
@@ -163,9 +164,9 @@ impl Shared {
                 }
             }
             (
-                node.terminal_id,
+                node.terminal_id(),
                 matches!(ending, Ending::Remove | Ending::Discard)
-                    .then_some(node.worktree)
+                    .then_some(node.worktree())
                     .flatten(),
             )
         };

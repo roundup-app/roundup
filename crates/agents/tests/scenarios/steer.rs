@@ -76,7 +76,7 @@ async fn idle(bound: Duration) -> (Arc<Fixture>, String) {
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
     start(&f, &node.id).await;
-    (f, node.id)
+    (f, node.base.id)
 }
 
 fn steer(
@@ -275,7 +275,7 @@ async fn a4452c_only_the_user_sets_the_mode_prompt() {
             .iter()
             .find(|n| n.id == mode_id)
             .unwrap()
-            .mode_prompt
+            .mode_prompt()
             .as_deref(),
         Some("Initial mode prompt")
     );
@@ -284,7 +284,7 @@ async fn a4452c_only_the_user_sets_the_mode_prompt() {
     let tree = f.tree().await;
     let node = tree.iter().find(|n| n.id == mode_id).unwrap();
     assert_eq!(node.name, "team");
-    assert_eq!(node.mode_prompt.as_deref(), Some(prompt));
+    assert_eq!(node.mode_prompt(), Some(prompt));
 }
 
 #[tokio::test]
@@ -449,7 +449,7 @@ async fn b37_live_error_owner_is_open_until_terminal_exit() {
         .into_iter()
         .find(|node| node.id == id)
         .unwrap()
-        .terminal_id
+        .terminal_id()
         .unwrap();
     f.terminals.kill(&terminal).await.unwrap();
     f.until(|tree| {
@@ -484,8 +484,8 @@ async fn b6_first_steer_completion_refuses_a_stale_attempt() {
     assert_eq!(
         f.agents.first_steer_completion(&node.id, "999").await,
         Err(agents::PromptError::NotFound {
-            id: node.id,
-            name: node.name
+            id: node.base.id,
+            name: node.base.name
         })
     );
 }
@@ -498,7 +498,7 @@ async fn o2_a_spawn_without_prompt_or_order_types_nothing_and_holds_no_order() {
 
     assert_eq!(read(&typed(&f)), "");
     let tree: Vec<contracts::agent::RailNode> = f.tree().await;
-    assert_eq!(tree.iter().find(|node| node.id == id).unwrap().work, None);
+    assert_eq!(tree.iter().find(|node| node.id == id).unwrap().work(), None);
 }
 
 async fn named_idle() -> (Arc<Fixture>, String) {
@@ -510,7 +510,7 @@ async fn named_idle() -> (Arc<Fixture>, String) {
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
     start(&f, &node.id).await;
-    (f, node.id)
+    (f, node.base.id)
 }
 
 #[tokio::test]

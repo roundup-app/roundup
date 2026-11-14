@@ -45,7 +45,7 @@ impl Facts {
     fn ended(&self, nodes: &[RailNode], todos: &[Todo], messages: &[Message]) -> Vec<Fact> {
         let doors: HashMap<&str, &RailNode> = nodes
             .iter()
-            .filter(|n| n.kind == NodeKind::Workstream)
+            .filter(|n| n.kind() == NodeKind::Workstream)
             .map(|n| (n.id.as_str(), n))
             .collect();
         let mut facts = Vec::new();
@@ -54,7 +54,7 @@ impl Facts {
                 continue;
             };
             if !child
-                .status
+                .status()
                 .as_ref()
                 .is_some_and(|s| matches!(s.kind, Kind::Done | Kind::Error))
             {
@@ -78,7 +78,10 @@ impl Facts {
             let key = format!(
                 "{door}/{}/{}",
                 child.id,
-                child.attempt.as_deref().unwrap_or("")
+                child
+                    .attempt()
+                    .as_ref()
+                    .map_or("", contracts::agent::Ordinal::as_str)
             );
             if self.ended.contains(&key)
                 || messages
@@ -101,7 +104,7 @@ impl Facts {
         self.stalled.retain(|id| stalled.contains(id));
         let doors: HashSet<&str> = nodes
             .iter()
-            .filter(|n| n.kind == NodeKind::Workstream)
+            .filter(|n| n.kind() == NodeKind::Workstream)
             .map(|n| n.id.as_str())
             .collect();
         nodes
@@ -129,7 +132,7 @@ impl Facts {
             .retain(|id, seen| counts.get(id).is_some_and(|count| count >= seen));
         let doors: HashSet<&str> = nodes
             .iter()
-            .filter(|n| n.kind == NodeKind::Workstream)
+            .filter(|n| n.kind() == NodeKind::Workstream)
             .map(|n| n.id.as_str())
             .collect();
         nodes

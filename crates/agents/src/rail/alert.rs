@@ -13,9 +13,9 @@ impl Rail {
         let target = find(&nodes, id)?;
         let stored = serde_json::to_string(&level)?;
         for node in &nodes {
-            if (node.kind == NodeKind::Agent || node.attempt.is_some())
+            if (node.kind() == NodeKind::Agent || node.attempt().is_some())
                 && (AgentId::parse(&node.id) == Some(id)
-                    || (target.kind == NodeKind::Workstream
+                    || (target.kind() == NodeKind::Workstream
                         && is_within(&nodes, &node.id, &id.to_string())))
             {
                 tx.execute(

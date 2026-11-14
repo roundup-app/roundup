@@ -50,8 +50,8 @@ async fn g1_off_leaves_spawn_as_a4_says() {
 
     let node = f.spawn(None, None).await.unwrap();
 
-    assert_eq!(node.worktree, None);
-    assert_eq!(f.tree().await[0].worktree, None);
+    assert_eq!(node.worktree(), None);
+    assert_eq!(f.tree().await[0].worktree(), None);
 }
 
 #[tokio::test]
@@ -64,7 +64,7 @@ async fn g2_spawn_makes_branch_and_worktree() {
 
     let node = f.spawn(None, None).await.unwrap();
 
-    let worktree = node.worktree.clone().expect("a Worktree");
+    let worktree = node.worktree().expect("a Worktree");
     assert_eq!(worktree.branch, format!("roundup/agent-{}", node.id));
     assert_eq!(worktree.base, "main");
     assert_eq!(
@@ -90,7 +90,7 @@ async fn g2_spawn_makes_branch_and_worktree() {
     assert!(
         git_output(f.dir.path(), &["worktree", "list"]).contains(path.to_string_lossy().as_ref())
     );
-    assert_eq!(f.tree().await[0].worktree, Some(worktree));
+    assert_eq!(f.tree().await[0].worktree(), Some(worktree));
 }
 
 #[tokio::test]
@@ -101,7 +101,7 @@ async fn g2_base_is_the_branch_checked_out_not_always_main() {
 
     let node = f.spawn(None, None).await.unwrap();
 
-    assert_eq!(node.worktree.unwrap().base, "feature");
+    assert_eq!(node.worktree().unwrap().base, "feature");
 }
 
 #[tokio::test]
@@ -219,7 +219,7 @@ async fn g2_two_spawns_have_different_cwds() {
             .list()
             .await
             .into_iter()
-            .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+            .find(|t| Some(&t.id) == node.terminal_id())
             .unwrap()
             .cwd
     }
@@ -228,7 +228,7 @@ async fn g2_two_spawns_have_different_cwds() {
     let b = f.spawn(None, None).await.unwrap();
 
     assert_ne!(cwd_of(&f, &a).await, cwd_of(&f, &b).await);
-    assert_ne!(a.worktree.unwrap().path, b.worktree.unwrap().path);
+    assert_ne!(a.worktree().unwrap().path, b.worktree().unwrap().path);
 }
 
 #[tokio::test]
@@ -242,7 +242,7 @@ async fn g2_two_start_doors_have_different_cwds() {
             .list()
             .await
             .into_iter()
-            .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+            .find(|t| Some(&t.id) == node.terminal_id())
             .unwrap()
             .cwd
     }
@@ -251,7 +251,7 @@ async fn g2_two_start_doors_have_different_cwds() {
     let b = start_door(&f, &g2).await.unwrap();
 
     assert_ne!(cwd_of(&f, &a).await, cwd_of(&f, &b).await);
-    assert_ne!(a.worktree.unwrap().path, b.worktree.unwrap().path);
+    assert_ne!(a.worktree().unwrap().path, b.worktree().unwrap().path);
 }
 
 #[tokio::test]
@@ -266,13 +266,13 @@ async fn g2_subfolder_cwd_maps_into_the_worktree() {
 
     let node = spawn_in(&f, &sub, None).await.unwrap();
 
-    let worktree_path = PathBuf::from(&node.worktree.unwrap().path);
+    let worktree_path = PathBuf::from(&node.worktree().unwrap().path);
     let cwd = f
         .terminals
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+        .find(|t| Some(&t.id) == node.terminal_id())
         .unwrap()
         .cwd;
     assert_eq!(cwd, worktree_path.join("sub").to_string_lossy());
@@ -321,9 +321,9 @@ async fn g2_failed_start_door_leaves_a_stopped_workstream() {
     assert_eq!(err.code, code::INTERNAL);
     let tree = f.tree().await;
     assert_eq!(tree.len(), 1);
-    assert_eq!(tree[0].kind, NodeKind::Workstream);
-    assert!(tree[0].terminal_id.is_none());
-    assert_eq!(tree[0].worktree, None);
+    assert_eq!(tree[0].kind(), NodeKind::Workstream);
+    assert!(tree[0].terminal_id().is_none());
+    assert_eq!(tree[0].worktree(), None);
     assert_eq!(git_state(f.dir.path()), before);
 }
 
@@ -332,7 +332,7 @@ async fn g2_failed_start_door_leaves_children_where_they_were() {
     let wrapper = tempfile::tempdir().unwrap();
     let f = Fixture::in_git_project("sleep 30", failing_git(wrapper.path()));
     let workstream = f.workstream("team", None).await;
-    let child = f.spawn(Some(&workstream), None).await.unwrap().id;
+    let child = f.spawn(Some(&workstream), None).await.unwrap().base.id;
     set_worktrees(&f, true, None).await;
     let before = git_state(f.dir.path());
 
@@ -341,8 +341,8 @@ async fn g2_failed_start_door_leaves_children_where_they_were() {
     assert_eq!(err.code, code::INTERNAL);
     let tree = f.tree().await;
     let group_node = tree.iter().find(|node| node.id == workstream).unwrap();
-    assert_eq!(group_node.kind, NodeKind::Workstream);
-    assert!(group_node.terminal_id.is_none());
+    assert_eq!(group_node.kind(), NodeKind::Workstream);
+    assert!(group_node.terminal_id().is_none());
     let child_node = tree.iter().find(|node| node.id == child).unwrap();
     assert_eq!(child_node.parent.as_deref(), Some(workstream.as_str()));
     assert_eq!(git_state(f.dir.path()), before);
@@ -433,7 +433,7 @@ async fn g2_terminal_gets_no_worktree() {
         .await
         .unwrap();
 
-    assert!(f.tree().await.iter().all(|node| node.worktree.is_none()));
+    assert!(f.tree().await.iter().all(|node| node.worktree().is_none()));
     assert_eq!(git_state(f.dir.path()), before);
 }
 
@@ -451,9 +451,9 @@ async fn g2_start_failure_of_start_door_leaves_a_stopped_workstream() {
     assert_eq!(err.code, code::INTERNAL);
     let tree = f.tree().await;
     assert_eq!(tree.len(), 1);
-    assert_eq!(tree[0].kind, NodeKind::Workstream);
-    assert!(tree[0].terminal_id.is_none());
-    assert_eq!(tree[0].worktree, None);
+    assert_eq!(tree[0].kind(), NodeKind::Workstream);
+    assert!(tree[0].terminal_id().is_none());
+    assert_eq!(tree[0].worktree(), None);
     assert_eq!(git_state(f.dir.path()), before);
     assert_eq!(f.changed(), 2, "the starting row, then its rollback");
 }
@@ -516,11 +516,11 @@ async fn g2_spawn_at_the_project_root_runs_in_the_worktree_root() {
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id.as_ref())
+        .find(|t| Some(&t.id) == node.terminal_id())
         .unwrap()
         .cwd;
     assert_eq!(
         std::fs::canonicalize(cwd).unwrap(),
-        std::fs::canonicalize(node.worktree.unwrap().path).unwrap()
+        std::fs::canonicalize(node.worktree().unwrap().path).unwrap()
     );
 }

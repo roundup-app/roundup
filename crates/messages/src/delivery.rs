@@ -160,7 +160,7 @@ async fn apply_status(
         };
         nodes
             .iter()
-            .any(|node| node.id == agent && node.kind == contracts::agent::NodeKind::Workstream)
+            .any(|node| node.id == agent && node.kind() == contracts::agent::NodeKind::Workstream)
     } else {
         false
     };
@@ -174,7 +174,7 @@ async fn apply_status(
         (
             node.is_none_or(ended),
             node.is_some_and(|node| {
-                binding(node) == at && node.status.as_ref().is_some_and(|s| s.kind == Kind::Error)
+                binding(node) == at && node.status().is_some_and(|s| s.kind == Kind::Error)
             }),
         )
     } else {
@@ -362,13 +362,13 @@ async fn try_deliver_pending(inner: &Arc<Inner>, agent: &str) -> Result<(), Erro
     if let Some(node) = nodes.iter().find(|node| {
         node.id == agent
             && !ended(node)
-            && node.status_revision.is_some()
-            && node.status.as_ref().is_some_and(ready)
+            && node.status_revision().is_some()
+            && node.status().is_some_and(ready)
     }) {
         on_idle(inner, agent, binding(node), Pick::Fresh).await?;
     } else if let Some(node) = nodes
         .iter()
-        .find(|node| node.id == agent && !ended(node) && node.status_revision.is_some())
+        .find(|node| node.id == agent && !ended(node) && node.status_revision().is_some())
     {
         // U6296a: a live receiver that is not ready keeps its Messages pending, with the reason.
         let ids: Vec<u32> = lock(&inner.store)
@@ -403,10 +403,10 @@ pub(super) fn ready(status: &contracts::Status) -> bool {
 
 pub(super) fn binding(node: &RailNode) -> store::Binding {
     (
-        node.attempt
+        node.attempt()
             .as_ref()
             .map_or(0, contracts::agent::Ordinal::get),
-        node.status_revision
+        node.status_revision()
             .as_ref()
             .map_or(0, contracts::agent::Ordinal::get),
     )
@@ -414,14 +414,20 @@ pub(super) fn binding(node: &RailNode) -> store::Binding {
 
 /// Whether the node's program is not running: never started, finished, or failed with no Terminal.
 pub fn ended(node: &RailNode) -> bool {
-    ((node.status_revision.is_none() || node.status.is_none()) && node.terminal_id.is_none())
-        || node.status.as_ref().is_some_and(|s| {
-            s.kind == Kind::Done || (s.kind == Kind::Error && node.terminal_id.is_none())
-        })
+    // RO5: a Group has no program, so none runs.
+    let Some(door) = node.role.door() else {
+        return true;
+    };
+    let terminal = door.terminal_id.is_some();
+    ((door.status_revision.is_none() || door.status.is_none()) && !terminal)
+        || door
+            .status
+            .as_ref()
+            .is_some_and(|s| s.kind == Kind::Done || (s.kind == Kind::Error && !terminal))
 }
 
 fn permanently_ended(node: &RailNode) -> bool {
-    ended(node) && node.terminal_id.is_none()
+    ended(node) && node.terminal_id().is_none()
 }
 
 /// A reattached Terminal restarts its Status counter, so pending bindings must not wait
@@ -439,10 +445,10 @@ fn reconcile_node(
             && state.closed_revision == i64::MAX
             && state.closed
     });
-    if node.terminal_id.is_some()
+    if node.terminal_id().is_some()
         && !ended(node)
         && store.retirement(&node.id)?.is_none()
-        && (restart || node.status_revision.is_none() || poisoned)
+        && (restart || node.status_revision().is_none() || poisoned)
     {
         store.atomically(|store| {
             for message in store.list_pending_to(&node.id)? {
@@ -477,7 +483,7 @@ fn reconcile_node(
             } else {
                 End::Live
             },
-            receiver: receiver_of(node.kind == contracts::agent::NodeKind::Workstream),
+            receiver: receiver_of(node.kind() == contracts::agent::NodeKind::Workstream),
             restart,
         },
     )

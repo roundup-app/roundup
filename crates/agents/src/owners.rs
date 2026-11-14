@@ -31,7 +31,12 @@ impl Agents {
         let Some((core_id, adopted)) = self.shared.terminals.core_record(terminal_id)? else {
             return Ok(());
         };
-        let Some(attempt) = self.shared.rail().node(crate::rail::agent_id(id)?)?.attempt else {
+        let Some(attempt) = self
+            .shared
+            .rail()
+            .node(crate::rail::agent_id(id)?)?
+            .attempt()
+        else {
             return Ok(());
         };
         let file = self.shared.owner_file(id);
@@ -95,7 +100,7 @@ impl Agents {
     /// Agents. A core that cannot be reached leaves each Agent's start to read the list (MC53).
     async fn reconcile_core(&self) {
         let ids: Vec<String> = match self.shared.rail().tree() {
-            Ok(nodes) => nodes.into_iter().map(|node| node.id).collect(),
+            Ok(nodes) => nodes.into_iter().map(|node| node.base.id).collect(),
             Err(_) => return,
         };
         let project = self.project_dir().to_string_lossy().into_owned();
@@ -137,7 +142,8 @@ impl Agents {
                 _ => return false,
             }
         };
-        if node.kind != NodeKind::Agent || node.attempt.as_deref() != Some(stored.attempt.as_str())
+        if node.kind() != NodeKind::Agent
+            || node.attempt().as_ref().map(Ordinal::as_str) != Some(stored.attempt.as_str())
         {
             return false;
         }
@@ -146,7 +152,7 @@ impl Agents {
             cols: stored.cols,
             rows: stored.rows,
             program: stored.program.clone(),
-            machine: node.machine.clone(),
+            machine: node.machine(),
         };
         let Ok(spawned) = self
             .shared

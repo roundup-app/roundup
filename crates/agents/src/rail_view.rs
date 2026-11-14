@@ -1,6 +1,6 @@
 use super::*;
 use crate::id::AgentId;
-use contracts::agent::Ordinal;
+use contracts::agent::{Ordinal, Role};
 
 /// State the Terminal watchers and the RPC calls share.
 /// A33: an `idle` Status of an Agent that waits on blocker `wait` reads `blocked`; every other
@@ -119,14 +119,27 @@ impl Shared {
         rail: &rail::Rail,
         finished: u64,
     ) -> Result<RailNode, RpcError> {
-        if node.kind == NodeKind::Group {
-            return Ok(node);
+        // A5287: the guards of `agent.makeWorkstream` and `agent.saveAsMode`.
+        if let Role::Agent(agent) = &mut node.role {
+            agent.can_make_workstream = agent.mode_prompt.is_none()
+                && node.base.parent.is_none()
+                && rail.has_conversation(crate::rail::agent_id(&node.base.id)?)?;
+            agent.can_save_as_mode = agent.mode_prompt.is_none()
+                && matches!(
+                    Launcher::load_lean(&self.rail_view.data_dir, &node.base.id),
+                    Ok(Some(_))
+                );
         }
-        let entry = runs.agent(&node.id);
+        let workstream = node.kind() == NodeKind::Workstream;
+        let Some(door) = node.role.door_mut() else {
+            return Ok(node);
+        };
+        let id = &node.base.id;
+        let entry = runs.agent(id);
         let slot = entry
             .map(|agent| &agent.slot)
             .filter(|slot| !matches!(slot, Slot::Gone));
-        node.final_text = match slot {
+        door.final_text = match slot {
             Some(Slot::Running(run)) => {
                 run.view()
                     .turn
@@ -140,7 +153,7 @@ impl Shared {
             }
             _ => None,
         };
-        node.status_revision = match slot {
+        door.status_revision = match slot {
             Some(Slot::Running(run)) => Some(run.status_revision().clone()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.
             Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some(Ordinal::first()),
@@ -163,7 +176,7 @@ impl Shared {
                 pending,
                 ..
             }) => {
-                node.terminal_id = Some(terminal_id.clone());
+                door.terminal_id = Some(terminal_id.clone());
                 Some(Status {
                     kind: Kind::Error,
                     label: resume_cleanup_label(*pending).into(),
@@ -173,7 +186,7 @@ impl Shared {
             }
             None | Some(Slot::Closing | Slot::Gone) => None,
         };
-        node.status = Some(live.unwrap_or_else(|| Status {
+        door.status = Some(live.unwrap_or_else(|| Status {
             kind: Kind::Done,
             label: TERMINAL_GONE.into(),
             since: self.rail_view.opened,
@@ -185,10 +198,10 @@ impl Shared {
             .statuses
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .get(&node.id)
+            .get(id)
         {
-            node.status = Some(status.clone());
-            node.status_revision = Some(Ordinal::first());
+            door.status = Some(status.clone());
+            door.status_revision = Some(Ordinal::first());
         }
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match slot {
@@ -201,36 +214,24 @@ impl Shared {
             ) => false,
             None | Some(Slot::Gone) => true,
         };
-        node.can_resume &= exited;
-        // A5287: the guards of `agent.makeWorkstream` and `agent.saveAsMode`.
-        let agent = node.kind == NodeKind::Agent;
-        node.can_make_workstream = agent
-            && node.mode_prompt.is_none()
-            && node.parent.is_none()
-            && rail.has_conversation(crate::rail::agent_id(&node.id)?)?;
-        node.can_save_as_mode = agent
-            && node.mode_prompt.is_none()
-            && matches!(
-                Launcher::load_lean(&self.rail_view.data_dir, &node.id),
-                Ok(Some(_))
-            );
-        node.yolo = match slot {
+        door.can_resume &= exited;
+        door.yolo = match slot {
             Some(Slot::Running(run)) => run.yolo(),
             Some(
                 Slot::Resuming { old: Some(old), .. } | Slot::ResumeCleanup { old: Some(old), .. },
             ) => old.yolo(),
             _ => false,
         };
-        if node.can_resume
+        if door.can_resume
             && !matches!(slot, Some(Slot::Running(run)) if run.closing())
-            && let Some((id, cwd)) = rail.conversation(crate::rail::agent_id(&node.id)?)?
+            && let Some((conversation, cwd)) = rail.conversation(crate::rail::agent_id(id)?)?
         {
             // RO2: the cache only; a task of its own reads the transcript and announces it.
-            node.overview = self.rail_view.launcher.cached_overview(&id);
+            door.overview = self.rail_view.launcher.cached_overview(&conversation);
             let me = self.me.clone();
             self.rail_view
                 .launcher
-                .keep_overview(Path::new(&cwd), &id, move || {
+                .keep_overview(Path::new(&cwd), &conversation, move || {
                     if let Some(shared) = me.upgrade() {
                         shared.bus.emit(Actor::daemon(), EventData::RailChanged);
                     }
@@ -238,17 +239,17 @@ impl Shared {
         }
         // R3696c: a Workstream holds a channel, inbox, tool call or stray only while a
         // Door runs under its id.
-        if node.kind == NodeKind::Workstream && slot.is_none() {
+        if workstream && slot.is_none() {
             return Ok(node);
         }
-        node.channel = channel_in(entry);
-        node.inbox = self.events.inbox.fact(&node.id);
+        door.channel = channel_in(entry);
+        door.inbox = self.events.inbox.fact(id);
         if let Some(Facts {
             tool_call, strays, ..
         }) = entry.map(|agent| &agent.facts)
         {
-            node.tool_call = tool_call.as_ref().map(|tracked| tracked.call.clone());
-            node.stray = strays.clone();
+            door.tool_call = tool_call.as_ref().map(|tracked| tracked.call.clone());
+            door.stray = strays.clone();
         }
         Ok(node)
     }
@@ -388,10 +389,10 @@ impl Agents {
             // A4452d: a changed Order reaches the target's inbox, never its Terminal.
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
-            if let Some(attempt) = node.attempt.as_deref() {
+            if let Some(attempt) = node.attempt() {
                 let mut rail = shared.rail();
                 if let Some(revision) = rail.order_revision(crate::rail::agent_id(&id)?)? {
-                    rail.prepare_instruction(&revision, attempt, &text, false)?;
+                    rail.prepare_instruction(&revision, attempt.as_str(), &text, false)?;
                 }
             }
             // User orders use the same physical-delivery admission as user Messages:
@@ -434,7 +435,7 @@ mod tests;
 
 /// U5531c: only native attention or error keeps a child shown; settled turns, questions and orders never do.
 pub(super) fn visibility_reason(node: &RailNode) -> Option<&'static str> {
-    visibility_protection(node.status.as_ref().map(|s| s.kind))
+    visibility_protection(node.status().map(|s| s.kind))
 }
 
 pub(super) fn visibility_protection(kind: Option<Kind>) -> Option<&'static str> {

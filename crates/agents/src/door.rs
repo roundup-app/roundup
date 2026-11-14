@@ -150,10 +150,10 @@ impl Agents {
     ) -> Result<RailNode, RpcError> {
         let id = params.id.as_str();
         let parked = self.shared.node(id)?;
-        if parked.kind != NodeKind::Agent
+        if parked.kind() != NodeKind::Agent
             || parked.parent.is_some()
             || parked
-                .mode_prompt
+                .mode_prompt()
                 .as_deref()
                 .is_none_or(|prompt| prompt.trim().is_empty())
         {
@@ -164,8 +164,8 @@ impl Agents {
         let params = StartDoorParams {
             prompt: None,
             id: id.to_owned(),
-            model: parked.model.or(params.model.clone()),
-            effort: parked.effort,
+            model: parked.model().or(params.model.clone()),
+            effort: parked.effort(),
             permission_mode: params
                 .permission_mode
                 .or_else(|| self.launcher.selected_permission_mode(id)),
@@ -199,7 +199,10 @@ impl Agents {
                 return Err(error);
             }
         };
-        let attempt = node.attempt.as_deref().unwrap_or_default().to_owned();
+        let attempt = node
+            .attempt()
+            .map(|attempt| attempt.to_string())
+            .unwrap_or_default();
         let started = async {
             loop {
                 let observed = self.shared.events.observed.notified();
@@ -220,8 +223,8 @@ impl Agents {
             );
             let stopped = self.shared.stop(ctx.actor.clone(), id).await;
             let cleanup = match stopped {
-                Ok(()) => match node.terminal_id.as_deref() {
-                    Some(terminal) => self.shared.confirm_terminal_exit(terminal).await,
+                Ok(()) => match node.terminal_id() {
+                    Some(terminal) => self.shared.confirm_terminal_exit(&terminal).await,
                     None => Err(RpcError::unknown_outcome(
                         "fresh Mode Agent Terminal is unknown",
                     )),
@@ -284,7 +287,7 @@ impl Agents {
         let id = id.as_str();
         let saved = {
             let rail = self.shared.rail();
-            if rail.node(crate::rail::agent_id(id)?)?.kind != kind {
+            if rail.node(crate::rail::agent_id(id)?)?.kind() != kind {
                 return Err(RpcError::conflict(format!(
                     "{id} has the wrong Rail kind for this start"
                 )));
@@ -294,7 +297,7 @@ impl Agents {
         let own = model.is_some() || effort.is_some();
         // A5214b: a Mode Agent starts on the Model its Mode parked.
         let (model, effort) = match self.shared.rail().node(crate::rail::agent_id(id)?)? {
-            parked if !saved && !own => (parked.model, parked.effort),
+            parked if !saved && !own => (parked.model(), parked.effort()),
             _ => (model, effort),
         };
         let pair = self.choose(&ctx.actor, role, model, effort)?;
@@ -304,8 +307,8 @@ impl Agents {
                 let parked = self.shared.rail().node(crate::rail::agent_id(id)?)?;
                 self.shared.rail().set_pair(
                     crate::rail::agent_id(id)?,
-                    pair.model.as_deref().or(parked.model.as_deref()),
-                    pair.effort.as_deref().or(parked.effort.as_deref()),
+                    pair.model.as_deref().or(parked.model().as_deref()),
+                    pair.effort.as_deref().or(parked.effort().as_deref()),
                 )?;
             }
             return self
@@ -322,7 +325,7 @@ impl Agents {
         let attempt = {
             let mut rail = self.shared.rail();
             let node = rail.node(crate::rail::agent_id(id)?)?;
-            if node.kind != kind {
+            if node.kind() != kind {
                 return Err(RpcError::conflict(format!(
                     "{id} has the wrong Rail kind for this start"
                 )));

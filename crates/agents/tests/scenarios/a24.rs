@@ -69,12 +69,12 @@ async fn settles_acknowledged(f: Arc<Fixture>, door: &RailNode) {
         let (f, id) = (Arc::clone(&f), door.id.clone());
         tokio::spawn(async move { start(&f, &id).await })
     };
-    f.until_attempt_changed(&door.id, door.attempt.as_deref().unwrap())
+    f.until_attempt_changed(&door.id, door.attempt().unwrap())
         .await;
     others_are_answered(&f).await;
-    acknowledge(&f, &door.id, door.attempt.as_deref().unwrap()).await;
+    acknowledge(&f, &door.id, door.attempt().unwrap()).await;
     let node: RailNode = serde_json::from_value(starting.await.unwrap().unwrap()).unwrap();
-    assert!(node.terminal_id.is_some());
+    assert!(node.terminal_id().is_some());
     assert!(begun.elapsed() < BOUND);
 }
 
@@ -90,7 +90,7 @@ async fn a24_start_after_reopen_settles_within_the_bound() {
     let f = Fixture::running("sleep 30");
     closed_door(&f).await;
     let f = f.reopen();
-    let door = f.tree().await.into_iter().find(|n| n.can_resume).unwrap();
+    let door = f.tree().await.into_iter().find(|n| n.can_resume()).unwrap();
     settles_acknowledged(Arc::new(f), &door).await;
 }
 
@@ -103,7 +103,7 @@ async fn a24_a_start_never_acknowledged_fails_within_the_bound() {
         let (f, id) = (Arc::clone(&f), door.id.clone());
         tokio::spawn(async move { start(&f, &id).await })
     };
-    f.until_attempt_changed(&door.id, door.attempt.as_deref().unwrap())
+    f.until_attempt_changed(&door.id, door.attempt().unwrap())
         .await;
     others_are_answered(&f).await;
 

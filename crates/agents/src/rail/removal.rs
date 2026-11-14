@@ -17,11 +17,18 @@ struct Position {
 
 impl From<RailNode> for Position {
     fn from(node: RailNode) -> Self {
+        let contracts::agent::NodeBase {
+            id,
+            name,
+            parent,
+            order,
+            ..
+        } = node.base;
         Self {
-            id: node.id,
-            name: node.name,
-            parent: node.parent,
-            order: node.order,
+            id,
+            name,
+            parent,
+            order,
         }
     }
 }

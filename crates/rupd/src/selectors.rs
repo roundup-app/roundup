@@ -5,7 +5,8 @@ use crate::route::policy::{Inputs, policy};
 use contracts::agent::{NodeKind, RailNode};
 
 fn is_agent(node: &RailNode) -> bool {
-    node.kind == NodeKind::Agent || (node.kind == NodeKind::Workstream && node.attempt.is_some())
+    node.kind() == NodeKind::Agent
+        || (node.kind() == NodeKind::Workstream && node.attempt().is_some())
 }
 
 fn select(
@@ -16,9 +17,9 @@ fn select(
     kind: NodeKind,
 ) -> Result<String, RpcError> {
     let (label, accepts): (&str, fn(&RailNode) -> bool) = match kind {
-        NodeKind::Group => ("Group", |node| node.kind == NodeKind::Group),
+        NodeKind::Group => ("Group", |node| node.kind() == NodeKind::Group),
         NodeKind::Agent => ("Agent", is_agent),
-        NodeKind::Workstream => ("Workstream", |node| node.kind == NodeKind::Workstream),
+        NodeKind::Workstream => ("Workstream", |node| node.kind() == NodeKind::Workstream),
     };
     let explicit = text.strip_prefix("name:");
     if explicit.is_none() {
@@ -75,7 +76,7 @@ fn select(
                         let Some(parent) = nodes.iter().find(|n| n.id == id) else {
                             break;
                         };
-                        if parent.kind == NodeKind::Workstream {
+                        if parent.kind() == NodeKind::Workstream {
                             home = &parent.name;
                             break;
                         }

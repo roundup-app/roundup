@@ -28,7 +28,7 @@ fn names(tree: &[RailNode], parent: Option<&str>) -> Vec<String> {
         .collect();
     kids.sort_by_key(|n| n.order);
     kids.into_iter()
-        .map(|n| match n.kind {
+        .map(|n| match n.kind() {
             NodeKind::Agent => format!("agent:{}", n.order),
             _ => format!("{}:{}", n.name, n.order),
         })
@@ -43,7 +43,7 @@ async fn a16_a_running_agent_is_stopped_and_removed() {
     f.remove(&agent.id).await.unwrap();
 
     assert!(f.tree().await.is_empty());
-    let terminal_id = agent.terminal_id.unwrap();
+    let terminal_id = agent.terminal_id().unwrap();
     let terminal = f
         .terminals
         .list()
@@ -84,8 +84,8 @@ async fn a16_a_plain_workstreams_children_move_to_its_parent_at_its_place() {
     f.workstream("before", None).await;
     let g = f.workstream("g", None).await;
     f.workstream("after", None).await;
-    let child_a = f.spawn(Some(&g), None).await.unwrap().id;
-    let child_b = f.spawn(Some(&g), None).await.unwrap().id;
+    let child_a = f.spawn(Some(&g), None).await.unwrap().base.id;
+    let child_b = f.spawn(Some(&g), None).await.unwrap().base.id;
 
     f.remove(&g).await.unwrap();
 
@@ -107,7 +107,7 @@ async fn a16_removing_a_door_stops_it_lifts_its_children_then_deletes_it() {
     f.workstream("after", None).await;
     let mut agents = vec![];
     for _ in 0..2 {
-        agents.push(f.spawn(Some(&team), None).await.unwrap().id);
+        agents.push(f.spawn(Some(&team), None).await.unwrap().base.id);
     }
     start_door(&f, &team).await;
 
@@ -174,7 +174,7 @@ async fn a16_a_removed_agents_id_no_longer_answers_agent_signal() {
             "agent.signal",
             json!({
                 "id": agent.id,
-                "attempt": agent.attempt,
+                "attempt": agent.attempt(),
                 "payload": json!({"hook_event_name": "PreToolUse", "tool_name": "Bash"}),
             }),
         )

@@ -77,7 +77,8 @@ impl Messages {
         {
             return Err(Error::conflict(format!(
                 "{} cannot receive a Message: its Kind is {:?}",
-                p.to, status.status
+                p.to,
+                status.status()
             )));
         }
         // The reply-to check, the bound check and the insert run while one lock is taken, so a

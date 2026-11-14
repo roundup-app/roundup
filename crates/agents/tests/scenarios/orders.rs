@@ -55,9 +55,7 @@ fn work(ask: &str, limits: &[&str]) -> Order {
 }
 
 fn order_of(tree: &[RailNode], id: &str) -> Option<Order> {
-    tree.iter()
-        .find(|n| n.id == id)
-        .and_then(|n| n.work.clone())
+    tree.iter().find(|n| n.id == id).and_then(|n| n.work())
 }
 
 fn from(actor: ActorKind, id: &str, f: &Fixture, touches: &Arc<Touches>) -> Ctx {
@@ -98,7 +96,7 @@ async fn o1_a_workstream_has_an_order() {
 
     let tree = f.tree().await;
     for node in &tree {
-        assert!(node.work.is_some(), "{} has no order", node.id);
+        assert!(node.work().is_some(), "{} has no order", node.id);
     }
     assert_eq!(
         order_of(&tree, &workstream),
@@ -212,7 +210,7 @@ async fn spawned_by(f: &Fixture, touches: &Arc<Touches>, door: &str) -> String {
         )
         .await
         .unwrap();
-    serde_json::from_value::<RailNode>(node).unwrap().id
+    serde_json::from_value::<RailNode>(node).unwrap().base.id
 }
 
 async fn set_by(f: &Fixture, actor: Ctx, id: &str, order: Order) -> Result<Value, RpcError> {
@@ -227,7 +225,7 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
     let touches = Arc::new(Touches::in_memory().unwrap());
     let workstream = f.workstream("team", None).await;
     let agent = spawned_by(&f, &touches, &workstream).await;
-    let stranger = spawn(&f, json!({})).await.unwrap().id;
+    let stranger = spawn(&f, json!({})).await.unwrap().base.id;
     f.call("agent.stop", json!({"id":agent})).await.unwrap();
 
     for (n, actor) in [
@@ -248,7 +246,7 @@ async fn o4_the_agent_its_door_or_the_user_may_set_an_order_and_it_is_a_touch() 
             assert!(err.message.contains("Order stored"));
         } else {
             let node: RailNode = serde_json::from_value(result.unwrap()).unwrap();
-            assert_eq!(node.work, Some(order.clone()));
+            assert_eq!(node.work(), Some(order.clone()));
         }
         assert_eq!(order_of(&f.tree().await, &agent), Some(order));
     }
@@ -312,6 +310,7 @@ async fn o13_a_door_cannot_set_the_order_of_a_users_agent() {
     )
     .await
     .unwrap()
+    .base
     .id;
     let err = set_by(
         &f,
@@ -332,6 +331,7 @@ async fn o4_unknown_and_malformed_are_refused_and_change_nothing() {
     let agent = spawn(&f, json!({"order": work("keep", &[])}))
         .await
         .unwrap()
+        .base
         .id;
 
     let cases = [
@@ -358,7 +358,7 @@ async fn o4_unknown_and_malformed_are_refused_and_change_nothing() {
 #[tokio::test]
 async fn o4_another_callers_order_is_steered_unless_the_agent_set_it() {
     let f = recording();
-    let agent = spawn(&f, json!({"prompt": "first"})).await.unwrap().id;
+    let agent = spawn(&f, json!({"prompt": "first"})).await.unwrap().base.id;
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
     signal(&f, &agent, "SessionStart").await;
@@ -368,7 +368,7 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it() {
     f.until(|tree| {
         tree.iter().any(|n| {
             n.id == agent
-                && n.status
+                && n.status()
                     .as_ref()
                     .is_some_and(|s| s.kind == contracts::Kind::Idle)
         })
@@ -406,7 +406,7 @@ async fn o5_an_order_survives_a_reopen_and_a_move_and_leaves_with_its_node() {
     let f = Fixture::new();
     let given = work("keep me", &["leave"]);
     let workstream = f.workstream("team", None).await;
-    let agent = spawn(&f, json!({"order": given})).await.unwrap().id;
+    let agent = spawn(&f, json!({"order": given})).await.unwrap().base.id;
 
     f.call(
         "rail.move",
@@ -561,7 +561,7 @@ async fn o7_an_empty_done_is_invalid_params() {
 #[tokio::test]
 async fn o7_an_ask_over_the_cap_is_invalid_params_and_names_it() {
     let f = Fixture::new();
-    let id = spawn(&f, json!({})).await.unwrap().id;
+    let id = spawn(&f, json!({})).await.unwrap().base.id;
     let mut kept = None;
     for (len, fits) in [(200, true), (201, false)] {
         let order = work(&"é".repeat(len), &[]);
@@ -627,7 +627,7 @@ async fn o14_an_empty_title_is_invalid_params() {
 #[tokio::test]
 async fn o14_a_title_over_six_words_is_invalid_params_and_names_it() {
     let f = Fixture::new();
-    let id = spawn(&f, json!({})).await.unwrap().id;
+    let id = spawn(&f, json!({})).await.unwrap().base.id;
     for (title, fits) in [
         ("one two three four five six", true),
         ("one two three four five six seven", false),
@@ -680,7 +680,7 @@ async fn o7_the_prompt_only_path_is_not_capped() {
 #[tokio::test]
 async fn o8_an_agents_spawn_stores_order_and_prompt() {
     let f = Fixture::new();
-    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let parent = spawn(&f, json!({})).await.unwrap().base.id;
     let prompt = "  Details\n\n1. read it\n";
     let both = spawn_by(
         &f,
@@ -707,7 +707,7 @@ async fn o8_an_agents_spawn_stores_order_and_prompt() {
 #[tokio::test]
 async fn o8_an_agents_spawn_with_only_a_prompt_is_refused() {
     let f = Fixture::new();
-    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let parent = spawn(&f, json!({})).await.unwrap().base.id;
     let err = spawn_by(&f, &parent, json!({"prompt": "do it"}))
         .await
         .unwrap_err();
@@ -737,7 +737,7 @@ async fn o8_a_users_prompt_only_spawn_is_unchanged() {
 #[tokio::test]
 async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
     let f = Fixture::running("sleep 30");
-    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let parent = spawn(&f, json!({})).await.unwrap().base.id;
     let child = spawn_by(
         &f,
         &parent,
@@ -745,6 +745,7 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
     )
     .await
     .unwrap()
+    .base
     .id;
     let attempt = f.attempt(&child).await;
     f.call(
@@ -817,7 +818,7 @@ async fn o8_discard_drops_the_prompt_with_the_node() {
     f.call("project.setWorktrees", json!({"on": true, "check": null}))
         .await
         .unwrap();
-    let parent = spawn(&f, json!({})).await.unwrap().id;
+    let parent = spawn(&f, json!({})).await.unwrap().base.id;
     let child = spawn_by(
         &f,
         &parent,
@@ -825,6 +826,7 @@ async fn o8_discard_drops_the_prompt_with_the_node() {
     )
     .await
     .unwrap()
+    .base
     .id;
     f.call("agent.discard", json!({"id": child})).await.unwrap();
     assert_eq!(

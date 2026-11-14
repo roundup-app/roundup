@@ -37,7 +37,7 @@ async fn role_of(f: &Fixture, id: &str) -> Value {
 #[tokio::test]
 async fn dcl9_spawn_requires_and_persists_job_or_consult() {
     let f = Fixture::new();
-    let door = f.spawn(None, None).await.unwrap().id;
+    let door = f.spawn(None, None).await.unwrap().base.id;
 
     for refused in [json!({}), json!({"role": "worker"}), json!({"role": null})] {
         let err = spawn_as_agent(&f, &door, refused).await.unwrap_err();
@@ -48,10 +48,12 @@ async fn dcl9_spawn_requires_and_persists_job_or_consult() {
     let job = spawn_as_agent(&f, &door, json!({"role": "job"}))
         .await
         .unwrap()
+        .base
         .id;
     let consult = spawn_as_agent(&f, &door, json!({"role": "consult"}))
         .await
         .unwrap()
+        .base
         .id;
     assert_eq!(role_of(&f, &job).await, json!("job"));
     assert_eq!(role_of(&f, &consult).await, json!("consult"));
@@ -61,7 +63,7 @@ async fn dcl9_spawn_requires_and_persists_job_or_consult() {
     assert_eq!(role_of(&f, &consult).await, json!("consult"));
 
     // The user's own Agent has no role, and may not name one.
-    let own = f.spawn(None, None).await.unwrap().id;
+    let own = f.spawn(None, None).await.unwrap().base.id;
     assert_eq!(role_of(&f, &own).await, Value::Null);
     let err = f
         .call(
@@ -96,14 +98,16 @@ fn reports(of: &[(&str, Vec<&str>)]) -> impl Fn(&str) -> Result<Vec<String>, Rpc
 #[tokio::test]
 async fn dcl9_idle_job_without_report_is_actionable_consult_idle_is_rest() {
     let f = Fixture::new();
-    let door = f.spawn(None, None).await.unwrap().id;
+    let door = f.spawn(None, None).await.unwrap().base.id;
     let job = spawn_as_agent(&f, &door, json!({"role": "job"}))
         .await
         .unwrap()
+        .base
         .id;
     let consult = spawn_as_agent(&f, &door, json!({"role": "consult"}))
         .await
         .unwrap()
+        .base
         .id;
     let attempt = f.attempt(&job).await;
 
@@ -142,18 +146,21 @@ async fn attempts_of(f: &Fixture, ids: &[String]) -> Vec<String> {
 #[tokio::test]
 async fn dcl9_restart_preserves_roles_without_launching_agents() {
     let f = Fixture::new();
-    let door = f.spawn(None, None).await.unwrap().id;
+    let door = f.spawn(None, None).await.unwrap().base.id;
     let job = spawn_as_agent(&f, &door, json!({"role": "job"}))
         .await
         .unwrap()
+        .base
         .id;
     let done = spawn_as_agent(&f, &door, json!({"role": "job"}))
         .await
         .unwrap()
+        .base
         .id;
     let consult = spawn_as_agent(&f, &door, json!({"role": "consult"}))
         .await
         .unwrap()
+        .base
         .id;
     let ids = [job.clone(), done.clone(), consult.clone()];
     let before = attempts_of(&f, &ids).await;

@@ -26,7 +26,7 @@ async fn u177_a_door_attempt_awaits_its_channel_until_it_is_up_or_missing() {
             };
             let node = rail.insert(kind, "d", None, None).unwrap();
             rail.set_mcp(&contracts::project::Mcp { on: mcp }).unwrap();
-            node.id
+            node.base.id
         };
         let run = shared.runs().forget("7013").unwrap();
         shared.runs().insert(AgentId::parse(&id).unwrap(), run);

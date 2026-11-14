@@ -10,7 +10,7 @@ fn dcl8_reopen_keeps_told_and_marks_no_untold_fact_told() {
     let mut nodes = rail();
     let seen = Seen::open(dir.path()).unwrap();
     seen.baseline(&sources(&nodes, &none, &[], &[]));
-    nodes[1].status = Some(status(Kind::Idle, "done"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "done"));
     assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
     drop(seen);
 
@@ -50,7 +50,7 @@ fn dcl10a_a_refused_told_write_keeps_the_fact_untold() {
     let mut nodes = rail();
     let none: Vec<Todo> = vec![];
     seen.baseline(&sources(&nodes, &none, &[], &[]));
-    nodes[1].status = Some(status(Kind::Idle, "done"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "done"));
 
     refuse_told_writes(&path, true);
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
@@ -79,7 +79,7 @@ fn dcl10a_reopen_after_a_refused_write_queues_the_fact_once() {
     let none: Vec<Todo> = vec![];
     let seen = Seen::open(dir.path()).unwrap();
     seen.baseline(&sources(&nodes, &none, &[], &[]));
-    nodes[1].status = Some(status(Kind::Idle, "done"));
+    nodes[1].door_mut().unwrap().status = Some(status(Kind::Idle, "done"));
     refuse_told_writes(&path, true);
     assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
     drop(seen);

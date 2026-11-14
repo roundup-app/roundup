@@ -34,7 +34,7 @@ impl Fixture {
 #[tokio::test]
 async fn u3566c_finish_count_survives_attempts_and_reopen() {
     let mut f = Fixture::running("sleep 30");
-    let id = f.spawn(None, None).await.unwrap().id;
+    let id = f.spawn(None, None).await.unwrap().base.id;
     assert_eq!(f.finished(&id).await, "0");
     f.published();
 

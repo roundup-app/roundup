@@ -1,6 +1,8 @@
 //! The one typed mapping of a `nodes` row: `NodeRow` reads it, `NewAgent` writes an Agent.
 use super::*;
-use contracts::agent::{Ordinal, RailVisibility, SpawnRole};
+use contracts::agent::{
+    AgentNode, DoorFacts, NodeBase, Ordinal, RailVisibility, Role, SpawnRole, WorkstreamNode,
+};
 use rusqlite::{
     Row,
     types::{FromSql, FromSqlError, FromSqlResult, ValueRef},
@@ -114,51 +116,52 @@ impl NodeRow {
     }
 
     pub(super) fn into_node(self) -> RailNode {
-        let kind = self.kind;
-        let work = match kind {
-            NodeKind::Workstream => Some(self.work.unwrap_or_else(workstream_order)),
-            NodeKind::Agent => self.work,
-            NodeKind::Group => None,
-        };
-        let workstream = kind == NodeKind::Workstream;
-        let mode_prompt = (kind == NodeKind::Agent && self.parent.is_none())
-            .then_some(self.mode_prompt)
-            .flatten();
-        RailNode {
-            workstream_state: None,
-            waiting: None,
-            unreachable: None,
-            resume: None,
-            start_attribution: self.start_attribution,
-            visibility: self.visibility,
-            alert_level: self.alert_level,
-            mode_prompt,
-            machine: self.machine,
-            auto: workstream.then_some(self.auto),
+        let base = NodeBase {
             id: self.id.to_string(),
-            kind,
             name: self.name,
             parent: self.parent.map(|id| id.to_string()),
             order: self.order,
+            visibility: self.visibility,
+            alert_level: self.alert_level,
+        };
+        let door = |work| DoorFacts {
             status: None,
+            attempt: Ordinal::new(self.attempt),
             status_revision: None,
             final_text: None,
-            attempt: Ordinal::new(self.attempt),
             terminal_id: self.terminal_id,
             worktree: self.worktree,
             can_resume: self.can_resume,
-            can_make_workstream: false,
-            can_save_as_mode: false,
             yolo: false,
             channel: None,
-            stray: Vec::new(),
             work,
+            stray: Vec::new(),
             model: self.model,
             effort: self.effort,
             inbox: None,
             tool_call: None,
+            unreachable: None,
+            resume: None,
             overview: None,
-        }
+            start_attribution: self.start_attribution,
+        };
+        let role = match self.kind {
+            NodeKind::Group => Role::Group,
+            NodeKind::Workstream => Role::Workstream(WorkstreamNode {
+                door: door(Some(self.work.unwrap_or_else(workstream_order))),
+                workstream_state: None,
+                auto: self.auto,
+                waiting: None,
+            }),
+            NodeKind::Agent => Role::Agent(AgentNode {
+                mode_prompt: base.parent.is_none().then_some(self.mode_prompt).flatten(),
+                machine: self.machine,
+                can_make_workstream: false,
+                can_save_as_mode: false,
+                door: door(self.work),
+            }),
+        };
+        RailNode { base, role }
     }
 }
 

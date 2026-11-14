@@ -18,7 +18,7 @@ async fn terminal_of(f: &Fixture, id: &str) -> String {
         .await
         .into_iter()
         .find(|node| node.id == id)
-        .and_then(|node| node.terminal_id)
+        .and_then(|node| node.terminal_id())
         .expect("a running Agent has a Terminal")
 }
 

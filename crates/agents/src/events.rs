@@ -557,21 +557,21 @@ impl Shared {
         actor: &Actor,
         name: String,
     ) -> Result<(), RpcError> {
-        let parent = rail.node(crate::rail::agent_id(id)?)?.parent;
+        let parent = rail.node(crate::rail::agent_id(id)?)?.base.parent;
         let siblings = rail.tree()?;
         let taken = siblings
             .iter()
             .filter(|node| node.id != id && node.parent == parent)
             .map(|node| node.name.as_str());
-        let before = rail.node(crate::rail::agent_id(id)?)?.name;
+        let before = rail.node(crate::rail::agent_id(id)?)?.base.name;
         let node = rail.rename(crate::rail::agent_id(id)?, &name::unique(&name, taken))?;
         // The Rail lock also orders publication against RPC renames.
         if node.name != before {
             self.bus.emit(
                 actor.clone(),
                 EventData::RailRenamed {
-                    id: node.id,
-                    name: node.name,
+                    id: node.base.id,
+                    name: node.base.name,
                 },
             );
         }
@@ -591,8 +591,8 @@ impl Shared {
         if run.claim_name()
             && self.wiring.naming()?.automatic_renaming
             && let node = rail.node(crate::rail::agent_id(id)?)?
-            && (node.kind == NodeKind::Agent
-                || (node.kind == NodeKind::Workstream
+            && (node.kind() == NodeKind::Agent
+                || (node.kind() == NodeKind::Workstream
                     && name::is_workstream_placeholder(&node.name)))
             && !rail.user_named(crate::rail::agent_id(id)?)?
         {

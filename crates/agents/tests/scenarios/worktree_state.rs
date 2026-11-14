@@ -37,8 +37,8 @@ async fn on(f: &Fixture) -> (String, std::path::PathBuf) {
         .await
         .unwrap();
     let node = f.spawn(None, None).await.unwrap();
-    let path = node.worktree.expect("a Worktree").path.into();
-    (node.id, path)
+    let path = node.worktree().expect("a Worktree").path.into();
+    (node.base.id, path)
 }
 
 #[tokio::test]
@@ -129,8 +129,8 @@ async fn g7_a_rail_move_changes_only_parent_and_order() {
         .unwrap();
 
     let node = f.tree().await.into_iter().find(|n| n.id == id).unwrap();
-    assert_eq!(node.worktree, node_before.worktree);
-    assert_eq!(node.terminal_id, node_before.terminal_id);
+    assert_eq!(node.worktree(), node_before.worktree());
+    assert_eq!(node.terminal_id(), node_before.terminal_id());
     assert_eq!(snapshot(&f), before);
     assert_eq!(state(&f, &id).await.unwrap(), state_before);
 
@@ -251,7 +251,7 @@ async fn d9_provisioning_deadline_recovers_owned_work_and_releases_the_git_lock(
         .unwrap()
         .unwrap();
     assert!(
-        node.worktree.is_some(),
+        node.worktree().is_some(),
         "later provisioning must acquire the released holder"
     );
     f.call("agent.stop", json!({"id": node.id})).await.unwrap();
@@ -357,7 +357,7 @@ async fn d9_reopening_with_parked_git_preserves_unfinished_provisioning() {
         .await
         .pop()
         .expect("failed recovery retains its record");
-    let path = Path::new(&kept.worktree.as_ref().unwrap().path);
+    let path = Path::new(&kept.worktree().unwrap().path);
     std::fs::write(path.join("keep"), "user work").unwrap();
     std::fs::remove_file(fail).unwrap();
     std::fs::write(hold, "hold").unwrap();
@@ -378,7 +378,7 @@ async fn d9_reopening_with_parked_git_preserves_unfinished_provisioning() {
         .into_iter()
         .find(|node| node.id == kept.id)
         .unwrap();
-    assert_eq!(node.worktree, kept.worktree);
+    assert_eq!(node.worktree(), kept.worktree());
     assert_eq!(
         std::fs::read_to_string(path.join("keep")).unwrap(),
         "user work"

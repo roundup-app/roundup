@@ -40,7 +40,7 @@ impl Pushes {
 
     fn over(dir: &Path, rail: Arc<FakeRail>, clock: Arc<AtomicI64>) -> Self {
         for node in rail.0.lock().unwrap().iter_mut() {
-            node.terminal_id = Some(format!("terminal-{}", node.id));
+            node.door_mut().unwrap().terminal_id = Some(format!("terminal-{}", node.id));
         }
         let bus = Bus::new();
         let touches = Arc::new(provenance::Touches::in_memory().unwrap());
@@ -508,7 +508,7 @@ async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
         .iter_mut()
         .find(|n| n.id == "top")
         .unwrap()
-        .status
+        .status()
         .as_mut()
         .unwrap()
         .kind = Kind::Done;
@@ -520,7 +520,7 @@ async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
         .iter_mut()
         .find(|n| n.id == "top")
         .unwrap()
-        .status
+        .status()
         .as_mut()
         .unwrap()
         .kind = Kind::Working;
@@ -545,6 +545,8 @@ fn door_terminal(h: &Pushes, terminal: Option<&str>) {
         .unwrap()
         .iter_mut()
         .find(|n| n.id == "top")
+        .unwrap()
+        .door_mut()
         .unwrap()
         .terminal_id = terminal.map(str::to_owned);
 }

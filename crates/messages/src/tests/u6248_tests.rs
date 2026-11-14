@@ -36,9 +36,9 @@ fn open(dir: &std::path::Path) -> (Messages, Arc<Gated>, Arc<AtomicI64>) {
 fn open_on(dir: &std::path::Path, bus: Bus) -> (Messages, Arc<Gated>, Arc<AtomicI64>) {
     let rail = Arc::new(BatchRail::default());
     let mut node = live("m");
-    node.status = Some(Status {
+    node.door_mut().unwrap().status = Some(Status {
         kind: Kind::Idle,
-        ..node.status.clone().expect("live node has a Status")
+        ..node.status().cloned().expect("live node has a Status")
     });
     lock(&rail.nodes).push(node);
     let now = Arc::new(AtomicI64::new(100_000));

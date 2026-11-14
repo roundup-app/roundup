@@ -56,7 +56,7 @@ async fn working(script: &str, bound: Duration) -> (Arc<Fixture>, String) {
     let node = f.spawn(None, None).await.unwrap();
     until_file(&f.dir.path().join("ready")).await;
     signal(&f, &node.id, "UserPromptSubmit").await;
-    (f, node.id)
+    (f, node.base.id)
 }
 
 fn interrupt(f: &Arc<Fixture>, id: &str) -> tokio::task::JoinHandle<Result<Value, RpcError>> {

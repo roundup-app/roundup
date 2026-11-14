@@ -9,11 +9,7 @@ fn texts(inbox: &FakeInbox) -> Vec<String> {
 #[tokio::test]
 async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
     let dir = tempfile::tempdir().unwrap();
-    let rail = FakeRail::new(vec![RailNode {
-        visibility: Default::default(),
-        kind: NodeKind::Workstream,
-        ..agent_node("door", Kind::Working)
-    }]);
+    let rail = FakeRail::new(vec![workstream(agent_node("door", Kind::Working))]);
     let bus = Bus::new();
     let m = Messages::open(dir.path(), bus.clone(), rail.clone()).unwrap();
     let inbox = attach_inbox(&m, true);
@@ -33,11 +29,7 @@ async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
     *rail.0.lock().unwrap() = vec![agent_node("door", Kind::Done)];
     // A failed release leaves the reservation and queue intact.
     assert!(m.release_restart("door", "rewind-c", "2").await.is_err());
-    let next = RailNode {
-        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        ..agent_node("door", Kind::Idle)
-    };
+    let next = at(agent_node("door", Kind::Idle), "2", "2");
     *rail.0.lock().unwrap() = vec![next];
     m.reserve_restart("door", "rewind-c", None).await.unwrap();
     assert!(inbox.written().is_empty());
@@ -61,11 +53,7 @@ struct RestartHarness {
 impl RestartHarness {
     fn new(dir: &Path) -> Self {
         let rail = FakeRail::new(vec![
-            RailNode {
-                visibility: Default::default(),
-                kind: NodeKind::Workstream,
-                ..agent_node("door", Kind::Working)
-            },
+            workstream(agent_node("door", Kind::Working)),
             agent_node("skipped", Kind::Working),
         ]);
         let bus = Bus::new();
@@ -127,11 +115,7 @@ impl RestartHarness {
     }
 
     fn next(&self) {
-        self.rail.0.lock().unwrap()[0] = RailNode {
-            attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-            status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-            ..agent_node("door", Kind::Idle)
-        };
+        self.rail.0.lock().unwrap()[0] = at(agent_node("door", Kind::Idle), "2", "2");
     }
 
     async fn status(&self, attempt: &str, revision: &str, kind: Kind) {
@@ -336,8 +320,10 @@ fn a35_daemon_death_replays_queued_messages_and_the_acknowledged_note() {
         assert_eq!(note.id, before.last().unwrap().id);
         assert_eq!(touches.history(&item(note.id)).unwrap().len(), 1);
         recovered.next();
-        recovered.rail.0.lock().unwrap()[0].attempt =
-            Some(contracts::agent::Ordinal::parse("3").unwrap());
+        recovered.rail.0.lock().unwrap()[0]
+            .door_mut()
+            .unwrap()
+            .attempt = Some(contracts::agent::Ordinal::parse("3").unwrap());
         recovered
             .messages
             .release_restart("door", "c", "3")
@@ -590,7 +576,13 @@ async fn a35_acknowledged_first_prompt_can_be_recorded_after_its_attempt_stopped
             .await
             .is_err()
     );
-    h.rail.0.lock().unwrap()[0].status.as_mut().unwrap().kind = Kind::Done;
+    h.rail.0.lock().unwrap()[0]
+        .door_mut()
+        .unwrap()
+        .status
+        .as_mut()
+        .unwrap()
+        .kind = Kind::Done;
     let note = h
         .messages
         .record_restart_prompt("door", "c", "2")
@@ -618,11 +610,10 @@ async fn dcl8_stopped_and_crashed_door_keep_backlog_across_restart() {
     let h = RestartHarness::new(dir.path());
     let first = h.send(Actor::user(), "door", "one").await;
     let second = h.send(Actor::user(), "door", "two").await;
-    let stopped = |kind| RailNode {
-        visibility: Default::default(),
-        kind: NodeKind::Workstream,
-        terminal_id: None,
-        ..agent_node("door", kind)
+    let stopped = |kind| {
+        edit(workstream(agent_node("door", kind)), |door| {
+            door.terminal_id = None;
+        })
     };
     let pending = |h: &RestartHarness| {
         h.messages
@@ -651,12 +642,7 @@ async fn dcl8_stopped_and_crashed_door_keep_backlog_across_restart() {
     assert_eq!(pending(&h), backlog);
     assert!(h.inbox.written().is_empty());
     // The next Attempt gets the same ids, in order, as one batch.
-    h.rail.0.lock().unwrap()[0] = RailNode {
-        kind: NodeKind::Workstream,
-        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        ..agent_node("door", Kind::Idle)
-    };
+    h.rail.0.lock().unwrap()[0] = at(workstream(agent_node("door", Kind::Idle)), "2", "2");
     h.status("2", "2", Kind::Idle).await;
     assert_eq!(texts(&h.inbox), ["one", "two"]);
     assert_eq!(

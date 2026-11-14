@@ -40,7 +40,7 @@ impl<'a> Projection<'a> {
         let n = nodes.len();
         let mut children = Vec::new();
         for (index, node) in nodes.iter().enumerate() {
-            if node.status.is_some()
+            if node.status().is_some()
                 && let Some(parent) = node.parent.as_deref().and_then(|id| ids.get(id))
             {
                 children.push((*parent, index));

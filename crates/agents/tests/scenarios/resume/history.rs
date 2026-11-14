@@ -20,7 +20,7 @@ fn overview_transcript(f: &Fixture, text: &str) -> std::path::PathBuf {
 
 /// RO2: the overview of a closed node arrives with `rail.changed`, not with the first tree.
 async fn with_overview(f: &Fixture, id: &str) -> RailNode {
-    f.until(|tree| tree.iter().any(|n| n.id == id && n.overview.is_some()))
+    f.until(|tree| tree.iter().any(|n| n.id == id && n.overview().is_some()))
         .await
         .into_iter()
         .find(|n| n.id == id)
@@ -61,7 +61,7 @@ async fn a2681a_missing_or_unreadable_transcript_has_no_parts() {
             std::fs::create_dir(path).unwrap();
         }
         let node = exited_with_conversation(&f, CONVERSATION).await;
-        assert!(node.overview.is_none());
+        assert!(node.overview().is_none());
     }
 }
 
@@ -77,7 +77,7 @@ async fn a2681a_no_saved_data_has_no_parts() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .overview
+            .overview()
             .is_none()
     );
 }
@@ -89,8 +89,8 @@ async fn a2681a_reopen_reads_closed_parts() {
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let f = f.reopen();
     let reopened = with_overview(&f, &node.id).await;
-    assert!(reopened.overview.is_some());
-    assert!(reopened.terminal_id.is_none());
+    assert!(reopened.overview().is_some());
+    assert!(reopened.terminal_id().is_none());
 }
 
 #[tokio::test]
@@ -110,14 +110,14 @@ async fn a2681a_live_attempt_hides_parts_including_on_resume() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .overview
+            .overview()
             .is_none()
     );
     f.call("agent.stop", json!({"id":node.id})).await.unwrap();
     let closed = f
         .until(|tree| {
             tree.iter()
-                .any(|n| n.id == node.id && n.can_resume && n.overview.is_some())
+                .any(|n| n.id == node.id && n.can_resume() && n.overview().is_some())
         })
         .await;
     assert!(
@@ -125,7 +125,7 @@ async fn a2681a_live_attempt_hides_parts_including_on_resume() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .overview
+            .overview()
             .is_some()
     );
     let f = Arc::new(f);
@@ -135,22 +135,22 @@ async fn a2681a_live_attempt_hides_parts_including_on_resume() {
         tokio::spawn(async move { f.resume(&id).await })
     };
     let pending = f
-        .until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .until_attempt_changed(&node.id, node.attempt().unwrap())
         .await;
     assert!(
         pending
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .overview
+            .overview()
             .is_none()
     );
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
         .unwrap();
     let resumed = resuming.await.unwrap().unwrap();
-    assert_eq!(resumed.status.as_ref().unwrap().kind, Kind::Idle);
-    assert!(resumed.overview.is_none(), "an idle program is live");
+    assert_eq!(resumed.status().unwrap().kind, Kind::Idle);
+    assert!(resumed.overview().is_none(), "an idle program is live");
     f.call("agent.stop", json!({"id":node.id})).await.unwrap();
 }
 
@@ -175,21 +175,21 @@ async fn a2681d_live_attempt_hides_context_parts() {
             .iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .overview
+            .overview()
             .is_none()
     );
     f.call("agent.stop", json!({"id":node.id})).await.unwrap();
     let closed = f
         .until(|tree| {
             tree.iter()
-                .any(|n| n.id == node.id && n.can_resume && n.overview.is_some())
+                .any(|n| n.id == node.id && n.can_resume() && n.overview().is_some())
         })
         .await;
     let overview = closed
         .iter()
         .find(|n| n.id == node.id)
         .unwrap()
-        .overview
+        .overview()
         .as_ref()
         .unwrap();
     assert!(overview.context_parts.is_some());
@@ -207,14 +207,14 @@ async fn a2681a_natural_exit_exposes_parts() {
     let tree = f
         .until(|tree| {
             tree.iter()
-                .any(|n| n.id == node.id && n.can_resume && n.overview.is_some())
+                .any(|n| n.id == node.id && n.can_resume() && n.overview().is_some())
         })
         .await;
     assert!(
         tree.iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .overview
+            .overview()
             .is_some()
     );
 }
@@ -224,13 +224,16 @@ async fn ro2_an_uncached_overview_appears_with_rail_changed() {
     let mut f = Fixture::running("sleep 30");
     overview_transcript(&f, "{\"type\":\"ai-title\",\"aiTitle\":\"Later\"}\n");
     let node = exited_with_conversation(&f, CONVERSATION).await;
-    assert!(node.can_resume);
+    assert!(node.can_resume());
     assert!(
-        node.overview.is_none(),
+        node.overview().is_none(),
         "the first tree reads no transcript"
     );
-    f.until(|tree| tree.iter().any(|n| n.id == node.id && n.overview.is_some()))
-        .await;
+    f.until(|tree| {
+        tree.iter()
+            .any(|n| n.id == node.id && n.overview().is_some())
+    })
+    .await;
     assert!(f.changed() > 0);
 }
 
@@ -248,7 +251,7 @@ async fn ro2_a_growing_transcript_updates_without_a_caller() {
     .unwrap();
     f.until(|tree| {
         tree.iter()
-            .any(|n| n.id == node.id && n.overview.as_ref().is_some_and(|o| o.used == Some(4242)))
+            .any(|n| n.id == node.id && n.overview().is_some_and(|o| o.used == Some(4242)))
     })
     .await;
 }
@@ -263,7 +266,7 @@ async fn ro3_calls_answer_while_a_large_transcript_is_read() {
     overview_transcript(&f, &filler.repeat(31_000));
     let node = exited_with_conversation(&f, CONVERSATION).await;
     assert!(
-        node.overview.is_none(),
+        node.overview().is_none(),
         "rail.tree did not wait for the read"
     );
     f.call("rail.rename", json!({"id": node.id, "name": "renamed"}))

@@ -33,8 +33,8 @@ async fn on(f: &Fixture, check: Option<&str>) -> (String, PathBuf, String) {
         .await
         .unwrap();
     let node = f.spawn(None, None).await.unwrap();
-    let worktree = node.worktree.expect("a Worktree");
-    (node.id, worktree.path.into(), worktree.branch)
+    let worktree = node.worktree().expect("a Worktree");
+    (node.base.id, worktree.path.into(), worktree.branch)
 }
 
 async fn land(f: &Fixture, id: &str) -> Result<Value, rpc::RpcError> {
@@ -283,7 +283,7 @@ async fn g5_a_write_while_stopping_keeps_the_stopped_agent_and_its_files() {
     let err = f.call("rail.remove", json!({"id": id})).await.unwrap_err();
     assert_refused(&err, code::CONFLICT, "worktree_unlanded");
     let node = f.tree().await.into_iter().find(|n| n.id == id).unwrap();
-    assert_eq!(node.status.unwrap().kind, contracts::Kind::Done);
+    assert_eq!(node.status().unwrap().kind, contracts::Kind::Done);
     assert_eq!(
         std::fs::read_to_string(path.join("late.txt")).unwrap(),
         "late\n"
@@ -414,7 +414,7 @@ async fn g6_worktrees_are_found_by_stored_path_after_a_restart() {
     let f = f.reopen();
     let placed = |tree: &[contracts::agent::RailNode]| {
         tree.iter()
-            .map(|n| (n.id.clone(), n.parent.clone(), n.worktree.clone()))
+            .map(|n| (n.id.clone(), n.parent.clone(), n.worktree()))
             .collect::<Vec<_>>()
     };
     assert_eq!(placed(&f.tree().await), placed(&tree));
@@ -440,7 +440,7 @@ async fn g6_worktrees_are_found_by_stored_path_after_a_restart() {
 
     // a user-made worktree is no node's, so no call reaches it
     assert!(f.tree().await.iter().all(|n| {
-        n.worktree
+        n.worktree()
             .as_ref()
             .is_none_or(|w| w.branch != "user-branch")
     }));

@@ -222,7 +222,7 @@ impl Daemon {
         let nodes = self.rail().await?;
         match nodes.iter().find(|node| node.id == home) {
             None => Err(RpcError::not_found(format!("rail node {home}"))),
-            Some(node) if node.kind != contracts::agent::NodeKind::Workstream => {
+            Some(node) if node.kind() != contracts::agent::NodeKind::Workstream => {
                 Err(RpcError::new(
                     code::INVALID_PARAMS,
                     format!("rail node {home} is not a Workstream"),
@@ -243,9 +243,9 @@ impl Daemon {
                 let nodes = self.rail().await?;
                 if nodes.iter().any(|node| {
                     node.id == owner.id
-                        && (node.kind == contracts::agent::NodeKind::Agent
-                            || (node.kind == contracts::agent::NodeKind::Workstream
-                                && node.attempt.is_some()))
+                        && (node.kind() == contracts::agent::NodeKind::Agent
+                            || (node.kind() == contracts::agent::NodeKind::Workstream
+                                && node.attempt().is_some()))
                 }) {
                     Ok(())
                 } else {
