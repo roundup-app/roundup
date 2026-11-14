@@ -19,7 +19,7 @@ export const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[
 
 export const sameList = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((each, at) => each === b[at]);
 
-/** A copy the drawing made of a node it did not change is the node: equal field by field. */
+/** A copy a pending change made of a node it did not change is the node: equal field by field. */
 const sameNode = (a: ProjectNode, b: ProjectNode): boolean => {
   if (a === b) return true;
   // SAFETY: Object.keys of a RailNode lists its own fields, each a key of RailNode.
