@@ -81,3 +81,36 @@ impl From<Error> for RpcError {
         }
     }
 }
+
+/// MC32: why a file call on a Machine failed. `code` is herdr-core's `kind` when the core answered
+/// (`not_found`, `io`, ...), else the cause's own code (`core_no_method`, `core_closed`, ...).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{code}: {message}")]
+pub struct FileError {
+    pub code: String,
+    pub message: String,
+}
+
+impl FileError {
+    pub(crate) fn core(err: herdr::Error) -> Self {
+        match err {
+            herdr::Error::Rpc(rpc) => Self {
+                code: rpc.kind.clone(),
+                message: rpc.to_string(),
+            },
+            other => Self {
+                code: other.code().to_owned(),
+                message: other.to_string(),
+            },
+        }
+    }
+}
+
+impl From<Error> for FileError {
+    fn from(err: Error) -> Self {
+        Self {
+            code: "core_unreachable".into(),
+            message: err.to_string(),
+        }
+    }
+}

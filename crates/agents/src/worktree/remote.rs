@@ -21,6 +21,13 @@ pub trait Machines: Send + Sync {
         argv: &[String],
         limit: Duration,
     ) -> Result<Output, String>;
+
+    /// MC32: the file at `path` on `machine`, read by the core's file method. Never an exec of `cat`.
+    fn read_file(&self, machine: &str, path: &Path) -> std::io::Result<String>;
+
+    /// MC32: `bytes` as the file at `path` on `machine`, missing folders made, by the core's file
+    /// method. Never an exec of `tee` or a shell redirect.
+    fn write_file(&self, machine: &str, path: &Path, bytes: &[u8]) -> std::io::Result<()>;
 }
 
 /// The longest one `git` command of an unbounded operation may take on a Machine.
@@ -152,21 +159,25 @@ impl Git {
         }
     }
 
-    /// G2: `.roundup/` in the repository's `info/exclude`, once, where the Project's folder is.
-    pub(super) fn exclude_on(
-        &self,
-        machine: &(String, Arc<dyn Machines>),
-        exclude: &Path,
-    ) -> Result<(), String> {
-        let script = "mkdir -p \"$(dirname \"$1\")\" && touch \"$1\" && \
-            { grep -qx '[[:space:]]*\\.roundup/[[:space:]]*' \"$1\" || \
-            { [ -z \"$(tail -c1 \"$1\")\" ] || echo >>\"$1\"; echo .roundup/ >>\"$1\"; }; }";
-        let command = argv(["sh", "-c", script, "sh", &exclude.to_string_lossy()]);
-        let out = self.exec_on(machine, Path::new("/"), &command, GIT_LIMIT)?;
-        if out.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&out.stderr).trim().to_owned())
+    /// MC32: the text of `path` where the Project's folder is: this Mac's disk, or its Machine's
+    /// file method. A missing file is `NotFound` in both.
+    pub(super) fn read_file(&self, path: &Path) -> std::io::Result<String> {
+        match self.remote().map_err(std::io::Error::other)? {
+            None => std::fs::read_to_string(path),
+            Some((machine, host)) => host.read_file(&machine, path),
+        }
+    }
+
+    /// MC32: `bytes` as the file at `path` where the Project's folder is, missing folders made.
+    pub(super) fn write_file(&self, path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+        match self.remote().map_err(std::io::Error::other)? {
+            None => {
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(path, bytes)
+            }
+            Some((machine, host)) => host.write_file(&machine, path, bytes),
         }
     }
 }
@@ -193,6 +204,36 @@ impl Machines for terminal::Terminals {
             stderr: ran.stderr,
         })
     }
+
+    fn read_file(&self, machine: &str, path: &Path) -> std::io::Result<String> {
+        let handle = file_runtime()?;
+        tokio::task::block_in_place(|| {
+            handle.block_on(self.file_read(machine, &path.to_string_lossy()))
+        })
+        .map_err(io_error)
+    }
+
+    fn write_file(&self, machine: &str, path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+        let handle = file_runtime()?;
+        tokio::task::block_in_place(|| {
+            handle.block_on(self.file_write(machine, &path.to_string_lossy(), bytes))
+        })
+        .map_err(io_error)
+    }
+}
+
+fn file_runtime() -> std::io::Result<tokio::runtime::Handle> {
+    tokio::runtime::Handle::try_current()
+        .map_err(|_| std::io::Error::other("no runtime to reach a Machine"))
+}
+
+/// A core's `not_found` stays `NotFound`; every other failure keeps its code in the message.
+fn io_error(err: terminal::FileError) -> std::io::Error {
+    let kind = match err.code.as_str() {
+        "not_found" => std::io::ErrorKind::NotFound,
+        _ => std::io::ErrorKind::Other,
+    };
+    std::io::Error::new(kind, err.to_string())
 }
 
 #[cfg(test)]

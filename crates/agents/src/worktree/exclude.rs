@@ -2,13 +2,13 @@
 
 use std::path::Path;
 
+use super::Git;
+
 /// Add `.roundup/` to `exclude` (the repository's `info/exclude`), once: it is local, so the
-/// user's tracked files and `git status` do not change.
-pub(super) fn exclude_worktrees(exclude: &Path) -> std::io::Result<()> {
-    if let Some(parent) = exclude.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let existing = match std::fs::read_to_string(exclude) {
+/// user's tracked files and `git status` do not change. The file is read and written where the
+/// Project's folder is, through `git`'s one file path (MC32).
+pub(super) fn exclude_worktrees(git: &Git, exclude: &Path) -> std::io::Result<()> {
+    let existing = match git.read_file(exclude) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(err) => return Err(err),
@@ -21,5 +21,5 @@ pub(super) fn exclude_worktrees(exclude: &Path) -> std::io::Result<()> {
         text.push('\n');
     }
     text.push_str(".roundup/\n");
-    std::fs::write(exclude, text)
+    git.write_file(exclude, text.as_bytes())
 }

@@ -14,6 +14,8 @@ struct Fake {
     calls: Mutex<Vec<(String, std::path::PathBuf, Vec<String>)>>,
     /// Commands starting with these arguments fail to start, as a Machine's exec would.
     broken: Mutex<Vec<String>>,
+    /// MC32: each file method called, as `file.read <machine> <path>` or `file.write ...`.
+    files: Mutex<Vec<String>>,
 }
 
 impl Machines for Fake {
@@ -36,6 +38,19 @@ impl Machines for Fake {
             .current_dir(cwd)
             .output()
             .map_err(|err| err.to_string())
+    }
+
+    fn read_file(&self, machine: &str, path: &Path) -> std::io::Result<String> {
+        let line = format!("file.read {machine} {}", path.display());
+        self.files.lock().unwrap().push(line);
+        std::fs::read_to_string(path)
+    }
+
+    fn write_file(&self, machine: &str, path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+        let line = format!("file.write {machine} {}", path.display());
+        self.files.lock().unwrap().push(line);
+        std::fs::create_dir_all(path.parent().unwrap())?;
+        std::fs::write(path, bytes)
     }
 }
 
@@ -224,4 +239,35 @@ fn mc31_remote_reject_leaves_no_worktree_or_branch() {
     assert_eq!(git(&project, &["worktree", "list"]), worktrees);
     assert_eq!(git(&project, &["branch"]), branches);
     assert!(!made.path.exists());
+}
+
+#[test]
+fn mc32_worktree_exclude_is_written_through_file_methods() {
+    let (_dir, project, host, fake) = folder();
+    start(&host, &project, "one");
+    start(&host, &project, "two");
+    let exclude = project.join(".git/info/exclude");
+    let text = std::fs::read_to_string(&exclude).unwrap();
+    assert_eq!(
+        text.matches(".roundup/").count(),
+        1,
+        "once, however many starts"
+    );
+    let files = fake.files.lock().unwrap().clone();
+    let path = exclude.display();
+    assert_eq!(files[0], format!("file.read m {path}"));
+    assert_eq!(files[1], format!("file.write m {path}"));
+    assert_eq!(
+        files[2],
+        format!("file.read m {path}"),
+        "the second start finds it"
+    );
+    assert_eq!(files.len(), 3, "{files:?}");
+    let shell = |a: &Vec<String>| a.iter().any(|p| ["cat", "tee", "sh"].contains(&p.as_str()));
+    let ran = fake.argvs();
+    assert!(
+        !ran.iter()
+            .any(|a| shell(a) && a.iter().any(|p| p.contains("exclude"))),
+        "no shell touches the exclude: {ran:?}"
+    );
 }

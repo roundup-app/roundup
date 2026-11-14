@@ -60,6 +60,10 @@ pub enum Error {
         "herdr-core {0} is older than {MIN_CORE}, the oldest this build runs on; update herdr-core"
     )]
     TooOld(String),
+    /// MC32: the core's `hello` lists no such method, so the call is not made and nothing else
+    /// (no exec) stands in for it.
+    #[error("herdr-core lists no {0}; update herdr-core")]
+    NoMethod(String),
     /// The pipe closed before or during the call.
     #[error("connection to herdr-core closed")]
     Closed,
@@ -83,6 +87,7 @@ impl Error {
             Error::Missing => "core_missing",
             Error::Refused(_) => "unsupported_generation",
             Error::TooOld(_) => "core_too_old",
+            Error::NoMethod(_) => "core_no_method",
             Error::Closed => "core_closed",
             Error::TimedOut => "core_silent",
             Error::Rpc(_) => "core_error",

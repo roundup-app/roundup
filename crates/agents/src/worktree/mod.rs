@@ -203,12 +203,7 @@ impl Git {
             let exclude = self
                 .run(project, &["rev-parse", "--git-path", "info/exclude"])
                 .map_err(failed)?;
-            match self.remote().map_err(failed)? {
-                Some(machine) => self
-                    .exclude_on(&machine, &project.join(exclude))
-                    .map_err(failed)?,
-                None => exclude_worktrees(&project.join(exclude)).map_err(failed)?,
-            }
+            exclude_worktrees(self, &project.join(exclude)).map_err(failed)?;
             Ok(plan.worktree.clone())
         })();
         if result.is_err() {

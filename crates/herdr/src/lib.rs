@@ -5,6 +5,7 @@
 mod conn;
 mod error;
 mod exec;
+mod file;
 mod stream;
 mod types;
 mod wire;
@@ -12,6 +13,7 @@ mod wire;
 pub use conn::{Conn, GENERATION, MIN_CORE, display};
 pub use error::{Error, Result, RpcError};
 pub use exec::Exec;
+pub use file::Edit;
 pub use stream::{Sender, Stream};
 pub use types::{Ev, Event, Hello, Machine};
 
