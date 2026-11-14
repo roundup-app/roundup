@@ -29,7 +29,7 @@
   samples.push(read());
   const button = rows()[out ? 3 : 1];
   button.focus();
-  if (window.__nestRefuse) window.__fake.failNext(-32003, 'Nesting refused. Choose another Todo.');
+  if (window.__nestRefuse) window.__fake.failNext(-32003, 'Nesting refused. Choose another Todo.', 'todo.setBlockers');
   button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: out, bubbles: true, cancelable: true }));
   samples.push(read());
   for (let i = 0; i < 35; i++) { await frame(); samples.push(read()); }

@@ -30,7 +30,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.browser("fill", '[data-part=input]', "Reviewer");
   await lane.browser("fill", '.mode-prompt-field textarea', "  Review the current changes\nKeep exact spacing  ");
   await lane.capture("U4547b", "enter");
-  await lane.evaluate("window.__fake.failNext(-32003, 'Mode could not be created. Retry with your saved input.')");
+  await lane.evaluate("window.__fake.failNext(-32003, 'Mode could not be created. Retry with your saved input.', 'agent.createMode')");
   await lane.browser("click", 'button[type=submit]');
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('Mode could not be created')");
   await lane.capture("U4547b", "intervene-failure");
@@ -61,7 +61,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.until("document.querySelector('.mode-prompt-dialog textarea') !== null");
   await lane.capture("U4547c", "edit-first-prompt");
   await lane.browser("fill", '.mode-prompt-field textarea', "  changed prompt\n ");
-  await lane.evaluate("window.__fake.failNext(-32003, 'First prompt could not be saved. Retry with your draft.')");
+  await lane.evaluate("window.__fake.failNext(-32003, 'First prompt could not be saved. Retry with your draft.', 'agent.setModePrompt')");
   await lane.browser("click", '[data-part=title]');
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('First prompt could not be saved')");
   await lane.capture("U4547c", "intervene-save-failure");

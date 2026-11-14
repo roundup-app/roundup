@@ -1,4 +1,5 @@
 use super::*;
+use crate::reconcile::{Step, apply, reconcile};
 
 /// What a reattached Terminal's record needs that the core does not hold.
 pub struct Adopted {
@@ -121,6 +122,84 @@ impl Terminals {
             .flatten()
     }
 
+    /// MC52 when the Daemon opens: read the core's live list for `project`, end the idle extras and
+    /// the Terminals of an Agent not in `agents`, and keep each finished Terminal (adopt it, so its
+    /// screen and exit code stay in the table) before `terminal.rm` removes it. Starting and
+    /// attaching stay with each Agent's start. Answers the steps it carried out. A Terminal without the Project label is no step (MC54).
+    pub async fn reconcile_open(
+        &self,
+        project: &str,
+        agents: &[String],
+    ) -> Result<Vec<Step>, Error> {
+        let conn = self.core().await?;
+        let (_, steps) = reconcile(&conn, project, agents)
+            .await
+            .map_err(|err| Error::core(&err))?;
+        let mut done = Vec::new();
+        for step in steps {
+            match &step {
+                Step::End(_) => {}
+                Step::Remove(address) => self.keep_finished(&conn, address).await?,
+                Step::Attach(_) | Step::Start(_) => continue,
+            }
+            apply(&conn, &step).await.map_err(|err| Error::core(&err))?;
+            done.push(step);
+        }
+        Ok(done)
+    }
+
+    /// `reconcile_open` for the Daemon's own open. A test-support core is one per process (its
+    /// session carries the pid), so a Daemon that has not started one has no list to reconcile and
+    /// starts none: its scratch home would outlive a Daemon that is killed.
+    pub async fn reconcile_at_open(
+        &self,
+        project: &str,
+        agents: &[String],
+    ) -> Result<Vec<Step>, Error> {
+        #[cfg(feature = "test-support")]
+        if self.core.lock().await.is_none() {
+            return Ok(Vec::new());
+        }
+        self.reconcile_open(project, agents).await
+    }
+
+    /// Adopt the finished Terminal `address` and wait for its replayed screen and exit code to land
+    /// in the table, so removing it from the core loses neither.
+    async fn keep_finished(&self, conn: &Arc<herdr::Conn>, address: &str) -> Result<(), Error> {
+        let got = conn
+            .call("terminal.get", serde_json::json!({"terminal": address}))
+            .await
+            .map_err(|err| Error::core(&err))?;
+        let text = |key: &str| got.get(key).and_then(Value::as_str).map(str::to_owned);
+        let number = self.next.fetch_add(1, Ordering::Relaxed);
+        let mut spawned = self
+            .adopt(
+                Arc::clone(conn),
+                address.to_owned(),
+                None,
+                Adopted {
+                    cwd: text("cwd").unwrap_or_default(),
+                    cols: 80,
+                    rows: 24,
+                    program: text("program").unwrap_or_else(|| "terminal".to_owned()),
+                    machine: None,
+                },
+                None,
+                number,
+            )
+            .await?;
+        // The exit event is published after the replayed screen and the code are in the table.
+        let exited = async {
+            while let Ok(event) = spawned.events.recv().await {
+                if matches!(event.as_ref(), EventData::TerminalExited(_)) {
+                    break;
+                }
+            }
+        };
+        let _ = tokio::time::timeout(Duration::from_secs(5), exited).await;
+        Ok(())
+    }
+
     /// A12a: the core's id for Terminal `id` and what a reattach needs, or `None` for a Terminal
     /// that has ended.
     pub fn core_record(&self, id: &str) -> Result<Option<(String, Adopted)>, Error> {
@@ -167,7 +246,7 @@ impl Terminals {
         let got = conn
             .call("terminal.get", serde_json::json!({"terminal": core_id}))
             .await
-            .map_err(|err| Error::not_found(format!("terminal {core_id}: {err}")))?;
+            .map_err(|err| Error::not_found(format!("terminal {core_id} ({})", err.code())))?;
         if got.get("state").and_then(Value::as_str) != Some("live") {
             return Err(Error::not_found(format!("terminal {core_id} is not live")));
         }
@@ -202,7 +281,7 @@ impl Terminals {
                 SNAPSHOT_SCROLLBACK as u32,
             )
             .await
-            .map_err(Error::internal)?;
+            .map_err(|err| Error::core(&err))?;
         let link = Arc::new(Mutex::new(Link {
             conn: Arc::clone(&conn),
             tx: stream.sender(),

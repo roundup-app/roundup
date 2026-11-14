@@ -219,7 +219,7 @@ def main():
                 if seed == "thread-report":
                     u430_input_is_never_under_the_drawer(result)
             if seed == "tree-40":
-                browser("eval", "window.__fake.failNext(-32003, 'Todo update failed'); [...document.querySelectorAll('.drawer button')].find(b=>b.textContent==='complete').click()")
+                browser("eval", "window.__fake.failNext(-32003, 'Todo update failed', 'todo.complete'); [...document.querySelectorAll('.drawer button')].find(b=>b.textContent==='complete').click()")
                 browser("wait", ".drawer [role=alert]")
                 failure = browser("eval", "({checks:window.__checks(), text:document.querySelector('.drawer').textContent})")["result"]
                 assert "Todo update failed" in failure["text"]

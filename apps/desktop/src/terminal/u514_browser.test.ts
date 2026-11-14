@@ -902,7 +902,7 @@ it.skipIf(!/U3529|U5515|U5549/.test(process.env.ROUNDUP_CAPTURES ?? ""))("u3529c
       await browser("press", "F2");
       await wait("!!document.querySelector('[data-id=migrate] input')");
       await browser("eval", `(() => {
-        window.__fake.failNext(-32003, 'Name changed. Retry.');
+        window.__fake.failNext(-32003, 'Name changed. Retry.', 'rail.rename');
         const input = document.querySelector('[data-id=migrate] input');
         input.value = 'Renamed';
         input.dispatchEvent(new InputEvent('input', {bubbles:true}));

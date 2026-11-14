@@ -37,6 +37,10 @@ impl Terminals {
 
     pub(super) async fn kill_in(&self, id: &str) -> Result<(), Error> {
         let handle = self.running(id)?;
+        // X9: a program that has ended is gone, whether or not its exit has been reported yet.
+        if *handle.ended.borrow() {
+            return Err(Error::not_found(format!("running terminal {id}")));
+        }
         match handle
             .conn()?
             .call(
@@ -49,7 +53,7 @@ impl Terminals {
             Err(herdr::Error::Rpc(err)) if err.kind == "not_found" => {
                 return Err(Error::not_found("running terminal"));
             }
-            Err(err) => return Err(Error::internal(err)),
+            Err(err) => return Err(Error::core(&err)),
         }
         let mut ended = handle.ended.clone();
         tokio::time::timeout(KILL_WAIT, ended.wait_for(|ended| *ended))

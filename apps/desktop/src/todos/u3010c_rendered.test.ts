@@ -202,7 +202,7 @@ rendered("u3010c_refused_move_leaves_the_rows_where_they_were", async () => {
   const before = await ids();
 
   await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-  await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself'); return true; }`);
+  await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself', 'todo.reorder'); return true; }`);
   await sample(true);
   await page.press("ArrowDown", "ArrowDown", ALT);
   await page.until(`() => document.querySelector('[role=alert]') !== null`);

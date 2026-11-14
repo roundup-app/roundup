@@ -99,6 +99,18 @@ pub fn plan(listed: &[Listed], agents: &[String]) -> Vec<Step> {
     steps
 }
 
+/// The core's list of `project`'s Terminals, the finished ones too: the core leaves those out
+/// unless asked with `all`, and MC52 removes them.
+async fn list(conn: &herdr::Conn, project: &str) -> Result<Vec<Listed>, herdr::Error> {
+    let reply = conn
+        .call(
+            "terminal.list",
+            json!({"all": true, "labels": {PROJECT: project}}),
+        )
+        .await?;
+    Ok(parse(project, &reply))
+}
+
 /// Read the core's list filtered by the Project label and plan against `agents`. It never reads
 /// a record of roundup's own.
 pub async fn reconcile(
@@ -106,10 +118,7 @@ pub async fn reconcile(
     project: &str,
     agents: &[String],
 ) -> Result<(Vec<Listed>, Vec<Step>), herdr::Error> {
-    let reply = conn
-        .call("terminal.list", json!({"labels": {PROJECT: project}}))
-        .await?;
-    let listed = parse(project, &reply);
+    let listed = list(conn, project).await?;
     let steps = plan(&listed, agents);
     Ok((listed, steps))
 }
@@ -122,10 +131,7 @@ pub async fn for_agent(
     project: &str,
     agent: &str,
 ) -> Result<Option<String>, herdr::Error> {
-    let reply = conn
-        .call("terminal.list", json!({"labels": {PROJECT: project}}))
-        .await?;
-    let mut mine = parse(project, &reply);
+    let mut mine = list(conn, project).await?;
     mine.retain(|t| t.agent == agent && !t.finished);
     let mut attach = None;
     for step in plan(&mine, &[agent.to_owned()]) {

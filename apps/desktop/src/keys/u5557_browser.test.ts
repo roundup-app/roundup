@@ -62,7 +62,7 @@ it("u5557b_every_chip_uses_keychip", async () => {
     if (seed === "tree-40") {
       await browser("click", '.rail-actions [aria-label="Create"]');
       await browser("wait", "--fn", `!!document.querySelector('[role=menuitem][data-value=agent]')`);
-      await read(`window.__fake.failNext(-32003, 'Could not start the Agent. Try again.')`);
+      await read(`window.__fake.failNext(-32003, 'Could not start the Agent. Try again.', 'agent.spawn')`);
       await browser("click", '[role=menuitem][data-value=agent]');
       await browser("wait", "--fn", `document.querySelector('.rail-command-notice')?.textContent.includes('Could not start the Agent. Try again.')`);
 

@@ -80,7 +80,7 @@ if __name__ == "__main__":
             evaluate('window.__unchangedKey.key("delayed")')
             save(list_name + '-delayed-key', evaluate('window.__unchangedKey.finish()'))
             setup(list_name)
-            evaluate('window.__fake.failNext(-32003, "no room"); window.__unchangedKey.rows()[0].focus()')
+            evaluate('window.__fake.failNext(-32003, "no room", "todo.reorder"); window.__unchangedKey.rows()[0].focus()')
             browser('press', 'Alt+ArrowDown')
             browser('wait', '--fn', 'Boolean(document.querySelector("[role=alert]"))')
             save(list_name + '-refused', evaluate('window.__unchangedKey.finish()'))
