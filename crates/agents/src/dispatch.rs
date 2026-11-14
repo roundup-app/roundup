@@ -590,8 +590,9 @@ impl Agents {
             let worktrees = shared.rail().get_worktrees()?;
             let models = self.project_models()?;
             let mcp = shared.rail().get_mcp()?;
+            let machine = shared.rail().get_machine()?;
             Ok(ProjectSettings {
-                machine: shared.rail().get_machine()?,
+                machine,
                 worktrees,
                 models,
                 mcp,
