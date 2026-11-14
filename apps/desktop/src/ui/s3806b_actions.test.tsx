@@ -552,7 +552,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
 
       if (submitted) {
-        expect(connected.drafts.list().some(entry => entry.revision === submitted.revision)).toBe(false);
+        // The field settles the retried revision a few microtasks after railCommand clears the line.
+        await waitFor(() => expect(connected.drafts.list().some(entry => entry.revision === submitted.revision)).toBe(false));
         expect(connected.drafts.list()).toContainEqual(newer);
       }
 
