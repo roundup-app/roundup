@@ -46,7 +46,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_rail_dense_selection_and_reco
     if (seed === "tree-40") {
       await lane.browser("press", "F2");
       await lane.until("document.activeElement?.matches('.rail-row input')");
-      await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Name unavailable. Choose another name.'); return true; })()");
+      await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Name unavailable. Choose another name.', 'rail.rename'); return true; })()");
       await lane.browser("press", "Enter");
       await lane.until("document.querySelector('[role=alert]')?.textContent.includes('Name unavailable. Choose another name.')");
       await lane.capture("U3787c", "rail-tree-40-failed-rename");

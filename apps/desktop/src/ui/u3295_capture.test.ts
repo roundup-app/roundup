@@ -85,7 +85,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     if (process.env.ROUNDUP_CAPTURE_PHASE === "base") await read("document.querySelector('.app-dialog-pick').click()");
     else await key("Escape", "Escape");
     await wait("!document.querySelector('.todo-blocker-menu [role=combobox]')");
-    await read("window.__fake.failNext(-32003, 'Todo changed. Choose it again and retry.'); document.querySelector('.new-workstream textarea').value = 'Ship the fix'; document.querySelector('.new-workstream textarea').dispatchEvent(new InputEvent('input', {bubbles:true}));");
+    await read("window.__fake.failNext(-32003, 'Todo changed. Choose it again and retry.', 'todo.startWorkstream'); document.querySelector('.new-workstream textarea').value = 'Ship the fix'; document.querySelector('.new-workstream textarea').dispatchEvent(new InputEvent('input', {bubbles:true}));");
     await read("[...document.querySelectorAll('.new-workstream label')].find(l => l.textContent.includes('Start now')).click()");
     await read("document.querySelector('.new-workstream form').requestSubmit()");
     await wait("document.querySelector('.new-workstream')?.textContent.includes('Todo changed.')");

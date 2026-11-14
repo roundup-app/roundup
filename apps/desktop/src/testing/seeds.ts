@@ -15,6 +15,7 @@ import type { Removal } from "@contracts/agent/Removal";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import type { RpcMethodName } from "@contracts/methods";
+import { CONTRACT } from "@contracts/contract";
 import { RpcError } from "../app/seam";
 import type { Project } from "../app/seam";
 import { createFakeApp } from "./fakeApp";
@@ -68,8 +69,8 @@ export type Controls = {
   writeOutput(terminalId: string, text: string): void;
   /** Makes the Todos and Pads created from now on belong to `actor`, as when that Agent made them; the user until called. */
   actAs(actor: Actor): void;
-  /** Makes the next `rpc` call reject with `code` and `message`: the next call of `method` when given (the App's own polls, such as `machine.list` on its tick, never take it), else whatever its method. */
-  failNext(code: number, message: string, method?: RpcMethodName): void;
+  /** Makes the next `rpc` call of `method` reject with `code` and `message`; the App's own polls, such as `machine.list` on its tick, never take it. Throws at once when `method` is no Daemon method, as a typo in a page-evaluated call would otherwise never fire. */
+  failNext(code: number, message: string, method: RpcMethodName): void;
   /** The error a Daemon refusal throws, for a handler that must refuse one method. */
   refusal(code: number, message: string): Error;
 };
@@ -506,10 +507,10 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     });
   }
 
-  let failure: { error: RpcError; method: RpcMethodName | undefined } | null = null;
+  let failure: { error: RpcError; method: RpcMethodName } | null = null;
   const rpc = app.rpc;
   app.rpc = async (method, params) => {
-    if (failure && (failure.method === undefined || failure.method === method)) {
+    if (failure?.method === method) {
       const failing = failure.error;
       failure = null;
       throw failing;
@@ -536,6 +537,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     },
     refusal: (code, message) => new RpcError(code, message),
     failNext: (code, message, method) => {
+      if (!(method in CONTRACT.methods)) throw new Error(`failNext: ${String(method)} is no Daemon method`);
+
       failure = { error: new RpcError(code, message), method };
     },
   };
@@ -664,7 +667,22 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
   if (name === "daemon-exits") afterFirstLoad(app, () => app.exitDaemon({ code: 1 }));
 
-  if (name === "conflict") afterFirstLoad(app, () => controls.failNext(CONFLICT, "name already taken"));
+  if (name === "conflict") {
+    // U26: the next call after the App has loaded fails, whatever its method, and the one after succeeds.
+    const rpc = app.rpc;
+    let armed = false;
+
+    app.rpc = async (method, params) => {
+      if (!armed) return rpc(method, params);
+
+      armed = false;
+      throw new RpcError(CONFLICT, "name already taken");
+    };
+
+    afterFirstLoad(app, () => {
+      armed = true;
+    });
+  }
 
   return controls;
 };

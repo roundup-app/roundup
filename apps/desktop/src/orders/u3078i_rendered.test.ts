@@ -48,9 +48,9 @@ it.skipIf(!enabled)("u3078i_rendered_open_inspect_resume", { retry: 0, timeout: 
     await browser("set", "media", "dark");
     await evaluate(`(async () => {
       const app = window.__fake.app;
-      window.__fake.failNext(-32003, 'Resume refused because the original Agent is stopped. Start that Agent and try Resume again. Full retained diagnostic: no continuation was sent.');
+      window.__fake.failNext(-32003, 'Resume refused because the original Agent is stopped. Start that Agent and try Resume again. Full retained diagnostic: no continuation was sent.', 'message.progress');
       const refused = await app.rpc('message.progress', null).catch(error => error);
-      window.__fake.failNext(-32004, 'The Resume reply was lost. Its original Agent and action must be reconciled before another request.');
+      window.__fake.failNext(-32004, 'The Resume reply was lost. Its original Agent and action must be reconciled before another request.', 'message.progress');
       const unknown = await app.rpc('message.progress', null).catch(error => error);
       const tree = app.handlers['rail.tree'];
       const chosen = (await tree({})).find(node => node.kind === 'agent' && node.status !== null);
