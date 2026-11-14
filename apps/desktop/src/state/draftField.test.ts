@@ -1,6 +1,8 @@
 import { createRoot } from "solid-js";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
+import { applying } from "../app/pending";
+import { RpcError } from "../app/seam";
 import { createDraftField } from "./draftField";
 import { draftStorage } from "./storage";
 
@@ -27,7 +29,7 @@ it("u2773b_send_settles_the_revision_it_sent_and_clears_only_if_current", async 
   const pad = field(drafts);
   pad.keep({ text: "A" }, null);
   const replies: (() => void)[] = [];
-  const sending = pad.send(() => new Promise<void>(resolve => { replies.push(resolve); }));
+  const sending = pad.send(() => applying(() => new Promise<void>(resolve => { replies.push(resolve); })));
   await vi.waitFor(() => expect(replies).toHaveLength(1));
   expect(settled(drafts)).toEqual([[{ text: "A" }, "pending"]]);
   pad.keep({ text: "B" }, null);
@@ -42,7 +44,8 @@ it("u2773b_a_refused_send_keeps_both_revisions", async () => {
   const drafts = open("b");
   const pad = field(drafts);
   pad.keep({ text: "A" }, null);
-  const sending = pad.send(() => Promise.reject(new Error("no")));
+  // U3791b: only a typed refusal proves the write failed; any other throw leaves it unknown.
+  const sending = pad.send(() => applying(() => Promise.reject(new RpcError(-32602, "no"))));
   await vi.waitFor(() => expect(drafts.list()[0]?.status).toBe("pending"));
   pad.keep({ text: "B" }, null);
 
@@ -55,7 +58,7 @@ it("u2773b_no_reply_in_15_s_settles_unknown", async () => {
   const drafts = open("c");
   const pad = field(drafts);
   pad.keep({ text: "A" }, null);
-  const sending = pad.send(() => new Promise<void>(() => undefined));
+  const sending = pad.send(() => applying(() => new Promise<void>(() => undefined)));
   await vi.advanceTimersByTimeAsync(14_999);
   expect(drafts.list()[0]?.status).toBe("pending");
   await vi.advanceTimersByTimeAsync(1);
@@ -82,7 +85,7 @@ it("u2773c_a_recovered_draft_never_sends_until_save", async () => {
   await earlier.edit(destination, { text: "left behind" }, null, "ordinary").retained;
   const drafts = open("e");
   const pad = field(drafts);
-  const call = vi.fn(() => Promise.resolve("ok"));
+  const call = vi.fn(() => applying(() => Promise.resolve("ok")));
 
   expect(pad.recovered()).toBe(true);
   expect(await pad.send(call)).toEqual({ kind: "skipped" });
