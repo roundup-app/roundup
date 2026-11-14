@@ -94,13 +94,12 @@ pub fn set_tray_menu<R: tauri::Runtime>(
     tray: &tauri::tray::TrayIcon<R>,
     rows: Vec<TrayRow>,
     looks: Vec<Look>,
-) -> Result<(), String> {
+) -> Result<(), crate::Error> {
     use muda::{ContextMenu, Menu, MenuItem};
     tray.with_inner_tray_icon(move |inner| {
         let menu = Menu::new();
         for (id, title, enabled) in rows {
-            menu.append(&MenuItem::with_id(id, title, enabled, None))
-                .map_err(|error| error.to_string())?;
+            menu.append(&MenuItem::with_id(id, title, enabled, None))?;
         }
         if let Some(mtm) = MainThreadMarker::new() {
             // SAFETY: Muda's accessor is a live NSMenu while `menu` is alive, on this thread.
@@ -110,8 +109,7 @@ pub fn set_tray_menu<R: tauri::Runtime>(
         }
         inner.set_menu(Some(Box::new(menu)));
         Ok(())
-    })
-    .map_err(|error| error.to_string())?
+    })?
 }
 
 /// U6994b: tell `changed(true)` when any menu opens and `changed(false)` when it closes, on the main

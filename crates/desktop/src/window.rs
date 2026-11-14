@@ -50,7 +50,7 @@ fn zoom_window<R: Runtime>(window: Window<R>) -> Result<(), RpcError> {
 #[tauri::command]
 async fn webview_data_path<R: Runtime>(webview: tauri::Webview<R>) -> Result<String, String> {
     #[cfg(target_os = "macos")]
-    let folder = native::webview_data_path(&webview)?;
+    let folder = native::webview_data_path(&webview).map_err(|error| error.to_string())?;
     #[cfg(not(target_os = "macos"))]
     let folder = webview
         .app_handle()

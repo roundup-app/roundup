@@ -3,8 +3,10 @@ use objc2::{msg_send, rc::Retained, runtime::AnyObject, sel};
 use objc2_foundation::NSURL;
 use std::path::PathBuf;
 
+use crate::Error;
+
 /// Reads configuration metadata only, on WebKit's main thread. No website records are fetched.
-pub fn webview_data_path<R: tauri::Runtime>(view: &tauri::Webview<R>) -> Result<PathBuf, String> {
+pub fn webview_data_path<R: tauri::Runtime>(view: &tauri::Webview<R>) -> Result<PathBuf, Error> {
     let (send, receive) = std::sync::mpsc::sync_channel(1);
     view.with_webview(move |platform| {
         // SAFETY: Tauri supplies the live WKWebView on its owning thread. Each selector is
@@ -15,7 +17,7 @@ pub fn webview_data_path<R: tauri::Runtime>(view: &tauri::Webview<R>) -> Result<
             let store: Retained<AnyObject> = msg_send![&*configuration, websiteDataStore];
             let available: bool = msg_send![&*store, respondsToSelector: sel!(_configuration)];
             if !available {
-                Err("WebKit cannot report its browser data configuration".into())
+                Err(Error::BrowserDataUnreported)
             } else {
                 let configuration: Retained<AnyObject> = msg_send![&*store, _configuration];
                 let mut folders = Vec::new();
@@ -41,13 +43,10 @@ pub fn webview_data_path<R: tauri::Runtime>(view: &tauri::Webview<R>) -> Result<
                     })
                     .filter(|folder| folder.components().count() > 4)
                     .map(PathBuf::from)
-                    .ok_or_else(|| "WebKit did not report a bounded browser data folder".into())
+                    .ok_or(Error::BrowserDataUnbounded)
             }
         };
         let _ = send.send(result);
-    })
-    .map_err(|error| error.to_string())?;
-    receive
-        .recv_timeout(std::time::Duration::from_secs(5))
-        .map_err(|error| error.to_string())?
+    })?;
+    receive.recv_timeout(std::time::Duration::from_secs(5))?
 }

@@ -442,10 +442,10 @@ fn install_dock<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
                         })
                         .collect()
                 },
-                move |message| {
+                move |cause: native::Error| {
                     if let Err(error) = failure.emit(
                         "menu-bar-action",
-                        serde_json::json!({"kind": "failure", "message": message}),
+                        serde_json::json!({"kind": "failure", "message": cause.to_string()}),
                     ) {
                         crate::diagnostics::failure("report Dock menu failure", &error);
                     }
