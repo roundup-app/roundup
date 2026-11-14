@@ -633,7 +633,7 @@ fn b23_a_last_push_that_failed_is_offered_again() {
 #[test]
 fn a5482c_non_door_coordinator_receives_the_fallback() {
     let mut nodes = rail();
-    nodes[0].kind() = NodeKind::Agent;
+    nodes[0].role = contracts::agent::Role::Agent(Default::default());
     let attempt = nodes[1].attempt().unwrap();
     let seen = Seen::default();
     let mut from = sources(&nodes, &[], &[], &[]);

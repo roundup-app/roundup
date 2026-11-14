@@ -238,9 +238,15 @@ mod tests {
             node("3", "agent", Some("2"), "working"),
         ];
         derive(&mut nodes, &stalled);
-        assert_eq!(nodes[0].workstream_state, Some(WorkstreamState::Stalled));
-        nodes[2].status.as_mut().unwrap().kind = Kind::Error;
+        assert_eq!(
+            nodes[0].workstream().unwrap().workstream_state,
+            Some(WorkstreamState::Stalled)
+        );
+        nodes[2].door_mut().unwrap().status.as_mut().unwrap().kind = Kind::Error;
         derive(&mut nodes, &stalled);
-        assert_eq!(nodes[0].workstream_state, Some(WorkstreamState::Error));
+        assert_eq!(
+            nodes[0].workstream().unwrap().workstream_state,
+            Some(WorkstreamState::Error)
+        );
     }
 }

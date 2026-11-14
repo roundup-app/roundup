@@ -366,12 +366,8 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it() {
     signal(&f, &agent, "UserPromptSubmit").await;
     signal(&f, &agent, "Stop").await;
     f.until(|tree| {
-        tree.iter().any(|n| {
-            n.id == agent
-                && n.status()
-                    .as_ref()
-                    .is_some_and(|s| s.kind == contracts::Kind::Idle)
-        })
+        tree.iter()
+            .any(|n| n.id == agent && n.status().is_some_and(|s| s.kind == contracts::Kind::Idle))
     })
     .await;
 

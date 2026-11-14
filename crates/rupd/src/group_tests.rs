@@ -93,7 +93,7 @@ async fn u5690c_group_preserves_selected_identities_and_reopens() {
         let before = call(&daemon, "rail.tree", Value::Null).await;
         let group = call(&daemon, "rail.group", json!({"ids":selected})).await;
         let typed: contracts::agent::RailNode = serde_json::from_value(group.clone()).unwrap();
-        assert_eq!(serde_json::to_value(typed.kind).unwrap(), "group");
+        assert_eq!(serde_json::to_value(typed.kind()).unwrap(), "group");
         assert_eq!(group["id"], "11");
         call(
             &daemon,

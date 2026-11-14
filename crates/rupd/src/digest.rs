@@ -472,9 +472,11 @@ mod tests {
                 node.id = format!("c{i}");
                 node.name = node.id.clone();
                 node.parent = Some("1".into());
-                node.terminal_id = Some(format!("t-c{i}"));
+                if let Some(door) = node.door_mut() {
+                    door.terminal_id = Some(format!("t-c{i}"));
+                }
                 // An error is news: a quiet digest would wait in the inbox queue unwritten (B5168f).
-                node.status = Some(contracts::Status {
+                node.door_mut().unwrap().status = Some(contracts::Status {
                     kind: contracts::Kind::Error,
                     label: String::new(),
                     since: 0,

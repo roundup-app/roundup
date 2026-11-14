@@ -373,12 +373,19 @@ async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
         assert_eq!(status.status_revision, (index + 2).to_string());
         assert_eq!(status.status.since, 0);
         let node = shared.node(&id).unwrap();
-        assert_eq!(node.attempt(), Some(status.attempt.as_str()));
         assert_eq!(
-            node.status_revision(),
+            node.attempt()
+                .as_ref()
+                .map(contracts::agent::Ordinal::as_str),
+            Some(status.attempt.as_str())
+        );
+        assert_eq!(
+            node.status_revision()
+                .as_ref()
+                .map(contracts::agent::Ordinal::as_str),
             Some(status.status_revision.as_str())
         );
-        assert_eq!(node.status(), Some(status.status));
+        assert_eq!(node.status(), Some(&status.status));
     }
 }
 

@@ -264,7 +264,6 @@ async fn flush(told: &mut Told, reader: &Reader) {
         };
         let idle = node
             .status()
-            .as_ref()
             .is_some_and(|status| status.kind == Kind::Idle);
         if !idle {
             continue;

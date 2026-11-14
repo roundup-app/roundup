@@ -364,7 +364,6 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
                 && node.terminal_id().is_some()
                 && node
                     .status()
-                    .as_ref()
                     .is_some_and(|status| status.kind != Kind::Done)
         }) {
             continue;

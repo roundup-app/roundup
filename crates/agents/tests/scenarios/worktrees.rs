@@ -126,7 +126,7 @@ async fn terminal_cwd(f: &Fixture, node: &RailNode) -> String {
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id())
+        .find(|t| Some(&t.id) == node.terminal_id().as_ref())
         .unwrap()
         .cwd
 }
@@ -172,13 +172,13 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
         tokio::spawn(async move { f.call("rail.remove", json!({"id":id})).await })
     };
     crate::common::until_file(&parked).await;
-    let mut titles = f.terminals.subscribe(node.terminal_id().unwrap()).unwrap();
+    let mut titles = f.terminals.subscribe(&node.terminal_id().unwrap()).unwrap();
     // The Working a title brings after a Stop lasts until DCL3's next process-table read
     // (one `ps`, about 40 ms on macOS, less on Linux), so the test reads `agent.status` events
     // and never polls the tree for it.
     let mut statuses = f.bus.subscribe();
     f.terminals
-        .write(node.terminal_id().unwrap(), b"title\n")
+        .write(&node.terminal_id().unwrap(), b"title\n")
         .await
         .unwrap();
     let mut title_received = false;
@@ -203,14 +203,14 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
     let refused = removing.await.unwrap().unwrap_err();
     assert!(refused.message.starts_with("worktree_unlanded:"));
     f.terminals
-        .write(node.terminal_id().unwrap(), b"exit\n")
+        .write(&node.terminal_id().unwrap(), b"exit\n")
         .await
         .unwrap();
     assert!(
         observed.is_ok(),
         "a rejected removal must not revoke its live watcher; title_received={title_received}; tree={:?}; terminal={:?}",
         f.tree().await,
-        f.terminals.snapshot(node.terminal_id().unwrap())
+        f.terminals.snapshot(&node.terminal_id().unwrap())
     );
     f.until(|tree| tree[0].status().unwrap().kind == contracts::Kind::Done)
         .await;

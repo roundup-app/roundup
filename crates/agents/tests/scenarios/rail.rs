@@ -269,7 +269,12 @@ async fn a8_a12_reopen_preserves_ordinal_with_reused_terminal_numbers() {
     assert!(f.terminals.list().await.is_empty());
     let node = &f.tree().await[0];
     assert_eq!(node.terminal_id(), None);
-    assert_eq!(node.attempt(), Some("1"));
+    assert_eq!(
+        node.attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some("1")
+    );
     assert_eq!(node.status_revision(), None);
     let next = f.call("rail.startDoor", json!({"id":id})).await.unwrap();
     assert_eq!(first["terminal_id"], next["terminal_id"]);
@@ -326,7 +331,13 @@ async fn a7_failed_door_attempt_consumes_attempt_and_retry_keeps_children() {
     assert!(f.call("rail.startDoor", json!({"id":id})).await.is_err());
     let tree = f.tree().await;
     let stopped = tree.iter().find(|n| n.id == id).unwrap();
-    assert_eq!(stopped.attempt(), Some("1"));
+    assert_eq!(
+        stopped
+            .attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some("1")
+    );
     assert_eq!(stopped.terminal_id(), None);
     assert_eq!(
         tree.iter()
@@ -634,11 +645,11 @@ async fn a2741a_workstream_changes_keep_the_door_destination_without_starting() 
         assert_eq!(
             after
                 .iter()
-                .map(|n| (&n.id, &n.attempt(), &n.terminal_id()))
+                .map(|n| (&n.id, n.attempt(), n.terminal_id()))
                 .collect::<Vec<_>>(),
             before
                 .iter()
-                .map(|n| (&n.id, &n.attempt(), &n.terminal_id()))
+                .map(|n| (&n.id, n.attempt(), n.terminal_id()))
                 .collect::<Vec<_>>()
         );
         assert_eq!(

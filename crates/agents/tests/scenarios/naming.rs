@@ -20,8 +20,9 @@ impl Fixture {
     async fn name_of(&self, id: &str) -> String {
         let tree: Vec<RailNode> = self.tree().await;
         tree.into_iter()
-            .find(|n| n.base.base.id == id)
+            .find(|n| n.base.id == id)
             .unwrap()
+            .base
             .name
     }
 }

@@ -562,14 +562,15 @@ pub mod test_support {
                 since: 0,
                 finished: "0".into(),
             });
+            let revision = node.status_revision().unwrap().next();
             if let Some(door) = node.door_mut() {
-                door.status_revision = node.status_revision().unwrap().next();
+                door.status_revision = revision;
             }
             let event = contracts::agent::StatusEvent {
                 ended: false,
                 id: id.into(),
-                attempt: node.attempt().cloned().unwrap(),
-                status_revision: node.status_revision().cloned().unwrap(),
+                attempt: node.attempt().unwrap(),
+                status_revision: node.status_revision().unwrap(),
                 status: node.status().cloned().unwrap(),
             };
             drop(nodes);

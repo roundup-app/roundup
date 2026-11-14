@@ -163,14 +163,14 @@ async fn u4547e_reparenting_survives_reopen() {
         let now = after.iter().find(|n| &n.id == id).expect("same Agent");
         assert_eq!(now.parent.as_ref(), parent);
         assert_eq!(now.name, was.name);
-        assert_eq!(now.attempt, was.attempt, "same Attempt");
+        assert_eq!(now.attempt(), was.attempt(), "same Attempt");
         let was_terminal = original
             .iter()
-            .find(|terminal| Some(&terminal.id) == was.terminal_id.as_ref())
+            .find(|terminal| Some(&terminal.id) == was.terminal_id().as_ref())
             .unwrap();
         let now_terminal = listed
             .iter()
-            .find(|terminal| Some(&terminal.id) == now.terminal_id.as_ref())
+            .find(|terminal| Some(&terminal.id) == now.terminal_id().as_ref())
             .unwrap();
         assert!(now_terminal.running);
         // The reopened Daemon mirrors the core's Terminal anew, so a catch-up starts over.
@@ -179,9 +179,9 @@ async fn u4547e_reparenting_survives_reopen() {
             now_terminal.program_pid, was_terminal.program_pid,
             "same Agent's original program"
         );
-        assert_ne!(now.status.as_ref().map(|s| s.kind), Some(Kind::Done));
+        assert_ne!(now.status().map(|s| s.kind), Some(Kind::Done));
         assert!(
-            now.terminal_id.is_some(),
+            now.terminal_id().is_some(),
             "a Terminal of the new client table"
         );
     }

@@ -53,7 +53,9 @@ async fn b50_a_daemon_question_keeps_its_full_body_in_the_inbox() {
         .iter_mut()
         .find(|n| n.id == "sub")
         .unwrap()
-        .status()
+        .door_mut()
+        .unwrap()
+        .status
         .as_mut()
         .unwrap()
         .kind = Kind::Working;

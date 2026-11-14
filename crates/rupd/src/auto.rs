@@ -123,7 +123,6 @@ pub(super) async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
                 && node.terminal_id().is_some()
                 && node
                     .status()
-                    .as_ref()
                     .is_some_and(|s| s.kind != contracts::Kind::Done)
         })
         .collect();

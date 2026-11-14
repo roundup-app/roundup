@@ -135,7 +135,7 @@ async fn a2681a_live_attempt_hides_parts_including_on_resume() {
         tokio::spawn(async move { f.resume(&id).await })
     };
     let pending = f
-        .until_attempt_changed(&node.id, node.attempt().unwrap())
+        .until_attempt_changed(&node.id, node.attempt().unwrap().as_str())
         .await;
     assert!(
         pending
@@ -190,7 +190,6 @@ async fn a2681d_live_attempt_hides_context_parts() {
         .find(|n| n.id == node.id)
         .unwrap()
         .overview()
-        .as_ref()
         .unwrap();
     assert!(overview.context_parts.is_some());
 }

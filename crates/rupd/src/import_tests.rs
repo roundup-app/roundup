@@ -238,13 +238,13 @@ async fn u3082a_non_directory_entries_do_not_break_import() {
         .iter()
         .find(|node| node.id == outcome["agent"].as_str().unwrap())
         .unwrap();
-    assert_eq!(child.kind, contracts::agent::NodeKind::Agent);
+    assert_eq!(child.kind(), contracts::agent::NodeKind::Agent);
     assert_eq!(child.parent.as_deref(), outcome["workstream"].as_str());
     assert!(
-        child.can_resume
-            && child.terminal_id.is_none()
-            && child.attempt.is_none()
-            && child.status_revision.is_none()
+        child.can_resume()
+            && child.terminal_id().is_none()
+            && child.attempt().is_none()
+            && child.status_revision().is_none()
     );
     assert_eq!(nodes.len(), 2);
     assert!(!journal.exists());

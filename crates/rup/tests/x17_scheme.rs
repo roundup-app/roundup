@@ -93,7 +93,7 @@ async fn x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch() {
             .unwrap(),
     )
     .unwrap();
-    let terminal = agent.terminal_id.clone().unwrap();
+    let terminal = agent.terminal_id().unwrap();
     palette_is(project.bound(), &client, &terminal, shown, hidden).await;
 
     let (background, foreground, shown, hidden) = colours(then);

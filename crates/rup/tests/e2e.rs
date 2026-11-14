@@ -172,7 +172,7 @@ async fn interrupted_worktree(workstream: bool) {
         assert!(
             nodes
                 .iter()
-                .all(|n| n.terminal_id.is_none() && n.worktree.is_none())
+                .all(|n| n.terminal_id().is_none() && n.worktree().is_none())
         );
         assert_eq!(
             nodes
@@ -303,7 +303,7 @@ async fn f5_only_a_doors_tree_is_scanned_and_a_registered_terminal_is_not_flagge
 
     let tree = rail_tree(&client).await;
     assert!(tree.iter().any(|n| n.id == agent.id));
-    assert!(tree.iter().all(|n| n.stray.is_empty()), "{tree:?}");
+    assert!(tree.iter().all(|n| n.stray().is_empty()), "{tree:?}");
 }
 
 async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::Status {
@@ -314,7 +314,8 @@ async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::S
             .into_iter()
             .find(|n| n.id == id)
             .unwrap()
-            .status
+            .status()
+            .cloned()
             .unwrap();
         if status.kind == kind {
             return status;
@@ -540,9 +541,10 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     })
     .await;
     h21_poll("startup coordination stopped", async || {
-        rail_tree(&client).await.into_iter().find(|node| {
-            node.id == agent.id && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
-        })
+        rail_tree(&client)
+            .await
+            .into_iter()
+            .find(|node| node.id == agent.id && node.status().is_some_and(|s| s.kind == Kind::Idle))
     })
     .await;
     let typed_before = std::fs::read_to_string(&input).unwrap_or_default();
@@ -596,7 +598,7 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
     let deadline = Instant::now() + TEN_IDLE_BOUND;
     let mut ids = Vec::new();
     for _ in 0..10 {
-        ids.push(project.spawn_agent(&client).await.id);
+        ids.push(project.spawn_agent(&client).await.base.id);
     }
     wait_until_idle(&mut client, &ids, deadline)
         .await
@@ -672,8 +674,9 @@ async fn b21_a_childs_kind_pad_and_todo_changes_each_push_one_entry_to_its_door(
     let a_name = rail_tree(&user)
         .await
         .into_iter()
-        .find(|node| node.id == rail.a)
+        .find(|node| node.base.id == rail.a)
         .unwrap()
+        .base
         .name;
     settled(&user, &rail.m).await;
 

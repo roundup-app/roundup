@@ -77,7 +77,7 @@ mod lean_specialists {
                 loop {
                     if self.tree().await.iter().any(|n| {
                         n.id == id
-                            && n.status
+                            && n.status()
                                 .as_ref()
                                 .is_some_and(|s| s.kind == contracts::Kind::Idle)
                     }) {
@@ -186,14 +186,14 @@ mod lean_specialists {
             let path = self.dir.path().join(format!("{}.jsonl", node.id));
             // Only the last usage counts; cache tokens count toward the threshold.
             std::fs::write(&path, format!("{}\n{}\n", json!({"message":{"usage":{"input_tokens":900000}}}), json!({"message":{"usage":{"input_tokens":1000,"cache_read_input_tokens":tokens-2000,"cache_creation_input_tokens":1000}}}))).unwrap();
-            let result = self.user.request("agent.signal",json!({"id":node.id,"attempt":node.attempt,"payload":{"hook_event_name":"Stop","transcript_path":path}})).await;
+            let result = self.user.request("agent.signal",json!({"id":node.id,"attempt":node.attempt(),"payload":{"hook_event_name":"Stop","transcript_path":path}})).await;
             if let Err(err) = result {
                 assert_eq!(err.code, rpc::code::NOT_FOUND);
                 assert!(
                     self.tree()
                         .await
                         .iter()
-                        .any(|n| n.id == node.id && n.terminal_id.is_none())
+                        .any(|n| n.id == node.id && n.terminal_id().is_none())
                 );
             }
         }
@@ -247,7 +247,7 @@ mod lean_specialists {
                 .iter()
                 .find(|n| n.id == first.id)
                 .unwrap()
-                .terminal_id
+                .terminal_id()
                 .is_none()
         );
     }

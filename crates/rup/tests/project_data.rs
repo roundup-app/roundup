@@ -123,7 +123,7 @@ async fn work(project: &Project) -> Vec<String> {
         .request("pad.create", json!({ "name": "notes", "text": "body" }))
         .await
         .unwrap();
-    vec![agent.id]
+    vec![agent.base.id]
 }
 
 async fn titles(project: &Project) -> Vec<String> {
@@ -191,7 +191,7 @@ async fn dv2_retained_revision_n2_with_worktrees_on_only_the_worktree_folders_ap
     let tree = rail_tree(&project.client().await).await;
     let with_worktree: Vec<_> = tree
         .iter()
-        .filter(|node| node.worktree.is_some())
+        .filter(|node| node.worktree().is_some())
         .map(|node| node.id.clone())
         .collect();
     assert!(ids.iter().all(|id| with_worktree.contains(id)));

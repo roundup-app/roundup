@@ -14,7 +14,7 @@ async fn a2693a_missing_data_does_not_stop_the_target() {
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id())
+        .find(|t| Some(&t.id) == node.terminal_id().as_ref())
         .unwrap();
     assert!(terminal.running);
 }
@@ -32,7 +32,7 @@ async fn a2693a_yolo_argv_and_node_agree_after_ack() {
         })
     };
     let pending = f
-        .until_attempt_changed(&node.id, node.attempt().unwrap())
+        .until_attempt_changed(&node.id, node.attempt().unwrap().as_str())
         .await;
     assert!(!pending.iter().find(|n| n.id == node.id).unwrap().yolo());
     f.session_start(&node.id, CONVERSATION, "resume")
@@ -92,7 +92,7 @@ async fn a2693a_running_and_exited_targets_continue_once_in_each_mode() {
                 assert!(
                     !terminals
                         .iter()
-                        .find(|t| Some(&t.id) == node.terminal_id())
+                        .find(|t| Some(&t.id) == node.terminal_id().as_ref())
                         .unwrap()
                         .running
                 );
@@ -133,7 +133,7 @@ async fn a2693a_every_normal_launch_clears_yolo() {
                 let id = node.id.clone();
                 tokio::spawn(async move { start_door(&f, &id).await })
             };
-            f.until_attempt_changed(&node.id, yolo.attempt().unwrap())
+            f.until_attempt_changed(&node.id, yolo.attempt().unwrap().as_str())
                 .await;
             f.session_start(&node.id, CONVERSATION, "resume")
                 .await
@@ -163,7 +163,7 @@ async fn a2693a_concurrent_actions_never_launch_twice() {
         let id = node.id.clone();
         tokio::spawn(async move { f.call("agent.resume", json!({"id":id,"mode":"yolo"})).await })
     };
-    f.until_attempt_changed(&node.id, node.attempt().unwrap())
+    f.until_attempt_changed(&node.id, node.attempt().unwrap().as_str())
         .await;
     for method in ["agent.resume", "agent.stop", "rail.remove"] {
         let err = f
@@ -312,7 +312,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
     tokio::time::timeout(Duration::from_secs(10), async {
         while f
             .terminals
-            .snapshot(node.terminal_id().unwrap())
+            .snapshot(&node.terminal_id().unwrap())
             .unwrap()
             .after
             == 0
@@ -322,7 +322,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
     })
     .await
     .unwrap();
-    let mut exit = f.terminals.subscribe(node.terminal_id().unwrap()).unwrap();
+    let mut exit = f.terminals.subscribe(&node.terminal_id().unwrap()).unwrap();
     f.call("agent.stop", json!({"id":node.id})).await.unwrap();
     tokio::time::timeout(Duration::from_secs(10), async {
         while !matches!(
@@ -338,7 +338,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    let before = f.terminals.snapshot(node.terminal_id().unwrap()).unwrap();
+    let before = f.terminals.snapshot(&node.terminal_id().unwrap()).unwrap();
     let err = f
         .call("agent.resume", json!({"id":node.id,"mode":"yolo"}))
         .await
@@ -356,7 +356,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
     assert!(f.terminals.list().await.iter().all(|t| !t.running));
     assert_eq!(
         f.terminals
-            .snapshot(node.terminal_id().unwrap())
+            .snapshot(&node.terminal_id().unwrap())
             .unwrap()
             .data,
         before.data

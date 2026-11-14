@@ -125,7 +125,6 @@ fn marker(children: &[&RailNode]) -> String {
 fn busy(child: &RailNode) -> bool {
     child
         .status()
-        .as_ref()
         .is_some_and(|s| matches!(s.kind, Kind::Working | Kind::Blocked | Kind::NeedsYou))
 }
 

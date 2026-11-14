@@ -284,7 +284,7 @@ async fn a4452c_only_the_user_sets_the_mode_prompt() {
     let tree = f.tree().await;
     let node = tree.iter().find(|n| n.id == mode_id).unwrap();
     assert_eq!(node.name, "team");
-    assert_eq!(node.mode_prompt(), Some(prompt));
+    assert_eq!(node.mode_prompt().as_deref(), Some(prompt));
 }
 
 #[tokio::test]

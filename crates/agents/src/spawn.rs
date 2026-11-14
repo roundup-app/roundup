@@ -754,7 +754,7 @@ mod idle_tests {
             }
             let prompt = order::first_input(
                 None,
-                node.work(),
+                node.work().as_ref(),
                 None,
                 rail.order_revision(crate::rail::agent_id(&node.id).unwrap())
                     .unwrap()

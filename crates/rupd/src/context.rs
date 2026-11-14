@@ -248,40 +248,32 @@ mod tests {
     }
 
     fn node(id: &str, kind: NodeKind, name: &str, parent: Option<&str>, door: bool) -> RailNode {
-        RailNode {
-            workstream_state: None,
-            waiting: None,
-            unreachable: None,
-            resume: None,
-            start_attribution: None,
-            visibility: Default::default(),
-            alert_level: Default::default(),
-            id: id.into(),
-            auto: (kind == NodeKind::Workstream).then_some(false),
-            mode_prompt: None,
-            kind,
-            name: name.into(),
-            parent: parent.map(str::to_owned),
-            order: 0,
+        use contracts::agent::{AgentNode, DoorFacts, NodeBase, Role, WorkstreamNode};
+        let facts = DoorFacts {
             status: status(Kind::Idle),
             attempt: (kind == NodeKind::Agent || door).then(contracts::agent::Ordinal::first),
-            status_revision: None,
-            final_text: None,
-            terminal_id: None,
-            worktree: None,
-            can_resume: false,
-            can_make_workstream: false,
-            can_save_as_mode: false,
-            yolo: false,
-            channel: None,
-            stray: Vec::new(),
-            model: None,
-            effort: None,
-            inbox: None,
-            tool_call: None,
-            overview: None,
             work: Some(contracts::agent::Order::clarification("?")),
-            machine: None,
+            ..Default::default()
+        };
+        let role = match kind {
+            NodeKind::Group => Role::Group,
+            NodeKind::Workstream => Role::Workstream(WorkstreamNode {
+                door: facts,
+                ..Default::default()
+            }),
+            NodeKind::Agent => Role::Agent(AgentNode {
+                door: facts,
+                ..Default::default()
+            }),
+        };
+        RailNode {
+            base: NodeBase {
+                id: id.into(),
+                name: name.into(),
+                parent: parent.map(str::to_owned),
+                ..Default::default()
+            },
+            role,
         }
     }
 
@@ -553,7 +545,9 @@ mod tests {
         let gone = compose(&nodes, &[], "7014").unwrap_err();
         assert_eq!(gone.code, rpc::code::NOT_FOUND);
         assert_eq!(gone.message, "not found: an Agent that is gone");
-        nodes[0].status = None;
+        if let Some(door) = nodes[0].door_mut() {
+            door.status = None;
+        }
         let missing_status = compose(&nodes, &[], "7013").unwrap_err();
         assert_eq!(missing_status.code, rpc::code::INTERNAL);
         assert_eq!(missing_status.message, "sad has no Status");

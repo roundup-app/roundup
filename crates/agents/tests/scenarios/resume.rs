@@ -57,8 +57,11 @@ impl Fixture {
     /// `agent.resume` (which has already allocated and announced the new one before it blocks
     /// on acknowledgement).
     pub async fn until_attempt_changed(&self, id: &str, old: &str) -> Vec<RailNode> {
-        self.until(|tree| tree.iter().find(|n| n.id == id).and_then(|n| n.attempt()) != Some(old))
-            .await
+        self.until(|tree| {
+            tree.iter().find(|n| n.id == id).and_then(|n| n.attempt())
+                != contracts::agent::Ordinal::parse(old)
+        })
+        .await
     }
 }
 
@@ -225,7 +228,13 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
 
     let resumed = resuming.await.unwrap().unwrap();
 
-    assert_ne!(resumed.attempt(), Some(old_attempt.as_str()));
+    assert_ne!(
+        resumed
+            .attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some(old_attempt.as_str())
+    );
     assert!(resumed.terminal_id().is_some());
     assert_eq!(resumed.status().map(|s| s.kind), Some(Kind::Idle));
     assert_eq!(resumed.id, node.id);
@@ -509,7 +518,7 @@ async fn a22_resume_in_a_worktree_subfolder_keeps_the_saved_subfolder_not_the_wo
 
     let resumed = resuming.await.unwrap().unwrap();
 
-    let terminal_id = resumed.terminal_id().map(str::to_owned).unwrap();
+    let terminal_id = resumed.terminal_id().unwrap();
     let cwd = f
         .terminals
         .list()
@@ -579,7 +588,13 @@ async fn r16_resume_availability_is_gated_by_the_current_attempt() {
     let tree = f.until_attempt_changed(&node.id, &old).await;
     let pending = tree.iter().find(|n| n.id == node.id).unwrap();
     assert!(!pending.can_resume());
-    assert_eq!(pending.status_revision(), Some("1"));
+    assert_eq!(
+        pending
+            .status_revision()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some("1")
+    );
     assert_eq!(pending.status().unwrap().label, "starting");
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
@@ -632,7 +647,7 @@ async fn resume_in_mode(f: &Arc<Fixture>, node: &RailNode, mode: Option<&str>) -
             f.call("agent.resume", params).await
         })
     };
-    f.until_attempt_changed(&node.id, node.attempt().unwrap())
+    f.until_attempt_changed(&node.id, node.attempt().unwrap().as_str())
         .await;
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
@@ -931,7 +946,12 @@ async fn dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one
         .unwrap();
     let node: RailNode = serde_json::from_value(pending.await.unwrap().unwrap()).unwrap();
     assert_eq!(node.id, cut.id);
-    assert_ne!(node.attempt(), Some(before.as_str()));
+    assert_ne!(
+        node.attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some(before.as_str())
+    );
 }
 
 /// DCR2 (c): a cut-off Job outside the caller's Reach is refused with the Reach error.

@@ -357,7 +357,8 @@ async fn d9_reopening_with_parked_git_preserves_unfinished_provisioning() {
         .await
         .pop()
         .expect("failed recovery retains its record");
-    let path = Path::new(&kept.worktree().unwrap().path);
+    let worktree = kept.worktree().unwrap();
+    let path = Path::new(&worktree.path);
     std::fs::write(path.join("keep"), "user work").unwrap();
     std::fs::remove_file(fail).unwrap();
     std::fs::write(hold, "hold").unwrap();

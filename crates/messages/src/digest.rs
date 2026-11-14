@@ -669,7 +669,6 @@ fn repeats_report(child: &RailNode, meta: &str, from: &Projection, pushed: &Dige
 fn child_label(child: &RailNode) -> String {
     child
         .status()
-        .as_ref()
         .map_or_else(String::new, |status| status.label.clone())
 }
 

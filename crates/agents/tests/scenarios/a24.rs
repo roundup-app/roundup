@@ -69,10 +69,10 @@ async fn settles_acknowledged(f: Arc<Fixture>, door: &RailNode) {
         let (f, id) = (Arc::clone(&f), door.id.clone());
         tokio::spawn(async move { start(&f, &id).await })
     };
-    f.until_attempt_changed(&door.id, door.attempt().unwrap())
+    f.until_attempt_changed(&door.id, door.attempt().unwrap().as_str())
         .await;
     others_are_answered(&f).await;
-    acknowledge(&f, &door.id, door.attempt().unwrap()).await;
+    acknowledge(&f, &door.id, door.attempt().unwrap().as_str()).await;
     let node: RailNode = serde_json::from_value(starting.await.unwrap().unwrap()).unwrap();
     assert!(node.terminal_id().is_some());
     assert!(begun.elapsed() < BOUND);
@@ -103,7 +103,7 @@ async fn a24_a_start_never_acknowledged_fails_within_the_bound() {
         let (f, id) = (Arc::clone(&f), door.id.clone());
         tokio::spawn(async move { start(&f, &id).await })
     };
-    f.until_attempt_changed(&door.id, door.attempt().unwrap())
+    f.until_attempt_changed(&door.id, door.attempt().unwrap().as_str())
         .await;
     others_are_answered(&f).await;
 

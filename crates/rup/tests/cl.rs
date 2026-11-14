@@ -222,7 +222,7 @@ async fn cl2_an_ext_actor_mcp_call_is_a_touch_under_its_name() {
 #[tokio::test]
 async fn cl3_an_ext_actor_is_forbidden_what_the_daemon_forbids_it() {
     let project = daemon::start(&[]);
-    let id = project.spawn_agent(&project.client().await).await.id;
+    let id = project.spawn_agent(&project.client().await).await.base.id;
     let outside = client_as(project.socket(), ext("claude-code")).await;
 
     for method in ["agent.context", "agent.brief"] {

@@ -68,9 +68,7 @@ impl Daemon {
                 n.id == specialist.id
                     && (matches!(specialist.handoff, Some(SpecialistHandoff::Ready(_)))
                         || (n.terminal_id().is_some()
-                            && n.status()
-                                .as_ref()
-                                .is_some_and(|s| s.kind != contracts::Kind::Done)))
+                            && n.status().is_some_and(|s| s.kind != contracts::Kind::Done)))
             })
         });
         let key = (workstream, name);

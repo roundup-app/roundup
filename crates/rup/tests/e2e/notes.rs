@@ -210,8 +210,9 @@ async fn name_of(user: &rpc::Client, id: &str) -> String {
     super::daemon::rail_tree(user)
         .await
         .into_iter()
-        .find(|node| node.id == id)
+        .find(|node| node.base.id == id)
         .unwrap()
+        .base
         .name
 }
 
@@ -252,7 +253,7 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
         let tree = super::daemon::rail_tree(&user).await;
         tree.iter()
             .find(|node| node.id == child)?
-            .status
+            .status()
             .as_ref()
             .filter(|status| status.kind == Kind::Idle)
             .map(|_| ())
@@ -280,7 +281,7 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
         .into_iter()
         .find(|node| node.id == child)
         .unwrap()
-        .status_revision;
+        .status_revision();
     // A digest read can overtake an older background comparison. Its acknowledgement
     // bounds every setup push before message.list is used to await their delivery.
     h21_poll("the child's working Digest comparison", async || {
@@ -454,8 +455,9 @@ async fn b48_the_message_list_and_the_digest_return_equal_state_after_the_same_e
     let name = super::daemon::rail_tree(&s.user)
         .await
         .into_iter()
-        .find(|node| node.id == s.a)
+        .find(|node| node.base.id == s.a)
         .unwrap()
+        .base
         .name;
     let mut polls = 0_u32;
     let pushed = h21_poll("the push", async || {
@@ -504,7 +506,7 @@ async fn end_note(
             .into_iter()
             .find(|node| node.id == child)
             .unwrap()
-            .terminal_id
+            .terminal_id()
             .unwrap();
         use base64::Engine;
         s.user

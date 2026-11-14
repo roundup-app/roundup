@@ -854,7 +854,12 @@ mod tests {
             agents.call(&ctx, "agent.signal", json!({"id":id,"attempt":"1","payload":{"hook_event_name":"SessionStart","session_id":conversation,"source":"resume"}})).await.unwrap();
             let node: contracts::agent::RailNode =
                 serde_json::from_value(resuming.await.unwrap().unwrap()).unwrap();
-            assert_eq!(node.attempt(), Some("1"));
+            assert_eq!(
+                node.attempt()
+                    .as_ref()
+                    .map(contracts::agent::Ordinal::as_str),
+                Some("1")
+            );
             assert!(node.terminal_id().is_some());
             assert_eq!(node.worktree().unwrap().path, made.path.to_string_lossy());
             tokio::time::timeout(Duration::from_secs(10), async {

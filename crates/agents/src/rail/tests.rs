@@ -391,7 +391,7 @@ fn mc13_an_agent_records_its_machine_across_a_reopen() {
     let id = |id: &str| super::agent_id(id).unwrap();
     assert_eq!(
         rail.node(id(&remote.id)).unwrap().machine(),
-        Some("build-box")
+        Some("build-box".to_owned())
     );
     assert_eq!(rail.node(id(&local.id)).unwrap().machine(), None);
 }

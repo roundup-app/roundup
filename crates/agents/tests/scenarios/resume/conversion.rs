@@ -36,7 +36,7 @@ async fn a5214a_a_running_agent_restarts_once_on_its_conversation() {
         let (f, id) = (Arc::clone(&f), agent.id.clone());
         tokio::spawn(async move { make(&f, &id).await })
     };
-    f.until_attempt_changed(&agent.id, agent.attempt().unwrap())
+    f.until_attempt_changed(&agent.id, agent.attempt().unwrap().as_str())
         .await;
     f.session_start(&agent.id, CONVERSATION, "resume")
         .await
@@ -124,7 +124,7 @@ async fn a5214b_the_mode_holds_the_agents_brief_tools_extras_and_model() {
     assert_eq!(mode.kind(), NodeKind::Agent);
     assert_eq!(mode.name, "Parser audit");
     assert_eq!(mode.parent, None);
-    assert_eq!(mode.mode_prompt(), Some("audit the parser"));
+    assert_eq!(mode.mode_prompt().as_deref(), Some("audit the parser"));
     assert_eq!(mode.model(), agent.model());
     assert_eq!(mode.effort(), agent.effort());
     assert_eq!(lean(&f, &mode.id), lean(&f, &agent.id));
@@ -228,7 +228,7 @@ async fn a5287_a_flag_is_true_exactly_when_the_method_is_accepted() {
                 let (f, id) = (Arc::clone(&f), id.clone());
                 tokio::spawn(async move { make(&f, &id).await })
             };
-            f.until_attempt_changed(id, running.attempt().unwrap())
+            f.until_attempt_changed(id, running.attempt().unwrap().as_str())
                 .await;
             f.session_start(id, CONVERSATION, "resume").await.unwrap();
             pending.await.unwrap()

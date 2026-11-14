@@ -23,7 +23,7 @@ pub(super) async fn agent_in(project: &Project, client: &rpc::Client, parent: &s
         )
         .await
         .unwrap();
-    serde_json::from_value::<RailNode>(node).unwrap().id
+    serde_json::from_value::<RailNode>(node).unwrap().base.id
 }
 
 pub(super) async fn todo_in(

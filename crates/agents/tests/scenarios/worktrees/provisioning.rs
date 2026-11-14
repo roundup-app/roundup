@@ -219,7 +219,7 @@ async fn g2_two_spawns_have_different_cwds() {
             .list()
             .await
             .into_iter()
-            .find(|t| Some(&t.id) == node.terminal_id())
+            .find(|t| Some(&t.id) == node.terminal_id().as_ref())
             .unwrap()
             .cwd
     }
@@ -242,7 +242,7 @@ async fn g2_two_start_doors_have_different_cwds() {
             .list()
             .await
             .into_iter()
-            .find(|t| Some(&t.id) == node.terminal_id())
+            .find(|t| Some(&t.id) == node.terminal_id().as_ref())
             .unwrap()
             .cwd
     }
@@ -272,7 +272,7 @@ async fn g2_subfolder_cwd_maps_into_the_worktree() {
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id())
+        .find(|t| Some(&t.id) == node.terminal_id().as_ref())
         .unwrap()
         .cwd;
     assert_eq!(cwd, worktree_path.join("sub").to_string_lossy());
@@ -516,7 +516,7 @@ async fn g2_spawn_at_the_project_root_runs_in_the_worktree_root() {
         .list()
         .await
         .into_iter()
-        .find(|t| Some(&t.id) == node.terminal_id())
+        .find(|t| Some(&t.id) == node.terminal_id().as_ref())
         .unwrap()
         .cwd;
     assert_eq!(

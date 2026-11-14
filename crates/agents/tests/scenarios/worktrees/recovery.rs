@@ -267,7 +267,7 @@ async fn g5_removing_unlanded_work_refuses_before_stopping_the_door() {
                 .list()
                 .await
                 .iter()
-                .any(|t| Some(&t.id) == node.terminal_id() && t.running)
+                .any(|t| Some(&t.id) == node.terminal_id().as_ref() && t.running)
         );
         f.call("agent.stop", json!({"id":id})).await.unwrap();
     }

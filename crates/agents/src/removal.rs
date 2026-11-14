@@ -227,7 +227,6 @@ impl Shared {
     ) -> Result<Option<KeptReason>, RpcError> {
         let finished = node
             .status()
-            .as_ref()
             .is_some_and(|s| matches!(s.kind, Kind::Done | Kind::Error));
         if !finished {
             return Ok(Some(KeptReason::Running));
@@ -765,6 +764,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Workstream, "w", None, None)
             .unwrap()
+            .base
             .id;
         let failed = running_agent(&shared, Some(&ws));
         let parked = running_agent(&shared, Some(&ws));

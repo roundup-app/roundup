@@ -80,7 +80,6 @@ async fn a3360a_a_megabyte_tool_name_is_cut_to_64_characters() {
         .find(|n| n.id == node.id)
         .unwrap()
         .tool_call()
-        .as_ref()
         .unwrap();
     assert_eq!(call, &announced[0].call);
     assert_eq!(call.summary, None);
@@ -110,7 +109,6 @@ async fn a3360a_the_cut_falls_on_a_character_boundary() {
             .find(|n| n.id == node.id)
             .unwrap()
             .tool_call()
-            .as_ref()
             .unwrap();
         assert_eq!(call.tool, expected);
         if name == "Bash" {

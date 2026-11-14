@@ -102,7 +102,7 @@ async fn fop5978a_live_folder_opens_unchanged() {
     let f = folder.open();
 
     let tree = f.tree().await;
-    assert!(tree.iter().find(|n| n.id == ws).unwrap().auto() == Some(true));
+    assert!(tree.iter().find(|n| n.id == ws).unwrap().auto());
 }
 
 #[tokio::test]
@@ -120,11 +120,11 @@ async fn fop5978b_fork_attaches_no_owner_and_turns_auto_off() {
     assert!(f.agents.reattach_owners().await.is_empty());
     assert!(!record.exists(), "the record is dropped");
     assert!(f.agents.retained_sockets().is_empty());
-    assert!(f.tree().await.iter().find(|n| n.id == ws).unwrap().auto() == Some(false));
+    assert!(!f.tree().await.iter().find(|n| n.id == ws).unwrap().auto());
     f.call("workstream.setAuto", json!({"id": ws, "auto": true}))
         .await
         .unwrap();
-    assert!(f.tree().await.iter().find(|n| n.id == ws).unwrap().auto() == Some(true));
+    assert!(f.tree().await.iter().find(|n| n.id == ws).unwrap().auto());
 }
 
 async fn resumed_argv(folder: &Folder) -> String {

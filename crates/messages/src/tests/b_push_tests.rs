@@ -508,7 +508,9 @@ async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
         .iter_mut()
         .find(|n| n.id == "top")
         .unwrap()
-        .status()
+        .door_mut()
+        .unwrap()
+        .status
         .as_mut()
         .unwrap()
         .kind = Kind::Done;
@@ -520,7 +522,9 @@ async fn b21_stopped_door_keeps_the_cap_waiting_weight_on_start() {
         .iter_mut()
         .find(|n| n.id == "top")
         .unwrap()
-        .status()
+        .door_mut()
+        .unwrap()
+        .status
         .as_mut()
         .unwrap()
         .kind = Kind::Working;

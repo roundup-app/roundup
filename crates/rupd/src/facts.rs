@@ -55,7 +55,6 @@ impl Facts {
             };
             if !child
                 .status()
-                .as_ref()
                 .is_some_and(|s| matches!(s.kind, Kind::Done | Kind::Error))
             {
                 continue;
