@@ -1,7 +1,7 @@
 import { alertLevel } from "./alertLevel";
 import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
-import { outcomeOf } from "../app/seam";
+import { applying } from "../app/pending";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { openOnRelease } from "../ui/contextMenu";
@@ -9,7 +9,7 @@ import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "./copy";
-import { Show, createMemo, onCleanup, type JSX } from "solid-js";
+import { Show, createMemo, onCleanup, untrack, type JSX } from "solid-js";
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { RowIcons } from "./RowIcons";
@@ -32,16 +32,22 @@ import { Trunks } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
 import type { RailTopology } from "../state/railTopology";
 import { PadsControl } from "./pads/AgentPads";
-import { draftsOf } from "../state/railStorage";
+import { createDraftField } from "../state/draftField";
 
 /** What Ark's item and branch control take for the row's own element. */
 type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 
+const nameSchema = v.object({ text: v.string(), base: v.string() });
+
+const caretOf = (field: HTMLInputElement) => ({ start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" });
+
 const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: (restore?: boolean) => void }) => {
   const connected = useConnectedProject();
-  const drafts = draftsOf(connected.drafts);
-  const destination = { surface: "rail-name", object: props.node.id, recipient: null };
-  const current = () => drafts.records().filter((entry) => entry.destination.surface === destination.surface && entry.destination.object === destination.object).at(-1);
+  // The field renames the row it opened on through the handler it was given.
+  const { id, rename } = untrack(() => ({ id: props.node.id, rename: props.onCommit }));
+  const destination = { surface: "rail-name", object: id, recipient: null };
+  const draft = createDraftField(connected.drafts, destination, nameSchema);
+  const current = () => connected.drafts.list().filter((entry) => entry.destination.surface === destination.surface && entry.destination.object === destination.object).at(-1);
 
   const value = () => {
     const text = current()?.value.text;
@@ -49,15 +55,13 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
     return v.is(v.string(), text) ? text : props.node.name;
   };
 
-  const edit = (field: HTMLInputElement) => drafts.edit(current()?.destination ?? destination,
-    { text: field.value, base: current()?.value.base ?? props.node.name },
-    { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" }, "ordinary");
+  const capture = (field: HTMLInputElement) => draft.keep({ text: field.value, base: String(current()?.value.base ?? props.node.name) }, caretOf(field));
 
   const conflict = () => current() !== undefined && current()?.status !== "pending" && current()?.value.base !== props.node.name;
 
   const commit = async (field: HTMLInputElement) => {
     if (conflict()) return;
-    const snapshot = current() ?? edit(field);
+    capture(field);
     const name = value().trim();
 
     if (name === "") {
@@ -66,22 +70,12 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       return;
     }
 
-    const submitted = (await drafts.submit(snapshot.revision));
+    // Enter is the owner's own send, so a recovered name goes too.
+    draft.save();
+    const sent = await draft.send(() => applying(() => rename(name)));
 
-    if (!submitted) return;
-
-    try {
-      await props.onCommit(name);
-      const latest = current()?.revision === submitted.revision;
-      drafts.settle(submitted.revision, "acknowledged");
-
-      if (latest) props.onCancel();
-    } catch (error) {
-      drafts.settle(submitted.revision, outcomeOf(error));
-
-      if (!(error instanceof Error)) throw error;
-      props.onFailure(copy.failed(copy.rename, error.message));
-    }
+    if (sent.kind === "applied" && current()?.status !== "draft") props.onCancel();
+    else if (sent.kind === "refused") props.onFailure(copy.failed(copy.rename, sent.error.message));
   };
 
   return <>
@@ -100,8 +94,8 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
         if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
         else field.select();
       }); }}
-      onInput={(event) => edit(event.currentTarget)}
-      onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") edit(event.currentTarget); }}
+      onInput={(event) => capture(event.currentTarget)}
+      onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") capture(event.currentTarget); }}
       onClick={(event) => event.stopPropagation()}
       on:keydown={(key) => {
         if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }

@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createEffect, For, Show } from "solid-js";
 import * as v from "valibot";
 import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -13,6 +13,9 @@ export const RailRecovery = (props: {
   recovery: () => Entry[];
   revisions: () => ReadonlyMap<string, Entry>;
   destinationName: (id: string) => string;
+  /** The revision whose entry stands open, focused on its text. */
+  open: () => string | null;
+  setOpen: (revision: string | null) => void;
   discard: (revision: string) => void;
 }) => {
   const connected = useConnectedProject();
@@ -24,7 +27,7 @@ export const RailRecovery = (props: {
 
   return (
     <Show when={recovery().length > 0}>
-        <details class="rail-recovery">
+        <details class="rail-recovery" open={props.open() !== null} onToggle={event => { if (!event.currentTarget.open) props.setOpen(null); }}>
           <summary><Icon name="right" />{copy.railDrafts}</summary>
           <For each={recovery().map((entry) => entry.revision).reverse()}>{(revision) => (
             <Show when={revisions().get(revision)}>{(entry) => {
@@ -40,11 +43,13 @@ export const RailRecovery = (props: {
                 return v.is(v.string(), value) ? value : null;
               };
 
+              const opened = () => props.open() === entry().revision;
+
               return (
-                <details class="rail-recovery-detail" data-revision={entry().revision}>
+                <details class="rail-recovery-detail" data-revision={entry().revision} open={opened()} onToggle={event => { if (!event.currentTarget.open && opened()) props.setOpen(null); }}>
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
                   <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
-                  <textarea class="field-frame" aria-label={copy.railDraftRecovered} readOnly value={text()} />
+                  <textarea class="field-frame" aria-label={copy.railDraftRecovered} readOnly value={text()} ref={field => createEffect(() => { if (opened()) field.focus(); })} />
                   <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>
                   <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />

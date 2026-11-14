@@ -31,7 +31,7 @@ export const showsFailure = (error: Error): boolean =>
   error.name !== "AbortError" && !isNotFound(error);
 
 /** U5991a: draws the row, calls the Daemon, reads the tree back and lifts the row; a refusal comes back unshown for a caller that settles its own draft. A non-Error rethrows. */
-export const applyCommand = async <R>(
+const applyCommand = async <R>(
   rail: RailState,
   command: RailCommand<R>,
 ): Promise<Applied<R>> => {

@@ -1,6 +1,7 @@
 import { createSignal, onCleanup } from "solid-js";
 import * as v from "valibot";
-import { outcomeOf } from "../app/seam";
+import { applying } from "../app/pending";
+import { createDraftField, type Sent } from "../state/draftField";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
@@ -11,12 +12,20 @@ import { dismissable, ReservedLine } from "../ink/ReservedLine";
 export const CreateMode = (props: { onClose: () => void; onCreated: (id: string, request: string) => void; finalFocus: (id: string) => HTMLElement | null }) => {
   const { app, rail, drafts, project } = useConnectedProject();
   const destination = { surface: "mode-create", object: project.path, recipient: null };
-  drafts.validate(destination.surface, v.strictObject({ name: v.string(), text: v.string(), id: v.nullable(v.string()), request: v.string() }));
+  const schema = v.strictObject({ name: v.string(), text: v.string(), id: v.nullable(v.string()), request: v.string() });
+  drafts.validate(destination.surface, schema);
   drafts.registerRecovery(destination.surface, () => "available");
   onCleanup(drafts.editor(destination));
-  const draft = () => drafts.list().findLast(each => each.destination.surface === destination.surface);
-  const value = () => ({ name: String(draft()?.value.name ?? ""), text: String(draft()?.value.text ?? ""), id: v.is(v.string(), draft()?.value.id) ? String(draft()!.value.id) : null, request: String(draft()?.value.request ?? crypto.randomUUID()) });
-  const edit = (patch: { name?: string; text?: string }) => { drafts.edit(destination, { ...value(), ...patch }, null, "ordinary"); };
+  const field = createDraftField(drafts, destination, schema);
+  const request = crypto.randomUUID();
+
+  const value = () => {
+    const stored = field.value();
+
+    return stored.success ? stored.output : { name: "", text: "", id: null, request };
+  };
+
+  const edit = (patch: { name?: string; text?: string }) => { field.keep({ ...value(), ...patch }, null); };
 
   const [open, setOpen] = createSignal(true);
   let created: string | null = null;
@@ -25,41 +34,51 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
   const line = dismissable(() => [failure(), drafts.problem() ? copy.railDraftRetention(project.name, copy.modeWord, drafts.problem()!.operation) : null].filter(Boolean).join(" "));
   const dismissLine = () => { setFailure(null); line.dismiss(); };
 
+  /** A send that did not apply shows why; true when it applied. */
+  const shown = <R,>(sent: Sent<R>): sent is Extract<Sent<R>, { kind: "applied" }> => {
+    if (sent.kind === "refused") setFailure(sent.error.message);
+    else if (sent.kind === "unknown") setFailure(copy.railDraftUnknown(project.name));
+
+    return sent.kind === "applied";
+  };
+
   const submit = async () => {
     if (busy() || !value().name.trim() || !value().text.trim()) return;
-    const revision = draft();
-
-    if (!revision) return;
     setBusy(true);
-    let submitted = revision.revision;
     const saved = value();
     // U5991a: the Mode's Row shows now; the refreshed tree or a failure lifts it.
     const lift = saved.id === null ? rail.drawNew("agent", saved.name.trim(), null) : null;
 
     try {
-      if (!await drafts.submit(submitted)) return;
+      // Create is the owner's own send, so a recovered form goes too.
+      field.save();
+      let id = saved.id;
 
-      if (saved.id === null) {
-        saved.id = (await app.rpc("agent.createMode", { name: saved.name.trim(), prompt: saved.text })).id;
-        const checkpoint = drafts.edit(destination, saved, null, "ordinary", revision.revision);
-        await checkpoint.retained;
-        await drafts.settle(submitted, "acknowledged");
-        submitted = checkpoint.draft.revision;
-        await drafts.submit(submitted);
+      if (id === null) {
+        // The created id is kept as a newer revision before the first one settles, so a retry resumes it.
+        const made = await field.send(() => applying(async () => {
+          const createdId = (await app.rpc("agent.createMode", { name: saved.name.trim(), prompt: saved.text })).id;
+          field.keep({ ...saved, id: createdId }, null);
+
+          return createdId;
+        }));
+
+        if (!shown(made)) return;
+        id = made.result;
       }
 
-      await rail.refresh();
-      rail.setSectionOpen("modes", true);
-      rail.select(saved.id);
-      await drafts.settle(submitted, "acknowledged");
-      created = saved.id;
-      setOpen(false);
-      props.onCreated(saved.id, saved.request);
-    } catch (error) {
-      await drafts.settle(submitted, outcomeOf(error));
+      const mode = id;
 
-      if (!(error instanceof Error)) throw error;
-      setFailure(error.message);
+      const shownMode = await field.send(() => applying(async () => {
+        await rail.refresh();
+        rail.setSectionOpen("modes", true);
+        rail.select(mode);
+      }));
+
+      if (!shown(shownMode)) return;
+      created = mode;
+      setOpen(false);
+      props.onCreated(mode, saved.request);
     } finally { lift?.(); setBusy(false); }
   };
 

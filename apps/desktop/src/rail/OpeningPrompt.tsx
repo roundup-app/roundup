@@ -1,6 +1,6 @@
 import { createMemo, createSignal, createEffect, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
-import { outcomeOf } from "../app/seam";
+import { applying } from "../app/pending";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
@@ -35,30 +35,17 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
     const revision = draft();
 
     if (!revision || revision.value.text === (current()?.mode_prompt ?? "")) return true;
+    const prompt = String(revision.value.text);
 
-    const submitted = await drafts.submit(revision.revision);
-
-    if (!submitted) return false;
-
-    try {
-      const prompt = String(submitted.draft.value.text);
-
+    // A blur sends only the owner's own typing; a recovered prompt waits for typing or Restart.
+    const sent = await field.send(() => applying(async () => {
       await connected.app.rpc("agent.setModePrompt", prompt.trim() === "" ? { id } : { id, prompt });
       await connected.rail.refresh();
-      await drafts.settle(revision.revision, "acknowledged");
+    }));
 
-      if (current()?.id === id) setFailure(null);
+    if (current()?.id === id && sent.kind !== "skipped") setFailure(sent.kind === "refused" ? sent.error.message : sent.kind === "unknown" ? copy.railDraftUnknown(connected.project.name) : null);
 
-      return true;
-    } catch (error) {
-      await drafts.settle(revision.revision, outcomeOf(error));
-
-      if (!(error instanceof Error)) throw error;
-
-      if (current()?.id === id) setFailure(error.message);
-
-      return false;
-    }
+    return sent.kind === "applied";
   };
 
   let saving: Promise<boolean> | null = null;
@@ -69,6 +56,8 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
     setRestarting(true);
 
     try {
+      field.save();
+
       if (!await save()) return;
       const result = await props.restart();
 

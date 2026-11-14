@@ -5,7 +5,6 @@ import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "./EmptyRail";
 import { failureOf } from "../app/failureOf";
-import { outcomeOf } from "../app/seam";
 import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -44,8 +43,15 @@ import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
-import { applyCommand, createLaunch, railCommand, showsFailure } from "./railCommands";
+import { createLaunch, railCommand } from "./railCommands";
+import { createDraftField } from "../state/draftField";
 import "./styles.css";
+
+const taskSchema = v.object({ text: v.string(), parent: v.nullable(v.string()), model: v.null(), effort: v.null(), action: v.picklist(["note", "spawn"]) });
+
+type Destination = Parameters<typeof createDraftField>[1];
+
+const sameDestination = (a: Destination, b: Destination) => a.surface === b.surface && a.object === b.object && a.recipient === b.recipient;
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
@@ -174,15 +180,16 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return saved.destination.object === "" || saved.destination.object === project.path ? null : saved.destination.object;
   };
 
-  const keepDraft = (text: string, selection = task()?.selection ?? null) => {
+  const composeDestination = createMemo((): Destination => {
     const under = taskParent();
-    const action = taskAction();
 
-    return retained.edit(
-      task()?.destination ?? { surface: "rail-task", object: under ?? project.path, recipient: action === "note" ? under : null },
-      { text, parent: under, model: null, effort: null, action }, selection, "ordinary",
-    );
-  };
+    return task()?.destination ?? { surface: "rail-task", object: under ?? project.path, recipient: taskAction() === "note" ? under : null };
+  }, undefined, { equals: sameDestination });
+
+  const compose = createMemo(on(composeDestination, destination => createDraftField(connected.drafts, destination, taskSchema)));
+
+  const keepDraft = (text: string, selection = task()?.selection ?? null) =>
+    compose().keep({ text, parent: taskParent(), model: null, effort: null, action: taskAction() }, selection);
 
   const taskAction = () => {
     const saved = task();
@@ -480,67 +487,59 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
-    if (snapshot.status === "pending" || snapshot.status === "unknown") return;
-    const originalParent = v.is(v.nullable(v.string()), snapshot.value.parent) ? snapshot.value.parent : snapshot.destination.object === "" || snapshot.destination.object === project.path ? null : snapshot.destination.object;
-    const action = snapshot.value.action === "note" || snapshot.value.action === undefined && snapshot.destination.recipient !== null ? "note" : "spawn";
+  /** The revision whose recovery entry stands open. */
+  const [recovering, setRecovering] = createSignal<string | null>(null);
 
-    if (originalParent !== null && !rail.nodes.some((node) => node.id === originalParent && node.kind === "workstream")) {
+  /** Sends the task revision `sent` as a note to `door`, or as a new Agent's prompt; the composer closes unless newer typing waits. */
+  const deliver = async (sent: { revision: string; destination: Destination }, prompt: string | null, door: string | null) => {
+    const focus = captureFocus(true);
+
+    const retry = () => {
+      const saved = retained.records().find(entry => entry.revision === sent.revision);
+
+      if (!saved || !canSpawn()) return;
+
+      // The open recovery entry shows the exact uncertain revision without sending it twice.
+      if (saved.status === "unknown") setRecovering(saved.revision);
+      else void submitPrompt(prompt);
+    };
+
+    const slow = setTimeout(() => setAsking(true), 500);
+
+    try {
+      // Enter is the owner's own send, so a recovered task goes too.
+      compose().save();
+
+      const outcome = await compose().send<string | null>(() => door === null
+        ? railCommand(rail, { ...spawn(prompt), label: copy.newAgent, retry })
+        : railCommand(rail, { call: () => app.rpc("message.send", { to: door, kind: "note", body: prompt ?? "", replyTo: null }).then(() => null), label: copy.newAgent, retry }));
+
+      const latest = task();
+
+      if (outcome.kind !== "applied" || latest?.status === "draft" && sameDestination(latest.destination, sent.destination)) return;
+
+      if (outcome.result !== null) setWanted({ id: outcome.result, focus });
+      endCompose();
+    } finally {
+      clearTimeout(slow);
+      setAsking(false);
+    }
+  };
+
+  const submitPrompt = async (prompt: string | null) => {
+    keepDraft(draft());
+    const snapshot = task();
+
+    if (!snapshot || snapshot.status === "pending" || snapshot.status === "unknown") return;
+    const under = taskParent();
+
+    if (under !== null && !rail.nodes.some((node) => node.id === under && node.kind === "workstream")) {
       failure.show(copy.railDraftUnavailable);
 
       return;
     }
 
-    const revision = (await retained.submit(snapshot.revision));
-
-    if (!revision) return;
-    const original = rail.nodes.find((node) => node.id === originalParent);
-    const door = prompt !== null && action === "note" ? snapshot.destination.recipient ?? original?.id ?? null : null;
-    const focus = captureFocus(true);
-    const slow = setTimeout(() => setAsking(true), 500);
-
-    const deliver = async () => {
-      try {
-        const delivered = door !== null
-          ? await applyCommand(rail, { call: () => app.rpc("message.send", { to: door, kind: "note", body: prompt!, replyTo: null }).then(() => null) })
-          : await applyCommand(rail, spawn(prompt));
-
-        if (delivered.kind !== "applied") throw delivered.thrown;
-
-        const latest = task()?.revision === revision.revision;
-        retained.settle(revision.revision, "acknowledged");
-
-        if (latest) {
-          if (delivered.value !== null) setWanted({ id: delivered.value, focus });
-          endCompose();
-        }
-      } catch (error) {
-        const outcome = outcomeOf(error);
-        retained.settle(revision.revision, outcome);
-
-        if (!(error instanceof Error)) throw error;
-
-        if (!showsFailure(error)) return;
-        failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", () => {
-          const saved = retained.records().find(entry => entry.revision === revision.revision);
-
-          if (!saved || !canSpawn()) return;
-
-          if (saved.status === "unknown") {
-            // Native details expose the exact uncertain revision without issuing a duplicate.
-            const recovered = document.querySelector<HTMLElement>(`[data-revision="${CSS.escape(saved.revision)}"]`);
-            recovered?.closest(".rail-recovery")?.setAttribute("open", "");
-            recovered?.setAttribute("open", "");
-            recovered?.querySelector("textarea")?.focus();
-          } else void submitPrompt(prompt, saved);
-        });
-      } finally {
-        clearTimeout(slow);
-        setAsking(false);
-      }
-    };
-
-    void deliver();
+    await deliver(snapshot, prompt, prompt !== null && taskAction() === "note" ? snapshot.destination.recipient ?? under : null);
   };
 
   const canSpawn = () => !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
@@ -778,7 +777,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     </TreeView.RootProvider>
     </div>
 
-      <RailRecovery recovery={recovery} revisions={revisions} destinationName={destinationName} discard={revision => {
+      <RailRecovery recovery={recovery} revisions={revisions} destinationName={destinationName} open={recovering} setOpen={setRecovering} discard={revision => {
         const current = task()?.revision === revision;
         retained.discard(revision);
 
