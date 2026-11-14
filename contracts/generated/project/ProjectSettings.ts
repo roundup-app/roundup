@@ -10,4 +10,6 @@ export type ProjectSettings = {
 	mcp: project$Mcp.Mcp,
 	/**  A3195: the most Workstreams that run at once; `None` is no cap. */
 	workstreamCap: number | null,
+	/**  MC30: the Machine the folder is on; `None` is this Mac. */
+	machine: string | null,
 };

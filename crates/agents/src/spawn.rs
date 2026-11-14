@@ -212,7 +212,11 @@ impl Agents {
             start_attribution: params.start_attribution,
             size,
             cwd: params.cwd,
-            machine: params.machine,
+            // MC30: an Agent runs where its Project's folder is, unless the caller says otherwise.
+            machine: match params.machine {
+                Some(machine) => Some(machine),
+                None => self.shared.rail().get_machine()?,
+            },
             permission: params.permission_mode.into(),
         })
     }
@@ -478,7 +482,7 @@ impl Agents {
 
         let retained = node.worktree.map(|w| PathBuf::from(w.path));
         if let Some(path) = &retained
-            && !path.is_dir()
+            && !self.shared.git.is_dir(path)
         {
             return Err(worktree::WorktreeError::Missing(path.display().to_string()).into());
         }

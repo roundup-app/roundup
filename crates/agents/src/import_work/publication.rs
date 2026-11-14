@@ -77,7 +77,7 @@ impl Agents {
             }
             rail.closed_recovery_ready(None)?;
         }
-        let (_, real_cwd) = real_paths(self.project_dir(), cwd)?;
+        let (_, real_cwd) = real_paths(&self.shared.git, self.project_dir(), cwd)?;
         let ids = self.shared.rail().reserve_closed(source, title)?;
         let outcome = async {
             let effective =

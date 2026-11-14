@@ -482,6 +482,27 @@ impl Agents {
         }
     }
 
+    /// MC30: the Project's folder is on a Machine herdr-core lists, or on this Mac.
+    async fn project_set_machine(
+        &self,
+        _ctx: &Ctx,
+        p: contracts::project::SetMachine,
+    ) -> Result<(), RpcError> {
+        let shared = &self.shared;
+        if let Some(name) = &p.machine {
+            let listed = shared.terminals.machine_names().await?;
+            if !listed.contains(name) {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    format!("unknown_machine: {name} is not in the Machine list"),
+                ));
+            }
+        }
+        shared.rail().set_machine(p.machine.as_deref())?;
+        shared.git.set_machine(p.machine);
+        Ok(())
+    }
+
     async fn project_set_mcp(
         &self,
         _ctx: &Ctx,
@@ -570,6 +591,7 @@ impl Agents {
             let models = self.project_models()?;
             let mcp = shared.rail().get_mcp()?;
             Ok(ProjectSettings {
+                machine: shared.rail().get_machine()?,
                 worktrees,
                 models,
                 mcp,

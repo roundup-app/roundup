@@ -56,6 +56,9 @@ pub struct Git {
     deadline: Option<Instant>,
     bound: Duration,
     forked: Arc<std::sync::atomic::AtomicBool>,
+    /// MC30: the Machine the Project's folder is on; `None` is this Mac.
+    machine: Arc<RwLock<Option<String>>>,
+    host: Arc<RwLock<Option<Arc<dyn Machines>>>>,
 }
 
 impl Git {
@@ -72,6 +75,8 @@ impl Git {
             deadline: None,
             bound: BOUND,
             forked: Arc::default(),
+            machine: Arc::default(),
+            host: Arc::default(),
         }
     }
 
@@ -108,7 +113,11 @@ impl Git {
 
     // Optional collection must never queue local git reads behind its own IO.
     pub(super) fn reader(&self) -> Self {
-        Self::with_path(self.path.clone())
+        Self {
+            machine: self.machine.clone(),
+            host: self.host.clone(),
+            ..Self::with_path(self.path.clone())
+        }
     }
 
     /// One budget covers lock acquisition and every command in an App-facing operation.
@@ -154,7 +163,7 @@ impl Git {
             branch: format!("roundup/agent-{id}"),
             base,
         };
-        if worktree.path.exists()
+        if self.exists(&worktree.path)
             || self
                 .reference(project, &format!("refs/heads/{}", worktree.branch))?
                 .is_some()
@@ -194,7 +203,12 @@ impl Git {
             let exclude = self
                 .run(project, &["rev-parse", "--git-path", "info/exclude"])
                 .map_err(failed)?;
-            exclude_worktrees(&project.join(exclude)).map_err(failed)?;
+            match self.remote().map_err(failed)? {
+                Some(machine) => self
+                    .exclude_on(&machine, &project.join(exclude))
+                    .map_err(failed)?,
+                None => exclude_worktrees(&project.join(exclude)).map_err(failed)?,
+            }
             Ok(plan.worktree.clone())
         })();
         if result.is_err() {
@@ -260,7 +274,7 @@ impl Git {
         let branch = self.reference(project, &branch_ref)?;
         let owner = self.reference(project, &plan.owner)?;
         if owner.is_none() {
-            if branch.is_some() || plan.worktree.path.exists() {
+            if branch.is_some() || self.exists(&plan.worktree.path) {
                 return Err(failed("unowned provisioning destination; preserving it"));
             }
             return Ok(());
@@ -272,7 +286,7 @@ impl Git {
                 "provisioning ownership or branch changed; preserving it",
             ));
         }
-        let expected_path = canonical_path(&plan.worktree.path);
+        let expected_path = self.listed_path(&plan.worktree.path);
         let mut registered = false;
         for (path, reference) in self.registered_worktrees(project)? {
             if path == expected_path {
@@ -284,7 +298,7 @@ impl Git {
                 return Err(failed("provisioning branch belongs to another path"));
             }
         }
-        if plan.worktree.path.exists() {
+        if self.exists(&plan.worktree.path) {
             if !registered {
                 return Err(failed("provisioning path is not its registered Worktree"));
             }
@@ -314,14 +328,14 @@ impl Git {
     /// Git itself rather than trusted from the record. The directory's cleanliness is not this
     /// check's concern (resume never cares whether it is landed).
     pub fn verify_resumable(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
-        if !worktree.path.is_dir() {
+        if !self.is_dir(&worktree.path) {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let branch_ref = format!("refs/heads/{}", worktree.branch);
         if self.reference(project, &branch_ref)?.is_none() {
             return Err(WorktreeError::BranchMissing(worktree.branch.clone()).into());
         }
-        let expected_path = canonical_path(&worktree.path);
+        let expected_path = self.listed_path(&worktree.path);
         match self
             .registered_worktrees(project)?
             .into_iter()
@@ -337,7 +351,7 @@ impl Git {
     /// G3: `ahead` and `behind` between the branch and its Base, and whether the Worktree has
     /// changes outside `.roundup/`. Runs no command that writes.
     pub fn state(&self, project: &Path, worktree: &Worktree) -> Result<WorktreeState, RpcError> {
-        if !worktree.path.is_dir() {
+        if !self.is_dir(&worktree.path) {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let range = format!("{}...refs/heads/{}", worktree.base, worktree.branch);
@@ -381,7 +395,7 @@ impl Git {
     /// The entries the Worktree's directory changed, and the commits its branch holds that the
     /// Base lacks. A directory or branch already gone counts for none.
     pub fn unlanded(&self, project: &Path, worktree: &Worktree) -> Result<(usize, u64), RpcError> {
-        let dirty = if worktree.path.exists() {
+        let dirty = if self.exists(&worktree.path) {
             self.run(
                 &worktree.path,
                 &["status", "--porcelain", "-z", "--untracked-files=all"],
@@ -400,7 +414,7 @@ impl Git {
                     &["rev-list", "--count", &format!("{}..{head}", worktree.base)],
                 )
                 .map_err(failed)?,
-            None if !worktree.path.exists() => "0".into(),
+            None if !self.exists(&worktree.path) => "0".into(),
             None => return Err(failed("recorded Worktree branch is missing")),
         };
         let ahead = ahead.trim().parse().map_err(failed)?;
@@ -423,7 +437,7 @@ impl Git {
             return self.discard_prepared(project, worktree);
         }
         let reference = format!("refs/heads/{}", worktree.branch);
-        let path = canonical_path(&worktree.path);
+        let path = self.listed_path(&worktree.path);
         let registered = self
             .registered_worktrees(project)?
             .into_iter()
@@ -442,7 +456,7 @@ impl Git {
                 .map_err(failed)?;
             }
             Some(_) => return Err(failed("recorded Worktree path belongs to another branch")),
-            None if worktree.path.exists() => {
+            None if self.exists(&worktree.path) => {
                 return Err(failed("recorded Worktree path is unregistered"));
             }
             None => {}
@@ -471,7 +485,7 @@ impl Git {
                     .split('\0')
                     .find_map(|value| value.strip_prefix("branch "))
                     .map(str::to_owned);
-                Some((canonical_path(Path::new(path)), branch))
+                Some((self.listed_path(Path::new(path)), branch))
             })
             .collect())
     }
@@ -504,7 +518,7 @@ impl Git {
                 }
                 let backup = if worktree.path.try_exists().map_err(failed)? {
                     let reference = format!("refs/heads/{}", worktree.branch);
-                    let path = canonical_path(&worktree.path);
+                    let path = self.listed_path(&worktree.path);
                     let registered = self.registered_worktrees(project)?;
                     if !registered.iter().any(|(entry, branch)| {
                         *entry == path && branch.as_deref() == Some(&reference)
@@ -569,7 +583,7 @@ impl Git {
         if self.is_enrolled(&worktree.path) {
             return self.release_prepared(project, worktree, expected);
         }
-        let path = canonical_path(&worktree.path);
+        let path = self.listed_path(&worktree.path);
         let registered = self
             .registered_worktrees(project)?
             .into_iter()
@@ -583,7 +597,7 @@ impl Git {
                 .map_err(failed)?;
             }
             Some(_) => return Err(failed("recorded Worktree path belongs to another branch")),
-            None if worktree.path.exists() => {
+            None if self.exists(&worktree.path) => {
                 return Err(failed("recorded Worktree path is unregistered"));
             }
             None => {}
@@ -852,6 +866,8 @@ pub(crate) use error::WorktreeError;
 use exclude::exclude_worktrees;
 
 mod command;
+mod remote;
+pub use remote::Machines;
 mod landing;
 
 mod prepared;

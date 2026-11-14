@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 
 use rpc::RpcError;
 
-use super::{Git, Worktree, WorktreeError, failed};
+use super::{Git, Worktree, WorktreeError, failed, remote};
 
 impl Git {
     /// G4: rebase the branch onto the Base, run `check` in the Worktree, fast-forward the Base.
@@ -17,7 +17,7 @@ impl Git {
         worktree: &Worktree,
         check: Option<&str>,
     ) -> Result<String, RpcError> {
-        if !worktree.path.is_dir() {
+        if !self.is_dir(&worktree.path) {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let Some(check) = check else {
@@ -65,12 +65,19 @@ impl Git {
             });
         }
 
-        let output = Command::new("sh")
-            .current_dir(&worktree.path)
-            .args(["-c", "exec 2>&1; eval \"$1\"", "sh", check])
-            .stdin(Stdio::null())
-            .output()
-            .map_err(|err| undo(failed(err)))?;
+        let output = match self.remote().map_err(|err| undo(failed(err)))? {
+            Some(machine) => {
+                let command = remote::argv(["sh", "-c", "exec 2>&1; eval \"$1\"", "sh", check]);
+                self.exec_on(&machine, &worktree.path, &command, remote::CHECK_LIMIT)
+            }
+            None => Command::new("sh")
+                .current_dir(&worktree.path)
+                .args(["-c", "exec 2>&1; eval \"$1\"", "sh", check])
+                .stdin(Stdio::null())
+                .output()
+                .map_err(|err| err.to_string()),
+        }
+        .map_err(|err| undo(failed(err)))?;
         if !output.status.success() {
             let text = String::from_utf8_lossy(&output.stdout);
             let lines: Vec<&str> = text.lines().collect();
