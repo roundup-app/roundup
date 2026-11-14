@@ -64,6 +64,8 @@ it("u2773c_a_recovered_draft_never_sends", async () => {
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" });
   expect(field.value).toBe("kept");
   fireEvent.blur(field);
+  await new Promise((done) => setTimeout(done));
+  expect(railCallsTo(m.app, "agent.setModePrompt")).toHaveLength(1);
   fireEvent.input(field, { target: { value: "kept, then typed" } });
   fireEvent.blur(field);
   await waitFor(() => expect(railCallsTo(m.app, "agent.setModePrompt")).toHaveLength(2));

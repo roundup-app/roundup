@@ -180,6 +180,16 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return saved.destination.object === "" || saved.destination.object === project.path ? null : saved.destination.object;
   };
 
+  const taskAction = () => {
+    const saved = task();
+
+    if (saved) return v.is(v.picklist(["note", "spawn"]), saved.value.action) ? saved.value.action : saved.destination.recipient === null ? "spawn" : "note";
+
+    const original = rail.nodes.find((node) => node.id === taskDestination());
+
+    return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.launching(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
+  };
+
   const composeDestination = createMemo((): Destination => {
     const under = taskParent();
 
@@ -190,16 +200,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   const keepDraft = (text: string, selection = task()?.selection ?? null) =>
     compose().keep({ text, parent: taskParent(), model: null, effort: null, action: taskAction() }, selection);
-
-  const taskAction = () => {
-    const saved = task();
-
-    if (saved) return v.is(v.picklist(["note", "spawn"]), saved.value.action) ? saved.value.action : saved.destination.recipient === null ? "spawn" : "note";
-
-    const original = rail.nodes.find((node) => node.id === taskDestination());
-
-    return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.launching(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
-  };
 
   let composeOpener: Element | null = null;
 
