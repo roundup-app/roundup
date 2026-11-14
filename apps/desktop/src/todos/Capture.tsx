@@ -6,7 +6,7 @@ import { queueFocus, returnFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { createEffect, createSignal, createUniqueId, For, onCleanup, onMount, untrack } from "solid-js";
+import { createEffect, createSignal, createUniqueId, For, on, onCleanup, onMount, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -26,8 +26,8 @@ import "./capture.styles.css";
 
 let optimistic = 0;
 
-/** U3713 to U3716, U3737, U3740: `⌘K T` or `⇧⌘T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. */
-export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?: (open: boolean) => void; onReady?: (show: (() => void) | undefined) => void }) => {
+/** U3713 to U3716, U3737, U3740: `⌘K T` or `⇧⌘T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. `open` true opens it, by the native panel when the App has one; every opening and closing goes back through `onOpenChange`. */
+export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?: (open: boolean) => void; open?: boolean; onOpenChange?: (open: boolean) => void }) => {
   const connected = useConnectedProject();
   const todos = useTodoList();
   const [open, setOpen] = createSignal(false);
@@ -131,7 +131,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     nativeSession = false;
     capturedTarget = undefined;
     returnTo = document.activeElement;
-    setOpen(true);
+    setOpen(true); props.onOpenChange?.(true);
   };
 
   const close = () => {
@@ -141,11 +141,9 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
       setNativeOpen(false);
       props.onNativeOpen?.(false);
       void port?.dismiss().catch(error => setFailure(String(error)));
+    } else returnFocus(returnTo);
 
-      return;
-    }
-
-    returnFocus(returnTo);
+    props.onOpenChange?.(false);
   };
 
   const discard = () => {
@@ -218,20 +216,24 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     if (sent.kind === "refused" && outcomeOf(sent.error) === "failed" && text() === "" && current()) void draft.discard();
     setFailure(sentFailure(sent));
 
-    if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); void port.show().then(publish); }
+    if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); props.onOpenChange?.(true); void port.show().then(publish); }
     else show();
   };
 
   const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), retention: Boolean(drafts.problem()), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
 
   const nativeShow = () => {
-    if (nativeOpen() || open() || modalOpen()) return;
+    if (nativeOpen() || open()) return;
+
+    // A request the modal layer refuses is declined, so a controlled `open` does not stay true.
+    if (modalOpen()) return void props.onOpenChange?.(false);
+
     setSession(`${identity}:${++shows}`);
     setSequence(0);
     nativeSession = true;
     capturedTarget = selectedTarget();
     setNativeOpen(true);
-    props.onNativeOpen?.(true);
+    props.onNativeOpen?.(true); props.onOpenChange?.(true);
     void port?.show().then(publish).catch(error => {
       const message = `${copy.captureATodo}: ${String(error)}`;
       setFailure(message);
@@ -296,9 +298,10 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     action: LEADER["leader.capture"],
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
   }]);
-  onMount(() => props.onReady?.(port ? nativeShow : show));
-  onCleanup(() => props.onReady?.(undefined));
-  createEffect(() => { if (!props.onReady) registerKeys({ kind: "app" }, [{
+  // A request can predate the mounted dialog (a Project chosen while Capture was absent), so the effect starts after mount.
+  onMount(() => createEffect(on(() => props.open, wanted => { if (wanted) (port ? nativeShow : show)(); })));
+  onCleanup(() => { if (untrack(() => open() || nativeOpen())) props.onOpenChange?.(false); });
+  createEffect(() => { if (props.open === undefined) registerKeys({ kind: "app" }, [{
     action: CHORDS["todo.capture"],
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
   }]); });
