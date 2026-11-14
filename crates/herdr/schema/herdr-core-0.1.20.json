@@ -1,6 +1,40 @@
 {
   "version": "0.1.20",
   "generation": 1,
+  "advertised": [
+    "hello",
+    "server.status",
+    "server.stop",
+    "server.restart",
+    "terminal.run",
+    "templates.list",
+    "terminal.list",
+    "terminal.get",
+    "terminal.kill",
+    "terminal.rm",
+    "terminal.keep",
+    "terminal.label",
+    "terminal.read",
+    "terminal.attach",
+    "terminal.send",
+    "terminal.wait",
+    "terminal.keys",
+    "terminal.interrupt",
+    "terminal.put",
+    "machine.exec",
+    "file.read",
+    "file.write",
+    "file.edit",
+    "doc.get",
+    "doc.set",
+    "events.subscribe",
+    "machine.add",
+    "machine.list",
+    "machine.connect",
+    "machine.rename",
+    "machine.rm",
+    "rpc.discover"
+  ],
   "methods": {
     "hello": {
       "result": {
@@ -83,6 +117,99 @@
         "required": ["removed"],
         "properties": {"removed": {"type": "string"}}
       }
+    },
+    "file.read": {
+      "errors": {"invalid_params": -32602, "not_found": -32000, "not_text": -32000, "io": -32000, "machine_unknown": -32000, "unavailable": -32000, "needs_update": -32000},
+      "params": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": {"type": "string", "description": "absolute, or from cwd"},
+          "cwd": {"type": ["string", "null"]},
+          "offset": {"type": ["integer", "null"], "minimum": 0, "description": "first line to give, from 1"},
+          "limit": {"type": ["integer", "null"], "minimum": 0, "description": "at most this many lines; whole file up to 8 MB"},
+          "on": {"type": ["string", "null"], "description": "a machine of machine.list; absent: this core"}
+        }
+      },
+      "result": {
+        "type": "object",
+        "required": ["text", "first", "last", "lines"],
+        "properties": {
+          "text": {"type": "string", "description": "the lines as in the file, line ends kept"},
+          "first": {"type": "integer", "minimum": 0},
+          "last": {"type": "integer", "minimum": 0, "description": "last < first: no line given"},
+          "lines": {"type": "integer", "minimum": 0, "description": "lines in the file"}
+        }
+      },
+      "samples": [
+      {"params": {"path": "/tmp/hx/work/sub/a.txt"}, "result": {"first": 1, "last": 3, "lines": 3, "text": "alpha\nbeta\ngamma\n"}},
+      {"params": {"path": "/tmp/hx/work/sub/a.txt", "offset": 2, "limit": 1}, "result": {"first": 2, "last": 2, "lines": 3, "text": "beta\n"}},
+      {"params": {"path": "rel.txt", "cwd": "/tmp/hx/work"}, "result": {"first": 1, "last": 0, "lines": 0, "text": ""}},
+      {"params": {"path": "/tmp/hx/work/missing.txt"}, "error": {"code": -32000, "data": {"hint": "check the path, or hc exec ls", "kind": "not_found"}, "message": "no file /tmp/hx/work/missing.txt"}},
+      {"params": {"path": "/tmp/hx/work/bin.dat"}, "error": {"code": -32000, "data": {"hint": "for bytes: hc exec cat", "kind": "not_text"}, "message": "/tmp/hx/work/bin.dat is not UTF-8 text"}},
+      {"params": {"path": "/tmp/hx/work/sub/a.txt", "offset": 99}, "error": {"code": -32602, "data": {"hint": "see `hc schema`", "kind": "invalid_params"}, "message": "offset 99: the file has 3 lines"}}
+      ]
+    },
+    "file.write": {
+      "errors": {"invalid_params": -32602, "io": -32000, "machine_unknown": -32000, "unavailable": -32000, "needs_update": -32000},
+      "params": {
+        "type": "object",
+        "required": ["path", "data"],
+        "properties": {
+          "path": {"type": "string", "description": "absolute, or from cwd; missing folders are made"},
+          "data": {"type": "string", "description": "base64 of the new content, at most 8 MB raw"},
+          "cwd": {"type": ["string", "null"]},
+          "on": {"type": ["string", "null"], "description": "a machine of machine.list; absent: this core"}
+        }
+      },
+      "result": {
+        "type": "object",
+        "required": ["path", "bytes"],
+        "properties": {
+          "path": {"type": "string", "description": "the file written, absolute"},
+          "bytes": {"type": "integer", "minimum": 0}
+        }
+      },
+      "samples": [
+      {"params": {"path": "/tmp/hx/work/sub/a.txt", "data": "YWxwaGEKYmV0YQpnYW1tYQo="}, "result": {"bytes": 17, "path": "/tmp/hx/work/sub/a.txt"}},
+      {"params": {"path": "/tmp/hx/ro/x.txt", "data": "bm8="}, "error": {"code": -32000, "data": {"hint": "", "kind": "io"}, "message": "/tmp/hx/ro/x.txt: Permission denied (os error 13)"}},
+      {"params": {"path": "/tmp/hx/work/bad.txt", "data": "!!not base64!!"}, "error": {"code": -32602, "data": {"hint": "see `hc schema`", "kind": "invalid_params"}, "message": "data is not base64"}}
+      ]
+    },
+    "file.edit": {
+      "errors": {"invalid_params": -32602, "edit_failed": -32000, "not_found": -32000, "not_text": -32000, "io": -32000, "machine_unknown": -32000, "unavailable": -32000, "needs_update": -32000},
+      "params": {
+        "type": "object",
+        "required": ["path", "edits"],
+        "properties": {
+          "path": {"type": "string", "description": "absolute, or from cwd"},
+          "edits": {
+            "type": "array",
+            "description": "each old found exactly once in the file as it was; all made or none",
+            "items": {
+              "type": "object",
+              "required": ["old", "new"],
+              "properties": {"old": {"type": "string"}, "new": {"type": "string"}}
+            }
+          },
+          "cwd": {"type": ["string", "null"]},
+          "on": {"type": ["string", "null"], "description": "a machine of machine.list; absent: this core"}
+        }
+      },
+      "result": {
+        "type": "object",
+        "required": ["path", "bytes"],
+        "properties": {
+          "path": {"type": "string", "description": "the file written, absolute"},
+          "bytes": {"type": "integer", "minimum": 0}
+        }
+      },
+      "samples": [
+      {"params": {"path": "/tmp/hx/work/sub/a.txt", "edits": [{"old": "beta", "new": "BETA"}]}, "result": {"bytes": 17, "path": "/tmp/hx/work/sub/a.txt"}},
+      {"params": {"path": "/tmp/hx/work/sub/a.txt", "edits": [{"old": "absent text", "new": "x"}]}, "error": {"code": -32000, "data": {"hint": "read it again: exact text", "kind": "edit_failed"}, "message": "the old text is not in the file"}},
+      {"params": {"path": "/tmp/hx/work/sub/a.txt", "edits": [{"old": "a", "new": "x"}]}, "error": {"code": -32000, "data": {"hint": "add lines around it", "kind": "edit_failed"}, "message": "the old text is in the file 4 times"}},
+      {"params": {"path": "/tmp/hx/work/missing.txt", "edits": [{"old": "a", "new": "b"}]}, "error": {"code": -32000, "data": {"hint": "check the path, or hc exec ls", "kind": "not_found"}, "message": "no file /tmp/hx/work/missing.txt"}}
+      ]
     }
   }
 }
