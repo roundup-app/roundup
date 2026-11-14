@@ -33,7 +33,7 @@ const sameValue = (a: Stored, b: Stored): boolean => {
 
 /** One unfinished-input field over a Project's drafts: keep, send, settle, discard. A surface holds no revision, fingerprint or caret of its own.
  * `from`: the retained draft the field reopens; without it, or once that revision is gone, the field follows the destination's newest. */
-export const createDraftField = <Value extends Stored>(drafts: Drafts, destination: Destination, schema: v.GenericSchema<Value>, from?: { revision: string }) => {
+export const createDraftField = <Value extends Stored>(drafts: Drafts, destination: Destination, schema: v.GenericSchema<unknown, Value>, from?: { revision: string }) => {
   const [followed, follow] = createSignal(from?.revision);
 
   const latest = createMemo(() => {
@@ -58,9 +58,10 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
 
   const keep = (next: Value, caret: Caret) => {
     const draft = latest();
+    const read = value();
 
-    // The same value is no new work: a recovered, sent or settled revision keeps its caret; the owner's open one takes the new caret.
-    if (draft && sameValue(draft.value, next)) {
+    // The same value, as the schema reads it, is no new work: a recovered, sent or settled revision keeps its caret; the owner's open one takes the new caret.
+    if (draft && read.success && sameValue(read.output, next)) {
       if (draft.status === "draft" && !recovered() && !sameCaret(draft.selection, caret)) void drafts.setSelection(draft.revision, caret);
 
       return;
@@ -69,6 +70,13 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     const { revision } = drafts.edit(destination, next, caret, "ordinary", draft?.status === "draft" ? draft.revision : null).draft;
     own(revision);
     follow(revision);
+  };
+
+  /** The caret moved over an unchanged value: the followed draft keeps it, whatever its status. */
+  const select = (caret: Caret) => {
+    const draft = latest();
+
+    if (draft && !sameCaret(draft.selection, caret)) void drafts.setSelection(draft.revision, caret);
   };
 
   /** The owner leaves the recovered state. */
@@ -111,5 +119,6 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     return draft ? drafts.discard(draft.revision) : Promise.resolve(null);
   };
 
-  return { value, recovered, keep, save, send, discard };
+  /** The draft the field follows, read-only: its status and identity for the surface's checks. */
+  return { draft: latest, value, recovered, keep, select, save, send, discard };
 };

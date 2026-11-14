@@ -1,4 +1,4 @@
-import { applied } from "../app/pending";
+import { applied, applying } from "../app/pending";
 import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
 import { outcomeOf } from "../app/seam";
@@ -15,11 +15,13 @@ import { CHORDS, LEADER } from "../keys/chords";
 import { resolvedWorkstream } from "../state/railTopology";
 import { captureActions, modalOpen, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
+import { createDraftField } from "../state/draftField";
 import { Dialog } from "../ui/Dialog";
 import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
 import { failureOf } from "../app/failureOf";
 import { useTodoList } from "./todoList";
+import { sentFailure, type Unapplied } from "./EditableText";
 import "./capture.styles.css";
 
 let optimistic = 0;
@@ -38,38 +40,42 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   const { drafts } = connected;
   const destination = { surface: "capture", object: "todo-capture", recipient: null };
 
-  const targetSchema = v.object({
-    targetCaptured: v.optional(v.boolean()), targetOwner: v.optional(v.nullable(v.string())),
-    targetOwnerName: v.optional(v.nullable(v.string())), targetHome: v.optional(v.nullable(v.string())), targetHomeName: v.optional(v.nullable(v.string())),
+  // A draft from before the target was kept reads as one with no captured target.
+  const captureSchema = v.object({
+    text: v.string(), targetCaptured: v.optional(v.boolean(), false), targetOwner: v.optional(v.nullable(v.string()), null),
+    targetOwnerName: v.optional(v.nullable(v.string()), null), targetHome: v.optional(v.nullable(v.string()), null), targetHomeName: v.optional(v.nullable(v.string()), null),
   });
 
-  drafts.validate("capture", v.object({ text: v.string(), ...targetSchema.entries }));
+  drafts.validate("capture", captureSchema);
   drafts.registerRecovery("capture", () => "available");
+  const draft = createDraftField(drafts, destination, captureSchema);
 
-  const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface
-    && draft.destination.object === destination.object && draft.destination.recipient === null);
+  const records = () => drafts.list().filter(each => each.destination.surface === destination.surface
+    && each.destination.object === destination.object && each.destination.recipient === null);
 
+  /** The field's draft while it is still the user's to edit: never one sent and unanswered. */
   const current = () => {
-    const latest = records().at(-1);
+    const latest = draft.draft();
 
     return latest?.status === "draft" || latest?.status === "failed" ? latest : undefined;
   };
 
-  const text = () => {
-    const value = v.safeParse(v.string(), current()?.value.text);
+  const kept = () => {
+    const value = draft.value();
 
-    return value.success ? value.output : "";
+    return current() && value.success ? value.output : undefined;
   };
 
-  const setText = (text: string) => drafts.edit(destination, { text, targetCaptured: nativeSession || current()?.value.targetCaptured === true, targetOwner: target().owner?.id ?? null, targetOwnerName: target().ownerName, targetHome: target().home, targetHomeName: target().homeName }, input
-    ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection } : null, "ordinary");
+  const text = () => kept()?.text ?? "";
 
-  const recovered = () => records().filter(draft => draft.revision !== current()?.revision && draft.status !== "pending");
+  const caretOf = () => input ? { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection } : null;
+
+  const setText = (text: string) => draft.keep({ text, targetCaptured: nativeSession || kept()?.targetCaptured === true, targetOwner: target().owner?.id ?? null, targetOwnerName: target().ownerName, targetHome: target().home, targetHomeName: target().homeName }, caretOf());
+
+  const recovered = () => records().filter(each => each.revision !== current()?.revision && each.status !== "pending");
 
   const retainSelection = () => {
-    const draft = current();
-
-    if (draft && input) drafts.setSelection(draft.revision, { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection });
+    if (current() && input) draft.select(caretOf());
   };
 
   createEffect(() => {
@@ -98,13 +104,12 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   let capturedTarget: ReturnType<typeof selectedTarget> | undefined;
 
   const target = () => {
-    const retained = v.safeParse(targetSchema, current()?.value);
+    const value = kept();
 
-    if (text() !== "" && retained.success && retained.output.targetCaptured) {
-      const value = retained.output;
+    if (text() !== "" && value?.targetCaptured) {
       const owner: Actor | null = value.targetOwner ? { kind: "agent", id: value.targetOwner, parent: null } : null;
 
-      return { owner, ownerName: value.targetOwnerName ?? null, home: value.targetHome ?? null, homeName: value.targetHomeName ?? null };
+      return { owner, ownerName: value.targetOwnerName, home: value.targetHome, homeName: value.targetHomeName };
     }
 
     return capturedTarget ?? selectedTarget();
@@ -144,83 +149,77 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   };
 
   const discard = () => {
-    const draft = current();
-
-    if (draft) drafts.discard(draft.revision);
+    if (current()) void draft.discard();
 
     stranded = null;
     close();
   };
 
   const file = async (keepOpen: boolean) => {
-    const draft = text();
-    const title = draft.trim();
-    const revision = current();
-
+    const title = text().trim();
     const { owner, home } = target();
 
-    if (title === "" || !revision || !(await drafts.submit(revision.revision))) return;
+    if (title === "" || !current()) return;
     const retry = stranded?.title === title && home !== null ? stranded : null;
+    let hide = () => {};
 
-    stranded = null;
-    const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner, refs: [], priority: null };
-    const hide = todos.show(row);
+    let made = false;
+    // Enter and the button are the user's Save: a recovered capture goes out only on them.
+    draft.save();
 
-    props.onFile?.();
+    // Submitted: the row shows and the field clears before the Daemon answers.
+    const submitted = () => {
+      stranded = null;
+      const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner, refs: [], priority: null };
+      hide = todos.show(row);
+      props.onFile?.();
 
-    if (records().at(-1)?.revision === revision.revision) {
-      setText("");
+      if (draft.draft()?.status === "pending") {
+        setText("");
 
-      if (!keepOpen) close();
+        if (!keepOpen) close();
+      }
+
+      return applying(async () => {
+        const id = retry?.id ?? (await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner })).id;
+        made = retry === null;
+
+        if (home === null) return;
+
+        try {
+          await applied(() => connected.app.rpc("todo.move", { id, home }));
+        } catch (error) {
+          stranded = { title, id };
+          throw error;
+        }
+      });
+    };
+
+    const sent = await draft.send(submitted);
+
+    if (sent.kind === "skipped") return;
+
+    if (sent.kind === "applied") {
+      await todos.reload();
+      hide();
+
+      return;
     }
 
-    void (async () => {
-      let made = false;
-      let id = retry?.id ?? null;
+    hide();
 
-      try {
-        if (id === null) {
-          const created = await applied(() => connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner }));
+    if (made || retry || sent.kind === "unknown") void todos.reload();
+    refuse(sent);
+  };
 
-          id = created.id;
-          made = true;
-        }
+  /** A capture that did not apply says why, and Capture reopens where the user typed it. */
+  const refuse = (sent: Unapplied) => {
+    // The empty next editor is disposable; a newer nonempty draft stays current.
+    if (sent.kind === "refused" && outcomeOf(sent.error) === "failed" && text() === "" && current()) void draft.discard();
+    setFailure(sentFailure(sent));
 
-        if (home !== null) {
-          try {
-            const movedId = id;
-            await applied(() => connected.app.rpc("todo.move", { id: movedId, home }));
-          } catch (error) {
-            stranded = { title, id };
-            throw error;
-          }
-        }
-
-        drafts.settle(revision.revision, "acknowledged");
-        await todos.reload();
-
-        hide();
-      } catch (error) {
-        hide();
-
-        if (made || retry) void todos.reload();
-
-        if (!(error instanceof Error)) throw error;
-        drafts.settle(revision.revision, outcomeOf(error));
-
-        // The empty next editor is disposable; a newer nonempty draft stays current.
-        if (outcomeOf(error) === "failed" && text() === "") {
-          const empty = current();
-
-          if (empty) drafts.discard(empty.revision);
-        }
-
-        setFailure(error.message);
-
-        if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); void port.show().then(publish); }
-        else show();
-      }
-    })();
+    if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); void port.show().then(publish); }
+    else show();
   };
 
   const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), retention: Boolean(drafts.problem()), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
@@ -252,12 +251,12 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
   };
 
   const recoveredAction = (kind: "copy" | "discard-revision", revision: string) => {
-    const draft = recovered().find(draft => draft.revision === revision);
+    const found = recovered().find(each => each.revision === revision);
 
-    if (!draft) return;
+    if (!found) return;
 
-    if (kind === "discard-revision") drafts.discard(draft.revision);
-    else void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
+    if (kind === "discard-revision") drafts.discard(found.revision);
+    else void failureOf(() => writeText(connected.app, String(found.value.text))).then(cause => setFailure(cause ? copy.copyDraftFailure(cause) : null));
   };
 
   if (port) {
@@ -347,12 +346,12 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
             <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
           <ReservedLine message={failure() ?? problem.message()} dismiss={() => failure() ? setFailure(null) : problem.dismiss()} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
-          <For each={recovered()}>{draft => <div class="capture-recovery">
-            <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
-            <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
+          <For each={recovered()}>{each => <div class="capture-recovery">
+            <span class="ink" data-state={each.status}>{copy.draftStatus[each.status]}</span>
+            <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(each.value.text)} />
             <div class="capture-actions">
-            <CopyButton app={connected.app} identity={draft.revision} text={String(draft.value.text)} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton>
-            <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>
+            <CopyButton app={connected.app} identity={each.revision} text={String(each.value.text)} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton>
+            <button data-button="quiet" type="button" onClick={() => drafts.discard(each.revision)}>{copy.discardRevision}</button>
             </div>
           </div>}</For>
 
