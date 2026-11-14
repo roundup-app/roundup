@@ -17,19 +17,32 @@ import { judgeRemoval } from "./removal";
 import type { Known, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
 import type { MenuEntry } from "../../ui/contextMenu";
+import { offered } from "./entries";
+import type { Candidate } from "./entries";
 
-type MenuState = {
-  node: RailNode;
-  exit: ExitState | null;
-  confirming: boolean;
-  action: "stop" | "remove";
-  removed?: (() => void) | undefined;
-  /** U367: what removing a Workstream goes and stays, once read; `null` while it is read. */
-  removal?: Removal | null | undefined;
-  losses?: string[];
-  selection?: RailNode[];
-  summary?: string;
-  reversible?: boolean;
+/** What the Rail's confirm is about, with the data its answer needs. A removal's consequences are read before anything is asked. */
+export type Confirming =
+  | { kind: "stop"; node: RailNode; exit: ExitState | null }
+  /** U367: `removal` is what removing a Workstream goes and stays, `"reading"` while it is read; an Agent has none. */
+  | { kind: "remove"; node: RailNode; exit: ExitState | null; removal: Removal | "reading" | null; losses: string[]; removed?: (() => void) | undefined }
+  | { kind: "reading-selection" }
+  | { kind: "remove-selection"; nodes: [RailNode, ...RailNode[]]; summary: string; reversible: boolean; removed: () => void };
+
+type Removing = Extract<Confirming, { kind: "remove" }>;
+
+type Selecting = Extract<Confirming, { kind: "remove-selection" }>;
+
+type RailMenuDeps = {
+  app: AppSeam;
+  rail: RailState;
+  onFailure: (message: string, item?: string) => void;
+  acknowledge: (item: string) => void;
+  storage: ConnectedProject["drafts"];
+  rename: (id: string) => void;
+  queue: QueueView;
+  extra: (node: RailNode) => MenuEntry[];
+  feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined;
+  known: () => Known | null;
 };
 
 const NOT_FOUND = -32001;
@@ -38,12 +51,12 @@ const NOT_FOUND = -32001;
 const isRunning = (node: RailNode, exit: ExitState | null) =>
   node.kind !== "group" && exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
 
-const needsConfirmation = ({ node, exit }: MenuState) =>
+const needsConfirmation = (node: RailNode, exit: ExitState | null) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined, known: () => Known | null = () => null) => {
-  const [state, setState] = createSignal<MenuState | null>(null);
+export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, rename, queue, extra, feedback, known }: RailMenuDeps) => {
+  const [state, setState] = createSignal<Confirming | null>(null);
   let removingSelection = false;
   const resuming = new Set<string>();
   const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
@@ -103,27 +116,20 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
-  const stop = (node: RailNode) => app.rpc("agent.stop", { id: node.id });
-
-  /** One stop path: the menu's item and the Rail's icon both end here. */
-  const chooseStop = () => {
-    const current = state();
-
-    if (!current) return;
+  /** One stop path: the menu's item, the Rail's icon and the confirm's answer all end here. */
+  const stopNow = (node: RailNode) => {
     // U5991a: the row shows stopped now; the Daemon's reply or failure lifts the drawing.
-    const lift = rail.drawExit(current.node.id, { kind: "signal" });
+    const lift = rail.drawExit(node.id, { kind: "signal" });
 
-    void attempt(async () => { try { await stop(current.node); await rail.refresh({ terminals: true }); } finally { lift(); } }, current.node.id);
+    void attempt(async () => { try { await app.rpc("agent.stop", { id: node.id }); await rail.refresh({ terminals: true }); } finally { lift(); } }, node.id);
   };
 
   /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
   const requestStop = (node: RailNode, exit: ExitState | null) => {
-    if (state()?.confirming) return;
-    const current: MenuState = { node, exit, confirming: false, action: "stop" };
-    setState(current);
+    if (state() !== null) return;
 
-    if (needsConfirmation(current)) setState({ ...current, confirming: true });
-    else chooseStop();
+    if (needsConfirmation(node, exit)) setState({ kind: "stop", node, exit });
+    else stopNow(node);
   };
 
   const resume = async (id: string) => {
@@ -159,18 +165,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   const isResumable = (node: RailNode, exit: ExitState | null) => node.can_resume && !isRunning(node, exit);
 
-  const chooseRemove = (scope: "this" | "all" = "this") => {
-    const current = state();
-
-    if (!current) return;
-
-    if (current.selection) return removeSelection(current);
-
-    if (current.confirming) return remove(current, scope);
-    void judge(current);
-  };
-
-  const remove = (current: MenuState, scope: "this" | "all") =>
+  const remove = (current: Removing, scope: "this" | "all") =>
     attempt(async () => {
       const result = await applying(() => app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id }));
 
@@ -181,46 +176,46 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }, current.node.id);
 
   /** U5991a: the rows leave at once; the call, its receipt and a failure's return of the rows follow in the queue. */
-  const removeAtOnce = (ids: string[], name: string, current: MenuState, leaving: string[] = ids) => {
-    current.removed?.();
+  const removeAtOnce = (ids: string[], name: string, row: string, removed: (() => void) | undefined, leaving: string[] = ids) => {
+    removed?.();
     rail.hide(leaving);
     close();
 
-    void storage.undo.removeRailSelection(ids, name, "rail").then(async removed => {
-      if (removed) {
+    void storage.undo.removeRailSelection(ids, name, "rail").then(async done => {
+      if (done) {
         rail.keepRemoved(leaving);
         await rail.refresh();
         rail.unhide(leaving);
-        acknowledge(current.node.id);
+        acknowledge(row);
       } else {
         // The row returns first: a failure line about a row the Rail does not show would clear itself.
         rail.unhide(leaving);
         const failure = storage.undo.failure();
 
-        if (failure) onFailure(failure, current.node.id);
+        if (failure) onFailure(failure, row);
       }
     });
   };
 
-  const judge = async (current: MenuState) => {
-    setState({ ...current, confirming: true, removal: null });
+  const judge = async (current: Removing) => {
+    setState(current);
 
     try {
-      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id, new Set(), known()) : undefined;
+      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id, new Set(), known()) : null;
       const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
 
       const losses = lossesOf(chosen);
 
-      if (state()?.node.id !== current.node.id) return;
+      if (state() !== current) return;
 
       if (losses.length || removal?.unread.length) {
-        setState({ ...current, confirming: true, removal, losses });
+        setState({ ...current, removal, losses });
 
         return;
       }
 
       // Clean: the Workstream and what goes with it leave now; Agents that stay keep their rows.
-      removeAtOnce([current.node.id], current.node.name, current, [current.node.id, ...(removal?.removedIds ?? [])]);
+      removeAtOnce([current.node.id], current.node.name, current.node.id, current.removed, [current.node.id, ...(removal?.removedIds ?? [])]);
     } catch (error) {
       close();
 
@@ -231,17 +226,17 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** Menu and key capture the same row before consequence judgement. */
   const requestRemove = (node: RailNode, exit: ExitState | null, removed?: () => void) => {
-    if (state()?.confirming) return;
-    setState({ node: { ...node }, exit, confirming: false, action: "remove", removed });
-    chooseRemove();
+    if (state() !== null) return;
+    void judge({ kind: "remove", node: { ...node }, exit, removal: "reading", losses: [], removed });
   };
 
-  const removeSelection = async (current: MenuState) => {
-    if (removingSelection || !current.selection) return;
+  const removeSelection = async (current: Selecting) => {
+    if (removingSelection) return;
     removingSelection = true;
+    const row = current.nodes[0].id;
 
     try {
-      const ids = current.selection.map(node => node.id);
+      const ids = current.nodes.map(node => node.id);
 
       if (!current.reversible) {
         const result = await applying(() => app.rpc("rail.removeSelection", { ids }));
@@ -250,29 +245,29 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
         if (result.kind === "pending") {
           for (const id of ids) rail.keepAsked(id, { kind: "remove" });
-        } else current.removed?.();
+        } else current.removed();
       } else {
-        removeAtOnce(ids, current.selection.map(node => node.name).join(", "), current);
+        removeAtOnce(ids, current.nodes.map(node => node.name).join(", "), row, current.removed);
 
         return;
       }
 
-      acknowledge(current.node.id);
+      acknowledge(row);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      onFailure(error.message, current.node.id);
+      onFailure(error.message, row);
     } finally { close(); removingSelection = false; }
   };
 
   const requestRemoveSelection = async (nodes: RailNode[], removed: () => void) => {
-    if (state()?.confirming || removingSelection) return;
+    if (state() !== null || removingSelection) return;
     const ids = new Set(nodes.map(node => node.id));
-    const chosen = nodes.map(node => ({ ...node }));
-    const first = chosen[0];
+    const [first, ...rest] = nodes.map(node => ({ ...node }));
 
     if (!first) return;
-    const current: MenuState = { node: first, exit: rail.exitOf(first), confirming: true, action: "remove", selection: chosen, removed, removal: null };
-    setState(current);
+    const chosen: Selecting["nodes"] = [first, ...rest];
+    const reading: Confirming = { kind: "reading-selection" };
+    setState(reading);
 
     try {
       const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, rail.nodes, node.id, ids, known()).then(removal => ({ node, removal }))] : []));
@@ -283,12 +278,26 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       const summary = [chosen.map(node => node.name).join("\n"), ...judgments.flatMap(({ node, removal }) => [goesLine(removal, node.name), staysLine(removal), ...removal.unread.map(list => copy.listUnread(list))]), ...losses].filter(Boolean).join("\n");
       const unread = judgments.flatMap(({ removal }) => removal.unread);
 
-      if (state() === current) setState({ ...current, losses, summary, removal: undefined, reversible: losses.length === 0 && unread.length === 0 });
+      if (state() === reading) setState({ kind: "remove-selection", nodes: chosen, removed, summary, reversible: losses.length === 0 && unread.length === 0 });
     } catch (error) {
       close();
 
       if (!(error instanceof Error)) throw error;
       onFailure(error.message, first.id);
+    }
+  };
+
+  /** The answer to the open confirm: each kind of question has its own call. */
+  const confirm = (scope: "this" | "all") => {
+    const current = state();
+
+    if (current === null) return;
+
+    switch (current.kind) {
+      case "stop": return stopNow(current.node);
+      case "remove": return remove(current, scope);
+      case "remove-selection": return removeSelection(current);
+      case "reading-selection": return;
     }
   };
 
@@ -318,92 +327,90 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       await rail.refresh({ terminals: true });
     }, node.id);
 
-  /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
-  const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
-    const alerts: MenuEntry = {
-      id: "alerts", label: copy.alerts,
-      children: (["all", "default", "quiet"] as const).map(level => ({
-        id: `alerts:${level}`, label: copy.alertLevels[level], checked: alertLevel(rail.nodes, node) === level,
-        run: async () => {
-          try {
-            const ping = await app.rpc("daemon.ping", null);
-            await app.rpc("rail.setAlertLevel", { project: ping.project, id: node.id, level });
-            await rail.refresh();
-          } catch (error) {
-            if (!(error instanceof Error)) throw error;
-            onFailure(error.message, node.id);
-          }
-        },
-      })),
-    };
-
-    if (node.kind === "group") return [{ id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) }, ...extra(node)];
-
-    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⇧⌘⌫", run: () => requestRemove(node, exit, removed) };
-
-    const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
-
-    if (queued) {
-      // a queued row offers the Queue's own choices; each is one call, and a failure shows as any row action's.
-      const call = (run: () => Promise<void>) => async () => {
+  const alertsEntry = (node: RailNode): MenuEntry => ({
+    id: "alerts", label: copy.alerts,
+    children: (["all", "default", "quiet"] as const).map(level => ({
+      id: `alerts:${level}`, label: copy.alertLevels[level], checked: alertLevel(rail.nodes, node) === level,
+      run: async () => {
         try {
-          await run();
-          acknowledge(node.id);
+          const ping = await app.rpc("daemon.ping", null);
+          await app.rpc("rail.setAlertLevel", { project: ping.project, id: node.id, level });
+          await rail.refresh();
         } catch (error) {
           if (!(error instanceof Error)) throw error;
-
           onFailure(error.message, node.id);
         }
+      },
+    })),
+  });
 
-        await queue.refresh();
-      };
+  const renameEntry = (node: RailNode): MenuEntry => ({ id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) });
 
-      return [
-        { id: "start-now", label: copy.startNow, run: call(async () => { await app.rpc("workstream.startNow", { workstream: node.id }); }) },
-        { id: "dequeue", label: copy.takeOutOfQueue, run: call(async () => { await app.rpc("workstream.dequeue", { workstream: node.id }); }) },
-        ...(queued.place > 1 ? [{ id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) }] : []),
-        ...(queued.place < queued.of ? [{ id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) }] : []),
-        ...extra(node),
-        alerts,
-        remove,
-      ];
-    }
+  /** A queued row offers the Queue's own choices; each is one call, and a failure shows as any row action's. */
+  const queuedEntries = (node: RailNode, { place, of }: { place: number; of: number }): Candidate[] => {
+    const call = (run: () => Promise<void>) => async () => {
+      try {
+        await run();
+        acknowledge(node.id);
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
 
-    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), alerts, remove];
+        onFailure(error.message, node.id);
+      }
 
-    const items: MenuEntry[] = [
-      { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
-    ];
-
-    if (node.yolo && !isMode(node) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
-
-    // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
-    if (!node.yolo && (isRunning(node, exit) || node.can_resume)) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
-
-    if (isRunning(node, exit)) items.push({ id: "stop", label: copy.stop, run: () => requestStop(node, exit) });
-
-    if (isResumable(node, exit)) items.push({ id: "resume", label: copy.resume, run: () => {
-      rail.select(node.id);
-
-      return resume(node.id);
-    } });
-
+      await queue.refresh();
+    };
 
     return [
-      ...items,
-      alerts,
-      ...extra(node),
-      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id), feedback(node.id)),
-      remove,
+      { id: "start-now", label: copy.startNow, run: call(async () => { await app.rpc("workstream.startNow", { workstream: node.id }); }) },
+      { id: "dequeue", label: copy.takeOutOfQueue, run: call(async () => { await app.rpc("workstream.dequeue", { workstream: node.id }); }) },
+      { when: place > 1, id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: place - 2 }); }) },
+      { when: place < of, id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: place }); }) },
     ];
   };
 
+  const lifecycleEntries = (node: RailNode, exit: ExitState | null): Candidate[] => {
+    const running = isRunning(node, exit);
+
+    return [
+      renameEntry(node),
+      { when: node.yolo && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
+      // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
+      { when: !node.yolo && (running || node.can_resume), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
+      { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
+      { when: isResumable(node, exit), id: "resume", label: copy.resume, run: () => {
+        rail.select(node.id);
+
+        return resume(node.id);
+      } },
+    ];
+  };
+
+  /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Rename and the extras only. */
+  const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
+    if (node.kind === "group") return [renameEntry(node), ...extra(node)];
+
+    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⇧⌘⌫", run: () => requestRemove(node, exit, removed) };
+    const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
+
+    if (queued) return offered([...queuedEntries(node, queued), ...extra(node), alertsEntry(node), remove]);
+
+    if (node.kind === "workstream" && node.attempt === null) return [...extra(node), alertsEntry(node), remove];
+
+    return offered([
+      ...lifecycleEntries(node, exit),
+      alertsEntry(node),
+      ...extra(node),
+      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), (message) => onFailure(message, node.id), () => acknowledge(node.id), feedback(node.id)),
+      remove,
+    ]);
+  };
+
   return {
-    state,
+    confirming: state,
     open,
     close,
-    chooseStop,
-    chooseRemove,
+    confirm,
     requestRemove,
     requestRemoveSelection,
     restartMode,

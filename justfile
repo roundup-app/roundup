@@ -239,6 +239,10 @@ app-bundle channel="source" n="":
     cd crates/desktop
     npm exec --yes --package=@tauri-apps/cli@2.12.4 -- tauri build --ci --target "$triple" --features custom-protocol --bundles app --no-sign --config tauri.bundle.conf.json ${overlay[@]+"${overlay[@]}"}
 
+# DF7078d-f: ship the Stable bundle built with Dev build <dev version> (`0.1.0-dev.<n>`) to the alpha feed, with the owner's gh and no rebuild.
+promote dev_version:
+    python3 tools/release/promote.py {{quote(dev_version)}}
+
 # Observe an already-built App after extraction, including the existing recovery and shutdown proofs.
 [positional-arguments]
 app-bundle-check bundle:

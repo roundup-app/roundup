@@ -29,6 +29,10 @@ env:
     ${{ github.event_name == 'pull_request' && startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && format('pr{0}-{1}', github.event.pull_request.number, github.event.pull_request.title) || '' }}
   BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
 
+# DF7078a: the workflow default is read-only; only `publish` widens it.
+permissions:
+  contents: read
+
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
 defaults:
   run:
@@ -79,7 +83,9 @@ jobs:
           python3 "$guard" "$BASE"
           python3 tools/migrations/guard.test.py
       - name: C9 artifact checker boundaries
-        run: python3 tools/release/check.test.py
+        run: |
+          python3 tools/release/check.test.py
+          python3 tools/release/promote.test.py
       # L82, L120: the merge of `main` and the merge-loss restore a fix run makes with no model; `loop.yml` runs the other loop tests.
       - name: L82 merge of main with no model
         run: python3 loop/app-data.py python3 loop/merge_main.test.py
@@ -575,3 +581,69 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(to_entries[]; .value == "success" or (.value == "skipped" and ($event == "pull_request" or ($event == "workflow_dispatch" and .key == "mac-package")))))' <<<"$NEEDS"
+
+  # DF7078a-c: a green push to `main` builds both flavours, one macOS job each (CI5458d), signed with the repo secrets.
+  bundle:
+    needs: [plan, rust, mac-clippy, mac, mac-package, web, chromium, check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [dev, stable]
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      CHANNEL: ${{ matrix.channel }}
+      RUN_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/crates/perf/evidence/
+      - uses: ./.github/actions/setup
+      - name: Build and sign the bundle
+        run: |
+          just app-bundle "$CHANNEL" "$RUN_NUMBER"
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          version=$([ "$CHANNEL" = dev ] && echo "0.1.0-dev.$RUN_NUMBER" || echo "0.1.0-alpha.$RUN_NUMBER")
+          name="roundup-${CHANNEL}_${version}_aarch64.app.tar.gz"
+          mkdir -p bundle-out
+          cp target/"$triple"/release/bundle/macos/*.app.tar.gz bundle-out/"$name"
+          cp target/"$triple"/release/bundle/macos/*.app.tar.gz.sig bundle-out/"$name.sig"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.channel }}
+          path: bundle-out/
+          if-no-files-found: error
+          retention-days: 1
+
+  # DF7078b/c: the Dev feed first, then the Stable artifact for promote. A failed publish leaves `check` as it was.
+  publish:
+    needs: [bundle]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DEV_VERSION: 0.1.0-dev.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: tools/release
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bundle-*
+          path: bundles
+      - name: Dev feed
+        run: python3 tools/release/feed.py publish-dev "$DEV_VERSION" "$GITHUB_REPOSITORY" bundles/bundle-dev
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stable-${{ env.DEV_VERSION }}
+          path: bundles/bundle-stable/
+          if-no-files-found: error
+          retention-days: 90
