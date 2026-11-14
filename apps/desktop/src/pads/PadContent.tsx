@@ -326,7 +326,7 @@ const PadBody = (props: {
 
       const next = sent.result;
       const before = cycle.save();
-      cycle.send({ kind: "applied", version, typed: currentDraft() !== next.text });
+      cycle.send({ kind: "applied", version });
       actionFailure.clear();
       props.onFailureCleared?.();
 
@@ -341,7 +341,7 @@ const PadBody = (props: {
       setSaved(!closed && cycle.save().kind === "clean");
       props.onAcknowledged?.(destination.object);
 
-      // Text typed in flight, or Keep mine chosen in flight, goes out as the next write.
+      // A write asked for in flight goes out after the reply.
       if (cycle.save().kind === "dirty") flush();
     });
 

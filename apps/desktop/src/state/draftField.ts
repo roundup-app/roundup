@@ -96,8 +96,8 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
 
     const outcome = await Promise.race([reply, silence]);
     clearTimeout(timer);
-    // The store consumes exactly this revision; a newer one keeps its own entry.
-    await drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? outcomeOf(outcome.error) : "unknown");
+    // The store consumes exactly this revision at once, and a newer one keeps its own entry; retention reports its own problem.
+    void drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? outcomeOf(outcome.error) : "unknown");
 
     return outcome;
   };

@@ -221,5 +221,5 @@ export const waitForReload = async (app: FakeApp, atLeast = 1) => {
   await settled();
 };
 
-/** A resolved `pad.write` reply reaches `write`'s `adopt` call (PadDrawer.tsx) one microtask after a test's own `await` on the reply: `rpc` (fakeApp.ts) is itself `async`, so unwrapping the handler's promise takes one more turn than the test's direct `await` on that same promise. A test awaits this, after resolving a deferred `pad.write` reply, before the next input that depends on `adopt` having run. */
-export const writeAdopted = () => Promise.resolve();
+/** A resolved `pad.write` reply reaches `write`'s `adopt` call (PadContent.tsx) through a chain of microtasks: `rpc` (fakeApp.ts), the draft field's send race and its settlement. `setImmediate` runs once that chain has drained, and the tests' fake timers replace only `setTimeout`. A test awaits this, after resolving a deferred `pad.write` reply, before the next input that depends on `adopt` having run. */
+export const writeAdopted = () => new Promise<void>(resolve => setImmediate(resolve));

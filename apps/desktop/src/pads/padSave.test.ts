@@ -18,14 +18,16 @@ const rows: [string, Save, SaveEvent, Save][] = [
   ["a due write sends", { kind: "dirty", due: "autosave" }, { kind: "send", text: "a", version: 0, mine: false }, { kind: "sending", text: "a", version: 0 }],
   ["a conflict sends only for Keep mine", { kind: "conflict", actor: alice, version: 2 }, { kind: "send", text: "a", version: 2, mine: false }, { kind: "conflict", actor: alice, version: 2 }],
   ["Keep mine sends from a conflict", { kind: "conflict", actor: alice, version: 2 }, { kind: "send", text: "a", version: 2, mine: true }, { kind: "sending", text: "a", version: 2, over: alice }],
-  ["text typed in flight is due after the reply", { kind: "sending", text: "a", version: 2 }, { kind: "applied", version: 2, typed: true }, { kind: "dirty", due: "autosave" }],
-  ["a reply for the sent version cleans", { kind: "sending", text: "a", version: 2 }, { kind: "applied", version: 2, typed: false }, { kind: "clean" }],
+  ["an autosave asked for in flight waits for the reply", { kind: "sending", text: "a", version: 2 }, { kind: "due", due: "autosave" }, { kind: "sending", text: "a", version: 2, due: "autosave" }],
+  ["an autosave asked for in flight writes after the reply", { kind: "sending", text: "a", version: 2, due: "autosave" }, { kind: "applied", version: 2 }, { kind: "dirty", due: "autosave" }],
+  ["an autosave asked for in flight never writes over a newer change", { kind: "sending", text: "a", version: 2, over: alice, due: "autosave" }, { kind: "applied", version: 1 }, { kind: "conflict", actor: alice, version: 2 }],
+  ["a reply for the sent version cleans", { kind: "sending", text: "a", version: 2 }, { kind: "applied", version: 2 }, { kind: "clean" }],
   ["a refusal keeps the draft dirty", { kind: "sending", text: "a", version: 2 }, { kind: "refused" }, { kind: "dirty", due: null }],
   ["a refusal keeps a shown conflict", { kind: "sending", text: "a", version: 2, over: alice }, { kind: "refused" }, { kind: "conflict", actor: alice, version: 2 }],
   ["an outside change during a write waits for its reply", { kind: "sending", text: "a", version: 0 }, { kind: "external", actor: alice, version: 1 }, { kind: "sending", text: "a", version: 1, over: alice }],
   ["Keep mine during a write follows its reply", { kind: "sending", text: "a", version: 1, over: alice }, { kind: "due", due: "keep-mine" }, { kind: "sending", text: "a", version: 1, over: alice, due: "keep-mine" }],
   ["Keep mine needs a shown conflict", { kind: "sending", text: "a", version: 0 }, { kind: "due", due: "keep-mine" }, { kind: "sending", text: "a", version: 0 }],
-  ["an older reply under Keep mine writes again", { kind: "sending", text: "a", version: 1, over: alice, due: "keep-mine" }, { kind: "applied", version: 0, typed: false }, { kind: "dirty", due: "keep-mine" }],
+  ["an older reply under Keep mine writes again", { kind: "sending", text: "a", version: 1, over: alice, due: "keep-mine" }, { kind: "applied", version: 0 }, { kind: "dirty", due: "keep-mine" }],
   ["an unknown reply pauses", { kind: "sending", text: "a", version: 2 }, { kind: "unknown" }, { kind: "paused" }],
   ["an outside change is a conflict", { kind: "dirty", due: null }, { kind: "external", actor: alice, version: 3 }, { kind: "conflict", actor: alice, version: 3 }],
   ["Resume asks for a write", { kind: "paused" }, { kind: "resume" }, { kind: "dirty", due: "autosave" }],
@@ -45,6 +47,6 @@ it("u2773b_an_older_reply_never_consumes_a_newer_revision", () => {
   const sending = step({ kind: "dirty", due: "autosave" }, { kind: "send", text: "a", version: 0, mine: false });
   const conflicted = step(sending, { kind: "external", actor: alice, version: 1 });
 
-  expect(step(conflicted, { kind: "applied", version: 0, typed: false })).toEqual({ kind: "conflict", actor: alice, version: 1 });
-  expect(step({ kind: "clean" }, { kind: "applied", version: 0, typed: false })).toEqual({ kind: "clean" });
+  expect(step(conflicted, { kind: "applied", version: 0 })).toEqual({ kind: "conflict", actor: alice, version: 1 });
+  expect(step({ kind: "clean" }, { kind: "applied", version: 0 })).toEqual({ kind: "clean" });
 });
