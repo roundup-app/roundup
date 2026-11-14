@@ -1,5 +1,6 @@
 import { createMemo, createSignal } from "solid-js";
 import * as v from "valibot";
+import { outcomeOf } from "../app/seam";
 import type { draftStorage } from "./storage";
 
 type Drafts = ReturnType<typeof draftStorage>;
@@ -16,6 +17,9 @@ const NO_REPLY_MS = 15_000;
 /** `skipped`: nothing was sent (no draft, or a recovered one awaiting Save). */
 export type Sent<R> = { kind: "applied"; result: R } | { kind: "refused"; error: Error } | { kind: "unknown" } | { kind: "skipped" };
 
+const sameCaret = (a: Caret, b: Caret): boolean =>
+  a === b || (a !== null && b !== null && a.start === b.start && a.end === b.end && a.direction === b.direction);
+
 const sameValue = (a: Stored, b: Stored): boolean => {
   const keys = Object.keys(a);
 
@@ -27,10 +31,17 @@ const sameValue = (a: Stored, b: Stored): boolean => {
   });
 };
 
-/** One unfinished-input field over a Project's drafts: keep, send, settle, discard. A surface holds no revision, fingerprint or caret of its own. */
-export const createDraftField = <Value extends Stored>(drafts: Drafts, destination: Destination, schema: v.GenericSchema<Value>) => {
-  const latest = createMemo(() => drafts.list().findLast(draft => draft.destination.surface === destination.surface
-    && draft.destination.object === destination.object && draft.destination.recipient === destination.recipient));
+/** One unfinished-input field over a Project's drafts: keep, send, settle, discard. A surface holds no revision, fingerprint or caret of its own.
+ * `from`: the retained draft the field reopens; without it, or once that revision is gone, the field follows the destination's newest. */
+export const createDraftField = <Value extends Stored>(drafts: Drafts, destination: Destination, schema: v.GenericSchema<Value>, from?: { revision: string }) => {
+  const [followed, follow] = createSignal(from?.revision);
+
+  const latest = createMemo(() => {
+    const own = drafts.list().filter(draft => draft.destination.surface === destination.surface
+      && draft.destination.object === destination.object && draft.destination.recipient === destination.recipient);
+
+    return own.find(draft => draft.revision === followed()) ?? own.at(-1);
+  });
 
   const value = createMemo(() => v.safeParse(schema, latest()?.value));
 
@@ -48,13 +59,16 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
   const keep = (next: Value, caret: Caret) => {
     const draft = latest();
 
-    if (draft?.status === "draft" && sameValue(draft.value, next)) {
-      if (JSON.stringify(draft.selection) !== JSON.stringify(caret)) void drafts.setSelection(draft.revision, caret);
+    // The same value is no new work: a recovered, sent or settled revision keeps its caret; the owner's open one takes the new caret.
+    if (draft && sameValue(draft.value, next)) {
+      if (draft.status === "draft" && !recovered() && !sameCaret(draft.selection, caret)) void drafts.setSelection(draft.revision, caret);
 
       return;
     }
 
-    own(drafts.edit(destination, next, caret, "ordinary", draft?.status === "draft" ? draft.revision : null).draft.revision);
+    const { revision } = drafts.edit(destination, next, caret, "ordinary", draft?.status === "draft" ? draft.revision : null).draft;
+    own(revision);
+    follow(revision);
   };
 
   /** The owner leaves the recovered state. */
@@ -83,7 +97,7 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     const outcome = await Promise.race([reply, silence]);
     clearTimeout(timer);
     // The store consumes exactly this revision; a newer one keeps its own entry.
-    await drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? "failed" : "unknown");
+    await drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? outcomeOf(outcome.error) : "unknown");
 
     return outcome;
   };

@@ -1,6 +1,7 @@
 import { createRoot } from "solid-js";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
+import { RpcError } from "../app/seam";
 import { createDraftField } from "./draftField";
 import { draftStorage } from "./storage";
 
@@ -42,7 +43,8 @@ it("u2773b_a_refused_send_keeps_both_revisions", async () => {
   const drafts = open("b");
   const pad = field(drafts);
   pad.keep({ text: "A" }, null);
-  const sending = pad.send(() => Promise.reject(new Error("no")));
+  // U3791b: only a typed refusal proves the write failed; any other throw leaves it unknown.
+  const sending = pad.send(() => Promise.reject(new RpcError(-32602, "no")));
   await vi.waitFor(() => expect(drafts.list()[0]?.status).toBe("pending"));
   pad.keep({ text: "B" }, null);
 
