@@ -171,20 +171,6 @@ describe("u68 resume from the Rail menu", () => {
     expect(emulators.made.get("t-a")?.disposed).toBe(false);
   });
 
-  it("u68_not_found_shows_the_line_and_refetches_the_tree", async () => {
-    const tree: RailNode[] = [resumable("a")];
-    const { app } = await mountRail(tree, [exited("a")]);
-
-    app.handlers["agent.resume"] = () => { throw new RpcError(-32001, "no agent a"); };
-
-    openAt("a");
-    const before = railCallsTo(app, "rail.tree").length;
-    await app.pickMenu("Resume");
-
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("no agent a"));
-    await waitFor(() => expect(railCallsTo(app, "rail.tree").length).toBe(before + 1));
-  });
-
   it("u68_unknown_outcome_is_never_retried_and_binds_the_terminal_the_tree_names", async () => {
     const tree: RailNode[] = [resumable("a")];
     const emulators = fakeEmulators();

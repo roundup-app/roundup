@@ -86,7 +86,7 @@ it("u6000b_starting_stays_until_the_daemon_reports_a_later_status", async () => 
 
 it.each([
   ["refused", new RpcError(-32003, "Cannot start: refused")],
-  ["timed out", new RpcError(-32001, "Cannot start: timed out")],
+  ["timed out", new RpcError(-32005, "Cannot start: timed out")],
   ["Daemon gone", new Error("the Daemon is gone")],
 ] as const)("u6000c_a_refused_start_shows_the_failure_text_and_retry_without_starting_%s", async (_name, failure) => {
   const mounted = await mountRail([exited("old")]);
@@ -103,6 +103,26 @@ it.each([
   await screen.findByText(failure instanceof RpcError ? failure.message : copy.resumeOutcomeUnknownTheDaemonMayHaveResumed);
   expect(rowOf("old")).toBeTruthy();
   expect(startingOf(mounted, "old")).toBe(false);
+});
+
+it.each([
+  ["an abort error", Object.assign(new Error("aborted"), { name: "AbortError" }), 0],
+  ["a not found", new RpcError(-32001, "no agent old"), 1],
+] as const)("u6000c_an_abort_error_is_silent_and_a_not_found_refreshes_%s", async (_name, failure, refreshes) => {
+  const mounted = await mountRail([exited("old")]);
+
+  mounted.app.handlers["agent.resume"] = () => { throw failure; };
+
+  await settled();
+
+  const before = railCallsTo(mounted.app, "rail.tree").length;
+
+  await chooseAction(mounted.app, "old", "Resume");
+  await waitFor(() => expect(railCallsTo(mounted.app, "rail.tree").length).toBe(before + refreshes));
+  await settled();
+
+  expect(railCallsTo(mounted.app, "rail.tree").length).toBe(before + refreshes);
+  expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it("u6000b_no_row_shows_starting_after_the_program_is_up_or_a_failure", async () => {
