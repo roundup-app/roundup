@@ -305,6 +305,18 @@ impl Terminals {
         self.load_among(names).await
     }
 
+    /// MC34: a Machine the user named for a start must answer; the start fails with `CONFLICT`
+    /// and picks no other when it does not.
+    pub async fn require_reachable(&self, machine: &str) -> Result<(), RpcError> {
+        match tokio::time::timeout(PICK_TIMEOUT, self.remotes.conn(machine)).await {
+            Ok(Ok(_)) => Ok(()),
+            _ => Err(RpcError::new(
+                rpc::code::CONFLICT,
+                format!("machine {machine} is unreachable; the start picked no other"),
+            )),
+        }
+    }
+
     pub(super) async fn load_among(&self, names: Vec<String>) -> Result<MachineLoad, RpcError> {
         let (mut mac, mut live) = (0, BTreeMap::<String, usize>::new());
         for entry in self.shared.table()?.values() {
