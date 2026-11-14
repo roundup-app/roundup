@@ -1,3 +1,4 @@
+import { doorOf } from "../testing/nodes";
 // @vitest-environment jsdom
 import { waitFor } from "@solidjs/testing-library";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
@@ -29,7 +30,7 @@ subprocess.run([sys.argv[2], 'signal', os.environ['ROUNDUP_AGENT_ID']], input=js
       try {
         const door = await app.rpc("rail.createWorkstream", { name: "Observer", parent: null });
         await app.rpc("rail.startDoor", { id: door.id });
-        const child = await app.rpc("agent.spawn", { cwd: real.dir, parent: door.id, prompt: null, name: "Helper" });
+        const child = doorOf(await app.rpc("agent.spawn", { cwd: real.dir, parent: door.id, prompt: null, name: "Helper" }))!;
         await app.rpc("agent.signal", { id: child.id, attempt: child.attempt!, payload: { hook_event_name: "UserPromptSubmit", prompt_id: "turn" } });
 
         // Exercise the same stdio tool a Door calls, against this fixture's real Daemon.

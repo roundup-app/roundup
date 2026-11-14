@@ -1,3 +1,4 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mode, workstream, agent } from "../testing/nodes";
@@ -7,7 +8,7 @@ import { chooseFooter, mountRail, railCallsTo, rowOf } from "./railFixture";
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
-  const tree = [workstream("existing")];
+  const tree: RailNode[] = [workstream("existing")];
   const m = await mountRail(tree);
   const order: string[] = [];
   m.app.handlers["agent.createMode"] = ({ prompt }) => { order.push("create"); const made = mode("made", prompt); tree.push(made);
@@ -37,7 +38,7 @@ it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
 });
 
 it("u4547b_failed_creation_keeps_input_and_retries_create", async () => {
-  const tree = [workstream("existing")];
+  const tree: RailNode[] = [workstream("existing")];
   const m = await mountRail(tree);
   let fail = true;
   m.app.handlers["agent.createMode"] = ({ prompt }) => {
@@ -135,7 +136,7 @@ it("u4547b_late_creation_failure_preserves_the_newer_draft", async () => {
 });
 
 it("u4547b_start_failure_is_retried_on_the_created_row", async () => {
-  const tree = [workstream("existing")];
+  const tree: RailNode[] = [workstream("existing")];
   const m = await mountRail(tree, [], undefined, () => true);
   m.app.handlers["agent.createMode"] = ({ prompt }) => {
     const made = mode("made", prompt);

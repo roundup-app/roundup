@@ -44,6 +44,8 @@ import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
 import { createLaunch, railCommand } from "./railCommands";
+import { statusOf } from "./attention";
+import { isDoor } from "../state/doorNode";
 import { createDraftField } from "../state/draftField";
 import "./styles.css";
 
@@ -131,8 +133,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       return offered([
         { when: node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node), id: "dismiss", label: copy.dismissError, run: () => { rail.dismiss(node); } },
         { when: moveAgent.available(node.id), id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) },
-        { when: node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
-        { when: node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
+        { when: node.kind === "agent" && node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
+        { when: node.kind === "agent" && node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
         { when: isMode(node), id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } },
         {
           when: node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null,
@@ -277,7 +279,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     const node = rail.nodes.find(each => each.id === id);
 
     const attention = node?.kind === "workstream" && node.status?.kind !== "needs-you"
-      ? rail.nodes.find(each => each.status?.kind === "needs-you" && ancestorsOf(topology(), each.id).includes(id)) : undefined;
+      ? rail.nodes.find(each => statusOf(each)?.kind === "needs-you" && ancestorsOf(topology(), each.id).includes(id)) : undefined;
 
     const destination = attention?.id ?? id;
     setSelected([destination]);
@@ -453,7 +455,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const createWorkstream = () => void rail.createWorkstream();
 
   /** U427, U428: a Workstream's folder is its Door's, an Agent's is its Worktree's, else the Project's. */
-  const directoryOf = (node: RailNode) => node.worktree?.path ?? project.path;
+  const directoryOf = (node: RailNode) => (isDoor(node) ? node.worktree?.path : undefined) ?? project.path;
 
   const opened = async (open: () => Promise<void>) => {
     const failed = await failureOf(open);

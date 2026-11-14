@@ -7,7 +7,7 @@ import { afterEach, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, door, info, mode, NOW, workstream } from "../testing/nodes";
+import { agent, door, info, mode, NOW, workstream, doorOf } from "../testing/nodes";
 import { lazyEmulators } from "../terminal/lazyEmulator";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -24,7 +24,7 @@ const mount = async (nodes: RailNode[] = [agent("ann", "idle", "ready"), agent("
   root.add("/p");
   const app = root.of("/p");
   app.handlers["rail.tree"] = () => nodes;
-  app.handlers["terminal.list"] = () => nodes.flatMap(node => node.terminal_id ? [info(node.terminal_id, { owner: node.id })] : []);
+  app.handlers["terminal.list"] = () => nodes.flatMap(node => doorOf(node)?.terminal_id ? [info(doorOf(node)!.terminal_id!, { owner: node.id })] : []);
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.write"] = () => null;

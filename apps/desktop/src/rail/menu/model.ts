@@ -1,3 +1,4 @@
+import { isDoor } from "../../state/doorNode";
 import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
@@ -48,10 +49,10 @@ type RailMenuDeps = {
 
 /** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
 const isRunning = (node: RailNode, exit: ExitState | null) =>
-  node.kind !== "group" && exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
+  isDoor(node) && exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
 
 const needsConfirmation = (node: RailNode, exit: ExitState | null) =>
-  isRunning(node, exit) &&
+  isDoor(node) && isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
 export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, rename, queue, extra, feedback, known }: RailMenuDeps) => {
@@ -61,8 +62,8 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
 
   const lossesOf = (chosen: readonly RailNode[]) => chosen.flatMap(node => [
-    ...(node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
-    ...((node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
+    ...(isDoor(node) && node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
+    ...((isDoor(node) && node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
   ]);
 
   const restartMode = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
@@ -139,7 +140,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     } finally { resuming.delete(id); }
   };
 
-  const isResumable = (node: RailNode, exit: ExitState | null) => node.can_resume && !isRunning(node, exit);
+  const isResumable = (node: RailNode, exit: ExitState | null) => isDoor(node) && node.can_resume && !isRunning(node, exit);
 
   const remove = async (current: Removing, scope: "this" | "all") => {
     const id = current.node.id;
@@ -343,12 +344,13 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
   const lifecycleEntries = (node: RailNode, exit: ExitState | null): Candidate[] => {
     const running = isRunning(node, exit);
+    const yolo = isDoor(node) && node.yolo;
 
     return [
       renameEntry(node),
-      { when: node.yolo && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
+      { when: yolo && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
-      { when: !node.yolo && (running || node.can_resume), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
+      { when: !yolo && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
       { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
       { when: isResumable(node, exit), id: "resume", label: copy.resume, run: () => {
         rail.select(node.id);

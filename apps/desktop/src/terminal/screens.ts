@@ -13,6 +13,7 @@ import { createTyping } from "./typing";
 import { createPump, createStream } from "./stream";
 import type { Stream } from "./stream";
 import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
+import { isDoor } from "../state/doorNode";
 
 export type Screens = {
   prepare(host: HTMLElement, settled?: () => boolean, signal?: AbortSignal): Promise<TerminalPreparation>;
@@ -157,7 +158,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
 
   const exited = (id: string): boolean => {
-    const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
+    const node = rail.nodes.find((candidate) => isDoor(candidate) && candidate.terminal_id === id);
 
     return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
   };
@@ -227,7 +228,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const show = (id: string, host: HTMLElement, focus?: boolean): Size => {
     const holder = holderFor(id);
-    const agent = rail.nodes.find(node => node.terminal_id === id);
+    const agent = rail.nodes.find(node => isDoor(node) && node.terminal_id === id);
 
     holder.stopClipboard?.();
     holder.host = host;

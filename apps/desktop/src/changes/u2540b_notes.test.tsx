@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { copy as recoveryCopy } from "../sharedCopy";
 import { parse } from "flatted";
 import { notesFor } from "./notes";
@@ -272,7 +273,7 @@ it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: noteText } });
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: null })];
   app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(connected.rail.nodes.find(node => node.id === "a")?.worktree).toBeNull());
+  await waitFor(() => expect(connected.rail.nodes.filter(isDoor).find(node => node.id === "a")?.worktree).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
   expect(recovery.textContent).toContain(noteText);

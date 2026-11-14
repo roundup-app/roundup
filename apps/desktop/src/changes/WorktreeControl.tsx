@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -91,7 +92,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   onCleanup(() => { generation++; });
   createEffect(on(() => [state(), version()] as const, () => { void refresh(); }));
 
-  const node = () => rail.nodes.find(node => node.id === props.id);
+  const node = () => { const found = rail.nodes.find(node => node.id === props.id); return found && isDoor(found) ? found : undefined; };
   createEffect(on(() => node()?.status_revision, (next, before) => {
     const kind = node()?.status?.kind;
 
@@ -111,7 +112,8 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   const title = `${copy.reviewChanges} · ${props.name}: `;
 
   const originalAvailable = () => {
-    const current = rail.nodes.find(node => node.id === id)?.worktree;
+    const found = rail.nodes.find(node => node.id === id);
+    const current = found && isDoor(found) ? found.worktree : undefined;
 
     return !daemonExit() && current?.path === worktree.path && current?.branch === worktree.branch && current?.base === worktree.base;
   };
@@ -209,11 +211,11 @@ export const WorktreeControl = (props: { compact?: boolean | undefined; returnFo
     () => {
       const node = rail.nodes.find((candidate) => candidate.id === rail.selected());
 
-      return node && node.worktree ? { id: node.id, name: node.name, worktree: node.worktree } : null;
+      return node && isDoor(node) && node.worktree ? { id: node.id, name: node.name, worktree: node.worktree } : null;
     },
     null,
     { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch && a?.worktree.path === b?.worktree.path && a?.worktree.base === b?.worktree.base },
   );
 
-  return <><Show when={selected()} keyed>{(each) => <Panel returnFocus={props.returnFocus} recover={() => setRecoveryOpen(true)} id={each.id} name={each.name} worktree={each.worktree} notes={notes} recoveryOpen={recoveryOpen()} onOpen={() => setRecoveryOpen(false)} />}</Show><NoteRecovery compact={props.compact} name={id => rail.nodes.find(node => node.id === id)?.name ?? names.get(id) ?? copy.unavailableAgent} notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
+  return <><Show when={selected()} keyed>{(each) => <Panel returnFocus={props.returnFocus} recover={() => setRecoveryOpen(true)} id={each.id} name={each.name} worktree={each.worktree} notes={notes} recoveryOpen={recoveryOpen()} onOpen={() => setRecoveryOpen(false)} />}</Show><NoteRecovery compact={props.compact} name={id => rail.nodes.find(node => node.id === id)?.name ?? names.get(id) ?? copy.unavailableAgent} notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && isDoor(node) && node.worktree !== null)} /></>;
 };

@@ -12,6 +12,7 @@ import { captureDir } from "./captures";
 import { chromePath } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { doorOf } from "./nodes";
 import { createServedApp } from "./realSeam";
 
 const execute = promisify(execFile);
@@ -123,15 +124,15 @@ const width = 1280;
       const rendered = (await browser("eval", `({id: document.querySelector('.rail-row[data-id]').dataset.id, terminal: window.__u463Calls.find(call => call.method === 'terminal.snapshot')?.params.id})`)).result;
 
       expect(rendered.id).toBe(workstream.id);
-      expect(rendered.terminal).toBe(workstream.terminal_id);
+      expect(rendered.terminal).toBe(doorOf(workstream)!.terminal_id);
       expect((await browser("eval", "window.__u463Calls.find(call => call.method === 'rail.startDoor').params.id")).result).toBe(workstream.id);
-      expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(workstream.terminal_id);
+      expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(doorOf(workstream)!.terminal_id);
       // U467: the user types to the Door in its own Terminal; the real Claude reads the line as its prompt.
       await batch(
         ["click", ".pane-screen"],
         ["type", ".pane-screen textarea", "u463 real request"],
         ["press", "Enter"],
-        ["wait", "--fn", `window.__u463Calls.some(call => call.method === 'terminal.write' && call.params.id === '${workstream.terminal_id}')`],
+        ["wait", "--fn", `window.__u463Calls.some(call => call.method === 'terminal.write' && call.params.id === '${doorOf(workstream)!.terminal_id}')`],
         ["wait", "--fn", `window.__u463Calls.some(call => call.method === 'todo.list' && call.outcome.result?.some(todo => todo.title === 'u463 real request'))`]
       );
       expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).not.toContain("u463 real request");
@@ -237,7 +238,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     const child = (await app.rpc("rail.tree", null)).find((node) => node.kind === "agent")!;
     const parent = (await app.rpc("rail.tree", null)).find((node) => node.id === child.parent)!;
 
-    expect([child.terminal_id, child.attempt, child.status_revision, child.can_resume]).toEqual([null, null, null, true]);
+    expect([doorOf(child)!.terminal_id, doorOf(child)!.attempt, doorOf(child)!.status_revision, doorOf(child)!.can_resume]).toEqual([null, null, null, true]);
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
 
@@ -264,9 +265,9 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     const idle = async (id: string) => vi.waitFor(async () => {
       const node = (await app.rpc("rail.tree", null)).find((row) => row.id === id);
 
-      expect(node?.attempt).toBe("1");
-      expect(node?.terminal_id).toBeTruthy();
-      expect(node?.status?.kind).toBe("idle");
+      expect(doorOf(node)?.attempt).toBe("1");
+      expect(doorOf(node)?.terminal_id).toBeTruthy();
+      expect(doorOf(node)?.status?.kind).toBe("idle");
     }, { timeout: 30_000 });
 
     await rightClick(parent.id);
@@ -294,12 +295,12 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     await idle(child.id);
     const resumed = (await app.rpc("rail.tree", null)).find((node) => node.id === child.id)!;
 
-    expect(resumed.attempt).toBe("1");
-    expect(resumed.terminal_id).not.toBeNull();
-    expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(resumed.terminal_id);
+    expect(doorOf(resumed)!.attempt).toBe("1");
+    expect(doorOf(resumed)!.terminal_id).not.toBeNull();
+    expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(doorOf(resumed)!.terminal_id);
     await choose(parent.id, "start");
     await idle(parent.id);
-    expect((await app.rpc("rail.tree", null)).find((node) => node.id === parent.id)?.terminal_id).not.toBeNull();
+    expect(doorOf((await app.rpc("rail.tree", null)).find((node) => node.id === parent.id))?.terminal_id).not.toBeNull();
 
     if (captures) {
       await browser("record", "start", join(captures, "recovery.webm"));
@@ -475,9 +476,9 @@ it.skipIf(!captureDir("A4899a"))("a4899a_a_blocked_door_takes_the_named_ask_in_t
     await lane.capture("A4899a", "tree-40-failure");
     const door = await app.rpc("rail.createWorkstream", { name: "Feedback", parent: null, order: { kind: "work", title: "Feedback", ask: "Review feedback", limits: [] } });
     await app.rpc("rail.startDoor", { id: door.id });
-    await vi.waitFor(async () => { expect((await app.rpc("rail.tree", null)).find(node => node.id === door.id)?.status?.kind).toBe("idle"); });
+    await vi.waitFor(async () => { expect(doorOf((await app.rpc("rail.tree", null)).find(node => node.id === door.id))?.status?.kind).toBe("idle"); });
     const ready = (await app.rpc("rail.tree", null)).find(node => node.id === door.id)!;
-    const prompt = await app.rpc("terminal.read", { id: ready.terminal_id!, after: 0, reader: null, max: null });
+    const prompt = await app.rpc("terminal.read", { id: doorOf(ready)!.terminal_id!, after: 0, reader: null, max: null });
 
     expect(prompt.text).toBe("");
     const blocker = await app.rpc("todo.create", { title: "Await review", body: null, blockers: null });
@@ -488,7 +489,7 @@ it.skipIf(!captureDir("A4899a"))("a4899a_a_blocked_door_takes_the_named_ask_in_t
       { cwd: real.dir, env: { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") } });
 
     const todo: Todo = JSON.parse(stdout);
-    await vi.waitFor(async () => { expect((await app.rpc("rail.tree", null)).find(node => node.id === door.id)?.status?.kind).toBe("blocked"); });
+    await vi.waitFor(async () => { expect(doorOf((await app.rpc("rail.tree", null)).find(node => node.id === door.id))?.status?.kind).toBe("blocked"); });
     await lane.browser("open", `${real.base}/harness.html?daemon=1&view=workstreams&items=1&tabs=1&seed=tree-40`);
     await lane.until("typeof window.__checks === 'function' && !!document.querySelector('.ask-input') && !!document.querySelector('[data-state=blocked]')");
     await lane.browser("set", "media", "dark");
@@ -562,9 +563,9 @@ it("u5552a_restored_paste_reaches_only_the_focused_program", async () => {
       console.info("initial terminal", agent.id);
       await wait(`!!document.querySelector('.rail-row[data-id="${agent.id}"]')`);
       await browser("click", `.rail-row[data-id="${agent.id}"]`);
-      await wait(`!!document.querySelector('[data-terminal="${agent.terminal_id}"] textarea')`);
-      await browser("click", `[data-terminal="${agent.terminal_id}"] .xterm-screen`);
-      await wait(input(agent.terminal_id!));
+      await wait(`!!document.querySelector('[data-terminal="${doorOf(agent)!.terminal_id}"] textarea')`);
+      await browser("click", `[data-terminal="${doorOf(agent)!.terminal_id}"] .xterm-screen`);
+      await wait(input(doorOf(agent)!.terminal_id!));
     }
 
     // Reload the webview only: both Daemon and fake-vendor PTYs stay alive.
@@ -583,18 +584,18 @@ it("u5552a_restored_paste_reaches_only_the_focused_program", async () => {
         await browser("press", "Enter");
       } else {
         await browser("click", `.rail-row[data-id="${agent.id}"]`);
-        await wait(`!!document.querySelector('[data-terminal="${agent.terminal_id}"] textarea')`);
-        await browser("click", `[data-terminal="${agent.terminal_id}"] .xterm-screen`);
+        await wait(`!!document.querySelector('[data-terminal="${doorOf(agent)!.terminal_id}"] textarea')`);
+        await browser("click", `[data-terminal="${doorOf(agent)!.terminal_id}"] .xterm-screen`);
       }
 
-      await wait(input(agent.terminal_id!));
+      await wait(input(doorOf(agent)!.terminal_id!));
       const payload = [`first 界\nline α`, `second λ\nline 二`, `third 雨\nline β`][step]!;
       await read(`(() => { const data = new DataTransfer(); data.setData('text/plain', ${JSON.stringify(payload)}); document.activeElement.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data })); })()`);
       const framed = `\x1b[200~${payload.replaceAll("\n", "\r")}\x1b[201~`;
       received[index] += framed;
       await vi.waitFor(async () => expect(await readFile(join(logs, agent.id), "utf8")).toBe(received[index]), { timeout: 20_000 });
       expect(await readFile(join(logs, agents[1 - index]!.id), "utf8")).toBe(received[1 - index]);
-      expect(await read("window.__writes.map(call => ({id:call.id, data:call.data}))")).toEqual([...Array(step + 1)].map((_, n) => ({ id: agents[[0, 1, 0][n]!]!.terminal_id, data: Buffer.from(`\x1b[200~${[`first 界\nline α`, `second λ\nline 二`, `third 雨\nline β`][n]!.replaceAll("\n", "\r")}\x1b[201~`).toString("base64") })));
+      expect(await read("window.__writes.map(call => ({id:call.id, data:call.data}))")).toEqual([...Array(step + 1)].map((_, n) => ({ id: doorOf(agents[[0, 1, 0][n]!])!.terminal_id, data: Buffer.from(`\x1b[200~${[`first 界\nline α`, `second λ\nline 二`, `third 雨\nline β`][n]!.replaceAll("\n", "\r")}\x1b[201~`).toString("base64") })));
       const out = captureDir("U5552a");
 
       if (out) {

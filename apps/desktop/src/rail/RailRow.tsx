@@ -6,6 +6,7 @@ import { captureFocus, queueFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
+import { isDoor } from "../state/doorNode";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "./copy";
@@ -132,11 +133,12 @@ const WorktreeChips = (props: { id: string }) => {
 /** MC3, MC15: the Machine an Agent runs on as a chip, and its offline status; no chip for this Mac while it is the only one. */
 const MachineChip = (props: { node: RailNode }) => {
   const connected = useConnectedProject();
-  const shown = () => props.node.kind !== "agent" || props.node.status === null ? null : props.node.machine ?? (connected.machines.any() ? copy.thisMac : null);
+  const machine = () => props.node.kind === "agent" ? props.node.machine : undefined;
+  const shown = () => props.node.kind !== "agent" || props.node.status === null ? null : machine() ?? (connected.machines.any() ? copy.thisMac : null);
 
   return <Show when={shown()}>{name => <>
     <Tip text={name()}>{trigger => <span {...trigger()} class="machine-chip" role="img" aria-label={name()}>{name()}</span>}</Tip>
-    <Show when={props.node.machine !== undefined && connected.machines.offline(props.node.machine)}><span class="machine-status" role="img" aria-label={copy.machineOfflineState(name())}>{copy.machineOffline}</span></Show>
+    <Show when={machine() !== undefined && connected.machines.offline(machine()!)}><span class="machine-status" role="img" aria-label={copy.machineOfflineState(name())}>{copy.machineOffline}</span></Show>
   </>}</Show>;
 };
 
@@ -183,17 +185,20 @@ export const RailRowView = (props: {
   const kind = createMemo((): Kind | null => rowKind(props.topology, props.row.node, node => connected.rail.dismissed(node), isContainer() && props.row.collapsed !== null));
 
   /** DCL1, U6249d: the first Agent, the row's own, or any below it while the row is folded, whose Messages have not reached it, with the Daemon's cause. An open Workstream adds nothing: its child's own row shows the line. */
-  const unreachable = () => [props.row.node, ...(isContainer() && props.row.collapsed ? descendantsOf(props.topology, props.row.node.id) : [])].find(node => node.unreachable);
+  const unreachable = () => [props.row.node, ...(isContainer() && props.row.collapsed ? descendantsOf(props.topology, props.row.node.id) : [])].filter(isDoor).find(node => node.unreachable);
+
+  const waiting = () => props.row.node.kind === "workstream" ? props.row.node.waiting : undefined;
+  const door = () => isDoor(props.row.node) ? props.row.node : undefined;
 
   const statusLabel = () => {
-    const status = props.row.node.status;
+    const status = door()?.status;
 
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
   // R17: the App's clock is live while a connected project has a working Agent; a row adds no demand, so a stopped Daemon's stale working row ticks nothing.
   // U6640a, U6640b: the label and age sit in the row on one line, cut with …; the full text is in the Terminal.
-  const statusRead = () => reads(props.row.node.status, connected.rail.dismissed(props.row.node)) ? props.row.node.status : null;
+  const statusRead = () => reads(door()?.status, connected.rail.dismissed(props.row.node)) ? door()?.status : null;
   const statusCut = createCut(() => statusLabel());
 
   const unread = createMemo(() => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null));
@@ -211,7 +216,7 @@ export const RailRowView = (props: {
   };
 
   // U6248c: an exhausted resume shows its cause once, in the line that carries Resume.
-  const exhaustedResume = () => props.row.node.resume?.at === null && props.row.node.status?.kind === "error";
+  const exhaustedResume = () => door()?.resume?.at === null && door()?.status?.kind === "error";
 
   const rowProps = () => ({
     class: "rail-row", classList: { "row-wash": true, "rail-root-divider": rootDivider() }, "data-id": props.row.node.id,
@@ -220,7 +225,7 @@ export const RailRowView = (props: {
     "data-multiple": multiple() ? "true" : undefined,
     tabIndex: tabbable() ? 0 : -1,
     "data-mode": isMode(props.row.node) ? "true" : undefined,
-    "data-worktree": props.row.node.worktree ? "true" : undefined,
+    "data-worktree": door()?.worktree ? "true" : undefined,
     "data-editing": props.editing, "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {
@@ -257,7 +262,7 @@ export const RailRowView = (props: {
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
-      <Show when={!workstream() && props.row.node.worktree}><WorktreeChips id={props.row.node.id} /></Show>
+      <Show when={!workstream() && door()?.worktree}><WorktreeChips id={props.row.node.id} /></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
@@ -265,7 +270,7 @@ export const RailRowView = (props: {
         <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       </span>
     </p>
-    <Show when={workstream() && !connected.rail.launching(props.row.node.id) && props.row.node.waiting}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
+    <Show when={workstream() && !connected.rail.launching(props.row.node.id) && waiting()}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
     <Show when={unreachable()}>{reached => {
       // DCL1a: only the Agent's transcript can be inspected for an unreadable one; every other cause offers another delivery pass.
       const retry = () => reached().unreachable !== "transcript unreadable";
@@ -283,20 +288,20 @@ export const RailRowView = (props: {
 
       return <ReservedLine class="rail-unreachable" status={copy.cantReach(reached().name, reached().unreachable!)}><button type="button" data-button="quiet" aria-label={`${label()} ${reached().name}`} onClick={act}>{label()}</button></ReservedLine>;
     }}</Show>
-    <Show when={!workstream() && props.row.node.resume}>{resume => <Show when={resume().at} fallback={
-      <Show when={props.row.node.status?.kind === "error"}>
-        <ReservedLine class="rail-resume rail-resume-spent" status={props.row.node.status?.label}><button type="button" data-button="quiet" aria-label={copy.resumeAgent(props.row.node.name)} onClick={event => { event.stopPropagation(); void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.resume, failed)); }); }}>{copy.resume}</button></ReservedLine>
+    <Show when={!workstream() && door()?.resume}>{resume => <Show when={resume().at} fallback={
+      <Show when={door()?.status?.kind === "error"}>
+        <ReservedLine class="rail-resume rail-resume-spent" status={door()?.status?.label}><button type="button" data-button="quiet" aria-label={copy.resumeAgent(props.row.node.name)} onClick={event => { event.stopPropagation(); void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.resume, failed)); }); }}>{copy.resume}</button></ReservedLine>
       </Show>}>
-      {at => <ReservedLine class="rail-resume" status={copy.resumesAt(props.row.node.status?.label ?? "", at())} />}
+      {at => <ReservedLine class="rail-resume" status={copy.resumesAt(door()?.status?.label ?? "", at())} />}
     </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
-    <Show when={props.row.node.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && !exhaustedResume() && !connected.rail.dismissed(props.row.node)}><FailureLine status={props.row.node.status} dismiss={() => connected.rail.dismiss(props.row.node)} recover={{ run: () => props.onOpen(props.row.node.id), label: copy.openTerminal }} /></Show>
+    <Show when={door()?.start_attribution}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
+    <Show when={!workstream() && !exhaustedResume() && !connected.rail.dismissed(props.row.node)}><FailureLine status={door()?.status} dismiss={() => connected.rail.dismiss(props.row.node)} recover={{ run: () => props.onOpen(props.row.node.id), label: copy.openTerminal }} /></Show>
   </div>;
 
   return <>
-    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)}>
+    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && door()?.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
+      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && door()?.status ? [statusLabel()] : [])].join(copy.comma)}>
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>

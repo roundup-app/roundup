@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { nextTick } from "@zag-js/dom-query";
 import { copy } from "./copy";
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
@@ -27,7 +28,7 @@ const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["back
   if (seed === "tree-40") {
     const tree = await controls.app.rpc("rail.tree", null);
 
-    if (withWorktree) for (const node of tree) node.worktree = {path: `/Users/you/harness/.roundup/worktrees/${node.id}`, branch: node.id, base: "main"};
+    if (withWorktree) for (const node of tree) if (isDoor(node)) node.worktree = {path: `/Users/you/harness/.roundup/worktrees/${node.id}`, branch: node.id, base: "main"};
     controls.app.handlers["rail.tree"] = () => tree.filter(node => rows.includes(node.id));
   }
 
@@ -492,7 +493,7 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
 it.each(["payments", "tokens", "auth"].flatMap(id => [false, true].map(withWorktree => ({id, withWorktree}))))("u4275b_quick_actions_use_the_rows_directory_$id/$withWorktree", async ({id, withWorktree}) => {
   const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"], withWorktree);
   const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
-  const node = (await app.rpc("rail.tree", null)).find(node => node.id === id)!;
+  const node = (await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === id)!;
   const directory = node.worktree?.path ?? "/Users/you/harness";
   fireEvent.contextMenu(row);
   await app.pickMenu(copy.openFolder);
@@ -562,7 +563,7 @@ it("u4275b_row_actions_keep_menu_semantics_stopped_door", async () => {
 it("u4275b_row_actions_keep_menu_semantics_resume", async () => {
   const { app, emit } = await open("tree-40", ["backend", "auth", "tokens"]);
   const tree = await app.rpc("rail.tree", null);
-  const node = tree.find(node => node.id === "tokens")!;
+  const node = tree.filter(isDoor).find(node => node.id === "tokens")!;
   node.can_resume = true;
   app.handlers["agent.resume"] = () => node;
   await app.rpc("agent.stop", {id:"tokens"});

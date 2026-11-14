@@ -1,3 +1,4 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { createMemo, createSignal, createEffect, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import { applying } from "../app/pending";
@@ -13,7 +14,7 @@ import { createDraftField } from "../state/draftField";
 /** A4452c: the row menu captures the Mode Agent independently of the selected Todo scope. */
 export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["restartMode"]>; id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
   const connected = useConnectedProject();
-  const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "agent" && node.parent === null && node.id === props.id));
+  const current = createMemo(() => connected.rail.nodes.find((node): node is Extract<RailNode, { kind: "agent" }> => node.kind === "agent" && node.parent === null && node.id === props.id));
   const [open, setOpen] = createSignal(true);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [restarting, setRestarting] = createSignal(false);

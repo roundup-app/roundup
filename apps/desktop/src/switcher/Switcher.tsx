@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import type { KeyText } from "../keys/chords";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
@@ -371,11 +372,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   ]);
 
   const entryRow = (entry: Entry) => <span class="switcher-row">
-    <Show when={entry.kind === "node" && entry.node.status} fallback={entry.kind === "todo" ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.kind === "pad" ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), entry.kind === "node" && rail.dismissed(entry.node))} decorative />}</Show>
+    <Show when={entry.kind === "node" && isDoor(entry.node) && entry.node.status} fallback={entry.kind === "todo" ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.kind === "pad" ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), entry.kind === "node" && rail.dismissed(entry.node))} decorative />}</Show>
     <Show when={entry.kind === "todo" || entry.kind === "pad"}><span class="switcher-kind">{entry.kind === "todo" ? copy.kindTodo : copy.kindPad}</span></Show>
     <span class="switcher-name">{entry.label}</span>
     <Show when={ownerOf(entry)}><span class="switcher-owner">{ownerOf(entry)}</span></Show>
-    <Show when={entry.kind === "node" && !rail.dismissed(entry.node)}><Show when={errorCause(entry.kind === "node" ? entry.node.status : undefined, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
+    <Show when={entry.kind === "node" && !rail.dismissed(entry.node)}><Show when={errorCause(entry.kind === "node" && isDoor(entry.node) ? entry.node.status : undefined, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show>
   </span>;
 
   return (

@@ -1,3 +1,4 @@
+import { isDoor, type DoorNode } from "../state/doorNode";
 // @vitest-environment jsdom
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -220,7 +221,7 @@ it("u2773b_lost_ask_acknowledgement_reconciles_after_daemon_restart_without_dupl
 
   if (replay.kind === "acknowledged" && accepted.kind === "acknowledged") expect(replay.ask.id).toBe(accepted.ask.id);
   expect((await app.rpc("ask.list", null)).filter(ask => ask.submission === "lost-response")).toHaveLength(1);
-  expect((await app.rpc("rail.tree", null)).find(node => node.id === replacement.id)?.terminal_id).toBeNull();
+  expect((await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === replacement.id)?.terminal_id).toBeNull();
 });
 
 
@@ -317,7 +318,7 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     const publication = await app.rpc("deliverable.publish", { key: "send", title: "Same", target: { kind: "external", url: "https://example.com/selected" } });
     await app.rpc("deliverable.publish", { key: "other", title: "Same", target: { kind: "external", url: "https://example.com/other" } });
     const receiver = await app.rpc("agent.spawn", { cwd: delivery.dir, parent: null, prompt: null, name: "Reader", order: { kind: "work", ask: "Read selected publication", limits: [] } });
-    await waitFor(async () => expect((await app.rpc("rail.tree", null)).find(node => node.id === receiver.id)?.status?.kind).toBe("idle"));
+    await waitFor(async () => expect((await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === receiver.id)?.status?.kind).toBe("idle"));
     const connected = await connectProject(app, { path: delivery.dir, name: "Project" }, () => false, () => 0);
     await connected.rail.settled();
     connected.showView("made");
@@ -367,7 +368,7 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     await waitFor(() => expect(sends).toHaveLength(1));
     await within(row).findByRole("alert");
     expect(await messages()).toEqual([]);
-    await app.rpc("terminal.write", { id: receiver.terminal_id!, data: Buffer.from("unfinished user input").toString("base64") });
+    await app.rpc("terminal.write", { id: (receiver as DoorNode).terminal_id!, data: Buffer.from("unfinished user input").toString("base64") });
     refuse = false;
     fireEvent.contextMenu(row);
     await waitFor(async () => expect(await messages()).toHaveLength(1));
@@ -445,17 +446,17 @@ it("u504_changes_survive_app_disconnection", async () => {
 
   try {
     const maker = await app.rpc("agent.spawn", { cwd: source.dir, prompt: null, parent: null, name: "Evidence maker" });
-    await waitFor(async () => expect((await app.rpc("rail.tree", null)).find(node => node.id === maker.id)?.status?.kind).toBe("idle"));
+    await waitFor(async () => expect((await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === maker.id)?.status?.kind).toBe("idle"));
     const baseline = await app.subscribe(() => {});
     window.dispatchEvent(new Event("pagehide"));
     const publications = [];
     const identities: Completion[] = [];
 
     for (let turn = 1; turn <= 3; turn += 1) {
-      await app.rpc("terminal.write", { id: maker.terminal_id!, data: Buffer.from(`turn ${turn}\r`).toString("base64") });
+      await app.rpc("terminal.write", { id: (maker as DoorNode).terminal_id!, data: Buffer.from(`turn ${turn}\r`).toString("base64") });
 
       const completed = await waitFor(async () => {
-        const node = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id);
+        const node = (await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === maker.id);
         expect(node?.final_text?.kind).toBe("present");
         expect(node?.final_text?.turn).not.toBe(identities.at(-1)?.turn);
 
@@ -471,10 +472,10 @@ it("u504_changes_survive_app_disconnection", async () => {
     }
 
     for (let turn = 1; turn <= 2; turn += 1) {
-      const before = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id)!.status!.finished;
+      const before = (await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === maker.id)!.status!.finished;
       await app.rpc("message.send", { to: maker.id, kind: "note", body: `Message turn ${turn}`, replyTo: null });
       await waitFor(async () => {
-        const node = (await app.rpc("rail.tree", null)).find(node => node.id === maker.id);
+        const node = (await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === maker.id);
         expect(node?.status?.kind).toBe("idle");
         expect(node?.status?.finished).not.toBe(before);
       });

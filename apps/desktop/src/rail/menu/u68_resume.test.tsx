@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
-import { agent, door, event, workstream, terminal } from "../../testing/nodes";
+import { agent, door, event, workstream, terminal, doorOf } from "../../testing/nodes";
 import { fakeEmulators } from "../../terminal/paneHarness";
 import { exitedTerminal, mountRail as mountFixture, railCallsTo, rowOf } from "../railFixture";
 
@@ -25,7 +25,7 @@ const labels = () => (shown.shownMenus.at(-1)?.items ?? []).filter((item) => ite
 
 const exited = (id: string) => exitedTerminal(id, 0);
 
-const resumable = (id: string, over: Partial<RailNode> = {}) => agent(id, "done", "done", { can_resume: true, ...over });
+const resumable = (id: string, over: Partial<Extract<RailNode, { kind: "agent" }>> = {}) => agent(id, "done", "done", { can_resume: true, ...over });
 
 describe("u68 resume from the Rail menu", () => {
   it("u68_an_exited_resumable_agent_offers_resume_then_remove", async () => {
@@ -167,7 +167,7 @@ describe("u68 resume from the Rail menu", () => {
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot start"));
     expect(rail.selected()).toBe("a");
-    expect(rail.nodes[0]?.terminal_id).toBe("t-a");
+    expect(doorOf(rail.nodes[0])?.terminal_id).toBe("t-a");
     expect(emulators.made.get("t-a")?.disposed).toBe(false);
   });
 

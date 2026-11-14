@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import * as v from "valibot";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -138,7 +139,7 @@ export const placesStorage = (path: string) => {
 export const shownFor = (terminals: readonly TerminalInfo[], nodes: readonly RailNode[], selected: string | null): TerminalInfo[] => {
   if (selected === null) return [];
 
-  const panes = new Set(nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
+  const panes = new Set(nodes.flatMap((node) => !isDoor(node) || node.terminal_id === null ? [] : [node.terminal_id]));
   const owners = new Set([selected, ...ancestorsOf(nodes, selected).filter((id) => nodes.find((node) => node.id === id)?.kind === "workstream")]);
 
   return terminals.filter((terminal) => terminal.owner !== null && owners.has(terminal.owner) && !panes.has(terminal.id)).toSorted((a, b) => Number(a.id) - Number(b.id));

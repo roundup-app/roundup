@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -81,7 +82,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   await waitFor(() => expect(m.app.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(1));
   m.finish();
   // rail.startDoor refreshes the tree after its reply; the live row acknowledges that reconciliation.
-  await waitFor(() => expect(m.connected.rail.nodes.find(node => node.id === "made")?.terminal_id).toBe("t-home"));
+  await waitFor(() => expect(m.connected.rail.nodes.filter(isDoor).find(node => node.id === "made")?.terminal_id).toBe("t-home"));
 
   if (choice !== "other-row") await waitFor(() => expect(m.emulators.made.get("t-home")?.host).toBeTruthy());
   await waitFor(() => expect(m.connected.rail.doorPending("made")).toBe(false));

@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import "../ui/Row.css";
 import { Inbox } from "../inbox/Inbox";
 import { AskRows } from "./AskRows";
@@ -327,6 +328,8 @@ export const AskBar = (props: {
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} row={item => {
             const node = () => rail.nodes.find(node => node.id === item.value);
 
+            const nodeStatus = () => { const found = node(); return found && isDoor(found) ? found.status : undefined; };
+
             const parent = () => names().filter(other => other.label === item.label).length > 1
               ? (rail.nodes.find(other => other.id === node()?.parent)?.name ?? connected.project.name) : undefined;
 
@@ -337,7 +340,7 @@ export const AskBar = (props: {
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={cutRef} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(node()?.status, false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
+            return <><KindGlyph decorative kind={shownKind(nodeStatus(), dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={cutRef} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(nodeStatus(), false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
         <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">

@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble, onBubbleFocus as trackBubbleFocus, hasTerminalFocus } from "./focus";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, focusTarget, provideFocusTarget } from "../keys/focus";
@@ -635,7 +636,8 @@ export const Bubbles = (props: {
   ]);
 
   const mainTerminal = (): string | null => {
-    const id = rail.nodes.find((node) => node.id === rail.selected())?.terminal_id ?? null;
+    const selected = rail.nodes.find((node) => node.id === rail.selected());
+    const id = selected && isDoor(selected) ? selected.terminal_id : null;
 
     return id !== null && focusTarget("pane.terminal") ? id : null;
   };

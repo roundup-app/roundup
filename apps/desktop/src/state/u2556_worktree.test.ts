@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { waitFor } from "@solidjs/testing-library";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent } from "../testing/nodes";
+import { agent, doorOf } from "../testing/nodes";
 import { connectProject } from "./connectedProject";
 import { createWorktreeState } from "./worktrees";
 
@@ -208,7 +208,7 @@ it("u5643c_unchanged_ticks_do_not_reconcile_rail", async () => {
       },
       get worktree() {
         identityReads++;
-        const identity = node.worktree;
+        const identity = doorOf(node)?.worktree ?? null;
 
         return identity === null ? null : {
           get path() {

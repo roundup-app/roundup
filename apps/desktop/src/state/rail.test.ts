@@ -6,8 +6,10 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { connectEvents } from "../app/events";
 import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, event, info, node, workstream, door, USER } from "../testing/nodes";
+import { agent, event, info, node, workstream, door, USER, doorOf } from "../testing/nodes";
 import { createRailState, currentOwner, type DismissalStorage } from "./rail";
+
+const workstreamState = (node: RailNode | undefined) => node?.kind === "workstream" ? node.workstream_state : undefined;
 
 const status = (label: string): Status => ({ kind: "working", label, since: 1, finished: "0" });
 
@@ -132,14 +134,14 @@ describe("u3 Rail state", () => {
     const restarted = createRailState(app, await connectEvents(app));
     await restarted.settled();
 
-    expect(rail.nodes[0]?.workstream_state).toBe("working");
-    expect(restarted.nodes[0]?.workstream_state).toBe("idle");
+    expect(workstreamState(rail.nodes[0])).toBe("working");
+    expect(workstreamState(restarted.nodes[0])).toBe("idle");
 
     app.emit(event({ name: "rail.changed" }));
     app.emit(event({ name: "rail.changed" }));
     await restarted.settled();
 
-    expect(restarted.nodes.map((each) => [each.id, each.workstream_state])).toEqual([["ws", "idle"]]);
+    expect(restarted.nodes.map((each) => [each.id, workstreamState(each)])).toEqual([["ws", "idle"]]);
   });
 
   it("u3_agent_status_replaces_one_nodes_status", async () => {
@@ -147,7 +149,7 @@ describe("u3 Rail state", () => {
 
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "b", status: status("editing") } }));
 
-    expect(rail.nodes.map((each) => each.status?.label)).toEqual(["starting", "editing"]);
+    expect(rail.nodes.map((each) => doorOf(each)?.status?.label)).toEqual(["starting", "editing"]);
   });
 
   it("u3_terminal_exited_marks_the_node_with_that_terminal_id_exited_with_its_code", async () => {
@@ -280,16 +282,16 @@ it("u62_old_status_cannot_overwrite_a_restarted_door", async () => {
   app.emit(event({ name: "agent.status", data: { status_revision: "2", id: "workstream", attempt: "1", status: { kind: "done", label: "old exit", since: 1, finished: "0" } } }));
   expect(rail.nodes[0]).toEqual(current);
   app.emit(event({ name: "agent.status", data: { status_revision: "2", id: "workstream", attempt: "2", status: status("new work") } }));
-  expect(rail.nodes[0]?.status?.label).toBe("new work");
+  expect(doorOf(rail.nodes[0])?.status?.label).toBe("new work");
 });
 
 it("a7_delayed_same_attempt_status_cannot_replace_a_later_revision", async () => {
   const current = node("door", { kind: "workstream", attempt: "1", status_revision: "3", status: status("recovered") });
   const { app, rail } = await open([current]);
   app.emit(event({ name: "agent.status", data: { id: "door", attempt: "1", status_revision: "2", status: { kind: "error", label: "old failure", since: 0, finished: "0" } } }));
-  expect(rail.nodes[0]?.status?.label).toBe("recovered");
+  expect(doorOf(rail.nodes[0])?.status?.label).toBe("recovered");
   app.emit(event({ name: "agent.status", data: { id: "door", attempt: "1", status_revision: "4", status: status("new work") } }));
-  expect(rail.nodes[0]?.status?.label).toBe("new work");
+  expect(doorOf(rail.nodes[0])?.status?.label).toBe("new work");
 });
 
 
@@ -413,7 +415,7 @@ describe("U5151c", () => {
 
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: status("working again") } }));
 
-    expect(rail.nodes[0]?.status?.kind).toBe("working");
+    expect(doorOf(rail.nodes[0])?.status?.kind).toBe("working");
     expect(rail.dismissed(rail.nodes[0]!)).toBe(false);
     expect(app.calls.filter(call => !call.method.startsWith("rail.") && !call.method.startsWith("terminal.list"))).toEqual([]);
   });
@@ -473,17 +475,17 @@ describe("U5991 pending changes", () => {
     const second = rail.launch("a");
     app.handlers["rail.tree"] = () => [ended];
     await rail.refresh();
-    expect([rail.launching("a"), rail.nodes[0]?.status?.label]).toEqual([true, "starting"]);
+    expect([rail.launching("a"), doorOf(rail.nodes[0])?.status?.label]).toEqual([true, "starting"]);
 
     first();
     first();
-    expect([rail.launching("a"), rail.nodes[0]?.status?.label]).toEqual([true, "starting"]);
+    expect([rail.launching("a"), doorOf(rail.nodes[0])?.status?.label]).toEqual([true, "starting"]);
 
     app.handlers["rail.tree"] = () => [agent("a", "working", "editing")];
     await rail.refresh();
     second();
 
-    expect([rail.launching("a"), rail.nodes[0]?.status?.label]).toEqual([false, "editing"]);
+    expect([rail.launching("a"), doorOf(rail.nodes[0])?.status?.label]).toEqual([false, "editing"]);
   });
 
   it.each([

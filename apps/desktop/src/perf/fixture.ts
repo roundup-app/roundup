@@ -2,6 +2,7 @@ import type { Actor } from "@contracts/Actor";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { AppSeam } from "../app/seam";
 import { USER } from "../pads/owner";
+import { isDoor } from "../state/doorNode";
 
 /** Derived from testing/seeds.ts's nestedTree, todosAt and padsAt; no random seed or wall time enters the workload description. */
 const description = {
@@ -67,7 +68,7 @@ export const prepareFixture = async (app: Pick<AppSeam, "rpc">, cwd: string, ter
 
     nodes.set(row.name, node);
 
-    if (row.kind === "agent") await app.rpc("agent.signal", {
+    if (row.kind === "agent" && isDoor(node)) await app.rpc("agent.signal", {
       id: node.id, attempt: node.attempt ?? "1",
       payload: description.working.includes(row.name) ? { hook_event_name: "UserPromptSubmit", prompt: "work" } : { hook_event_name: "Stop" },
     });
@@ -113,7 +114,7 @@ export const prepareFixture = async (app: Pick<AppSeam, "rpc">, cwd: string, ter
     return actual && !actual.done && actual.home === home.id && actual.title === row.title && actual.body === "body text"
       && JSON.stringify(actual.owner) === JSON.stringify(row.owner) && JSON.stringify(actual.blockers) === JSON.stringify(row.blockers);
   }) && actualPads.length === 4 && description.pads.every(row => actualPads.some(pad => pad.name === row.name && pad.text === row.text && pad.home === home.id))
-    && fixture.working.every(id => actualTree.find(node => node.id === id)?.status?.kind === "working")
+    && fixture.working.every(id => actualTree.some(node => node.id === id && isDoor(node) && node.status?.kind === "working"))
     && terminals.some(row => row.id === terminal && row.running);
 
   if (!compatible) throw new Error("the native fixture readback differs from tree-40-native-v1");

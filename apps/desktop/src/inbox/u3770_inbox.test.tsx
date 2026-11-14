@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { DoorNode } from "../state/doorNode";
 import { agent, event, NOW } from "../testing/nodes";
 import { mountTodos, todo } from "../todos/testHarness";
 import { mountNavigation } from "../testing/navigationFixture";
@@ -23,7 +24,7 @@ const send = async (m: Awaited<ReturnType<typeof mountInbox>>, ...sent: DaemonEv
 
 const panel = () => document.querySelector<HTMLElement>(".inbox")!;
 
-const NODES: RailNode[] = [
+const NODES: DoorNode[] = [
   agent("a", "needs-you", "asks", { name: "alpha", order: 0 }),
   agent("b", "working", "editing Thread.tsx", { name: "beta", order: 1 }),
   agent("c", "error", "crashed", { name: "gamma", order: 2, can_resume: true }),

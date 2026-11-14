@@ -8,6 +8,8 @@ import type { ContextPart } from "@contracts/agent/ContextPart";
 import type { ContextPartKind } from "@contracts/agent/ContextPartKind";
 import type { ConversationOverview } from "@contracts/agent/ConversationOverview";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { isDoor } from "../state/doorNode";
+import type { DoorNode } from "../state/doorNode";
 import type { KeptReason } from "@contracts/agent/KeptReason";
 import type { ImportCandidate } from "@contracts/project/ImportCandidate";
 import type { ImportOutcome } from "@contracts/project/ImportOutcome";
@@ -158,6 +160,8 @@ const padsAt = (now: number): Pad[] =>
   }));
 
 const exitCodeOf = (target: RailNode): number | null => {
+  if (!isDoor(target)) return null;
+
   if (target.status?.kind === "error") return 1;
 
   return target.status?.kind === "done" ? 0 : null;
@@ -174,7 +178,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   const outputBytes = new Map<string, Uint8Array[]>();
 
   for (const other of nodes) {
-    if (other.terminal_id && exitCodeOf(other) !== null) exits.set(other.terminal_id, exitCodeOf(other));
+    if (isDoor(other) && other.terminal_id && exitCodeOf(other) !== null) exits.set(other.terminal_id, exitCodeOf(other));
   }
 
   const send = (data: EventData) => app.emit({ actor: USER, ...data });
@@ -190,6 +194,14 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     const found = nodes.find((other) => other.id === id);
 
     if (!found) throw new RpcError(NOT_FOUND, `not found: node ${id}`);
+
+    return found;
+  };
+
+  const findDoor = (id: string): DoorNode => {
+    const found = find(id);
+
+    if (!isDoor(found)) throw new RpcError(CONFLICT, `${id} is a Group: it has no Door`);
 
     return found;
   };
@@ -267,7 +279,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   };
 
   app.handlers["terminal.list"] = () =>
-    [...new Set([...nodes.flatMap((node) => node.terminal_id ? [node.terminal_id] : []), ...owned.keys(), ...exits.keys()])].map((id) =>
+    [...new Set([...nodes.flatMap((node) => isDoor(node) && node.terminal_id ? [node.terminal_id] : []), ...owned.keys(), ...exits.keys()])].map((id) =>
       ({ id, incarnation: `seed-${PROJECT.path}-${id}`, cwd: PROJECT.path, title: owned.get(id)?.title ?? null, program: "zsh", running: !exits.has(id), exit_code: exits.get(id) ?? null, owner: owned.get(id)?.owner ?? null }));
   app.handlers["terminal.open"] = ({ workstream }) => start(workstream ?? PROJECT.path, null);
   app.handlers["agent.run"] = ({ id, command }) => start(id, command[0]?.split("/").pop() ?? null);
@@ -316,7 +328,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     const target = find(id);
 
     for (const node of target.kind === "workstream" ? [target, ...descendantsOf(nodes, id)] : [target]) {
-      if (node.kind === "agent" || node.attempt !== null) node.alert_level = level;
+      if (isDoor(node) && (node.kind === "agent" || node.attempt !== null)) node.alert_level = level;
     }
 
     changed(target);
@@ -382,7 +394,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     }
 
     for (const other of descendants(workstream.id)) {
-      exit(other.terminal_id ?? `t-${other.id}`);
+      exit((isDoor(other) ? other.terminal_id : null) ?? `t-${other.id}`);
       nodes.splice(nodes.indexOf(other), 1);
     }
 
@@ -416,7 +428,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
     if (scope === "all" && (node.kind !== "workstream" || operation != null)) throw new RpcError(-32602, "scope all requires a Workstream without an operation");
 
-    exit(node.terminal_id ?? `t-${id}`);
+    exit((isDoor(node) ? node.terminal_id : null) ?? `t-${id}`);
 
     if (node.kind === "workstream") return removeWorkstream(node, scope);
 
@@ -432,14 +444,14 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
   // D8: a fixed result, as the Daemon would sample it, for every running node.
   app.handlers["project.resources"] = () => {
-    const agents = nodes.filter((node) => node.status && node.status.kind !== "done").map((node, index) => ({ id: node.id, memory_bytes: 412e6 + index * 1e6, cpu_percent: 18, disk_bytes: node.worktree ? 2.1e9 : null }));
+    const agents = nodes.filter((node): node is DoorNode => isDoor(node) && !!node.status && node.status.kind !== "done").map((node, index) => ({ id: node.id, memory_bytes: 412e6 + index * 1e6, cpu_percent: 18, disk_bytes: node.worktree ? 2.1e9 : null }));
 
     return { agents, total: { memory_bytes: agents.reduce((sum, entry) => sum + entry.memory_bytes, 0), cpu_percent: 18 * agents.length, disk_bytes: agents.some((entry) => entry.disk_bytes !== null) ? 2.1e9 : null } };
   };
 
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = ({ id }) => {
-    if (!owned.has(id) && !nodes.some((node) => node.terminal_id === id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
+    if (!owned.has(id) && !nodes.some((node) => isDoor(node) && node.terminal_id === id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
 
     const chunks = outputBytes.get(id) ?? [];
     const bytes = new Uint8Array(outputOffsets.get(id) ?? 0);
@@ -472,7 +484,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   };
 
   app.handlers["agent.stop"] = ({ id }) => {
-    const node = find(id);
+    const node = findDoor(id);
 
     if (node.terminal_id === null) return null;
 
@@ -527,10 +539,11 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     },
     setStatus: (id, kind, label) => {
       const status = statusAt(Date.now(), kind, label, 0);
-      find(id).status = status;
-      const status_revision = String(BigInt(find(id).status_revision ?? "0") + 1n);
-      find(id).status_revision = status_revision;
-      send({ name: "agent.status", data: { attempt: find(id).attempt ?? "1", status_revision, id, status } });
+      const door = findDoor(id);
+      door.status = status;
+      const status_revision = String(BigInt(door.status_revision ?? "0") + 1n);
+      door.status_revision = status_revision;
+      send({ name: "agent.status", data: { attempt: door.attempt ?? "1", status_revision, id, status } });
     },
     writeOutput: (terminalId, text) => {
       write(terminalId, text);

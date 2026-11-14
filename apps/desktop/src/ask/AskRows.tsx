@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { Dynamic } from "solid-js/web";
 import { findTargets } from "../terminal/links";
 import { focusPane } from "../bubbles/focus";
@@ -125,7 +126,8 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
   };
 
   /** U505: once typed, the Door's own live Status; never text a model wrote. */
-  const status = () => (props.live && props.part.state === "typed" ? node()?.status ?? null : null);
+  const status = () => (props.live && props.part.state === "typed" ? doorNode()?.status ?? null : null);
+  const doorNode = () => { const found = node(); return found && isDoor(found) ? found : undefined; };
   const dismissed = () => node() !== undefined && foreign() === null && rail.dismissed(node()!);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
   const busy = () => asks.picking(props.entry.key, props.index);
@@ -151,7 +153,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
           setIsLinkFocused(false);
 
           if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) event.currentTarget.scrollLeft = 0;
-        }}><TargetText objectLinks text={props.part.text} base={node()?.worktree?.path ?? project.path} /></span>
+        }}><TargetText objectLinks text={props.part.text} base={doorNode()?.worktree?.path ?? project.path} /></span>
       <span class="ask-where">
         <Show when={status()}>{(live) => <Tip text={live().kind === "error" ? live().label : LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={shownKind(live(), dismissed())} /></span>}</Tip>}</Show>
         <Tip text={props.where} disabled={!isNameCut()}>{(trigger) => <span {...trigger()} ref={name} class="ask-name">{props.where}</span>}</Tip>

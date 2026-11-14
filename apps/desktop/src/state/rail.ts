@@ -11,6 +11,7 @@ import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
+import { isDoor, type DoorNode } from "./doorNode";
 import { defaultWorkstreamName } from "./defaultName";
 import { railTopology, type RailTopology } from "./railTopology";
 import { ancestorsOf, isWorkstream } from "./railTopology";
@@ -23,7 +24,7 @@ export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { 
 
 /** U5151c: one failure, bound to its Attempt and Status revision. */
 const failureKey = (node: RailNode): string | null =>
-  node.status?.kind === "error" && node.attempt !== null && node.status_revision !== null ? `${node.id}:${node.attempt}:${node.status_revision}` : null;
+  isDoor(node) && node.status?.kind === "error" && node.attempt !== null && node.status_revision !== null ? `${node.id}:${node.attempt}:${node.status_revision}` : null;
 
 export type DismissalStorage = {
   read(): string[] | null;
@@ -173,24 +174,27 @@ const PROVISIONAL = "provisional-";
 export const isProvisional = (node: RailNode): boolean => node.id.startsWith(PROVISIONAL);
 
 /** U5991a: the Row a new Agent or Workstream shows until the Daemon's own arrives; it carries no Terminal. */
-const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream", name: string, parent: string | null): RailNode => ({
-  id: `${PROVISIONAL}${++provisionalCount}`,
-  kind,
-  name,
-  parent,
-  order: tree.reduce((next, each) => each.parent === parent ? Math.max(next, each.order + 1) : next, 0),
-  status: { kind: "working", label: "starting", since: Date.now(), finished: "0" },
-  attempt: null,
-  status_revision: null,
-  terminal_id: null,
-  worktree: null,
-  can_resume: false, can_make_workstream: false, can_save_as_mode: false, yolo: false,
-  channel: null,
-  stray: [],
-  model: null,
-  effort: null,
-  work: null,
-});
+const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream", name: string, parent: string | null): DoorNode => {
+  const door = {
+    id: `${PROVISIONAL}${++provisionalCount}`,
+    name,
+    parent,
+    order: tree.reduce((next, each) => each.parent === parent ? Math.max(next, each.order + 1) : next, 0),
+    status: { kind: "working", label: "starting", since: Date.now(), finished: "0" } satisfies Status,
+    attempt: null,
+    status_revision: null,
+    terminal_id: null,
+    worktree: null,
+    can_resume: false, yolo: false,
+    channel: null,
+    stray: [],
+    model: null,
+    effort: null,
+    work: null,
+  };
+
+  return kind === "agent" ? { ...door, kind, can_make_workstream: false, can_save_as_mode: false } : { ...door, kind, auto: false };
+};
 
 /** U5991f: the Row a pending change adds, as the Daemon's own Row will arrive: of `kind`, under `parent`, with an id not in `known`. */
 type Landing = { kind: RailNode["kind"]; parent: string | null };
@@ -218,7 +222,7 @@ const shownOver = (tree: readonly RailNode[], pending: readonly Pending[]): read
     return arrived ? rows : each.change(rows);
   }, shown);
 
-  return starting.size === 0 ? drawn : drawn.map(node => starting.has(node.id) ? { ...node, status: startingStatus(node.status?.since) } : node);
+  return starting.size === 0 ? drawn : drawn.map(node => starting.has(node.id) && isDoor(node) ? { ...node, status: startingStatus(node.status?.since) } : node);
 };
 
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
@@ -250,7 +254,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
 
   const recordResumption = (node: RailNode): boolean => {
-    if (node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
+    if (!isDoor(node) || node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
     setResumed(node.id, { attempt: node.attempt, since: node.status.since });
 
     return true;
@@ -346,7 +350,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     });
   };
 
-  const hasLiveTerminal = (node: RailNode) => node.terminal_id !== null && !(node.terminal_id in model.exited);
+  const hasLiveTerminal = (node: RailNode) => isDoor(node) && node.terminal_id !== null && !(node.terminal_id in model.exited);
 
   const fetchTree = async () => {
     const tree = await app.rpc("rail.tree", null);
@@ -366,7 +370,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setModel("tree", reconcile(shown, { key: "id" }));
 
       for (const id of Object.keys(resumed)) {
-        if (tree.some(node => node.id === id && node.attempt === resumed[id]?.attempt)) continue;
+        if (tree.some(node => node.id === id && isDoor(node) && node.attempt === resumed[id]?.attempt)) continue;
         setResumed(id, undefined!);
         resumptionChanged = true;
       }
@@ -377,7 +381,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(node.id, "observedLive", true);
         const failed = doors[node.id]?.failure;
 
-        if (failed && (hasLiveTerminal(node) || (node.attempt !== null && BigInt(node.attempt) > BigInt(failed.attempt ?? "0")))) {
+        if (failed && (hasLiveTerminal(node) || (isDoor(node) && node.attempt !== null && BigInt(node.attempt) > BigInt(failed.attempt ?? "0")))) {
           setDoors(node.id, "failure", null);
           commandFailure.acknowledge(node.id);
         }
@@ -430,7 +434,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   /** U3703: select the Agent that owns Terminal `id` (its own, or the Bubble's owner); an unknown id or an owner with no row changes nothing. */
   const showTerminal = (id: string): void => {
-    const owner = model.tree.find((node) => node.terminal_id === id)?.id ?? terminals().find((terminal) => terminal.id === id)?.owner;
+    const owner = model.tree.find((node) => isDoor(node) && node.terminal_id === id)?.id ?? terminals().find((terminal) => terminal.id === id)?.owner;
 
     if (owner && owner !== selected() && model.tree.some((node) => node.id === owner)) select(owner);
   };
@@ -455,12 +459,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setModel("tree", node => node.id === data.id, "name", data.name);
     },
     "agent.status": ({ data }) => {
-      setModel("tree", (node) => node.id === data.id && node.attempt === data.attempt && node.status_revision !== null && BigInt(data.status_revision) > BigInt(node.status_revision), { status: data.status, status_revision: data.status_revision });
+      setModel("tree", (node) => isDoor(node) && node.id === data.id && node.attempt === data.attempt && node.status_revision !== null && BigInt(data.status_revision) > BigInt(node.status_revision), { status: data.status, status_revision: data.status_revision });
       const node = model.tree.find(node => node.id === data.id);
 
       if (node && recordResumption(node)) void saveResumptions();
     },
-    "agent.toolCall": ({ data }) => setModel("tree", (node) => node.id === data.id, "tool_call", reconcile(data.call)),
+    "agent.toolCall": ({ data }) => setModel("tree", (node) => node.id === data.id && isDoor(node), { tool_call: data.call }),
     "terminal.changed": () => void fetching(fetchTerminals),
     "terminal.shown": ({ data }) => showTerminal(data.id),
     "terminal.status": ({ data: { id, status } }) => setTerminals((listed) => listed.map((terminal) => {
@@ -497,7 +501,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       if (selected() === id) prepared = await state.prepareTerminal?.();
       const node = await boundedStart(id, prepared?.size);
 
-      if (node.terminal_id) prepared?.bind(node.terminal_id);
+      if (isDoor(node) && node.terminal_id) prepared?.bind(node.terminal_id);
       commandFailure.acknowledge(id);
       await fetching(fetchTree);
     } catch (error) {
@@ -505,7 +509,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       await fetching(fetchTree);
       const node = model.tree.find((each) => each.id === id);
 
-      if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
+      if (node && isDoor(node) && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
         setDoors(id, "failure", { message: error.message, attempt: node.attempt });
         commandFailure.show(error.message, id, "pane");
       }
@@ -641,7 +645,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       if (drawnExit !== undefined) return drawnExit.exit;
 
-      if (node.terminal_id === null) return { kind: "unknown" };
+      if (!isDoor(node) || node.terminal_id === null) return { kind: "unknown" };
 
       if (!(node.terminal_id in model.exited)) return null;
 
@@ -736,5 +740,5 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 export const currentOwner = (rail: Pick<RailState, "nodes" | "exitOf">, actor: Actor | null | undefined) => {
   const node = actor?.kind === "agent" ? rail.nodes.find(node => node.id === actor.id) : undefined;
 
-  return node ? { id: node.id, name: node.name, live: node.terminal_id !== null && rail.exitOf(node) === null } : undefined;
+  return node ? { id: node.id, name: node.name, live: isDoor(node) && node.terminal_id !== null && rail.exitOf(node) === null } : undefined;
 };

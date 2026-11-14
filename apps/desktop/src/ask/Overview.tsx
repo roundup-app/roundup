@@ -11,6 +11,7 @@ import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../state/railTopology";
 import { Tip } from "../ui/Tip";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { isDoor, type DoorNode } from "../state/doorNode";
 import { ToolCallLine } from "./ToolCallLine";
 
 export const ProjectOverview = () => {
@@ -21,7 +22,7 @@ export const ProjectOverview = () => {
 
   const emptyWorkstreams = () => hasView("workstreams") && workstreams().length === 0;
 
-  const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
+  const called = (id: string | null) => rail.nodes.filter((node): node is DoorNode => isDoor(node) && node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
 
   const heads = new Map<string, HTMLElement>();
 
@@ -60,14 +61,15 @@ export const ProjectOverview = () => {
 };
 
 const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolean; select: () => void; selected: boolean; head: (element: HTMLButtonElement) => void }) => {
-  const status = () => props.status ? props.node.status : null;
+  const door = () => isDoor(props.node) ? props.node : undefined;
+  const status = () => props.status ? door()?.status ?? null : null;
   const [cutRef, cut] = createCut();
 
   return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
     const tip = trigger();
 
     return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry row-wash"
-      data-overview-item={props.node.id + ":" + props.node.attempt + ":" + props.node.status_revision} aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
+      data-overview-item={props.node.id + ":" + door()?.attempt + ":" + door()?.status_revision} aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet">
       <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
         <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status()?.kind} data-tone={status()?.kind === "error" ? "red" : undefined}>

@@ -8,6 +8,7 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { captureFocus } from "../keys/focus";
 import { inProject, keyOfPath } from "./linkRoute";
+import { isDoor } from "../state/doorNode";
 
 /** An OS request, or a `roundup://` link clicked in a surface of the Project at `surface` (U6249c1). */
 export type OpenRequest = Extract<NativeOpen, { kind: "project" }> | { kind: "link"; url: string; surface?: string | undefined };
@@ -49,7 +50,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
       open.selectMade(content.record.id);
     } else if (content.kind === "agent" || content.kind === "workstream") open.rail.select(content.id, "open", target.focus);
     else if (content.kind === "terminal") {
-      const owner = open.rail.nodes.find(node => node.terminal_id === content.id)?.id
+      const owner = open.rail.nodes.find(node => isDoor(node) && node.terminal_id === content.id)?.id
         ?? open.rail.terminals().find(terminal => terminal.id === content.id)?.owner;
 
       open.rail.select(owner === target.path ? null : owner ?? null);

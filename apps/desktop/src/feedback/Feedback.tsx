@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { createSignal, Show } from "solid-js";
 import type { Sent } from "@contracts/feedback/Sent";
 import type { FeedbackReport } from "../app/seam";
@@ -28,7 +29,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
   const selection = () => {
     const node = rail.nodes.find(each => each.id === rail.selected());
 
-    return node ? { kind: node.kind, name: node.name, state: node.status?.kind ?? null } : null;
+    return node ? { kind: node.kind, name: node.name, state: isDoor(node) ? node.status?.kind ?? null : null } : null;
   };
 
   const facts = () => factsText(report()?.capture ?? null, project.path, selection());

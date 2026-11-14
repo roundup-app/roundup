@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { applying } from "../app/pending";
 import { captureFocus } from "../keys/focus";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, untrack } from "solid-js";
@@ -157,7 +158,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   });
 
   const author = (comment: Comment) => comment.author.kind === "agent" ? rail.nodes.find((node) => node.id === comment.author.id)?.name ?? comment.author.id : copy.me;
-  const glyphOf = (comment: Comment) => comment.author.kind === "agent" ? rail.nodes.find((node) => node.id === comment.author.id) : undefined;
+  const glyphOf = (comment: Comment) => comment.author.kind === "agent" ? rail.nodes.filter(isDoor).find((node) => node.id === comment.author.id) : undefined;
 
   const send = async () => {
     const focus = captureFocus();

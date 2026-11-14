@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import type { RailNode } from "@contracts/agent/RailNode";
 import { mode, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountRail, railCallsTo, rowOf, chooseAction, exitedTerminal } from "./railFixture";
@@ -48,7 +49,7 @@ it("u4547d_pending_and_failed_restart_keep_one_operation", async () => {
   m.app.handlers["agent.restartMode"] = () => tree[0]!;
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   await waitFor(() => expect(railCallsTo(m.app, "agent.restartMode")).toEqual([original, original]));
-  expect(m.rail.nodes[0]?.mode_prompt).toBe("prompt");
+  expect((m.rail.nodes[0] as Extract<RailNode, { kind: "agent" }> | undefined)?.mode_prompt).toBe("prompt");
 });
 
 it("u4547d_only_explicit_restart_requests_a_fresh_session", async () => {

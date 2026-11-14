@@ -7,6 +7,7 @@ import { captureActions } from "../keys/registry";
 import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "../keys/chords";
 import { historyRegion, isTextEntry } from "../keys/focus";
 import type { Kind } from "@contracts/Kind";
+import { isDoor } from "../state/doorNode";
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -70,9 +71,9 @@ export const watchMenuBar = (options: {
       if (!connection || tab.exit) return [];
 
       return connection.rail.nodes.flatMap(node => {
-        const status = node.status;
+        const status = isDoor(node) ? node.status : null;
 
-        if (!status || node.alert_level === "quiet" || (node.kind === "workstream" && node.attempt === null)) return [];
+        if (!isDoor(node) || !status || node.alert_level === "quiet" || (node.kind === "workstream" && node.attempt === null)) return [];
 
         const waiting = status.kind === "needs-you" || status.kind === "error" && !connection.rail.dismissed(node);
         const publication = connection.unseen.publicationAt(node.id);

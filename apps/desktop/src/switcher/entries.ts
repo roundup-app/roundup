@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { single } from "fuzzysort";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -18,14 +19,14 @@ export type Entry = { value: string; label: string } & (
 );
 
 const urgency = (entry: Entry): number => {
-  const kind = (entry.kind === "node" ? entry.node.status : entry.kind === "terminal" ? entry.terminal.status : undefined)?.kind;
+  const kind = (entry.kind === "node" ? isDoor(entry.node) ? entry.node.status : undefined : entry.kind === "terminal" ? entry.terminal.status : undefined)?.kind;
 
   return kind === "error" ? 0 : kind === "needs-you" ? 1 : 2;
 };
 
 /** U529: error, then needs-you, then Rail order; Terminals follow in start order, each among the Agents by the Kind its program reported (PS11.3). Terminals that are an Agent's own screen, or have no owner, are not entries. */
 export const entriesOf = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[]): Entry[] => {
-  const panes = new Set(nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
+  const panes = new Set(nodes.flatMap((node) => !isDoor(node) || node.terminal_id === null ? [] : [node.terminal_id]));
   const rows: Entry[] = railOrder(nodes).map((node) => ({ value: node.id, label: node.name, kind: "node", node }));
 
   const own: Entry[] = terminals

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { agent, door, workstream } from "../../testing/nodes";
+import { agent, door, workstream, doorOf } from "../../testing/nodes";
 import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
 
 afterEach(cleanup);
@@ -10,7 +10,7 @@ afterEach(cleanup);
  * The Daemon's `agent.resume` guard (`crates/agents/src/resume.rs`, A5213): a live row takes only
  * a `mode`; an exited one needs a saved conversation, which `can_resume` reports.
  */
-const accepted = (node: RailNode, live: boolean, params: { mode?: string }) => (live ? params.mode !== undefined : node.can_resume);
+const accepted = (node: RailNode, live: boolean, params: { mode?: string }) => (live ? params.mode !== undefined : doorOf(node)?.can_resume);
 
 const rows: { name: string; node: RailNode; live: boolean }[] = [
   { name: "agent-exited-with-data", node: agent("x", "done", "done", { can_resume: true }), live: false },

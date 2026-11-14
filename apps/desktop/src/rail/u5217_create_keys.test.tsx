@@ -1,3 +1,4 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { appSettings, saveAppSettings } from "../settings/preferences";
 import { ariaChord, CHORDS } from "../keys/chords";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -155,7 +156,7 @@ it.each(["pointer", "Enter", " "])("u5629_open_and_escape_keep_the_failed_start_
 });
 
 it("u5629_retry_after_escape_repeats_only_the_failed_start", async () => {
-  const tree = [workstream("g")];
+  const tree: RailNode[] = [workstream("g")];
   const m = await mountRail(tree);
   m.rail.select("g");
   m.app.handlers["agent.spawn"] = () => { throw new Error("Spawn refused. Check setup and retry."); };

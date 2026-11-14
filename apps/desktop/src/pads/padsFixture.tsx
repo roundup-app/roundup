@@ -79,7 +79,6 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
   app.handlers["rail.tree"] = () => withScopeRow([
     {
       id: AGENT.id,
-      kind: onRail ? "agent" : "workstream",
       name: AGENT_NAME,
       parent: null,
       order: 0,
@@ -87,12 +86,13 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
       attempt: "1", status_revision: null,
       terminal_id: null,
       worktree: null,
-      can_resume: false, can_make_workstream: false, can_save_as_mode: false, yolo: false,
+      can_resume: false, yolo: false,
       channel: null,
       stray: [],
       model: null,
       effort: null,
       work: null,
+      ...onRail ? { kind: "agent" as const, can_make_workstream: false, can_save_as_mode: false } : { kind: "workstream" as const, auto: false },
     },
   ]);
   Object.assign(app.handlers, padHandlers(state, () => {}));

@@ -704,3 +704,91 @@ async fn u5531a_user_home_move_clears_the_old_doors_visibility() {
         code::FORBIDDEN
     );
 }
+
+fn keys(node: &RailNode) -> std::collections::BTreeSet<String> {
+    let Value::Object(map) = serde_json::to_value(node).unwrap() else {
+        panic!("a node is a JSON object");
+    };
+    map.keys().cloned().collect()
+}
+
+fn set(names: &[&str]) -> std::collections::BTreeSet<String> {
+    names.iter().map(|n| (*n).to_owned()).collect()
+}
+
+const BASE: [&str; 7] = [
+    "id",
+    "kind",
+    "name",
+    "parent",
+    "order",
+    "visibility",
+    "alert_level",
+];
+
+/// The Door facts that serialize even when null; the optional ones that skip a `None` are left out.
+const DOOR: [&str; 12] = [
+    "status",
+    "attempt",
+    "status_revision",
+    "terminal_id",
+    "worktree",
+    "can_resume",
+    "yolo",
+    "channel",
+    "work",
+    "stray",
+    "model",
+    "effort",
+];
+
+#[test]
+fn ro5_a_group_node_serializes_only_the_base_fields() {
+    use contracts::agent::{NodeBase, Role};
+    let group = RailNode {
+        base: NodeBase {
+            id: "g".into(),
+            name: "g".into(),
+            ..Default::default()
+        },
+        role: Role::Group,
+    };
+    let json = serde_json::to_value(&group).unwrap();
+    assert_eq!(json["kind"], "group");
+    assert_eq!(keys(&group), set(&BASE));
+    assert_eq!(serde_json::from_value::<RailNode>(json).unwrap(), group);
+}
+
+#[tokio::test]
+async fn ro5_a_workstream_and_an_agent_carry_their_kinds_fields() {
+    let f = Fixture::new();
+    let ws = f.workstream("w", None).await;
+    let agent = f.spawn(None, None).await.unwrap();
+    let tree = f.tree().await;
+    let ws = tree.iter().find(|n| n.id == ws).unwrap();
+    let agent = tree.iter().find(|n| n.id == agent.id).unwrap();
+    assert_eq!(ws.kind(), NodeKind::Workstream);
+    assert_eq!(agent.kind(), NodeKind::Agent);
+
+    let door = set(&DOOR);
+    let ws_keys = keys(ws);
+    let agent_keys = keys(agent);
+    // Every Door fact, null-valued ones included, is on both kinds.
+    assert!(ws_keys.is_superset(&door), "{ws_keys:?}");
+    assert!(agent_keys.is_superset(&door), "{agent_keys:?}");
+    assert!(ws_keys.contains("auto"), "{ws_keys:?}");
+    for lacking in [
+        "mode_prompt",
+        "machine",
+        "can_make_workstream",
+        "can_save_as_mode",
+    ] {
+        assert!(!ws_keys.contains(lacking), "a Workstream has {lacking}");
+    }
+    for lacking in ["auto", "workstream_state", "waiting"] {
+        assert!(!agent_keys.contains(lacking), "an Agent has {lacking}");
+    }
+    for own in ["can_make_workstream", "can_save_as_mode"] {
+        assert!(agent_keys.contains(own), "an Agent lacks {own}");
+    }
+}

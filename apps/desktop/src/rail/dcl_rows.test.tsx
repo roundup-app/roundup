@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
-import { agent, door, workstream } from "../testing/nodes";
+import { agent, door, workstream, doorOf } from "../testing/nodes";
 import { copy } from "./copy";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
@@ -73,7 +73,7 @@ it("dcl2_permission_action_opens_requesting_terminal", async () => {
   leaderKey("KeyJ");
 
   expect(rail.selected()).toBe("b");
-  expect(rail.nodes.find(node => node.id === "b")?.terminal_id).toBe("t-b");
+  expect(doorOf(rail.nodes.find(node => node.id === "b"))?.terminal_id).toBe("t-b");
 });
 
 it("dcl8_row_start_and_waiting_count_follow_stored_backlog", async () => {
