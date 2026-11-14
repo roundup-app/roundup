@@ -176,6 +176,10 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
         .terminals
         .subscribe(node.terminal_id.as_ref().unwrap())
         .unwrap();
+    // The Working a title brings after a Stop lasts until DCL3's next process-table read
+    // (one `ps`, about 40 ms on macOS, less on Linux), so the test reads `agent.status` events
+    // and never polls the tree for it.
+    let mut statuses = f.bus.subscribe();
     f.terminals
         .write(node.terminal_id.as_ref().unwrap(), b"title\n")
         .await
@@ -189,10 +193,12 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
             }
         }
         loop {
-            if f.tree().await[0].status.as_ref().unwrap().kind == contracts::Kind::Working {
+            if let contracts::EventData::AgentStatus(status) = statuses.recv().await.unwrap().data
+                && status.id == id
+                && status.status.kind == contracts::Kind::Working
+            {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await;
