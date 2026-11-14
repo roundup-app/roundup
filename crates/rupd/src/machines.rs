@@ -23,11 +23,11 @@ type Connect =
 
 /// Where a Machine call finds herdr-core: the local `herdr-core` program, unless a test says other.
 #[derive(Clone)]
-pub(crate) struct Core(Arc<Connect>, Option<Setup>, Arc<Held>);
+pub(crate) struct Core(Arc<Connect>, Option<Setup>, Arc<Kept>);
 
 /// MC62: whether the minute read is armed, and the one connection it keeps until it drops.
 #[derive(Default)]
-struct Held {
+struct Kept {
     armed: std::sync::atomic::AtomicBool,
     conn: tokio::sync::Mutex<Option<Arc<herdr::Conn>>>,
 }
@@ -62,14 +62,14 @@ impl Core {
 }
 
 impl Core {
-    /// The held connection while it stays open, else a new one, which is kept once armed.
+    /// The open connection while it stays open, else a new one, which is kept once armed.
     async fn open(&self) -> herdr::Result<Arc<herdr::Conn>> {
-        let mut held = self.2.conn.lock().await;
-        if let Some(conn) = held.as_ref().filter(|c| !c.is_closed()) {
+        let mut kept = self.2.conn.lock().await;
+        if let Some(conn) = kept.as_ref().filter(|c| !c.is_closed()) {
             return Ok(Arc::clone(conn));
         }
         let conn = Arc::new((self.0)().await?);
-        *held = self
+        *kept = self
             .2
             .armed
             .load(Ordering::SeqCst)
@@ -80,9 +80,9 @@ impl Core {
     /// Arms the minute read and keeps `conn` for it.
     async fn arm(&self, conn: &Arc<herdr::Conn>) {
         self.2.armed.store(true, Ordering::SeqCst);
-        let mut held = self.2.conn.lock().await;
-        if held.as_ref().is_none_or(|c| c.is_closed()) {
-            *held = Some(Arc::clone(conn));
+        let mut kept = self.2.conn.lock().await;
+        if kept.as_ref().is_none_or(|c| c.is_closed()) {
+            *kept = Some(Arc::clone(conn));
         }
     }
 }
