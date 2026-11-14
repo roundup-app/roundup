@@ -49,7 +49,7 @@ impl Terminals {
             Err(herdr::Error::Rpc(err)) if err.kind == "not_found" => {
                 return Err(Error::not_found("running terminal"));
             }
-            Err(err) => return Err(Error::internal(err)),
+            Err(err) => return Err(Error::core(&err)),
         }
         let mut ended = handle.ended.clone();
         tokio::time::timeout(KILL_WAIT, ended.wait_for(|ended| *ended))

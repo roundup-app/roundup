@@ -6,7 +6,10 @@
 //!
 //! A Daemon whose `$TMPDIR` holds a `herdr-core-persist` file gets a core that outlives it: the
 //! first `connect` starts `herdr-core-test serve` on a socket there and proxies the pipe to it, so a
-//! reopened Daemon finds its terminals live. The server ends once that file is gone.
+//! reopened Daemon finds its terminals live. It serves every connection at once over one set of
+//! terminals, as the real core serves each `connect`. It writes its pid to `herdr-core.pid` there; a
+//! `herdr-core-upgrade` file closes every connection and keeps the terminals, as an upgrade does,
+//! and the server removes that file once done. The server ends once `herdr-core-persist` is gone.
 use std::collections::HashMap;
 use std::io::{self, BufRead, Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -54,7 +57,8 @@ impl Exit {
 #[derive(Default)]
 struct Live {
     output: Vec<u8>,
-    channels: Vec<u32>,
+    /// Each attached channel, with the connection it was opened on.
+    channels: Vec<(Arc<Core>, u32)>,
     exit: Option<Exit>,
 }
 
@@ -75,11 +79,18 @@ struct Terminal {
     input: Mutex<std::sync::mpsc::Sender<Vec<u8>>>,
 }
 
+/// The terminals every connection to one core shares.
+#[derive(Default)]
+struct Store {
+    terminals: Mutex<HashMap<String, Arc<Terminal>>>,
+    next_terminal: AtomicU32,
+}
+
+/// One connection to the core.
 struct Core {
     out: Mutex<Box<dyn Write + Send>>,
-    terminals: Mutex<HashMap<String, Arc<Terminal>>>,
+    store: Arc<Store>,
     attached: Mutex<HashMap<u32, Arc<Terminal>>>,
-    next_terminal: AtomicU32,
     next_channel: AtomicU32,
 }
 
@@ -145,7 +156,10 @@ impl Core {
                 "No such file or directory (os error 2)".into(),
             ));
         }
-        let id = format!("t{}", self.next_terminal.fetch_add(1, Ordering::Relaxed));
+        let id = format!(
+            "t{}",
+            self.store.next_terminal.fetch_add(1, Ordering::Relaxed) + 1
+        );
         let pair = native_pty_system()
             .openpty(PtySize {
                 rows: size("rows", 24),
@@ -199,8 +213,7 @@ impl Core {
             master: Mutex::new(pair.master),
             input: Mutex::new(input),
         });
-        lock(&self.terminals).insert(id, terminal.clone());
-        let core = self.clone();
+        lock(&self.store.terminals).insert(id, terminal.clone());
         let t = terminal.clone();
         let (done, drained) = std::sync::mpsc::channel::<()>();
         std::thread::spawn(move || {
@@ -211,7 +224,7 @@ impl Core {
                 answer_pixel_queries(&t, chunk);
                 let mut live = lock(&t.live);
                 live.output.extend_from_slice(chunk);
-                for channel in &live.channels {
+                for (core, channel) in &live.channels {
                     core.send(&frame(*channel, DATA, chunk));
                 }
             }
@@ -219,7 +232,6 @@ impl Core {
         });
         // The program's end closes its channels even while a descendant still holds the PTY open;
         // a short grace lets the output the program printed reach them first.
-        let core = self.clone();
         let t = terminal.clone();
         std::thread::spawn(move || {
             let status = child.wait();
@@ -235,7 +247,7 @@ impl Core {
                 },
             };
             let mut live = lock(&t.live);
-            for channel in live.channels.drain(..) {
+            for (core, channel) in live.channels.drain(..) {
                 core.send(&frame(
                     channel,
                     CLOSE,
@@ -262,11 +274,14 @@ impl Core {
         })
     }
 
-    /// `terminal.list`: every terminal whose labels hold each pair of the optional `labels` filter.
+    /// `terminal.list`: every live terminal, and with `all` every finished one too, whose labels hold
+    /// each pair of the optional `labels` filter.
     fn list(&self, params: &Value) -> Value {
         let want = params.get("labels").and_then(Value::as_object);
-        let mut found: Vec<Arc<Terminal>> = lock(&self.terminals)
+        let all = params.get("all").and_then(Value::as_bool).unwrap_or(false);
+        let mut found: Vec<Arc<Terminal>> = lock(&self.store.terminals)
             .values()
+            .filter(|t| all || lock(&t.live).exit.is_none())
             .filter(|t| {
                 want.is_none_or(|want| want.iter().all(|(k, v)| t.labels.get(k) == Some(v)))
             })
@@ -281,7 +296,7 @@ impl Core {
             .get("terminal")
             .and_then(Value::as_str)
             .unwrap_or_default();
-        lock(&self.terminals).get(id).cloned().ok_or_else(|| {
+        lock(&self.store.terminals).get(id).cloned().ok_or_else(|| {
             failure(
                 "not_found",
                 "see `hc ls --all`",
@@ -292,7 +307,7 @@ impl Core {
 
     /// Open a channel: a repaint of everything printed so far, then the live bytes, then the end.
     /// It answers `id` itself, so the reply precedes the first paint on the channel.
-    fn attach(&self, id: &Value, params: &Value) -> Result<(), Value> {
+    fn attach(self: &Arc<Self>, id: &Value, params: &Value) -> Result<(), Value> {
         let t = self.terminal(params)?;
         if let (Some(cols), Some(rows)) = (
             params.get("cols").and_then(Value::as_u64),
@@ -315,7 +330,7 @@ impl Core {
                     exit.reason_object().to_string().as_bytes(),
                 ));
             }
-            None => live.channels.push(channel),
+            None => live.channels.push((self.clone(), channel)),
         }
         Ok(())
     }
@@ -342,14 +357,34 @@ impl Core {
                             "no process".into(),
                         )
                     })?;
-                nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), nix::sys::signal::SIGKILL)
-                    .map_err(|e| failure("not_found", "already gone", e.to_string()))?;
+                // A program already reaped, its end not yet recorded, is gone too: wait for it.
+                match nix::sys::signal::kill(
+                    nix::unistd::Pid::from_raw(pid),
+                    nix::sys::signal::SIGKILL,
+                ) {
+                    Ok(()) | Err(nix::errno::Errno::ESRCH) => {}
+                    Err(e) => return Err(failure("not_found", "already gone", e.to_string())),
+                }
+                // As the real core, answer once the program is seen to end.
+                for _ in 0..250 {
+                    if lock(&t.live).exit.is_some() {
+                        break;
+                    }
+                    pause(20);
+                }
                 Ok(json!({}))
             }),
             "terminal.list" => Ok(self.list(&params)),
-            "terminal.rm" => self.terminal(&params).map(|t| {
-                lock(&self.terminals).remove(&t.id);
-                json!({"removed": t.id})
+            "terminal.rm" => self.terminal(&params).and_then(|t| {
+                if lock(&t.live).exit.is_none() {
+                    return Err(failure(
+                        "live",
+                        "end its program first",
+                        format!("terminal {} is live", t.id),
+                    ));
+                }
+                lock(&self.store.terminals).remove(&t.id);
+                Ok(json!({"removed": t.id}))
             }),
             "terminal.attach" => {
                 if let Err(error) = self.attach(&id, &params) {
@@ -381,7 +416,9 @@ impl Core {
                 u16::from_le_bytes([*r0, *r1]).into(),
             ),
             (CLOSE, _) => {
-                lock(&t.live).channels.retain(|c| *c != channel);
+                lock(&t.live)
+                    .channels
+                    .retain(|(core, c)| !(std::ptr::eq(Arc::as_ptr(core), self) && *c == channel));
                 lock(&self.attached).remove(&channel);
             }
             _ => {}
@@ -433,7 +470,10 @@ fn main() -> io::Result<()> {
             let tmp = std::env::var_os("TMPDIR").map(std::path::PathBuf::from);
             match tmp.filter(|t| t.join("herdr-core-persist").exists()) {
                 Some(tmp) => proxy(&tmp),
-                None => serve(&new_core(Box::new(io::stdout())), &mut io::stdin().lock()),
+                None => serve(
+                    &new_core(Box::new(io::stdout()), Arc::default()),
+                    &mut io::stdin().lock(),
+                ),
             }
         }
         Some("serve") => {
@@ -447,14 +487,44 @@ fn main() -> io::Result<()> {
     }
 }
 
-fn new_core(out: Box<dyn Write + Send>) -> Arc<Core> {
+fn new_core(out: Box<dyn Write + Send>, store: Arc<Store>) -> Arc<Core> {
     Arc::new(Core {
         out: Mutex::new(out),
-        terminals: Mutex::default(),
+        store,
         attached: Mutex::default(),
-        next_terminal: AtomicU32::new(1),
         next_channel: AtomicU32::new(1),
     })
+}
+
+/// A writer that hands each write to a thread of its own, so a connection whose reader falls behind
+/// never stalls a terminal's output to the other connections, or its end.
+struct Queued(std::sync::mpsc::Sender<Vec<u8>>);
+
+impl Queued {
+    fn new(mut out: impl Write + Send + 'static) -> Self {
+        let (tx, queued) = std::sync::mpsc::channel::<Vec<u8>>();
+        std::thread::spawn(move || {
+            while let Ok(bytes) = queued.recv() {
+                if out.write_all(&bytes).and_then(|()| out.flush()).is_err() {
+                    return;
+                }
+            }
+        });
+        Self(tx)
+    }
+}
+
+impl Write for Queued {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0
+            .send(bytes.to_vec())
+            .map_err(|_| io::Error::from(io::ErrorKind::BrokenPipe))?;
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 /// Waits `ms` on a channel nothing sends to.
@@ -463,16 +533,25 @@ fn pause(ms: u64) {
     let _ = never.recv_timeout(std::time::Duration::from_millis(ms));
 }
 
-/// The persistent server: one connection at a time over a socket in `tmp`, its terminals kept
+/// The persistent server: every connection at once over a socket in `tmp`, its terminals kept
 /// between connections, ending when the `herdr-core-persist` file goes.
 fn listen(tmp: &std::path::Path) -> io::Result<()> {
     let marker = tmp.join("herdr-core-persist");
+    let upgrade = tmp.join("herdr-core-upgrade");
     let listener = std::os::unix::net::UnixListener::bind(tmp.join("herdr-core.sock"))?;
-    let core = new_core(Box::new(io::sink()));
-    let watch = core.clone();
+    std::fs::write(tmp.join("herdr-core.pid"), std::process::id().to_string())?;
+    let store = Arc::new(Store::default());
+    let open: Arc<Mutex<HashMap<u64, std::os::unix::net::UnixStream>>> = Arc::default();
+    let (watch, streams) = (store.clone(), open.clone());
     std::thread::spawn(move || {
         while marker.exists() {
-            pause(300);
+            if upgrade.exists() {
+                for stream in lock(&streams).values() {
+                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                }
+                let _ = std::fs::remove_file(&upgrade);
+            }
+            pause(20);
         }
         for t in lock(&watch.terminals).values() {
             if let Some(pid) = t.pid {
@@ -483,17 +562,25 @@ fn listen(tmp: &std::path::Path) -> io::Result<()> {
         }
         std::process::exit(0);
     });
-    for stream in listener.incoming() {
+    for (n, stream) in (0u64..).zip(listener.incoming()) {
         let Ok(stream) = stream else { continue };
-        let Ok(writer) = stream.try_clone() else {
+        let (Ok(writer), Ok(kept)) = (stream.try_clone(), stream.try_clone()) else {
             continue;
         };
-        *lock(&core.out) = Box::new(writer);
-        lock(&core.attached).clear();
-        for t in lock(&core.terminals).values() {
-            lock(&t.live).channels.clear();
-        }
-        let _ = serve(&core, &mut io::BufReader::new(stream));
+        lock(&open).insert(n, kept);
+        let core = new_core(Box::new(Queued::new(writer)), store.clone());
+        let open = open.clone();
+        std::thread::spawn(move || {
+            let _ = serve(&core, &mut io::BufReader::new(stream));
+            lock(&open).remove(&n);
+            // The connection's channels go with it.
+            lock(&core.attached).clear();
+            for t in lock(&core.store.terminals).values() {
+                lock(&t.live)
+                    .channels
+                    .retain(|(c, _)| !Arc::ptr_eq(c, &core));
+            }
+        });
     }
     Ok(())
 }
@@ -502,26 +589,36 @@ fn listen(tmp: &std::path::Path) -> io::Result<()> {
 fn proxy(tmp: &std::path::Path) -> io::Result<()> {
     use std::os::unix::process::CommandExt;
     let socket = tmp.join("herdr-core.sock");
+    // Of connects that find no server at once, the one that creates this file starts it.
+    let starting = tmp.join("herdr-core-starting");
     let mut started = false;
     let stream = loop {
         if let Ok(stream) = std::os::unix::net::UnixStream::connect(&socket) {
             break stream;
         }
-        if started {
-            pause(50);
-            continue;
+        if !started
+            && std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&starting)
+                .is_ok()
+        {
+            let _ = std::fs::remove_file(&socket);
+            std::process::Command::new(std::env::current_exe()?)
+                .arg("serve")
+                .arg(tmp)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .process_group(0)
+                .spawn()?;
+            started = true;
         }
-        let _ = std::fs::remove_file(&socket);
-        std::process::Command::new(std::env::current_exe()?)
-            .arg("serve")
-            .arg(tmp)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .process_group(0)
-            .spawn()?;
-        started = true;
+        pause(20);
     };
+    if started {
+        let _ = std::fs::remove_file(&starting);
+    }
     let mut up = stream.try_clone()?;
     std::thread::spawn(move || {
         let _ = io::copy(&mut io::stdin().lock(), &mut up);
@@ -550,7 +647,7 @@ fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
         .and_then(|p| p.get("generation"))
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
-        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.18-test","framed":true,
+        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.20-test","framed":true,
             "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill","terminal.list","terminal.rm"]}})
     } else {
         let msg = format!(

@@ -47,6 +47,7 @@ harness = false
 tauri-build = { version = "2", features = [] }
 
 [dev-dependencies]
+json-patch = "4"
 tauri-plugin-global-shortcut = "=2.4.1"
 native = { path = "../native", features = ["idle-perf"] }
 rupd = { path = "../rupd", features = ["test-support"] }

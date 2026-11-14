@@ -69,7 +69,7 @@ try:
         evaluate(r"""(() => {
           const field=document.querySelector('.todo-comment-field');
           field.value='  e\u0301 🧪\n次の行  '; field.dispatchEvent(new Event('input',{bubbles:true}));
-          window.__fake.failNext(-32003,'Comment could not be sent; retry or dismiss the failure.');
+          window.__fake.failNext(-32003,'Comment could not be sent; retry or dismiss the failure.','todo.comment');
           document.querySelector('.todo-comments-send button').click();
         })()""")
         browser('wait', '--fn', 'Boolean(document.querySelector(".todo-comments [role=alert]"))')
@@ -78,7 +78,7 @@ try:
         browser('wait', '--fn', '!document.querySelector(".todo-comments [role=alert]")')
         assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
         capture('comment-dismissed')
-        evaluate("window.__fake.failNext(-32003,'Todo could not be saved; retry or dismiss the failure.'); document.querySelector('.todo-meta-state input[type=checkbox]').click()")
+        evaluate("window.__fake.failNext(-32003,'Todo could not be saved; retry or dismiss the failure.','todo.complete'); document.querySelector('.todo-meta-state input[type=checkbox]').click()")
         browser('wait', '--fn', 'Boolean(document.querySelector(".todo-detail > .reserved-line [role=alert]"))')
         capture('drawer-failure')
         evaluate("document.querySelector('.todo-meta-state input[type=checkbox]').click()")

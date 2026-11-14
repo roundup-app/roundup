@@ -1,6 +1,7 @@
 //! The App: starts a Daemon for each open Project and passes calls and events to the webview (`scenarios/app.md`).
 
 pub mod alert;
+mod channel;
 mod config;
 mod daemon;
 mod diagnostics;
@@ -21,7 +22,6 @@ mod project_task;
 mod projects;
 mod reopen;
 mod store;
-mod update;
 mod window;
 
 mod builder;
@@ -43,6 +43,7 @@ impl<G> Unpoisoned for std::sync::LockResult<G> {
 
 pub use builder::build;
 pub(crate) use builder::build_with_feedback;
+pub use channel::Channel;
 pub use config::{CALL_BOUND, Config, READY_BOUND};
 pub use error::Error;
 pub use projects::{AppState, Listed, Project};

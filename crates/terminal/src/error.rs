@@ -29,6 +29,12 @@ impl Error {
         Self::Internal(err.to_string())
     }
 
+    /// MC4, MC56: a core failure, its code first, so the App shows the code's label and never the
+    /// core's own words.
+    pub(crate) fn core(err: &herdr::Error) -> Self {
+        Self::Internal(format!("{}: {err}", err.code()))
+    }
+
     pub(crate) fn not_found(what: impl std::fmt::Display) -> Self {
         Self::NotFound(what.to_string())
     }

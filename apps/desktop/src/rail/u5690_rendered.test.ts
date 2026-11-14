@@ -86,7 +86,7 @@ it("u5690_rendered_selection_actions_on_dense_tree", async () => {
     await browser("find", "role", "menuitem", "click", "--name", "Group", "--exact");
     await wait("document.activeElement?.matches('input[aria-label=Name]')");
     await capture("group-name");
-    await read("window.__fake.failNext(-32003, 'Name could not be saved. Try again.'); true");
+    await read("window.__fake.failNext(-32003, 'Name could not be saved. Try again.', 'rail.rename'); true");
     await browser("fill", '[aria-label="Name"]', "Selected review work");
     await browser("press", "Enter");
     await wait("!!document.querySelector('.failure-line, [role=alert]')");
