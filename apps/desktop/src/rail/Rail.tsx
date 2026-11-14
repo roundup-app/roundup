@@ -4,12 +4,13 @@ import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "./EmptyRail";
+import { failureOf } from "../app/failureOf";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -33,7 +34,6 @@ import { focusedRowId, keyedRowIdAt, ROW, rowIdAt, strandedRow, type RowActions 
 import { strandedRowKeys } from "./strandedKeys";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
-import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "../state/railStorage";
@@ -44,6 +44,7 @@ import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
+import { applyCommand, createLaunch, railCommand, showsFailure } from "./railCommands";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -214,18 +215,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   const isEmpty = () => rail.nodes.length === 0 && rail.failure() === null;
 
 
-  const attempt = async <T,>(call: () => Promise<T>, item?: string): Promise<void> => {
-    try {
-      await call();
-
-      if (item !== undefined) failure.acknowledge(item);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      failure.show(error.message, item);
-    }
-  };
-
   const [container, setContainer] = createSignal<HTMLElement>();
   const [field, setField] = createSignal<HTMLTextAreaElement>();
 
@@ -339,22 +328,19 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y, undefined, extra);
 
     return contextMenu(app, [
-      { id: "group", label: copy.group, run: () => attempt(async () => {
+      { id: "group", label: copy.group, run: async () => {
+        const ids = chosen.map(each => each.id);
         // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the drawing.
-        const lift = rail.drawGroup(chosen.map(each => each.id), copy.newWorkstreamTitle);
-        let group: Awaited<ReturnType<typeof app.rpc<"rail.group">>>;
+        const outcome = await railCommand(rail, { item: node.id, draw: () => rail.drawGroup(ids, copy.newWorkstreamTitle), call: () => app.rpc("rail.group", { ids }) });
 
-        try {
-          group = await app.rpc("rail.group", { ids: chosen.map(each => each.id) });
-          await rail.refresh();
-        } finally { lift(); }
-
+        if (outcome.kind !== "applied") return;
+        const group = outcome.value;
 
         if (rail.collapsed().has(group.id)) rail.toggleCollapsed(group.id);
         rail.select(group.id);
         setSelected([group.id]);
         setEditingName(group.id);
-      }, node.id) },
+      } },
       { id: "remove-selection", label: copy.removeAll, shortcut: "⇧⌘⌫", run: () => removeSelection(chosen) },
     ], x, y);
   };
@@ -422,69 +408,43 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
 
-  /** Runs one of the add actions; U6000d: a second one fired while the Daemon is still answering is not refused. */
-  const guarded = <T,>(call: () => Promise<T>): void => {
-    void attempt(call);
-  };
-
   const parent = (): string | null => {
     const selected = rail.nodes.find((node) => node.id === rail.selected());
 
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  let sendOrder: Promise<void> = Promise.resolve();
+  const launch = createLaunch(rail);
 
-  const spawnAgentWith = (prompt: string | null) => {
-    const params: SpawnParams = { cwd: project.path, prompt, parent: null, model: null, effort: null };
+  /** U6000a, U6000d: the row shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired. Resolves with the new Agent's id. */
+  const spawn = (prompt: string | null) => ({
+    draw: () => rail.drawNew("agent", copy.newAgent, null),
+    call: async () => (await launch(size => app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, ...size }))).id,
+  });
 
-    const run = () => {
-      if (!canSpawn()) return;
+  const spawnAgent = () => {
+    if (!canSpawn()) return;
+    const focus = captureFocus(true);
 
-      // U6000a, U6000d: the row (drawn below) shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired.
-      const turn = sendOrder;
-      let sent!: () => void;
-
-      sendOrder = new Promise<void>(resolve => { sent = resolve; });
-      void attempt(async () => {
-        const focus = captureFocus(true);
-        let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
-        // U5991a: the Row shows now; the refreshed tree or a failure lifts it.
-        const lift = rail.drawNew("agent", copy.newAgent, null);
-
-        try {
-          await turn;
-          prepared = await rail.prepareTerminal?.();
-          const call = app.rpc("agent.spawn", { ...params, ...prepared?.size });
-
-          sent();
-          const spawned = await call;
-
-          if (spawned.terminal_id) prepared?.bind(spawned.terminal_id);
-          await rail.refresh();
-          failure.acknowledge(null);
-          setWanted({ id: spawned.id, focus });
-        } catch (error) {
-          if (!(error instanceof Error)) throw error;
-
-          if (error.name === "AbortError") return;
-          failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
-        } finally { sent(); lift(); prepared?.dispose(); }
-      });
-    };
-
-    run();
+    void railCommand(rail, { ...spawn(null), label: copy.newAgent, retry: spawnAgent }).then(outcome => {
+      if (outcome.kind === "applied") setWanted({ id: outcome.value, focus });
+    });
   };
 
-  const spawnAgent = () => spawnAgentWith(null);
-  const createWorkstream = () => guarded(() => rail.createWorkstream());
+  const createWorkstream = () => void rail.createWorkstream();
 
   /** U427, U428: a Workstream's folder is its Door's, an Agent's is its Worktree's, else the Project's. */
   const directoryOf = (node: RailNode) => node.worktree?.path ?? project.path;
 
+  const opened = async (open: () => Promise<void>) => {
+    const failed = await failureOf(open);
+
+    if (failed !== null) failure.show(failed);
+  };
+
   const rowIcons = (node: RailNode): Pick<RowActions, "folder" | "editor"> => ({
-    folder: () => void attempt(() => app.openTarget({ kind: "path", path: directoryOf(node), line: null })),
-    editor: () => void attempt(() => app.openInEditor(directoryOf(node))),
+    folder: () => void opened(() => app.openTarget({ kind: "path", path: directoryOf(node), line: null })),
+    editor: () => void opened(() => app.openInEditor(directoryOf(node))),
   });
 
   const agentActions = (node: RailNode, base: Pick<RowActions, "folder" | "editor">) => {
@@ -538,29 +498,20 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     const door = prompt !== null && action === "note" ? snapshot.destination.recipient ?? original?.id ?? null : null;
     const focus = captureFocus(true);
     const slow = setTimeout(() => setAsking(true), 500);
-    guarded(async () => {
-      let spawned: string | null = null;
 
+    const deliver = async () => {
       try {
-        if (door !== null) await app.rpc("message.send", { to: door, kind: "note", body: prompt!, replyTo: null });
-        else {
-          const prepared = await rail.prepareTerminal?.();
+        const delivered = door !== null
+          ? await applyCommand(rail, { call: () => app.rpc("message.send", { to: door, kind: "note", body: prompt!, replyTo: null }).then(() => null) })
+          : await applyCommand(rail, spawn(prompt));
 
-          try {
-            const node = await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, ...prepared?.size });
-
-            if (node.terminal_id) prepared?.bind(node.terminal_id);
-            spawned = node.id;
-            await rail.refresh();
-          } finally { prepared?.dispose(); }
-        }
+        if (delivered.kind !== "applied") throw delivered.thrown;
 
         const latest = task()?.revision === revision.revision;
         retained.settle(revision.revision, "acknowledged");
-        failure.acknowledge(null);
 
         if (latest) {
-          if (spawned !== null) setWanted({ id: spawned, focus });
+          if (delivered.value !== null) setWanted({ id: delivered.value, focus });
           endCompose();
         }
       } catch (error) {
@@ -569,7 +520,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
         if (!(error instanceof Error)) throw error;
 
-        if (error.name === "AbortError") return;
+        if (!showsFailure(error)) return;
         failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", () => {
           const saved = retained.records().find(entry => entry.revision === revision.revision);
 
@@ -587,27 +538,24 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         clearTimeout(slow);
         setAsking(false);
       }
-    });
+    };
+
+    void deliver();
   };
 
   const canSpawn = () => !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
-  onMount(() => {
-    const clear = (event: MouseEvent) => {
-      const recoversSpawn = failure.message()?.startsWith(`${copy.newAgent}: `);
-      const usesRecovery = event.target instanceof Element && event.target.closest(".rail-command-notice, .rail-actions");
+  makeEventListener(document, "click", (event: MouseEvent) => {
+    const recoversSpawn = failure.message()?.startsWith(`${copy.newAgent}: `);
+    const usesRecovery = event.target instanceof Element && event.target.closest(".rail-command-notice, .rail-actions");
 
-      if (!failure.retry() || recoversSpawn && !usesRecovery) {
-        failure.clear();
-        rail.clearWorkstreamFailure();
-      }
+    if (!failure.retry() || recoversSpawn && !usesRecovery) {
+      failure.clear();
+      rail.clearWorkstreamFailure();
+    }
 
-      rail.clearStorageFailure();
-    };
-
-    document.addEventListener("click", clear, true);
-    onCleanup(() => document.removeEventListener("click", clear, true));
-  });
+    rail.clearStorageFailure();
+  }, { capture: true });
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu acts on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
@@ -628,7 +576,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: { ...CHORDS["agent.new-with-prompt"], get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(args?.prompt); } }) },
+    { action: { ...CHORDS["agent.new-with-prompt"], get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) createWorkstream(); else openCompose(args?.prompt); } }) },
     { action: CHORDS["workstream.new"], capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS["mode.new"], capture: () => ({ available: canSpawn, invoke: () => setDialog({ kind: "create-mode" }) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
