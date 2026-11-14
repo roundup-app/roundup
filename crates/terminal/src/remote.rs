@@ -401,13 +401,14 @@ mod tests {
             close: None,
         }])));
         let mut spawned = terminals.spawn(launch("box")).await.unwrap();
-        tokio::time::timeout(Duration::from_secs(10), async {
-            while terminals.machine_reachability().get("box") != Some(&false) {
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-        })
+        let mut reach = terminals.remotes.reach.subscribe();
+        tokio::time::timeout(
+            Duration::from_secs(10),
+            reach.wait_for(|all| all.get("box") == Some(&false)),
+        )
         .await
-        .expect("the lost bridge marks the Machine unreachable");
+        .expect("the lost bridge marks the Machine unreachable")
+        .unwrap();
         // Only a status on the Agent's row changes; the Terminal raises no event, so no attention entry or alert follows.
         let heard = tokio::time::timeout(Duration::from_millis(500), spawned.events.recv()).await;
         assert!(heard.is_err(), "a lost bridge raised {heard:?}");
