@@ -1,4 +1,4 @@
-import { applying } from "../app/pending";
+import { applied, applying } from "../app/pending";
 import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
 import { outcomeOf } from "../app/seam";
@@ -187,7 +187,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
         if (home === null) return;
 
         try {
-          await connected.app.rpc("todo.move", { id, home });
+          await applied(() => connected.app.rpc("todo.move", { id, home }));
         } catch (error) {
           stranded = { title, id };
           throw error;

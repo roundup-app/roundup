@@ -259,10 +259,11 @@ export const EditableText = (props: {
 
       const submittedValue = read();
       const expected = started.form.expected_change;
-      const status = draft.draft()?.status ?? "unknown";
+      const status = draft.draft()?.status;
+      const unsendable = status ? copy.draftStatus[status] : copy.draftStatus.unknown;
 
       if (status !== "draft" && status !== "failed") {
-        setFailure(copy.draftStatus[status]);
+        setFailure(unsendable);
         left = false;
 
         return;
@@ -288,7 +289,7 @@ export const EditableText = (props: {
       const sent = await sending;
 
       if (sent.kind === "skipped") {
-        setFailure(copy.draftStatus[status]);
+        setFailure(unsendable);
         left = false;
 
         return;
