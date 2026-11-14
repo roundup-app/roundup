@@ -319,3 +319,31 @@ it("u350_retired_clear_drafts_do_not_reopen_or_send", async () => {
   expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
   expect(reopened.app.calls.filter(call => ["workstream.clear", "message.send", "agent.spawn"].includes(call.method))).toEqual([]);
 });
+
+it.each(["agent", "door"])("u7129_retry_resends_the_failed_revision_not_the_newer_draft_%s", async (target) => {
+  const { RpcError } = await import("../app/seam");
+  const { door } = await import("../testing/nodes");
+  const method = target === "door" ? "message.send" : "agent.spawn";
+  const mounted = await mountRail(target === "door" ? [door("a", "idle", "idle")] : [workstream("w")]);
+  let refuse = true;
+  mounted.app.handlers[method] = () => {
+    if (refuse) throw new RpcError(-32003, "refused");
+
+    return target === "door" ? null : workstream("spawned");
+  };
+
+  if (target === "door") mounted.rail.select("a");
+  open();
+  fireEvent.input(field(), { target: { value: "A" } });
+  fireEvent.keyDown(field(), { key: "Enter" });
+  await screen.findByRole("button", { name: "Retry" });
+  await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  fireEvent.input(field(), { target: { value: "B" } });
+  refuse = false;
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(railCallsTo(mounted.app, method)).toHaveLength(2));
+  const [first, second] = railCallsTo(mounted.app, method);
+  expect(second).toEqual(first);
+  expect(second).toMatchObject(target === "door" ? { to: "a", body: "A" } : { prompt: "A" });
+  expect(field().value).toBe("B");
+});
