@@ -18,6 +18,7 @@ custom-protocol = ["tauri/custom-protocol"]
 base64.workspace = true
 contracts = { path = "../contracts" }
 dirs = "7"
+fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs", rev = "c4c45d503ea115a839aae718d02f79e7c7f0f673" }
 indexmap = "2"
 getrandom = "0.3"
 log = "0.4"
@@ -33,6 +34,7 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-window-state = { version = "=2.5.0", path = "vendor/tauri-plugin-window-state-2.5.0" }
 tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5.0" }
+tauri-plugin-updater = { version = "=2.14.1", default-features = false, features = ["rustls-tls"] }
 thiserror.workspace = true
 time = "0.3.55"
 which = "8.0.6"
