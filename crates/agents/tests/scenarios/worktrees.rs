@@ -138,6 +138,8 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
     let guard = tempfile::tempdir().unwrap();
     let parked = guard.path().join("parked");
     let release = guard.path().join("release");
+    // The precheck stays parked while the test observes, so the product's 3 s budget would
+    // race the observer's latency on a loaded lane. The observer's own waits are 10 s.
     let git = wrapped_git(
         guard.path(),
         &format!(
@@ -145,7 +147,8 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
             parked.display(),
             release.display()
         ),
-    );
+    )
+    .with_bound(Duration::from_secs(30));
     let f = Arc::new(Fixture::in_git_project(
         "echo ready > ready\nwhile read line; do if [ \"$line\" = exit ]; then exit 0; fi; printf '\\033]0;◐ Claude Code\\007'; done",
         git,
