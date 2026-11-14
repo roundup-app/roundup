@@ -238,6 +238,12 @@ app-bundle channel="source" n="":
     tools/sidecar/bundle.sh target/app-bundle-inputs/sidecar
     cd crates/desktop
     npm exec --yes --package=@tauri-apps/cli@2.12.4 -- tauri build --ci --target "$triple" --features custom-protocol --bundles app --no-sign --config tauri.bundle.conf.json ${overlay[@]+"${overlay[@]}"}
+    # `--no-sign` skips the update archive's signature too, so the archive is signed on its own.
+    if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+        for archive in ../../target/"$triple"/release/bundle/macos/*.app.tar.gz; do
+            npm exec --yes --package=@tauri-apps/cli@2.12.4 -- tauri signer sign "$archive"
+        done
+    fi
 
 # DF7078d-f: ship the Stable bundle built with Dev build <dev version> (`0.1.0-dev.<n>`) to the alpha feed, with the owner's gh and no rebuild.
 promote dev_version:
