@@ -389,7 +389,6 @@ impl Terminals {
     }
 }
 
-/// How long a call to the core may take before it is lost.
 /// MC33: how long the Door waits on a Machine before it picks another.
 const PICK_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -399,6 +398,7 @@ pub struct MachineLoad {
     pub machines: Vec<(String, Option<usize>)>,
 }
 
+/// How long a call to the core may take before it is lost.
 pub(super) const CORE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// MC12: the `terminal.run` request for `params`: argv, cwd, env and size, with the environment the

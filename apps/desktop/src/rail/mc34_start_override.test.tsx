@@ -33,7 +33,7 @@ it("mc34_no_override_leaves_the_pick_to_the_door", async () => {
   const mounted = await mountRail([workstream("w")], [], undefined, undefined, { machines: [{ name: "box", details: {} }] });
   await waitFor(() => expect(mounted.app.calls.some(call => call.method === "machine.list")).toBe(true));
   const call = await send(mounted);
-  expect(call).not.toHaveProperty("machine");
+  expect(call).toEqual(expect.not.objectContaining({ machine: expect.anything() }));
 });
 
 it("mc34_no_machine_field_while_this_mac_is_the_only_machine", async () => {

@@ -43,6 +43,7 @@ import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
+import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { StartMachine } from "./StartMachine";
 import { createLaunch, railCommand } from "./railCommands";
 import { createDraftField } from "../state/draftField";
@@ -435,15 +436,19 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   };
 
   const launch = createLaunch(rail);
+  /** MC34: the Machine the user named for the start; empty leaves the pick to the Door. */
+  const [startMachine, setStartMachine] = createSignal("");
 
   /** U6000a, U6000d: the row shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired. Resolves with the new Agent's id. */
-  const [startMachine, setStartMachine] = createSignal("");
   const spawn = (prompt: string | null) => ({
     draw: () => rail.drawNew("agent", copy.newAgent, null),
     call: async () => {
-      const machine = startMachine() || undefined;
+      const machine = startMachine();
+      const params: SpawnParams = { cwd: project.path, prompt, parent: null, model: null, effort: null };
 
-      return (await launch(size => app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, machine, ...size }))).id;
+      if (machine) params.machine = machine;
+
+      return (await launch(size => app.rpc("agent.spawn", { ...params, ...size }))).id;
     },
   });
 
