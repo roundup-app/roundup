@@ -33,6 +33,9 @@ while time.monotonic()<end:
  time.sleep(.1)
 `;
 
+// Ark's Editable keeps the title field mounted and hides it by visibility outside an edit.
+const titleEditing = "!!document.querySelector('.todo-detail-title textarea[aria-label=Title]')?.checkVisibility({visibilityProperty:true})";
+
 // U3311 names a real Daemon and pointer/clock observer; the fake vendor never supplies App or Todo success facts.
 it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_daemon_delegate_board", async () => {
   const scratch = await mkdtemp(join(tmpdir(), "u3311-"));
@@ -225,16 +228,16 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('.todo-detail-title .todo-editable')");
     await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
-    await lane.until("!!document.querySelector('textarea[aria-label=Title]')");
+    await lane.until(titleEditing);
     await lane.browser("fill", "textarea[aria-label=Title]", "Release notes revised");
     await lane.evaluate("window.__failure = {method:'todo.update',message:'Save unavailable; retry your retained edit'}");
     await lane.browser("press", "Tab");
     await lane.until("!!document.querySelector('.todo-detail [role=alert]')");
     expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: actor(agents[0]!.id), ...saved.get(moved.id) });
     await capture("save-failure");
-    await lane.until("!!document.querySelector('.todo-detail-title textarea[aria-label=Title]')");
+    await lane.until(titleEditing);
     await lane.browser("click", ".todo-detail-title .todo-editable button:last-child");
-    await lane.until("!document.querySelector('textarea[aria-label=Title]')");
+    await lane.until(`!${titleEditing}`);
     await lane.until("document.querySelector('.todo-detail-title .todo-editable p')?.textContent === 'Release notes revised' && document.activeElement !== document.body");
     saved.set(moved.id, { title: "Release notes revised", body: "" });
     await observe(moved.id, agents[0]!.id);
