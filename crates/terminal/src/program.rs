@@ -37,6 +37,10 @@ impl Terminals {
 
     pub(super) async fn kill_in(&self, id: &str) -> Result<(), Error> {
         let handle = self.running(id)?;
+        // X9: a program that has ended is gone, whether or not its exit has been reported yet.
+        if *handle.ended.borrow() {
+            return Err(Error::not_found(format!("running terminal {id}")));
+        }
         match handle
             .conn()?
             .call(
