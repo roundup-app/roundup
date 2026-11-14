@@ -13,6 +13,7 @@ const field = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
 it.each(["acknowledged", "failed", "unknown", "transport"])("u2773b_rail_settlement_preserves_other_revisions_%s", async (outcome) => {
   const { RpcError } = await import("../app/seam");
+  const { message } = await import("../testing/centreFixture");
   const mounted = await mountRail([workstream("w")]);
   let resolve!: (value: ReturnType<typeof workstream>) => void;
   let reject!: (error: Error) => void;
@@ -87,6 +88,7 @@ it("u2773a_rail_task_keeps_original_recipient_after_selection_changes", async ()
 it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   const { render } = await import("@solidjs/testing-library");
   const { RpcError } = await import("../app/seam");
+  const { message } = await import("../testing/centreFixture");
   const { createFakeApp } = await import("../testing/fakeApp");
   const { connectProject, ConnectedProjectContext } = await import("../state/connectedProject");
   const { Rail } = await import("./Rail");
@@ -121,6 +123,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
 it.each(["failed", "acknowledged"])("u2773b_rail_name_settlement_keeps_newer_edit_%s", async (outcome) => {
   const { agent } = await import("../testing/nodes");
   const { RpcError } = await import("../app/seam");
+  const { message } = await import("../testing/centreFixture");
   const mounted = await mountRail([agent("a", "idle", "ready", { name: "Original" })]);
   let accept!: (node: ReturnType<typeof agent>) => void;
   let refuse!: (error: Error) => void;
@@ -150,6 +153,7 @@ it.each(["failed", "acknowledged"])("u2773b_rail_name_settlement_keeps_newer_edi
 it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
   const { agent } = await import("../testing/nodes");
   const { RpcError } = await import("../app/seam");
+  const { message } = await import("../testing/centreFixture");
   const { waitFor } = await import("@solidjs/testing-library");
   const mounted = await mountRail([agent("a", "idle", "ready", { name: "Original" })]);
   let refuseA!: (error: Error) => void;
@@ -180,6 +184,7 @@ it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
 
 it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
   const { RpcError } = await import("../app/seam");
+  const { message } = await import("../testing/centreFixture");
   const { copy } = await import("./copy");
   const { waitFor } = await import("@solidjs/testing-library");
   const mounted = await mountRail([workstream("w")]);
@@ -318,4 +323,39 @@ it("u350_retired_clear_drafts_do_not_reopen_or_send", async () => {
   expect(reopened.connected.drafts.list()).toEqual([task]);
   expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
   expect(reopened.app.calls.filter(call => ["workstream.clear", "message.send", "agent.spawn"].includes(call.method))).toEqual([]);
+});
+
+it.each(["agent", "door"])("u7129_retry_resends_the_failed_revision_not_the_newer_draft_%s", async (target) => {
+  const { RpcError } = await import("../app/seam");
+  const { message } = await import("../testing/centreFixture");
+  const { door } = await import("../testing/nodes");
+  const method = target === "door" ? "message.send" : "agent.spawn";
+  const mounted = await mountRail(target === "door" ? [door("a", "idle", "idle")] : [workstream("w")]);
+  let refuse = true;
+
+  const answer = () => {
+    if (refuse) throw new RpcError(-32003, "refused");
+  };
+
+  if (target === "door") mounted.app.handlers["message.send"] = () => { answer();
+
+ return message(1); };
+  else mounted.app.handlers["agent.spawn"] = () => { answer();
+
+ return workstream("spawned"); };
+
+  if (target === "door") mounted.rail.select("a");
+  open();
+  fireEvent.input(field(), { target: { value: "A" } });
+  fireEvent.keyDown(field(), { key: "Enter" });
+  await screen.findByRole("button", { name: "Retry" });
+  await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  fireEvent.input(field(), { target: { value: "B" } });
+  refuse = false;
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(railCallsTo(mounted.app, method)).toHaveLength(2));
+  const [first, second] = railCallsTo(mounted.app, method);
+  expect(second).toEqual(first);
+  expect(second).toMatchObject(target === "door" ? { to: "a", body: "A" } : { prompt: "A" });
+  expect(field().value).toBe("B");
 });
