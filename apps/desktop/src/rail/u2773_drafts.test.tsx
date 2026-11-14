@@ -208,6 +208,26 @@ it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
 
 
 
+it("u2773c_a_recovered_draft_never_sends", async () => {
+  const { copy: railCopy } = await import("./copy");
+  const mounted = await mountRail([workstream("w")]);
+  mounted.app.handlers["agent.spawn"] = () => { throw new Error("disconnected"); };
+
+  open();
+  fireEvent.input(field(), { target: { value: " A\n😀 " } });
+  fireEvent.keyDown(field(), { key: "Enter" });
+  await waitFor(() => expect(mounted.connected.drafts.list().at(-1)?.status).toBe("unknown"));
+  fireEvent.keyDown(field(), { key: "Escape" });
+  fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+  const unconfirmed = screen.getByLabelText<HTMLTextAreaElement>(railCopy.railDraftRecovered);
+
+  await waitFor(() => expect(document.activeElement).toBe(unconfirmed));
+  expect(unconfirmed.value).toBe(" A\n😀 ");
+  expect(unconfirmed.closest("details")?.open).toBe(true);
+  expect(unconfirmed.closest(".rail-recovery")?.hasAttribute("open")).toBe(true);
+  expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
+});
+
 it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", async () => {
   const { connected, app } = await mountRail([workstream("w")]);
   render(() => <ConnectedProjectContext.Provider value={connected}><span /></ConnectedProjectContext.Provider>);
