@@ -101,6 +101,7 @@ export const CONTRACT = {
     "project.prepareDirectory": "ff411b9863d8ade2",
     "project.rename": "3de99d829e97277f",
     "project.resources": "170ed6cbd515ea67",
+    "project.setMachine": "5b69625705798f33",
     "project.setMcp": "9fe1987af8ca07f9",
     "project.setModels": "ba29e6d3c350b210",
     "project.setPrepared": "bb3878797e8ab3cb",

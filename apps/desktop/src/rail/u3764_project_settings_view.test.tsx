@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const mount = async () => {
   const mounted = await mountRail([]);
-  mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
+  mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, machine: null, models: { roles: [] } });
 
   return mounted.app;
 };

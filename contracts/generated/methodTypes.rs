@@ -29,6 +29,7 @@
     Method { name: "rail.startDoor", params: "agent_StartDoorParams", result: "agent_RailNode" },
     Method { name: "agent.run", params: "agent_RunParams", result: "terminal_Opened" },
     Method { name: "project.setWorktrees", params: "project_Worktrees", result: "null" },
+    Method { name: "project.setMachine", params: "project_SetMachine", result: "null" },
     Method { name: "project.setMcp", params: "project_Mcp", result: "null" },
     Method { name: "project.setPrepared", params: "project_Prepared", result: "null" },
     Method { name: "project.importDiscover", params: "project_ImportDiscoverParams", result: "project_ImportDiscovery" },

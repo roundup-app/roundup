@@ -613,7 +613,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     // U3744, U3745: a cap of 3 and the first Workstream whose Door never started waiting for a slot.
     const waiting = nodes.find(node => node.kind === "workstream" && node.attempt === null);
 
-    app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 3, models: { roles: [] } });
+    app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 3, machine: null, models: { roles: [] } });
     app.handlers["workstream.queue"] = () => ({ running: 3, cap: 3, entries: waiting ? [{ workstream: waiting.id, start: { kind: "queued" } }] : [] });
   }
 

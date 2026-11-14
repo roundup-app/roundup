@@ -47,7 +47,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
   const { id, rename } = untrack(() => ({ id: props.node.id, rename: props.onCommit }));
   const destination = { surface: "rail-name", object: id, recipient: null };
   const draft = createDraftField(connected.drafts, destination, nameSchema);
-  const current = () => connected.drafts.list().filter((entry) => entry.destination.surface === destination.surface && entry.destination.object === destination.object).at(-1);
+  const current = draft.draft;
 
   const value = () => {
     const text = current()?.value.text;

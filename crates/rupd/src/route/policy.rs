@@ -228,6 +228,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("project.prepareDirectory", PLAIN),
     ("project.rename", PLAIN),
     ("project.resources", PLAIN),
+    ("project.setMachine", PLAIN),
     ("project.setMcp", PLAIN),
     ("project.setModels", PLAIN),
     ("project.setPrepared", PLAIN),

@@ -88,7 +88,6 @@ export const Todos = (props: {
   if (props.recovery && (todos.project !== connected.project.path || !todos.isLoaded() || todos.failure() !== null || !retained || !form.success
     || retained.destination.recipient !== form.output.home || !homeExists(form.output.home))) return null;
 
-  const [creationRevision, setCreationRevision] = createSignal<string | null>(retained?.revision ?? null);
   const [typing, setTyping] = createSignal(retained !== undefined);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const shelfFailure = dismissable(() => todos.failure() || (!typing() ? createFailure() : null));
@@ -421,7 +420,7 @@ export const Todos = (props: {
   });
 
   const { creationHome, creation, openField, field } = createTodoCreation({
-    recovery: props.recovery !== undefined, form, homeExists, creationRevision, setCreationRevision, typing, setTyping, createFailure, setCreateFailure,
+    form, retained, homeExists, typing, setTyping, createFailure, setCreateFailure,
     setFiled, active, scope, selectedWorkstream, plusButton: () => plusButton, section: () => section,
   });
 

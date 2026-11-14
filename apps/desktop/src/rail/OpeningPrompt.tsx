@@ -24,7 +24,7 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
   drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "agent" && node.parent === null && node.id === draft.destination.object) ? "available" : "unavailable");
   const destination = () => ({ surface: "opening-prompt", object: props.id, recipient: null });
   const field = createDraftField(drafts, destination(), schema);
-  const draft = () => drafts.list().filter(record => record.destination.surface === "opening-prompt" && record.destination.object === props.id).at(-1);
+  const draft = field.draft;
   const text = () => String(draft()?.value.text ?? current()?.mode_prompt ?? "");
   createEffect(() => {
     if (current()) onCleanup(drafts.editor(destination()));

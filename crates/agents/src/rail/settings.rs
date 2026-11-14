@@ -56,6 +56,26 @@ impl Rail {
         Ok(())
     }
 
+    /// MC30: the Machine the Project's folder is on; `None` is this Mac.
+    pub fn get_machine(&self) -> Result<Option<String>, StoreError> {
+        Ok(self
+            .db
+            .query_row("SELECT machine FROM settings WHERE id = 0", [], |row| {
+                row.get(0)
+            })
+            .optional()?
+            .flatten())
+    }
+
+    pub fn set_machine(&mut self, machine: Option<&str>) -> Result<(), StoreError> {
+        self.db.execute(
+            "INSERT INTO settings (id, machine) VALUES (0, ?)
+                 ON CONFLICT (id) DO UPDATE SET machine = excluded.machine",
+            params![machine],
+        )?;
+        Ok(())
+    }
+
     /// G2542: the Project's prepared-directory configuration; empty for a Project that never set it.
     pub fn get_prepared(&self) -> Result<Prepared, StoreError> {
         let (readiness, timeout_ms, setup) = self

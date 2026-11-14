@@ -74,7 +74,7 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
   const { app } = await openTabs({ api: [], web: [] });
 
   for (const [name, cap] of [["api", 2], ["web", 7]] as const) {
-    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, models: { roles: [] } });
+    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, machine: null, models: { roles: [] } });
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
     fireEvent.click(tab(name));
     await waitFor(() => expect(tab(name).getAttribute("aria-selected")).toBe("true"));
@@ -100,7 +100,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keep
   const { app } = await openTabs({ api: [], web: [] });
 
   for (const [name, cap] of [["api", 2], ["web", 7]] as const) {
-    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, models: { roles: [] } });
+    app.of(path(name)).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, machine: null, models: { roles: [] } });
     app.of(path(name)).handlers["project.importDiscover"] = () => ({ candidates: [{ source: name, revision: "r", title: name, cwd: "", last_activity_ms: 1n }], excluded: [] });
   }
 
