@@ -1,48 +1,62 @@
 import { copy } from "../copy";
 import { useConnectedProject } from "../../state/connectedProject";
-import type { RailMenuModel } from "./model";
+import type { Confirming, RailMenuModel } from "./model";
 import { removalQuestion } from "./removal";
 import { NativeAlert } from "../../ui/NativeAlert";
+
+const questionOf = (current: Confirming | null, lossesOf: RailMenuModel["lossesOf"]) => {
+  switch (current?.kind) {
+    case undefined:
+      return { title: "", message: "", okLabel: copy.remove, cancelLabel: copy.keep };
+    case "stop":
+      return { title: copy.stopQuestion(current.node.name), message: "", okLabel: copy.stop, cancelLabel: copy.keep };
+    case "remove-selection":
+      return { title: copy.removeSelectionQuestion, message: current.summary, okLabel: copy.removeAll, cancelLabel: copy.keep };
+    case "remove": {
+      if (current.removal !== null && current.removal !== "reading") return removalQuestion(current.removal, current.node.name);
+
+      return {
+        title: current.node.kind === "workstream" || current.exit !== null ? copy.removeQuestion(current.node.name) : copy.stopAndRemoveQuestion(current.node.name),
+        message: lossesOf([current.node]).join("\n"),
+        okLabel: copy.remove,
+        cancelLabel: copy.keep,
+      };
+    }
+  }
+};
+
+const nodeOf = (current: Confirming | null) => current?.kind === "remove-selection" ? current.nodes[0] : current?.node;
 
 /** Consequences are read before the native question is shown. */
 export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: string) => HTMLElement | undefined }) => {
   const { app, rail } = useConnectedProject();
   const current = () => props.menu.state();
 
-  const question = () => {
+  const asking = () => {
     const kept = current();
-    const removal = kept?.removal;
 
-    if (kept?.selection) return { title: copy.removeSelectionQuestion, message: kept.summary ?? "", okLabel: copy.removeAll, cancelLabel: copy.keep };
-
-    if (kept?.action === "remove" && removal) return removalQuestion(removal, kept.node.name);
-
-    return {
-      title: kept ? kept.action === "stop" ? copy.stopQuestion(kept.node.name) : (kept.node.kind === "workstream" || kept.exit !== null) ? copy.removeQuestion(kept.node.name) : copy.stopAndRemoveQuestion(kept.node.name) : "",
-      message: (kept?.losses ?? []).join("\n"),
-      okLabel: kept?.action === "stop" ? copy.stop : copy.remove,
-      cancelLabel: copy.keep,
-    };
+    return kept !== null && !(kept.kind === "remove" && kept.removal === "reading");
   };
 
   let target: HTMLElement | null = null;
   let removedFromKeyboard = false;
 
-  return <NativeAlert app={app} open={current()?.confirming === true && current()?.removal !== null}
-    question={question()}
+  return <NativeAlert app={app} open={asking()}
+    question={questionOf(current(), props.menu.lossesOf)}
     onConfirm={(answer) => {
       const kept = current();
-      removedFromKeyboard = kept?.action === "remove" && kept.removed !== undefined;
-      target = kept ? props.rowElement(kept.node.id) ?? null : null;
+      const node = nodeOf(kept);
+      removedFromKeyboard = kept?.kind === "remove" && kept.removed !== undefined;
+      target = node ? props.rowElement(node.id) ?? null : null;
 
-      if (kept?.action === "stop") return props.menu.chooseStop();
+      if (kept?.kind === "stop") return props.menu.chooseStop(kept.node);
 
       return props.menu.chooseRemove(answer === "all" ? "all" : "this");
     }}
     onCancel={() => {
-      const kept = current();
+      const node = nodeOf(current());
       removedFromKeyboard = false;
-      target = kept ? props.rowElement(kept.node.id) ?? null : null;
+      target = node ? props.rowElement(node.id) ?? null : null;
       props.menu.close();
     }}
     finalFocus={() => removedFromKeyboard ? props.rowElement(rail.selected() ?? "") ?? null : target?.isConnected ? target : null} />;

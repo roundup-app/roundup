@@ -113,3 +113,18 @@ it("a4452c_restart_saves_first_and_retries_the_same_session_identity", async () 
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(rowOf("w")));
 });
+
+it("u428_a_dialog_remount_still_returns_focus_to_the_row", async () => {
+  const m = await mountRail([mode("w", "first"), mode("other", "second")], [], undefined, () => true);
+
+  for (const name of ["w", "other"]) {
+    const row = rowOf(name);
+    row.focus();
+    fireEvent.contextMenu(row);
+    await m.app.pickMenu("First prompt…");
+    const field = await screen.findByRole("textbox", { name: "First prompt" });
+    field.focus();
+    fireEvent.keyDown(field, { key: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(rowOf(name)));
+  }
+});
