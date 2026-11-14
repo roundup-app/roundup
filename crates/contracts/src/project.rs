@@ -39,6 +39,14 @@ pub struct Mcp {
     pub on: bool,
 }
 
+/// MC30: `project.setMachine`, the Machine a Project's folder is on, by its name in herdr-core's
+/// `machine.list`; `None` is this Mac. A Project has exactly one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SetMachine {
+    pub machine: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ProjectSettings {
     pub worktrees: Worktrees,
@@ -49,6 +57,8 @@ pub struct ProjectSettings {
     #[serde(rename = "workstreamCap")]
     #[specta(type = Option<specta_typescript::Number>)]
     pub workstream_cap: Option<u32>,
+    /// MC30: the Machine the folder is on; `None` is this Mac.
+    pub machine: Option<String>,
 }
 
 /// A36: one Model or Effort the Adapter offers. Outside the Adapter `id` is opaque (P4).
@@ -86,6 +96,9 @@ pub struct ProjectModels {
 pub struct OpenParams {
     /// An absolute path to an existing folder.
     pub path: String,
+    /// MC30: the Machine the folder is on, by its name in `machine.list`; absent is this Mac.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine: Option<String>,
 }
 
 /// A5765b: the canonical folder the App has established is open.

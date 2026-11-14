@@ -130,6 +130,7 @@ import type { ProjectModels as project_ProjectModels } from "./project/ProjectMo
 import type { ProjectSettings as project_ProjectSettings } from "./project/ProjectSettings";
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
 import type { Resources as project_Resources } from "./project/Resources";
+import type { SetMachine as project_SetMachine } from "./project/SetMachine";
 import type { StartParams as project_StartParams } from "./project/StartParams";
 import type { StartedRow as project_StartedRow } from "./project/StartedRow";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
@@ -213,6 +214,7 @@ export type RpcMethods = {
   "rail.startDoor": { params: agent_StartDoorParams; result: agent_RailNode };
   "agent.run": { params: agent_RunParams; result: terminal_Opened };
   "project.setWorktrees": { params: project_Worktrees; result: null };
+  "project.setMachine": { params: project_SetMachine; result: null };
   "project.setMcp": { params: project_Mcp; result: null };
   "project.setPrepared": { params: project_Prepared; result: null };
   "project.importDiscover": { params: project_ImportDiscoverParams; result: project_ImportDiscovery };

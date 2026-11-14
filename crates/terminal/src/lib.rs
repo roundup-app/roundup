@@ -740,6 +740,28 @@ impl Terminals {
         Ok(())
     }
 
+    /// MC30: run `argv` in `cwd` on `machine` through its herdr-core and wait for it to end. The
+    /// core's failure is a coded error, never a skipped step.
+    pub async fn exec(
+        &self,
+        machine: &str,
+        argv: &[String],
+        cwd: &str,
+        limit: Duration,
+    ) -> Result<herdr::Exec, RpcError> {
+        let conn = self.remotes.conn(machine).await?;
+        conn.exec(argv, cwd, limit)
+            .await
+            .map_err(|err| Error::core(&err).into())
+    }
+
+    /// MC30: the names of the Machines herdr-core lists, from this Mac's core.
+    pub async fn machine_names(&self) -> Result<Vec<String>, RpcError> {
+        let core = self.core().await?;
+        let machines = core.machine_list().await.map_err(|err| Error::core(&err))?;
+        Ok(machines.into_iter().map(|m| m.name).collect())
+    }
+
     /// Every Terminal, running or exited, oldest first.
     pub async fn list(&self) -> Vec<TerminalInfo> {
         let mut infos = Vec::new();

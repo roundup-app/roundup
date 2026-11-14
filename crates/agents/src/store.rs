@@ -61,6 +61,8 @@ impl Agents {
         }))?;
         let enrolled = rail.get_prepared()?.enrolled;
         git.set_enrolled(&enrolled.iter().map(PathBuf::from).collect::<Vec<_>>());
+        git.set_host(Arc::clone(&terminals) as Arc<dyn worktree::Machines>);
+        git.set_machine(rail.get_machine()?);
         if forked {
             // FOP5978b: every Auto reads off until the owner turns it on.
             rail.clear_all_auto()?;
