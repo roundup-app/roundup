@@ -6,7 +6,6 @@
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
@@ -57,6 +56,9 @@ pub struct Git {
     deadline: Option<Instant>,
     bound: Duration,
     forked: Arc<std::sync::atomic::AtomicBool>,
+    /// MC30: the Machine the Project's folder is on; `None` is this Mac.
+    machine: Arc<RwLock<Option<String>>>,
+    host: Arc<RwLock<Option<Arc<dyn Machines>>>>,
 }
 
 impl Git {
@@ -73,6 +75,8 @@ impl Git {
             deadline: None,
             bound: BOUND,
             forked: Arc::default(),
+            machine: Arc::default(),
+            host: Arc::default(),
         }
     }
 
@@ -109,7 +113,11 @@ impl Git {
 
     // Optional collection must never queue local git reads behind its own IO.
     pub(super) fn reader(&self) -> Self {
-        Self::with_path(self.path.clone())
+        Self {
+            machine: self.machine.clone(),
+            host: self.host.clone(),
+            ..Self::with_path(self.path.clone())
+        }
     }
 
     /// One budget covers lock acquisition and every command in an App-facing operation.
@@ -155,7 +163,7 @@ impl Git {
             branch: format!("roundup/agent-{id}"),
             base,
         };
-        if worktree.path.exists()
+        if self.exists(&worktree.path)
             || self
                 .reference(project, &format!("refs/heads/{}", worktree.branch))?
                 .is_some()
@@ -195,7 +203,12 @@ impl Git {
             let exclude = self
                 .run(project, &["rev-parse", "--git-path", "info/exclude"])
                 .map_err(failed)?;
-            exclude_worktrees(&project.join(exclude)).map_err(failed)?;
+            match self.remote().map_err(failed)? {
+                Some(machine) => self
+                    .exclude_on(&machine, &project.join(exclude))
+                    .map_err(failed)?,
+                None => exclude_worktrees(&project.join(exclude)).map_err(failed)?,
+            }
             Ok(plan.worktree.clone())
         })();
         if result.is_err() {
@@ -261,7 +274,7 @@ impl Git {
         let branch = self.reference(project, &branch_ref)?;
         let owner = self.reference(project, &plan.owner)?;
         if owner.is_none() {
-            if branch.is_some() || plan.worktree.path.exists() {
+            if branch.is_some() || self.exists(&plan.worktree.path) {
                 return Err(failed("unowned provisioning destination; preserving it"));
             }
             return Ok(());
@@ -273,7 +286,7 @@ impl Git {
                 "provisioning ownership or branch changed; preserving it",
             ));
         }
-        let expected_path = canonical_path(&plan.worktree.path);
+        let expected_path = self.listed_path(&plan.worktree.path);
         let mut registered = false;
         for (path, reference) in self.registered_worktrees(project)? {
             if path == expected_path {
@@ -285,7 +298,7 @@ impl Git {
                 return Err(failed("provisioning branch belongs to another path"));
             }
         }
-        if plan.worktree.path.exists() {
+        if self.exists(&plan.worktree.path) {
             if !registered {
                 return Err(failed("provisioning path is not its registered Worktree"));
             }
@@ -315,14 +328,14 @@ impl Git {
     /// Git itself rather than trusted from the record. The directory's cleanliness is not this
     /// check's concern (resume never cares whether it is landed).
     pub fn verify_resumable(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
-        if !worktree.path.is_dir() {
+        if !self.is_dir(&worktree.path) {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let branch_ref = format!("refs/heads/{}", worktree.branch);
         if self.reference(project, &branch_ref)?.is_none() {
             return Err(WorktreeError::BranchMissing(worktree.branch.clone()).into());
         }
-        let expected_path = canonical_path(&worktree.path);
+        let expected_path = self.listed_path(&worktree.path);
         match self
             .registered_worktrees(project)?
             .into_iter()
@@ -338,7 +351,7 @@ impl Git {
     /// G3: `ahead` and `behind` between the branch and its Base, and whether the Worktree has
     /// changes outside `.roundup/`. Runs no command that writes.
     pub fn state(&self, project: &Path, worktree: &Worktree) -> Result<WorktreeState, RpcError> {
-        if !worktree.path.is_dir() {
+        if !self.is_dir(&worktree.path) {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
         let range = format!("{}...refs/heads/{}", worktree.base, worktree.branch);
@@ -382,7 +395,7 @@ impl Git {
     /// The entries the Worktree's directory changed, and the commits its branch holds that the
     /// Base lacks. A directory or branch already gone counts for none.
     pub fn unlanded(&self, project: &Path, worktree: &Worktree) -> Result<(usize, u64), RpcError> {
-        let dirty = if worktree.path.exists() {
+        let dirty = if self.exists(&worktree.path) {
             self.run(
                 &worktree.path,
                 &["status", "--porcelain", "-z", "--untracked-files=all"],
@@ -401,7 +414,7 @@ impl Git {
                     &["rev-list", "--count", &format!("{}..{head}", worktree.base)],
                 )
                 .map_err(failed)?,
-            None if !worktree.path.exists() => "0".into(),
+            None if !self.exists(&worktree.path) => "0".into(),
             None => return Err(failed("recorded Worktree branch is missing")),
         };
         let ahead = ahead.trim().parse().map_err(failed)?;
@@ -416,125 +429,6 @@ impl Git {
         Ok(())
     }
 
-    /// G4: rebase the branch onto the Base, run `check` in the Worktree, fast-forward the Base.
-    /// Every failure leaves the branch, the Worktree and the Base as they were. The checks run in
-    /// the order the scenario lists, so one code wins when several hold.
-    pub fn land(
-        &self,
-        project: &Path,
-        worktree: &Worktree,
-        check: Option<&str>,
-    ) -> Result<String, RpcError> {
-        if !worktree.path.is_dir() {
-            return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
-        }
-        let Some(check) = check else {
-            return Err(RpcError::conflict(
-                "check_missing: the Project has no check; set one with project.setWorktrees",
-            ));
-        };
-        if self.dirty(worktree)? {
-            return Err(WorktreeError::Dirty.into());
-        }
-        let base_ref = format!("refs/heads/{}", worktree.base);
-        let moved =
-            || RpcError::conflict(format!("base_moved: {} is not checked out", worktree.base));
-        let checked_out = self.run(project, &["symbolic-ref", "HEAD"]).ok();
-        if checked_out.as_deref() != Some(&base_ref)
-            || self.reference(project, &base_ref)?.is_none()
-        {
-            return Err(moved());
-        }
-        let before = self
-            .run(&worktree.path, &["rev-parse", "HEAD"])
-            .map_err(failed)?;
-        let undo =
-            |err: RpcError| match self.run(&worktree.path, &["reset", "--hard", "-q", &before]) {
-                Ok(_) => {
-                    let _ = self.run(&worktree.path, &["clean", "-fdq"]);
-                    err
-                }
-                Err(reset) => failed(format!("{err}; could not restore the branch: {reset}")),
-            };
-
-        if let Err(err) = self.run(&worktree.path, &["rebase", &base_ref]) {
-            let paths = self
-                .run(&worktree.path, &["diff", "--name-only", "--diff-filter=U"])
-                .unwrap_or_default();
-            self.run(&worktree.path, &["rebase", "--abort"])
-                .map_err(|abort| failed(format!("could not abort the rebase: {abort}")))?;
-            return Err(if paths.is_empty() {
-                failed(err)
-            } else {
-                RpcError::conflict(format!(
-                    "landing_conflict: {}",
-                    paths.lines().collect::<Vec<_>>().join(", ")
-                ))
-            });
-        }
-
-        let output = Command::new("sh")
-            .current_dir(&worktree.path)
-            .args(["-c", "exec 2>&1; eval \"$1\"", "sh", check])
-            .stdin(Stdio::null())
-            .output()
-            .map_err(|err| undo(failed(err)))?;
-        if !output.status.success() {
-            let text = String::from_utf8_lossy(&output.stdout);
-            let lines: Vec<&str> = text.lines().collect();
-            let skip = lines.len().saturating_sub(20);
-            let tail = lines
-                .iter()
-                .skip(skip)
-                .copied()
-                .collect::<Vec<_>>()
-                .join("\n");
-            return Err(undo(RpcError::conflict(format!("check_failed: {tail}"))));
-        }
-        if self.dirty(worktree).map_err(undo)? {
-            return Err(undo(RpcError::conflict("check_failed: check left changes")));
-        }
-
-        let touched = self
-            .run(
-                project,
-                &["diff", "--name-only", "-z", &base_ref, &worktree.branch],
-            )
-            .map_err(|err| undo(failed(err)))?;
-        let touched: Vec<&str> = touched.split('\0').filter(|p| !p.is_empty()).collect();
-        let status = self
-            .run(
-                project,
-                &[
-                    "--no-optional-locks",
-                    "status",
-                    "--porcelain",
-                    "-z",
-                    "--untracked-files=all",
-                ],
-            )
-            .map_err(|err| undo(failed(err)))?;
-        let mut entries = status.split('\0').filter(|e| !e.is_empty());
-        while let Some(entry) = entries.next() {
-            let path = entry.get(3..).unwrap_or_default();
-            if matches!(entry.get(..1), Some("R" | "C")) {
-                entries.next();
-            }
-            if touched.contains(&path) {
-                return Err(undo(RpcError::conflict(format!(
-                    "base_dirty: {path} has changes in the Project folder"
-                ))));
-            }
-        }
-        if self
-            .run(project, &["merge", "--ff-only", "-q", &worktree.branch])
-            .is_err()
-        {
-            return Err(undo(moved()));
-        }
-        self.run(project, &["rev-parse", &base_ref]).map_err(failed)
-    }
-
     /// G5: delete the Worktree's directory and branch whatever their state; a directory already
     /// gone is not an error, and only git's record of it is removed.
     pub fn discard(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
@@ -543,7 +437,7 @@ impl Git {
             return self.discard_prepared(project, worktree);
         }
         let reference = format!("refs/heads/{}", worktree.branch);
-        let path = canonical_path(&worktree.path);
+        let path = self.listed_path(&worktree.path);
         let registered = self
             .registered_worktrees(project)?
             .into_iter()
@@ -562,7 +456,7 @@ impl Git {
                 .map_err(failed)?;
             }
             Some(_) => return Err(failed("recorded Worktree path belongs to another branch")),
-            None if worktree.path.exists() => {
+            None if self.exists(&worktree.path) => {
                 return Err(failed("recorded Worktree path is unregistered"));
             }
             None => {}
@@ -591,7 +485,7 @@ impl Git {
                     .split('\0')
                     .find_map(|value| value.strip_prefix("branch "))
                     .map(str::to_owned);
-                Some((canonical_path(Path::new(path)), branch))
+                Some((self.listed_path(Path::new(path)), branch))
             })
             .collect())
     }
@@ -624,7 +518,7 @@ impl Git {
                 }
                 let backup = if worktree.path.try_exists().map_err(failed)? {
                     let reference = format!("refs/heads/{}", worktree.branch);
-                    let path = canonical_path(&worktree.path);
+                    let path = self.listed_path(&worktree.path);
                     let registered = self.registered_worktrees(project)?;
                     if !registered.iter().any(|(entry, branch)| {
                         *entry == path && branch.as_deref() == Some(&reference)
@@ -689,7 +583,7 @@ impl Git {
         if self.is_enrolled(&worktree.path) {
             return self.release_prepared(project, worktree, expected);
         }
-        let path = canonical_path(&worktree.path);
+        let path = self.listed_path(&worktree.path);
         let registered = self
             .registered_worktrees(project)?
             .into_iter()
@@ -703,7 +597,7 @@ impl Git {
                 .map_err(failed)?;
             }
             Some(_) => return Err(failed("recorded Worktree path belongs to another branch")),
-            None if worktree.path.exists() => {
+            None if self.exists(&worktree.path) => {
                 return Err(failed("recorded Worktree path is unregistered"));
             }
             None => {}
@@ -972,6 +866,9 @@ pub(crate) use error::WorktreeError;
 use exclude::exclude_worktrees;
 
 mod command;
+mod remote;
+pub use remote::Machines;
+mod landing;
 
 mod prepared;
 

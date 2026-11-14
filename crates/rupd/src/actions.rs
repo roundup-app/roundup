@@ -155,20 +155,26 @@ impl Daemon {
         conn: &Conn,
         method: &str,
         path: &str,
+        machine: Option<&str>,
         start: Option<&contracts::project::StartParams>,
     ) -> Result<(String, Value), RpcError> {
         let folder = std::path::Path::new(path);
         if !folder.is_absolute() {
             return Err(invalid(format!("path {path} is not absolute")));
         }
-        if !folder.is_dir() {
-            return Err(RpcError::not_found(format!("directory {path}")));
-        }
-        let path = folder
-            .canonicalize()
-            .map_err(RpcError::internal)?
-            .to_string_lossy()
-            .into_owned();
+        let path = match machine {
+            Some(machine) => self.remote_folder(machine, path).await?,
+            None => {
+                if !folder.is_dir() {
+                    return Err(RpcError::not_found(format!("directory {path}")));
+                }
+                folder
+                    .canonicalize()
+                    .map_err(RpcError::internal)?
+                    .to_string_lossy()
+                    .into_owned()
+            }
+        };
         let agent = match conn.actor.kind {
             ActorKind::Agent => {
                 let nodes = self.rail().await?;
@@ -200,6 +206,9 @@ impl Daemon {
             }
         };
         let mut request = json!({"path": path, "source": self.project, "agent": agent});
+        if let (Some(machine), Some(object)) = (machine, request.as_object_mut()) {
+            object.insert("machine".to_owned(), json!(machine));
+        }
         if let Some(start) = &start
             && let Some(object) = request.as_object_mut()
         {
@@ -219,13 +228,35 @@ impl Daemon {
         }
     }
 
+    /// MC30: the folder's canonical path on `machine`, which `machine.list` must name; the folder
+    /// is read where it is, through herdr-core's exec.
+    async fn remote_folder(&self, machine: &str, path: &str) -> Result<String, RpcError> {
+        let listed = self.terminals.machine_names().await?;
+        if !listed.iter().any(|name| name == machine) {
+            return Err(invalid(format!(
+                "unknown_machine: {machine} is not in the Machine list"
+            )));
+        }
+        let command = ["sh", "-c", "cd \"$1\" && pwd -P", "sh", path].map(str::to_owned);
+        let ran = self
+            .terminals
+            .exec(machine, &command, "/", std::time::Duration::from_secs(15))
+            .await?;
+        if ran.code != Some(0) {
+            return Err(RpcError::not_found(format!(
+                "directory {path} on {machine}"
+            )));
+        }
+        Ok(String::from_utf8_lossy(&ran.stdout).trim().to_owned())
+    }
+
     pub(super) async fn project_open(
         &self,
         conn: &mut Conn,
         p: contracts::project::OpenParams,
     ) -> Result<contracts::project::Opened, RpcError> {
         let (path, value) = self
-            .project_relay(conn, "project.open", &p.path, None)
+            .project_relay(conn, "project.open", &p.path, p.machine.as_deref(), None)
             .await?;
         let opened: contracts::project::Opened =
             serde_json::from_value(value).map_err(RpcError::internal)?;
@@ -255,7 +286,7 @@ impl Daemon {
             return Err(invalid("the Mode prompt is too long".into()));
         }
         let (path, value) = self
-            .project_relay(conn, "project.start", &start.path, Some(&start))
+            .project_relay(conn, "project.start", &start.path, None, Some(&start))
             .await?;
         let started: contracts::project::StartedRow =
             serde_json::from_value(value).map_err(RpcError::internal)?;

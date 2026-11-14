@@ -17,7 +17,7 @@ const app = createFakeApp();
 
 window.__question = questionProbe;
 
-app.handlers['project.get'] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: null, models: { roles: [{ role: 'door', model: null, effort: null }] } });
+app.handlers['project.get'] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: null, machine: null, models: { roles: [{ role: 'door', model: null, effort: null }] } });
 
 app.handlers['models.list'] = () => ({ engines: [], models: [{ id: 'opus', label: 'Authored 雪 Model' }], efforts: [{ id: 'high', label: 'High' }] });
 

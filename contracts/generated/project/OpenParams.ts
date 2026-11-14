@@ -3,4 +3,6 @@
 export type OpenParams = {
 	/**  An absolute path to an existing folder. */
 	path: string,
+	/**  MC30: the Machine the folder is on, by its name in `machine.list`; absent is this Mac. */
+	machine?: string | null,
 };
