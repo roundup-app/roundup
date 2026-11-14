@@ -49,7 +49,7 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
     let refusal = DockMenu::install(Vec::new, |_| {}).err();
     app.setDelegate(Some(&delegate));
     assert_eq!(
-        refusal.as_deref(),
+        refusal.map(|error| error.to_string()).as_deref(),
         Some("The application has no live delegate")
     );
     let closed = Rc::new(Cell::new(false));
@@ -76,7 +76,10 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
     )
     .unwrap();
     assert_eq!(
-        DockMenu::install(Vec::new, |_| {}).err().as_deref(),
+        DockMenu::install(Vec::new, |_| {})
+            .err()
+            .map(|error| error.to_string())
+            .as_deref(),
         Some("A Dock section is already installed")
     );
     assert!(std::ptr::eq(object, app.delegate().unwrap().as_ref()));
@@ -160,7 +163,7 @@ pub(crate) fn u5503_native_dock_menu_dispatches_the_chosen_action() {
         method.set_implementation(original);
     }
     assert_eq!(
-        refusal.as_deref(),
+        refusal.map(|error| error.to_string()).as_deref(),
         Some("The application delegate already implements an incompatible Dock callback")
     );
 }

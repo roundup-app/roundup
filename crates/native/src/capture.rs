@@ -1,5 +1,7 @@
 //! The panel's Objective-C class, handles and thread obligations never leave this module.
 use std::sync::mpsc;
+
+use crate::Error;
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 use tauri_nspanel::{ManagerExt, WebviewWindowExt};
 use tauri_plugin_positioner::{Position, WindowExt};
@@ -34,25 +36,25 @@ pub struct CapturePanel<R: Runtime> {
 }
 
 impl<R: Runtime> CapturePanel<R> {
-    pub fn new(app: AppHandle<R>, url: WebviewUrl) -> Result<Self, String> {
+    pub fn new(app: AppHandle<R>, url: WebviewUrl) -> Result<Self, Error> {
         if app
             .try_state::<tauri_nspanel::WebviewPanelManager<R>>()
             .is_none()
         {
-            return Err("Capture panel integration is not registered".into());
+            return Err(Error::CaptureUnregistered);
         }
         Ok(Self { app, url })
     }
 
     /// Replace the App's OS binding after acknowledgment; a refused registration keeps the old one.
     /// Call from a worker: the official plugin dispatches OS registration to the event loop.
-    pub fn configure(&self, chord: Option<&str>) -> Result<(), String> {
+    pub fn configure(&self, chord: Option<&str>) -> Result<(), Error> {
         replace_binding(&self.app, chord)
     }
 
     /// Create once, place on the cursor's display, and order front without activating the App.
     /// A repeated show is inert: it never moves or focuses an already visible panel.
-    pub fn show(&self) -> Result<CapturePanelState, String> {
+    pub fn show(&self) -> Result<CapturePanelState, Error> {
         let url = self.url.clone();
         self.on_main(move |app| {
             let panel = match app.get_webview_panel(LABEL) {
@@ -66,22 +68,21 @@ impl<R: Runtime> CapturePanel<R> {
                         .decorations(false)
                         .resizable(false)
                         .skip_taskbar(true)
-                        .build()
-                        .map_err(|error| error.to_string())?;
+                        .build()?;
                     let panel = match window.to_panel::<NativeCapturePanel<R>>() {
                         Ok(panel) => panel,
                         Err(error) => {
-                            window.destroy().map_err(|error| error.to_string())?;
-                            return Err(error.to_string());
+                            window.destroy()?;
+                            return Err(error.into());
                         }
                     };
                     if let Err(error) = panel
                         .add_style_mask(tauri_nspanel::panel::NSWindowStyleMask::NonactivatingPanel)
                     {
                         if let Some(window) = panel.to_window() {
-                            window.destroy().map_err(|error| error.to_string())?;
+                            window.destroy()?;
                         }
-                        return Err(error.to_string());
+                        return Err(error.into());
                     }
                     panel.set_floating_panel(true);
                     panel.set_hides_on_deactivate(true);
@@ -91,31 +92,24 @@ impl<R: Runtime> CapturePanel<R> {
             if !panel.is_visible() {
                 let window = app
                     .get_webview_window(LABEL)
-                    .ok_or("Capture panel has no webview")?;
-                let cursor = app.cursor_position().map_err(|error| error.to_string())?;
+                    .ok_or(Error::CaptureNoWebview)?;
+                let cursor = app.cursor_position()?;
                 let monitor = app
-                    .monitor_from_point(cursor.x, cursor.y)
-                    .map_err(|error| error.to_string())?
-                    .ok_or("No display at the invoking pointer")?;
+                    .monitor_from_point(cursor.x, cursor.y)?
+                    .ok_or(Error::NoDisplay)?;
                 // Positioner centers on the current display; select that display first.
-                window
-                    .set_position(*monitor.position())
-                    .map_err(|error| error.to_string())?;
-                window
-                    .move_window(Position::Center)
-                    .map_err(|error| error.to_string())?;
+                window.set_position(*monitor.position())?;
+                window.move_window(Position::Center)?;
                 // Positioner 2.4 centers in full screen bounds, not the usable work area.
                 let area = monitor.work_area();
-                let size = window.outer_size().map_err(|error| error.to_string())?;
-                let position = window.outer_position().map_err(|error| error.to_string())?;
+                let size = window.outer_size()?;
+                let position = window.outer_position()?;
                 let max_x = area.position.x + area.size.width.saturating_sub(size.width) as i32;
                 let max_y = area.position.y + area.size.height.saturating_sub(size.height) as i32;
-                window
-                    .set_position(tauri::PhysicalPosition::new(
-                        position.x.clamp(area.position.x, max_x),
-                        position.y.clamp(area.position.y, max_y),
-                    ))
-                    .map_err(|error| error.to_string())?;
+                window.set_position(tauri::PhysicalPosition::new(
+                    position.x.clamp(area.position.x, max_x),
+                    position.y.clamp(area.position.y, max_y),
+                ))?;
                 panel.order_front_regardless();
             }
             Ok(CapturePanelState {
@@ -126,11 +120,11 @@ impl<R: Runtime> CapturePanel<R> {
     }
 
     /// Dismiss without activating any other roundup window. AppKit retains the previous App.
-    pub fn dismiss(&self) -> Result<CapturePanelState, String> {
+    pub fn dismiss(&self) -> Result<CapturePanelState, Error> {
         self.on_main(|app| {
             let panel = app
                 .get_webview_panel(LABEL)
-                .map_err(|error| format!("{error:?}"))?;
+                .map_err(Error::CaptureMissing)?;
             panel.hide();
             Ok(CapturePanelState {
                 visible: panel.is_visible(),
@@ -140,12 +134,12 @@ impl<R: Runtime> CapturePanel<R> {
     }
 
     /// Remove the retained native object on the main thread before Tauri destroys its owner.
-    pub fn release(&self) -> Result<(), String> {
+    pub fn release(&self) -> Result<(), Error> {
         self.on_main(|app| {
             if let Ok(panel) = app.get_webview_panel(LABEL) {
                 panel.hide();
                 if let Some(window) = panel.to_window() {
-                    window.destroy().map_err(|error| error.to_string())?;
+                    window.destroy()?;
                 }
             }
             Ok(())
@@ -154,25 +148,23 @@ impl<R: Runtime> CapturePanel<R> {
 
     fn on_main<T: Send + 'static>(
         &self,
-        work: impl FnOnce(&AppHandle<R>) -> Result<T, String> + Send + 'static,
-    ) -> Result<T, String> {
+        work: impl FnOnce(&AppHandle<R>) -> Result<T, Error> + Send + 'static,
+    ) -> Result<T, Error> {
         if MainThreadMarker::new().is_some() {
             return work(&self.app);
         }
         let app = self.app.clone();
         let (send, receive) = mpsc::sync_channel(1);
-        self.app
-            .run_on_main_thread(move || {
-                let result = if MainThreadMarker::new().is_some() {
-                    work(&app)
-                } else {
-                    Err("the native operation did not run on the main thread".to_owned())
-                };
-                // A dropped caller cannot authorize a later operation; this only acknowledges it.
-                let _ = send.send(result);
-            })
-            .map_err(|error| error.to_string())?;
-        receive.recv().map_err(|error| error.to_string())?
+        self.app.run_on_main_thread(move || {
+            let result = if MainThreadMarker::new().is_some() {
+                work(&app)
+            } else {
+                Err(Error::OffMainThread)
+            };
+            // A dropped caller cannot authorize a later operation; this only acknowledges it.
+            let _ = send.send(result);
+        })?;
+        receive.recv()?
     }
 }
 
@@ -190,10 +182,8 @@ pub fn register_capture<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builde
                     CapturePanel::new(app.clone(), WebviewUrl::App("index.html".into()))
                         .and_then(|panel| panel.release())
             {
-                let cause = match error.as_str() {
-                    "Capture panel integration is not registered" => {
-                        "panel integration is not registered"
-                    }
+                let cause = match error {
+                    Error::CaptureUnregistered => "panel integration is not registered",
                     _ => "native panel dispatch failed",
                 };
                 log::warn!(target: "roundup::shell", "release Capture panel: {cause}");
@@ -221,12 +211,23 @@ enum CaptureRequest {
 #[derive(Default)]
 struct Binding(std::sync::Mutex<Option<tauri_plugin_global_shortcut::Shortcut>>);
 
+/// The command edge: the webview reads the error's message.
 #[tauri::command]
 async fn control<R: Runtime>(
     app: AppHandle<R>,
     window: tauri::WebviewWindow<R>,
     request: CaptureRequest,
 ) -> Result<(), String> {
+    run(app, window, request)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn run<R: Runtime>(
+    app: AppHandle<R>,
+    window: tauri::WebviewWindow<R>,
+    request: CaptureRequest,
+) -> Result<(), Error> {
     use tauri::Emitter;
     // The panel is a presentation client; only the main window owns settings and drafts.
     let allowed = match &request {
@@ -234,7 +235,7 @@ async fn control<R: Runtime>(
         _ => window.label() == "main",
     };
     if !allowed {
-        return Err("This window does not own the Capture operation".into());
+        return Err(Error::CaptureNotOwned);
     }
     tauri::async_runtime::spawn_blocking(move || {
         let panel =
@@ -243,27 +244,24 @@ async fn control<R: Runtime>(
             CaptureRequest::Configure { chord } => panel()?.configure(chord.as_deref()),
             CaptureRequest::Show => panel()?.show().map(|_| ()),
             CaptureRequest::Dismiss => panel()?.dismiss().map(|_| ()),
-            CaptureRequest::Publish { snapshot } => app
-                .emit_to(LABEL, "capture-state", snapshot)
-                .map_err(|e| e.to_string()),
-            CaptureRequest::Act { action } => app
-                .emit_to("main", "capture-action", action)
-                .map_err(|e| e.to_string()),
+            CaptureRequest::Publish { snapshot } => {
+                Ok(app.emit_to(LABEL, "capture-state", snapshot)?)
+            }
+            CaptureRequest::Act { action } => Ok(app.emit_to("main", "capture-action", action)?),
         }
     })
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
 }
 
-fn replace_binding<R: Runtime>(app: &AppHandle<R>, chord: Option<&str>) -> Result<(), String> {
+fn replace_binding<R: Runtime>(app: &AppHandle<R>, chord: Option<&str>) -> Result<(), Error> {
     use tauri::Emitter;
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
     let next = chord
         .map(str::parse::<Shortcut>)
         .transpose()
-        .map_err(|e| e.to_string())?;
+        .map_err(tauri_plugin_global_shortcut::Error::from)?;
     let binding = app.state::<Binding>();
-    let mut previous = binding.0.lock().map_err(|e| e.to_string())?;
+    let mut previous = binding.0.lock().map_err(|_| Error::ShortcutPoisoned)?;
     if *previous == next {
         return Ok(());
     }
@@ -283,19 +281,20 @@ fn replace_binding<R: Runtime>(app: &AppHandle<R>, chord: Option<&str>) -> Resul
                     crate::diagnostic("request Capture", &error);
                 }
             })
-            .map_err(|e| format!("Could not register quick-add: {e}. Choose another shortcut."))?;
+            .map_err(Error::ShortcutTaken)?;
     }
     if let Some(old) = *previous
         && let Err(error) = app.global_shortcut().unregister(old)
     {
-        if let Some(next) = next {
-            app.global_shortcut().unregister(next).map_err(|rollback| {
-                format!("Could not release replacement: {rollback}; previous release: {error}")
-            })?;
+        if let Some(next) = next
+            && let Err(rollback) = app.global_shortcut().unregister(next)
+        {
+            return Err(Error::ShortcutRollback {
+                rollback,
+                release: error,
+            });
         }
-        return Err(format!(
-            "Could not release the previous quick-add shortcut: {error}. Try again."
-        ));
+        return Err(Error::ShortcutRelease(error));
     }
     *previous = next;
     Ok(())

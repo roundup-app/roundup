@@ -1,5 +1,9 @@
 //! Native integration owns Objective-C objects and thread obligations; callers supply only safe handles.
 #[cfg(target_vendor = "apple")]
+mod error;
+#[cfg(target_vendor = "apple")]
+pub use error::Error;
+#[cfg(target_vendor = "apple")]
 mod webkit_rate;
 #[cfg(target_vendor = "apple")]
 pub use webkit_rate::{Missing, Preferences, plugin};

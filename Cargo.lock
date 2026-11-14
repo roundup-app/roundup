@@ -2955,6 +2955,7 @@ dependencies = [
  "tauri-nspanel",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-positioner",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

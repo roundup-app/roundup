@@ -10,10 +10,13 @@ use objc2_user_notifications::{
     UNAuthorizationOptions, UNAuthorizationStatus, UNNotificationSettings, UNUserNotificationCenter,
 };
 
+use crate::Error;
+
+/// The refusal's cause, kept as text so every call can hand out its own copy.
 static ANSWER: OnceLock<Mutex<Option<Result<(), String>>>> = OnceLock::new();
 
 /// Never waits for the owner: the first call sends the request to macOS and returns `None`, and so does each call until the owner answers; then it returns the answer, where `Err` carries the refusal's cause.
-pub fn banner_permission() -> Option<Result<(), String>> {
+pub fn banner_permission() -> Option<Result<(), Error>> {
     static ASKED: std::sync::Once = std::sync::Once::new();
     ASKED.call_once(|| {
         let answer = RcBlock::new(move |granted: Bool, error: *mut NSError| {
@@ -37,6 +40,7 @@ pub fn banner_permission() -> Option<Result<(), String>> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone()
+        .map(|answer| answer.map_err(Error::BannerRefused))
 }
 
 /// Whether the owner has denied roundup's notifications in macOS, read from the system's settings; a state the system does not answer within two seconds reads as not denied.

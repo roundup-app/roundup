@@ -14,6 +14,8 @@ use objc2::{
 };
 use objc2_app_kit::{NSApplication, NSMenu};
 
+use crate::Error;
+
 // The process has one application delegate. Weak ownership makes a dropped adapter inert.
 thread_local! {
     static CURRENT: RefCell<Weak<RefCell<Section>>> = const { RefCell::new(Weak::new()) };
@@ -39,13 +41,13 @@ type Rows = Vec<Row>;
 
 struct Section {
     refresh: Box<dyn Fn() -> Rows>,
-    failure: Box<dyn Fn(String)>,
+    failure: Box<dyn Fn(Error)>,
     menu: Menu,
     actions: HashMap<String, String>,
 }
 
 impl Section {
-    fn refresh(&mut self) -> Result<(), String> {
+    fn refresh(&mut self) -> Result<(), Error> {
         let menu = Menu::new();
         let mut actions = HashMap::new();
         for row in (self.refresh)() {
@@ -54,7 +56,7 @@ impl Section {
             if let Some(action) = row.action {
                 actions.insert(item.id().as_ref().to_owned(), action);
             }
-            menu.append(&item).map_err(|error| error.to_string())?;
+            menu.append(&item)?;
         }
         self.menu = menu;
         self.actions = actions;
@@ -76,16 +78,14 @@ impl DockMenu {
     /// Installation/opening never activates the App or changes badges.
     pub fn install(
         refresh: impl Fn() -> Rows + 'static,
-        failure: impl Fn(String) + 'static,
-    ) -> Result<Self, String> {
-        let main = MainThreadMarker::new().ok_or("Dock installation requires the main thread")?;
+        failure: impl Fn(Error) + 'static,
+    ) -> Result<Self, Error> {
+        let main = MainThreadMarker::new().ok_or(Error::DockOffMainThread)?;
         if CURRENT.with_borrow(|current| current.upgrade().is_some()) {
-            return Err("A Dock section is already installed".into());
+            return Err(Error::DockInstalled);
         }
         let app = NSApplication::sharedApplication(main);
-        let delegate = app
-            .delegate()
-            .ok_or("The application has no live delegate")?;
+        let delegate = app.delegate().ok_or(Error::DockNoDelegate)?;
         let object: &AnyObject = delegate.as_ref();
         let class = object.class();
         let selector = sel!(applicationDockMenu:);
@@ -101,10 +101,7 @@ impl DockMenu {
         };
         if let Some(method) = class.instance_method(selector) {
             if !std::ptr::fn_addr_eq(method.implementation(), implementation) {
-                return Err(
-                    "The application delegate already implements an incompatible Dock callback"
-                        .into(),
-                );
+                return Err(Error::DockCallbackConflict);
             }
         } else {
             // SAFETY: only add an absent selector, on the main thread. Existing methods,
@@ -118,16 +115,14 @@ impl DockMenu {
                 )
             };
             if !registered.as_bool() {
-                return Err("Registering the application delegate Dock callback failed".into());
+                return Err(Error::DockCallbackRefused);
             }
         }
         if !class
             .instance_method(selector)
             .is_some_and(|method| std::ptr::fn_addr_eq(method.implementation(), implementation))
         {
-            return Err(
-                "The application delegate Dock callback is missing after registration".into(),
-            );
+            return Err(Error::DockCallbackMissing);
         }
         let mut section = Section {
             refresh: Box::new(refresh),

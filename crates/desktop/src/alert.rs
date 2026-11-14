@@ -117,7 +117,8 @@ impl<R: Runtime> Notifier for Plugin<R> {
     fn permission(&self) -> Option<Result<(), String>> {
         #[cfg(target_os = "macos")]
         if is_bundled() {
-            return native::banner_permission();
+            return native::banner_permission()
+                .map(|answer| answer.map_err(|error| error.to_string()));
         }
         Some(Ok(()))
     }
