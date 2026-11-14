@@ -1,10 +1,9 @@
-import { applied } from "../app/pending";
+import { applying } from "../app/pending";
 import { captureFocus } from "../keys/focus";
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Change } from "@contracts/todo/Change";
 import { createTodoHistory } from "./TodoHistory";
-import { outcomeOf } from "../app/seam";
 import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -14,7 +13,8 @@ import { FailureLine, shownKind } from "../ink/FailureLine";
 import { Collapsible } from "../ui/Collapsible";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
-import { createSavedFailure } from "./EditableText";
+import { commentSchema, createSavedFailure, sentFailure } from "./EditableText";
+import { createDraftField } from "../state/draftField";
 import { rowButtonOf, triage } from "./triage";
 
 // Rows are keyed by id so fold state, focus and fade survive an arrival.
@@ -63,15 +63,17 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const [thread, setThread] = createStore<Comment[]>([]);
   const content = drawer.content();
   const [sendFailure, setSendFailure] = createSavedFailure(() => props.saved?.() ?? 0);
-  const records = () => drafts.list().filter(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id) && draft.destination.recipient === "comment");
-  const current = () => records().at(-1);
-  const text = () => String(current()?.value.text ?? "");
+  // The Drawer keys its body by id, so the thread's destination never changes.
+  const destination = untrack(() => ({ surface: "todos", object: String(props.id), recipient: "comment" }));
+  const draft = createDraftField(drafts, destination, commentSchema);
 
-  const setText = (value: string) => {
-    drafts.edit({ surface: "todos", object: String(props.id), recipient: "comment" }, { text: value }, null, "ordinary");
+  const text = () => {
+    const kept = draft.value();
+
+    return kept.success ? kept.output.text : "";
   };
 
-  createEffect(() => onCleanup(drafts.editor({ surface: "todos", object: String(props.id), recipient: "comment" })));
+  createEffect(() => onCleanup(drafts.editor(destination)));
   const [expanded, setExpanded] = createSignal(false);
 
   // Opening reads the thread and marks it read; a failed mark rides with the thread it belongs to.
@@ -163,23 +165,14 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     if (body.trim() === "" || sending()) return;
     const id = props.id;
-    const revision = current()?.revision;
-
-    if (!revision) return;
     setSending(true);
-
-    if (!(await drafts.submit(revision))) { setSending(false);
-
- return; }
-
-    const message = await failureOf(async () => {
-      try { await applied(() => app.rpc("todo.comment", { id, body })); drafts.settle(revision, "acknowledged"); }
-      catch (error) { if (!(error instanceof Error)) throw error; drafts.settle(revision, outcomeOf(error)); throw error; }
-    });
-
+    // Comment and Enter are the user's Save: a recovered comment goes out only on them.
+    draft.save();
+    const sent = await draft.send(() => applying(() => app.rpc("todo.comment", { id, body })));
     setSending(false);
 
-    if (drawer.content() !== content) return;
+    if (sent.kind === "skipped" || drawer.content() !== content) return;
+    const message = sent.kind === "applied" ? null : sentFailure(sent);
     setSendFailure(message);
 
     // A rejected call keeps the typed text; the thread catches up through `todo.commented`.
@@ -218,7 +211,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     <ReservedLine class="todo-comments-live" status={announcement()} aria-live="polite" aria-atomic="true" />
     <div class="todo-composer"><span class="todo-composer-actor" aria-hidden="true"><Icon name="circle" /></span><textarea spellcheck={false} autocorrect="off" autocapitalize="off" class="todo-comment-field field-frame" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
-      onInput={(event) => setText(event.currentTarget.value)}
+      onInput={(event) => { const typed = event.currentTarget; draft.keep({ text: typed.value }, { start: typed.selectionStart, end: typed.selectionEnd, direction: typed.selectionDirection }); }}
       onKeyDown={(event) => {
         if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close("key"); rowButtonOf(props.id)?.focus(); }
 

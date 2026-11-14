@@ -52,6 +52,9 @@ impl Git {
         input: Option<&str>,
     ) -> Result<Output, String> {
         let _hold = self.hold()?;
+        if let Some(machine) = self.remote()? {
+            return self.output_remote(&machine, project, args, input);
+        }
         let stdin = match input {
             Some(input) => {
                 let mut file = tempfile::tempfile().map_err(|err| err.to_string())?;

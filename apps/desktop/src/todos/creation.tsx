@@ -1,23 +1,23 @@
-import { batch, createEffect, createSignal, onCleanup, untrack, type Accessor, type Setter } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, untrack, type Accessor, type Setter } from "solid-js";
 import * as v from "valibot";
 import type { Actor } from "@contracts/Actor";
-import { applied } from "../app/pending";
-import { outcomeOf } from "../app/seam";
+import { applied, applying } from "../app/pending";
+import { failureOf } from "../app/failureOf";
 import { EntryRow } from "../ink/EntryRow";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { todoCreationKeys } from "../shelf/keys";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
+import { createDraftField } from "../state/draftField";
 import { copy } from "./copy";
-import { creationSchema } from "./EditableText";
+import { creationSchema, sentFailure } from "./EditableText";
 
 /** The Todo creation form of the Todos tab: its draft, its submission and the field that edits it. */
 export const createTodoCreation = (inputs: {
-  recovery: boolean;
   form: v.SafeParseResult<typeof creationSchema>;
+  /** The retained revision a recovery opens; without it the tab creates as usual. */
+  retained: { revision: string } | undefined;
   homeExists: (home: string | null) => boolean;
-  creationRevision: Accessor<string | null>;
-  setCreationRevision: Setter<string | null>;
   typing: Accessor<boolean>;
   setTyping: Setter<boolean>;
   createFailure: Accessor<string | null>;
@@ -30,26 +30,23 @@ export const createTodoCreation = (inputs: {
   section: () => HTMLElement | undefined;
 }) => {
   const connected = useConnectedProject();
-  const { form, homeExists, creationRevision, setCreationRevision, typing, setTyping, createFailure, setCreateFailure, setFiled, active, scope, selectedWorkstream, plusButton, section } = inputs;
-  const props = { recovery: inputs.recovery };
+  const { form, retained, homeExists, typing, setTyping, createFailure, setCreateFailure, setFiled, active, scope, selectedWorkstream, plusButton, section } = inputs;
 
   const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
   const [creationOwner, setCreationOwner] = createSignal<string | null>(form.success ? form.output.owner : null);
-  const creationRecipient = creationHome;
-  const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationRecipient() });
+  const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationHome() });
+  // A recovery reopens its retained revision in its own home; any other home follows that home's newest draft.
+  const recoveredHome = form.success ? form.output.home : null;
+  const draft = createMemo(() => createDraftField(connected.drafts, creationTarget(), creationSchema, untrack(creationHome) === recoveredHome ? retained : undefined));
+  const creation = () => draft().draft();
 
   createEffect(() => {
     if (typing()) onCleanup(connected.drafts.editor(creationTarget()));
   });
 
-  const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
-    && draft.destination.object === "new" && draft.destination.recipient === creationRecipient()
-    && (creationRevision() !== null ? draft.revision === creationRevision() : (draft.status === "draft" || draft.status === "failed" || draft.status === "unknown" || draft.status === "pending")));
-
+  // The recovered revision discarded from another control closes its editor.
   createEffect(() => {
-    const revision = creationRevision();
-
-    if (typing() && revision !== null && !creation()) setTyping(false);
+    if (typing() && retained && draft().recovered() && !connected.drafts.list().some(each => each.revision === retained.revision)) setTyping(false);
   });
 
   let creationRow: HTMLDivElement | undefined;
@@ -61,20 +58,17 @@ export const createTodoCreation = (inputs: {
   }]);
 
   const retainCreation = (field: HTMLInputElement) => {
-    const previous = creation();
     const caret = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
+    const kept = draft().value();
 
-    if (creationRevision() !== null && !previous) return;
-
-    if (previous?.value.title === field.value) {
-      if ((!props.recovery || document.activeElement === field) && JSON.stringify(previous.selection) !== JSON.stringify(caret)) connected.drafts.setSelection(previous.revision, caret);
+    if (kept.success && kept.output.title === field.value) {
+      if (!retained || document.activeElement === field) draft().select(caret);
 
       return;
     }
 
-    if (field.value === "" && !previous) return;
-
-    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome(), owner: creationOwner() }, caret, "ordinary", creationRevision()).draft.revision));
+    if (field.value === "" && !creation()) return;
+    draft().keep({ title: field.value, home: creationHome(), owner: creationOwner() }, caret);
   };
 
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
@@ -82,33 +76,32 @@ export const createTodoCreation = (inputs: {
     setCreateFailure(null);
     // Keep the owner captured when the scope-line field opened, even if selection changed.
     const owner: Actor | null = creationOwner() === null ? null : { kind: "agent", id: creationOwner()!, parent: null };
-
-    const draft = creation();
-
     const home = creationHome();
-    const recipient = creationRecipient();
+    const kept = draft();
 
-    if (!homeExists(home) || !draft || !(await connected.drafts.submit(draft.revision))) return;
-
-    if (creationRevision() === draft.revision) setCreationRevision(null);
+    if (!homeExists(home)) return;
     const field = document.querySelector<HTMLInputElement>(".todos-tab .entry-field");
+    // Enter is the user's Save: a recovered title goes out only on it.
+    kept.save();
+    const sent = await kept.send(() => applying(() => connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner })));
 
-    try {
-      const made = await applied(() => connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner }));
+    if (sent.kind === "skipped") return;
+
+    // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
+    if (sent.kind === "applied") {
       setFiled(count => count + 1);
-      // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
-      connected.drafts.settle(draft.revision, "acknowledged");
+      const made = sent.result.id;
 
-      if (home !== null) await applied(() => connected.app.rpc("todo.move", { id: made.id, home }));
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      connected.drafts.settle(draft.revision, outcomeOf(error));
-      setCreateFailure(error.message);
-      const retained = v.safeParse(v.string(), draft.value.title);
+      if (home !== null) setCreateFailure(await failureOf(() => applied(() => connected.app.rpc("todo.move", { id: made, home }))));
 
-      // EntryRow clears on submit; restore only this field's unchanged failed revision.
-      if (field?.isConnected && field.value === "" && creationRecipient() === recipient && (!creation() || creation()?.revision === draft.revision) && retained.success) { field.value = retained.output; setCreationRevision(draft.revision); }
+      return;
     }
+
+    setCreateFailure(sentFailure(sent));
+    const restored = kept.value();
+
+    // EntryRow clears on submit; an untouched field takes back the text the field still follows.
+    if (field?.isConnected && field.value === "" && draft() === kept && restored.success) field.value = restored.output.title;
   };
 
   const openField = (home = selectedWorkstream(), owner = scope.agent()?.id ?? null) => {
@@ -122,24 +115,21 @@ export const createTodoCreation = (inputs: {
 
     setCreationHome(home);
     setCreationOwner(owner);
-    const draft = creation();
-    const saved = v.safeParse(creationSchema, draft?.value);
+    const saved = draft().value();
 
     if (saved.success) setCreationOwner(saved.output.owner);
 
-    if (draft && !v.safeParse(v.string(), draft.value.title).success) {
+    if (creation() && !saved.success) {
       setCreateFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
 
       return;
     }
 
-    setCreationRevision(draft?.revision ?? null);
     setTyping(true);
   };
 
   useCreation("todo", home => {
     setTyping(false);
-    setCreationRevision(null);
     openField(home, null);
   });
   todoCreationKeys({ section: section, active, editing: typing, home: selectedWorkstream, owner: () => scope.agent()?.id ?? null, open: openField });
@@ -153,10 +143,9 @@ export const createTodoCreation = (inputs: {
         label={copy.newTodoTitle}
         placeholder={copy.newTodoPlaceholder}
         initial={untrack(() => {
-          const draft = creation();
-          const title = v.safeParse(v.string(), draft?.value.title);
+          const kept = draft().value();
 
-          return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
+          return { text: kept.success ? kept.output.title : "", selection: creation()?.selection ?? null };
         })}
         onEdit={retainCreation}
         onSubmit={(title) => void create(title)}

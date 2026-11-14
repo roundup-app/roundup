@@ -271,7 +271,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Machine (`Machine`, `machine.list`, `machine.add`, an Agent's or Terminal's `machine`, a Machine's `reachable`) | same | — |
+| Machine (`Machine`, `machine.list`, `machine.add`, `project.setMachine`, a Project's, Agent's or Terminal's `machine`, a Machine's `reachable`) | same | — |
+| Exec (`herdr::Conn::exec`, `worktree::Machines`) | same | — |
 | Bridge (`Bridges`, `bridge::Link`) | same | tunnel |
 | Spool (`rup`'s `spool`, `~/.rupq/spool`) | same | — |
 | Away (a Machine's `away`) | away | — |

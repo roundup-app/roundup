@@ -268,6 +268,8 @@ type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwn
     : K extends "Event" ? WithoutOpenEvent<Before[K]> | (Pick<Before["Event"], "seq" | "actor"> & AutomaticChanges)
       : K extends "project/Requested" ? RenameRequest
       : K extends "RpcErrorData" ? Before[K] | { kind: "start-failed"; path: string; id: string; cause: string }
+      : K extends "project/OpenParams" ? Before[K] & { machine?: string | null }
+      : K extends "project/ProjectSettings" ? Before[K] & { machine: string | null }
       : K extends "agent/StartDoorParams" ? Before[K] & { prompt?: string }
       : K extends "terminal/SpawnParams" ? Before[K] & { unset: string[] }
       : Before[K] };
@@ -278,7 +280,8 @@ type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends Selector
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
   : K extends "rail.startDoor" ? { params: BeforeRpcMethods[K]["params"] & { prompt?: string }; result: BeforeRpcMethods[K]["result"] }
   : K extends "terminal.spawn" ? { params: BeforeRpcMethods[K]["params"] & { unset: string[] }; result: BeforeRpcMethods[K]["result"] }
-  : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"]; result: { path: string } }
+  : K extends "project.get" ? { params: BeforeRpcMethods[K]["params"]; result: BeforeRpcMethods[K]["result"] & { machine: string | null } }
+  : K extends "project.open" ? { params: BeforeRpcMethods[K]["params"] & { machine?: string | null }; result: { path: string } }
   : BeforeRpcMethods[K] };
 
 // U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.

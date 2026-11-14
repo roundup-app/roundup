@@ -114,7 +114,7 @@ impl Agents {
             return self.assign_prepared(id, cwd, prepared).await.map(Some);
         }
         let project = self.project_dir().to_owned();
-        let (real_project, real_cwd) = real_paths(&project, cwd)?;
+        let (real_project, real_cwd) = real_paths(&self.shared.git, &project, cwd)?;
         self.shared
             .rail()
             .resource_node(crate::rail::agent_id(id)?)?;
@@ -154,7 +154,7 @@ impl Agents {
                 }
             };
         let mapped = match worktree::map_cwd(&real_project, &real_cwd, &made.path) {
-            Some(mapped) if mapped.is_dir() => mapped,
+            Some(mapped) if self.shared.git.is_dir(&mapped) => mapped,
             _ => {
                 self.discard_worktree(id, made).await;
                 return Err(RpcError::new(
@@ -281,13 +281,17 @@ pub(super) fn report_undo<E: std::fmt::Display>(what: &str, undone: Result<(), E
 
 /// `project` and `cwd` with symlinks and `..` resolved, the way A4's trust check reads them, so a
 /// `cwd` is judged by where it is and not by how it is written. Checked before `git` runs.
-pub(super) fn real_paths(project: &Path, cwd: &Path) -> Result<(PathBuf, PathBuf), RpcError> {
+pub(super) fn real_paths(
+    git: &worktree::Git,
+    project: &Path,
+    cwd: &Path,
+) -> Result<(PathBuf, PathBuf), RpcError> {
     let invalid = |message: String| RpcError::new(code::INVALID_PARAMS, message);
-    let real_cwd = cwd
-        .canonicalize()
+    let real_cwd = git
+        .real_path(cwd)
         .map_err(|err| invalid(format!("cwd {} is unusable: {err}", cwd.display())))?;
-    let real_project = project
-        .canonicalize()
+    let real_project = git
+        .real_path(project)
         .map_err(|err| RpcError::internal(format!("{}: {err}", project.display())))?;
     if !real_cwd.starts_with(&real_project) {
         return Err(invalid(format!(

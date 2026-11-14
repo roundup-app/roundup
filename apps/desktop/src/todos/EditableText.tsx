@@ -1,4 +1,5 @@
 import { outcomeOf } from "../app/seam";
+import { applying } from "../app/pending";
 import { captureFocus } from "../keys/focus";
 import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
@@ -8,9 +9,10 @@ import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
+import { createDraftField, type Sent } from "../state/draftField";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense, untrack } from "solid-js";
+import { createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense, untrack } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
 import "../pads/styles.css";
@@ -28,7 +30,7 @@ export const blockerSchema = v.strictObject({
 });
 
 // Shared recovery also retains older title/text/choice snapshots for inspection, without an editable base.
-const commentSchema = v.strictObject({ text: v.string() });
+export const commentSchema = v.strictObject({ text: v.string() });
 
 const snapshotSchema = v.strictObject({ title: v.string(), body: v.optional(v.string()), choices: v.optional(v.array(v.string())) });
 
@@ -51,6 +53,11 @@ export const createSavedFailure = (count: () => number): [() => string | null, (
 
   return [shown, message => keep(message === null ? null : { message, saved: count() })];
 };
+
+export type Unapplied = Extract<Sent<unknown>, { kind: "refused" | "unknown" }>;
+
+/** What the user reads when a send ends without its change applied. */
+export const sentFailure = (sent: Unapplied) => sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown;
 
 /** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
 export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; saved?: () => number; onDiscard?: (revision: string) => void }) => {
@@ -121,8 +128,9 @@ export const EditableText = (props: {
   commit: (text: string, expectedChange: number) => Promise<void>;
 }) => {
   const connected = useConnectedProject();
-  const draftDestination = { surface: "todos", object: String(props.todo.id), recipient: props.name };
-  const records = () => connected.drafts.list().filter(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.todo.id) && draft.destination.recipient === props.name);
+  // The Drawer keys its body by Todo, so the field's destination and retained revision never change.
+  const draftDestination = untrack(() => ({ surface: "todos", object: String(props.todo.id), recipient: props.name }));
+  const draft = createDraftField(connected.drafts, draftDestination, formSchema, untrack(() => props.revision === undefined ? undefined : { revision: props.revision }));
   const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
   const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
   onCleanup(connected.events.subscribe(event => {
@@ -132,15 +140,7 @@ export const EditableText = (props: {
   let alive = true;
   onCleanup(() => { alive = false; });
   const [editing, setEditing] = createSignal<Editing | null>(null);
-
-  const [activeRevision, setActiveRevision] = createSignal<string | null>(null);
   const [typed, setTyped] = createSignal("");
-
-  createEffect(() => {
-    const revision = activeRevision();
-
-    if (editing() !== null && revision !== null && !records().some(record => record.revision === revision)) setEditing(null);
-  });
 
   createEffect(() => {
     if (editing() && connected.drawer.content() === content) onCleanup(connected.drafts.editor(draftDestination));
@@ -163,14 +163,22 @@ export const EditableText = (props: {
     });
   }, { defer: true }));
 
+  // The form a new edit starts from: the captured change's values, else the Todo's own.
+  const freshForm = (): Editing["form"] => {
+    const change = props.captured();
+    const values = change?.after ?? props.todo;
+
+    return { text: values[props.name], base: values[props.name], expected_change: change?.seq ?? null,
+      home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
+  };
+
   const startWith = () => {
     captureFocus(true);
 
-    const saved = props.revision === undefined
-      ? records().findLast(draft => draft.status === "draft" || draft.status === "failed")
-      : records().find(draft => draft.revision === props.revision);
-
-    const parsed = v.safeParse(formSchema, saved?.value);
+    // A selected revision reopens whatever its status; otherwise only work still the user's to edit.
+    const followed = draft.draft();
+    const saved = props.revision !== undefined || followed?.status === "draft" || followed?.status === "failed" ? followed : undefined;
+    const parsed = draft.value();
 
     if (saved && !parsed.success) {
       setRetentionFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
@@ -179,18 +187,33 @@ export const EditableText = (props: {
     }
 
     setRetentionFailure(null);
-    const change = props.captured();
-    const values = change?.after ?? props.todo;
+    const form = saved && parsed.success ? parsed.output : freshForm();
 
-    const form = parsed.success ? parsed.output : { text: values[props.name], base: values[props.name], expected_change: change?.seq ?? null,
-      home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
-
-    setActiveRevision(saved?.revision ?? null);
     setTyped(form.text);
-    setEditing({ form, text: form.text, recovered: parsed.success, selection: saved?.selection ?? null });
+    setEditing({ form, text: form.text, recovered: saved !== undefined, selection: saved?.selection ?? null });
   };
 
   if (props.revision !== undefined) untrack(startWith);
+
+  /** An acknowledged save clears the failure; when focus fell to the page, it returns to the shown text. */
+  const acknowledge = (restoreFocus: boolean | undefined, retryFocus: ReturnType<typeof captureFocus>) => {
+    if (!alive) return;
+    setFailure(null); props.onSaved?.();
+
+    // A first body save replaces Add notes with prose after acknowledgement.
+    if (restoreFocus && document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown()?.focus());
+  };
+
+  /** A save that did not apply shows why; a refused one reopens the field with its text, unless newer work took its place. */
+  const refuse = (sent: Unapplied, retryFocus: ReturnType<typeof captureFocus>) => {
+    savedFocus = undefined;
+
+    if (!alive) return;
+    setFailure(sentFailure(sent));
+
+    if (sent.kind === "refused" && outcomeOf(sent.error) === "failed" && connected.drawer.content() === content && editing() === null && draft.draft()?.status === "failed"
+      && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(startWith);
+  };
 
   let save: (() => Promise<void>) | undefined;
   let key: ((event: KeyboardEvent) => void) | undefined;
@@ -199,25 +222,14 @@ export const EditableText = (props: {
     const focus = captureFocus();
     queueMicrotask(() => { if (alive && !focus(focusField)) yieldFocus?.(); });
 
-    const retain = (selectionChanged = false) => batch(() => {
-      const value = { ...started.form, text: read() };
+    const retain = (selectionChanged = false) => {
       const selected = selection();
-      const latest = records().find(record => record.revision === activeRevision());
 
-      if (latest && JSON.stringify(v.parse(formSchema, latest.value)) === JSON.stringify(v.parse(formSchema, value)) && (props.revision !== undefined || latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selected))) {
-        setActiveRevision(latest.revision);
+      draft.keep({ ...started.form, text: read() }, selected);
 
-        if ((props.revision === undefined || selectionChanged) && JSON.stringify(latest.selection) !== JSON.stringify(selected)) connected.drafts.setSelection(latest.revision, selected);
-
-        return { draft: latest, problem: connected.drafts.problem() };
-      }
-
-      const retained = connected.drafts.edit(draftDestination, value, selected, "ordinary", activeRevision());
-
-      setActiveRevision(retained.draft.revision);
-
-      return retained;
-    });
+      // A selected revision takes a moved caret only from the selection itself.
+      if (props.revision === undefined || selectionChanged) draft.select(selected);
+    };
 
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
@@ -236,7 +248,7 @@ export const EditableText = (props: {
         return;
       }
 
-      const draft = retain().draft;
+      retain();
 
       if (started.form.expected_change === null) {
         setFailure(copy.originalUnverified);
@@ -246,15 +258,22 @@ export const EditableText = (props: {
       }
 
       const submittedValue = read();
+      const expected = started.form.expected_change;
+      const status = draft.draft()?.status;
+      const unsendable = status ? copy.draftStatus[status] : copy.draftStatus.unknown;
 
-      if (draft.status !== "draft" && draft.status !== "failed") {
-        setFailure(copy.draftStatus[draft.status]);
+      if (status !== "draft" && status !== "failed") {
+        setFailure(unsendable);
         left = false;
 
         return;
       }
 
-      const submission = connected.drafts.submit(draft.revision);
+      // Save, Enter and blur are the user's Save: the field sends only now.
+      draft.save();
+      const commit = props.commit;
+      const committing = () => applying(() => commit(submittedValue, expected));
+      const sending = draft.send(committing);
 
       const restoreFocus = element.parentElement?.contains(document.activeElement)
         || (destination instanceof Node && element.parentElement?.contains(destination));
@@ -267,35 +286,17 @@ export const EditableText = (props: {
         queueFocus(() => shown()?.focus());
       }
 
-      if (!(await submission)) {
-        setFailure(copy.draftStatus[draft.status]);
+      const sent = await sending;
+
+      if (sent.kind === "skipped") {
+        setFailure(unsendable);
         left = false;
 
         return;
       }
 
-      try {
-        await props.commit(submittedValue, started.form.expected_change);
-        connected.drafts.settle(draft.revision, "acknowledged");
-
-        if (alive) {
-          setFailure(null); props.onSaved?.();
-
-          // A first body save replaces Add notes with prose after acknowledgement.
-          if (restoreFocus && document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown()?.focus());
-        }
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
-        savedFocus = undefined;
-        connected.drafts.settle(draft.revision, outcomeOf(error));
-
-        if (alive) {
-          setFailure(error.message);
-
-          if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(() => startWith());
-        }
-      }
+      if (sent.kind === "applied") acknowledge(restoreFocus, retryFocus);
+      else refuse(sent, retryFocus);
     };
 
     key = event => {

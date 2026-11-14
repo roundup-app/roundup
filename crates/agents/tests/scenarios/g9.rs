@@ -1,6 +1,7 @@
 //! G9 filesystem outcomes at the Worktree retention seam, with real directories and git.
 use super::*;
 use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
+use std::process::Command;
 
 fn identity(path: &Path) -> (u64, u64) {
     let m = std::fs::metadata(path).unwrap();

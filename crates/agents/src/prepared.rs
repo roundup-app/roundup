@@ -260,7 +260,7 @@ impl Agents {
         config: Prepared,
     ) -> Result<(PathBuf, worktree::Worktree), RpcError> {
         let project = self.project_dir().to_owned();
-        let (real_project, real_cwd) = real_paths(&project, cwd)?;
+        let (real_project, real_cwd) = real_paths(&self.shared.git, &project, cwd)?;
         let (Some(readiness), Some(ms)) = (config.readiness.clone(), config.timeout_ms) else {
             return Err(invalid("prepared_readiness_missing"));
         };

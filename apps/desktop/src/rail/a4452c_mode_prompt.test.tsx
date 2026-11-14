@@ -46,6 +46,32 @@ it("a4452c_a_refused_mode_prompt_keeps_the_original_mode_draft", async () => {
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" })).value).toBe("  /compose exact words\n");
 });
 
+it("u2773c_a_recovered_draft_never_sends", async () => {
+  const m = await mountRail([mode("w", "first")], [], undefined, () => true);
+  m.app.handlers["agent.setModePrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
+
+  fireEvent.contextMenu(rowOf("w"));
+  await m.app.pickMenu("First prompt…");
+  fireEvent.input(await screen.findByRole("textbox", { name: "First prompt" }), { target: { value: "kept" } });
+  fireEvent.blur(screen.getByRole("textbox", { name: "First prompt" }));
+  await screen.findByRole("alert");
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  m.app.handlers["agent.setModePrompt"] = () => null;
+
+  fireEvent.contextMenu(rowOf("w"));
+  await m.app.pickMenu("First prompt…");
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" });
+  expect(field.value).toBe("kept");
+  fireEvent.blur(field);
+  await new Promise((done) => setTimeout(done));
+  expect(railCallsTo(m.app, "agent.setModePrompt")).toHaveLength(1);
+  fireEvent.input(field, { target: { value: "kept, then typed" } });
+  fireEvent.blur(field);
+  await waitFor(() => expect(railCallsTo(m.app, "agent.setModePrompt")).toHaveLength(2));
+  expect(railCallsTo(m.app, "agent.setModePrompt")).toEqual([{ id: "w", prompt: "kept" }, { id: "w", prompt: "kept, then typed" }]);
+});
+
 it.each(["Escape", "Close"])("a4452c_closing_with_%s_returns_focus_to_the_mode", async close => {
   const m = await mountRail([mode("w", "prompt")], [], undefined, () => true);
   const row = rowOf("w");
