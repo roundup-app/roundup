@@ -222,7 +222,7 @@ async fn agent_env(method: &str) -> String {
         }
     };
     let node: RailNode = serde_json::from_value(node).unwrap();
-    let terminal_id = node.terminal_id.expect("a launch attaches a Terminal");
+    let terminal_id = node.terminal_id().expect("a launch attaches a Terminal");
 
     wait_for_exit(&mut client, &terminal_id).await;
 

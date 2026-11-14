@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -11,7 +12,7 @@ const open = async () => {
   const controls = seedApp("tree-40", 0);
   const tree = controls.app.handlers["rail.tree"]!;
   // Scope selection needs a Workstream and its Agent; the dense seed makes disposal dominate this proof.
-  controls.app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate").map(node => node.status?.kind === "needs-you" ? { ...node, status: { ...node.status, kind: "working" as const } } : node);
+  controls.app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate").map(node => isDoor(node) && node.status?.kind === "needs-you" ? { ...node, status: { ...node.status, kind: "working" as const } } : node);
   render(() => <App app={controls.app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
 

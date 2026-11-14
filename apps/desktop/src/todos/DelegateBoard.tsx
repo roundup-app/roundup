@@ -1,3 +1,4 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, type Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { OwnerGroup } from "../shelf/scope";
@@ -22,10 +23,12 @@ export const createDelegateBoard = () => {
   };
 };
 
+type Workstream = Extract<RailNode, { kind: "workstream" }>;
+
 /** U3310: only the Workstream event changes the controlled switch's value. */
 export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   const connected = useConnectedProject();
-  const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.home()));
+  const current = createMemo(() => connected.rail.nodes.find((node): node is Workstream => node.kind === "workstream" && node.id === props.home()));
   const [failure, setFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal(false);
   createEffect(on(() => current()?.id, () => setFailure(null)));

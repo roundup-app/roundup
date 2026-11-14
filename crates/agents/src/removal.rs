@@ -29,7 +29,7 @@ impl Shared {
         let _lifecycle = self.door_lifecycle.write().await;
         let door = self.rail().node(crate::rail::agent_id(id)?)?;
         if scope == RemoveScope::This
-            && let Some(worktree) = &door.worktree
+            && let Some(worktree) = &door.worktree()
         {
             let git = self.git.bounded();
             let project = self.project_dir.clone();
@@ -47,12 +47,12 @@ impl Shared {
                 RailPublication::Coordinator,
             )
             .await?;
-            stopped_live = door.terminal_id.is_some();
+            stopped_live = door.terminal_id().is_some();
             let tree = self.tree()?;
             let mut below = Vec::new();
             collect_below(&tree, id, &mut below);
             let mut judged = Vec::new();
-            for node in below.into_iter().filter(|n| n.kind == NodeKind::Agent) {
+            for node in below.into_iter().filter(|n| n.kind() == NodeKind::Agent) {
                 let reason = if scope == RemoveScope::All {
                     None
                 } else {
@@ -69,7 +69,7 @@ impl Shared {
                     let shared = Arc::clone(self);
                     let actor = actor.clone();
                     let id = node.id.clone();
-                    stopped_live |= node.terminal_id.is_some();
+                    stopped_live |= node.terminal_id().is_some();
                     stops.spawn(async move {
                         shared
                             .end_with(
@@ -108,12 +108,12 @@ impl Shared {
                         kind: RemovalKind::Agent,
                         name: node.name.clone(),
                     });
-                    if let Some(worktree) = &node.worktree {
+                    if let Some(worktree) = &node.worktree() {
                         worktrees.push(worktree::Worktree::from(worktree));
                     }
                 }
             }
-            if let Some(worktree) = &door.worktree {
+            if let Some(worktree) = &door.worktree() {
                 worktrees.push(worktree::Worktree::from(worktree));
             }
             let git = self.git.bounded();
@@ -132,7 +132,7 @@ impl Shared {
                 let expected: Vec<_> = judged.iter().map(|(n, _)| &n.id).collect();
                 let actual: Vec<_> = current_below
                     .iter()
-                    .filter(|n| n.kind == NodeKind::Agent)
+                    .filter(|n| n.kind() == NodeKind::Agent)
                     .map(|n| &n.id)
                     .collect();
                 if expected != actual {
@@ -144,8 +144,8 @@ impl Shared {
                 let current_door = current.iter().find(|n| n.id == id_owned).ok_or_else(|| {
                     RpcError::not_found("Workstream changed during removal judgement")
                 })?;
-                if current_door.worktree != door.worktree
-                    || current_door.attempt != door.attempt
+                if current_door.worktree() != door.worktree()
+                    || current_door.attempt() != door.attempt()
                     || runs
                         .slot(&id_owned)
                         .is_some_and(|slot| !matches!(slot, Slot::Running(r) if r.ended()))
@@ -156,8 +156,8 @@ impl Shared {
                     let unchanged = current.iter().any(|n| {
                         n.id == node.id
                             && n.parent == node.parent
-                            && n.worktree == node.worktree
-                            && n.attempt == node.attempt
+                            && n.worktree() == node.worktree()
+                            && n.attempt() == node.attempt()
                     });
                     if !unchanged
                         || (reason.is_none()
@@ -226,18 +226,17 @@ impl Shared {
         node: &RailNode,
     ) -> Result<Option<KeptReason>, RpcError> {
         let finished = node
-            .status
-            .as_ref()
+            .status()
             .is_some_and(|s| matches!(s.kind, Kind::Done | Kind::Error));
         if !finished {
             return Ok(Some(KeptReason::Running));
         }
-        let Some(worktree) = node.worktree.as_ref() else {
+        let Some(worktree) = node.worktree() else {
             return Ok(None);
         };
         let git = self.git.bounded();
         let project = self.project_dir.clone();
-        let worktree = worktree::Worktree::from(worktree);
+        let worktree = worktree::Worktree::from(&worktree);
         let (dirty, ahead) = tokio::task::spawn_blocking(move || git.unlanded(&project, &worktree))
             .await
             .map_err(RpcError::internal)??;
@@ -346,8 +345,8 @@ impl Agents {
             }
             let mut below = Vec::new();
             collect_below(&tree, target, &mut below);
-            if node.kind == NodeKind::Workstream {
-                for child in below.iter().filter(|n| n.kind == NodeKind::Agent) {
+            if node.kind() == NodeKind::Workstream {
+                for child in below.iter().filter(|n| n.kind() == NodeKind::Agent) {
                     if let Some(reason) = shared.keep_reason(child).await? {
                         removal.kept.push(kept_agent(child, reason));
                     } else {
@@ -379,15 +378,15 @@ impl Agents {
             let mut rail = shared.rail();
             // A node moved, born or launched during judgement is not consent to remove it.
             let now = rail.tree()?;
-            if now.len()!=tree.len() || now.iter().zip(&tree).any(|(a,b)| a.id!=b.id || a.parent!=b.parent || a.order!=b.order || a.attempt!=b.attempt || a.worktree!=b.worktree) {
+            if now.len()!=tree.len() || now.iter().zip(&tree).any(|(a,b)| a.id!=b.id || a.parent!=b.parent || a.order!=b.order || a.attempt()!=b.attempt() || a.worktree()!=b.worktree()) {
                 return Err(RpcError::conflict("Rail changed during removal judgement"));
             }
             let runs = shared.runs();
             let selected = |n: &&RailNode| n.id == id || removal.removed.iter().any(|i| i.kind==RemovalKind::Agent && i.id==n.id);
             for node in tree.iter().filter(selected) {
-                if node.worktree.is_some()
+                if node.worktree().is_some()
                     || runs.slot(&node.id).is_some_and(|slot| !matches!(slot, Slot::Running(run) if run.ended() && !run.closing()))
-                    || listed.iter().any(|t| t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
+                    || listed.iter().any(|t| t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id().as_ref()==Some(&t.id))) {
                     return Err(RpcError::conflict("Removing this item would stop a running process or discard its Worktree. Confirm removal to continue."));
                 }
             }
@@ -451,7 +450,7 @@ impl Agents {
                 let tree=rail.tree()?;
                 let runs=shared.runs();
                 for node in tree.iter().filter(|n|n.id==*id || source.removed.iter().any(|i|i.kind==RemovalKind::Agent && i.id==n.id)) {
-                    if node.worktree.is_some() || runs.slot(&node.id).is_some_and(|s|!matches!(s,Slot::Running(r) if r.ended() && !r.closing())) || listed.iter().any(|t|t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
+                    if node.worktree().is_some() || runs.slot(&node.id).is_some_and(|s|!matches!(s,Slot::Running(r) if r.ended() && !r.closing())) || listed.iter().any(|t|t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id().as_ref()==Some(&t.id))) {
                         return Err(RpcError::conflict("Redo would stop a program or discard a Worktree; confirm removal instead."));
                     }
                 }
@@ -574,7 +573,7 @@ mod tests {
 
         assert_eq!(tool_calls(&shared), before);
         assert_eq!(
-            shared.node(&id).unwrap().tool_call.as_ref(),
+            shared.node(&id).unwrap().tool_call(),
             Some(&before[&id].call)
         );
     }
@@ -586,6 +585,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Workstream, "w", None, None)
             .unwrap()
+            .base
             .id;
         shared
             .rail()
@@ -600,6 +600,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Workstream, "sibling", None, None)
             .unwrap()
+            .base
             .id;
         let survivor = running_agent(&shared, Some(&sibling));
         for id in [&ws, &finished, &living, &survivor] {
@@ -645,6 +646,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Workstream, "g", None, None)
             .unwrap()
+            .base
             .id;
         shared
             .rail()
@@ -657,6 +659,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Agent, "child", Some(&group), None)
             .unwrap()
+            .base
             .id;
 
         shared.remove(Actor::daemon(), &group).await.unwrap_err();
@@ -700,6 +703,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Workstream, "w", None, None)
             .unwrap()
+            .base
             .id;
         for _ in 0..16 {
             let id = running_agent(&shared, Some(&ws));
@@ -760,6 +764,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Workstream, "w", None, None)
             .unwrap()
+            .base
             .id;
         let failed = running_agent(&shared, Some(&ws));
         let parked = running_agent(&shared, Some(&ws));
@@ -777,6 +782,8 @@ mod tests {
         before
             .iter_mut()
             .find(|node| node.id == parked)
+            .unwrap()
+            .door_mut()
             .unwrap()
             .terminal_id = None;
         let applied = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -829,7 +836,7 @@ mod tests {
 
         assert_eq!(err.code, rpc::code::INTERNAL);
         let node = shared.node(&id).unwrap();
-        assert_eq!(node.status.unwrap().kind, Kind::Done);
+        assert_eq!(node.status().unwrap().kind, Kind::Done);
         assert_eq!(tool_calls(&shared), before);
 
         shared.remove(Actor::daemon(), &id).await.unwrap();
@@ -864,6 +871,7 @@ mod tests {
                     .rail()
                     .insert(NodeKind::Workstream, "w", None, None)
                     .unwrap()
+                    .base
                     .id
             });
             let id = running_agent(&shared, ws.as_deref());
@@ -891,7 +899,7 @@ mod tests {
             };
             assert_eq!(error.code, rpc::code::INTERNAL);
             assert_eq!(shared.tree().unwrap().len(), if workstream { 2 } else { 1 });
-            assert_eq!(shared.node(&id).unwrap().status.unwrap().kind, Kind::Done);
+            assert_eq!(shared.node(&id).unwrap().status().unwrap().kind, Kind::Done);
             assert_eq!(tool_calls(&shared), before);
             db.execute_batch("DROP TRIGGER fail_delete").unwrap();
             if let Some(ws) = &ws {
@@ -914,6 +922,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Workstream, "group", None, None)
             .unwrap()
+            .base
             .id;
         let child = running_agent(&shared, Some(&group));
         let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();

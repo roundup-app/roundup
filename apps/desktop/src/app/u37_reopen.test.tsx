@@ -1,5 +1,6 @@
 import { copy as windowCopy } from "../window/copy";
 import { copy as appCopy } from "./copy";
+import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -44,7 +45,7 @@ describe("u37 Reopen after the Daemon exits", () => {
   it("u37_an_exit_during_connection_stays_actionable", async () => {
     const app = createFakeApp();
     app.opened.project = { name: "payments-api", path: "/work/payments-api" };
-    let release!: (nodes: ReturnType<typeof node>[]) => void;
+    let release!: (nodes: RailNode[]) => void;
     let requested!: () => void;
     const reading = new Promise<void>(done => { requested = done; });
     app.handlers["rail.tree"] = () => new Promise(resolve => {

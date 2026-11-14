@@ -57,10 +57,10 @@ pub struct Waker {
 }
 
 pub(crate) fn is_agent(node: &RailNode) -> bool {
-    match node.kind {
+    match node.kind() {
         NodeKind::Group => false,
         NodeKind::Agent => true,
-        NodeKind::Workstream => node.attempt.is_some(),
+        NodeKind::Workstream => node.attempt().is_some(),
     }
 }
 
@@ -69,7 +69,7 @@ fn kind_of(world: &World, id: &str) -> Option<Kind> {
         .nodes()
         .iter()
         .find(|node| node.id == id && is_agent(node))
-        .and_then(|node| node.status.as_ref().map(|status| status.kind))
+        .and_then(|node| node.status().map(|status| status.kind))
 }
 
 fn label_of(world: &World, id: &str) -> Option<String> {
@@ -77,7 +77,7 @@ fn label_of(world: &World, id: &str) -> Option<String> {
         .nodes()
         .iter()
         .find(|node| node.id == id && is_agent(node))
-        .and_then(|node| node.status.as_ref().map(|status| status.label.clone()))
+        .and_then(|node| node.status().map(|status| status.label.clone()))
 }
 
 /// B48(a), DCL3e: "already working", then the first label that names what a hold waits on.
@@ -320,7 +320,7 @@ impl Waker {
         if let Ok(world) = self.reader.world().await {
             let mut gate = self.gate.lock().await;
             for node in world.nodes().iter().filter(|node| is_agent(node)) {
-                if let Some(status) = &node.status {
+                if let Some(status) = &node.status() {
                     gate.kinds.insert(node.id.clone(), status.kind);
                 }
             }
@@ -361,10 +361,9 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
         if !nodes.iter().any(|node| {
             node.id == id
                 && is_agent(node)
-                && node.terminal_id.is_some()
+                && node.terminal_id().is_some()
                 && node
-                    .status
-                    .as_ref()
+                    .status()
                     .is_some_and(|status| status.kind != Kind::Done)
         }) {
             continue;

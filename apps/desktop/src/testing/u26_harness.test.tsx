@@ -9,7 +9,7 @@ import { fromBase64 } from "../terminal/base64";
 import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
-import { event } from "./nodes";
+import { doorOf, event } from "./nodes";
 import { batch } from "solid-js";
 import { showEverythingInApp } from "./showEverything";
 
@@ -230,7 +230,7 @@ describe("u26 the Daemon's rail methods", () => {
 
     const promoted = await app.rpc("rail.startDoor", { id: "backend" });
 
-    expect([promoted.kind, promoted.terminal_id]).toEqual(["workstream", "t-backend-1"]);
+    expect([promoted.kind, doorOf(promoted)?.terminal_id]).toEqual(["workstream", "t-backend-1"]);
   });
 
   it("u26_moving_a_node_re_parents_it_at_the_index", async () => {
@@ -266,9 +266,9 @@ describe("u26 the Daemon's rail methods", () => {
 
   it("u26_stop_advances_the_status_revision_once_and_repeated_stop_is_inert", async () => {
     const { app, seen } = await daemon();
-    const before = (await app.rpc("rail.tree", null)).find((node) => node.id === "tokens")!;
+    const before = doorOf((await app.rpc("rail.tree", null)).find((node) => node.id === "tokens"))!;
     await app.rpc("agent.stop", { id: "tokens" });
-    const stopped = (await app.rpc("rail.tree", null)).find((node) => node.id === "tokens")!;
+    const stopped = doorOf((await app.rpc("rail.tree", null)).find((node) => node.id === "tokens"))!;
     expect(stopped.attempt).toBe(before.attempt);
     expect(stopped.status_revision).toBe(String(BigInt(before.status_revision!) + 1n));
     expect(stopped.status?.kind).toBe("done");

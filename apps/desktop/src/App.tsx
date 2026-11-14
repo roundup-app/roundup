@@ -79,6 +79,7 @@ import { shelfKeys } from "./shelf/keys";
 import { createEdgePeek } from "./ui/edgePeek";
 import { createWidths } from "./resize/widths";
 import { RailStrip } from "./rail/RailStrip";
+import { isDoor } from "./state/doorNode";
 
 const ForkSheet = lazy(() => import("./fork/ForkSheet").then(module => ({ default: module.ForkSheet })));
 
@@ -206,7 +207,7 @@ export const App = (props: {
     const connection = connectedOf(connections().get(tab.project.path));
 
     return !tab.exit && connection
-      && connection.rail.nodes.some((node) => node.status?.kind === "working");
+      && connection.rail.nodes.some((node) => isDoor(node) && node.status?.kind === "working");
   });
 
   const now = createNow(props.clock, isWorking, visible);
@@ -285,7 +286,7 @@ export const App = (props: {
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: connections().get(tab.project.path)?.kind === "connecting",
         ...attentionCounts(attentionHolders(nodes, railOf(tab.project.path)?.terminals() ?? [], railOf(tab.project.path)?.dismissed)),
-        running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
+        running: nodes.flatMap((node) => (isDoor(node) && node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
   );
@@ -536,7 +537,7 @@ export const App = (props: {
 
                 // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
                 if (arrived) queueMicrotask(() => arrived(() => {
-                  const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+                  const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
 
                   if (id) screens()?.emulatorFor(id).focus();
                   else focusPane();
@@ -554,7 +555,7 @@ export const App = (props: {
                     <ProjectSettingsView />
                     </div>
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+                    <ResourceStrip returnFocus={() => { const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
 
                       if (id) screens()?.emulatorFor(id).focus();
                       else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />

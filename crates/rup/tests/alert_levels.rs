@@ -59,8 +59,8 @@ async fn u5501_levels_survive_reopen_restart_and_home_move() {
     let changed = daemon::rail_tree(&c).await;
     let changed = changed.iter().find(|n| n.id == a.id).unwrap();
     assert_eq!(
-        (&changed.attempt, &changed.terminal_id),
-        (&stopped.attempt, &stopped.terminal_id),
+        (&changed.attempt(), &changed.terminal_id()),
+        (&stopped.attempt(), &stopped.terminal_id()),
         "a level write cannot resume a stopped Agent"
     );
     c.request("rail.move", json!({"id":a.id,"parent":home,"index":0}))
@@ -76,7 +76,7 @@ async fn u5501_levels_survive_reopen_restart_and_home_move() {
     assert_eq!(agent.parent.as_deref(), Some(home.as_str()));
     assert_eq!(serde_json::to_value(agent).unwrap()["alert_level"], "quiet");
     assert!(
-        tree.iter().all(|n| n.terminal_id.is_none()),
+        tree.iter().all(|n| n.terminal_id().is_none()),
         "choosing/restoring levels starts no Agent"
     );
     // An acknowledged choice also survives an abrupt Daemon restart.
@@ -86,7 +86,7 @@ async fn u5501_levels_survive_reopen_restart_and_home_move() {
     let restarted = daemon::rail_tree(&c).await;
     let agent = restarted.iter().find(|n| n.id == a.id).unwrap();
     assert_eq!(serde_json::to_value(agent).unwrap()["alert_level"], "all");
-    assert!(agent.terminal_id.is_none());
+    assert!(agent.terminal_id().is_none());
 }
 
 async fn spawn(p: &daemon::Project, c: &Client, parent: &str) -> String {
@@ -141,11 +141,11 @@ async fn u5501_workstream_bulk_change_includes_its_door_and_nested_agents() {
     assert_eq!(
         before
             .iter()
-            .map(|n| (&n.id, &n.attempt, &n.terminal_id))
+            .map(|n| (&n.id, n.attempt(), n.terminal_id()))
             .collect::<Vec<_>>(),
         after
             .iter()
-            .map(|n| (&n.id, &n.attempt, &n.terminal_id))
+            .map(|n| (&n.id, n.attempt(), n.terminal_id()))
             .collect::<Vec<_>>()
     );
     assert!(after.iter().any(|n| n.id == other));
@@ -274,7 +274,7 @@ print(json.dumps(call(2,'rail.setAlertLevel',{'project':os.getcwd(),'id':os.envi
     assert_eq!(output[0]["code"], 0, "{output}");
     let reply: Value = serde_json::from_str(output[0]["stdout"].as_str().unwrap().trim()).unwrap();
     assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN);
-    assert_eq!(levels(&c).await, [(a.id, json!("default"))]);
+    assert_eq!(levels(&c).await, [(a.base.id, json!("default"))]);
 }
 
 #[tokio::test]

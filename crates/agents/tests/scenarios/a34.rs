@@ -66,7 +66,7 @@ fn find<'a>(tree: &'a [RailNode], id: &str) -> Option<&'a RailNode> {
 }
 
 fn path_of(node: &RailNode) -> std::path::PathBuf {
-    node.worktree.as_ref().unwrap().path.clone().into()
+    node.worktree().unwrap().path.clone().into()
 }
 
 #[tokio::test]
@@ -92,7 +92,7 @@ async fn a34_an_agent_with_no_worktree_goes() {
     let f = Fixture::running(AGENT);
     let ws = f.workstream("w", None).await;
     let agent = finished(&f, Some(&ws)).await;
-    assert!(agent.worktree.is_none());
+    assert!(agent.worktree().is_none());
 
     let removal = remove(&f, &ws).await;
 
@@ -359,17 +359,17 @@ async fn a34_a_stopped_door_remains_resumable_and_announced_after_failed_removal
     let door: RailNode =
         serde_json::from_value(f.call("rail.startDoor", json!({"id": ws})).await.unwrap()).unwrap();
     f.call("agent.signal", json!({
-        "id": ws, "attempt": door.attempt,
+        "id": ws, "attempt": door.attempt(),
         "payload": {"hook_event_name": "SessionStart", "session_id": "11111111-1111-1111-1111-111111111111", "source": "startup"}
     })).await.unwrap();
-    assert!(!find(&f.tree().await, &ws).unwrap().can_resume);
+    assert!(!find(&f.tree().await, &ws).unwrap().can_resume());
     let db = rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap();
     db.execute_batch("CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'workstream' BEGIN SELECT RAISE(FAIL, 'A34 removal'); END;").unwrap();
     let mut events = f.bus.subscribe();
 
     f.call("rail.remove", json!({"id": ws})).await.unwrap_err();
 
-    assert!(find(&f.tree().await, &ws).unwrap().can_resume);
+    assert!(find(&f.tree().await, &ws).unwrap().can_resume());
     let mut announced = false;
     while let Ok(event) = events.try_recv() {
         if matches!(event.data, EventData::RailChanged) {
@@ -461,7 +461,7 @@ async fn u4461_no_scope_is_remove_this() {
         let tree = f.tree().await;
         assert_eq!(tree.len(), 1);
         assert_eq!(tree[0].parent, None);
-        assert_eq!(tree[0].terminal_id, agent.terminal_id);
+        assert_eq!(tree[0].terminal_id(), agent.terminal_id());
     }
 }
 
@@ -497,8 +497,8 @@ async fn u4461_a_failed_stop_changes_nothing_and_retries() {
     for node in &before {
         let current = find(&after, &node.id).unwrap();
         assert_eq!(current.parent, node.parent);
-        assert_eq!(current.worktree, node.worktree);
-        assert_eq!(current.terminal_id, node.terminal_id);
+        assert_eq!(current.worktree(), node.worktree());
+        assert_eq!(current.terminal_id(), node.terminal_id());
     }
     fail.store(false, Ordering::SeqCst);
     let result = f.call("rail.remove", params).await.unwrap();

@@ -94,7 +94,7 @@ impl Daemon {
         let Some(door) = RailIndex::new(&nodes).workstream_of(&actor.id) else {
             return Ok(());
         };
-        if door.auto == Some(true) {
+        if door.auto() {
             let running = queue::running(&nodes, &self.queue.launching.lock());
             if !running.contains(&door.id)
                 && self
@@ -118,12 +118,11 @@ pub(super) async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
     let doors: Vec<_> = nodes
         .iter()
         .filter(|node| {
-            node.kind == NodeKind::Workstream
-                && node.auto == Some(true)
-                && node.terminal_id.is_some()
+            node.kind() == NodeKind::Workstream
+                && node.auto()
+                && node.terminal_id().is_some()
                 && node
-                    .status
-                    .as_ref()
+                    .status()
                     .is_some_and(|s| s.kind != contracts::Kind::Done)
         })
         .collect();

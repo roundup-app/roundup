@@ -19,7 +19,11 @@ impl Fixture {
 
     async fn name_of(&self, id: &str) -> String {
         let tree: Vec<RailNode> = self.tree().await;
-        tree.into_iter().find(|n| n.id == id).unwrap().name
+        tree.into_iter()
+            .find(|n| n.base.id == id)
+            .unwrap()
+            .base
+            .name
     }
 }
 
@@ -236,7 +240,7 @@ async fn a27_three_same_tag_siblings_are_named_by_their_text() {
             &format!(r#"<pasted_content id="x">{text}</pasted_content>"#),
         )
         .await;
-        ids.push(node.id);
+        ids.push(node.base.id);
     }
     let mut names = Vec::new();
     for id in &ids {
@@ -391,7 +395,7 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
         let f = std::sync::Arc::new(Fixture::running("exec sleep 30"));
         let barrier = f.workstream("barrier", None).await;
         let id = match case {
-            "explicit spawn" => f.spawn_named(Some("mine"), None).await.unwrap().id,
+            "explicit spawn" => f.spawn_named(Some("mine"), None).await.unwrap().base.id,
             "starting rename" => {
                 let config = hold_starts(&f);
                 let spawning = {
@@ -401,12 +405,12 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
                 let tree = f
                     .until(|tree| {
                         tree.iter()
-                            .any(|n| n.kind == contracts::agent::NodeKind::Agent)
+                            .any(|n| n.kind() == contracts::agent::NodeKind::Agent)
                     })
                     .await;
                 let id = tree
                     .iter()
-                    .find(|n| n.kind == contracts::agent::NodeKind::Agent)
+                    .find(|n| n.kind() == contracts::agent::NodeKind::Agent)
                     .unwrap()
                     .id
                     .clone();
@@ -423,7 +427,7 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
                     .unwrap();
                 barrier.clone()
             }
-            _ => f.spawn(None, None).await.unwrap().id,
+            _ => f.spawn(None, None).await.unwrap().base.id,
         };
         match case {
             "later prompt" => f.submit(&id, "first name").await,
@@ -561,7 +565,7 @@ async fn a9_the_first_session_title_renames_a_row_automatic_naming_named() {
     let session = |n: u8| format!("{n}1111111-1111-4111-8111-111111111111");
 
     // The first title renames; a second never does.
-    let auto = f.spawn(None, None).await.unwrap().id;
+    let auto = f.spawn(None, None).await.unwrap().base.id;
     f.start_conversation(&auto, &session(1)).await;
     f.submit(
         &auto,
@@ -579,7 +583,7 @@ async fn a9_the_first_session_title_renames_a_row_automatic_naming_named() {
     assert_eq!(f.name_of(&auto).await, "Printing Public MakerWorld Models");
 
     // A row the user named keeps its name.
-    let user = f.spawn(None, None).await.unwrap().id;
+    let user = f.spawn(None, None).await.unwrap().base.id;
     f.start_conversation(&user, &session(2)).await;
     f.submit(&user, "fix the build").await;
     f.call("rail.rename", json!({"id": user, "name": "Mine"}))
@@ -590,7 +594,7 @@ async fn a9_the_first_session_title_renames_a_row_automatic_naming_named() {
     assert_eq!(f.name_of(&user).await, "Mine");
 
     // A row the Agent renamed itself keeps its name.
-    let own = f.spawn(None, None).await.unwrap().id;
+    let own = f.spawn(None, None).await.unwrap().base.id;
     f.start_conversation(&own, &session(3)).await;
     f.submit(&own, "fix the build").await;
     let mut ctx = f.ctx();
@@ -608,7 +612,7 @@ async fn a9_the_first_session_title_renames_a_row_automatic_naming_named() {
     assert_eq!(f.name_of(&own).await, "Own");
 
     // A row spawned with a name keeps it.
-    let given = f.spawn_named(Some("Given"), None).await.unwrap().id;
+    let given = f.spawn_named(Some("Given"), None).await.unwrap().base.id;
     f.start_conversation(&given, &session(4)).await;
     f.submit(&given, "fix the build").await;
     f.write_title(&session(4), TITLED);
@@ -617,7 +621,7 @@ async fn a9_the_first_session_title_renames_a_row_automatic_naming_named() {
 
     // Automatic renaming off at the first prompt: turning it on later replays no title.
     enabled.store(false, Ordering::SeqCst);
-    let off = f.spawn(None, None).await.unwrap().id;
+    let off = f.spawn(None, None).await.unwrap().base.id;
     f.start_conversation(&off, &session(5)).await;
     f.submit(&off, "fix the build").await;
     enabled.store(true, Ordering::SeqCst);

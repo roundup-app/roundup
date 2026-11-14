@@ -36,7 +36,7 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(node.channel, Some(Channel::Pending));
+    assert_eq!(node.channel(), Some(Channel::Pending));
 
     let started = std::time::Instant::now();
     let mut channels = vec![Channel::Pending];
@@ -83,7 +83,7 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
             .into_iter()
             .find(|entry| entry.id == node.id)
             .unwrap()
-            .channel,
+            .channel(),
         Some(Channel::Up)
     );
     let model = project.model.as_ref().unwrap();
@@ -242,8 +242,8 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
         .into_iter()
         .find(|node| node.id == id)
         .unwrap();
-    assert_eq!(node.channel, Some(Channel::Missing));
-    assert_eq!(node.status.unwrap().kind, initial.unwrap());
+    assert_eq!(node.channel(), Some(Channel::Missing));
+    assert_eq!(node.status().unwrap().kind, initial.unwrap());
     let hooks: Vec<Value> = std::fs::read_to_string(log)
         .unwrap()
         .lines()

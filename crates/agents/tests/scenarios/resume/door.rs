@@ -28,9 +28,9 @@ pub(super) async fn start_door(f: &Fixture, id: &str) -> Result<RailNode, rpc::R
 async fn a23_a_restarted_door_resumes_its_saved_conversation() {
     let f = Fixture::running("echo \"$@\" >> \"$(dirname \"$0\")/argv.txt\"; sleep 30");
     let door = exited_door(&f).await;
-    assert!(door.can_resume);
+    assert!(door.can_resume());
     let f = Arc::new(f);
-    let old_attempt = door.attempt.clone().unwrap();
+    let old_attempt = door.attempt().unwrap();
 
     let starting = {
         let (f, id) = (Arc::clone(&f), door.id.clone());
@@ -43,9 +43,9 @@ async fn a23_a_restarted_door_resumes_its_saved_conversation() {
     let restarted = starting.await.unwrap().unwrap();
 
     assert_eq!(restarted.id, door.id);
-    assert_eq!(restarted.kind, door.kind);
-    assert!(restarted.terminal_id.is_some());
-    assert_ne!(restarted.attempt, door.attempt);
+    assert_eq!(restarted.kind(), door.kind());
+    assert!(restarted.terminal_id().is_some());
+    assert_ne!(restarted.attempt(), door.attempt());
     let argv = until_resumed(&f).await;
     assert_eq!(
         argv.matches("--resume").count(),
@@ -62,7 +62,7 @@ async fn a23_a_door_with_no_saved_conversation_starts_fresh() {
 
     let door = start_door(&f, &workstream).await.unwrap();
 
-    assert!(door.terminal_id.is_some());
+    assert!(door.terminal_id().is_some());
     let argv = crate::common::until_file(&f.dir.path().join("argv.txt")).await;
     assert!(!argv.contains("--resume"));
 }
@@ -78,8 +78,8 @@ async fn a23_a_restarted_door_after_reopen_resumes() {
         .into_iter()
         .find(|n| n.id == door.id)
         .unwrap();
-    assert!(reopened.can_resume);
-    let old_attempt = reopened.attempt.clone().unwrap();
+    assert!(reopened.can_resume());
+    let old_attempt = reopened.attempt().unwrap();
 
     let starting = {
         let (f, id) = (Arc::clone(&f), door.id.clone());
@@ -90,7 +90,7 @@ async fn a23_a_restarted_door_after_reopen_resumes() {
         .await
         .unwrap();
 
-    assert!(starting.await.unwrap().unwrap().terminal_id.is_some());
+    assert!(starting.await.unwrap().unwrap().terminal_id().is_some());
     let argv = until_resumed(&f).await;
     assert!(argv.contains(&format!("--resume {CONVERSATION}")));
 }
@@ -114,8 +114,8 @@ async fn a23_a_saved_conversation_that_cannot_resume_never_starts_fresh() {
         .into_iter()
         .find(|n| n.id == door.id)
         .unwrap();
-    assert!(after.can_resume, "still resumable, not replaced");
-    assert_eq!(after.terminal_id, door.terminal_id);
+    assert!(after.can_resume(), "still resumable, not replaced");
+    assert_eq!(after.terminal_id(), door.terminal_id());
     let now = std::fs::read_to_string(f.dir.path().join("argv.txt"))
         .unwrap_or_default()
         .lines()
@@ -130,7 +130,7 @@ async fn a23_a_restart_without_acknowledgement_fails_with_a22s_error() {
     // Plugin compatibility probes use a real process; pause only the resume deadline.
     tokio::time::pause();
     let f = Arc::new(f);
-    let old_attempt = door.attempt.clone().unwrap();
+    let old_attempt = door.attempt().unwrap();
     let starting = {
         let (f, id) = (Arc::clone(&f), door.id.clone());
         tokio::spawn(async move { start_door(&f, &id).await })
@@ -149,8 +149,8 @@ async fn a23_a_restart_without_acknowledgement_fails_with_a22s_error() {
         .into_iter()
         .find(|n| n.id == door.id)
         .unwrap();
-    assert!(after.can_resume);
-    assert_eq!(after.terminal_id, None);
+    assert!(after.can_resume());
+    assert_eq!(after.terminal_id(), None);
 }
 
 #[tokio::test]
@@ -158,7 +158,7 @@ async fn a23_an_earlier_attempts_signal_is_ignored_by_a_restarted_door() {
     let f = Fixture::running("sleep 30");
     let door = exited_door(&f).await;
     let f = Arc::new(f);
-    let old_attempt = door.attempt.clone().unwrap();
+    let old_attempt = door.attempt().unwrap();
     let starting = {
         let (f, id) = (Arc::clone(&f), door.id.clone());
         tokio::spawn(async move { start_door(&f, &id).await })
@@ -178,6 +178,6 @@ async fn a23_an_earlier_attempts_signal_is_ignored_by_a_restarted_door() {
         .unwrap();
     let restarted = starting.await.unwrap().unwrap();
 
-    assert_eq!(restarted.status.as_ref().map(|s| s.kind), Some(Kind::Idle));
-    assert!(restarted.terminal_id.is_some());
+    assert_eq!(restarted.status().map(|s| s.kind), Some(Kind::Idle));
+    assert!(restarted.terminal_id().is_some());
 }

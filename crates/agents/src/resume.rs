@@ -37,7 +37,7 @@ impl Agents {
         mode: Option<contracts::agent::ResumeMode>,
         permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
-        if self.shared.rail().node(crate::rail::agent_id(id)?)?.kind == NodeKind::Group {
+        if self.shared.rail().node(crate::rail::agent_id(id)?)?.kind() == NodeKind::Group {
             return Err(RpcError::conflict("a Group has no program to resume"));
         }
         models::check_permissions(&ctx.actor, permission_mode)?;
@@ -46,7 +46,7 @@ impl Agents {
         // finished one again; an Agent's resume would spend tokens.
         if ctx.actor.kind == contracts::ActorKind::Agent
             && mode.is_none()
-            && self.shared.rail().node(crate::rail::agent_id(id)?)?.kind == NodeKind::Agent
+            && self.shared.rail().node(crate::rail::agent_id(id)?)?.kind() == NodeKind::Agent
             && !self.shared.rail().is_cut_off(crate::rail::agent_id(id)?)?
             && !self.shared.runs().agent(id).is_some()
         {
@@ -58,7 +58,7 @@ impl Agents {
         let mode = {
             let rail = self.shared.rail();
             let node = rail.node(crate::rail::agent_id(id)?)?;
-            match (node.kind, mode) {
+            match (node.kind(), mode) {
                 (_, Some(mode)) => Some(mode),
                 (NodeKind::Group, _) => return Err(RpcError::conflict("a Group has no program")),
                 (NodeKind::Agent, None) => None,
@@ -289,7 +289,7 @@ impl Agents {
             .shared
             .rail()
             .node(crate::rail::agent_id(id)?)?
-            .worktree;
+            .worktree();
         match &worktree {
             // FOP5978d: continuing in a Worktree of the live Project folder is not a Fork's to do.
             Some(_) if self.forked => Err(RpcError::new(
@@ -759,7 +759,7 @@ mod tests {
                     .rail()
                     .node(crate::rail::agent_id(&id).unwrap())
                     .unwrap()
-                    .attempt
+                    .attempt()
                     .as_deref(),
                 Some("1")
             );

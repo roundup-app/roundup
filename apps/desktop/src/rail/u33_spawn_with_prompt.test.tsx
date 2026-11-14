@@ -1,3 +1,4 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
@@ -108,7 +109,7 @@ describe("u33 spawn with a prompt", () => {
   });
 
   it("u33_the_new_row_becomes_selected_once_the_tree_has_it", async () => {
-    const tree = [workstream("g")];
+    const tree: RailNode[] = [workstream("g")];
     const mounted = await mountRail(tree);
     mounted.app.handlers["agent.spawn"] = () => {
       tree.push(SPAWNED);
@@ -285,7 +286,7 @@ describe("u33 spawn with a prompt", () => {
   });
 
   it("u33_the_new_row_takes_focus_into_the_pane", async () => {
-    const tree = [workstream("g")];
+    const tree: RailNode[] = [workstream("g")];
     const mounted = await mountRailAndPane(tree);
 
     mounted.app.handlers["agent.spawn"] = () => {

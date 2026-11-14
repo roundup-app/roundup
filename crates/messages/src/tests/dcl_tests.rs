@@ -45,9 +45,9 @@ fn open_with<I: crate::NoteInbox + 'static>(
 ) -> (Messages, Arc<BatchRail>, Arc<AtomicI64>) {
     let rail = Arc::new(BatchRail::default());
     let mut node = live("m");
-    node.status = Some(Status {
+    node.door_mut().unwrap().status = Some(Status {
         kind: Kind::Idle,
-        ..node.status.clone().expect("live node has a Status")
+        ..node.status().cloned().expect("live node has a Status")
     });
     lock(&rail.nodes).push(node);
     let now = Arc::new(AtomicI64::new(100_000));
@@ -131,7 +131,7 @@ async fn dcl1_eligible_pending_deadline_recovers_without_a_new_event() {
     // Time spent busy does not count toward the bound.
     let idle = lock(&rail.nodes)[0].clone();
     let mut busy = idle.clone();
-    busy.status.as_mut().unwrap().kind = Kind::Working;
+    busy.door_mut().unwrap().status.as_mut().unwrap().kind = Kind::Working;
     lock(&rail.nodes)[0] = busy;
     now.fetch_add(60_000, Ordering::SeqCst);
     failure::sweep(inner).await;
@@ -236,7 +236,7 @@ async fn u6296a_a_message_to_a_busy_receiver_shows_its_reason() {
     let inner = &messages.inner;
     let idle = lock(&rail.nodes)[0].clone();
     let mut busy = idle.clone();
-    busy.status.as_mut().unwrap().kind = Kind::Working;
+    busy.door_mut().unwrap().status.as_mut().unwrap().kind = Kind::Working;
     lock(&rail.nodes)[0] = busy;
     let note = pending(&messages, &Actor::daemon(), "when you can");
     crate::nudge(inner, "m").await;
@@ -260,8 +260,8 @@ async fn u6404a_a_stopped_receiver_gets_its_message_under_a_hold_and_a_running_o
     let inner = &messages.inner;
     let idle = lock(&rail.nodes)[0].clone();
     let mut running = idle.clone();
-    running.status.as_mut().unwrap().kind = Kind::Working;
-    running.status.as_mut().unwrap().label = "working".into();
+    running.door_mut().unwrap().status.as_mut().unwrap().kind = Kind::Working;
+    running.door_mut().unwrap().status.as_mut().unwrap().label = "working".into();
     lock(&rail.nodes)[0] = running.clone();
     let note = pending(&messages, &Actor::daemon(), "child is done");
     crate::nudge(inner, "m").await;
@@ -270,7 +270,7 @@ async fn u6404a_a_stopped_receiver_gets_its_message_under_a_hold_and_a_running_o
     assert!(written(&inbox).is_empty());
 
     let mut waiting = running;
-    waiting.status.as_mut().unwrap().label = "waiting on `npm test`".into();
+    waiting.door_mut().unwrap().status.as_mut().unwrap().label = "waiting on `npm test`".into();
     lock(&rail.nodes)[0] = waiting;
     crate::nudge(inner, "m").await;
     assert_eq!(written(&inbox), vec![vec![note.id]]);
@@ -283,7 +283,7 @@ async fn u6307a_a_busy_receiver_keeps_the_messages_own_reason() {
     let inner = &messages.inner;
     let idle = lock(&rail.nodes)[0].clone();
     let mut busy = idle.clone();
-    busy.status.as_mut().unwrap().kind = Kind::Working;
+    busy.door_mut().unwrap().status.as_mut().unwrap().kind = Kind::Working;
     lock(&rail.nodes)[0] = busy;
     let first = pending(&messages, &Actor::daemon(), "first input");
     let unread = pending(&messages, &Actor::daemon(), "unreadable");

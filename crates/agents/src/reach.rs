@@ -94,7 +94,7 @@ impl Shared {
             // B54: an Agent's own pane is readable by an Agent that started it (in its Reach).
             let pane = nodes
                 .iter()
-                .find(|node| node.terminal_id.as_deref() == Some(terminal));
+                .find(|node| node.terminal_id().as_deref() == Some(terminal));
             return match pane {
                 Some(node) if pane_readable && self.reach(&actor.id)?.contains(&node.id) => Ok(()),
                 _ => Err(forbidden()),
@@ -105,7 +105,7 @@ impl Shared {
         }
         let mut at = nodes.iter().find(|node| node.id == actor.id);
         while let Some(node) = at {
-            if node.kind == contracts::agent::NodeKind::Workstream && node.id == owner {
+            if node.kind() == contracts::agent::NodeKind::Workstream && node.id == owner {
                 return Ok(());
             }
             at = node
@@ -128,10 +128,9 @@ impl Shared {
             other => return other,
         };
         let reach = self.reach(&actor.id)?;
-        let is_pane =
-            self.rail().tree()?.iter().any(|node| {
-                node.terminal_id.as_deref() == Some(terminal) && reach.contains(&node.id)
-            });
+        let is_pane = self.rail().tree()?.iter().any(|node| {
+            node.terminal_id().as_deref() == Some(terminal) && reach.contains(&node.id)
+        });
         if is_pane { Ok(()) } else { Err(refused) }
     }
 

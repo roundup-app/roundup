@@ -23,6 +23,7 @@ import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "./fontSize";
 import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
+import { doorTerminalId } from "../state/doorNode";
 
 
 /**
@@ -64,7 +65,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.launching(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
   });
 
-  const terminalId = createMemo(() => selected()?.terminal_id ?? null);
+  const terminalId = createMemo(() => doorTerminalId(selected()));
 
   createEffect(() => props.observeTerminal?.(terminalId()));
   onCleanup(() => props.observeTerminal?.(null));

@@ -13,9 +13,9 @@ impl Agents {
         let live = {
             let mut rail = self.shared.rail();
             let node = rail.node(crate::rail::agent_id(id)?)?;
-            if node.kind != NodeKind::Agent
+            if node.kind() != NodeKind::Agent
                 || node.parent.is_some()
-                || node.mode_prompt.is_some()
+                || node.mode_prompt().is_some()
                 || !rail.has_conversation(crate::rail::agent_id(id)?)?
                 || !rail.convert_kind(crate::rail::agent_id(id)?, true)?
             {
@@ -73,10 +73,10 @@ impl Agents {
         let mode = {
             let mut rail = self.shared.rail();
             let agent = rail.node(crate::rail::agent_id(&id)?)?;
-            if agent.kind != NodeKind::Agent || agent.mode_prompt.is_some() {
+            if agent.kind() != NodeKind::Agent || agent.mode_prompt().is_some() {
                 return Err(RpcError::conflict(format!("{id} is not an ordinary Agent")));
             }
-            let prompt = match &agent.work {
+            let prompt = match &agent.work() {
                 Some(Order::Work { ask, .. }) if !ask.trim().is_empty() => ask.clone(),
                 _ => agent.name.clone(),
             };
@@ -89,8 +89,8 @@ impl Agents {
                 spawn_prompt: None,
                 spawner: None,
                 role: None,
-                model: agent.model.as_deref(),
-                effort: agent.effort.as_deref(),
+                model: agent.model().as_deref(),
+                effort: agent.effort().as_deref(),
                 mode_prompt: Some(&prompt),
                 machine: None,
             })?
@@ -164,7 +164,7 @@ impl Agents {
         }
         let mut rail = self.shared.rail();
         let node = rail.node(crate::rail::agent_id(&id)?)?;
-        if node.kind != NodeKind::Agent || node.parent.is_some() {
+        if node.kind() != NodeKind::Agent || node.parent.is_some() {
             return Err(RpcError::not_found("root Agent"));
         }
         if rail.set_mode_prompt(crate::rail::agent_id(&id)?, prompt)? {

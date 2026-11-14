@@ -1,6 +1,7 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent, workstream } from "../testing/nodes";
+import { agent, workstream, node as groupNode } from "../testing/nodes";
 import { menuProbe, questionProbe } from "../testing/menuProbe";
 import { mountRail, rowOf, railCallsTo } from "./railFixture";
 
@@ -130,10 +131,10 @@ it("u5690d_mixed_losses_are_named_once_and_consent_uses_default_scopes", async (
 });
 
 it.each(["Enter", "Escape"])("u5690c_group_collects_in_rail_order_and_focuses_rename_%s", async key => {
-  const tree = nodes();
+  const tree: RailNode[] = nodes();
   const { app, rail } = await mountRail(tree);
   app.handlers["rail.group"] = () => {
-    const group = { ...tree[0]!, kind: "group" as const, id: "group", name: "Group", status: null };
+    const group = groupNode("group", { kind: "group", name: "Group" });
 
     for (const node of tree.filter(node => ["a", "c", "e"].includes(node.id))) node.parent = group.id;
     tree.unshift(group);

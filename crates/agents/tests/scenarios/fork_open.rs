@@ -60,7 +60,7 @@ impl Folder {
         f.call("workstream.setAuto", json!({"id": ws, "auto": true}))
             .await
             .unwrap();
-        (node.id, ws)
+        (node.base.id, ws)
     }
 
     fn mark_fork(&self) {
@@ -89,7 +89,7 @@ async fn fop5978a_fork_opens_every_agent_stopped() {
     let tree = f.tree().await;
     let node = tree.iter().find(|n| n.id == id).unwrap();
     assert_eq!(status_of(&tree, &id).kind, Kind::Done);
-    assert!(node.can_resume && node.terminal_id.is_none());
+    assert!(node.can_resume() && node.terminal_id().is_none());
     assert_eq!(folder.launches().len(), launched, "no program starts");
     assert!(f.terminals.list().await.is_empty());
 }
@@ -102,7 +102,7 @@ async fn fop5978a_live_folder_opens_unchanged() {
     let f = folder.open();
 
     let tree = f.tree().await;
-    assert!(tree.iter().find(|n| n.id == ws).unwrap().auto == Some(true));
+    assert!(tree.iter().find(|n| n.id == ws).unwrap().auto());
 }
 
 #[tokio::test]
@@ -120,11 +120,11 @@ async fn fop5978b_fork_attaches_no_owner_and_turns_auto_off() {
     assert!(f.agents.reattach_owners().await.is_empty());
     assert!(!record.exists(), "the record is dropped");
     assert!(f.agents.retained_sockets().is_empty());
-    assert!(f.tree().await.iter().find(|n| n.id == ws).unwrap().auto == Some(false));
+    assert!(!f.tree().await.iter().find(|n| n.id == ws).unwrap().auto());
     f.call("workstream.setAuto", json!({"id": ws, "auto": true}))
         .await
         .unwrap();
-    assert!(f.tree().await.iter().find(|n| n.id == ws).unwrap().auto == Some(true));
+    assert!(f.tree().await.iter().find(|n| n.id == ws).unwrap().auto());
 }
 
 async fn resumed_argv(folder: &Folder) -> String {
@@ -132,7 +132,7 @@ async fn resumed_argv(folder: &Folder) -> String {
     let tree = f.tree().await;
     let id = tree
         .iter()
-        .find(|n| n.kind == contracts::agent::NodeKind::Agent)
+        .find(|n| n.kind() == contracts::agent::NodeKind::Agent)
         .unwrap()
         .id
         .clone();
@@ -227,7 +227,7 @@ async fn fop5978d_fork_never_provisions_in_the_live_project() {
 async fn fop5978d_fork_never_removes_a_live_worktree() {
     let project = tempfile::tempdir().unwrap();
     let (folder, f, tree) = fork_over(project.path());
-    let id = spawn_in(&f, project.path()).await.unwrap().id;
+    let id = spawn_in(&f, project.path()).await.unwrap().base.id;
     let db = rusqlite::Connection::open(folder.data.join("agents.db")).unwrap();
     db.execute(
         "UPDATE nodes SET worktree_path=?1, worktree_branch='agent', worktree_base='main',

@@ -206,7 +206,11 @@ impl Daemon {
             .into_iter()
             .find(|n| n.id == p.id)
             .ok_or_else(|| RpcError::not_found("reporting Agent is gone"))?;
-        if node.attempt.as_deref() != Some(&delivery.attempt)
+        if node
+            .attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str)
+            != Some(delivery.attempt.as_str())
             || delivery.state != contracts::agent::InstructionState::Submitted
         {
             return Err(RpcError::conflict(

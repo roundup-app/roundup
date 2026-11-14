@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as xtermModule from "@xterm/xterm";
 import type { Terminal } from "@xterm/xterm";
 import type { Snapshot } from "@contracts/terminal/Snapshot";
-import { event, info, node } from "../testing/nodes";
+import { doorOf, event, info, node } from "../testing/nodes";
 import { fromBase64, toBase64 } from "./base64";
 import { createXtermEmulators } from "./emulator";
 import { connectFakeProject, fakeEmulators, mountPane, subscribed } from "./paneHarness";
@@ -164,7 +164,7 @@ describe("x14 the App's output subscription", () => {
     const tree = [node("a"), node("b"), ...others.map((id) => node(id))];
     const terminals = tree.map((each) => info(`t-${each.id}`));
     const { app, connected, emulators } = await mountPane(tree, terminals);
-    const statusOf = (id: string) => connected.rail.nodes.find((each) => each.id === id)?.status?.label;
+    const statusOf = (id: string) => doorOf(connected.rail.nodes.find((each) => each.id === id))?.status?.label;
 
     // The shell echoes what is typed into it.
     app.handlers["terminal.write"] = ({ id, data }) => {

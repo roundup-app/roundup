@@ -120,7 +120,7 @@ impl Run {
                 .into_iter()
                 .find(|node| node.id == id)
                 .unwrap();
-            if node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle) {
+            if node.status().is_some_and(|s| s.kind == Kind::Idle) {
                 return node;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
@@ -293,7 +293,7 @@ async fn a36_each_role_runs_on_its_project_pair() {
     let tree = rail_tree(&client).await;
     let held = |id: &str| {
         let node = tree.iter().find(|n| n.id == id).unwrap();
-        (node.model.clone(), node.effort.clone())
+        (node.model(), node.effort())
     };
     assert_eq!(held(&door.id), (Some("opus".into()), Some("high".into())));
     assert_eq!(held(&agent.id), (Some("haiku".into()), Some("low".into())));
@@ -311,7 +311,7 @@ async fn a36_unset_passes_neither_flag_nor_variable() {
     assert_eq!(launch["env"], json!({}));
     let tree = rail_tree(&client).await;
     let node = tree.iter().find(|n| n.id == agent.id).unwrap();
-    assert_eq!((&node.model, &node.effort), (&None, &None));
+    assert_eq!((&node.model(), &node.effort()), (&None, &None));
 }
 
 #[tokio::test]
@@ -383,7 +383,7 @@ async fn a36_a_door_start_carries_its_own_pair() {
 
     let launch = run.launches_after(1).remove(0);
     assert!(argv_has(&launch, "--model", "opus") && argv_has(&launch, "--effort", "xhigh"));
-    assert_eq!(door.model.as_deref(), Some("opus"));
+    assert_eq!(door.model().as_deref(), Some("opus"));
 }
 
 /// M12's rule, enforced by the Daemon: an Agent's call takes any listed Model and no Effort.
@@ -462,7 +462,7 @@ async fn a37_without_confirmed_nothing_changes() {
     assert!(refused.message.contains("confirmed"), "{}", refused.message);
     assert_eq!(run.launches_after(1).len(), 1);
     let tree = rail_tree(&client).await;
-    assert_eq!(tree[0].model.as_deref(), Some("haiku"));
+    assert_eq!(tree[0].model().as_deref(), Some("haiku"));
 }
 
 #[tokio::test]
@@ -476,7 +476,7 @@ async fn a37_the_same_pair_starts_nothing() {
         .await
         .unwrap();
 
-    assert_eq!(node.model.as_deref(), Some("haiku"));
+    assert_eq!(node.model().as_deref(), Some("haiku"));
     tokio::time::sleep(Duration::from_millis(500)).await;
     assert_eq!(run.launches().len(), 1);
 }
@@ -531,7 +531,7 @@ async fn a37_a_confirmed_change_makes_one_launch_with_resume_and_the_new_model()
         .await
         .unwrap();
 
-    assert_eq!(node.model.as_deref(), Some("opus"));
+    assert_eq!(node.model().as_deref(), Some("opus"));
     let launches = run.launches_after(2);
     tokio::time::sleep(Duration::from_millis(500)).await;
     let launches_later = run.launches();
@@ -614,7 +614,7 @@ async fn a37_an_exited_agent_only_stores_the_pair() {
         .await
         .unwrap();
 
-    assert_eq!(node.model.as_deref(), Some("opus"));
+    assert_eq!(node.model().as_deref(), Some("opus"));
     tokio::time::sleep(Duration::from_millis(500)).await;
     assert_eq!(run.launches().len(), 1);
 }

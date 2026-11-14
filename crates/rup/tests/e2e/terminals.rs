@@ -172,7 +172,7 @@ pub(super) async fn e6_only_an_agent_with_a_live_terminal_has_a_channel() {
     let rail = rail(&project, &user).await;
 
     let tree = rail_tree(&user).await;
-    let channel = |id: &str| tree.iter().find(|n| n.id == id).unwrap().channel;
+    let channel = |id: &str| tree.iter().find(|n| n.id == id).unwrap().channel();
 
     assert_eq!(channel(&rail.a), Some(Channel::Pending));
     assert_eq!(channel(&rail.g), None);
@@ -488,7 +488,8 @@ pub(super) async fn f5_a_stray_claude_under_a_door_is_flagged_once_and_cleared_o
         .into_iter()
         .find(|n| n.id == door)
         .unwrap()
-        .status;
+        .status()
+        .cloned();
 
     let flagged = next_stray(&mut client).await;
     let pid_found: u32 = json_file_text(&pid).await.trim().parse().unwrap();
@@ -502,9 +503,9 @@ pub(super) async fn f5_a_stray_claude_under_a_door_is_flagged_once_and_cleared_o
         .into_iter()
         .find(|n| n.id == door)
         .unwrap();
-    assert_eq!(node.stray, flagged.stray);
-    assert_eq!(node.status, status);
-    assert_eq!(node.kind, contracts::agent::NodeKind::Workstream);
+    assert_eq!(node.stray(), flagged.stray);
+    assert_eq!(node.status().cloned(), status);
+    assert_eq!(node.kind(), contracts::agent::NodeKind::Workstream);
 
     assert!(
         Command::new("kill")
@@ -520,7 +521,7 @@ pub(super) async fn f5_a_stray_claude_under_a_door_is_flagged_once_and_cleared_o
         .into_iter()
         .find(|n| n.id == door)
         .unwrap();
-    assert!(node.stray.is_empty());
+    assert!(node.stray().is_empty());
 }
 
 #[tokio::test]

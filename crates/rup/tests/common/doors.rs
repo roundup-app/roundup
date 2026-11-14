@@ -25,8 +25,9 @@ pub async fn child_of(client: &rpc::Client, parent: &str) -> String {
     rail_tree(client)
         .await
         .into_iter()
-        .find(|node| node.parent.as_deref() == Some(parent))
+        .find(|node| node.base.parent.as_deref() == Some(parent))
         .unwrap()
+        .base
         .id
 }
 

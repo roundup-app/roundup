@@ -5,6 +5,7 @@ import { retryRead } from "../app/seam";
 import { copy as appCopy } from "./copy";
 import type { OutputMessage, OutputSubscription } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
+import { isDoor } from "../state/doorNode";
 
 /** One Terminal's output subscription that exists only to learn that bytes came: the first one ends it. */
 type Watch = { open: boolean; subscription: OutputSubscription | null };
@@ -42,7 +43,7 @@ export const createWatches = ({ connected, exited, streaming, shownTo, disposed 
     // U6119c: a Workstream child's Terminals, its own and those it owns, draw no unseen output.
     const owner = rail.terminals().find((terminal) => terminal.id === id)?.owner;
 
-    if (on && rail.nodes.some((node) => (node.terminal_id === id || node.id === owner) && isWorkstreamChild(rail.nodes, node))) return;
+    if (on && rail.nodes.some((node) => ((isDoor(node) && node.terminal_id === id) || node.id === owner) && isWorkstreamChild(rail.nodes, node))) return;
 
     if (!!untrack(() => unseenIds[id]) !== on) setUnseen(id, on ? true : undefined);
   };
@@ -118,7 +119,7 @@ export const createWatches = ({ connected, exited, streaming, shownTo, disposed 
 
   /** A plain Terminal no one is streaming gets a watch until it is unseen; a Door's or Agent's Terminal, an exited one and one already unseen get none. */
   const reconcile = (): void => {
-    const panes = new Set(rail.nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
+    const panes = new Set(rail.nodes.flatMap((node) => isDoor(node) && node.terminal_id !== null ? [node.terminal_id] : []));
     const wanted = new Set(rail.terminals().filter((terminal) => !panes.has(terminal.id)).map((terminal) => terminal.id));
 
     for (const id of watches.keys()) {

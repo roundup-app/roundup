@@ -102,12 +102,13 @@ impl Daemon {
         };
         match (selected, node) {
             (_, Some(node)) => {
-                let status = node.status.map_or("none".to_string(), |s| {
+                let status = node.status().map_or("none".to_string(), |s| {
                     format!("{:?} ({})", s.kind, s.label)
                 });
                 out.push_str(&format!(
                     "Selected: {} {:?}, state {status}\n",
-                    node.name, node.kind
+                    node.name,
+                    node.kind()
                 ));
             }
             (Some(id), None) => out.push_str(&format!("Selected: {id}, not on the Rail\n")),

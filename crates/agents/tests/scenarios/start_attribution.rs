@@ -158,7 +158,7 @@ async fn a5765c_agent_attribution_input_creates_and_replaces_nothing() {
     let mut ctx = f.ctx();
     ctx.actor = Actor {
         kind: ActorKind::Agent,
-        id: local.id,
+        id: local.base.id,
         parent: None,
     };
     for method in ["agent.spawn", "rail.createWorkstream"] {
@@ -178,8 +178,8 @@ async fn a5765c_agent_attribution_input_creates_and_replaces_nothing() {
             assert_eq!(after.len(), before.len());
             for (after, before) in after.iter().zip(&before) {
                 assert_eq!(
-                    (&after.id, &after.start_attribution),
-                    (&before.id, &before.start_attribution)
+                    (&after.id, &after.door().unwrap().start_attribution),
+                    (&before.id, &before.door().unwrap().start_attribution)
                 );
             }
             assert_eq!(f.terminals.list().await.len(), launches);

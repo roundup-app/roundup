@@ -474,7 +474,9 @@ pub(crate) mod tests {
                 finished: "0".into(),
             }),
         );
-        node.terminal_id = Some(format!("terminal-{id}"));
+        if let Some(door) = node.door_mut() {
+            door.terminal_id = Some(format!("terminal-{id}"));
+        }
         node
     }
 

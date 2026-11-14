@@ -1,3 +1,4 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { menuProbe, questionProbe } from "../testing/menuProbe";
@@ -14,7 +15,7 @@ const CMD_BACKSPACE = { key: "Backspace", code: "Backspace", metaKey: true, shif
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** A fake Daemon whose `rail.remove` takes the row out of the tree it then answers. */
-const mount = async (tree: ReturnType<typeof agent>[]) => {
+const mount = async (tree: RailNode[]) => {
   const mounted = await mountRail(tree);
   mounted.app.handlers["rail.remove"] = () => null;
 

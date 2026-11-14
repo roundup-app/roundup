@@ -83,7 +83,7 @@ impl Run {
                 .into_iter()
                 .find(|node| node.id == id)
                 .unwrap();
-            if node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle) {
+            if node.status().is_some_and(|s| s.kind == Kind::Idle) {
                 return;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;

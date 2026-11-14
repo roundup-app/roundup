@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRoot, createSignal } from "solid-js";
+import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup } from "@solidjs/testing-library";
 import { mountTodos } from "../todos/testHarness";
 import { createReducedMotion } from "../app/reducedMotion";
@@ -10,7 +11,7 @@ import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { todoHandlers, padHandlers } from "../testing/stores";
-import { agent, info, workstream } from "../testing/nodes";
+import { agent, doorOf, info, workstream } from "../testing/nodes";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
 
@@ -32,7 +33,7 @@ const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
 
 const fixtureApp = (prefix: string) => {
   const app = createFakeApp();
-  const tree = [workstream(`${prefix}-home`)];
+  const tree: RailNode[] = [workstream(`${prefix}-home`)];
   const store = { todos: [] };
   const pads = { pads: [], history: [] };
 
@@ -63,7 +64,7 @@ const fixtureApp = (prefix: string) => {
   };
 
   app.handlers["agent.signal"] = ({ id, payload }) => {
-    const row = tree.find(row => row.id === id)!;
+    const row = doorOf(tree.find(row => row.id === id))!;
 
     row.status = { kind: payload.hook_event_name === "UserPromptSubmit" ? "working" : "idle", label: "fixture", since: 0, finished: "0" };
 
@@ -221,7 +222,7 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(rows.slice(4).every(row => row.owner?.id === fixture.rail.find(node => node.name === "token-rotation")?.id)).toBe(true);
     expect(rows.map(row => row.blockers)).toEqual([[], [1], [2], [], [], [5], [6], []]);
     expect(rail).toHaveLength(40);
-    expect(rail.filter(row => row.status?.kind === "working")).toHaveLength(10);
+    expect(rail.filter(row => doorOf(row)?.status?.kind === "working")).toHaveLength(10);
     expect(await app.rpc("pad.list", null)).toHaveLength(4);
     expect(other.bytes).toBe(fixture.bytes);
     expect(other.sha256).toBe(fixture.sha256);

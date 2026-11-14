@@ -297,7 +297,7 @@ impl Seen {
             )));
         }
         let node = from.node(id).ok_or_else(|| Error::not_found(name(id)))?;
-        if node.kind != NodeKind::Workstream {
+        if node.kind() != NodeKind::Workstream {
             return Err(Error::conflict(format!("{} is no Door", node.name)));
         }
         let children = from.children(id);
@@ -331,7 +331,7 @@ impl Seen {
     pub fn entry_of(&self, child: &str, from: &Sources, tell: bool) -> Option<DigestEntry> {
         let projection = Projection::new(from);
         let from = &projection;
-        let node = from.node(child).filter(|node| node.status.is_some())?;
+        let node = from.node(child).filter(|node| node.status().is_some())?;
         let parent = node.parent.clone().unwrap_or_default();
         let mut book = self.book();
         let key = (parent.clone(), child.to_owned());
@@ -396,7 +396,7 @@ impl Seen {
                     .told
                     .get(&key)
                     .is_none_or(|was| was.completed != now.completed);
-            if meta.kind != NodeKind::Workstream && !new_final {
+            if meta.kind() != NodeKind::Workstream && !new_final {
                 continue;
             }
             // B43: the change into `error` or `needs-you` is the parent's note, not a push.
@@ -449,7 +449,7 @@ impl Seen {
                 let nothing_else = repeats
                     && pushed.todos == 0
                     && pushed.pads.is_empty()
-                    && child.status.as_ref().is_some_and(|s| s.kind != Kind::Error);
+                    && child.status().is_some_and(|s| s.kind != Kind::Error);
                 let repeated = repeated || nothing_else;
                 let before = (after, book.told.get(&key).cloned());
                 // DCL10a: a refused write leaves the change untold, to be offered again.
@@ -627,7 +627,7 @@ fn farewells(book: &mut Book, from: &Projection) -> Vec<Push> {
         }
         let door = from
             .node(&key.0)
-            .is_some_and(|node| node.kind == NodeKind::Workstream);
+            .is_some_and(|node| node.kind() == NodeKind::Workstream);
         if door && !matches!(told.entry.kind, Kind::Done | Kind::Error) {
             pushes.push(Push {
                 meta: key.0.clone(),
@@ -668,17 +668,16 @@ fn repeats_report(child: &RailNode, meta: &str, from: &Projection, pushed: &Dige
 /// B19's fallback `last` for `child`: its Status label.
 fn child_label(child: &RailNode) -> String {
     child
-        .status
-        .as_ref()
+        .status()
         .map_or_else(String::new, |status| status.label.clone())
 }
 
 /// An Agent, or a Workstream whose Door has run.
 fn is_agent(node: &RailNode) -> bool {
-    match node.kind {
+    match node.kind() {
         NodeKind::Group => false,
         NodeKind::Agent => true,
-        NodeKind::Workstream => node.attempt.is_some(),
+        NodeKind::Workstream => node.attempt().is_some(),
     }
 }
 
@@ -691,7 +690,7 @@ fn entry(
     after: Option<i64>,
     end: bool,
 ) -> (DigestEntry, Option<i64>) {
-    let Some(status) = child.status.as_ref() else {
+    let Some(status) = child.status() else {
         unreachable!("the caller keeps only children that have a Status");
     };
     let index = from.ids.get(child.id.as_str()).copied();
@@ -766,10 +765,7 @@ fn final_text<'a>(
         return None;
     }
     let text = from.completed_of(child)?;
-    if !text
-        .0
-        .starts_with(&format!("{}:", child.attempt.as_deref()?))
-    {
+    if !text.0.starts_with(&format!("{}:", child.attempt()?)) {
         return None;
     }
     (!question_since(child, from, text.1)).then_some(text)
@@ -796,8 +792,8 @@ pub(crate) fn cut(text: &str, max: usize) -> String {
 
 /// B49: whether `node` has ended: Kind `done`, or an Attempt that exited with no Terminal.
 fn is_end(node: &RailNode) -> bool {
-    node.status.as_ref().is_some_and(|status| {
-        status.kind == Kind::Done || (status.kind == Kind::Error && node.terminal_id.is_none())
+    node.status().is_some_and(|status| {
+        status.kind == Kind::Done || (status.kind == Kind::Error && node.terminal_id().is_none())
     })
 }
 

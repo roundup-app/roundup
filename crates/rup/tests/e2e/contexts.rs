@@ -131,7 +131,7 @@ pub(super) async fn d4_ten_idle_agents_cost_the_daemon_less_than_150_mb() {
     let deadline = Instant::now() + TEN_IDLE_BOUND;
     let mut ids = Vec::new();
     for _ in 0..10 {
-        ids.push(project.spawn_agent(&client).await.id);
+        ids.push(project.spawn_agent(&client).await.base.id);
     }
     wait_until_idle(&mut client, &ids, deadline)
         .await
@@ -157,7 +157,7 @@ pub(super) async fn d4_wait_returns_once_every_watched_agent_is_idle_not_at_the_
             json!({ "hook_event_name": "SessionStart" }),
         )
         .await;
-        ids.push(agent.id);
+        ids.push(agent.base.id);
     }
 
     let started = Instant::now();
@@ -455,7 +455,7 @@ pub(super) async fn agent_in(
         )
         .await
         .unwrap();
-    serde_json::from_value::<RailNode>(node).unwrap().id
+    serde_json::from_value::<RailNode>(node).unwrap().base.id
 }
 
 /// The id of the Agent that Agent `caller` starts (F3, A26).
@@ -468,7 +468,7 @@ pub(super) async fn agent_in_as(project: &Project, caller: &str) -> String {
         )
         .await
         .unwrap();
-    serde_json::from_value::<RailNode>(node).unwrap().id
+    serde_json::from_value::<RailNode>(node).unwrap().base.id
 }
 
 /// `a` and `b` under the Door `m`, and `c` under the plain Group `g`.

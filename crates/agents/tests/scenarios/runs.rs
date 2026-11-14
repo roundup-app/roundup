@@ -315,7 +315,7 @@ async fn x12_removing_the_workstream_closes_its_terminals() {
     let tree = f.tree().await;
     assert!(tree.iter().any(|n| n.id == child.id && n.parent.is_none()));
     assert!(
-        f.listed(child.terminal_id.as_deref().unwrap())
+        f.listed(&child.terminal_id().unwrap())
             .await
             .is_some_and(|t| t.running)
     );

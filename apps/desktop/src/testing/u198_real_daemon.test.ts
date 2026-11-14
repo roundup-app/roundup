@@ -8,6 +8,7 @@ import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { createComponent, createSignal } from "solid-js";
 import { expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { doorOf } from "../testing/nodes";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { Rail } from "../rail/Rail";
@@ -42,7 +43,7 @@ it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () 
     const home = await app.rpc("rail.createWorkstream", { name: "Home", parent: null });
     const child = await app.rpc("agent.spawn", { name: "Child", cwd: real.dir, parent: home.id, prompt: null });
     await waitFor(async () => {
-      const terminal = await app.rpc("terminal.read", { id: child.terminal_id!, after: 0, reader: null, max: null });
+      const terminal = await app.rpc("terminal.read", { id: doorOf(child)!.terminal_id!, after: 0, reader: null, max: null });
       expect(terminal.text).toContain("READY");
     });
     const [now, setNow] = createSignal(Date.now());
@@ -57,7 +58,7 @@ it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () 
 
     const before = await typed();
     const callStart = calls.length;
-    const signal = (payload: SignalParams["payload"]) => app.rpc("agent.signal", { id: child.id, attempt: child.attempt!, payload });
+    const signal = (payload: SignalParams["payload"]) => app.rpc("agent.signal", { id: child.id, attempt: doorOf(child)!.attempt!, payload });
 
     // Real Adapter input classes, including a question beyond a displayed excerpt.
     // The Rail never receives or inspects these strings.
@@ -66,15 +67,15 @@ it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () 
     for (const [turn, reply] of replies.entries()) {
       const promptId = `u5483-${turn}`;
       await signal({ hook_event_name: "UserPromptSubmit", prompt_id: promptId, prompt: "Continue" });
-      await waitFor(() => expect(connected.rail.nodes.find(node => node.id === child.id)?.status?.kind).toBe("working"));
+      await waitFor(() => expect(doorOf(connected.rail.nodes.find(node => node.id === child.id))?.status?.kind).toBe("working"));
       expect(rowNames()).toContain("Child");
       await signal({ hook_event_name: "Stop", prompt_id: promptId, last_assistant_message: reply });
       await waitFor(() => {
-        const node = connected.rail.nodes.find(node => node.id === child.id);
+        const node = doorOf(connected.rail.nodes.find(node => node.id === child.id));
         expect(node?.status?.kind).toBe("idle");
         expect(node?.final_text?.kind).toBe(reply === undefined ? "unknown" : reply === "" ? "empty" : "present");
       });
-      const node = connected.rail.nodes.find(node => node.id === child.id)!;
+      const node = doorOf(connected.rail.nodes.find(node => node.id === child.id))!;
       setNow(node.status!.since + 300_000);
       await waitFor(() => expect(rowNames()).not.toContain("Child"));
     }

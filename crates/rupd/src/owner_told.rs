@@ -240,10 +240,10 @@ impl Told {
 }
 
 fn is_agent(node: &RailNode) -> bool {
-    match node.kind {
+    match node.kind() {
         NodeKind::Group => false,
         NodeKind::Agent => true,
-        NodeKind::Workstream => node.attempt.is_some(),
+        NodeKind::Workstream => node.attempt().is_some(),
     }
 }
 
@@ -263,13 +263,12 @@ async fn flush(told: &mut Told, reader: &Reader) {
             continue;
         };
         let idle = node
-            .status
-            .as_ref()
+            .status()
             .is_some_and(|status| status.kind == Kind::Idle);
         if !idle {
             continue;
         }
-        if node.terminal_id.is_none() {
+        if node.terminal_id().is_none() {
             told.drop_agent(&id);
             continue;
         }
@@ -302,8 +301,8 @@ async fn hand_off(told: &mut Told, reader: &Reader) {
         let ready = nodes.iter().any(|n| {
             n.id == id
                 && is_agent(n)
-                && n.terminal_id.is_some()
-                && n.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
+                && n.terminal_id().is_some()
+                && n.status().is_some_and(|s| s.kind == Kind::Idle)
         });
         if !ready {
             continue;

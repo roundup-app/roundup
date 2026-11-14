@@ -11,10 +11,10 @@ use rpc::RpcError;
 
 /// An Agent, or a Workstream whose Door has run: only these have a Context.
 fn is_agent(node: &RailNode) -> bool {
-    match node.kind {
+    match node.kind() {
         NodeKind::Group => false,
         NodeKind::Agent => true,
-        NodeKind::Workstream => node.attempt.is_some(),
+        NodeKind::Workstream => node.attempt().is_some(),
     }
 }
 
@@ -25,8 +25,8 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
         .find(|node| node.id == id && is_agent(node))
         .ok_or_else(|| RpcError::not_found("an Agent that is gone"))?;
     let status = |node: &RailNode| {
-        node.status
-            .clone()
+        node.status()
+            .cloned()
             .ok_or_else(|| RpcError::internal(format!("{} has no Status", node.name)))
     };
     // Organizational placement does not introduce a coordinator or replace the Door.
@@ -34,7 +34,7 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
         .parent
         .as_deref()
         .and_then(|id| nodes.iter().find(|candidate| candidate.id == id));
-    while parent.is_some_and(|node| node.kind == NodeKind::Group) {
+    while parent.is_some_and(|node| node.kind() == NodeKind::Group) {
         parent = parent
             .and_then(|node| node.parent.as_deref())
             .and_then(|id| nodes.iter().find(|candidate| candidate.id == id));
@@ -75,7 +75,7 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
             id: node.id.clone(),
             name: node.name.clone(),
             status: status(node)?,
-            order: node.work.clone(),
+            order: node.work(),
         },
         parent: parent.map(|parent| ContextParent {
             id: parent.id.clone(),
@@ -197,11 +197,11 @@ pub(crate) fn brief(nodes: &[RailNode], context: &Context) -> contracts::agent::
 pub(crate) fn text(nodes: &[RailNode], context: &Context) -> String {
     let door = nodes
         .iter()
-        .any(|node| node.id == context.ask.to && node.kind == NodeKind::Workstream);
+        .any(|node| node.id == context.ask.to && node.kind() == NodeKind::Workstream);
     let mut text = words(context, door);
     let mut parent = context.parent.as_ref().map(|parent| parent.id.as_str());
     while let Some(node) = parent.and_then(|id| nodes.iter().find(|node| node.id == id)) {
-        if node.kind == NodeKind::Workstream {
+        if node.kind() == NodeKind::Workstream {
             text.push_str(&format!("\n\nWorkstream: {}.\n\n", node.name));
             text.push_str(agents::claude_code::WORKSTREAM_GUIDANCE);
             break;
@@ -248,40 +248,32 @@ mod tests {
     }
 
     fn node(id: &str, kind: NodeKind, name: &str, parent: Option<&str>, door: bool) -> RailNode {
-        RailNode {
-            workstream_state: None,
-            waiting: None,
-            unreachable: None,
-            resume: None,
-            start_attribution: None,
-            visibility: Default::default(),
-            alert_level: Default::default(),
-            id: id.into(),
-            auto: (kind == NodeKind::Workstream).then_some(false),
-            mode_prompt: None,
-            kind,
-            name: name.into(),
-            parent: parent.map(str::to_owned),
-            order: 0,
+        use contracts::agent::{AgentNode, DoorFacts, NodeBase, Role, WorkstreamNode};
+        let facts = DoorFacts {
             status: status(Kind::Idle),
             attempt: (kind == NodeKind::Agent || door).then(contracts::agent::Ordinal::first),
-            status_revision: None,
-            final_text: None,
-            terminal_id: None,
-            worktree: None,
-            can_resume: false,
-            can_make_workstream: false,
-            can_save_as_mode: false,
-            yolo: false,
-            channel: None,
-            stray: Vec::new(),
-            model: None,
-            effort: None,
-            inbox: None,
-            tool_call: None,
-            overview: None,
             work: Some(contracts::agent::Order::clarification("?")),
-            machine: None,
+            ..Default::default()
+        };
+        let role = match kind {
+            NodeKind::Group => Role::Group,
+            NodeKind::Workstream => Role::Workstream(WorkstreamNode {
+                door: facts,
+                ..Default::default()
+            }),
+            NodeKind::Agent => Role::Agent(AgentNode {
+                door: facts,
+                ..Default::default()
+            }),
+        };
+        RailNode {
+            base: NodeBase {
+                id: id.into(),
+                name: name.into(),
+                parent: parent.map(str::to_owned),
+                ..Default::default()
+            },
+            role,
         }
     }
 
@@ -553,7 +545,9 @@ mod tests {
         let gone = compose(&nodes, &[], "7014").unwrap_err();
         assert_eq!(gone.code, rpc::code::NOT_FOUND);
         assert_eq!(gone.message, "not found: an Agent that is gone");
-        nodes[0].status = None;
+        if let Some(door) = nodes[0].door_mut() {
+            door.status = None;
+        }
         let missing_status = compose(&nodes, &[], "7013").unwrap_err();
         assert_eq!(missing_status.code, rpc::code::INTERNAL);
         assert_eq!(missing_status.message, "sad has no Status");

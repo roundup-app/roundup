@@ -8,6 +8,7 @@ import type { Emulator, Size } from "./emulator";
 import type { Failures } from "./failures";
 import { restoreScrollback } from "./scrollback";
 import type { Watches } from "./watch";
+import { isDoor } from "../state/doorNode";
 
 /** Bytes buffered for one Terminal while its screen is fetched; past this the oldest go and the screen is fetched again. */
 const MAX_BUFFERED_BYTES = 1_048_576;
@@ -194,7 +195,7 @@ export const createPump = <H extends PumpHolder>({ connected, failures, watches,
   };
 
   const acknowledgeSelected = (id: string): void => {
-    const agent = rail.nodes.find(node => node.terminal_id === id);
+    const agent = rail.nodes.find(node => isDoor(node) && node.terminal_id === id);
 
     if (agent && rail.shouldAcknowledgeAlerts() && rail.selected() === agent.id) acknowledge(agent.id);
   };

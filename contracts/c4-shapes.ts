@@ -285,7 +285,10 @@ type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends Selector
   : BeforeRpcMethods[K] };
 
 // U5690c adds exactly one Rail NodeKind; nested Rail replies keep every other field.
-type WithGroups<T> = [T] extends [Before["agent/NodeKind"]]
+// RO5 replaces the flat RailNode with a union discriminated on `kind`; its fields are pinned in the Daemon's tests.
+type WithGroups<T> = [T] extends [Before["agent/RailNode"]]
+  ? ([Before["agent/RailNode"]] extends [T] ? import("./generated/agent/RailNode").RailNode : T)
+  : [T] extends [Before["agent/NodeKind"]]
   ? ([Before["agent/NodeKind"]] extends [T] ? T | "group" : T)
   : T extends object ? { [K in keyof T]: WithGroups<T[K]> } : T;
 

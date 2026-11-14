@@ -26,7 +26,7 @@ fn names(tree: &[RailNode], parent: Option<&str>) -> Vec<String> {
         .collect();
     kids.sort_by_key(|n| n.order);
     kids.into_iter()
-        .map(|n| match n.kind {
+        .map(|n| match n.kind() {
             NodeKind::Agent => format!("agent:{}", n.order),
             _ => format!("{}:{}", n.name, n.order),
         })
@@ -40,7 +40,7 @@ async fn team(f: &Fixture) -> (String, Vec<String>) {
     f.workstream("after", None).await;
     let mut agents = vec![];
     for _ in 0..2 {
-        agents.push(f.spawn(Some(&team), None).await.unwrap().id);
+        agents.push(f.spawn(Some(&team), None).await.unwrap().base.id);
     }
     (team, agents)
 }
@@ -53,9 +53,9 @@ async fn a7_start_door_makes_a_workstream_a_door_with_a_live_agent() {
 
     let node = f.start_door(&team).await.unwrap();
 
-    assert_eq!(node.kind, NodeKind::Workstream);
-    assert!(node.terminal_id.is_some());
-    assert_eq!(node.status.as_ref().map(|s| s.kind), Some(Kind::Working));
+    assert_eq!(node.kind(), NodeKind::Workstream);
+    assert!(node.terminal_id().is_some());
+    assert_eq!(node.status().map(|s| s.kind), Some(Kind::Working));
     let tree = f.tree().await;
     assert_eq!(tree.iter().find(|n| n.id == team), Some(&node));
     assert!(agents.iter().all(|id| {
@@ -97,11 +97,11 @@ async fn a7_a_start_door_whose_agent_cannot_start_leaves_the_workstream_plain() 
     std::fs::remove_file(&rup).unwrap();
 
     assert!(f.start_door(&team).await.is_err());
-    assert!(f.tree().await[0].terminal_id.is_none());
+    assert!(f.tree().await[0].terminal_id().is_none());
 
     std::fs::write(&rup, "").unwrap();
     assert_eq!(
-        f.start_door(&team).await.unwrap().kind,
+        f.start_door(&team).await.unwrap().kind(),
         NodeKind::Workstream
     );
 }
@@ -147,7 +147,7 @@ async fn a7_stopping_a_door_keeps_its_children_in_the_workstream_and_running() {
     let tree = f.until(|t| status_of(t, &team).kind == Kind::Done).await;
     assert_eq!(names(&tree, None), ["before:0", "team:1", "after:2"]);
     let meta = tree.iter().find(|n| n.id == team).unwrap();
-    assert_eq!(meta.kind, NodeKind::Workstream);
+    assert_eq!(meta.kind(), NodeKind::Workstream);
     for id in &agents {
         let child = tree.iter().find(|n| &n.id == id).unwrap();
         assert_eq!(child.parent.as_deref(), Some(team.as_str()));
@@ -159,7 +159,7 @@ async fn a7_stopping_a_door_keeps_its_children_in_the_workstream_and_running() {
             .iter()
             .find(|n| &n.id == id)
             .unwrap()
-            .terminal_id
+            .terminal_id()
             .clone();
         let alive = f
             .terminals
@@ -196,7 +196,7 @@ async fn a7_stopping_a_door_that_is_still_starting_is_a_conflict_and_moves_nothi
         let (f, team) = (std::sync::Arc::clone(&f), team.clone());
         tokio::spawn(async move { f.start_door(&team).await })
     };
-    f.until(|t| t.iter().any(|n| n.id == team && n.attempt.is_some()))
+    f.until(|t| t.iter().any(|n| n.id == team && n.attempt().is_some()))
         .await;
 
     let stopped = f.stop(&team).await.unwrap_err();
@@ -222,7 +222,7 @@ async fn a7_a_workstream_whose_door_is_starting_reads_working_starting_not_done(
         tokio::spawn(async move { f.start_door(&team).await })
     };
     let tree = f
-        .until(|t| t.iter().any(|n| n.id == team && n.attempt.is_some()))
+        .until(|t| t.iter().any(|n| n.id == team && n.attempt().is_some()))
         .await;
 
     let status = status_of(&tree, &team);
@@ -311,9 +311,9 @@ async fn a7_start_door_names_a_node_by_its_exact_id() {
     let err = f.start_door(&format!("0{team}")).await.unwrap_err();
 
     assert_eq!(err.code, code::NOT_FOUND);
-    assert!(f.tree().await[0].terminal_id.is_none());
+    assert!(f.tree().await[0].terminal_id().is_none());
     assert_eq!(
-        f.start_door(&team).await.unwrap().kind,
+        f.start_door(&team).await.unwrap().kind(),
         NodeKind::Workstream
     );
 }
@@ -335,9 +335,9 @@ async fn a8_a_door_keeps_its_flag_across_reopening_and_comes_back_done() {
     let tree = f.reopen().tree().await;
 
     let meta = tree.iter().find(|n| n.id == team).unwrap();
-    assert_eq!(meta.kind, NodeKind::Workstream);
-    assert_eq!(meta.terminal_id, None);
-    assert_eq!(meta.status.as_ref().map(|s| s.kind), Some(Kind::Done));
+    assert_eq!(meta.kind(), NodeKind::Workstream);
+    assert_eq!(meta.terminal_id(), None);
+    assert_eq!(meta.status().map(|s| s.kind), Some(Kind::Done));
 }
 
 #[tokio::test]
@@ -390,7 +390,7 @@ async fn a20_each_launch_gets_its_own_attempt_and_an_earlier_one_changes_nothing
 
     let second = f.start_door(&workstream).await.unwrap();
     assert_eq!(hook_attempt(&f, &workstream), "2");
-    assert_ne!(first.terminal_id, second.terminal_id);
+    assert_ne!(first.terminal_id(), second.terminal_id());
     let before = f.tree().await;
     for payload in [
         json!({"hook_event_name":"Stop"}),

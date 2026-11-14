@@ -13,6 +13,7 @@ import type { FakeApp } from "./fakeApp";
 import { info, NOW, USER } from "./nodes";
 import { Pads } from "../pads/Pads";
 import { Todos } from "../todos/Todos";
+import { isDoor } from "../state/doorNode";
 
 export const message = (id: number, over: Partial<Message> = {}): Message => ({
   id,
@@ -34,7 +35,7 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree;
-  app.handlers["terminal.list"] = () => tree.flatMap((node) => (node.terminal_id ? [info(node.terminal_id)] : []));
+  app.handlers["terminal.list"] = () => tree.flatMap((node) => (isDoor(node) && node.terminal_id ? [info(node.terminal_id)] : []));
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });

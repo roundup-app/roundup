@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
-import { agent, mode, workstream } from "../../testing/nodes";
+import { agent, mode, workstream, doorOf } from "../../testing/nodes";
 import { mountRailAndPane } from "../../terminal/paneHarness";
 import { copy } from "../copy";
 import { chooseAction, chooseFooter, itemOf, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
@@ -12,7 +12,7 @@ type Mounted = Awaited<ReturnType<typeof mountRail>>;
 
 const never = () => new Promise<never>(() => undefined);
 
-const startingOf = (mounted: Mounted, id: string) => mounted.rail.nodes.find(node => node.id === id)?.status?.label === "starting";
+const startingOf = (mounted: Mounted, id: string) => doorOf(mounted.rail.nodes.find(node => node.id === id))?.status?.label === "starting";
 
 const chord = (key: string) => fireEvent.keyDown(document, { key, metaKey: true });
 
@@ -133,7 +133,7 @@ it("u6000b_no_row_shows_starting_after_the_program_is_up_or_a_failure", async ()
   await settled();
   chord("n");
   await screen.findByText(/refused/);
-  expect(mounted.rail.nodes.some(node => node.status?.label === "starting")).toBe(false);
+  expect(mounted.rail.nodes.some(node => doorOf(node)?.status?.label === "starting")).toBe(false);
 });
 
 it("u6000d_launches_fired_while_one_is_pending_all_reach_the_daemon_in_order", async () => {
@@ -188,5 +188,5 @@ it("u6000a_a_launching_row_shows_starting_in_the_pane_and_for_a_workstream_that_
   void connected.rail.startDoor("other");
 
   await screen.findByText(copy.startingDoor("ws"));
-  expect(connected.rail.nodes.find(node => node.id === "other")?.status?.label).toBe("starting");
+  expect(doorOf(connected.rail.nodes.find(node => node.id === "other"))?.status?.label).toBe("starting");
 });

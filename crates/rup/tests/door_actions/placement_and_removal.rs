@@ -212,7 +212,7 @@ async fn u5991e_a_real_removal_hides_the_row_and_the_program_exits() {
     )
     .unwrap();
     let terminal = agent
-        .terminal_id
+        .terminal_id()
         .clone()
         .expect("a running Agent has a Terminal");
     for kind in [Kind::Working, Kind::Idle] {

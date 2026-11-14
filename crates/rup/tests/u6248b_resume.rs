@@ -51,7 +51,7 @@ async fn u6248b_real_claude_resumes_after_a_server_error() {
         loop {
             let nodes = project.rail_tree(&user).await;
             let node = nodes.iter().find(|n| n.id == id).unwrap();
-            if node.status.as_ref().unwrap().kind == Kind::Idle && node.resume.is_none() {
+            if node.status().unwrap().kind == Kind::Idle && node.resume().is_none() {
                 break;
             }
             tokio::task::yield_now().await;

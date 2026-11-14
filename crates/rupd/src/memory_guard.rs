@@ -49,7 +49,7 @@ async fn tell(reader: &Reader, end: &End) {
     if let Ok(nodes) = reader.rail().await {
         let mut at = nodes.iter().find(|n| n.id == end.agent);
         while let Some(node) = at {
-            if node.kind == NodeKind::Workstream {
+            if node.kind() == NodeKind::Workstream {
                 targets.push((node.id.clone(), format!("Agent {}: {body}", end.agent)));
                 break;
             }

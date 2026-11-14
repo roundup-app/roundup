@@ -24,7 +24,7 @@ impl Agents {
     pub fn is_door(&self, id: &str) -> bool {
         crate::rail::agent_id(id)
             .and_then(|id| self.shared.rail().node(id))
-            .is_ok_and(|node| node.kind == contracts::agent::NodeKind::Workstream)
+            .is_ok_and(|node| node.kind() == contracts::agent::NodeKind::Workstream)
     }
 
     /// DCR3: whether `job` is in the Reach of `door` (M7).
@@ -48,11 +48,14 @@ impl Agents {
             if rail.role(crate::rail::agent_id(&node.id)?)? != Some(SpawnRole::Job) {
                 continue;
             }
-            let attempt = node.attempt.as_deref().unwrap_or_default().to_owned();
+            let attempt = node
+                .attempt()
+                .map(|attempt| attempt.to_string())
+                .unwrap_or_default();
             if !reported_attempts(&node.id)?.contains(&attempt) {
                 open.push(OpenJob {
-                    id: node.id,
-                    name: node.name,
+                    id: node.base.id,
+                    name: node.base.name,
                     attempt,
                 });
             }

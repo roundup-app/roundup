@@ -19,15 +19,15 @@ fn status(kind: Kind, label: &str) -> Option<Status> {
 #[tokio::test]
 async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
     let dir = tempfile::tempdir().unwrap();
-    let gone = RailNode {
-        status_revision: None,
-        ..node(
+    let gone = edit(
+        node(
             "m",
             NodeKind::Workstream,
             true,
             status(Kind::Done, "terminal gone"),
-        )
-    };
+        ),
+        |door| door.status_revision = None,
+    );
     let rail = FakeRail::new(vec![gone]);
     let bus = Bus::new();
     let agents: Arc<dyn Module> = rail.clone();
@@ -46,22 +46,18 @@ async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
         .unwrap_err();
 
     // Resuming: Attempt 2 shows `starting` at Status revision 1, then the ack makes it idle.
-    let resuming = RailNode {
-        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        ..node(
+    let resuming = edit(
+        node(
             "m",
             NodeKind::Workstream,
             true,
             status(Kind::Working, "starting"),
-        )
-    };
+        ),
+        |door| door.attempt = contracts::agent::Ordinal::parse("2"),
+    );
     *rail.0.lock().unwrap() = vec![resuming];
     on_status(&messages.inner, "m", "2", "1", Kind::Working).await;
-    let idle = RailNode {
-        attempt: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        status_revision: Some(contracts::agent::Ordinal::parse("2").unwrap()),
-        ..agent_node("m", Kind::Idle)
-    };
+    let idle = at(agent_node("m", Kind::Idle), "2", "2");
     *rail.0.lock().unwrap() = vec![idle];
 
     let sent = messages.call(&ctx, "message.send", send).await.unwrap();
@@ -69,12 +65,10 @@ async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
 }
 
 fn survivor(kind: Kind, revision: Option<&str>) -> RailNode {
-    RailNode {
-        visibility: Default::default(),
-        terminal_id: Some("terminal-b".into()),
-        status_revision: revision.map(|n| contracts::agent::Ordinal::parse(n).unwrap()),
-        ..agent_node("b", kind)
-    }
+    edit(agent_node("b", kind), |door| {
+        door.terminal_id = Some("terminal-b".into());
+        door.status_revision = revision.and_then(contracts::agent::Ordinal::parse);
+    })
 }
 
 async fn initial(messages: &Messages) {
@@ -186,7 +180,7 @@ async fn b5551a_messages_wait_for_a_surviving_agents_status() {
             drop(before);
             let mut unknown = survivor(Kind::Idle, None);
             if !cached {
-                unknown.status = None;
+                unknown.door_mut().unwrap().status = None;
             }
             *rail.0.lock().unwrap() = vec![unknown];
             let mut h = Harness::open(dir.path(), rail.clone(), true);
@@ -256,8 +250,8 @@ async fn b5551a_an_ended_agent_is_not_mistaken_for_a_survivor() {
     for kind in ["note", "question"] {
         let dir = tempfile::tempdir().unwrap();
         let mut gone = agent_node("b", Kind::Done);
-        gone.status = None;
-        gone.status_revision = None;
+        gone.door_mut().unwrap().status = None;
+        gone.door_mut().unwrap().status_revision = None;
         let mut h = Harness::new(dir.path(), vec![gone]);
         initial(&h.messages).await;
         let err = h

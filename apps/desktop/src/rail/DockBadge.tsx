@@ -1,6 +1,6 @@
 import { createEffect, createMemo } from "solid-js";
 import type { Accessor } from "solid-js";
-import type { RailNode } from "@contracts/agent/RailNode";
+import type { Holder as RailNode } from "./attention";
 import type { App } from "../app/seam";
 import { appSettings } from "../settings/preferences";
 import { mayRaise, type ProjectAlerts } from "../state/projectAlerts";

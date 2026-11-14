@@ -110,7 +110,7 @@ async fn a5_a_payload_the_adapter_does_not_recognise_is_ignored() {
     f.signal(&node.id, "FutureEvent").await.unwrap();
     f.call(
         "agent.signal",
-        json!({"id": node.id, "attempt": node.attempt, "payload": {}}),
+        json!({"id": node.id, "attempt": node.attempt(), "payload": {}}),
     )
     .await
     .unwrap();
@@ -162,7 +162,7 @@ async fn child_signals_payloads_the_adapter_refuses() {
     ] {
         f.call(
             "agent.signal",
-            json!({"id": node.id, "attempt": node.attempt, "payload": payload}),
+            json!({"id": node.id, "attempt": node.attempt(), "payload": payload}),
         )
         .await
         .unwrap();

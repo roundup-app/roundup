@@ -22,10 +22,10 @@ impl Daemon {
             .into_iter()
             .find(|n| n.id == p.id)
             .ok_or_else(|| RpcError::not_found(&p.id))?;
-        if node.kind != NodeKind::Agent
+        if node.kind() != NodeKind::Agent
             || node.parent.is_some()
             || node
-                .mode_prompt
+                .mode_prompt()
                 .as_deref()
                 .is_none_or(|prompt| prompt.trim().is_empty())
         {
@@ -41,7 +41,7 @@ impl Daemon {
         // A retry reads the originally reserved text, even after the setting has changed.
         if messages.session_restart(&p.id, &key)?.is_none() {
             messages
-                .reserve_restart(&p.id, &key, node.mode_prompt.as_deref())
+                .reserve_restart(&p.id, &key, node.mode_prompt().as_deref())
                 .await?;
         }
         let (prompt, mut state) = messages
@@ -73,7 +73,7 @@ impl Daemon {
             };
             state = SessionRestart::Started {
                 attempt: fresh
-                    .attempt
+                    .attempt()
                     .ok_or_else(|| RpcError::internal("fresh Mode Agent has no Attempt"))?
                     .to_string(),
             };

@@ -2,6 +2,7 @@ import { openPrinted } from "./links";
 import type { Printed } from "./links";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { Failures } from "./failures";
+import { isDoor } from "../state/doorNode";
 
 /** `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address. */
 export const createOpener = (connected: ConnectedProject, failures: Failures, openObject?: (url: string, surface: string) => void) => {
@@ -16,7 +17,7 @@ export const createOpener = (connected: ConnectedProject, failures: Failures, op
       return;
     }
 
-    const node = rail.nodes.find((candidate) => candidate.terminal_id === id);
+    const node = rail.nodes.find((candidate) => isDoor(candidate) && candidate.terminal_id === id);
     const worktree = node?.kind === "agent" ? node.worktree?.path : undefined;
     const failure = await openPrinted((target) => app.openTarget(target), printed, [worktree ?? project.path, project.path, ...worktree ? [worktree] : []]);
 

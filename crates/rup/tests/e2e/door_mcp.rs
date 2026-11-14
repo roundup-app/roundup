@@ -157,7 +157,7 @@ async fn door_with_children(project: &Project, consult: bool) -> (String, String
         ids.iter()
             .all(|id| {
                 tree.iter()
-                    .any(|n| n.id == *id && n.status.as_ref().is_some_and(|s| s.finished != "0"))
+                    .any(|n| n.id == *id && n.status().is_some_and(|s| s.finished != "0"))
             })
             .then_some(())
     })
@@ -214,7 +214,7 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
     let node = |tree: &[RailNode], id: &str| tree.iter().find(|n| n.id == id).cloned().unwrap();
     let (job_before, consult_before) = (node(&tree, &job), node(&tree, &consult));
     // (c) Nothing is launched or resumed by the restart itself.
-    assert!(job_before.terminal_id.is_none() && consult_before.terminal_id.is_none());
+    assert!(job_before.terminal_id().is_none() && consult_before.terminal_id().is_none());
     assert_eq!(project.model.as_ref().unwrap().journal().len(), before);
 
     start_door_again(&user, &door).await;
@@ -226,13 +226,13 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
     // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
     daemon::h21_poll("the resumed Job's new Attempt", async || {
         let tree = project.rail_tree(&user).await;
-        (node(&tree, &job).attempt != job_before.attempt).then_some(())
+        (node(&tree, &job).attempt() != job_before.attempt()).then_some(())
     })
     .await;
     let tree = project.rail_tree(&user).await;
     let consult_after = node(&tree, &consult);
-    assert_eq!(consult_after.attempt, consult_before.attempt);
-    assert!(consult_after.terminal_id.is_none());
+    assert_eq!(consult_after.attempt(), consult_before.attempt());
+    assert!(consult_after.terminal_id().is_none());
 }
 
 /// DCR4: a quit cuts off one Job mid-turn while another has reported; after the relaunch the Door
@@ -256,14 +256,14 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
     daemon::h21_poll("the resumed Job's new Attempt", async || {
         let tree = project.rail_tree(&user).await;
-        (node(&tree, &job).attempt != job_before.attempt).then_some(())
+        (node(&tree, &job).attempt() != job_before.attempt()).then_some(())
     })
     .await;
     let tree = project.rail_tree(&user).await;
     // The reported Job is not launched again and the start note never names it.
     let reported_after = node(&tree, &reported);
-    assert_eq!(reported_after.attempt, reported_before.attempt);
-    assert!(reported_after.terminal_id.is_none());
+    assert_eq!(reported_after.attempt(), reported_before.attempt());
+    assert!(reported_after.terminal_id().is_none());
     // The Door's history only grows, so earlier requests keep any earlier snapshot; the start
     // note is the last message that carries one.
     let start_note = project
@@ -354,7 +354,7 @@ async fn reported_job(project: &Project, door: &str) -> String {
         tree.iter()
             .any(|n| {
                 n.id == id
-                    && n.status
+                    && n.status()
                         .as_ref()
                         .is_some_and(|s| s.kind == contracts::Kind::Idle)
             })

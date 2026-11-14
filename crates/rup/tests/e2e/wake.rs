@@ -62,8 +62,9 @@ async fn name_of(user: &rpc::Client, id: &str) -> String {
     rail_tree(user)
         .await
         .into_iter()
-        .find(|node| node.id == id)
+        .find(|node| node.base.id == id)
         .unwrap()
+        .base
         .name
 }
 
@@ -80,7 +81,7 @@ pub(super) async fn named(
         )
         .await
         .unwrap();
-    serde_json::from_value::<RailNode>(node).unwrap().id
+    serde_json::from_value::<RailNode>(node).unwrap().base.id
 }
 
 /// A started Door `d` with two working children `a` and `b`, and Agent `w` (a plain Agent) as
@@ -294,7 +295,7 @@ async fn b41_no_timer_is_set() {
     let kinds = |nodes: &[RailNode]| -> Vec<String> {
         nodes
             .iter()
-            .map(|n| format!("{} {:?}", n.id, n.status.as_ref().map(|s| s.kind)))
+            .map(|n| format!("{} {:?}", n.id, n.status().map(|s| s.kind)))
             .collect()
     };
     assert_eq!(kinds(&before), kinds(&after));

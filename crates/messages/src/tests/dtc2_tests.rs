@@ -11,7 +11,7 @@ impl Pushes {
     async fn send_to_door(&self, body: &str) {
         for node in self.rail.0.lock().unwrap().iter_mut() {
             if node.id == "top" {
-                node.status.as_mut().unwrap().kind = Kind::Idle;
+                node.door_mut().unwrap().status.as_mut().unwrap().kind = Kind::Idle;
             }
         }
         self.call_as(

@@ -298,9 +298,9 @@ fn identities(shared: &super::Shared) -> Option<Vec<Identity>> {
             .ok()?
             .into_iter()
             .filter_map(|node| {
-                let record = node.worktree?;
+                let record = node.worktree()?;
                 Some(Identity {
-                    agent: node.id,
+                    agent: node.base.id,
                     path: PathBuf::from(record.path),
                     branch: record.branch,
                     base: record.base,
@@ -708,7 +708,7 @@ impl super::Agents {
         expected: &contracts::agent::Worktree,
         head: Option<&str>,
     ) -> Option<Facts> {
-        let record = self.shared.node(id).ok()?.worktree?;
+        let record = self.shared.node(id).ok()?.worktree()?;
         if &record != expected {
             return None;
         }

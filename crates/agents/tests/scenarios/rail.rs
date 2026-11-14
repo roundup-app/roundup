@@ -30,7 +30,7 @@ fn shape(tree: &[RailNode]) -> Vec<(String, NodeKind, String, Option<String>, u3
         .map(|n| {
             (
                 n.id.clone(),
-                n.kind,
+                n.kind(),
                 n.name.clone(),
                 n.parent.clone(),
                 n.order,
@@ -62,7 +62,7 @@ async fn a6_move_reorders_and_keeps_orders_contiguous_from_zero() {
     assert_eq!(f.mv(&c, None, 0).await.unwrap(), Value::Null);
     assert_eq!(children(&f.tree().await, None), ["c:0", "a:1", "b:2"]);
 
-    let x = f.spawn(Some(&b), None).await.unwrap().id;
+    let x = f.spawn(Some(&b), None).await.unwrap().base.id;
     f.changed();
     f.mv(&x, Some(&c), 5).await.unwrap();
     let tree = f.tree().await;
@@ -102,7 +102,7 @@ async fn assert_door_positions(f: &Fixture, ids: &[String; 2]) {
     );
     for node in tree {
         assert_eq!(
-            node.work,
+            node.work(),
             Some(Order::Work {
                 title: None,
                 ask: "check the release".into(),
@@ -110,8 +110,8 @@ async fn assert_door_positions(f: &Fixture, ids: &[String; 2]) {
                 limits: vec![],
             })
         );
-        assert_eq!(node.terminal_id, None);
-        assert_eq!(node.attempt, None);
+        assert_eq!(node.terminal_id(), None);
+        assert_eq!(node.attempt(), None);
     }
     assert!(f.terminals.list().await.is_empty());
 }
@@ -148,7 +148,7 @@ async fn a3903_equal_door_orders_keep_an_explicit_move() {
 async fn a6_an_agent_cannot_move_into_its_own_descendant() {
     let mut f = Fixture::new();
     let w = f.workstream("w", None).await;
-    let a = f.spawn(Some(&w), None).await.unwrap().id;
+    let a = f.spawn(Some(&w), None).await.unwrap().base.id;
     let b = f.spawn_as_agent(&a).await;
     f.changed();
     for target in [&a, &b] {
@@ -193,7 +193,7 @@ async fn a6_the_tree_lists_parents_before_their_children() {
     f.spawn(Some(&a), None).await.unwrap();
     f.spawn(Some(&b), None).await.unwrap();
     f.mv(&b, None, 0).await.unwrap();
-    let names: Vec<_> = f.tree().await.into_iter().map(|n| n.name).collect();
+    let names: Vec<_> = f.tree().await.into_iter().map(|n| n.base.name).collect();
     assert_eq!(names, ["b", "New Agent", "a", "New Agent"]);
 }
 
@@ -268,9 +268,14 @@ async fn a8_a12_reopen_preserves_ordinal_with_reused_terminal_numbers() {
     let f = f.reopen();
     assert!(f.terminals.list().await.is_empty());
     let node = &f.tree().await[0];
-    assert_eq!(node.terminal_id, None);
-    assert_eq!(node.attempt.as_deref(), Some("1"));
-    assert_eq!(node.status_revision, None);
+    assert_eq!(node.terminal_id(), None);
+    assert_eq!(
+        node.attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some("1")
+    );
+    assert_eq!(node.status_revision(), None);
     let next = f.call("rail.startDoor", json!({"id":id})).await.unwrap();
     assert_eq!(first["terminal_id"], next["terminal_id"]);
     assert_eq!(next["attempt"], "2");
@@ -326,8 +331,14 @@ async fn a7_failed_door_attempt_consumes_attempt_and_retry_keeps_children() {
     assert!(f.call("rail.startDoor", json!({"id":id})).await.is_err());
     let tree = f.tree().await;
     let stopped = tree.iter().find(|n| n.id == id).unwrap();
-    assert_eq!(stopped.attempt.as_deref(), Some("1"));
-    assert_eq!(stopped.terminal_id, None);
+    assert_eq!(
+        stopped
+            .attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some("1")
+    );
+    assert_eq!(stopped.terminal_id(), None);
     assert_eq!(
         tree.iter()
             .find(|n| n.id == child.id)
@@ -358,7 +369,7 @@ async fn a25_create_workstream_returns_a_node_of_kind_workstream() {
         f.tree()
             .await
             .iter()
-            .all(|n| n.kind == NodeKind::Workstream)
+            .all(|n| n.kind() == NodeKind::Workstream)
     );
 }
 
@@ -388,11 +399,11 @@ async fn r16_empty_workstreams_keep_every_presentation_field() {
     }
     let tree = f.tree().await;
     assert_eq!(tree, expected);
-    assert!(tree.iter().all(|n| !n.can_resume
-        && n.channel.is_none()
-        && n.stray.is_empty()
-        && n.attempt.is_none()
-        && n.status_revision.is_none()));
+    assert!(tree.iter().all(|n| !n.can_resume()
+        && n.channel().is_none()
+        && n.stray().is_empty()
+        && n.attempt().is_none()
+        && n.status_revision().is_none()));
 }
 
 #[tokio::test]
@@ -634,11 +645,11 @@ async fn a2741a_workstream_changes_keep_the_door_destination_without_starting() 
         assert_eq!(
             after
                 .iter()
-                .map(|n| (&n.id, &n.attempt, &n.terminal_id))
+                .map(|n| (&n.id, n.attempt(), n.terminal_id()))
                 .collect::<Vec<_>>(),
             before
                 .iter()
-                .map(|n| (&n.id, &n.attempt, &n.terminal_id))
+                .map(|n| (&n.id, n.attempt(), n.terminal_id()))
                 .collect::<Vec<_>>()
         );
         assert_eq!(
@@ -658,7 +669,7 @@ async fn u5531a_user_home_move_clears_the_old_doors_visibility() {
     let f = Fixture::new();
     let door = f.workstream("Door", None).await;
     let other = f.workstream("Other", None).await;
-    let child = f.spawn(Some(&door), None).await.unwrap().id;
+    let child = f.spawn(Some(&door), None).await.unwrap().base.id;
     let mut ctx = f.ctx();
     ctx.actor = contracts::Actor {
         kind: contracts::ActorKind::Agent,
@@ -692,4 +703,92 @@ async fn u5531a_user_home_move_clears_the_old_doors_visibility() {
             .code,
         code::FORBIDDEN
     );
+}
+
+fn keys(node: &RailNode) -> std::collections::BTreeSet<String> {
+    let Value::Object(map) = serde_json::to_value(node).unwrap() else {
+        panic!("a node is a JSON object");
+    };
+    map.keys().cloned().collect()
+}
+
+fn set(names: &[&str]) -> std::collections::BTreeSet<String> {
+    names.iter().map(|n| (*n).to_owned()).collect()
+}
+
+const BASE: [&str; 7] = [
+    "id",
+    "kind",
+    "name",
+    "parent",
+    "order",
+    "visibility",
+    "alert_level",
+];
+
+/// The Door facts that serialize even when null; the optional ones that skip a `None` are left out.
+const DOOR: [&str; 12] = [
+    "status",
+    "attempt",
+    "status_revision",
+    "terminal_id",
+    "worktree",
+    "can_resume",
+    "yolo",
+    "channel",
+    "work",
+    "stray",
+    "model",
+    "effort",
+];
+
+#[test]
+fn ro5_a_group_node_serializes_only_the_base_fields() {
+    use contracts::agent::{NodeBase, Role};
+    let group = RailNode {
+        base: NodeBase {
+            id: "g".into(),
+            name: "g".into(),
+            ..Default::default()
+        },
+        role: Role::Group,
+    };
+    let json = serde_json::to_value(&group).unwrap();
+    assert_eq!(json["kind"], "group");
+    assert_eq!(keys(&group), set(&BASE));
+    assert_eq!(serde_json::from_value::<RailNode>(json).unwrap(), group);
+}
+
+#[tokio::test]
+async fn ro5_a_workstream_and_an_agent_carry_their_kinds_fields() {
+    let f = Fixture::new();
+    let ws = f.workstream("w", None).await;
+    let agent = f.spawn(None, None).await.unwrap();
+    let tree = f.tree().await;
+    let ws = tree.iter().find(|n| n.id == ws).unwrap();
+    let agent = tree.iter().find(|n| n.id == agent.id).unwrap();
+    assert_eq!(ws.kind(), NodeKind::Workstream);
+    assert_eq!(agent.kind(), NodeKind::Agent);
+
+    let door = set(&DOOR);
+    let ws_keys = keys(ws);
+    let agent_keys = keys(agent);
+    // Every Door fact, null-valued ones included, is on both kinds.
+    assert!(ws_keys.is_superset(&door), "{ws_keys:?}");
+    assert!(agent_keys.is_superset(&door), "{agent_keys:?}");
+    assert!(ws_keys.contains("auto"), "{ws_keys:?}");
+    for lacking in [
+        "mode_prompt",
+        "machine",
+        "can_make_workstream",
+        "can_save_as_mode",
+    ] {
+        assert!(!ws_keys.contains(lacking), "a Workstream has {lacking}");
+    }
+    for lacking in ["auto", "workstream_state", "waiting"] {
+        assert!(!agent_keys.contains(lacking), "an Agent has {lacking}");
+    }
+    for own in ["can_make_workstream", "can_save_as_mode"] {
+        assert!(agent_keys.contains(own), "an Agent lacks {own}");
+    }
 }

@@ -1,7 +1,7 @@
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent } from "../testing/nodes";
+import { agent, doorOf } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import { copy as changesCopy } from "../changes/copy";
@@ -46,7 +46,7 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "working", "busy", { worktree }), agent("b", "idle", "ready")]);
   connected.rail.select("a");
   const glyph = glyphOf("a");
-  const status = connected.rail.nodes[0]!.status;
+  const status = doorOf(connected.rail.nodes[0])!.status;
   fireEvent.dblClick(screen.getByText("a"));
   const field = await screen.findByRole("textbox", { name: "Name" });
   field.focus();
@@ -63,7 +63,7 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
   expect(field instanceof HTMLInputElement && field.value).toBe("my draft");
   expect(connected.rail.selected()).toBe("a");
   expect(glyph.isConnected).toBe(true);
-  expect(connected.rail.nodes[0]!.status).toEqual(status);
+  expect(doorOf(connected.rail.nodes[0])!.status).toEqual(status);
   fireEvent.keyDown(field, { key: "Escape" });
   rowOf("a").focus();
   fireEvent.keyDown(rowOf("a"), { key: "ArrowDown" });

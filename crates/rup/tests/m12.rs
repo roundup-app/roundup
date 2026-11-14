@@ -225,7 +225,7 @@ async fn m12_a_listed_model_starts_the_child_on_it() {
 
     let children = children_of(&user, &caller.id).await;
     assert_eq!(children.len(), 1);
-    assert_eq!(children[0].model.as_deref(), Some("haiku"));
+    assert_eq!(children[0].model().as_deref(), Some("haiku"));
     assert!(argv_has(&run.launch_number(2), "--model", "haiku"));
 }
 
@@ -244,7 +244,7 @@ async fn m12_no_model_takes_the_projects() {
     assert_eq!(spawned.is_error, Some(false), "{spawned:?}");
 
     let children = children_of(&user, &caller.id).await;
-    assert_eq!(children[0].model.as_deref(), Some("opus"));
+    assert_eq!(children[0].model().as_deref(), Some("opus"));
     assert!(argv_has(&run.launch_number(2), "--model", "opus"));
 }
 

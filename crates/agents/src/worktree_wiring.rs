@@ -6,7 +6,7 @@ use contracts::agent::{WorktreeCheckConclusion, WorktreeEvidence, WorktreeRequir
 impl Agents {
     /// G3: how far the Agent's Worktree is from its Base. Reads only.
     pub(super) async fn worktree_state(&self, id: &str) -> Result<WorktreeState, RpcError> {
-        let record = self.shared.node(id)?.worktree;
+        let record = self.shared.node(id)?.worktree();
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
@@ -20,7 +20,7 @@ impl Agents {
         .await
         .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))??;
         // A local read can outlive replacement: never attach the replacement's facts to it.
-        if self.shared.node(id)?.worktree.as_ref() != Some(&record) {
+        if self.shared.node(id)?.worktree() != Some(record.clone()) {
             return Err(RpcError::new(code::NOT_FOUND, "Worktree identity changed"));
         }
         if let Some(facts) = self.worktree_facts(id, &record, head.as_deref()) {
@@ -50,7 +50,7 @@ impl Agents {
 
     /// U2539a: what the Agent's Worktree changed against its Base. Reads only.
     pub(super) async fn changed_files(&self, id: &str) -> Result<ChangedFiles, RpcError> {
-        let record = self.shared.node(id)?.worktree;
+        let record = self.shared.node(id)?.worktree();
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
@@ -70,7 +70,7 @@ impl Agents {
         let record = self
             .shared
             .node(id)?
-            .worktree
+            .worktree()
             .ok_or_else(|| RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")))?;
         let git = self.shared.git.bounded();
         let worktree = worktree::Worktree::from(&record);
@@ -82,7 +82,7 @@ impl Agents {
 
     /// G4: land the Agent's branch on its Base, after the Project's `check` passes in the Worktree.
     pub(super) async fn land(&self, id: &str) -> Result<Landed, RpcError> {
-        let record = self.shared.node(id)?.worktree;
+        let record = self.shared.node(id)?.worktree();
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
@@ -184,7 +184,7 @@ impl Agents {
             self.shared.rail().set_worktree(
                 crate::rail::agent_id(id)?,
                 &node
-                    .worktree
+                    .worktree()
                     .ok_or_else(|| RpcError::internal("provisioned node has no Worktree"))?,
             )?;
             let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
@@ -250,7 +250,7 @@ pub(super) fn reconcile_closed(
             launcher.discard_conversation(&copy)?;
         }
         let node = rail.resource_node(crate::rail::agent_id(&agent)?)?;
-        if node.worktree.is_some() {
+        if node.worktree().is_some() {
             let plan = rail
                 .provisioning()?
                 .into_iter()
@@ -398,6 +398,7 @@ mod tests {
             .rail()
             .insert(NodeKind::Agent, "closed", None, None)
             .unwrap()
+            .base
             .id;
         let agents = crate::tests::owner_agents(shared, dir.path());
         (dir, agents, id)
@@ -597,7 +598,7 @@ mod tests {
         assert_eq!(agents.shared.node(&ids.0).unwrap().name, "user Workstream");
         let node = agents.shared.node(&ids.1).unwrap();
         assert_eq!(node.name, "user Agent");
-        assert_eq!(node.parent, Some(other.id));
+        assert_eq!(node.parent, Some(other.base.id));
         agents
             .shared
             .rail()
@@ -687,7 +688,7 @@ mod tests {
             )
             .unwrap();
         agents.shared.rail().publish_closed("unready").unwrap();
-        assert!(agents.shared.node(&agent).unwrap().can_resume);
+        assert!(agents.shared.node(&agent).unwrap().can_resume());
     }
 
     #[tokio::test]
@@ -710,7 +711,7 @@ mod tests {
                 .is_err()
         );
         let agents = reopen(agents);
-        assert!(agents.shared.node(&published.1).unwrap().can_resume);
+        assert!(agents.shared.node(&published.1).unwrap().can_resume());
         assert!(
             agents
                 .launcher
@@ -809,7 +810,7 @@ mod tests {
                 .unwrap();
             let agents = Arc::new(reopen(agents));
             assert!(agents.shared.terminals.list().await.is_empty());
-            assert!(agents.shared.node(&id).unwrap().attempt.is_none());
+            assert!(agents.shared.node(&id).unwrap().attempt().is_none());
             let ctx = rpc::Ctx {
                 actor: contracts::Actor::user(),
                 bus: Bus::new(),
@@ -853,9 +854,14 @@ mod tests {
             agents.call(&ctx, "agent.signal", json!({"id":id,"attempt":"1","payload":{"hook_event_name":"SessionStart","session_id":conversation,"source":"resume"}})).await.unwrap();
             let node: contracts::agent::RailNode =
                 serde_json::from_value(resuming.await.unwrap().unwrap()).unwrap();
-            assert_eq!(node.attempt.as_deref(), Some("1"));
-            assert!(node.terminal_id.is_some());
-            assert_eq!(node.worktree.unwrap().path, made.path.to_string_lossy());
+            assert_eq!(
+                node.attempt()
+                    .as_ref()
+                    .map(contracts::agent::Ordinal::as_str),
+                Some("1")
+            );
+            assert!(node.terminal_id().is_some());
+            assert_eq!(node.worktree().unwrap().path, made.path.to_string_lossy());
             tokio::time::timeout(Duration::from_secs(10), async {
                 while !cwd.join("launch-cwd").exists() {
                     tokio::time::sleep(Duration::from_millis(10)).await;

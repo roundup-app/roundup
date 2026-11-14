@@ -9,7 +9,7 @@ impl Agents {
         }
         let mut rail = self.shared.rail();
         let node = rail.node(crate::rail::agent_id(&choice.id)?)?;
-        if node.kind != NodeKind::Workstream {
+        if node.kind() != NodeKind::Workstream {
             return Err(RpcError::not_found("Workstream"));
         }
         if let Some(id) = AgentId::parse(&choice.id)

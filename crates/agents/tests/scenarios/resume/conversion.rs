@@ -13,12 +13,12 @@ async fn a5214a_the_agent_becomes_a_workstream_with_its_conversation() {
     let f = Fixture::running("sleep 30");
     let agent = exited_with_conversation(&f, CONVERSATION).await;
     let node = make(&f, &agent.id).await.unwrap();
-    assert_eq!(node.kind, NodeKind::Workstream);
+    assert_eq!(node.kind(), NodeKind::Workstream);
     assert_eq!(
         (&node.id, &node.name, &node.parent, node.order),
         (&agent.id, &agent.name, &agent.parent, agent.order)
     );
-    assert!(node.can_resume, "the conversation is the Door's");
+    assert!(node.can_resume(), "the conversation is the Door's");
     let child = f.spawn(Some(&node.id), None).await.unwrap();
     assert_eq!(child.parent.as_deref(), Some(node.id.as_str()));
 }
@@ -36,13 +36,13 @@ async fn a5214a_a_running_agent_restarts_once_on_its_conversation() {
         let (f, id) = (Arc::clone(&f), agent.id.clone());
         tokio::spawn(async move { make(&f, &id).await })
     };
-    f.until_attempt_changed(&agent.id, agent.attempt.as_deref().unwrap())
+    f.until_attempt_changed(&agent.id, agent.attempt().unwrap().as_str())
         .await;
     f.session_start(&agent.id, CONVERSATION, "resume")
         .await
         .unwrap();
     let node = pending.await.unwrap().unwrap();
-    assert_eq!(node.kind, NodeKind::Workstream);
+    assert_eq!(node.kind(), NodeKind::Workstream);
     assert!(until_resumed(&f).await.contains("--resume"));
     assert_eq!(f.terminals.list().await.len(), 2, "one launch");
 }
@@ -72,11 +72,11 @@ async fn a5214a_other_nodes_are_refused_unchanged() {
     }
     let tree = f.tree().await;
     assert_eq!(
-        tree.iter().find(|n| n.id == child.id).unwrap().kind,
+        tree.iter().find(|n| n.id == child.id).unwrap().kind(),
         NodeKind::Agent
     );
     assert_eq!(
-        tree.iter().find(|n| n.id == fresh.id).unwrap().kind,
+        tree.iter().find(|n| n.id == fresh.id).unwrap().kind(),
         NodeKind::Agent
     );
 }
@@ -121,12 +121,12 @@ async fn a5214b_the_mode_holds_the_agents_brief_tools_extras_and_model() {
     )
     .await;
     let mode = save(&f, &agent.id, " Parser audit ").await.unwrap();
-    assert_eq!(mode.kind, NodeKind::Agent);
+    assert_eq!(mode.kind(), NodeKind::Agent);
     assert_eq!(mode.name, "Parser audit");
     assert_eq!(mode.parent, None);
-    assert_eq!(mode.mode_prompt.as_deref(), Some("audit the parser"));
-    assert_eq!(mode.model, agent.model);
-    assert_eq!(mode.effort, agent.effort);
+    assert_eq!(mode.mode_prompt().as_deref(), Some("audit the parser"));
+    assert_eq!(mode.model(), agent.model());
+    assert_eq!(mode.effort(), agent.effort());
     assert_eq!(lean(&f, &mode.id), lean(&f, &agent.id));
     assert_eq!(lean(&f, &mode.id)["scout"], true);
 }
@@ -161,7 +161,7 @@ async fn a5214b_a_bad_name_or_a_foreign_agent_creates_nothing() {
 
 fn flags(tree: &[RailNode], id: &str) -> (bool, bool) {
     let node = tree.iter().find(|n| n.id == id).expect("node");
-    (node.can_make_workstream, node.can_save_as_mode)
+    (node.can_make_workstream(), node.can_save_as_mode())
 }
 
 #[tokio::test]
@@ -228,7 +228,7 @@ async fn a5287_a_flag_is_true_exactly_when_the_method_is_accepted() {
                 let (f, id) = (Arc::clone(&f), id.clone());
                 tokio::spawn(async move { make(&f, &id).await })
             };
-            f.until_attempt_changed(id, running.attempt.as_deref().unwrap())
+            f.until_attempt_changed(id, running.attempt().unwrap().as_str())
                 .await;
             f.session_start(id, CONVERSATION, "resume").await.unwrap();
             pending.await.unwrap()

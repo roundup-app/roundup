@@ -316,7 +316,7 @@ async fn signal_within(bound: Duration, client: &Client, id: &str, payload: Valu
         .into_iter()
         .find(|n| n.id == id)
         .unwrap()
-        .attempt
+        .attempt()
         .unwrap();
     tokio::time::timeout(
         bound,
@@ -396,7 +396,7 @@ pub async fn wait_until_idle(
         let tree_status = tree
             .iter()
             .find(|node| &node.id == id)
-            .and_then(|node| node.status.as_ref());
+            .and_then(|node| node.status());
         let idle_in_tree = matches!(tree_status, Some(status) if status.kind == Kind::Idle);
         report += &format!(
             "  {id}: event stream last saw {:?}; rail.tree shows {tree_status:?}{}\n",
@@ -468,7 +468,7 @@ pub async fn allow_prompt(client: &Client, agent: &str) {
         .into_iter()
         .find(|n| n.id == agent)
         .unwrap()
-        .terminal_id
+        .terminal_id()
         .unwrap();
     client
         .request(

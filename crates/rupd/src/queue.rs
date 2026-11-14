@@ -39,7 +39,7 @@ pub(super) fn running(nodes: &[RailNode], launching: &HashSet<String>) -> HashSe
         .cloned()
         .collect();
     for node in nodes {
-        if node.status.as_ref().map(|s| s.kind) != Some(Kind::Working) {
+        if node.status().map(|s| s.kind) != Some(Kind::Working) {
             continue;
         }
         if let Some(door) = index.workstream_of(&node.id) {

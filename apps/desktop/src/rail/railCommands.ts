@@ -2,6 +2,8 @@ import PQueue from "p-queue";
 import { applying } from "../app/pending";
 import type { Applied } from "../app/pending";
 import { RpcError } from "../app/seam";
+import type { RailNode } from "@contracts/agent/RailNode";
+import { isDoor } from "../state/doorNode";
 import type { RailState } from "../state/rail";
 
 const NOT_FOUND = -32001;
@@ -81,7 +83,7 @@ export const railCommand = async <R>(
   return outcome;
 };
 
-type Launched = { terminal_id: string | null };
+type Launched = RailNode;
 
 type Preparation = NonNullable<
   Awaited<ReturnType<NonNullable<RailState["prepareTerminal"]>>>
@@ -107,7 +109,7 @@ export const createLaunch = (rail: RailState) => {
     try {
       const launched = await reply;
 
-      if (launched.terminal_id) prepared?.bind(launched.terminal_id);
+      if (isDoor(launched) && launched.terminal_id) prepared?.bind(launched.terminal_id);
 
       return launched;
     } finally {

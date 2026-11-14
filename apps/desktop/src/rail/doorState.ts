@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { copy } from "./copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { exitText } from "../ink/exitText";
@@ -18,7 +19,7 @@ export const doorStateOf = (workstream: RailNode, exit: ExitState | null, pendin
 
   if (failed) return { kind: "failed" };
 
-  return workstream.attempt === null ? { kind: "never-started" } : { kind: "stopped", exit };
+  return !isDoor(workstream) || workstream.attempt === null ? { kind: "never-started" } : { kind: "stopped", exit };
 };
 
 export const doorStateText = (state: DoorState, name: string): string => {

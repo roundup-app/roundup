@@ -7,6 +7,7 @@ import { captureActions } from "../keys/registry";
 import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "../keys/chords";
 import { historyRegion, isTextEntry } from "../keys/focus";
 import type { Kind } from "@contracts/Kind";
+import { doorAttempt, doorStatus } from "../state/doorNode";
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -70,7 +71,7 @@ export const watchMenuBar = (options: {
       if (!connection || tab.exit) return [];
 
       return connection.rail.nodes.flatMap(node => {
-        const status = node.status;
+        const status = doorStatus(node);
 
         if (!status || node.alert_level === "quiet" || (node.kind === "workstream" && node.attempt === null)) return [];
 
@@ -84,7 +85,7 @@ export const watchMenuBar = (options: {
         const prior = waitingSince.get(key);
 
         if (!waiting) waitingSince.delete(key);
-        else if (prior?.kind !== status.kind || prior?.attempt !== node.attempt) waitingSince.set(key, { kind: status.kind, attempt: node.attempt, since: status.since });
+        else if (prior?.kind !== status.kind || prior?.attempt !== doorAttempt(node)) waitingSince.set(key, { kind: status.kind, attempt: doorAttempt(node), since: status.since });
 
         if (!waiting && !ready) return [];
 

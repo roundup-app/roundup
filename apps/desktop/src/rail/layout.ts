@@ -2,6 +2,7 @@ import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { RailSection } from "../state/railStorage";
 import { childrenOf, descendantsOf, indexed, isWorkstream, type RailSource } from "../state/railTopology";
+import { statusOf } from "./attention";
 import { byUrgency } from "../ink/glyph";
 
 const IDLE_FOLD_MS = 60_000;
@@ -74,7 +75,7 @@ export const layoutRail = (source: RailSource, view: RailView, section?: RailSec
       const open = view.unfolded.has(id);
       const continues = position < groups.length - 1;
 
-      return [{ kind: "fold", key: `fold:${id}`, depth, parent: parentId, group, status: group === "idle" ? "idle" : byUrgency(members.flatMap(at => tree.nodes[at]!.status ? [tree.nodes[at]!.status!.kind] : []))[0] ?? "idle", count: members.length, open, trail },
+      return [{ kind: "fold", key: `fold:${id}`, depth, parent: parentId, group, status: group === "idle" ? "idle" : byUrgency(members.flatMap(at => statusOf(tree.nodes[at]!) ? [statusOf(tree.nodes[at]!)!.kind] : []))[0] ?? "idle", count: members.length, open, trail },
         ...(open ? members.flatMap((at, child) =>
           rowsOfNode(at, depth + 1, [...trail, continues, child < members.length - 1])) : [])];
     });

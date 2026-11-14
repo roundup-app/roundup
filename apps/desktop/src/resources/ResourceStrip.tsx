@@ -11,11 +11,12 @@ import { Tip } from "../ui/Tip";
 import { cpuText, MISSING, sizeText } from "./format";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import "./styles.css";
+import { isDoor } from "../state/doorNode";
 
 /** U408: how often `project.resources` is called while the strip is shown. */
 const POLL_MS = 2000;
 
-const isRunning = (node: RailNode): boolean => node.status?.kind === "working";
+const isRunning = (node: RailNode): boolean => isDoor(node) && node.status?.kind === "working";
 
 /** U444: one value as an icon and its number, named for a screen reader and on hover; a missing value hides with its icon. */
 const Value = (props: { icon: "memory" | "cpu" | "disk"; name: string; text: string }) => (

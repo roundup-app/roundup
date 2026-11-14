@@ -1,3 +1,4 @@
+import { isDoor } from "./doorNode";
 import { createEffect, createSignal, createResource, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
@@ -43,7 +44,7 @@ export type UnseenState = {
   any(): boolean;
 };
 
-const finishes = (node: RailNode): bigint => BigInt(node.status?.finished ?? "0");
+const finishes = (node: RailNode): bigint => BigInt(isDoor(node) ? node.status?.finished ?? "0" : "0");
 
 /**
  * U3566: an Agent is unseen while its Daemon-kept finish count is above the count the user has
@@ -88,7 +89,7 @@ export const createUnseen = (
 
   createEffect(() => {
     for (const node of nodes()) {
-      if (node.status) retainFinish(node.id, node.status);
+      if (isDoor(node) && node.status) retainFinish(node.id, node.status);
     }
   });
 

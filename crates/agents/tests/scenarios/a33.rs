@@ -43,7 +43,7 @@ impl Fixture {
 
 async fn idle_agent() -> (Fixture, String) {
     let f = Fixture::running("sleep 30");
-    let id = f.spawn(None, None).await.unwrap().id;
+    let id = f.spawn(None, None).await.unwrap().base.id;
     f.event(&id, "Stop").await;
     (f, id)
 }

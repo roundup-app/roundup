@@ -15,7 +15,7 @@ fn belongs(nodes: &[RailNode], node: &RailNode, door: &str) -> bool {
             return true;
         }
         let up = nodes.iter().find(|n| &n.id == parent);
-        if up.is_none_or(|n| n.kind == NodeKind::Workstream) {
+        if up.is_none_or(|n| n.kind() == NodeKind::Workstream) {
             return false;
         }
         at = up.and_then(|n| n.parent.as_ref());
@@ -33,7 +33,7 @@ impl Daemon {
         let nodes = self.rail().await?;
         let door = nodes
             .iter()
-            .find(|n| n.id == id && n.kind == NodeKind::Workstream)
+            .find(|n| n.id == id && n.kind() == NodeKind::Workstream)
             .ok_or_else(|| RpcError::not_found(&id))?;
         if actor.kind != ActorKind::Agent || actor.id != door.id {
             return Err(RpcError::forbidden(
@@ -52,7 +52,7 @@ impl Daemon {
                 .iter()
                 .find(|n| n.id == wanted.agent)
                 .ok_or_else(|| RpcError::not_found(&wanted.agent))?;
-            if node.kind != NodeKind::Agent || !belongs(&nodes, node, &id) {
+            if node.kind() != NodeKind::Agent || !belongs(&nodes, node, &id) {
                 return Err(RpcError::forbidden(format!(
                     "{} is not a child of your Workstream",
                     node.name

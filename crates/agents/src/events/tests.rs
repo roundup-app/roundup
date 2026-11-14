@@ -176,6 +176,7 @@ fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
         .rail()
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
+        .base
         .id;
     shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
     if let Some(Slot::Starting { parked, .. }) = shared.runs().slot_mut(&id) {
@@ -205,6 +206,7 @@ fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         .rail()
         .insert(contracts::agent::NodeKind::Agent, "new-agent", None, None)
         .unwrap()
+        .base
         .id;
     shared.mark_starting(&id, contracts::agent::Ordinal::parse("1").unwrap());
     if let Some(Slot::Starting { parked, .. }) = shared.runs().slot_mut(&id) {
@@ -371,12 +373,19 @@ async fn a7_status_revisions_order_transitions_even_when_the_clock_ties() {
         assert_eq!(status.status_revision, (index + 2).to_string());
         assert_eq!(status.status.since, 0);
         let node = shared.node(&id).unwrap();
-        assert_eq!(node.attempt.as_deref(), Some(status.attempt.as_str()));
         assert_eq!(
-            node.status_revision.as_deref(),
+            node.attempt()
+                .as_ref()
+                .map(contracts::agent::Ordinal::as_str),
+            Some(status.attempt.as_str())
+        );
+        assert_eq!(
+            node.status_revision()
+                .as_ref()
+                .map(contracts::agent::Ordinal::as_str),
             Some(status.status_revision.as_str())
         );
-        assert_eq!(node.status, Some(status.status));
+        assert_eq!(node.status(), Some(&status.status));
     }
 }
 
@@ -395,14 +404,14 @@ async fn a21_a_failed_save_after_spawn_returned_errors_settles_error_and_stops_t
     })));
     assert!(result.is_err());
     let node = agents.shared.node(&id).unwrap();
-    assert_eq!(node.status.as_ref().unwrap().kind, Kind::Error);
+    assert_eq!(node.status().unwrap().kind, Kind::Error);
     assert!(
-        node.status
+        node.status()
             .unwrap()
             .label
             .contains("cannot save conversation")
     );
-    assert!(!node.can_resume);
+    assert!(!node.can_resume());
     assert_eq!(
         tokio::time::timeout(PATIENCE, kills.recv())
             .await
@@ -543,7 +552,7 @@ async fn u5483c_late_final_text_refreshes_rail_without_a_status_change() {
     let mut events = bus.subscribe();
     shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":"Should I publish three pages or five"}))).unwrap();
     let after = shared.node(&id).unwrap();
-    assert_eq!(after.status_revision, before.status_revision);
+    assert_eq!(after.status_revision(), before.status_revision());
     assert_eq!(
         serde_json::to_value(after).unwrap()["final_text"]["kind"],
         "present"
@@ -570,7 +579,7 @@ async fn u5483c_empty_text_without_turn_identity_remains_unknown() {
             Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""})),
         )
         .unwrap();
-    assert!(shared.node(&id).unwrap().final_text.is_none());
+    assert!(shared.node(&id).unwrap().final_text().is_none());
 }
 
 #[test]

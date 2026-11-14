@@ -188,7 +188,7 @@ impl Daemon {
                     .await?
                     .into_iter()
                     .filter(|child| child.parent.as_deref() == Some(&id))
-                    .map(|child| child.id)
+                    .map(|child| child.base.id)
                     .collect();
                 LinkContent::Workstream { id, node, children }
             }
@@ -203,13 +203,13 @@ impl Daemon {
         id: &str,
         workstream: bool,
     ) -> Result<agent::RailNode, RpcError> {
-        let is_workstream = |node: &agent::RailNode| node.kind == agent::NodeKind::Workstream;
+        let is_workstream = |node: &agent::RailNode| node.kind() == agent::NodeKind::Workstream;
         self.presented_rail(conn)
             .await?
             .into_iter()
             .find(|node| {
                 node.id == id
-                    && node.kind != agent::NodeKind::Group
+                    && node.kind() != agent::NodeKind::Group
                     && is_workstream(node) == workstream
             })
             .ok_or_else(|| {

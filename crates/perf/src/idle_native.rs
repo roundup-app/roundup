@@ -318,7 +318,7 @@ impl Native {
                 json!({"cwd":project,"prompt":null,"parent":null}),
             )
             .await?;
-            agents.push(node.id);
+            agents.push(node.base.id);
         }
         let mut baseline = tokio::time::timeout(Duration::from_secs(30), async {
             let mut readiness = tokio::time::interval(Duration::from_millis(100));
@@ -328,8 +328,8 @@ impl Native {
                 let nodes: Vec<RailNode> = request(&client, "rail.tree", Value::Null).await?;
                 if nodes.len() == 10
                     && nodes.iter().all(|n| {
-                        n.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
-                            && n.terminal_id.is_some()
+                        n.status().is_some_and(|s| s.kind == Kind::Idle)
+                            && n.terminal_id().is_some()
                     })
                 {
                     break Ok::<_, io::Error>(nodes);
@@ -384,7 +384,7 @@ impl Native {
         let settings = settings.clone();
         let selected = baseline
             .iter()
-            .find(|n| n.terminal_id.as_ref() == Some(&settings.terminal))
+            .find(|n| n.terminal_id().as_ref() == Some(&settings.terminal))
             .ok_or_else(|| failure("selected Terminal is not a prepared Agent"))?
             .id
             .clone();
@@ -514,14 +514,13 @@ impl Native {
             .map(|role| format!("{role}: absent in retained complete inventory/ownership lookup"))
             .collect();
         let nodes: Vec<RailNode> = request(client, "rail.tree", Value::Null).await?;
-        if nodes.iter().any(|n| n.kind != NodeKind::Agent) || nodes.len() != phase.count {
+        if nodes.iter().any(|n| n.kind() != NodeKind::Agent) || nodes.len() != phase.count {
             return Err(failure("wrong Agent count/kind"));
         }
         let mut offsets = BTreeMap::new();
         for node in &nodes {
             let id = node
-                .terminal_id
-                .as_ref()
+                .terminal_id()
                 .ok_or_else(|| failure("Agent has no Terminal"))?;
             let snap: Snapshot = request(client, "terminal.snapshot", json!({"id":id})).await?;
             offsets.insert(id.clone(), snap.after);
@@ -535,7 +534,7 @@ impl Native {
             request(&events, "events.subscribe", Value::Null).await?;
         let statuses: Vec<_> = nodes
             .iter()
-            .filter_map(|n| n.status.as_ref().map(|s| s.kind))
+            .filter_map(|n| n.status().map(|s| s.kind))
             .collect();
         let (intervals, mut changes) = self
             .top(&phase.members, &mut events, subscribed.head, phase)
@@ -623,7 +622,7 @@ impl Native {
         all_statuses.extend(
             after_nodes
                 .iter()
-                .filter_map(|n| n.status.as_ref().map(|s| s.kind)),
+                .filter_map(|n| n.status().map(|s| s.kind)),
         );
         if let Err(e) = idle::activity(phase.count, &all_statuses, &cursors, &changes) {
             phase.errors.push(e.to_string());

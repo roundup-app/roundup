@@ -1,3 +1,4 @@
+import { isDoor } from "./doorNode";
 import { createStore } from "solid-js/store";
 import { createHeld } from "./held";
 import { createTodoUndo } from "./undo";
@@ -189,7 +190,7 @@ export const connectProject = async (
   app = { ...app, rpc, get showContextMenu() { return original.showContextMenu; } };
   // Preserve the Project-owned Notes lookup for observers using the original connection.
   notesFor(app, project.path, drafts);
-  app = withAppSettings(app, id => rail.nodes.find(node => node.id === id)?.can_resume ?? false);
+  app = withAppSettings(app, id => rail.nodes.filter(isDoor).find(node => node.id === id)?.can_resume ?? false);
   let ended = false;
 
   // Connection setup crosses awaits. Register teardown while its owner is still current,

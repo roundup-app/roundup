@@ -95,7 +95,7 @@ async fn g2_g6_failed_cleanup_retains_ownership_until_reopen_recovers_it() {
 
     assert_ne!(git_state(f.dir.path()), before);
     assert!(f.dir.path().join(".roundup/worktrees/agent-1").exists());
-    assert!(f.tree().await[0].worktree.is_some());
+    assert!(f.tree().await[0].worktree().is_some());
     let f = f.reopen();
     assert_eq!(git_state(f.dir.path()), before);
     assert!(f.tree().await.is_empty());
@@ -125,7 +125,7 @@ async fn g2_a_dotdot_cwd_is_judged_by_where_it_leads() {
         git_state(f.dir.path()).0.lines().count(),
         before.0.lines().count() + 1
     );
-    let worktree = std::fs::canonicalize(back.worktree.clone().unwrap().path).unwrap();
+    let worktree = std::fs::canonicalize(back.worktree().unwrap().path).unwrap();
     assert_eq!(
         std::fs::canonicalize(terminal_cwd(&f, &back).await).unwrap(),
         worktree
@@ -142,7 +142,7 @@ async fn g2_a_symlink_to_the_project_is_a_cwd_inside_it() {
 
     let node = spawn_in(&f, &link, None).await.unwrap();
 
-    let worktree = std::fs::canonicalize(node.worktree.clone().unwrap().path).unwrap();
+    let worktree = std::fs::canonicalize(node.worktree().unwrap().path).unwrap();
     assert_eq!(
         std::fs::canonicalize(terminal_cwd(&f, &node).await).unwrap(),
         worktree
@@ -182,7 +182,7 @@ async fn g2_a_project_opened_through_a_symlink_accepts_its_own_folder() {
     let at_real = spawn_in(&f, f.dir.path(), None).await.unwrap();
 
     for node in [&at_link, &at_real] {
-        let worktree = std::fs::canonicalize(node.worktree.clone().unwrap().path).unwrap();
+        let worktree = std::fs::canonicalize(node.worktree().unwrap().path).unwrap();
         let cwd = std::fs::canonicalize(terminal_cwd(&f, node).await).unwrap();
         assert_eq!(cwd, worktree);
     }
@@ -245,7 +245,7 @@ async fn g5_removing_unlanded_work_refuses_before_stopping_the_door() {
             .unwrap();
         let id = workstream["id"].as_str().unwrap();
         let node = start_door(&f, id).await.unwrap();
-        let worktree = node.worktree.clone().unwrap();
+        let worktree = node.worktree().unwrap();
         let path = Path::new(&worktree.path);
         if ahead {
             std::fs::write(path.join("committed"), "keep").unwrap();
@@ -267,7 +267,7 @@ async fn g5_removing_unlanded_work_refuses_before_stopping_the_door() {
                 .list()
                 .await
                 .iter()
-                .any(|t| Some(&t.id) == node.terminal_id.as_ref() && t.running)
+                .any(|t| Some(&t.id) == node.terminal_id().as_ref() && t.running)
         );
         f.call("agent.stop", json!({"id":id})).await.unwrap();
     }
@@ -289,7 +289,7 @@ async fn g5_removing_clean_workstream_removes_only_its_worktree() {
     let node = start_door(&f, id).await.unwrap();
     f.call("rail.remove", json!({"id":id})).await.unwrap();
     assert_eq!(git_state(f.dir.path()), before);
-    assert!(!Path::new(&node.worktree.unwrap().path).exists());
+    assert!(!Path::new(&node.worktree().unwrap().path).exists());
 }
 
 #[tokio::test]
@@ -308,7 +308,7 @@ async fn g5_a_write_during_stop_keeps_the_stopped_door_and_worktree() {
         .unwrap();
     let id = workstream["id"].as_str().unwrap();
     let node = start_door(&f, id).await.unwrap();
-    let worktree = node.worktree.unwrap();
+    let worktree = node.worktree().unwrap();
     let path = Path::new(&worktree.path);
     crate::common::until_file(&path.join("ready")).await;
     std::fs::remove_file(path.join("ready")).unwrap();
@@ -320,9 +320,9 @@ async fn g5_a_write_during_stop_keeps_the_stopped_door_and_worktree() {
         .into_iter()
         .find(|node| node.id == id)
         .unwrap();
-    assert_eq!(retained.terminal_id, None);
-    assert_eq!(retained.status.unwrap().kind, contracts::Kind::Done);
-    assert_eq!(retained.worktree, Some(worktree.clone()));
+    assert_eq!(retained.terminal_id(), None);
+    assert_eq!(retained.status().unwrap().kind, contracts::Kind::Done);
+    assert_eq!(retained.worktree(), Some(worktree.clone()));
     assert_eq!(
         std::fs::read_to_string(path.join("stopped-write")).unwrap(),
         "keep\n"
@@ -343,13 +343,13 @@ async fn g5_missing_worktree_does_not_allow_deleting_an_ahead_branch() {
     let id = workstream["id"].as_str().unwrap();
     let node = start_door(&f, id).await.unwrap();
     f.call("agent.stop", json!({"id":id})).await.unwrap();
-    let worktree = node.worktree.unwrap();
+    let worktree = node.worktree().unwrap();
     let path = Path::new(&worktree.path);
     git_output(path, &["commit", "--allow-empty", "-qm", "keep"]);
     std::fs::remove_dir_all(path).unwrap();
     let err = f.call("rail.remove", json!({"id":id})).await.unwrap_err();
     assert!(err.message.contains("ahead 1"));
-    assert_eq!(f.tree().await[0].worktree, Some(worktree.clone()));
+    assert_eq!(f.tree().await[0].worktree(), Some(worktree.clone()));
     git_output(
         f.dir.path(),
         &[
@@ -376,7 +376,7 @@ async fn g6_reopened_door_reuses_commits_and_dirty_files_without_launching_on_op
         .unwrap();
     let id = workstream["id"].as_str().unwrap().to_owned();
     let node = start_door(&f, &id).await.unwrap();
-    let worktree = node.worktree.unwrap();
+    let worktree = node.worktree().unwrap();
     let path = Path::new(&worktree.path);
     git_output(path, &["commit", "--allow-empty", "-qm", "keep"]);
     std::fs::write(path.join("dirty"), "keep").unwrap();
@@ -386,7 +386,7 @@ async fn g6_reopened_door_reuses_commits_and_dirty_files_without_launching_on_op
     assert!(f.terminals.list().await.is_empty());
     set_worktrees(&f, false, None).await;
     let next = start_door(&f, &id).await.unwrap();
-    assert_eq!(next.worktree, Some(worktree.clone()));
+    assert_eq!(next.worktree(), Some(worktree.clone()));
     assert_eq!(git_output(path, &["rev-parse", "HEAD"]), head);
     assert_eq!(std::fs::read_to_string(path.join("dirty")).unwrap(), "keep");
     f.call("agent.stop", json!({"id":id})).await.unwrap();
@@ -447,8 +447,8 @@ async fn a34_a_door_worktree_failure_preserves_files_for_retry() {
     std::fs::write(fail, "once").unwrap();
     f.call("rail.remove", json!({"id":id})).await.unwrap_err();
     // A34 narrows G5 for a Workstream: restore the directory after a later branch failure.
-    assert!(Path::new(&node.worktree.as_ref().unwrap().path).exists());
-    assert_eq!(f.tree().await[0].worktree, node.worktree);
+    assert!(Path::new(&node.worktree().unwrap().path).exists());
+    assert_eq!(f.tree().await[0].worktree(), node.worktree());
     f.call("rail.remove", json!({"id":id})).await.unwrap();
     assert!(f.tree().await.is_empty());
     assert_eq!(git_state(f.dir.path()), before);
@@ -473,7 +473,7 @@ async fn g5_branch_advance_after_safety_check_is_not_deleted() {
     set_worktrees(&f, true, None).await;
     let id = f.workstream("workstream", None).await;
     let node = start_door(&f, &id).await.unwrap();
-    let worktree = node.worktree.unwrap();
+    let worktree = node.worktree().unwrap();
     let commit = git_output(
         f.dir.path(),
         &[
@@ -495,7 +495,7 @@ async fn g5_branch_advance_after_safety_check_is_not_deleted() {
         git_output(f.dir.path(), &["rev-parse", &worktree.branch]),
         commit
     );
-    assert_eq!(f.tree().await[0].worktree, Some(worktree));
+    assert_eq!(f.tree().await[0].worktree(), Some(worktree));
     assert!(
         f.call("rail.remove", json!({"id":id}))
             .await
@@ -511,7 +511,7 @@ async fn g6_a_record_recovery_refuses_keeps_its_work_and_the_project_opens() {
         let f = Fixture::in_git_project("exec sleep 30", Git::from_env());
         set_worktrees(&f, true, None).await;
         let node = f.spawn(None, None).await.unwrap();
-        let path = PathBuf::from(node.worktree.clone().unwrap().path);
+        let path = PathBuf::from(node.worktree().unwrap().path);
         std::fs::write(path.join("keep"), "user work").unwrap();
         f.call("agent.stop", json!({"id": node.id})).await.unwrap();
         // A crash during `git` leaves the row provisioning: before ownership proofs with no
@@ -536,7 +536,7 @@ async fn g6_a_record_recovery_refuses_keeps_its_work_and_the_project_opens() {
         let f = f.reopen();
 
         let kept = f.tree().await.into_iter().find(|n| n.id == node.id);
-        assert_eq!(kept.and_then(|n| n.worktree), node.worktree, "{record}");
+        assert_eq!(kept.and_then(|n| n.worktree()), node.worktree(), "{record}");
         assert_eq!(git_state(f.dir.path()), before, "{record}");
         assert_eq!(
             std::fs::read_to_string(path.join("keep")).unwrap(),

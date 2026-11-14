@@ -24,8 +24,8 @@ pub async fn idle(bound: Duration, client: &rpc::Client, id: &str) {
             .await
             .into_iter()
             .find(|n| n.id == id)
-            .and_then(|n| n.status)
-            .is_some_and(|s| s.kind == Kind::Idle)
+            .and_then(|n| n.status().map(|s| s.kind == Kind::Idle))
+            .unwrap_or(false)
             .then_some(())
     })
     .await;

@@ -1,6 +1,6 @@
 // fallow-ignore-file duplicate-export -- RowActions belongs to InboxRow; rail/RowIcons has a different directly imported action contract.
 import { createUniqueId, Show } from "solid-js";
-import type { RailNode } from "@contracts/agent/RailNode";
+import type { DoorNode } from "../state/doorNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { nameOf } from "../bubbles/places";
 import { statusText } from "../terminal/programStatus";
@@ -13,7 +13,7 @@ import { TargetText } from "../terminal/TargetText";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** One entry: an Agent's `node`, or a Terminal whose program reported (PS11.1). */
-export type AgentRow = { key: string; arrived: boolean } & ({ node: RailNode; terminal?: undefined } | { terminal: TerminalInfo; node?: undefined });
+export type AgentRow = { key: string; arrived: boolean } & ({ node: DoorNode; terminal?: undefined } | { terminal: TerminalInfo; node?: undefined });
 
 export type RowActions = {
   retry(row: AgentRow): void;

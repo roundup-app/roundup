@@ -1,3 +1,4 @@
+import { isDoor } from "./doorNode";
 import { createEffect, createResource, createRoot, createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor, Resource } from "solid-js";
 import type { Worktree } from "@contracts/agent/Worktree";
@@ -47,7 +48,7 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
       // Only these fields are tracked; name/Status changes leave resources alone.
       createEffect(() => {
         const identities = visible() && !daemonExit() ? rail.nodes.flatMap(node => {
-          const worktree = node.worktree;
+          const worktree = isDoor(node) ? node.worktree : null;
 
           return worktree ? [{ id: node.id, path: worktree.path, branch: worktree.branch, base: worktree.base }] : [];
         }) : [];

@@ -488,7 +488,7 @@ async fn fold_pending(inner: &Arc<Inner>, door: &str) {
     let is_door = crate::load_rail_nodes(inner).await.is_ok_and(|nodes| {
         nodes
             .iter()
-            .any(|node| node.id == door && node.kind == contracts::agent::NodeKind::Workstream)
+            .any(|node| node.id == door && node.kind() == contracts::agent::NodeKind::Workstream)
     });
     if !is_door {
         return;
@@ -582,7 +582,7 @@ async fn roll_up(
         slot.waiting.clear();
         return;
     };
-    if door.terminal_id.is_none()
+    if door.terminal_id().is_none()
         || crate::ended(door)
         || slot.waiting.is_empty()
         || slot.sent.len() >= PUSHES
@@ -829,7 +829,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (messages, rail, _) = setup(dir.path());
         let mut stopped = live("stopped");
-        stopped.terminal_id = None;
+        if let Some(door) = stopped.door_mut() {
+            door.terminal_id = None;
+        }
         lock(&rail.nodes).push(stopped);
         push(&messages.inner, "stopped", "child-id", &entry(), true).await;
         push(&messages.inner, "stopped", "child-id", &entry(), true).await;
@@ -846,7 +848,9 @@ mod tests {
         let (messages, rail, _) = setup(dir.path());
         let now = (messages.inner.clock)();
         let mut stopped = live("stopped");
-        stopped.terminal_id = None;
+        if let Some(door) = stopped.door_mut() {
+            door.terminal_id = None;
+        }
         lock(&rail.nodes).push(stopped);
         {
             let mut ledger = messages.inner.pushes.lock().await;

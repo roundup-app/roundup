@@ -50,7 +50,7 @@ impl Fixture {
     }
 
     fn can_resume(&self, tree: &[RailNode], id: &str) -> bool {
-        tree.iter().find(|n| n.id == id).expect("node").can_resume
+        tree.iter().find(|n| n.id == id).expect("node").can_resume()
     }
 
     /// The tree once `id`'s Attempt differs from `old`, for a caller racing a pending
@@ -58,10 +58,8 @@ impl Fixture {
     /// on acknowledgement).
     pub async fn until_attempt_changed(&self, id: &str, old: &str) -> Vec<RailNode> {
         self.until(|tree| {
-            tree.iter()
-                .find(|n| n.id == id)
-                .and_then(|n| n.attempt.as_deref())
-                != Some(old)
+            tree.iter().find(|n| n.id == id).and_then(|n| n.attempt())
+                != contracts::agent::Ordinal::parse(old)
         })
         .await
     }
@@ -85,7 +83,7 @@ async fn a21_a_session_start_saves_the_conversation_so_an_exited_agent_can_resum
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
 
-    assert!(node.can_resume);
+    assert!(node.can_resume());
 }
 
 #[tokio::test]
@@ -145,7 +143,7 @@ async fn a21_a_later_session_start_overrides_the_earlier_saved_conversation() {
         .unwrap();
     let resumed = resuming.await.unwrap().unwrap();
 
-    assert!(resumed.terminal_id.is_some());
+    assert!(resumed.terminal_id().is_some());
 }
 
 #[tokio::test]
@@ -212,7 +210,7 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
     let f = Fixture::running("echo \"$@\" > argv.txt; sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let f = Arc::new(f);
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
 
     let resuming = {
         let f = Arc::clone(&f);
@@ -230,9 +228,15 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
 
     let resumed = resuming.await.unwrap().unwrap();
 
-    assert_ne!(resumed.attempt.as_deref(), Some(old_attempt.as_str()));
-    assert!(resumed.terminal_id.is_some());
-    assert_eq!(resumed.status.as_ref().map(|s| s.kind), Some(Kind::Idle));
+    assert_ne!(
+        resumed
+            .attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some(old_attempt.as_str())
+    );
+    assert!(resumed.terminal_id().is_some());
+    assert_eq!(resumed.status().map(|s| s.kind), Some(Kind::Idle));
     assert_eq!(resumed.id, node.id);
     assert_eq!(resumed.name, node.name);
     assert_eq!(resumed.parent, node.parent);
@@ -285,7 +289,7 @@ async fn a22_a_concurrent_resume_is_conflict() {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let f = Arc::new(f);
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
     let id = node.id.clone();
     let first = {
         let f = Arc::clone(&f);
@@ -306,7 +310,7 @@ async fn a22_stop_during_a_pending_resume_is_conflict_and_resume_still_resolves(
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let f = Arc::new(f);
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
     let id = node.id.clone();
     let resuming = {
         let f = Arc::clone(&f);
@@ -345,9 +349,9 @@ async fn a22_a_failed_launch_rolls_back_to_the_old_node() {
         .find(|n| n.id == node.id)
         .unwrap();
     assert_ne!(err.code, code::NOT_FOUND);
-    assert!(after.can_resume, "the old node must stay resumable");
-    assert_eq!(after.terminal_id, before.terminal_id);
-    assert_eq!(after.status, before.status);
+    assert!(after.can_resume(), "the old node must stay resumable");
+    assert_eq!(after.terminal_id(), before.terminal_id());
+    assert_eq!(after.status(), before.status());
 }
 
 #[tokio::test]
@@ -360,15 +364,15 @@ async fn a22_can_resume_survives_a_reopen() {
             .into_iter()
             .find(|n| n.id == node.id)
             .unwrap()
-            .can_resume
+            .can_resume()
     );
 
     let f = f.reopen();
 
     let tree = f.tree().await;
     let reopened = tree.iter().find(|n| n.id == node.id).unwrap();
-    assert!(reopened.can_resume);
-    assert_eq!(reopened.terminal_id, None);
+    assert!(reopened.can_resume());
+    assert_eq!(reopened.terminal_id(), None);
 }
 
 #[tokio::test]
@@ -378,7 +382,7 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
     // Plugin compatibility probes use a real process; pause only the resume deadline.
     tokio::time::pause();
     let f = Arc::new(f);
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
     let id = node.id.clone();
 
     let resuming = {
@@ -396,8 +400,8 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
     assert_eq!(err.code, code::CONFLICT);
     let tree = f.tree().await;
     let after = tree.iter().find(|n| n.id == id).unwrap();
-    assert!(after.can_resume);
-    assert_eq!(after.terminal_id, None);
+    assert!(after.can_resume());
+    assert_eq!(after.terminal_id(), None);
 }
 
 /// A `SessionStart` is the ack only with source `resume` naming the saved id; anything else is
@@ -410,7 +414,7 @@ async fn parked_as_not_the_ack(session_id: &str, source: &str) {
     // Plugin compatibility probes use a real process; pause only the resume deadline.
     tokio::time::pause();
     let f = Arc::new(f);
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
     let id = node.id.clone();
     let resuming = {
         let f = Arc::clone(&f);
@@ -445,7 +449,7 @@ async fn a22_a_mismatched_signal_parked_before_the_real_ack_still_lets_it_resolv
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let f = Arc::new(f);
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
     let id = node.id.clone();
     let resuming = {
         let f = Arc::clone(&f);
@@ -460,7 +464,7 @@ async fn a22_a_mismatched_signal_parked_before_the_real_ack_still_lets_it_resolv
     f.session_start(&id, CONVERSATION, "resume").await.unwrap();
 
     let resumed = resuming.await.unwrap().unwrap();
-    assert!(resumed.terminal_id.is_some());
+    assert!(resumed.terminal_id().is_some());
 }
 
 #[tokio::test]
@@ -496,13 +500,13 @@ async fn a22_resume_in_a_worktree_subfolder_keeps_the_saved_subfolder_not_the_wo
         .await
         .unwrap();
     let node: RailNode = serde_json::from_value(spawned).unwrap();
-    let worktree_path = std::path::PathBuf::from(&node.worktree.as_ref().unwrap().path);
+    let worktree_path = std::path::PathBuf::from(&node.worktree().unwrap().path);
     f.session_start(&node.id, CONVERSATION, "startup")
         .await
         .unwrap();
     f.call("agent.stop", json!({"id": node.id})).await.unwrap();
     let f = Arc::new(f);
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
     let id = node.id.clone();
     let resuming = {
         let f = Arc::clone(&f);
@@ -514,7 +518,7 @@ async fn a22_resume_in_a_worktree_subfolder_keeps_the_saved_subfolder_not_the_wo
 
     let resumed = resuming.await.unwrap().unwrap();
 
-    let terminal_id = resumed.terminal_id.clone().unwrap();
+    let terminal_id = resumed.terminal_id().unwrap();
     let cwd = f
         .terminals
         .list()
@@ -549,7 +553,7 @@ async fn a24_a_resume_whose_run_is_gone_presents_a_live_status_revision() {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let f = Arc::new(f.reopen());
-    let old_attempt = node.attempt.clone().unwrap();
+    let old_attempt = node.attempt().unwrap();
 
     let resuming = {
         let f = Arc::clone(&f);
@@ -560,10 +564,10 @@ async fn a24_a_resume_whose_run_is_gone_presents_a_live_status_revision() {
     let pending = tree.iter().find(|n| n.id == node.id).unwrap();
 
     assert!(
-        pending.status_revision.is_some(),
+        pending.status_revision().is_some(),
         "a pending resume is not a permanently ended node"
     );
-    assert_ne!(pending.status.as_ref().map(|s| s.kind), Some(Kind::Done));
+    assert_ne!(pending.status().map(|s| s.kind), Some(Kind::Done));
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
         .unwrap();
@@ -574,8 +578,8 @@ async fn a24_a_resume_whose_run_is_gone_presents_a_live_status_revision() {
 async fn r16_resume_availability_is_gated_by_the_current_attempt() {
     let f = Arc::new(Fixture::running("sleep 30"));
     let node = exited_with_conversation(&f, CONVERSATION).await;
-    let old = node.attempt.clone().unwrap();
-    assert!(node.can_resume);
+    let old = node.attempt().unwrap();
+    assert!(node.can_resume());
     let resuming = {
         let f = Arc::clone(&f);
         let id = node.id.clone();
@@ -583,14 +587,20 @@ async fn r16_resume_availability_is_gated_by_the_current_attempt() {
     };
     let tree = f.until_attempt_changed(&node.id, &old).await;
     let pending = tree.iter().find(|n| n.id == node.id).unwrap();
-    assert!(!pending.can_resume);
-    assert_eq!(pending.status_revision.as_deref(), Some("1"));
-    assert_eq!(pending.status.as_ref().unwrap().label, "starting");
+    assert!(!pending.can_resume());
+    assert_eq!(
+        pending
+            .status_revision()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some("1")
+    );
+    assert_eq!(pending.status().unwrap().label, "starting");
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
         .unwrap();
     let running = resuming.await.unwrap().unwrap();
-    assert!(!running.can_resume);
+    assert!(!running.can_resume());
     assert_eq!(
         f.tree()
             .await
@@ -612,16 +622,16 @@ async fn r16_reopened_rail_keeps_resume_data_without_live_presentation() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    assert!(reopened.can_resume);
-    assert_eq!(reopened.attempt, node.attempt);
-    assert_eq!(reopened.status.as_ref().unwrap().kind, Kind::Done);
-    assert!(reopened.status_revision.is_none());
-    assert!(reopened.terminal_id.is_none());
-    assert!(reopened.channel.is_none());
-    assert!(reopened.stray.is_empty());
-    assert_eq!(reopened.work, node.work);
-    assert_eq!(reopened.model, node.model);
-    assert_eq!(reopened.effort, node.effort);
+    assert!(reopened.can_resume());
+    assert_eq!(reopened.attempt(), node.attempt());
+    assert_eq!(reopened.status().unwrap().kind, Kind::Done);
+    assert!(reopened.status_revision().is_none());
+    assert!(reopened.terminal_id().is_none());
+    assert!(reopened.channel().is_none());
+    assert!(reopened.stray().is_empty());
+    assert_eq!(reopened.work(), node.work());
+    assert_eq!(reopened.model(), node.model());
+    assert_eq!(reopened.effort(), node.effort());
 }
 
 async fn resume_in_mode(f: &Arc<Fixture>, node: &RailNode, mode: Option<&str>) -> RailNode {
@@ -637,7 +647,7 @@ async fn resume_in_mode(f: &Arc<Fixture>, node: &RailNode, mode: Option<&str>) -
             f.call("agent.resume", params).await
         })
     };
-    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+    f.until_attempt_changed(&node.id, node.attempt().unwrap().as_str())
         .await;
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
@@ -668,7 +678,7 @@ async fn a5213_an_exited_workstream_resumes_in_its_last_mode() {
 
     // Normal: plain `agent.resume {id}` resumes the Door's conversation.
     let normal = {
-        let old = door.attempt.clone().unwrap();
+        let old = door.attempt().unwrap();
         let task = {
             let (f, id) = (Arc::clone(&f), id.clone());
             tokio::spawn(async move { f.resume(&id).await })
@@ -678,8 +688,8 @@ async fn a5213_an_exited_workstream_resumes_in_its_last_mode() {
     };
     f.session_start(&id, CONVERSATION, "resume").await.unwrap();
     let resumed = normal.await.unwrap().unwrap();
-    assert_eq!(resumed.kind, door.kind);
-    assert!(resumed.terminal_id.is_some());
+    assert_eq!(resumed.kind(), door.kind());
+    assert!(resumed.terminal_id().is_some());
     let argv = until_resumed(&f).await;
     assert!(!argv.contains("--dangerously-skip-permissions"), "{argv}");
 
@@ -793,8 +803,8 @@ async fn a5335b_an_agent_cannot_resume_a_child_finished_before_a_restart() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    assert_eq!(after.attempt, node.attempt);
-    assert_eq!(after.terminal_id, None);
+    assert_eq!(after.attempt(), node.attempt());
+    assert_eq!(after.terminal_id(), None);
 }
 
 /// A5335c: with no saved conversation a resume is `CONFLICT` and starts no Terminal.
@@ -817,8 +827,8 @@ async fn a5335c_resume_without_a_saved_conversation_starts_nothing() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    assert_eq!(after.attempt, before.attempt);
-    assert_eq!(after.terminal_id, None);
+    assert_eq!(after.attempt(), before.attempt());
+    assert_eq!(after.terminal_id(), None);
 }
 
 #[tokio::test]
@@ -916,8 +926,8 @@ async fn dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one
             .into_iter()
             .find(|n| n.id == finished.id)
             .unwrap();
-        assert_eq!(after.attempt, finished.attempt);
-        assert_eq!(after.terminal_id, None);
+        assert_eq!(after.attempt(), finished.attempt());
+        assert_eq!(after.terminal_id(), None);
     }
     let before = f.attempt(&cut.id).await;
     let pending = {
@@ -936,7 +946,12 @@ async fn dcr2_resume_without_mode_takes_a_cut_off_job_and_refuses_a_finished_one
         .unwrap();
     let node: RailNode = serde_json::from_value(pending.await.unwrap().unwrap()).unwrap();
     assert_eq!(node.id, cut.id);
-    assert_ne!(node.attempt.as_deref(), Some(before.as_str()));
+    assert_ne!(
+        node.attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some(before.as_str())
+    );
 }
 
 /// DCR2 (c): a cut-off Job outside the caller's Reach is refused with the Reach error.
@@ -956,5 +971,5 @@ async fn dcr2_resume_outside_reach_is_refused() {
     assert_eq!(err.code, code::FORBIDDEN, "{err}");
     assert!(err.message.contains("Reach"), "{err}");
     let after = f.tree().await.into_iter().find(|n| n.id == job.id).unwrap();
-    assert_eq!(after.attempt, job.attempt);
+    assert_eq!(after.attempt(), job.attempt());
 }

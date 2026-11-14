@@ -32,10 +32,10 @@ impl World {
     async fn new() -> Self {
         let f = Fixture::running("sleep 30");
         let door = f.workstream("door", None).await;
-        let child = f.spawn(Some(&door), None).await.unwrap().id;
-        let sibling = f.spawn(Some(&door), None).await.unwrap().id;
+        let child = f.spawn(Some(&door), None).await.unwrap().base.id;
+        let sibling = f.spawn(Some(&door), None).await.unwrap().base.id;
         let elsewhere = f.workstream("elsewhere", None).await;
-        let other = f.spawn(Some(&elsewhere), None).await.unwrap().id;
+        let other = f.spawn(Some(&elsewhere), None).await.unwrap().base.id;
         Self {
             f,
             touches: Arc::new(Touches::in_memory().unwrap()),
@@ -60,7 +60,7 @@ impl World {
     }
 
     async fn tree_ids(&self) -> Vec<String> {
-        self.f.tree().await.into_iter().map(|n| n.id).collect()
+        self.f.tree().await.into_iter().map(|n| n.base.id).collect()
     }
 }
 
@@ -133,7 +133,7 @@ async fn m7_a_workstream_an_agent_created_is_in_its_reach() {
     )
     .await
     .unwrap();
-    let under = w.f.spawn(Some(&id), None).await.unwrap().id;
+    let under = w.f.spawn(Some(&id), None).await.unwrap().base.id;
     w.call(agent(&w.child), "agent.stop", json!({"id": under}))
         .await
         .unwrap();
@@ -333,8 +333,9 @@ async fn m7_a_run_outside_reach_starts_nothing() {
             w.f.tree()
                 .await
                 .into_iter()
-                .find(|node| &node.id == target)
+                .find(|node| &node.base.id == target)
                 .unwrap()
+                .base
                 .name;
         assert!(err.message.contains(&target_name) && !err.message.contains(target));
         assert_eq!(
@@ -426,8 +427,9 @@ async fn m7_a_spawn_prompt_outside_reach_is_refused_without_effects() {
             w.f.tree()
                 .await
                 .into_iter()
-                .find(|node| node.id == target)
+                .find(|node| node.base.id == target)
                 .unwrap()
+                .base
                 .name;
         assert!(err.message.contains(&target_name) && !err.message.contains(&target));
         assert_eq!(w.touches.sequence().unwrap(), before);

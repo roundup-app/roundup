@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { appSettings } from "../settings/preferences";
 import { createEffect, createRoot, lazy, untrack } from "solid-js";
 import type { ActivationSource } from "../keys/registry";
@@ -28,7 +29,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
   const settle = (item: string) => settleItem(owned(item));
   const push = (candidate: Candidate) => pushCandidate({ ...candidate, key: owned(candidate.key), item: owned(candidate.item), project: connected.project.path });
   // The Kind each Agent last had, so a load or a repeat makes no Toast.
-  const seen = new Map<string, Kind>(rail.nodes.flatMap((node) => (node.status ? [[node.id, node.status.kind] as const] : [])));
+  const seen = new Map<string, Kind>(rail.nodes.flatMap((node) => (isDoor(node) && node.status ? [[node.id, node.status.kind] as const] : [])));
 
   const stopFiltering = createRoot(dispose => {
     createEffect(() => {
@@ -41,7 +42,8 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
   const byAgent = (actor: Actor, item: string, line: string, open: Candidate["open"]): Candidate | null => {
     if (actor.kind !== "agent") return null;
 
-    const node = rail.nodes.find((each) => each.id === actor.id);
+    const found = rail.nodes.find((each) => each.id === actor.id);
+    const node = found && isDoor(found) ? found : undefined;
 
     if (node?.alert_level === "quiet") {
       if (item.startsWith("todo:")) connected.held.retain({ agent: actor.id, name: node.name, kind: node.status?.kind ?? "working", line: node.status?.label ?? "", at: Date.now() });

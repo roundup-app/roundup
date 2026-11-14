@@ -366,7 +366,7 @@ mod tests {
         flat[2].0.parent = Some("17".into());
         let out = ordered(flat, &mut |node, _| Ok(node)).unwrap();
         assert_eq!(
-            out.into_iter().map(|node| node.id).collect::<Vec<_>>(),
+            out.into_iter().map(|node| node.base.id).collect::<Vec<_>>(),
             [i64::MAX.to_string()]
         );
     }
@@ -404,7 +404,7 @@ mod tests {
                     .map(|i| (i64::MAX - i64::try_from(i).unwrap()).to_string())
                     .collect();
                 assert_eq!(
-                    out.into_iter().map(|node| node.id).collect::<Vec<_>>(),
+                    out.into_iter().map(|node| node.base.id).collect::<Vec<_>>(),
                     expected
                 );
             }

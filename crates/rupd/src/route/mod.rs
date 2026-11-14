@@ -196,7 +196,10 @@ impl Daemon {
         }
         .map_err(RpcError::internal)?;
         for node in &mut nodes {
-            node.resume = self.agents.resume_wait(&node.id);
+            let wait = self.agents.resume_wait(&node.base.id);
+            if let Some(door) = node.door_mut() {
+                door.resume = wait;
+            }
         }
         crate::workstream_state::present(&mut nodes, &counts, &stalled, self.sender.get());
         Ok(rpc::Reply::Value(rpc::reply(&nodes)?))
@@ -280,7 +283,7 @@ impl Daemon {
                     .rail()
                     .await?
                     .iter()
-                    .any(|n| n.id == id && n.kind == contracts::agent::NodeKind::Workstream)
+                    .any(|n| n.id == id && n.kind() == contracts::agent::NodeKind::Workstream)
                 {
                     return self
                         .remove_workstream(&conn.actor, &id, removal.scope.unwrap_or_default())
@@ -295,12 +298,12 @@ impl Daemon {
                     .iter()
                     .find(|n| n.id == p.id)
                     .ok_or_else(|| RpcError::new(code::NOT_FOUND, "Agent not found"))?;
-                if node.kind != contracts::agent::NodeKind::Agent
+                if node.kind() != contracts::agent::NodeKind::Agent
                     || (conn.actor.kind == ActorKind::Agent
                         && (node.parent.as_deref() != Some(&conn.actor.id)
                             || !nodes.iter().any(|n| {
                                 n.id == conn.actor.id
-                                    && n.kind == contracts::agent::NodeKind::Workstream
+                                    && n.kind() == contracts::agent::NodeKind::Workstream
                             })))
                 {
                     return Err(RpcError::forbidden(

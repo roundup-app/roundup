@@ -1,3 +1,4 @@
+import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, mode, workstream } from "../testing/nodes";
@@ -63,7 +64,7 @@ it("u5287_the_entries_follow_the_row_flags", async () => {
 });
 
 it("u5214_make_a_workstream_calls_the_method", async () => {
-  const tree = [agent("a", "done", "", { can_resume: true, can_make_workstream: true })];
+  const tree: RailNode[] = [agent("a", "done", "", { can_resume: true, can_make_workstream: true })];
   const m = await mountRail(tree, [exitedTerminal("a", 0)]);
   m.app.handlers["agent.makeWorkstream"] = () => {
     tree[0] = workstream("a", { name: "a", attempt: "1", can_resume: true });

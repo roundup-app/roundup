@@ -1,3 +1,4 @@
+import { isDoor } from "../state/doorNode";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { batch } from "solid-js";
 import { afterEach, expect, it } from "vitest";
@@ -266,7 +267,7 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
     return found;
   };
 
-  await waitFor(() => expect(connected().rail.nodes.find(node => node.id === target.id)?.status?.kind).toBe(kind));
+  await waitFor(() => expect(connected().rail.nodes.filter(isDoor).find(node => node.id === target.id)?.status?.kind).toBe(kind));
   expect(places().length).toBeLessThanOrEqual(3);
   await waitFor(() => expect(document.querySelector(".rail-tree")).not.toBeNull());
   expect(places().length).toBeLessThanOrEqual(3);

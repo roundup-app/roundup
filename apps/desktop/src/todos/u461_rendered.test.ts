@@ -1,3 +1,4 @@
+import { isDoor, type DoorNode } from "../state/doorNode";
 import { agentBrowserExecutable } from "../testing/chromePage";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -343,7 +344,8 @@ describe("u3789a connected browser rows", () => {
       const renamedPad = (await app.rpc("pad.list", null)).find(item => item.incarnation === pad.incarnation);
       expect(renamedTodo).toMatchObject({ title: "renamed todo", body: "keep body", home: home.id, creator: todo.creator });
       expect(renamedPad).toMatchObject({ name: "renamed pad", text: "keep text", home: home.id, revision: pad.revision });
-      expect((await app.rpc("rail.tree", null)).find(node => node.id === home.id)?.attempt).toBe(door.attempt);
+      // SAFETY: the created Door is a DoorNode, narrowed by the rail.tree filter.
+      expect((await app.rpc("rail.tree", null)).filter(isDoor).find(node => node.id === home.id)?.attempt).toBe((door as DoorNode).attempt);
     } catch (error) {
       console.error(await evaluate("({calls:window.__rowCalls,active:document.activeElement?.outerHTML})"));
       console.error(await browser("snapshot"));

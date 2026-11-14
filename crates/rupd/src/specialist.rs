@@ -55,7 +55,7 @@ impl Daemon {
             let node = at.ok_or_else(|| {
                 RpcError::new(code::INVALID_PARAMS, "a specialist needs a Workstream")
             })?;
-            if node.kind == contracts::agent::NodeKind::Workstream {
+            if node.kind() == contracts::agent::NodeKind::Workstream {
                 break node.id.clone();
             }
             at = node
@@ -67,10 +67,8 @@ impl Daemon {
             nodes.iter().any(|n| {
                 n.id == specialist.id
                     && (matches!(specialist.handoff, Some(SpecialistHandoff::Ready(_)))
-                        || (n.terminal_id.is_some()
-                            && n.status
-                                .as_ref()
-                                .is_some_and(|s| s.kind != contracts::Kind::Done)))
+                        || (n.terminal_id().is_some()
+                            && n.status().is_some_and(|s| s.kind != contracts::Kind::Done)))
             })
         });
         let key = (workstream, name);
@@ -78,7 +76,7 @@ impl Daemon {
             && let Some(node) = nodes.iter().find(|n| n.id == specialist.id)
         {
             // A failed replacement start retains its summary and retries without another request.
-            if node.terminal_id.is_none()
+            if node.terminal_id().is_none()
                 && matches!(specialist.handoff, Some(SpecialistHandoff::Ready(_)))
             {
                 return self.replace_specialist(specialist).await;
@@ -116,8 +114,9 @@ impl Daemon {
         let nodes = self.rail().await?;
         if !nodes.iter().any(|n| {
             n.id == id
-                && n.attempt.as_deref() == Some(signal.attempt.as_str())
-                && n.terminal_id.is_some()
+                && n.attempt().as_ref().map(contracts::agent::Ordinal::as_str)
+                    == Some(signal.attempt.as_str())
+                && n.terminal_id().is_some()
         }) {
             return Ok(None);
         }

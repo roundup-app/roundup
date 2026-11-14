@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent, mode, workstream } from "../testing/nodes";
+import { agent, doorOf, mode, workstream } from "../testing/nodes";
 import { mountRail, rowOf } from "../rail/railFixture";
 import { framesLate, MAX_FRAMES_LATE, type TimedAction } from "./framesLate";
 import { percentile } from "./keystrokes";
@@ -17,7 +17,7 @@ const starting =
     expect(
       rail.nodes.some(
         (node) =>
-          (id === null || node.id === id) && node.status?.label === "starting",
+          (id === null || node.id === id) && doorOf(node)?.status?.label === "starting",
       ),
     ).toBe(true);
 

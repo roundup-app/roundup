@@ -1,7 +1,8 @@
 import type { Kind } from "@contracts/Kind";
+import type { WorkstreamState } from "@contracts/agent/WorkstreamState";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { byUrgency } from "../ink/glyph";
-import { attentionCounts } from "./attention";
+import { attentionCounts, statusOf } from "./attention";
 import { agentKindsBelow } from "./layout";
 import { descendantsOf, isWorkstream, type RailSource } from "../state/railTopology";
 
@@ -9,12 +10,12 @@ import { descendantsOf, isWorkstream, type RailSource } from "../state/railTopol
 type Dismissed = (node: RailNode) => boolean;
 
 /** DCL2: the Kind a Workstream state shows; `idle` and `settled` add nothing to the Door's own Kind. */
-const STATE_KIND: Record<NonNullable<RailNode["workstream_state"]>, Kind | undefined> = { "needs-you": "needs-you", error: "error", stalled: "working", working: "working", waiting: "blocked", idle: undefined, settled: undefined };
+const STATE_KIND: Record<WorkstreamState, Kind | undefined> = { "needs-you": "needs-you", error: "error", stalled: "working", working: "working", waiting: "blocked", idle: undefined, settled: undefined };
 
 /** DCL2: the Daemon's Workstream state, as the Kind that glyph shows. A dismissed or quiet failure below no longer reads as urgent. */
 const stateKind = (source: RailSource, node: RailNode, dismissed: Dismissed): Kind | undefined => {
-  const own = dismissed(node) ? "idle" : node.status?.kind;
-  const shown = STATE_KIND[node.workstream_state ?? "idle"];
+  const own = dismissed(node) ? "idle" : statusOf(node)?.kind;
+  const shown = STATE_KIND[(node.kind === "workstream" ? node.workstream_state : undefined) ?? "idle"];
 
   if (shown === undefined) return undefined;
 
@@ -26,9 +27,9 @@ const stateKind = (source: RailSource, node: RailNode, dismissed: Dismissed): Ki
 /** U403, DCL2: the Kind a row's glyph draws: the most urgent of its own Status, a Workstream's state, or, for a folded container, the Agents below it. */
 export const rowKind = (source: RailSource, node: RailNode, dismissed: Dismissed, folded: boolean): Kind | null => {
   const container = isWorkstream(node) || node.kind === "group";
-  const below = isWorkstream(node) && node.workstream_state !== undefined ? [stateKind(source, node, dismissed)] : container && folded ? agentKindsBelow(source, node.id, dismissed) : [];
+  const below = node.kind === "workstream" && node.workstream_state !== undefined ? [stateKind(source, node, dismissed)] : container && folded ? agentKindsBelow(source, node.id, dismissed) : [];
 
-  return byUrgency([dismissed(node) ? "idle" as const : node.status?.kind, ...below].filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
+  return byUrgency([dismissed(node) ? "idle" as const : statusOf(node)?.kind, ...below].filter((kind): kind is Kind => kind !== undefined))[0] ?? null;
 };
 
 /** U6228: a mark with no state of its own shows the calm glyph. */
@@ -40,4 +41,4 @@ export const rowUnread = (source: RailSource, node: RailNode, unseen: (id: strin
 
 /** PS12: how many of the row and its Agents below need you or failed, as the Project's count reads them (quiet and dismissed ones excluded). */
 export const rowAttention = (source: RailSource, node: RailNode, dismissed: Dismissed) =>
-  attentionCounts([node, ...descendantsOf(source, node.id)].filter(each => each.alert_level !== "quiet" && !dismissed(each)));
+  attentionCounts([node, ...descendantsOf(source, node.id)].flatMap(each => each.alert_level !== "quiet" && !dismissed(each) ? [{ status: statusOf(each) }] : []));

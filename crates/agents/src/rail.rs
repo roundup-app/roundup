@@ -175,7 +175,7 @@ impl Rail {
         let tx = self.db.transaction()?;
         let mut node = find(&load(&tx)?, id)?.clone();
         if let Some(base) = captured
-            && node.work != base.order
+            && node.work() != base.order
         {
             return Err(StoreError::conflict("Order changed since it was captured"));
         }
@@ -189,7 +189,9 @@ impl Rail {
             node.visibility = contracts::agent::RailVisibility::Shown;
         }
         tx.commit()?;
-        node.work = Some(order.clone());
+        if let Some(door) = node.door_mut() {
+            door.work = Some(order.clone());
+        }
         Ok(node)
     }
 
@@ -347,7 +349,7 @@ impl Rail {
         &mut self,
         id: AgentId,
     ) -> Result<contracts::agent::Ordinal, StoreError> {
-        let next = match self.node(id)?.attempt {
+        let next = match self.node(id)?.attempt() {
             Some(previous) => previous
                 .next()
                 .ok_or_else(|| StoreError::internal("Attempt exhausted"))?,
@@ -505,7 +507,7 @@ impl Rail {
                 records.push((node.clone(), None, false));
                 continue;
             }
-            if let (Some(owner), Some(commit), Some(worktree)) = (owner, commit, &node.worktree) {
+            if let (Some(owner), Some(commit), Some(worktree)) = (owner, commit, &node.worktree()) {
                 records.push((
                     node.clone(),
                     Some(super::worktree::Provision {
@@ -668,12 +670,12 @@ fn check_parent(
     let Some(parent) = parent.map(|id| find_stored(nodes, id)).transpose()? else {
         return Ok(());
     };
-    match (kind, parent.kind) {
+    match (kind, parent.kind()) {
         (NodeKind::Workstream | NodeKind::Group, NodeKind::Group) => {
             let mut at = parent.parent.as_deref();
             while let Some(id) = at {
                 let ancestor = find_stored(nodes, id)?;
-                if kind == NodeKind::Workstream && ancestor.kind != NodeKind::Group {
+                if kind == NodeKind::Workstream && ancestor.kind() != NodeKind::Group {
                     return Err(StoreError::conflict("Workstreams never nest"));
                 }
                 at = ancestor.parent.as_deref();

@@ -51,7 +51,7 @@ async fn m9_a_door_asked_for_a_workstream_makes_one() {
     let tree = project.rail_tree(&events).await;
     let node = tree.iter().find(|n| n.id == made.id).unwrap();
     assert!(node.parent.is_none());
-    assert!(node.attempt.is_some(), "its Door is started");
+    assert!(node.attempt().is_some(), "its Door is started");
     assert!(
         tree.iter().any(|n| n.id == door),
         "the Door that asked stays"
@@ -246,7 +246,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         loop {
             let nodes = project.rail_tree(&user).await;
             let node = nodes.iter().find(|n| n.id == door).unwrap();
-            if node.status.as_ref().unwrap().kind == Kind::Idle {
+            if node.status().unwrap().kind == Kind::Idle {
                 match user
                     .request(
                         "agent.prompt",
@@ -283,8 +283,13 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     );
     let nodes = project.rail_tree(&user).await;
     let live = nodes.iter().find(|n| n.id == door).unwrap();
-    assert!(live.terminal_id.is_some());
-    assert_eq!(live.attempt.as_deref(), Some(failed.attempt.as_str()));
+    assert!(live.terminal_id().is_some());
+    assert_eq!(
+        live.attempt()
+            .as_ref()
+            .map(contracts::agent::Ordinal::as_str),
+        Some(failed.attempt.as_str())
+    );
     project.needs_you(&user, &child).await;
     project
         .next_named(
@@ -305,10 +310,19 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         loop {
             let nodes = project.rail_tree(&user).await;
             let node = nodes.iter().find(|n| n.id == door).unwrap();
-            if node.status.as_ref().unwrap().kind == Kind::Idle
-                && node.status_revision.as_deref() != Some(failed.status_revision.as_str())
+            if node.status().unwrap().kind == Kind::Idle
+                && node
+                    .status_revision()
+                    .as_ref()
+                    .map(contracts::agent::Ordinal::as_str)
+                    != Some(failed.status_revision.as_str())
             {
-                assert_eq!(node.attempt.as_deref(), Some(failed.attempt.as_str()));
+                assert_eq!(
+                    node.attempt()
+                        .as_ref()
+                        .map(contracts::agent::Ordinal::as_str),
+                    Some(failed.attempt.as_str())
+                );
                 break;
             }
             tokio::task::yield_now().await;
@@ -462,7 +476,7 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
     let spawned: contracts::agent::RailNode =
         serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
     assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
-    let worktree = spawned.worktree.expect("the child has a Worktree");
+    let worktree = spawned.worktree().expect("the child has a Worktree");
     assert_eq!(worktree.branch, format!("roundup/agent-{}", spawned.id));
     let listed = std::process::Command::new("git")
         .current_dir(path)
@@ -513,7 +527,7 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
     let b: contracts::agent::RailNode =
         serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
     assert_eq!(a.parent.as_deref(), Some(door.as_str()));
-    assert!(a.worktree.is_none());
+    assert!(a.worktree().is_none());
     assert_eq!(b.parent.as_deref(), Some(a.id.as_str()));
     let tree = project.rail_tree(&client).await;
     assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
@@ -649,8 +663,8 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
         .rail_tree(&client)
         .await
         .into_iter()
-        .filter(|node| node.kind == contracts::agent::NodeKind::Workstream)
-        .map(|node| node.id)
+        .filter(|node| node.kind() == contracts::agent::NodeKind::Workstream)
+        .map(|node| node.base.id)
         .collect();
     client
         .request(
@@ -665,7 +679,7 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
         serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
     assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
     assert!(
-        spawned.terminal_id.is_some(),
+        spawned.terminal_id().is_some(),
         "the shaping child has its own Terminal"
     );
     // Wait for the Door and child turns so later tool calls cannot escape the count.
@@ -695,14 +709,14 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
     let tree = project.rail_tree(&client).await;
     let after: Vec<_> = tree
         .iter()
-        .filter(|node| node.kind == contracts::agent::NodeKind::Workstream)
+        .filter(|node| node.kind() == contracts::agent::NodeKind::Workstream)
         .map(|node| node.id.clone())
         .collect();
     assert_eq!(before, after);
     assert_eq!(
         tree.iter()
             .filter(|node| node.parent.as_deref() == Some(&door)
-                && node.kind == contracts::agent::NodeKind::Agent)
+                && node.kind() == contracts::agent::NodeKind::Agent)
             .count(),
         1
     );

@@ -451,7 +451,7 @@ async fn failed_worktree_removal(failure: &str) {
             serde_json::from_value(client.request("rail.tree", Value::Null).await.unwrap())
                 .unwrap();
         let node = tree.into_iter().find(|n| n.id == id).unwrap();
-        let worktree = node.worktree.unwrap();
+        let worktree = node.worktree().unwrap();
         let ignored = std::path::Path::new(&worktree.path).join("ignored");
         std::fs::write(&ignored, "ignored work\n").unwrap();
         std::fs::set_permissions(&ignored, std::fs::Permissions::from_mode(0o640)).unwrap();
@@ -912,8 +912,7 @@ async fn g9_workstream_removal_with_one_gb_ignored_file_finishes_under_one_secon
         .iter()
         .find(|n| n.id == id)
         .unwrap()
-        .worktree
-        .as_ref()
+        .worktree()
         .unwrap();
     let path = std::path::Path::new(&w.path);
     std::fs::create_dir(path.join("target")).unwrap();

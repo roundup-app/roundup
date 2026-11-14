@@ -183,7 +183,7 @@ impl Daemon {
                     .find(|node| {
                         node.id == conn.actor.id
                             && matches!(
-                                node.kind,
+                                node.kind(),
                                 contracts::agent::NodeKind::Agent
                                     | contracts::agent::NodeKind::Workstream
                             )

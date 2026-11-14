@@ -99,21 +99,22 @@ impl Request {
         let workstreams = projects
             .into_iter()
             .flat_map(|(project, rail)| rail.into_iter().map(move |node| (project.clone(), node)))
-            .filter(|(_, node)| node.kind == NodeKind::Workstream)
+            .filter(|(_, node)| node.kind() == NodeKind::Workstream)
             .map(|(project, node)| {
-                let (title, ask, question) = match node.work {
+                let status = node.status().map(|status| status.kind);
+                let (title, ask, question) = match node.work() {
                     Some(Order::Work { title, ask, .. }) => (title, Some(ask), None),
                     Some(Order::Clarification { question }) => (None, None, Some(question)),
                     None => (None, None, None),
                 };
                 Workstream {
                     project,
-                    id: node.id,
-                    name: node.name,
+                    id: node.base.id,
+                    name: node.base.name,
                     title,
                     ask,
                     question,
-                    status: node.status.map(|status| status.kind),
+                    status,
                 }
             })
             .collect();

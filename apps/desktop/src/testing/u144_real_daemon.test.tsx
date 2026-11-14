@@ -11,7 +11,7 @@ import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { createFakeApp } from "./fakeApp";
-import { workstream } from "./nodes";
+import { doorOf, workstream } from "./nodes";
 import { startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -59,10 +59,10 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     await app.rpc("project.setWorktrees", { on: true, check: "true" });
     first = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "First", order: { kind: "work", ask: "inspect", limits: [] } });
     second = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Second", order: { kind: "work", ask: "inspect", limits: [] } });
-    await waitFor(async () => expect((await app.rpc("rail.tree", null)).filter(node => node.id === first.id || node.id === second.id).every(node => node.status?.kind === "idle")).toBe(true), { timeout: 30_000 });
+    await waitFor(async () => expect((await app.rpc("rail.tree", null)).filter(node => node.id === first.id || node.id === second.id).every(node => doorOf(node)?.status?.kind === "idle")).toBe(true), { timeout: 30_000 });
     await writeFile(join(real.dir, "same.ts"), "project source\n");
-    await writeFile(join(first.worktree!.path, "same.ts"), "first source\n");
-    await writeFile(join(second.worktree!.path, "same.ts"), "second source\n");
+    await writeFile(join(doorOf(first)!.worktree!.path, "same.ts"), "first source\n");
+    await writeFile(join(doorOf(second)!.worktree!.path, "same.ts"), "second source\n");
     connected = await connectProject(app, { name: "observer", path: real.dir }, () => true, () => 0);
   }, 120_000);
 
@@ -91,7 +91,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     cleanup();
     const { app } = connected;
     const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Landing", order: { kind: "work", ask: "inspect", limits: [] } });
-    const path = node.worktree!.path;
+    const path = doorOf(node)!.worktree!.path;
     const worktreeGit = (...args: string[]) => execute("git", ["-C", path, ...args], { timeout: 30_000 });
 
     // The ownership observer intentionally dirtied the Project copy; Landing requires a clean Base.
@@ -297,14 +297,14 @@ describe("u2773 Project draft integration on real Projects", () => {
     await setup();
     const bound = app.forProject(first.dir);
     const source = await bound.rpc("rail.startDoor", { id: original.id });
-    const terminal = source.terminal_id!;
+    const terminal = doorOf(source)!.terminal_id!;
     const initial = fakeEmulators();
     const mounted = mount(initial);
     await screen.findByRole("region", { name: "Rail" });
     await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
     fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
     await waitFor(() => expect(initial.made.has(terminal)).toBe(true));
-    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: terminal, recipient: source.id }, { note: " retained 🧭  ", excerpt: " captured source\n", source: source.id, terminal, attempt: source.attempt }, null, "ordinary").draft;
+    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: terminal, recipient: source.id }, { note: " retained 🧭  ", excerpt: " captured source\n", source: source.id, terminal, attempt: doorOf(source)!.attempt }, null, "ordinary").draft;
     mounted.unmount();
     await bound.rpc("terminal.kill", { id: terminal });
     window.localStorage.setItem(`roundup:rail:${first.dir}`, JSON.stringify({ selected: source.id, collapsed: [] }));

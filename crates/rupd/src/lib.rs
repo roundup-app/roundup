@@ -244,7 +244,10 @@ impl Daemon {
             .rail()
             .await?
             .into_iter()
-            .filter_map(|node| Some((node.id, std::path::PathBuf::from(node.worktree?.path))))
+            .filter_map(|node| {
+                let worktree = node.worktree()?;
+                Some((node.base.id, std::path::PathBuf::from(worktree.path)))
+            })
             .collect();
         let running = self.agents.running_programs();
         Ok(self.resources.sample(&running, &worktrees).await)
@@ -306,7 +309,7 @@ impl Daemon {
             self.agents.user_named(&id),
             nodes
                 .iter()
-                .any(|node| node.id == id && node.kind == contracts::agent::NodeKind::Workstream),
+                .any(|node| node.id == id && node.kind() == contracts::agent::NodeKind::Workstream),
         );
         Ok(contracts::agent::Brief {
             stdout: agents::claude_code::session_start_context(&text),
@@ -327,7 +330,7 @@ impl Daemon {
             .find(|node| node.id == id)
             .ok_or_else(|| RpcError::not_found("an Agent that is gone"))?;
         let cwd = node
-            .worktree
+            .worktree()
             .map_or_else(|| self.project.clone(), |tree| tree.path.into());
         let home = self.observers.home.clone().unwrap_or_default();
         let skills = agents::claude_code::skills(&home, &cwd, &self.project);
@@ -553,19 +556,22 @@ pub mod test_support {
         pub fn status(&self, id: &str, kind: Kind) {
             let mut nodes = self.nodes.lock();
             let node = nodes.iter_mut().find(|n| n.id == id).unwrap();
-            node.status = Some(Status {
+            node.door_mut().unwrap().status = Some(Status {
                 kind,
                 label: String::new(),
                 since: 0,
                 finished: "0".into(),
             });
-            node.status_revision = node.status_revision.as_ref().unwrap().next();
+            let revision = node.status_revision().unwrap().next();
+            if let Some(door) = node.door_mut() {
+                door.status_revision = revision;
+            }
             let event = contracts::agent::StatusEvent {
                 ended: false,
                 id: id.into(),
-                attempt: node.attempt.clone().unwrap(),
-                status_revision: node.status_revision.clone().unwrap(),
-                status: node.status.clone().unwrap(),
+                attempt: node.attempt().unwrap(),
+                status_revision: node.status_revision().unwrap(),
+                status: node.status().cloned().unwrap(),
             };
             drop(nodes);
             self.bus.emit(

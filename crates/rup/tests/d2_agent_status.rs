@@ -261,7 +261,7 @@ sys.exit(result.returncode)
         tree.iter()
             .find(|node| node.id == agent.id)
             .unwrap()
-            .status
+            .status()
             .as_ref()
             .map(|status| status.label.as_str()),
         Some("idle")

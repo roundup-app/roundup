@@ -7,6 +7,7 @@ import { railOrder } from "../state/railTopology";
 import { copy } from "./copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
 import { projectKeyOf } from "../projectLink";
+import { isDoor } from "../state/doorNode";
 
 /** U2694a: one item of a menu model. `run` stays in the webview; only the rest crosses to the host. */
 export type MenuEntry = {
@@ -131,10 +132,10 @@ export const linkEntries = (
   };
 
   const source = target.kind === "agent" || target.kind === "workstream" ? target.id
-    : target.kind === "terminal" ? nodes.find(node => node.terminal_id === target.id && (node.kind === "agent" || node.attempt !== null))?.id : undefined;
+    : target.kind === "terminal" ? nodes.find(node => isDoor(node) && node.terminal_id === target.id && (node.kind === "agent" || node.attempt !== null))?.id : undefined;
 
   const children = railOrder(nodes).flatMap((agent): MenuEntry[] =>
-    agent.id === source || (agent.kind !== "agent" && agent.attempt === null) || !running(agent) ? [] : [{
+    agent.id === source || (agent.kind !== "agent" && (!isDoor(agent) || agent.attempt === null)) || !running(agent) ? [] : [{
       id: `send:${agent.id}`,
       label: agent.name,
       run: () => attempt(async link => {

@@ -192,7 +192,7 @@ async fn g2542e_warm_launch_observer() {
             tokio::time::sleep(Duration::from_millis(2)).await;
         };
         timings.push(took.as_millis());
-        let assigned = PathBuf::from(&node.worktree.as_ref().unwrap().path);
+        let assigned = PathBuf::from(&node.worktree().unwrap().path);
         used[usize::from(assigned == dirs[1])] += 1;
 
         #[cfg(target_os = "linux")]
