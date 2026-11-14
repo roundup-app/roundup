@@ -39,6 +39,9 @@ impl From<&contracts::agent::Worktree> for Worktree {
     }
 }
 
+/// How long an App-facing operation's `git` commands may take together.
+const BOUND: Duration = Duration::from_secs(3);
+
 /// Runs one Project's `git`, one command at a time: `git worktree add` and the rest take the
 /// repository's locks, and two Agents provisioned at once would otherwise fail on `index.lock`.
 #[derive(Clone)]
@@ -52,6 +55,7 @@ pub struct Git {
     /// G2542c: directories a preparation is running in.
     busy: Arc<Mutex<Vec<PathBuf>>>,
     deadline: Option<Instant>,
+    bound: Duration,
     forked: Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -67,8 +71,16 @@ impl Git {
             enrolled: Arc::new(RwLock::new(Vec::new())),
             busy: Arc::new(Mutex::new(Vec::new())),
             deadline: None,
+            bound: BOUND,
             forked: Arc::default(),
         }
+    }
+
+    /// Give each `bounded` operation `bound`, not the default: a test that holds a command
+    /// open while it observes something else must not race the product's budget.
+    pub fn with_bound(mut self, bound: Duration) -> Self {
+        self.bound = bound;
+        self
     }
 
     pub(super) fn collection_permitted(&self, project: &Path) -> Result<bool, RpcError> {
@@ -103,7 +115,7 @@ impl Git {
     /// One budget covers lock acquisition and every command in an App-facing operation.
     pub(crate) fn bounded(&self) -> Self {
         Self {
-            deadline: Some(Instant::now() + Duration::from_secs(3)),
+            deadline: Some(Instant::now() + self.bound),
             ..self.clone()
         }
     }

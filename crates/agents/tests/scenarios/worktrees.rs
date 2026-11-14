@@ -138,6 +138,8 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
     let guard = tempfile::tempdir().unwrap();
     let parked = guard.path().join("parked");
     let release = guard.path().join("release");
+    // The precheck stays parked while the test observes, so the product's 3 s budget would
+    // race the observer's latency on a loaded lane. The observer's own waits are 10 s.
     let git = wrapped_git(
         guard.path(),
         &format!(
@@ -145,7 +147,8 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
             parked.display(),
             release.display()
         ),
-    );
+    )
+    .with_bound(Duration::from_secs(30));
     let f = Arc::new(Fixture::in_git_project(
         "echo ready > ready\nwhile read line; do if [ \"$line\" = exit ]; then exit 0; fi; printf '\\033]0;◐ Claude Code\\007'; done",
         git,
@@ -173,6 +176,10 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
         .terminals
         .subscribe(node.terminal_id.as_ref().unwrap())
         .unwrap();
+    // The Working a title brings after a Stop lasts until DCL3's next process-table read
+    // (one `ps`, about 40 ms on macOS, less on Linux), so the test reads `agent.status` events
+    // and never polls the tree for it.
+    let mut statuses = f.bus.subscribe();
     f.terminals
         .write(node.terminal_id.as_ref().unwrap(), b"title\n")
         .await
@@ -186,10 +193,12 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
             }
         }
         loop {
-            if f.tree().await[0].status.as_ref().unwrap().kind == contracts::Kind::Working {
+            if let contracts::EventData::AgentStatus(status) = statuses.recv().await.unwrap().data
+                && status.id == id
+                && status.status.kind == contracts::Kind::Working
+            {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await;

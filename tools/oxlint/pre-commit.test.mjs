@@ -43,7 +43,7 @@ function fixture(t, config = readFileSync(resolve(repo, "lefthook.yml"), "utf8")
   const cwd = mkdtempSync(resolve(tmpdir(), "roundup-pre-commit-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
 
-  for (const path of ["package.json", ".gitignore", ".oxlintrc.json", ".claude/sound/placement/file-stays-under-a-size-cap.gate", "tools/oxlint/anti-slop"]) {
+  for (const path of ["package.json", ".gitignore", ".oxlintrc.json", ".claude/sound/placement/file-stays-under-a-size-cap.gate", "tools/oxlint/anti-slop", "tools/oxlint/staged.mjs"]) {
     const target = resolve(cwd, path);
     mkdirSync(dirname(target), { recursive: true });
     cpSync(resolve(repo, path), target, { recursive: true });
@@ -123,6 +123,24 @@ test("t5456c_small_commit_hook_stays_under_five_seconds", t => {
   const added = elapsed[1] - elapsed[0];
   t.diagnostic(`size guard: ${elapsed[0].toFixed(1)} ms; lint hook: ${elapsed[1].toFixed(1)} ms; added: ${added.toFixed(1)} ms (including first lint startup)`);
   assert.ok(added < 5000, `hook added ${added.toFixed(1)} ms`);
+});
+
+test("t5456d_hook_fails_only_on_errors_in_added_lines", t => {
+  const cwd = fixture(t);
+  const old = "export const first = Reflect.apply(Math.max, undefined, [1]);\n\nexport const second = 2;\n";
+  const edited = old.replace("= 2", "= 3");
+  write(cwd, "source.ts", old);
+  git(cwd, "add", "source.ts");
+  git(cwd, "commit", "--quiet", "--no-verify", "-m", "Seed an error the hook never saw");
+  write(cwd, "source.ts", edited);
+  git(cwd, "add", "source.ts");
+  const kept = run(cwd, "git", ["commit", "-m", "Edit a line beside the old error"]);
+  assert.equal(kept.status, 0, kept.stdout + kept.stderr);
+  write(cwd, "source.ts", edited + "\nexport const third = Reflect.apply(Math.min, undefined, [1]);\n");
+  git(cwd, "add", "source.ts");
+  const rejected = run(cwd, "git", ["commit", "-m", "Add a new error"]);
+  assert.equal(rejected.status, 1, rejected.stdout + rejected.stderr);
+  assert.match(rejected.stdout + rejected.stderr, /source\.ts:5:\d+: error anti-slop\(no-reflect-apply\)/);
 });
 
 test("t5456a_nested_web_extensions_receive_safe_fixes", t => {
