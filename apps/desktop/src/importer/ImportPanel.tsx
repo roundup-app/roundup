@@ -27,7 +27,13 @@ export const ImportPanel = (props: { onClose: () => void }) => {
     if (state.listingAgent() && event.name === "rail.changed" && event.actor.id === state.listingAgent()) void state.refresh();
   }));
   const listing = () => rail.nodes.find(node => node.id === state.listingAgent());
-  const listingStatus = () => { const found = listing(); return found && isDoor(found) ? found.status : null; };
+
+  const listingStatus = () => {
+    const found = listing();
+
+    return found && isDoor(found) ? found.status : null;
+  };
+
   const period = state.period;
   const wanted = state.selected;
   const found = state.discovery;

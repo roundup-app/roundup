@@ -328,7 +328,11 @@ export const AskBar = (props: {
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} row={item => {
             const node = () => rail.nodes.find(node => node.id === item.value);
 
-            const nodeStatus = () => { const found = node(); return found && isDoor(found) ? found.status : undefined; };
+            const nodeStatus = () => {
+              const found = node();
+
+              return found && isDoor(found) ? found.status : undefined;
+            };
 
             const parent = () => names().filter(other => other.label === item.label).length > 1
               ? (rail.nodes.find(other => other.id === node()?.parent)?.name ?? connected.project.name) : undefined;

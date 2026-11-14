@@ -45,8 +45,18 @@ export function node(id: string, over: Partial<Of<"workstream">> & { kind: "work
 export function node(id: string, over: Partial<Of<"group">> & { kind: "group" }): Of<"group">;
 export function node(id: string, over: Partial<RailNode> = {}): RailNode {
   const base = { id, name: id, parent: null, order: 0 };
-  if (over.kind === "group") return { ...base, ...over } as RailNode;
-  if (over.kind === "workstream") return { ...base, ...doorFacts(id), auto: false, work: clarifying("What is this Workstream for?"), ...over } as RailNode;
+
+  if (over.kind === "group") {
+    // SAFETY: a Group carries only the base fields plus its override.
+    return { ...base, ...over } as RailNode;
+  }
+
+  if (over.kind === "workstream") {
+    // SAFETY: the workstream branch carries every Workstream field.
+    return { ...base, ...doorFacts(id), auto: false, work: clarifying("What is this Workstream for?"), ...over } as RailNode;
+  }
+
+  // SAFETY: the default branch carries every Agent field.
   return { ...base, ...doorFacts(id), kind: "agent", can_make_workstream: false, can_save_as_mode: false, ...over } as RailNode;
 }
 

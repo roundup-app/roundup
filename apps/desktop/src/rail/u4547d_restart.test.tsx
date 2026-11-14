@@ -49,6 +49,7 @@ it("u4547d_pending_and_failed_restart_keep_one_operation", async () => {
   m.app.handlers["agent.restartMode"] = () => tree[0]!;
   fireEvent.click(screen.getByRole("button", { name: copy.retry }));
   await waitFor(() => expect(railCallsTo(m.app, "agent.restartMode")).toEqual([original, original]));
+  // SAFETY: the restarted node is an Agent, the only kind that carries mode_prompt.
   expect((m.rail.nodes[0] as Extract<RailNode, { kind: "agent" }> | undefined)?.mode_prompt).toBe("prompt");
 });
 

@@ -13,9 +13,9 @@ it("ro5_a_group_in_the_tree_is_no_attempt_or_agent", async () => {
   // A Group carries no attempt, status or worktree: absent, not null.
   expect("attempt" in group).toBe(false);
 
-  const parent = workstream("w", { alert_level: "silent" });
-  const nodes = [parent, node("g", { kind: "group", parent: "w" }), agent("a", "idle", "ready", { parent: "w", alert_level: "silent" })];
-  expect(alertLevel(nodes, parent)).toBe("silent");
+  const parent = workstream("w", { alert_level: "quiet" });
+  const nodes = [parent, node("g", { kind: "group", parent: "w" }), agent("a", "idle", "ready", { parent: "w", alert_level: "quiet" })];
+  expect(alertLevel(nodes, parent)).toBe("quiet");
 
   const app = createFakeApp();
   app.handlers["todo.list"] = () => [];

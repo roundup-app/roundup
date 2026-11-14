@@ -41,4 +41,4 @@ export const rowUnread = (source: RailSource, node: RailNode, unseen: (id: strin
 
 /** PS12: how many of the row and its Agents below need you or failed, as the Project's count reads them (quiet and dismissed ones excluded). */
 export const rowAttention = (source: RailSource, node: RailNode, dismissed: Dismissed) =>
-  attentionCounts([node, ...descendantsOf(source, node.id)].filter(each => each.alert_level !== "quiet" && !dismissed(each)).map(each => ({ status: statusOf(each) })));
+  attentionCounts([node, ...descendantsOf(source, node.id)].flatMap(each => each.alert_level !== "quiet" && !dismissed(each) ? [{ status: statusOf(each) }] : []));

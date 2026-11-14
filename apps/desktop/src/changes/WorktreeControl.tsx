@@ -92,7 +92,13 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   onCleanup(() => { generation++; });
   createEffect(on(() => [state(), version()] as const, () => { void refresh(); }));
 
-  const node = () => { const found = rail.nodes.find(node => node.id === props.id); return found && isDoor(found) ? found : undefined; };
+
+  const node = () => {
+    const found = rail.nodes.find(node => node.id === props.id);
+
+    return found && isDoor(found) ? found : undefined;
+  };
+
   createEffect(on(() => node()?.status_revision, (next, before) => {
     const kind = node()?.status?.kind;
 

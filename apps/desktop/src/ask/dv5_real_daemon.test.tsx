@@ -368,6 +368,7 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     await waitFor(() => expect(sends).toHaveLength(1));
     await within(row).findByRole("alert");
     expect(await messages()).toEqual([]);
+    // SAFETY: the receiver was spawned as a Door above, so it is a DoorNode.
     await app.rpc("terminal.write", { id: (receiver as DoorNode).terminal_id!, data: Buffer.from("unfinished user input").toString("base64") });
     refuse = false;
     fireEvent.contextMenu(row);
@@ -453,6 +454,7 @@ it("u504_changes_survive_app_disconnection", async () => {
     const identities: Completion[] = [];
 
     for (let turn = 1; turn <= 3; turn += 1) {
+      // SAFETY: the maker was spawned as a Door above, so it is a DoorNode.
       await app.rpc("terminal.write", { id: (maker as DoorNode).terminal_id!, data: Buffer.from(`turn ${turn}\r`).toString("base64") });
 
       const completed = await waitFor(async () => {

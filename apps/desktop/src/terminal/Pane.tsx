@@ -65,7 +65,11 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.launching(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
   });
 
-  const terminalId = createMemo(() => (() => { const node = selected(); return node && isDoor(node) ? node.terminal_id : null; })());
+  const terminalId = createMemo(() => {
+    const node = selected();
+
+    return node && isDoor(node) ? node.terminal_id : null;
+  });
 
   createEffect(() => props.observeTerminal?.(terminalId()));
   onCleanup(() => props.observeTerminal?.(null));

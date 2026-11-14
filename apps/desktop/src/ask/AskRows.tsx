@@ -127,7 +127,13 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
   /** U505: once typed, the Door's own live Status; never text a model wrote. */
   const status = () => (props.live && props.part.state === "typed" ? doorNode()?.status ?? null : null);
-  const doorNode = () => { const found = node(); return found && isDoor(found) ? found : undefined; };
+
+  const doorNode = () => {
+    const found = node();
+
+    return found && isDoor(found) ? found : undefined;
+  };
+
   const dismissed = () => node() !== undefined && foreign() === null && rail.dismissed(node()!);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
   const busy = () => asks.picking(props.entry.key, props.index);
