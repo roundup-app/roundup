@@ -3,7 +3,8 @@
 use std::future::Future;
 
 use crate::common::{PATIENCE, open, sh, until_printed};
-use rpc::code;
+use rpc::{Bus, code};
+use terminal::Terminals;
 
 const STUCK: &str = "stty raw -echo; echo ready; exec sleep 60";
 /// Larger than a PTY's input buffer, so one write never completes against a program that does not read.
@@ -61,13 +62,22 @@ fn x9_a_write_that_cannot_be_queued_is_conflict() {
 #[tokio::test]
 async fn x9_a_killed_program_is_gone_and_a_second_kill_is_not_found() {
     let dir = tempfile::tempdir().unwrap();
-    let (terminals, _) = open(&dir);
+    // The exit report is held back until the second kill has answered: the program is gone, its
+    // Terminal not yet listed as exited, as on a host that is slow to report it.
+    let (release, held) = std::sync::mpsc::channel::<()>();
+    let held = std::sync::Mutex::new(held);
+    let terminals = Terminals::open(dir.path(), Bus::new())
+        .unwrap()
+        .with_exit_hold(move || {
+            let _ = held.lock().unwrap().recv();
+        });
     let mut spawned = terminals
         .spawn(sh(dir.path(), "trap '' HUP; echo ready; exec cat"))
         .await
         .unwrap();
     until_printed(&mut spawned.output, "ready").await;
     terminals.kill(&spawned.id).await.unwrap();
-    let again = terminals.kill(&spawned.id).await.unwrap_err();
-    assert_eq!(again.code, code::NOT_FOUND);
+    let again = terminals.kill(&spawned.id).await;
+    release.send(()).unwrap();
+    assert_eq!(again.unwrap_err().code, code::NOT_FOUND);
 }
