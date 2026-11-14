@@ -113,9 +113,11 @@ fn locked(root: &Path) -> io::Result<fs::File> {
 /// MC21: number the report, append `{id, method, params}` to the Spool and fsync. Returns the id.
 pub fn spool(agent: &str, method: &str, params: impl FnOnce(&str) -> Value) -> io::Result<String> {
     let root = crate::seq::root()?;
+    // Numbering and appending under one lock keep the Spool in seq order: the Daemon's Mark drops
+    // a report numbered below one it already applied.
+    let _lock = locked(&root)?;
     let id = crate::seq::next(agent)?;
     let line = json!({ "id": id, "method": method, "params": params(&id) });
-    let _lock = locked(&root)?;
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)

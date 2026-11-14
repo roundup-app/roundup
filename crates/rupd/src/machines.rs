@@ -11,6 +11,7 @@ use contracts::machine::{AddParams, Machine};
 use rpc::RpcError;
 use serde_json::Value;
 
+use crate::bridge::Bridges;
 use crate::machine_install::{Setup, install};
 use crate::{Conn, Daemon};
 
@@ -57,11 +58,16 @@ fn failed(err: herdr::Error) -> RpcError {
 }
 
 /// MC15: each Machine with whether roundup's ssh to it last answered, when roundup has tried it.
-fn listed(machines: Vec<herdr::Machine>, reach: &BTreeMap<String, bool>) -> Vec<Machine> {
+fn listed(
+    machines: Vec<herdr::Machine>,
+    reach: &BTreeMap<String, bool>,
+    bridges: &Bridges,
+) -> Vec<Machine> {
     machines
         .into_iter()
         .map(|m| Machine {
             reachable: reach.get(&m.name).copied(),
+            away: bridges.away(&m.name),
             name: m.name,
             details: Value::Object(m.rest),
         })
@@ -71,10 +77,35 @@ fn listed(machines: Vec<herdr::Machine>, reach: &BTreeMap<String, bool>) -> Vec<
 impl Daemon {
     pub(super) async fn machine_list(&self, _conn: &mut Conn) -> Result<Vec<Machine>, RpcError> {
         let core = (self.machine_core.0)().await.map_err(failed)?;
+        self.listed_now(&core).await
+    }
+
+    /// The core's list as it stands, with a bridge kept for each Machine on it (MC26).
+    async fn listed_now(&self, core: &herdr::Conn) -> Result<Vec<Machine>, RpcError> {
+        let machines = core.machine_list().await.map_err(failed)?;
+        let names: Vec<String> = machines.iter().map(|m| m.name.clone()).collect();
+        self.bridges.sync(&names);
         Ok(listed(
-            core.machine_list().await.map_err(failed)?,
+            machines,
             &self.terminals.machine_reachability(),
+            &self.bridges,
         ))
+    }
+
+    /// MC26: from the moment this Daemon serves `socket`, hold one bridge per listed Machine,
+    /// read again every minute so a Machine added or removed elsewhere follows.
+    pub(crate) fn start_bridges(self: &Arc<Self>, socket: &std::path::Path) {
+        self.bridges.serving(socket);
+        let daemon = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut every_minute = tokio::time::interval(Duration::from_secs(60));
+            loop {
+                every_minute.tick().await;
+                if let Ok(core) = (daemon.machine_core.0)().await {
+                    let _ = daemon.listed_now(&core).await;
+                }
+            }
+        });
     }
 
     /// Adds through the core, then answers the core's list as it stands.
@@ -91,10 +122,7 @@ impl Daemon {
                 .await
                 .map_err(|f| RpcError::internal(format!("{}: {}", f.code, f.message)))?;
         }
-        Ok(listed(
-            core.machine_list().await.map_err(failed)?,
-            &self.terminals.machine_reachability(),
-        ))
+        self.listed_now(&core).await
     }
 }
 
