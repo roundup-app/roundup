@@ -23,7 +23,7 @@ Policy observer for CI5458d: inspect the first completed push-to-`main` `check` 
 
 ## Observers and regression boundary
 
-Policy: a newer push to `main` cancels the older `main` run of `check` and of `pre`, running or waiting, so only the newest `main` commit's run goes on. The owner, 2026-11-03: "every time we merge the checks should cancel and only latest ones run". CI5458b and CI5458d hold for each `main` run that no newer push cancelled; a run a newer push cancelled is no observation, passing or failing.
+Policy: a newer push to `main` cancels the older `main` run of `pre`, running or waiting, so only the newest `main` commit's lints go on. It cancels no `main` run of `check` that has started: one runs to its end and the newest push's run waits, a newer push replacing that waiting run. The owner decided this on 2026-11-14, reversing their 2026-11-03 newest-only rule (#6002): 19 of 29 `main` checks that day ended cancelled partway, and the Dev feed publishes only from a finished `check`. A PR run still cancels on a newer push. CI5458b and CI5458d hold for each `main` run of `check` that ran to its end; a run replaced while waiting is no observation, passing or failing.
 
 All four scenarios are policy observations of the real Actions run and required result, not new tests that reread workflow text. For CI5458a and CI5458c, inspect the qualifying PR run; for CI5458b and CI5458d, inspect the first push-to-main run containing their implementation. Record each failed or skipped command separately with its exit code, or its Actions conclusion when no process ran. A missing observation stays open on the Issue; this specification PR claims no timing or gate result.
 

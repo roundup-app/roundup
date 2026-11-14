@@ -11,11 +11,11 @@ on:
   push:
     branches: [main]
 
-# L82: a newer push cancels an older run, on a PR and on `main` alike: only the newest `main` commit's run goes on.
-# A push to `main` cancels the `main` run before it, running or waiting (scenarios/ci-mac.md).
+# L82: a newer push cancels an older PR run. A push to `main` cancels no running `main` run: GitHub keeps that one running
+# and one waiting, and the newest push replaces the waiting one, so each started run ends (scenarios/ci-mac.md).
 concurrency:
   group: check-${{ github.event_name == 'push' && 'push-main' || (github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 # L24: on a PR, the lanes start with the push, alongside `pre`, the review run and the design critic run. Merge waits for
 # `check`, `rules`, `review` and `critic` all (L46), so no head merges unreviewed; a reject starts a fix run whose push
@@ -567,7 +567,7 @@ jobs:
 
   # Keep the required check name. `plan` must succeed; only PRs accept planned lane skips (L89), plus dispatch accepts the
   # push-only `mac-package` skip (CI5915a). Failed or cancelled lanes never pass. L82: when a newer push cancels
-  # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
+  # this PR run, the gate ends `cancelled`: it blocks merge and starts no fix run.
   # L46: a draft run's skipped job takes another name. GitHub counts a skipped required check as passed, and the ready run
   # creates its own `check` only after its lanes end, so a skipped draft `check` on the same head let #5430 merge red.
   check:

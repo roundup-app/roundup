@@ -17,6 +17,19 @@ type Confirmation =
 export const createProjectOpening = (projects: ProjectsState, forProject: (path: string) => AppSeam) => {
   const [pending, setPending] = createSignal<Confirmation[]>([]);
 
+  // MC36: the Project's own Daemon records the Machine before the open is answered.
+  const recordMachine = async (request: ProjectRequest, path: string, known: boolean) => {
+    if (request.method !== "project.open" || request.params.machine === undefined) return;
+
+    try {
+      await withAppSettings(forProject(path), () => false).rpc("project.setMachine", { machine: request.params.machine });
+    } catch (failure) {
+      if (!known) await projects.close(path);
+
+      throw failure;
+    }
+  };
+
   const answer = async (request: ProjectRequest, signal: AbortSignal): Promise<ActionReply> => {
     const { id, params } = request;
     const reply = (error: { code: number; message: string }): ActionReply => ({ jsonrpc: "2.0", id, error });
@@ -56,6 +69,8 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
       const opened = await projects.openRequested(params.path);
 
       if (signal.aborted) return lost();
+
+      await recordMachine(request, opened.path, Boolean(known));
 
       if (request.method === "project.start") {
         const { kind, name, prompt, agent } = request.params;

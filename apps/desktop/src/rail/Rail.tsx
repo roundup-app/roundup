@@ -43,6 +43,7 @@ import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
+import { StartMachine } from "./StartMachine";
 import { createLaunch, railCommand } from "./railCommands";
 import { statusOf } from "./attention";
 import { isDoor } from "../state/doorNode";
@@ -440,7 +441,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   /** U6000a, U6000d: the row shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired. Resolves with the new Agent's id. */
   const spawn = (prompt: string | null) => ({
     draw: () => rail.drawNew("agent", copy.newAgent, null),
-    call: async () => (await launch(size => app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, ...size }))).id,
+    call: async () => (await launch(size => app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, ...connected.machines.start() && { machine: connected.machines.start() }, ...size }))).id,
   });
 
   const spawnAgent = () => {
@@ -662,7 +663,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         makeEventListener(element, "click", ctrlClick.click, { capture: true });
       }}
     >
-
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
@@ -671,11 +671,10 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           selection={task()?.selection ?? null}
           onSelection={(selection) => { if (task()?.status === "draft") keepDraft(draft(), selection); }}
           onInput={keepDraft}
-          onSubmit={(prompt) => {
-            if (canSpawn()) submitPrompt(prompt);
-          }}
+          onSubmit={(prompt) => { if (canSpawn()) submitPrompt(prompt); }}
           onCancel={() => { setComposing(false); returnFocus(composeOpener); }}
         />
+        <Show when={connected.machines.names().length > 0}><StartMachine machines={connected.machines} /></Show>
       </Show>
       <Sortable.Root
         class="rail-sortable"

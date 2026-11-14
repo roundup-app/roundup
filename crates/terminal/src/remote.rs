@@ -334,6 +334,75 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mc33_load_counts_live_terminals_and_marks_the_silent_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        let up = fake_ssh(vec![
+            Script {
+                frames: vec![],
+                close: None,
+            },
+            Script {
+                frames: vec![],
+                close: None,
+            },
+        ]);
+        terminals.remotes = Arc::new(Remotes::with(move |host| {
+            if host == "down" {
+                Box::pin(async { Err(herdr::Error::Closed) })
+            } else {
+                up(host)
+            }
+        }));
+        terminals.spawn(launch("up")).await.unwrap();
+        let load = terminals
+            .load_among(vec!["up".into(), "down".into()])
+            .await
+            .unwrap();
+        assert_eq!(load.mac, 0);
+        assert_eq!(
+            load.machines,
+            vec![("up".to_owned(), Some(1)), ("down".to_owned(), None)]
+        );
+    }
+
+    #[tokio::test]
+    async fn mc33_pick_made_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        let script = || Script {
+            frames: vec![],
+            close: None,
+        };
+        terminals.remotes = Arc::new(Remotes::with(fake_ssh(vec![script(), script(), script()])));
+        terminals.spawn(launch("one")).await.unwrap();
+        let before = terminals.load_among(vec!["one".into()]).await.unwrap();
+        let after = terminals
+            .load_among(vec!["one".into(), "two".into()])
+            .await
+            .unwrap();
+        // Capacity changed (a second Machine joined), and the first Terminal still runs on the Machine it started on.
+        assert_ne!(before.machines, after.machines);
+        let table = terminals.shared.table().unwrap();
+        assert!(
+            table
+                .values()
+                .all(|e| e.handle.as_ref().and_then(|h| h.machine.as_deref()) == Some("one"))
+        );
+    }
+
+    #[tokio::test]
+    async fn mc34_unreachable_override_is_coded_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        terminals.remotes = Arc::new(Remotes::with(|_| {
+            Box::pin(async { Err(herdr::Error::Closed) })
+        }));
+        let err = terminals.require_reachable("down").await.unwrap_err();
+        assert_eq!(err.code, rpc::code::CONFLICT);
+    }
+
+    #[tokio::test]
     async fn mc13_a_machine_name_cannot_pass_for_an_ssh_option() {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
