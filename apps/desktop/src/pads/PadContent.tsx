@@ -1,6 +1,7 @@
 import { DrawerMaximisedContext } from "../drawer/DrawerHost";
 import { SegmentGroup } from "../ui/SegmentGroup";
 import { appSettings } from "../settings/preferences";
+import { applying } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
@@ -306,7 +307,7 @@ const PadBody = (props: {
 
       if (cycle.save().kind !== "sending") return;
       setSaved(false);
-      const sent = await field.send(() => connected.app.rpc("pad.write", { name, text, expectedRevision, expectedIncarnation: destination.object }));
+      const sent = await field.send(() => applying(() => connected.app.rpc("pad.write", { name, text, expectedRevision, expectedIncarnation: destination.object })));
 
       if (sent.kind === "skipped") {
         cycle.send({ kind: "refused" });

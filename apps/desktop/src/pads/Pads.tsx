@@ -106,14 +106,14 @@ export const Pads = (props: {
       let action: string = copy.addPad;
       draft.save();
 
-      const sent = await draft.send(async () => {
+      const sent = await draft.send(() => applying(async () => {
         await applied(() => connected.app.rpc("pad.create", { name: target, text: null }));
 
         if (targetHome !== null) {
           action = copy.moveItem(target);
           await applied(() => connected.app.rpc("pad.move", { name: target, home: targetHome }));
         }
-      });
+      }));
 
       try {
         if (sent.kind === "unknown") failure.show(copy.draftStatus.unknown);

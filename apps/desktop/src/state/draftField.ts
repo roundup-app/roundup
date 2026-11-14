@@ -1,7 +1,6 @@
 import { createMemo, createSignal } from "solid-js";
 import * as v from "valibot";
-import { applying } from "../app/pending";
-import { outcomeOf } from "../app/seam";
+import type { Applied } from "../app/pending";
 import type { draftStorage } from "./storage";
 
 type Drafts = ReturnType<typeof draftStorage>;
@@ -79,7 +78,8 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     if (draft) own(draft.revision);
   };
 
-  const send = async <R>(call: () => Promise<R>): Promise<Sent<R>> => {
+  /** `call` makes the change through `applying` (app/pending.ts), so the field reads its outcome unwrapped once. */
+  const send = async <R>(call: () => Promise<Applied<R>>): Promise<Sent<R>> => {
     const draft = latest();
 
     if (!draft || recovered()) return { kind: "skipped" };
@@ -89,17 +89,18 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
     const { revision } = submitted.draft;
 
     // The reply resumes the caller through one promise: no race or extra wrapper delays it.
-    const outcome = await new Promise<Sent<R>>(resolve => {
-      const timer = setTimeout(() => resolve({ kind: "unknown" }), NO_REPLY_MS);
+    const reply = await new Promise<Applied<R> | null>(resolve => {
+      const timer = setTimeout(() => resolve(null), NO_REPLY_MS);
 
-      void applying(call).then(reply => {
+      void call().then(applied => {
         clearTimeout(timer);
-        resolve(reply.kind === "applied" ? { kind: "applied", result: reply.value } : { kind: "refused", error: reply.error });
+        resolve(applied);
       });
     });
 
     // The store consumes exactly this revision at once, and a newer one keeps its own entry; retention reports its own problem.
-    void drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? outcomeOf(outcome.error) : "unknown");
+    void drafts.settle(revision, reply?.kind === "applied" ? "acknowledged" : reply?.kind === "refused" ? "failed" : "unknown");
+    const outcome: Sent<R> = reply === null ? { kind: "unknown" } : reply.kind === "applied" ? { kind: "applied", result: reply.value } : { kind: "refused", error: reply.error };
 
     return outcome;
   };
