@@ -187,7 +187,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectSettings", async () => {
   const mounted = await mountTodos([]);
-  mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [] }, workstreamCap: 1 });
+  mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [] }, workstreamCap: 1, machine: null });
   mounted.connected.settingsView.show(document.body);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ProjectSettingsView /></ConnectedProjectContext.Provider>);
   const field = within(view.container).getByRole("textbox");

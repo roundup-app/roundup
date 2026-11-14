@@ -9,6 +9,9 @@ use std::time::{Duration, Instant};
 
 use super::{Git, canonical_path};
 
+/// A Machine's name and the program that runs commands on it.
+pub(super) type Remote = (String, Arc<dyn Machines>);
+
 /// Where a Machine's programs run: herdr-core's exec on it, answered once the program ends.
 pub trait Machines: Send + Sync {
     fn exec(
@@ -40,7 +43,7 @@ impl Git {
         *self.host.write().unwrap_or_else(|e| e.into_inner()) = Some(host);
     }
 
-    pub(super) fn remote(&self) -> Result<Option<(String, Arc<dyn Machines>)>, String> {
+    pub(super) fn remote(&self) -> Result<Option<Remote>, String> {
         let machine = self
             .machine
             .read()

@@ -46,7 +46,9 @@ impl Conn {
             .to_owned();
         let done = tokio::time::timeout(limit, self.collect(&address)).await;
         if done.is_err() {
-            let _ = self.call("terminal.kill", json!({"terminal": address})).await;
+            let _ = self
+                .call("terminal.kill", json!({"terminal": address}))
+                .await;
         }
         let _ = self.call("terminal.rm", json!({"terminal": address})).await;
         let (code, bytes) = done.map_err(|_| Error::TimedOut)??;
@@ -75,11 +77,12 @@ impl Conn {
 }
 
 fn split(code: Option<i32>, bytes: Vec<u8>) -> Exec {
-    match bytes.windows(SPLIT.len()).rposition(|w| w == SPLIT) {
-        Some(at) => Exec {
+    let at = bytes.windows(SPLIT.len()).rposition(|w| w == SPLIT);
+    match at.and_then(|at| Some((bytes.get(..at)?, bytes.get(at + SPLIT.len()..)?))) {
+        Some((stdout, stderr)) => Exec {
             code,
-            stderr: bytes[at + SPLIT.len()..].to_vec(),
-            stdout: bytes[..at].to_vec(),
+            stderr: stderr.to_vec(),
+            stdout: stdout.to_vec(),
         },
         None => Exec {
             code,

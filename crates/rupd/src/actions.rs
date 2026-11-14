@@ -243,7 +243,9 @@ impl Daemon {
             .exec(machine, &command, "/", std::time::Duration::from_secs(15))
             .await?;
         if ran.code != Some(0) {
-            return Err(RpcError::not_found(format!("directory {path} on {machine}")));
+            return Err(RpcError::not_found(format!(
+                "directory {path} on {machine}"
+            )));
         }
         Ok(String::from_utf8_lossy(&ran.stdout).trim().to_owned())
     }

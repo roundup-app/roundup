@@ -32,7 +32,10 @@ async fn mc30_exec_answers_stdout_stderr_and_code_apart_in_the_cwd() {
         .await
         .unwrap();
     assert_eq!(out.code, Some(3));
-    assert_eq!(String::from_utf8(out.stdout).unwrap(), format!("{}\n", cwd.display()));
+    assert_eq!(
+        String::from_utf8(out.stdout).unwrap(),
+        format!("{}\n", cwd.display())
+    );
     assert_eq!(String::from_utf8(out.stderr).unwrap(), "noise\n");
 }
 

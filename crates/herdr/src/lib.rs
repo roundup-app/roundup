@@ -10,8 +10,8 @@ mod types;
 mod wire;
 
 pub use conn::{Conn, GENERATION, MIN_CORE, display};
-pub use exec::Exec;
 pub use error::{Error, Result, RpcError};
+pub use exec::Exec;
 pub use stream::{Sender, Stream};
 pub use types::{Ev, Event, Hello, Machine};
 
