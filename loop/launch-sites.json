@@ -906,6 +906,11 @@
     "data": "Absolute caller-owned TempDir override through the shared harness; no later environment override.",
     "kind": "reference"
   },
+  "crates/rupd/src/mc36_tests.rs": {
+    "cleanup": "In-process test runtime owns the Daemon; the TempDir is removed on drop; no built executable launch.",
+    "data": "Daemon::open receives an explicit TempDir path; no production fallback resolver.",
+    "kind": "in-process"
+  },
   "crates/rupd/src/dcl5_tests.rs": {
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Daemon::open_stores receives an explicit TempDir path; no production fallback resolver.",

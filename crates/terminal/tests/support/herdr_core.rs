@@ -375,6 +375,13 @@ impl Core {
                 Ok(json!({}))
             }),
             "terminal.list" => Ok(self.list(&params)),
+            // MC36: the Machines named in `ROUNDUP_TEST_MACHINES`, comma separated, ready.
+            "machine.list" => Ok(json!({"machines": std::env::var("ROUNDUP_TEST_MACHINES")
+                .unwrap_or_default()
+                .split(',')
+                .filter(|name| !name.is_empty())
+                .map(|name| json!({"name": name, "state": "ready"}))
+                .collect::<Vec<_>>()})),
             "terminal.rm" => self.terminal(&params).and_then(|t| {
                 if lock(&t.live).exit.is_none() {
                     return Err(failure(
@@ -648,7 +655,7 @@ fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
         json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.20-test","framed":true,
-            "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill","terminal.list","terminal.rm"]}})
+            "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill","terminal.list","terminal.rm","machine.list"]}})
     } else {
         let msg = format!(
             "protocol generation {} not supported",
