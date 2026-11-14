@@ -89,6 +89,7 @@ it("u3800d_a_key_straight_after_a_move_walks_the_new_order", async () => {
   };
 
   m.app.handlers["rail.move"] = params => {
+    // listener-owner: the press removes itself at the first focus it sees.
     document.addEventListener("focusin", press);
     const at = nodes.findIndex(node => node.id === params.id);
     nodes.splice(at, 1, { ...nodes[at]!, parent: params.parent, order: params.index });

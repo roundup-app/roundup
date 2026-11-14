@@ -43,7 +43,8 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
     }
 
     await capture("U5742a", `${seed}-chosen`);
-    await read(`document.querySelector('.rail-row[data-id="${target}"]').dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }))`);
+    // A real press focuses the row before its click; a dispatched click carries no press, so the row takes focus first.
+    await read(`(row => { row.focus(); return row.dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true })); })(document.querySelector('.rail-row[data-id="${target}"]'))`);
     await wait("!!document.activeElement?.closest('.rail')");
     await capture("U5742b", `${seed}-multiple`);
     await browser("press", "ArrowDown");
