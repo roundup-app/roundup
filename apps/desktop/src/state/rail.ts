@@ -11,7 +11,7 @@ import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
-import { isDoor, type DoorNode } from "./doorNode";
+import { attemptAfter, doorAttempt, doorTerminalId, isDoor, type DoorNode } from "./doorNode";
 import { defaultWorkstreamName } from "./defaultName";
 import { railTopology, type RailTopology } from "./railTopology";
 import { ancestorsOf, isWorkstream } from "./railTopology";
@@ -381,7 +381,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(node.id, "observedLive", true);
         const failed = doors[node.id]?.failure;
 
-        if (failed && (hasLiveTerminal(node) || (isDoor(node) && node.attempt !== null && BigInt(node.attempt) > BigInt(failed.attempt ?? "0")))) {
+        if (failed && (hasLiveTerminal(node) || attemptAfter(node, failed.attempt))) {
           setDoors(node.id, "failure", null);
           commandFailure.acknowledge(node.id);
         }
@@ -501,7 +501,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       if (selected() === id) prepared = await state.prepareTerminal?.();
       const node = await boundedStart(id, prepared?.size);
 
-      if (isDoor(node) && node.terminal_id) prepared?.bind(node.terminal_id);
+      if (doorTerminalId(node)) prepared?.bind(doorTerminalId(node)!);
       commandFailure.acknowledge(id);
       await fetching(fetchTree);
     } catch (error) {
@@ -509,8 +509,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       await fetching(fetchTree);
       const node = model.tree.find((each) => each.id === id);
 
-      if (node && isDoor(node) && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
-        setDoors(id, "failure", { message: error.message, attempt: node.attempt });
+      if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
+        setDoors(id, "failure", { message: error.message, attempt: doorAttempt(node) });
         commandFailure.show(error.message, id, "pane");
       }
     } finally {

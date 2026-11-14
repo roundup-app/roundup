@@ -1,4 +1,4 @@
-import { isDoor } from "../state/doorNode";
+import { doorStatus } from "../state/doorNode";
 import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -27,13 +27,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
     if (state.listingAgent() && event.name === "rail.changed" && event.actor.id === state.listingAgent()) void state.refresh();
   }));
   const listing = () => rail.nodes.find(node => node.id === state.listingAgent());
-
-  const listingStatus = () => {
-    const found = listing();
-
-    return found && isDoor(found) ? found.status : null;
-  };
-
   const period = state.period;
   const wanted = state.selected;
   const found = state.discovery;
@@ -97,7 +90,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       </SettingsGroup>
       <SettingsGroup name={copy.importResults}><div class="import-panel">
           <ReservedLine status={state.listingAgent() && !found()?.candidates.length ? copy.importListing(listing()?.name ?? copy.importAgentName) : null}
-            content={<span class="import-listing"><KindGlyph kind={listingStatus()?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></span>} />
+            content={<span class="import-listing"><KindGlyph kind={doorStatus(listing())?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></span>} />
           <ReservedLine message={line.message()} dismiss={line.dismiss} recover={failure() ? { run: () => void state.refresh() } : state.restoreFailure() || state.retentionFailure() ? { run: state.retryStorage, label: copy.retryStorage } : undefined}
             aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null} />
           <Show when={state.hasConflict()}>

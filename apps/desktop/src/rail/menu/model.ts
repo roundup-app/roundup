@@ -1,4 +1,4 @@
-import { isDoor } from "../../state/doorNode";
+import { isDoor, isYolo } from "../../state/doorNode";
 import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
@@ -344,13 +344,12 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
   const lifecycleEntries = (node: RailNode, exit: ExitState | null): Candidate[] => {
     const running = isRunning(node, exit);
-    const yolo = isDoor(node) && node.yolo;
 
     return [
       renameEntry(node),
-      { when: yolo && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
+      { when: isYolo(node) && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
-      { when: !yolo && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
+      { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
       { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
       { when: isResumable(node, exit), id: "resume", label: copy.resume, run: () => {
         rail.select(node.id);
