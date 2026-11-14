@@ -392,6 +392,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mc35_machine_loss_raises_no_alert() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        // The ssh is lost after tick 3 and no connection after it answers.
+        terminals.remotes = Arc::new(Remotes::with(fake_ssh(vec![Script {
+            frames: vec![ticks(1..=3)],
+            close: None,
+        }])));
+        let mut spawned = terminals.spawn(launch("box")).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while terminals.machine_reachability().get("box") != Some(&false) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("the lost bridge marks the Machine unreachable");
+        // Only a status on the Agent's row changes; the Terminal raises no event, so no attention entry or alert follows.
+        let heard = tokio::time::timeout(Duration::from_millis(500), spawned.events.recv()).await;
+        assert!(heard.is_err(), "a lost bridge raised {heard:?}");
+    }
+
+    #[tokio::test]
     async fn mc34_unreachable_override_is_coded_error() {
         let dir = tempfile::tempdir().unwrap();
         let mut terminals = Terminals::open(dir.path(), Bus::new()).unwrap();

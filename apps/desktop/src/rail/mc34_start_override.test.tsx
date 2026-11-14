@@ -43,3 +43,12 @@ it("mc34_no_machine_field_while_this_mac_is_the_only_machine", async () => {
   await screen.findByLabelText("Work");
   expect(screen.queryByRole("combobox", { name: copy.startMachine })).toBeNull();
 });
+
+it("mc34_no_dispatch_panel", async () => {
+  const mounted = await mountRail([workstream("w")], [], undefined, undefined, { machines: [{ name: "box", details: {} }] });
+  await waitFor(() => expect(mounted.app.calls.some(call => call.method === "machine.list")).toBe(true));
+
+  for (const role of ["complementary", "region", "dialog", "tree", "tablist"] as const) {
+    expect(screen.queryAllByRole(role, { name: /box/ })).toHaveLength(0);
+  }
+});
