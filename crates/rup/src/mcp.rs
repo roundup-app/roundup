@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
+use crate::machine;
 use contracts::bubble_rule;
 use contracts::{Actor, ActorKind, IdentifyParams, agent, terminal, workstream};
 use rmcp::model::{
@@ -106,12 +107,15 @@ impl Offered {
 enum Gone {
     /// Nothing was sent.
     Unreachable(String),
+    /// MC22: on a machine with no bridge up.
+    Away,
 }
 
 impl std::fmt::Display for Gone {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Gone::Unreachable(why) => f.write_str(why),
+            Gone::Away => f.write_str(machine::AWAY),
         }
     }
 }
@@ -603,6 +607,9 @@ struct Shim {
 
 impl Shim {
     async fn connect(&self) -> Result<rpc::Client, Gone> {
+        if machine::active() {
+            return machine::live_client(&self.actor).await.ok_or(Gone::Away);
+        }
         let socket = self.socket.display();
         let handshake = async {
             let client = rpc::Client::connect(&self.socket)
@@ -672,6 +679,15 @@ impl Shim {
         arguments: Option<JsonObject>,
     ) -> Result<Result<String, RpcError>, Gone> {
         let params = offer.params(&self.actor.id, arguments);
+        if machine::active() && machine::WAITS.contains(&&*offer.tool.name) {
+            // MC22: the call waits in the Spool and the Agent gets its id at once.
+            return Ok(
+                match machine::spool(&self.actor.id, offer.method, |_| params.clone()) {
+                    Ok(id) => Ok(serde_json::json!({ "queued": true, "id": id }).to_string()),
+                    Err(err) => Err(RpcError::internal(format!("cannot spool the call: {err}"))),
+                },
+            );
+        }
         let client = self.connect().await?;
         if offer.delivery == Delivery::WaitsForUser {
             return Ok(client
@@ -768,14 +784,14 @@ impl ServerHandler for Shim {
                 Ok(CallToolResult::error(vec![ContentBlock::text(body)]).into())
             }
             Err(gone) => {
-                let applied = match gone {
-                    Gone::Unreachable(_) => "; the call was not sent",
+                // MC22: the away answer is exactly `{"error":"away"}`.
+                let body = match gone {
+                    Gone::Unreachable(_) => {
+                        format!("{}: {gone}; the call was not sent", request.name)
+                    }
+                    Gone::Away => gone.to_string(),
                 };
-                Ok(CallToolResult::error(vec![ContentBlock::text(format!(
-                    "{}: {gone}{applied}",
-                    request.name
-                ))])
-                .into())
+                Ok(CallToolResult::error(vec![ContentBlock::text(body)]).into())
             }
         }
     }
@@ -799,6 +815,17 @@ async fn serve(actor: Actor) -> Result<(), String> {
         actor,
         tools: tools(false),
     };
+    if machine::active() {
+        // MC22: the Mac may be away at start; the Channel report waits and only the machine's tools are offered.
+        // The Door's `agent_digest` is on the list: a machine cannot ask whether its Agent is a Door.
+        shim.tools = tools(true);
+        shim.tools.retain(|offer| machine::offers(&offer.tool.name));
+        let id = shim.actor.id.clone();
+        if shim.actor.kind == ActorKind::Agent {
+            let _ = machine::spool(&id, "agent.channelUp", |_| serde_json::json!({ "id": id }));
+        }
+        return shim.run().await;
+    }
     let start = shim.connect().await.map_err(|gone| gone.to_string())?;
     // Both wait on the same Daemon, so a mute one costs one `CALL_TIMEOUT`, not two.
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
@@ -816,15 +843,21 @@ async fn serve(actor: Actor) -> Result<(), String> {
         }
     }
     drop(start);
-    let running = shim
-        .serve(rmcp::transport::stdio())
-        .await
-        .map_err(|err| err.to_string())?;
-    running
-        .waiting()
-        .await
-        .map(|_| ())
-        .map_err(|err| err.to_string())
+    shim.run().await
+}
+
+impl Shim {
+    async fn run(self) -> Result<(), String> {
+        let running = self
+            .serve(rmcp::transport::stdio())
+            .await
+            .map_err(|err| err.to_string())?;
+        running
+            .waiting()
+            .await
+            .map(|_| ())
+            .map_err(|err| err.to_string())
+    }
 }
 
 #[cfg(test)]

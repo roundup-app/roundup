@@ -44,7 +44,7 @@ class Addition(unittest.TestCase):
                 self.assertIn(ANCHOR, table)
                 policy.write_text(table.replace(ANCHOR, POLICY_ROW + ANCHOR, 1))
                 integration = checkout / "crates/rup/tests/mcp.rs"
-                integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp/c4_adapter.rs"]\nmod c4_adapter;\n')
+                integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp/c4_adapter.rs"]\nmod c4_adapter;\n#[allow(dead_code)]\n#[path = "../src/machine.rs"]\nmod machine;\n#[allow(dead_code)]\n#[path = "../src/seq.rs"]\nmod seq;\n')
                 adapter = checkout / "crates/rup/src/mcp.rs"
                 # The integration crate supplies its own real Daemon; binary-unit helpers are unavailable here.
                 production = adapter.read_text().replace("#[cfg(test)]\nmod tests;", "")
