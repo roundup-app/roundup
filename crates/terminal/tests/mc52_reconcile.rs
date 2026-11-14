@@ -58,3 +58,86 @@ async fn mc52_mc54_the_list_is_read_by_labels_and_extras_end() {
         .await
         .unwrap();
 }
+
+#[tokio::test]
+async fn mc52_agent_start_reads_the_list_first() {
+    use std::collections::BTreeMap;
+    let dir = tempfile::tempdir().unwrap();
+    let terminals = terminal::Terminals::open(dir.path(), rpc::Bus::new()).unwrap();
+    let start = || {
+        terminals.spawn_labelled(
+            contracts::terminal::SpawnParams {
+                cwd: dir.path().to_string_lossy().into_owned(),
+                command: Some(vec!["cat".into()]),
+                env: BTreeMap::new(),
+                unset: Vec::new(),
+                cols: 80,
+                rows: 24,
+                machine: None,
+            },
+            labels(&dir.path().to_string_lossy(), "a", "1"),
+        )
+    };
+    start().await.unwrap();
+    start().await.unwrap();
+    let pids: std::collections::BTreeSet<_> = terminals
+        .list()
+        .await
+        .into_iter()
+        .filter_map(|t| t.program_pid)
+        .collect();
+    assert_eq!(pids.len(), 1, "two starts of one Agent ran {pids:?}");
+}
+
+#[tokio::test]
+async fn mc52_daemon_open_reconciles_the_list_without_an_agent_start() {
+    use std::collections::BTreeMap;
+    let dir = tempfile::tempdir().unwrap();
+    let terminals = terminal::Terminals::open(dir.path(), rpc::Bus::new()).unwrap();
+    let start = |command: &str, agent: &str, project: &str| {
+        terminals.spawn_labelled(
+            contracts::terminal::SpawnParams {
+                cwd: dir.path().to_string_lossy().into_owned(),
+                command: Some(vec![command.into()]),
+                env: BTreeMap::new(),
+                unset: Vec::new(),
+                cols: 80,
+                rows: 24,
+                machine: None,
+            },
+            labels(project, agent, "1"),
+        )
+    };
+    start("true", "a", "p").await.unwrap();
+    start("cat", "gone", "p").await.unwrap();
+    start("cat", "a", "other").await.unwrap();
+    // Let the finished program's Terminal show as finished in the core.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let first = terminals
+        .reconcile_open("p", &["a".to_owned()])
+        .await
+        .unwrap();
+    assert_eq!(first.len(), 2, "{first:?}");
+    assert!(first.iter().any(|s| matches!(s, Step::End(_))), "{first:?}");
+    assert!(
+        first.iter().any(|s| matches!(s, Step::Remove(_))),
+        "{first:?}"
+    );
+    // The finished program's exit code is kept here before the core drops it.
+    let kept = terminals.list().await;
+    assert!(
+        kept.iter().any(|t| !t.running && t.exit_code == Some(0)),
+        "{kept:?}"
+    );
+    let again = terminals
+        .reconcile_open("p", &["a".to_owned()])
+        .await
+        .unwrap();
+    assert!(again.is_empty(), "the list still differs: {again:?}");
+    // Another Project's labelled Terminal is left alone.
+    let other = terminals
+        .reconcile_open("other", &["a".to_owned()])
+        .await
+        .unwrap();
+    assert!(other.is_empty(), "{other:?}");
+}

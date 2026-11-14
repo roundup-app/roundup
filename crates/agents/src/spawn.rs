@@ -629,7 +629,17 @@ impl Agents {
         spawn: TerminalSpawn,
         attach: Attach,
     ) -> Result<terminal::Spawned, RpcError> {
-        let spawned = self.shared.terminals.spawn(spawn).await?;
+        // MC52: the core's list names this Terminal's Project, Agent and Attempt.
+        let attempt = self
+            .shared
+            .rail()
+            .node(crate::rail::agent_id(id)?)?
+            .attempt
+            .map(|attempt| attempt.to_string())
+            .unwrap_or_default();
+        let labels =
+            terminal::reconcile::labels(&self.project_dir().to_string_lossy(), id, &attempt);
+        let spawned = self.shared.terminals.spawn_labelled(spawn, labels).await?;
         if attach == Attach::Now {
             let attached = self
                 .shared

@@ -577,6 +577,12 @@ fn gone(socket: &str, why: impl std::fmt::Display) -> Failure {
 }
 
 async fn connect(actor: &Actor) -> Result<rpc::Client, Failure> {
+    if crate::machine::active() {
+        // MC22: on a machine every call is live through the bridge, or away.
+        return crate::machine::live_client(actor)
+            .await
+            .ok_or_else(|| Failure::Gone(crate::machine::AWAY.to_owned()));
+    }
     let socket = rpc::socket_path().map_err(|err| Failure::Gone(err.to_string()))?;
     let shown = socket.display().to_string();
     let handshake = async {

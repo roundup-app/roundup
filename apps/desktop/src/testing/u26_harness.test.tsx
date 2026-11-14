@@ -178,16 +178,7 @@ describe("u26 the controls", () => {
     expect(seen).toEqual([event({ name: "rail.changed" })]);
   });
 
-  it("u26_fail_next_rejects_one_call_with_the_given_code_and_message", async () => {
-    const { app, failNext } = await listen("agents-10");
-
-    failNext(-32001, "gone");
-
-    await expect(app.rpc("rail.tree", null)).rejects.toMatchObject({ code: -32001, message: "gone" });
-    await expect(app.rpc("rail.tree", null)).resolves.toHaveLength(10);
-  });
-
-  it("u26_fail_next_with_a_method_waits_for_that_method", async () => {
+  it("u26_fail_next_rejects_one_call_of_its_method_with_the_given_code_and_message", async () => {
     const { app, failNext } = await listen("agents-10");
 
     failNext(-32001, "gone", "pad.list");

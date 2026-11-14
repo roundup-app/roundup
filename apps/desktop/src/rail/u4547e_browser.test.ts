@@ -100,7 +100,7 @@ it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   expect(await lane.calls("rail.move")).toEqual([]);
   await lane.browser("press", "m");
   await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
-  await lane.evaluate("window.__fake.failNext(-32003, 'Move refused. Reopen the destination, then retry.')");
+  await lane.evaluate("window.__fake.failNext(-32003, 'Move refused. Reopen the destination, then retry.', 'rail.move')");
   await lane.browser("fill", "[role=combobox]", "Research");
   await lane.until("document.querySelectorAll('[role=option]').length === 1");
   await lane.browser("press", "Enter");

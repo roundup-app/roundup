@@ -29,12 +29,27 @@ pub(crate) fn branch(checkout: &Path) -> String {
         .unwrap_or_else(|| "fork".into())
 }
 
-/// The checkout the live App runs from: its slot under `$ROUNDUP_HOME`, else the working folder.
+/// The checkout the live App runs from: the working folder.
 pub(crate) fn checkout() -> PathBuf {
-    match (std::env::var("ROUNDUP_SLOT"), crate::update::home()) {
-        (Ok(slot), Some(home)) => home.join("slots").join(slot),
-        _ => std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
+/// FS5979f: the folder must hold a source checkout (a `.git` and the `justfile` with `app`) before `just app` runs in it.
+pub(crate) fn require_checkout(folder: &Path) -> Result<(), RpcError> {
+    if folder.join(".git").exists() && folder.join("justfile").is_file() {
+        return Ok(());
     }
+    Err(RpcError::internal(format!(
+        "{}: no source checkout (a git folder with a justfile) to start the branch's App from; start the App from a checkout with `just app`",
+        folder.display()
+    )))
+}
+
+/// Where Forks live: `$ROUNDUP_HOME`, or `~/.roundup`, from the variables `var` reads.
+pub(crate) fn home(var: impl Fn(&str) -> Option<std::ffi::OsString>) -> Option<PathBuf> {
+    var("ROUNDUP_HOME")
+        .map(PathBuf::from)
+        .or_else(|| var("HOME").map(|home| Path::new(&home).join(".roundup")))
 }
 
 /// `data.fork`'s key of the Project folder `path`: its data folder's name.
@@ -118,7 +133,7 @@ pub(crate) fn fork_path(home: &Path, name: &str) -> PathBuf {
 pub(crate) const STARTED: &str = "roundup: starting the App";
 
 /// The live App's per-instance variables: the Fork's App takes its own, never these.
-const LIVE_ONLY: [&str; 3] = ["ROUNDUP_DEV_PORT", "ROUNDUP_SLOT", "ROUNDUP_RUPD_BIN"];
+const LIVE_ONLY: [&str; 2] = ["ROUNDUP_DEV_PORT", "ROUNDUP_RUPD_BIN"];
 
 /// U6266a: the command that starts the branch's App on the Fork from the source checkout, with an
 /// environment of its own: the Fork's data folder and none of the live App's per-instance variables.
@@ -203,6 +218,17 @@ mod tests {
     fn fs5979_a_checkout_without_a_branch_is_named_fork() {
         let tmp = tempfile::tempdir().unwrap();
         assert_eq!(branch(tmp.path()), "fork");
+    }
+
+    #[test]
+    fn fs5979f_a_folder_without_a_checkout_is_refused_naming_what_is_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let message = require_checkout(tmp.path()).unwrap_err().message;
+        assert!(message.contains("no source checkout") && message.contains("justfile"));
+        std::fs::create_dir(tmp.path().join(".git")).unwrap();
+        assert!(require_checkout(tmp.path()).is_err());
+        std::fs::write(tmp.path().join("justfile"), "app:\n").unwrap();
+        assert!(require_checkout(tmp.path()).is_ok());
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::conn::GENERATION;
+use crate::conn::{GENERATION, MIN_CORE};
 
 /// herdr-core's error object: `code`, and `data.kind` and `data.hint`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -55,6 +55,11 @@ pub enum Error {
     /// The core refused the protocol generation, or answered one other than ours.
     #[error("herdr-core refused protocol generation {GENERATION}: {0}")]
     Refused(RpcError),
+    /// CH7077g: the core's `hello` named a version older than [`MIN_CORE`], or none this client reads.
+    #[error(
+        "herdr-core {0} is older than {MIN_CORE}, the oldest this build runs on; update herdr-core"
+    )]
+    TooOld(String),
     /// The pipe closed before or during the call.
     #[error("connection to herdr-core closed")]
     Closed,
@@ -77,6 +82,7 @@ impl Error {
         match self {
             Error::Missing => "core_missing",
             Error::Refused(_) => "unsupported_generation",
+            Error::TooOld(_) => "core_too_old",
             Error::Closed => "core_closed",
             Error::TimedOut => "core_silent",
             Error::Rpc(_) => "core_error",

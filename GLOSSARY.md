@@ -29,14 +29,14 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
 | Fork (`data.fork`, `ForkColour`, `fork.json`) | same | — |
-| Build slot (`slots/`, `good`, `failed.json`) | Restart to update | —|
+| Channel (`Channel`: `Stable`, `Dev`, `Source`; the build an identifier names) | Stable, Dev | — |
 | Engine (`engine`, `ModelList.engines`) | same | — |
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
 | Agent name (`agent_name`) | same | — |
 | Agent | same | bot, worker; and session for an Agent. |
 | Terminal | same | process, console |
 | Terminal preparation (`TerminalPreparation`, `prepareTerminal`, `prepare`, `bind`) | none | — |
-| Terminal labels (`terminal::reconcile::labels`, `Listed`, `Step`, `plan`, `reconcile`: the Project, Agent and Attempt a Terminal in the core carries, and the steps that make the core's live list match the Agents) | none | — |
+| Terminal labels (`terminal::reconcile::labels`, `Listed`, `Step`, `plan`, `reconcile`, `for_agent`, `Terminals::spawn_labelled`: the Project, Agent and Attempt a Terminal in the core carries, and the steps that make the core's live list match the Agents) | none | — |
 | Terminal dimensions (`cols`, `rows`, `terminal::window`) | same | — |
 | Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
 | Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
@@ -46,7 +46,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Turn | command | — |
 | ReservedLine | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
-| Update exit (`exit_for_update`) | Restart to update | — |
+| Update exit (`exit_for_update`, `updater`, `Offered`) | Update available | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |

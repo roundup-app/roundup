@@ -293,3 +293,39 @@ async fn spawn_in(
         .await?;
     Ok(serde_json::from_value(node).unwrap())
 }
+
+#[tokio::test]
+async fn mc52_daemon_open_ends_a_core_terminal_of_no_agent_with_no_owner_records() {
+    let f = Fixture::new();
+    // `Agents::open_with` takes the data folder's parent for the Project.
+    let project = f
+        .dir
+        .path()
+        .parent()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    f.terminals
+        .spawn_labelled(
+            contracts::terminal::SpawnParams {
+                cwd: project.clone(),
+                command: Some(vec!["cat".into()]),
+                env: Default::default(),
+                unset: Vec::new(),
+                cols: 80,
+                rows: 24,
+                machine: None,
+            },
+            terminal::reconcile::labels(&project, "no-such-agent", "1"),
+        )
+        .await
+        .unwrap();
+
+    assert!(f.agents.reattach_owners().await.is_empty());
+
+    let left = f.terminals.reconcile_open(&project, &[]).await.unwrap();
+    assert!(
+        left.is_empty(),
+        "open left a Terminal of no Agent: {left:?}"
+    );
+}

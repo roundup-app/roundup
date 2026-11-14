@@ -38,7 +38,7 @@ it("u5690c_rendered_group_keeps_children_reachable_without_lifecycle_actions", a
     await lane.until("!![...document.querySelectorAll('.rail-row')].find(row => row.textContent.includes('Organized work'))");
     await lane.browser("dblclick", `[id="rail-name-${groupId}"]`);
     await lane.capture("U5690c", "group-name");
-    await lane.evaluate("window.__fake.failNext(-32003, 'Group rename refused; try again'); true");
+    await lane.evaluate("window.__fake.failNext(-32003, 'Group rename refused; try again', 'rail.rename'); true");
     await lane.browser("fill", '[aria-label="Name"]', "Retained Group name");
     await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('.failure-line, [role=alert]')");

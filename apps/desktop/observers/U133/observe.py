@@ -129,7 +129,7 @@ def observe(side, origin):
             return
         if args.phase == "failure":
             todos()
-            evaluate("window.__fake.failNext(-32003,'Offline. Retry.'); document.querySelector('.shelf input.todo-tick').click()")
+            evaluate("window.__fake.failNext(-32003,'Offline. Retry.', 'todo.complete'); document.querySelector('.shelf input.todo-tick').click()")
             wait("document.body.textContent.includes('Offline. Retry.')")
             capture("dense-failure")
             return
@@ -147,7 +147,7 @@ def observe(side, origin):
             browser("click", ".shelf .todo-row[data-todo] .todo-row-button")
             capture("todo-selected")
             drag(".shelf .todo-row[data-todo] .todo-row-button", "todo-dragged")
-            evaluate("window.__fake.failNext(-32003,'Offline. Retry.'); document.querySelector('.shelf input.todo-tick').click()")
+            evaluate("window.__fake.failNext(-32003,'Offline. Retry.', 'todo.complete'); document.querySelector('.shelf input.todo-tick').click()")
             wait("document.body.textContent.includes('Offline. Retry.')")
             capture("dense-failure")
             todos()

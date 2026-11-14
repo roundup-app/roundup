@@ -468,7 +468,7 @@ it.skipIf(!captureDir("A4899a"))("a4899a_a_blocked_door_takes_the_named_ask_in_t
     await lane.until("matchMedia('(prefers-color-scheme: dark)').matches");
     // The densest existing seed remains the visual baseline for this delivery change.
     await lane.capture("A4899a", "tree-40");
-    await lane.evaluate("window.__fake.failNext(-32003, 'Door unavailable. Start it and retry.')");
+    await lane.evaluate("window.__fake.failNext(-32003, 'Door unavailable. Start it and retry.', 'ask.send')");
     await lane.browser("fill", ".ask-input", "@Feedback retain this failed draft");
     await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('.ask-send-status [role=alert]')");

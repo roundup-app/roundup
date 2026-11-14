@@ -6,6 +6,7 @@
     ".github/workflows/check.test.mjs",
     "contracts/**/*.ts",
     "tools/oxlint/pre-commit.test.mjs",
+    "tools/oxlint/staged.mjs",
     "apps/*/harness.html",
     "apps/desktop/observers/U3010c/layout.js",
     "vendor/tauri-plugin-global-shortcut-2.4.1/api-iife.js",

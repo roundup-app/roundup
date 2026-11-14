@@ -1,6 +1,6 @@
 # Pre-commit hooks by lefthook
 
-Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5496a, T6011a, T6011b, T6011c. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
+Module: root `package.json`, `lefthook.yml`. Source: #3210. Ids: T3210, T3211, T3212, T5456a, T5456b, T5456c, T5456d, T5496a, T6011a, T6011b, T6011c. Rule: `.claude/sound/placement/file-stays-under-a-size-cap.md`.
 
 **T3210 a plain install turns the pre-commit hook on.** Given a clean clone, when `pnpm install` runs, then:
 
@@ -80,3 +80,14 @@ Policy — `just fix` runs the lints' own fix modes on the whole tree: Oxlint's 
 **T6011c the lint passes in a checkout reached through a symlink.** Given a checkout whose path passes through a symlink, as macOS's `/var` does to `/private/var`, when the `anti-slop` `web-assertions` and `web-timeout` rules run, then they place each file by its real path, and `pnpm lint` on a clean tree exits 0. Test: the baseline fixtures in `tools/oxlint/anti-slop/web-assertions/assertions.test.mjs` and `tools/oxlint/anti-slop/web-timeout/timeout.test.mjs` sit behind a symlink.
 
 Observer: `node --test tools/oxlint/pre-commit.test.mjs`, `python3 loop/lint-fix.test.py` and `just lint-web` on a Mac pass; the first `pre` failure on a fixable lint after merge gets a lint-fix commit and no fix run.
+
+
+## The hook fails only on lines a commit adds
+
+Source: #7095. Build tooling only: no product path or Principles gate changes. Gate: does an error a file already holds, on a line the commit leaves alone, block the commit, and does a new error in any file still block it? Two Agents could not commit an edit to `apps/desktop/src/rail/Rail.tsx` because the hook failed on errors that `tools/lint/debt.json` records (T3797a). Observer: a real commit in an isolated repository.
+
+**T5456d the hook fails only on errors in the lines a commit adds or changes.** Given installed dependencies and the repository's installed lefthook hook, a tracked web file holds an Oxlint error on one line, committed before the hook saw it. When an ordinary `git commit` stages an edit to a different line of that file, then it succeeds. When the next commit stages a new line with a new Oxlint error, then it exits 1 and names the file, the line and the rule. Test: `t5456d_hook_fails_only_on_errors_in_added_lines` in `tools/oxlint/pre-commit.test.mjs`.
+
+Policy — `package.json`'s `lint-staged` entry runs `tools/oxlint/staged.mjs` on the staged files: Oxlint's safe `--fix` (T5456a), a second Oxlint run for the diagnostics, then `git diff HEAD -U0 -M` read by `parse-diff` (rule 9). An error fails the commit when its span meets a line the diff adds. A warning never fails; nor does an error on an old line, in any file, whether or not `debt.json` records it; a renamed file keeps the errors its old path held. The hook lints the staged files only and scans no tree, so T5456c's bound holds. This supersedes T5456a's "all lint rules" only for errors on old lines: CI's `pnpm lint` and `tools/lint/scan.py oxlint` still judge the whole tree (T5456b, T3797a).
+
+Implementation scope: `package.json` (`lint-staged`, `devDependencies.parse-diff`), regenerated `pnpm-lock.yaml`, `tools/oxlint/staged.mjs` and `tools/oxlint/pre-commit.test.mjs`. Verification: `node --test tools/oxlint/pre-commit.test.mjs`.

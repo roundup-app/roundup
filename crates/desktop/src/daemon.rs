@@ -91,14 +91,10 @@ impl StderrTail {
     }
 }
 
-/// Starts `rupd <project> --attached` on `socket` and returns once it answers `daemon.ping`.
-/// `data_dir` is the App's data folder, where the Daemon keeps the Project's data (N1).
-pub async fn start(
-    config: &Config,
-    project: &Path,
-    socket: &Path,
-    data_dir: Option<&Path>,
-) -> Result<Started, RpcError> {
+/// The `rupd <project> --attached` launch on `socket`. CH7077b: an installed build's Daemon gets
+/// none of a checkout's variables, so it runs the `rup` and sidecar of its own bundle; CH7077c:
+/// Dev's keeps its Terminals in its own herdr-core session.
+fn command(config: &Config, project: &Path, socket: &Path, data_dir: Option<&Path>) -> Command {
     let mut command = Command::new(&config.rupd_bin);
     command
         .arg(project)
@@ -108,7 +104,26 @@ pub async fn start(
     if let Some(dir) = data_dir {
         command.env("ROUNDUP_DATA_DIR", dir);
     }
-    let mut child = command
+    if config.channel.installed() {
+        for name in crate::channel::CHECKOUT_VARS {
+            command.env_remove(name);
+        }
+    }
+    if let Some(session) = config.channel.core_session() {
+        command.env("RUPD_CORE_SESSION", session);
+    }
+    command
+}
+
+/// Starts `rupd <project> --attached` on `socket` and returns once it answers `daemon.ping`.
+/// `data_dir` is the App's data folder, where the Daemon keeps the Project's data (N1).
+pub async fn start(
+    config: &Config,
+    project: &Path,
+    socket: &Path,
+    data_dir: Option<&Path>,
+) -> Result<Started, RpcError> {
+    let mut child = command(config, project, socket, data_dir)
         .kill_on_drop(true)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -279,6 +294,48 @@ pub(crate) mod tests {
         let empty = super::failure_text(failure, "");
         assert!(empty.contains("exit code 1") && !empty.contains("stderr lines"));
         assert_eq!(empty.lines().count(), 1);
+    }
+
+    #[test]
+    fn ch7077b_an_installed_builds_daemon_gets_its_bundles_files_and_dev_its_own_session() {
+        use crate::Channel;
+        let launch = |channel: Channel| {
+            let mut config =
+                crate::Config::locate(None, Path::new("/App/roundup"), Path::new("/tmp"), 1)
+                    .unwrap();
+            config.channel = channel;
+            let command = super::command(&config, Path::new("/p"), Path::new("/s"), None);
+            let envs: Vec<(String, Option<String>)> = command
+                .as_std()
+                .get_envs()
+                .map(|(name, value)| {
+                    let text = |s: &std::ffi::OsStr| s.to_string_lossy().into_owned();
+                    (text(name), value.map(text))
+                })
+                .collect();
+            envs
+        };
+        let removed =
+            |envs: &[(String, Option<String>)], name: &str| envs.contains(&(name.to_owned(), None));
+        let session = |envs: &[(String, Option<String>)]| {
+            envs.iter()
+                .find(|(name, _)| name == "RUPD_CORE_SESSION")
+                .and_then(|(_, value)| value.clone())
+        };
+        for channel in [Channel::Stable, Channel::Dev] {
+            let envs = launch(channel);
+            for name in crate::channel::CHECKOUT_VARS {
+                assert!(removed(&envs, name), "{channel:?} {name}");
+            }
+        }
+        let source = launch(Channel::Source);
+        assert!(!removed(&source, "ROUNDUP_RUP_BIN"));
+        assert_eq!(
+            session(&launch(Channel::Dev)).as_deref(),
+            Some("roundup-dev")
+        );
+        assert_eq!(session(&launch(Channel::Stable)), None);
+        assert_eq!(session(&source), None);
     }
 
     // Keep attempted launches at the audited Daemon owner, using only the caller's temp folder.

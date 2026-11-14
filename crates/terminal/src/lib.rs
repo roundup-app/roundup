@@ -262,6 +262,8 @@ pub struct Terminals {
     test_input: Option<Mutex<Box<dyn Write + Send>>>,
     /// The herdr-core binary, started on first use from a clean environment.
     core_bin: Option<std::path::PathBuf>,
+    /// MC51, CH7077c: the core session this Daemon's Terminals live in.
+    session: String,
     /// MC59: the `HOME` of a test-support core, made when the core first starts.
     #[cfg(feature = "test-support")]
     scratch: std::sync::OnceLock<tempfile::TempDir>,
@@ -291,6 +293,7 @@ impl Terminals {
             #[cfg(feature = "test-support")]
             test_input: None,
             core_bin: host::default_core(),
+            session: host::SESSION.to_owned(),
             #[cfg(feature = "test-support")]
             scratch: std::sync::OnceLock::new(),
             core: tokio::sync::Mutex::new(None),
@@ -335,7 +338,17 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
-        Ok(self.start(params, None).await?)
+        Ok(self.start(params, None, None).await?)
+    }
+
+    /// As [`Terminals::spawn`], with `labels` (see `reconcile::labels`) on the core's Terminal so the
+    /// core's list names its Project, Agent and Attempt (MC52).
+    pub async fn spawn_labelled(
+        &self,
+        params: SpawnParams,
+        labels: Value,
+    ) -> Result<Spawned, RpcError> {
+        Ok(self.start(params, None, Some(labels)).await?)
     }
 
     /// As [`Terminals::spawn`], for a Terminal that `owner` shows as a bubble (X11, X12). A ninth
@@ -347,7 +360,7 @@ impl Terminals {
 
     async fn spawn_owned_in(&self, params: SpawnParams, owner: &str) -> Result<Spawned, Error> {
         let forgot = self.evict_for_cap(owner)?;
-        let spawned = self.start(params, Some(owner.to_owned())).await;
+        let spawned = self.start(params, Some(owner.to_owned()), None).await;
         if forgot || spawned.is_ok() {
             self.shared
                 .bus

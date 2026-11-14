@@ -9,6 +9,7 @@ import { rowOf, settled } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
+import { Menu } from "../ui/Menu";
 import { endLeader, registerKeys } from "./registry";
 import { CHORDS, hintsFor, pressOf, CHORD_ROWS } from "./chords";
 import type { HintPlace } from "./chords";
@@ -253,7 +254,10 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
   else {
     showShelfTab(owner === "pads" ? "Pads" : "Todos");
 
-    if (owner !== "pads") {
+    if (owner === "menu") {
+      render(() => <Menu.Root open><Menu.Trigger>Open</Menu.Trigger><Menu.Positioner><Menu.Content><Menu.Item value="a">A</Menu.Item></Menu.Content></Menu.Positioner></Menu.Root>, { container: document.querySelector(".shelf")! });
+      (await screen.findByRole("menuitem")).focus();
+    } else if (owner !== "pads") {
       const surface = document.createElement("div");
       const control = document.createElement(owner === "contenteditable" ? "div" : "button");
 
@@ -264,7 +268,7 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
       document.querySelector(".shelf")!.append(surface);
       control.focus();
 
-      if (owner === "dialog" || owner === "menu") disposeLayer = createRoot(dispose => { registerKeys({ kind: "layer", element: () => surface, active: () => true, modal: true }, []);
+      if (owner === "dialog") disposeLayer = createRoot(dispose => { registerKeys({ kind: "layer", element: () => surface, active: () => true, modal: true }, []);
 
  return dispose; });
     }

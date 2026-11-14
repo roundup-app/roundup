@@ -139,3 +139,15 @@ export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done
   expect(mark.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
   expect(mark.textContent).toBe("");
 };
+
+/** Focus moving to another control, the comment field by default: how Ark's Editable sees the user leave the title field. */
+export const leaveTitle = async (to?: HTMLElement) => {
+  // Ark starts watching for outside focus a frame after the edit opens.
+  await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+  fireEvent.focusIn(to ?? within(document.querySelector<HTMLElement>(".drawer")!).getByRole("textbox", { name: "Write a comment" }));
+};
+
+/** Resolves once Ark's Editable has hidden the title field (autoResize hides by visibility): the edit ended. */
+export const titleClosed = (field: HTMLElement) => waitFor(() => {
+  if (field.style.visibility !== "hidden") throw new Error("the title is still editing");
+});

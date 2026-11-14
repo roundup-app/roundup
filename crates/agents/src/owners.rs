@@ -61,10 +61,8 @@ impl Agents {
     pub async fn reattach_owners(&self) -> Vec<String> {
         let mut kept = Vec::new();
         let forked = self.forked;
-        let Ok(entries) = std::fs::read_dir(self.dir.join("owners")) else {
-            return kept;
-        };
-        for entry in entries.flatten() {
+        let entries = std::fs::read_dir(self.dir.join("owners")).ok();
+        for entry in entries.into_iter().flatten().flatten() {
             let path = entry.path();
             let Some(id) = path.file_stem().and_then(|s| s.to_str()).map(str::to_owned) else {
                 continue;
@@ -87,7 +85,25 @@ impl Agents {
                 let _ = std::fs::remove_file(&path);
             }
         }
+        if !forked {
+            self.reconcile_core().await;
+        }
         kept
+    }
+
+    /// MC52 at the Daemon's open: the core's live list for this Project is made to match its
+    /// Agents. A core that cannot be reached leaves each Agent's start to read the list (MC53).
+    async fn reconcile_core(&self) {
+        let ids: Vec<String> = match self.shared.rail().tree() {
+            Ok(nodes) => nodes.into_iter().map(|node| node.id).collect(),
+            Err(_) => return,
+        };
+        let project = self.project_dir().to_string_lossy().into_owned();
+        let _ = self
+            .shared
+            .terminals
+            .reconcile_at_open(&project, &ids)
+            .await;
     }
 
     /// The sockets the kept owners' programs inherited as `RUPD_SOCKET` (S1, S3): the reopened

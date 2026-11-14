@@ -51,17 +51,6 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         )?,
         2,
     )?;
-    // SU5982e: only a slot-launched App (`ROUNDUP_SLOT`) offers Restart to update.
-    if let Ok(running) = std::env::var("ROUNDUP_SLOT") {
-        if let Some(home) = crate::update::home() {
-            crate::update::sync(
-                app,
-                &application,
-                &crate::update::update_status(&home, &running),
-            )?;
-        }
-        crate::update::watch(app, application.clone(), running);
-    }
     // Keep the standard native editing commands; only history changes with region focus.
     let edit_position = menu
         .items()?
@@ -109,7 +98,7 @@ enum MenuCommand<'a> {
 impl<'a> MenuCommand<'a> {
     fn parse(id: &'a str) -> Self {
         match id {
-            crate::update::ITEM => Self::Update,
+            crate::updater::ITEM => Self::Update,
             "app-settings" => Self::AppSettings,
             "fork-sheet" => Self::ForkSheet,
             "import-work" | "project-settings" => Self::Project(id),
@@ -121,21 +110,7 @@ impl<'a> MenuCommand<'a> {
 
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     match MenuCommand::parse(event.id().0.as_str()) {
-        MenuCommand::Update => {
-            if let (Ok(running), Some(home)) =
-                (std::env::var("ROUNDUP_SLOT"), crate::update::home())
-                && crate::update::choose(&crate::update::update_status(&home, &running), |slot| {
-                    if let Err(error) = crate::update::relaunch_into(&home, slot) {
-                        crate::diagnostics::failure(
-                            "relaunch into the new build",
-                            &tauri::Error::Io(error),
-                        );
-                    }
-                })
-            {
-                app.exit(0);
-            }
-        }
+        MenuCommand::Update => crate::updater::choose(app),
         MenuCommand::AppSettings => {
             if let Err(error) = app.emit("open-app-settings", ()) {
                 crate::diagnostics::failure("open Settings", &error);
