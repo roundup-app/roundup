@@ -8,7 +8,9 @@ export const StartMachine = (props: { machines: ReturnType<typeof createMachines
   onCleanup(() => props.machines.nameStart(""));
 
   return (
-    <Select label={copy.startMachine} value={props.machines.start()} onValueChange={props.machines.nameStart}
+    <div class="start-machine">
+      <Select label={copy.startMachine} value={props.machines.start()} onValueChange={props.machines.nameStart}
       choices={[{ value: "", label: copy.startMachineAuto }, ...props.machines.names().map(name => ({ value: name, label: name }))]} />
+    </div>
   );
 };

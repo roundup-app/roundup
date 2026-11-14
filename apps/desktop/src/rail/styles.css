@@ -214,6 +214,10 @@
   max-height: calc(6lh + 2 * var(--space-1));
 }
 
+.start-machine {
+  margin: var(--space-1) var(--space-3) var(--space-2);
+}
+
 .rail-tree {
   position: relative;
   font-family: var(--font-ui);
