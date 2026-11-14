@@ -80,7 +80,7 @@ impl Daemon {
         self.listed_now(&core).await
     }
 
-    /// The core's list as it stands, with a bridge held for each Machine on it (MC26).
+    /// The core's list as it stands, with a bridge kept for each Machine on it (MC26).
     async fn listed_now(&self, core: &herdr::Conn) -> Result<Vec<Machine>, RpcError> {
         let machines = core.machine_list().await.map_err(failed)?;
         let names: Vec<String> = machines.iter().map(|m| m.name.clone()).collect();
@@ -98,11 +98,12 @@ impl Daemon {
         self.bridges.serving(socket);
         let daemon = Arc::clone(self);
         tokio::spawn(async move {
+            let mut every_minute = tokio::time::interval(Duration::from_secs(60));
             loop {
+                every_minute.tick().await;
                 if let Ok(core) = (daemon.machine_core.0)().await {
                     let _ = daemon.listed_now(&core).await;
                 }
-                tokio::time::sleep(Duration::from_secs(60)).await;
             }
         });
     }

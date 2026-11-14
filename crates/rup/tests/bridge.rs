@@ -22,18 +22,39 @@ use serde_json::{Value, json};
 use std::sync::Mutex;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, duplex};
 use tokio::net::{UnixListener, UnixStream};
+use tokio::sync::watch;
+use tokio::time::interval;
 
 const REPORTS: usize = 100;
 
 /// What the test does to the link, and what the Daemon applied.
-#[derive(Default)]
 struct Net {
     down: AtomicBool,
-    paused: AtomicBool,
+    paused: watch::Sender<bool>,
     /// Bumped to end every open link at once.
-    epoch: AtomicUsize,
+    epoch: watch::Sender<usize>,
     acks: AtomicUsize,
     applied: Mutex<Vec<String>>,
+}
+
+impl Net {
+    fn new() -> Self {
+        Self {
+            down: AtomicBool::new(false),
+            paused: watch::channel(false).0,
+            epoch: watch::channel(0).0,
+            acks: AtomicUsize::new(0),
+            applied: Mutex::new(Vec::new()),
+        }
+    }
+
+    fn cut_links(&self) {
+        self.epoch.send_modify(|epoch| *epoch += 1);
+    }
+
+    async fn unpaused(&self) {
+        let _ = self.paused.subscribe().wait_for(|paused| !paused).await;
+    }
 }
 
 fn fake_rupd(socket: &Path, net: Arc<Net>, marks: bool) {
@@ -78,26 +99,24 @@ fn dial(relay: std::path::PathBuf, net: Arc<Net>) -> Bridges {
             let (machine_read, machine_write) = UnixStream::connect(&relay).await?.into_split();
             let (bridge_read, mut to_bridge) = duplex(1 << 16);
             let (from_bridge, bridge_write) = duplex(1 << 16);
-            let born = net.epoch.load(Ordering::SeqCst);
+            let born = *net.epoch.borrow();
             let alive = {
                 let net = Arc::clone(&net);
-                move || net.epoch.load(Ordering::SeqCst) == born
+                move || *net.epoch.borrow() == born
             };
             let (up_alive, down_alive, up_net) = (alive.clone(), alive, Arc::clone(&net));
             spawn_until_cut(Arc::clone(&net), born, async move {
                 let mut lines = BufReader::new(from_bridge).lines();
                 let mut machine_write = machine_write;
                 while let Ok(Some(line)) = lines.next_line().await {
-                    while up_net.paused.load(Ordering::SeqCst) && up_alive() {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                    }
+                    up_net.unpaused().await;
                     if !up_alive() {
                         return;
                     }
                     let ack = line.contains("\"ack\"");
                     if ack && up_net.acks.fetch_add(1, Ordering::SeqCst) % 7 == 6 {
                         // ssh is reliable: an ack is lost only with its link, which ends here.
-                        up_net.epoch.fetch_add(1, Ordering::SeqCst);
+                        up_net.cut_links();
                         return;
                     }
                     if machine_write
@@ -113,9 +132,7 @@ fn dial(relay: std::path::PathBuf, net: Arc<Net>) -> Bridges {
             spawn_until_cut(Arc::clone(&net), born, async move {
                 let mut lines = BufReader::new(machine_read).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    while down_net.paused.load(Ordering::SeqCst) && down_alive() {
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                    }
+                    down_net.unpaused().await;
                     if !down_alive()
                         || to_bridge
                             .write_all(format!("{line}\n").as_bytes())
@@ -139,15 +156,13 @@ fn dial(relay: std::path::PathBuf, net: Arc<Net>) -> Bridges {
 fn spawn_until_cut(net: Arc<Net>, born: usize, task: impl Future<Output = ()> + Send + 'static) {
     tokio::spawn(async move {
         let cut = async {
-            while net.epoch.load(Ordering::SeqCst) == born {
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
+            let _ = net.epoch.subscribe().wait_for(|epoch| *epoch != born).await;
         };
         tokio::select! { () = task => {}, () = cut => {} }
     });
 }
 
-fn start_relay(dir: &Path) -> Child {
+async fn start_relay(dir: &Path) -> Child {
     let child = Command::new(env!("CARGO_BIN_EXE_rup"))
         .arg("relay")
         .env("ROUNDUP_MACHINE", "1")
@@ -157,9 +172,10 @@ fn start_relay(dir: &Path) -> Child {
         .spawn()
         .unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
+    let mut poll = interval(Duration::from_millis(10));
     while !dir.join("relay.sock").exists() || !dir.join("live.sock").exists() {
         assert!(Instant::now() < deadline, "the relay did not start");
-        std::thread::sleep(Duration::from_millis(10));
+        poll.tick().await;
     }
     child
 }
@@ -183,21 +199,22 @@ fn report(dir: &Path) -> Child {
 async fn run(marks: bool, fault: impl AsyncFnOnce(&Net)) -> Vec<String> {
     let mut fault = Some(fault);
     let dir = tempfile::tempdir().unwrap();
-    let net = Arc::new(Net::default());
+    let net = Arc::new(Net::new());
     fake_rupd(&dir.path().join("rupd.sock"), Arc::clone(&net), marks);
-    let mut relay = start_relay(dir.path());
+    let mut relay = start_relay(dir.path()).await;
     let bridges = dial(dir.path().join("relay.sock"), Arc::clone(&net));
     bridges.serving(&dir.path().join("rupd.sock"));
     bridges.sync(&["box".to_owned()]);
     let mut sent = Vec::new();
+    let mut pace = interval(Duration::from_millis(10));
     for n in 0..REPORTS {
         sent.push(report(dir.path()));
-        if n == REPORTS / 3 {
-            if let Some(fault) = fault.take() {
-                fault(&net).await;
-            }
+        if n == REPORTS / 3
+            && let Some(fault) = fault.take()
+        {
+            fault(&net).await;
         }
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        pace.tick().await;
     }
     for mut child in sent {
         assert!(child.wait().unwrap().success());
@@ -205,16 +222,16 @@ async fn run(marks: bool, fault: impl AsyncFnOnce(&Net)) -> Vec<String> {
     let deadline = Instant::now() + Duration::from_secs(30);
     let drained =
         || std::fs::read_to_string(dir.path().join("rupq/spool")).is_ok_and(|text| text.is_empty());
+    let mut poll = interval(Duration::from_millis(50));
     while !(net.applied.lock().unwrap().len() >= REPORTS && drained()) && Instant::now() < deadline
     {
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        poll.tick().await;
     }
     // Long enough for a double to show.
     tokio::time::sleep(Duration::from_secs(1)).await;
     relay.kill().unwrap();
     relay.wait().unwrap();
-    let applied = net.applied.lock().unwrap().clone();
-    applied
+    net.applied.lock().unwrap().clone()
 }
 
 fn expected() -> Vec<String> {
@@ -223,7 +240,7 @@ fn expected() -> Vec<String> {
 
 async fn cut(net: &Net) {
     net.down.store(true, Ordering::SeqCst);
-    net.epoch.fetch_add(1, Ordering::SeqCst);
+    net.cut_links();
     tokio::time::sleep(Duration::from_millis(400)).await;
     net.down.store(false, Ordering::SeqCst);
 }
@@ -236,9 +253,9 @@ async fn mc24_link_killed_loses_none_doubles_none() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn mc24_link_paused_loses_none_doubles_none() {
     let applied = run(true, async |net| {
-        net.paused.store(true, Ordering::SeqCst);
+        net.paused.send_replace(true);
         tokio::time::sleep(Duration::from_millis(400)).await;
-        net.paused.store(false, Ordering::SeqCst);
+        net.paused.send_replace(false);
     })
     .await;
     assert_eq!(applied, expected());

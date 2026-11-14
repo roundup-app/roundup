@@ -44,17 +44,17 @@ type Dial = dyn Fn(String) -> Pin<Box<dyn Future<Output = io::Result<Link>> + Se
 #[derive(Clone)]
 pub struct Bridges {
     dial: Arc<Dial>,
-    held: Arc<Mutex<BTreeMap<String, Held>>>,
+    kept: Arc<Mutex<BTreeMap<String, Kept>>>,
     /// The Daemon's own socket, once it serves one; no bridge starts before.
     socket: Arc<Mutex<Option<PathBuf>>>,
 }
 
-struct Held {
+struct Kept {
     away: Arc<AtomicBool>,
     task: JoinHandle<()>,
 }
 
-impl Drop for Held {
+impl Drop for Kept {
     fn drop(&mut self) {
         self.task.abort();
     }
@@ -114,7 +114,7 @@ impl Bridges {
     ) -> Self {
         Self {
             dial: Arc::new(dial),
-            held: Arc::default(),
+            kept: Arc::default(),
             socket: Arc::default(),
         }
     }
@@ -125,15 +125,15 @@ impl Bridges {
     }
 
     /// MC26: exactly one bridge for each of `machines`, to the Daemon at `socket`. A Machine
-    /// already held keeps its bridge, one no longer listed loses it, and its Spool stays on it.
+    /// already kept keeps its bridge, one no longer listed loses it, and its Spool stays on it.
     pub fn sync(&self, machines: &[String]) {
         let Some(socket) = self.socket.lock().clone() else {
             return;
         };
-        let mut held = self.held.lock();
-        held.retain(|name, _| machines.contains(name));
+        let mut kept = self.kept.lock();
+        kept.retain(|name, _| machines.contains(name));
         for name in machines.iter().filter(|name| is_name(name)) {
-            if held.contains_key(name) {
+            if kept.contains_key(name) {
                 continue;
             }
             let away = Arc::new(AtomicBool::new(true));
@@ -143,16 +143,16 @@ impl Bridges {
                 socket.clone(),
                 Arc::clone(&away),
             ));
-            held.insert(name.clone(), Held { away, task });
+            kept.insert(name.clone(), Kept { away, task });
         }
     }
 
     /// Whether the bridge to `machine` is down; `None` when this Daemon holds none for it.
     pub fn away(&self, machine: &str) -> Option<bool> {
-        self.held
+        self.kept
             .lock()
             .get(machine)
-            .map(|held| held.away.load(Ordering::Relaxed))
+            .map(|kept| kept.away.load(Ordering::Relaxed))
     }
 }
 
@@ -166,7 +166,9 @@ async fn supervise(host: String, dial: Arc<Dial>, socket: PathBuf, away: Arc<Ato
             Err(_) => false,
         };
         away.store(true, Ordering::Relaxed);
-        tokio::time::sleep(wait).await;
+        tokio::time::interval_at(tokio::time::Instant::now() + wait, wait)
+            .tick()
+            .await;
         wait = if up { FIRST } else { (wait * 2).min(CAP) };
     }
 }
@@ -225,14 +227,18 @@ async fn session(link: Link, socket: &Path, away: &AtomicBool) -> bool {
 /// MC23: hand one Spool line to the Daemon as its Agent and answer the machine: `ack` once the
 /// Daemon replied with a result, `nack` for an error or no answer, so the line stays in the Spool.
 async fn report(line: Value, socket: PathBuf, out: mpsc::UnboundedSender<Value>) {
-    let id = line["id"].as_str().unwrap_or_default().to_owned();
+    let id = line
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
     let agent = id.rsplit_once(':').map_or("", |(agent, _)| agent);
     let answered = async {
         let mut stream = UnixStream::connect(&socket).await.ok()?;
         let identify = json!({"jsonrpc": "2.0", "id": 1, "method": "daemon.identify",
             "params": {"actor": {"kind": "agent", "id": agent}}});
-        let call = json!({"jsonrpc": "2.0", "id": 2, "method": line["method"],
-            "params": line["params"]});
+        let call = json!({"jsonrpc": "2.0", "id": 2, "method": line.get("method").cloned().unwrap_or_default(),
+            "params": line.get("params").cloned().unwrap_or_default()});
         stream
             .write_all(format!("{identify}\n{call}\n").as_bytes())
             .await
@@ -240,7 +246,7 @@ async fn report(line: Value, socket: PathBuf, out: mpsc::UnboundedSender<Value>)
         let mut lines = BufReader::new(stream).lines();
         loop {
             let reply: Value = serde_json::from_str(&lines.next_line().await.ok()??).ok()?;
-            if reply["id"] == 2 {
+            if reply.get("id") == Some(&json!(2)) {
                 break Some(reply.get("result").is_some());
             }
         }
@@ -265,7 +271,7 @@ async fn live_call(
     let Ok(stream) = UnixStream::connect(&socket).await else {
         // The Daemon is not there: answer each request with an error, so the caller does not hang.
         while let Some(d) = inbox.recv().await {
-            let error = json!({"jsonrpc": "2.0", "id": d["id"],
+            let error = json!({"jsonrpc": "2.0", "id": d.get("id").cloned().unwrap_or_default(),
                 "error": {"code": -32603, "message": "the Daemon did not answer"}});
             let _ = out.send(json!({ "c": n, "d": error }));
         }
@@ -384,8 +390,8 @@ mod tests {
         assert_eq!(requests[0]["params"]["actor"]["id"], "a1");
         assert_eq!(requests[1]["params"]["report"], "a1:1");
         drop(machine);
-        // The link ended before the connect settled: it never came up.
-        assert!(!task.await.unwrap());
+        // The link ended before it settled, but the machine had sent it a report: no backoff.
+        assert!(task.await.unwrap());
     }
 
     #[tokio::test]
@@ -443,14 +449,10 @@ mod tests {
         );
     }
 
-    /// A dial that counts its calls and gives each a link that ends at once, or a held one.
-    fn counting(
-        quick: bool,
-    ) -> (
-        Bridges,
-        Arc<Mutex<Vec<(String, Instant)>>>,
-        Arc<Mutex<Vec<Machine>>>,
-    ) {
+    type Dials = Arc<Mutex<Vec<(String, Instant)>>>;
+
+    /// A dial that counts its calls and gives each a link that ends at once, or a kept one.
+    fn counting(quick: bool) -> (Bridges, Dials, Arc<Mutex<Vec<Machine>>>) {
         let dials = Arc::new(Mutex::new(Vec::new()));
         let machines = Arc::new(Mutex::new(Vec::new()));
         let (log, kept) = (Arc::clone(&dials), Arc::clone(&machines));
@@ -505,7 +507,9 @@ mod tests {
         assert_eq!(bridges.away("box"), Some(true));
         assert_eq!(bridges.away("other"), None);
         tokio::time::sleep(Duration::from_millis(100)).await;
-        machines.lock()[0].send(line("a1:1")).await;
+        let mut first = machines.lock().remove(0);
+        first.send(line("a1:1")).await;
+        machines.lock().insert(0, first);
         tokio::time::sleep(Duration::from_millis(400)).await;
         assert_eq!(bridges.away("box"), Some(true), "still draining");
         tokio::time::sleep(Duration::from_millis(600)).await;
