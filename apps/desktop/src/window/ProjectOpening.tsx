@@ -57,6 +57,17 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
 
       if (signal.aborted) return lost();
 
+      // MC36: the Project's own Daemon records the Machine before the open is answered.
+      if (request.method === "project.open" && request.params.machine !== undefined) {
+        try {
+          await withAppSettings(forProject(opened.path), () => false).rpc("project.setMachine", { machine: request.params.machine });
+        } catch (failure) {
+          if (!known) await projects.close(opened.path);
+
+          throw failure;
+        }
+      }
+
       if (request.method === "project.start") {
         const { kind, name, prompt, agent } = request.params;
         const target = await projects.opened(opened.path);
