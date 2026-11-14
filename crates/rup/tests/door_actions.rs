@@ -311,7 +311,11 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
             let nodes = project.rail_tree(&user).await;
             let node = nodes.iter().find(|n| n.id == door).unwrap();
             if node.status().unwrap().kind == Kind::Idle
-                && node.status_revision() != Some(failed.status_revision.as_str())
+                && node
+                    .status_revision()
+                    .as_ref()
+                    .map(contracts::agent::Ordinal::as_str)
+                    != Some(failed.status_revision.as_str())
             {
                 assert_eq!(
                     node.attempt()
