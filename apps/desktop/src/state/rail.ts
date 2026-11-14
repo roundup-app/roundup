@@ -4,18 +4,18 @@ import { createItemFailure } from "./itemFailure";
 import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
 import { applying } from "../app/pending";
-import { batch, createMemo, createSignal, onCleanup } from "solid-js";
+import PQueue from "p-queue";
+import { batch, createComputed, createMemo, createRoot, createSignal, onCleanup, untrack } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
-import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "./defaultName";
 import { railTopology, type RailTopology } from "./railTopology";
 import { ancestorsOf, isWorkstream } from "./railTopology";
 import type { RailSection, RailStorage, ResumptionStorage } from "./railStorage";
-import type { Events } from "../app/events";
+import { handleEvent, type EventHandlers, type Events } from "../app/events";
 import { outcomeOf, type AppSeam } from "../app/seam";
 
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
@@ -39,10 +39,9 @@ export type RailState = {
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
-  /** U5991a: take rows off the Rail at once; `unhide` returns whatever the Daemon still holds. */
-  hide(ids: readonly string[]): void;
-  unhide(ids: readonly string[]): void;
-  /** U5991a: the Daemon applied the move of Row `id`; the tree holds it before the drawing lifts. */
+  /** U5991a: take rows off the Rail at once; the returned call lifts the pending change, returning whatever the Daemon still holds. */
+  hide(ids: readonly string[]): () => void;
+  /** U5991a: the Daemon applied the move of Row `id`; the tree holds it before the pending change lifts. */
   keepApplied(id: string, place: RailPlace): void;
   /** U5991a: show Row `id`'s program as stopped (`exit`) or running (`null`) at once; the returned call lifts it. */
   drawExit(id: string, exit: ExitState | null): () => void;
@@ -52,9 +51,9 @@ export type RailState = {
   drawGroup(ids: readonly string[], name: string): () => void;
   /** U5991a: remember the Rows `ids` that a removal took, as they stood, for the undo that returns them. */
   keepRemoved(ids: readonly string[]): void;
-  /** U5991a: show the last removal undone (`undo`) or redone at once; the returned call refreshes, then lifts the drawing; `kept` false puts the memory back, since the call failed. */
+  /** U5991a: show the last removal undone (`undo`) or redone at once; the returned call refreshes, then lifts the pending change; `kept` false puts the memory back, since the call failed. */
   drawHistory(direction: "undo" | "redo"): (kept: boolean) => Promise<void>;
-  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. U5991f: a `change` that adds a Row names it in `landing`, and the drawing stands down the moment the tree holds a Row that arrived since, so no frame shows both. */
+  /** U5991a: show `change` of the tree at once; the returned call lifts it once the Daemon's reply or Event holds the result. U5991f: a `change` that adds a Row names it in `landing`, and the pending change stands down the moment the tree holds a Row that arrived since, so no frame shows both. */
   draw(change: (tree: readonly RailNode[]) => readonly RailNode[], landing?: Landing): () => void;
   /** One structural index shared by selection and every mounted Rail projection. */
   topology(): RailTopology;
@@ -66,7 +65,7 @@ export type RailState = {
   terminals(): readonly TerminalInfo[];
   /** How Terminal `id` ended, or `null` while it runs or when it is unknown. */
   terminalExit(id: string): ExitState | null;
-  /** U6000a: show row `id` as `starting` until the returned release runs. */
+  /** U6000a: show row `id` as `starting` until the returned call lifts the pending change. */
   launch(id: string): () => void;
   /** U6000a: true while a launch holds row `id` at `starting`; a pending `rail.startDoor` is one. */
   launching(id: string): boolean;
@@ -113,9 +112,9 @@ export type RailState = {
   rename(id: string, name: string): Promise<void>;
   /** The message of the last failed fetch, until a later fetch succeeds. */
   failure(): string | null;
-  /** Fetches the current tree after a write found that its row had already gone; `terminals` also refetches `terminal.list`, so a missed exit shows. */
+  /** Fetches the current tree after a write found that its row had already gone; `terminals` also refetches `terminal.list`, so a missed exit shows. Resolves once that fetch and the Events queued before it applied. */
   refresh(options?: { terminals?: boolean }): Promise<void>;
-  /** Resolves when no fetch is in flight and no queued Event is left to apply. */
+  /** Resolves once the Rail shows only what the Daemon holds: no fetch is in flight, no held Event is left to apply and no pending change waits on its call. */
   settled(): Promise<void>;
 };
 
@@ -193,22 +192,33 @@ const provisionalRow = (tree: readonly RailNode[], kind: "agent" | "workstream",
   work: null,
 });
 
-/** U5991f: the Row a drawing adds, as the Daemon's own Row will arrive: of `kind`, under `parent`, with an id not in `known`. */
+/** U5991f: the Row a pending change adds, as the Daemon's own Row will arrive: of `kind`, under `parent`, with an id not in `known`. */
 type Landing = { kind: RailNode["kind"]; parent: string | null };
 
-type Drawing = { change: (tree: readonly RailNode[]) => readonly RailNode[]; landing?: (Landing & { known: ReadonlySet<string> }) | undefined };
+/** U5991a, U6000a: one change the Rail shows before the Daemon confirms it, until its lift runs: Rows taken off, a change of the tree, or a Row shown starting. */
+type Pending =
+  | { kind: "hide"; ids: readonly string[] }
+  | { kind: "draw"; change: (tree: readonly RailNode[]) => readonly RailNode[]; landing?: (Landing & { known: ReadonlySet<string> }) | undefined }
+  | { kind: "launch"; id: string };
 
-/** U5991f: applies `drawings` over `tree`; each Row-adding drawing claims the oldest Row the Daemon added since it was drawn and, having one, draws nothing. */
-const drawnOver = (tree: readonly RailNode[], drawings: readonly Drawing[]): readonly RailNode[] => {
+/** The Rail as shown: `tree` without hidden Rows, with each drawn change in order, and launched Rows `starting`. U5991f: a Row-adding change claims the oldest Row the Daemon added since it was drawn and, having one, changes nothing, so no frame shows both. */
+const shownOver = (tree: readonly RailNode[], pending: readonly Pending[]): readonly RailNode[] => {
+  const hidden = new Set(pending.flatMap(each => each.kind === "hide" ? each.ids : []));
+  const starting = new Set(pending.flatMap(each => each.kind === "launch" ? [each.id] : []));
   const claimed = new Set<string>();
+  const shown = hidden.size === 0 ? tree : tree.filter(node => !hidden.has(node.id));
 
-  return drawings.reduce((shown, { change, landing }) => {
-    const arrived = landing && tree.find(node => !landing.known.has(node.id) && !claimed.has(node.id) && node.kind === landing.kind && node.parent === landing.parent);
+  const drawn = pending.reduce((rows, each) => {
+    if (each.kind !== "draw") return rows;
+    const { landing } = each;
+    const arrived = landing && shown.find(node => !landing.known.has(node.id) && !claimed.has(node.id) && node.kind === landing.kind && node.parent === landing.parent);
 
     if (arrived) claimed.add(arrived.id);
 
-    return arrived ? shown : change(shown);
-  }, tree);
+    return arrived ? rows : each.change(rows);
+  }, shown);
+
+  return starting.size === 0 ? drawn : drawn.map(node => starting.has(node.id) ? { ...node, status: startingStatus(node.status?.since) } : node);
 };
 
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
@@ -217,25 +227,23 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     exited: {},
   });
 
-  // Solid tracks membership and structural fields, including reconciled in-place edits.
-  // Status, selection, disclosure, questions and clocks never enter this memo.
-  // U5991a: rows a Rail action removed before its call answered; the Daemon's reply or failure lifts the hold.
-  const [hidden, setHidden] = createSignal<ReadonlySet<string>>(new Set());
-  // U6000a: rows whose program is starting. An existing row shows `starting` while its call is pending.
-  const [launches, setLaunches] = createSignal<readonly string[]>([]);
-  const [drawn, setDrawn] = createSignal<readonly Drawing[]>([]);
+  // U5991a, U6000a: what Rail actions show before their calls answer; each lift takes its own change off.
+  const [pending, setPending] = createSignal<readonly Pending[]>([]);
+
+  const show = (change: Pending): (() => void) => {
+    setPending(each => [...each, change]);
+
+    return once(() => setPending(each => each.filter(other => other !== change)));
+  };
+
   const removedRows: RailNode[][] = [];
   const redoneRows: RailNode[][] = [];
   const renaming = new Map<string, () => void>();
   const [exitsDrawn, setExitsDrawn] = createSignal<ReadonlyMap<string, { exit: ExitState | null }>>(new Map());
 
-  const view = createMemo(() => {
-    const shown = hidden().size === 0 ? model.tree : model.tree.filter(node => !hidden().has(node.id));
-    const starting = launches();
-    const drawing = drawnOver(shown, drawn());
-
-    return starting.length === 0 ? drawing : drawing.map(node => starting.includes(node.id) ? { ...node, status: startingStatus(node.status?.since) } : node);
-  });
+  // Solid tracks membership and structural fields, including reconciled in-place edits.
+  // Status, selection, disclosure, questions and clocks never enter this memo.
+  const view = createMemo(() => shownOver(model.tree, pending()));
 
   const topology = createMemo(() => railTopology(view()));
 
@@ -319,9 +327,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     }
   };
 
-  let pending = 0;
-  let queued: DaemonEvent[] = [];
-  let latest: Promise<void> = Promise.resolve();
+  /** Fetches run one after another, and Events that arrive meanwhile wait behind them: the answer may predate them. */
+  const queue = new PQueue({ concurrency: 1 });
+  const [fetchingNow, setFetchingNow] = createSignal(false);
+
+  queue.on("active", () => setFetchingNow(true));
+  queue.on("idle", () => setFetchingNow(false));
 
   const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
@@ -424,62 +435,42 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     if (owner && owner !== selected() && model.tree.some((node) => node.id === owner)) select(owner);
   };
 
-  /** Fetches run one after another, and Events that arrive meanwhile wait: the answer may predate them. */
-  const fetching = (work: () => Promise<void>): void => {
-    pending += 1;
+  const fetching = (work: () => Promise<void>): Promise<void> => queue.add(async () => {
+    try {
+      await work();
+      setFailure(null);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
 
-    latest = latest.then(work).then(
-      () => {
-        setFailure(null);
-      },
-      (error) => {
-        if (!(error instanceof Error)) throw error;
-
-        setFailure(error.message);
-      },
-    ).finally(() => {
-      pending -= 1;
-
-      if (pending === 0) apply(queued.splice(0));
-    });
-  };
-
-  const apply = (batch: DaemonEvent[]): void => {
-    for (const event of batch) {
-      if (pending > 0) {
-        queued.push(event);
-      } else if (event.name === "rail.changed") {
-        fetching(fetchTree);
-      } else if (event.name === "rail.renamed") {
-        const row = model.tree.find(node => node.id === event.data.id);
-
-        if (row !== undefined) reconcileAsked([{ ...row, name: event.data.name }]);
-        setModel("tree", node => node.id === event.data.id, "name", event.data.name);
-      } else if (event.name === "agent.status") {
-        setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
-        const node = model.tree.find(node => node.id === event.data.id);
-
-        if (node && recordResumption(node)) void saveResumptions();
-      } else if (event.name === "agent.toolCall") {
-        setModel("tree", (node) => node.id === event.data.id, "tool_call", reconcile(event.data.call));
-      } else if (event.name === "terminal.changed") {
-        fetching(fetchTerminals);
-      } else if (event.name === "terminal.shown") {
-        showTerminal(event.data.id);
-      } else if (event.name === "terminal.status") {
-        const { id, status } = event.data;
-
-        setTerminals((listed) => listed.map((terminal) => {
-          if (terminal.id !== id) return terminal;
-
-          const { status: _previous, ...rest } = terminal;
-
-          return status ? { ...rest, status } : rest;
-        }));
-      } else if (event.name === "terminal.exited") {
-        setModel("exited", event.data.id, event.data.code);
-      }
+      setFailure(error.message);
     }
+  });
+
+  const handlers: EventHandlers = {
+    "rail.changed": () => void fetching(fetchTree),
+    "rail.renamed": ({ data }) => {
+      const row = model.tree.find(node => node.id === data.id);
+
+      if (row !== undefined) reconcileAsked([{ ...row, name: data.name }]);
+      setModel("tree", node => node.id === data.id, "name", data.name);
+    },
+    "agent.status": ({ data }) => {
+      setModel("tree", (node) => node.id === data.id && node.attempt === data.attempt && node.status_revision !== null && BigInt(data.status_revision) > BigInt(node.status_revision), { status: data.status, status_revision: data.status_revision });
+      const node = model.tree.find(node => node.id === data.id);
+
+      if (node && recordResumption(node)) void saveResumptions();
+    },
+    "agent.toolCall": ({ data }) => setModel("tree", (node) => node.id === data.id, "tool_call", reconcile(data.call)),
+    "terminal.changed": () => void fetching(fetchTerminals),
+    "terminal.shown": ({ data }) => showTerminal(data.id),
+    "terminal.status": ({ data: { id, status } }) => setTerminals((listed) => listed.map((terminal) => {
+      if (terminal.id !== id) return terminal;
+
+      const { status: _previous, ...rest } = terminal;
+
+      return status ? { ...rest, status } : rest;
+    })),
+    "terminal.exited": ({ data }) => setModel("exited", data.id, data.code),
   };
 
   /** A24: the call's answer, or a rejection once `DOOR_START_BOUND_MS` passes without one. */
@@ -508,12 +499,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       if (node.terminal_id) prepared?.bind(node.terminal_id);
       commandFailure.acknowledge(id);
-      fetching(fetchTree);
-      await latest;
+      await fetching(fetchTree);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      fetching(fetchTree);
-      await latest;
+      await fetching(fetchTree);
       const node = model.tree.find((each) => each.id === id);
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
@@ -570,10 +559,15 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const createWorkstream = async (): Promise<void> => { await makeWorkstream(null); };
 
-  onCleanup(events.subscribe((event) => apply([event])));
-  fetching(async () => {
-    await Promise.all([fetchTree(), fetchTerminals()]);
-  });
+  // An Event waits while the queue is busy, so none overtakes a fetch asked before it.
+  onCleanup(events.subscribe((event) => {
+    if (queue.size + queue.pending === 0) handleEvent(handlers, event);
+    else void queue.add(() => handleEvent(handlers, event));
+  }));
+  const fetchAll = async (): Promise<void> => { await Promise.all([fetchTree(), fetchTerminals()]); };
+
+  // The first fetch reads the Rail once, outside any tracked scope.
+  untrack(() => void fetching(fetchAll));
 
   const state: RailState = {
     resumedAt: id => resumed[id]?.since,
@@ -586,16 +580,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       return code === null ? { kind: "signal" } : { kind: "code", code };
     },
-    launch: id => {
-      setLaunches(each => [...each, id]);
-
-      return once(() => setLaunches(each => {
-        const at = each.indexOf(id);
-
-        return at < 0 ? each : each.toSpliced(at, 1);
-      }));
-    },
-    launching: id => launches().includes(id),
+    launch: id => show({ kind: "launch", id }),
+    launching: id => pending().some(each => each.kind === "launch" && each.id === id),
     doorPending: (id) => doors[id]?.pending ?? false,
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,
@@ -609,14 +595,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     get nodes() {
       return view();
     },
-    hide: ids => setHidden(rows => new Set([...rows, ...ids])),
-    draw: (change, landing) => {
-      const drawing: Drawing = { change, landing: landing && { ...landing, known: new Set(model.tree.map(node => node.id)) } };
-
-      setDrawn(drawings => [...drawings, drawing]);
-
-      return () => setDrawn(drawings => drawings.filter(each => each !== drawing));
-    },
+    hide: ids => show({ kind: "hide", ids }),
+    draw: (change, landing) => show({ kind: "draw", change, landing: landing && { ...landing, known: new Set(model.tree.map(node => node.id)) } }),
     keepRemoved: ids => {
       const rows = model.tree.filter(node => ids.includes(node.id)).map(node => ({ ...node }));
 
@@ -656,7 +636,6 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return () => setExitsDrawn(marks => marks.get(id) !== mark ? marks : new Map([...marks].filter(([key]) => key !== id)));
     },
     keepApplied: (id, place) => setModel("tree", reconcile(movedTo(model.tree, id, place), { key: "id" })),
-    unhide: ids => setHidden(rows => new Set([...rows].filter(id => !ids.includes(id)))),
     exitOf: (node) => {
       const drawnExit = exitsDrawn().get(node.id);
 
@@ -674,14 +653,14 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     placeOf: (id) => placeOf(model.tree, id),
     rename: async (id, name) => {
       const base = model.tree.find(node => node.id === id)?.name ?? "";
-      // The newest name asked is the one drawn: it supersedes an older drawing still waiting on its reply.
+      // The newest name asked is the one drawn: it supersedes an older pending change still waiting on its reply.
       renaming.get(id)?.();
       const lift = state.draw(tree => tree.map(node => node.id === id ? { ...node, name } : node));
 
       renaming.set(id, lift);
       const result = await applying(() => app.rpc("rail.rename", { id, name }));
 
-      // The read holds the Daemon's name before the drawing lifts, so the row never shows the old one between them.
+      // The read holds the Daemon's name before the pending change lifts, so the row never shows the old one between them.
       if (result.kind === "applied") await state.refresh();
 
       if (result.kind === "pending") state.keepAsked(id, { kind: "rename", asked: name, base });
@@ -715,11 +694,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       void dismissals?.write([...dismissedKeys()]).then(problem => { if (problem === null) setUnsaved([]); });
     },
     clearUnsavedDismissal: () => setUnsaved(lines => lines.slice(1)),
-    refresh: async (options) => {
-      if (options?.terminals) fetching(async () => { await Promise.all([fetchTree(), fetchTerminals()]); });
-      else fetching(fetchTree);
-      await latest;
-    },
+    refresh: options => fetching(options?.terminals ? fetchAll : fetchTree),
     selected,
     terminalFocus,
     restored,
@@ -744,12 +719,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
           ? (model.tree.find((node) => node.id === actor.id)?.name ?? actor.id)
           : actor.id,
     settled: async () => {
-      let seen: Promise<void>;
-
-      do {
-        seen = latest;
-        await seen;
-      } while (latest !== seen);
+      await queue.onIdle();
+      await new Promise<void>(resolve => createRoot(done => createComputed(() => {
+        if (fetchingNow() || pending().length > 0) return;
+        queueMicrotask(done);
+        resolve();
+      })));
     },
   };
 
