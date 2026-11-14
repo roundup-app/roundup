@@ -114,7 +114,7 @@ export type RailState = {
   failure(): string | null;
   /** Fetches the current tree after a write found that its row had already gone; `terminals` also refetches `terminal.list`, so a missed exit shows. Resolves once that fetch and the Events queued before it applied. */
   refresh(options?: { terminals?: boolean }): Promise<void>;
-  /** Resolves once the Rail shows only what the Daemon holds: no fetch is in flight, no held Event is left to apply and no pending change waits on its call. */
+  /** Resolves once the Rail shows only what the Daemon holds: no fetch is in flight, no Event waits to apply and no pending change waits on its call. */
   settled(): Promise<void>;
 };
 

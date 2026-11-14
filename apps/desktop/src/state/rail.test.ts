@@ -491,14 +491,14 @@ describe("U5991 pending changes", () => {
     ["draw", (rail: Awaited<ReturnType<typeof open>>["rail"]) => rail.draw(tree => tree.map(each => ({ ...each, name: "Asked" })))],
     ["launch", (rail: Awaited<ReturnType<typeof open>>["rail"]) => rail.launch("a")],
   ] as const)("u5172a_a_refused_change_stands_down_%s", async (_name, show) => {
-    const held = agent("a", "done", "finished", { name: "Held" });
-    const { rail } = await open([held]);
+    const kept = agent("a", "done", "finished", { name: "Kept" });
+    const { rail } = await open([kept]);
     const lift = show(rail);
-    expect(rail.nodes).not.toEqual([held]);
+    expect(rail.nodes).not.toEqual([kept]);
     // A refused call lifts its pending change (railCommand's `finally`).
     lift();
 
-    expect(rail.nodes).toEqual([held]);
+    expect(rail.nodes).toEqual([kept]);
     expect(rail.launching("a")).toBe(false);
   });
 });
