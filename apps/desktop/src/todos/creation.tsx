@@ -10,7 +10,7 @@ import { todoCreationKeys } from "../shelf/keys";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import { createDraftField } from "../state/draftField";
 import { copy } from "./copy";
-import { creationSchema } from "./EditableText";
+import { creationSchema, sentFailure } from "./EditableText";
 
 /** The Todo creation form of the Todos tab: its draft, its submission and the field that edits it. */
 export const createTodoCreation = (inputs: {
@@ -97,7 +97,7 @@ export const createTodoCreation = (inputs: {
       return;
     }
 
-    setCreateFailure(sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown);
+    setCreateFailure(sentFailure(sent));
     const restored = kept.value();
 
     // EntryRow clears on submit; an untouched field takes back the text the field still follows.

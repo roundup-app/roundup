@@ -8,6 +8,7 @@ import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
+import type { Sent } from "../state/draftField";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense, untrack } from "solid-js";
@@ -51,6 +52,9 @@ export const createSavedFailure = (count: () => number): [() => string | null, (
 
   return [shown, message => keep(message === null ? null : { message, saved: count() })];
 };
+
+/** What the user reads when a send ends without its change applied. */
+export const sentFailure = (sent: Extract<Sent<unknown>, { kind: "refused" | "unknown" }>) => sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown;
 
 /** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
 export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; saved?: () => number; onDiscard?: (revision: string) => void }) => {

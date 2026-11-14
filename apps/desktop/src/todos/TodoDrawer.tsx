@@ -1,13 +1,12 @@
-import { applied } from "../app/pending";
+import { applied, applying, type Applied } from "../app/pending";
 import { historyRegion } from "../keys/focus";
-import { outcomeOf } from "../app/seam";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
 import * as v from "valibot";
 import { TodoHeader } from "./TodoHeader";
 import { TodoMeta } from "./TodoMeta";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { copy } from "./copy";
-import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
+import { createEffect, createRoot, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -15,8 +14,9 @@ import { TodoComments } from "./TodoComments";
 import { TodoRefs } from "./TodoRefs";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
+import { createDraftField } from "../state/draftField";
 import { useTodoList } from "./todoList";
-import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
+import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema, sentFailure } from "./EditableText";
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
 import type { TodosState } from "./state";
 
@@ -58,13 +58,13 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     || !original || !retained || (retained.value.home !== undefined && retained.value.home !== originalHome) || !(fieldForm.success && (retained.destination.recipient === "title" || retained.destination.recipient === "body")
       || blockersForm.success && retained.destination.recipient?.startsWith("blockers:")))) return null;
 
-  const [blockerRevision, setBlockerRevision] = createSignal(blockersForm.success ? retained?.revision : undefined);
-  const blockerDraft = () => blockerRevision() === undefined ? undefined : drafts.list().find(draft => draft.revision === blockerRevision());
+  // A recovered blocker choice reopens its own revision; its Save is the only send.
+  const restored = blockersForm.success && retained ? createDraftField(drafts, retained.destination, blockerSchema, retained) : undefined;
 
   const blockerForm = () => {
-    const parsed = v.safeParse(blockerSchema, blockerDraft()?.value);
+    const parsed = restored?.value();
 
-    return parsed.success ? parsed.output : undefined;
+    return parsed?.success ? parsed.output : undefined;
   };
 
   const titleRevision = () => retained?.destination.recipient === "title" ? retained.revision : undefined;
@@ -157,14 +157,11 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     const base = target ?? blockerBase();
 
     if (!base) return;
-    const restored = blockerForm();
+    const form = blockerForm();
 
-    if (props.recovery && restored) {
-      const draft = blockerDraft();
-
-      if (!draft) return;
-      const blockers = action === "add" ? [...new Set([...restored.blockers, String(blocker)])] : restored.blockers.filter(id => id !== String(blocker));
-      setBlockerRevision(drafts.edit(draft.destination, { ...restored, blockers }, draft.selection, "ordinary", draft.revision).draft.revision);
+    if (props.recovery && restored && form) {
+      const blockers = action === "add" ? [...new Set([...form.blockers, String(blocker)])] : form.blockers.filter(id => id !== String(blocker));
+      restored.keep({ ...form, blockers }, restored.draft()?.selection ?? null);
 
       return;
     }
@@ -182,45 +179,66 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     const origin = { home: base.home, originalTitle: original.title, originalBody: original.body, originalDone: original.done,
       originalBlockers: original.blockers.map(String), originalChange: capture?.seq ?? null, action, blocker };
 
-    const waiting = drafts.edit(destination, { ...origin, title: original.title, body: original.body, done: original.done,
-      blockers: next(original.blockers).map(String), baseBlockers: original.blockers.map(String), expected_change: capture?.seq ?? null }, null, "ordinary").draft;
+    const waiting = { ...origin, title: original.title, body: original.body, done: original.done,
+      blockers: next(original.blockers).map(String), baseBlockers: original.blockers.map(String), expected_change: capture?.seq ?? null };
 
-    const pick = async () => {
-      // A queued add/remove composes with the preceding accepted pick, using one Values/sequence pair.
-      let change: Change | undefined;
-      const readFailure = await failureOf(async () => { change = (await app.rpc("todo.getHistory", { id: targetId })).changes.at(-1); });
+    // Each pick owns its field for as long as it runs.
+    const pick = createRoot(dispose => {
+      const choice = createDraftField(drafts, destination, blockerSchema);
+      choice.keep(waiting, null);
 
-      // Discarding a choice before its read returns never authorizes a later mutation.
-      if (!drafts.list().some(draft => draft.revision === waiting.revision)) return;
+      const choose = async () => {
+        // A queued add/remove composes with the preceding accepted pick, using one Values/sequence pair.
+        let change: Change | undefined;
+        const readFailure = await failureOf(async () => { change = (await app.rpc("todo.getHistory", { id: targetId })).changes.at(-1); });
 
-      if (readFailure !== null || !change) {
-        (await drafts.submit(waiting.revision));
-        drafts.settle(waiting.revision, "failed");
-        setFailure(readFailure ?? copy.originalUnverified);
+        // Discarding a choice before its read returns never authorizes a later mutation.
+        if (!choice.draft()) return;
 
-        return;
-      }
+        if (readFailure !== null || !change) {
+          const unread = new Error(readFailure ?? copy.originalUnverified);
+          const refused: Applied<Todo> = { kind: "refused", error: unread, thrown: unread };
+          await choice.send(() => Promise.resolve(refused));
+          setFailure(unread.message);
 
-      const blockers = next(change.after.blockers);
+          return;
+        }
 
-      const draft = drafts.edit(destination, { ...origin, title: change.after.title, body: change.after.body,
-        done: change.after.done, blockers: blockers.map(String), baseBlockers: change.after.blockers.map(String), expected_change: change.seq }, null, "ordinary").draft;
-
-      (await drafts.submit(draft.revision));
-
-      try {
+        const blockers = next(change.after.blockers);
         const seq = change.seq;
-        const accepted = await applied(() => app.rpc("todo.setBlockers", { id: targetId, blockers, expected_change: seq }));
 
-        if (targetId === props.id) setAnswered(accepted);
-        drafts.settle(draft.revision, "acknowledged");
+        choice.keep({ ...origin, title: change.after.title, body: change.after.body,
+          done: change.after.done, blockers: blockers.map(String), baseBlockers: change.after.blockers.map(String), expected_change: seq }, null);
+
+        let bug: unknown;
+
+        const sent = await choice.send(async () => {
+          const reply = await applying(() => app.rpc("todo.setBlockers", { id: targetId, blockers, expected_change: seq }));
+
+          if (reply.kind !== "applied" && !(reply.thrown instanceof Error)) bug = reply.thrown;
+
+          return reply;
+        });
+
+        // A throw that is no Error is a bug: the queue reports it.
+        if (bug !== undefined) throw bug;
+
+        if (sent.kind === "skipped") return;
+
+        if (sent.kind !== "applied") return setFailure(sentFailure(sent));
+
+        if (targetId === props.id) setAnswered(sent.result);
         clearFailure();
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
-        drafts.settle(draft.revision, outcomeOf(error));
-        setFailure(error.message);
-      }
-    };
+      };
+
+      return async () => {
+        try {
+          await choose();
+        } finally {
+          dispose();
+        }
+      };
+    });
 
     // A bug that rejects one pick is reported, and the picks behind it still run.
     picks = picks.then(pick, (bug) => {
@@ -231,10 +249,10 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   };
 
   const saveBlockers = async () => {
-    const draft = blockerDraft();
     const form = blockerForm();
+    const status = restored?.draft()?.status;
 
-    if (!todo() || !draft || !form) return;
+    if (!todo() || !restored || !form || !status) return;
 
     if (form.expected_change === null) {
       setFailure(copy.originalUnverified);
@@ -243,23 +261,13 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     }
 
     const target = props.id;
+    const expected = form.expected_change;
+    restored.save();
+    const sent = await restored.send(() => applying(() => app.rpc("todo.setBlockers", { id: target, blockers: form.blockers.map(Number), expected_change: expected })));
 
-    if (!(await drafts.submit(draft.revision))) {
-      setFailure(copy.draftStatus[draft.status]);
-
-      return;
-    }
-
-    try {
-      const expected = form.expected_change;
-      setAnswered(await applied(() => app.rpc("todo.setBlockers", { id: target, blockers: form.blockers.map(Number), expected_change: expected })));
-      drafts.settle(draft.revision, "acknowledged");
-      clearFailure();
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      drafts.settle(draft.revision, outcomeOf(error));
-      setFailure(error.message);
-    }
+    if (sent.kind === "skipped") setFailure(copy.draftStatus[status]);
+    else if (sent.kind === "applied") { setAnswered(sent.result); clearFailure(); }
+    else setFailure(sentFailure(sent));
   };
 
   const remove = () => {

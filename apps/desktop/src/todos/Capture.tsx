@@ -21,6 +21,7 @@ import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
 import { failureOf } from "../app/failureOf";
 import { useTodoList } from "./todoList";
+import { sentFailure } from "./EditableText";
 import "./capture.styles.css";
 
 let optimistic = 0;
@@ -212,7 +213,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     // The empty next editor is disposable; a newer nonempty draft stays current.
     if (sent.kind === "refused" && outcomeOf(sent.error) === "failed" && text() === "" && current()) void draft.discard();
 
-    setFailure(sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown);
+    setFailure(sentFailure(sent));
 
     if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); void port.show().then(publish); }
     else show();

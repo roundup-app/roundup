@@ -13,7 +13,7 @@ import { FailureLine, shownKind } from "../ink/FailureLine";
 import { Collapsible } from "../ui/Collapsible";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure, failureOf } from "../app/failureOf";
-import { commentSchema, createSavedFailure } from "./EditableText";
+import { commentSchema, createSavedFailure, sentFailure } from "./EditableText";
 import { createDraftField } from "../state/draftField";
 import { rowButtonOf, triage } from "./triage";
 
@@ -172,7 +172,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     setSending(false);
 
     if (sent.kind === "skipped" || drawer.content() !== content) return;
-    const message = sent.kind === "applied" ? null : sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown;
+    const message = sent.kind === "applied" ? null : sentFailure(sent);
     setSendFailure(message);
 
     // A rejected call keeps the typed text; the thread catches up through `todo.commented`.
