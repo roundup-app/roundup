@@ -1,6 +1,5 @@
 import { applied, applying } from "../app/pending";
 import { Age } from "../shelf/Age";
-import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { CHORD_ROWS } from "../keys/chords";
@@ -19,7 +18,7 @@ import { registerOpener } from "../shelf/openItem";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
+import { createEffect, createMemo, createSelector, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -33,6 +32,7 @@ import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { Sortable } from "../ui/sortable";
+import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
 import type { PadList } from "./padList";
 
@@ -63,21 +63,18 @@ export const Pads = (props: {
   const parsed = restored ? v.safeParse(v.object({ name: v.string(), home: v.nullable(v.string()) }), restored.value) : null;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
   const [name, setName] = createSignal(parsed?.success ? parsed.output.name : "");
-  let revision = restored?.revision;
-  let field: HTMLInputElement | undefined;
+  const draft = createDraftField(connected.drafts, creation, v.object({ name: v.string(), home: v.nullable(v.string()) }), restored);
+  let input: HTMLInputElement | undefined;
   let home = parsed?.success ? parsed.output.home : null;
-  let caret = restored?.selection ?? null;
-  let captured = restored ? JSON.stringify([restored.value.name, restored.value.home, caret]) : null;
+  const kept = () => draft.value().success;
 
   const capture = () => {
     if (invalid()) return;
-    caret = field ? { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" } : caret;
-    const fingerprint = JSON.stringify([name(), home, caret]);
-
-    if (captured === fingerprint) return;
-    captured = fingerprint;
-    revision = connected.drafts.edit(creation, { name: name(), home }, caret, "ordinary", revision ?? null).draft.revision;
+    const caret = input ? { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" } : null;
+    draft.keep({ name: name(), home }, caret);
   };
+
+  const forget = () => { void draft.discard(); setName(""); };
 
   let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
@@ -106,41 +103,24 @@ export const Pads = (props: {
       capture();
       const target = name().trim();
       const targetHome = home;
-      const submitted = revision ? (await connected.drafts.submit(revision)) : null;
-
-      if (!submitted) return;
-
-      const timeout = setTimeout(() => {
-        connected.drafts.settle(submitted.draft.revision, "unknown");
-        failure.show(copy.draftStatus.unknown);
-      }, 15_000);
-
       let action: string = copy.addPad;
+      draft.save();
 
-      try {
+      const sent = await draft.send(() => applying(async () => {
         await applied(() => connected.app.rpc("pad.create", { name: target, text: null }));
 
         if (targetHome !== null) {
           action = copy.moveItem(target);
           await applied(() => connected.app.rpc("pad.move", { name: target, home: targetHome }));
         }
+      }));
 
-        connected.drafts.settle(submitted.draft.revision, "acknowledged");
-
-        // Only the submitted revision is consumed; a later edit remains current.
-        if (revision === submitted.draft.revision) {
-          revision = undefined;
-          captured = null;
-          setName("");
-        }
-
-      } catch (error) {
-        connected.drafts.settle(submitted.draft.revision, outcomeOf(error));
-
-        if (!(error instanceof Error)) throw error;
-        throw new Error(copy.failed(action, error.message));
+      try {
+        if (sent.kind === "unknown") failure.show(copy.draftStatus.unknown);
+        // Only the submitted revision is consumed; text typed since stays.
+        else if (sent.kind === "applied" && name().trim() === target) setName("");
+        else if (sent.kind === "refused") throw new Error(copy.failed(action, sent.error.message));
       } finally {
-        clearTimeout(timeout);
         await list.reload();
       }
     });
@@ -203,11 +183,7 @@ export const Pads = (props: {
   const rowButtons = new Map<string, HTMLButtonElement>();
 
   useCreation("pad", targetHome => {
-    if (revision && home !== targetHome) {
-      revision = undefined;
-      captured = null;
-      setName("");
-    }
+    if (kept() && home !== targetHome) forget();
 
     home = targetHome;
     setNaming(true);
@@ -216,7 +192,7 @@ export const Pads = (props: {
   const openField = () => {
     failure.clear();
 
-    if (!revision) home = scope.home();
+    if (!kept()) home = scope.home();
     setNaming(true);
   };
 
@@ -242,7 +218,7 @@ export const Pads = (props: {
       <ReservedLine content={itemFailure() ? <>{copy.failed(itemFailure()!.action, "")}<span>{itemFailure()!.message}</span></> : undefined} message={itemFailure()?.message ?? failure.message() ?? listNote.message()} dismiss={() => itemFailure() ? setItemFailure(null) : failure.message() ? failure.clear() : listNote.dismiss()} recover={retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined} action={<>
         <Show when={retentionProblem()}>
         <CopyButton app={connected.app} text={name()} onSuccess={() => failure.clear()} onFailure={error => failure.show(copy.copyDraftFailure(String(error)))}>{nameLabel}</CopyButton>
-        <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
+        <button data-button="quiet" type="button" onClick={() => { forget(); setInvalid(false); }}>{copy.discardRevision}</button>
 
       </Show></>} />
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
@@ -264,22 +240,17 @@ export const Pads = (props: {
           <ShelfRow glyph={<Icon name={PAD_ICON} />} class="entry-row pad-inset">
             <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(); }}>
             <Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" class="entry-field shelf-title field-inline" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
-              ref={(input) => {
-                field = input;
+              ref={(element) => {
+                input = element;
                 queueFocus(() => {
-                  if (!input.isConnected) return;
-                  input.focus();
+                  if (!element.isConnected) return;
+                  element.focus();
 
-                  if (caret) input.setSelectionRange(caret.start, caret.end, caret.direction);
-                  else if (restored) {
-                    // Focus supplies an uncaptured caret; retaining it would replace the current creation draft.
-                    caret = { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" };
-                    captured = JSON.stringify([name(), home, caret]);
-                  }
+                  if (restored?.selection) element.setSelectionRange(restored.selection.start, restored.selection.end, restored.selection.direction);
                 });
               }}
               onInput={(event) => { setName(event.currentTarget.value); capture(); }}
-              onSelect={() => { if (revision) capture(); }}
+              onSelect={() => { if (kept()) capture(); }}
               on:keydown={(event) => {
                 if (event.key === "Enter" && name().trim()) { event.preventDefault(); void create(); }
                 else if (event.key === "Escape" || (event.key === "Enter" && !name().trim())) {
@@ -309,19 +280,23 @@ const PadRows = (props: {
   onOrderChange: (ids: string[]) => void;
   onLift: (pad: Pad) => void;
   onDrag: Setter<boolean>;
-}) => (
+}) => {
+  const isSelected = createSelector(() => props.selection.selected(), (incarnation: string, chosen) => chosen.includes(incarnation));
+
+  return (
     <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
-          <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
+          <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} isSelected={isSelected} {...props} />}</Sortable.Item>
         )}
       </For>
     </Sortable.Root>
-);
+  );
+};
 
 const selectedPad = (selection: Parameters<typeof PadRows>[0]["selection"], incarnation: string, name: string) => (selection.focused() ?? selection.selected()[0]) === incarnation ? name : undefined;
 
-const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
+const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (incarnation: string) => boolean; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
   const copied = createCopyFeedback();
@@ -384,7 +359,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             }}
             data-incarnation={pad.incarnation}
             data-editing={editing()}
-            data-selected={props.selection.selected().includes(pad.incarnation) ? "true" : undefined}
+            data-selected={props.isSelected(pad.incarnation) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
               { id: "open", label: copy.openDraft, run: () => open("pointer") },
