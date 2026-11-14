@@ -1,5 +1,6 @@
 import { createMemo, createSignal } from "solid-js";
 import * as v from "valibot";
+import { applying } from "../app/pending";
 import { outcomeOf } from "../app/seam";
 import type { draftStorage } from "./storage";
 
@@ -86,18 +87,19 @@ export const createDraftField = <Value extends Stored>(drafts: Drafts, destinati
 
     if (!submitted) return { kind: "skipped" };
     const { revision } = submitted.draft;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const silence = new Promise<{ kind: "unknown" }>(resolve => { timer = setTimeout(() => resolve({ kind: "unknown" }), NO_REPLY_MS); });
 
-    const reply = (async (): Promise<Sent<R>> => {
-      try { return { kind: "applied", result: await call() }; }
-      catch (error) { return { kind: "refused", error: error instanceof Error ? error : new Error(String(error)) }; }
-    })();
+    // The reply resumes the caller through one promise: no race or extra wrapper delays it.
+    const outcome = await new Promise<Sent<R>>(resolve => {
+      const timer = setTimeout(() => resolve({ kind: "unknown" }), NO_REPLY_MS);
 
-    const outcome = await Promise.race([reply, silence]);
-    clearTimeout(timer);
-    // The store consumes exactly this revision; a newer one keeps its own entry.
-    await drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? outcomeOf(outcome.error) : "unknown");
+      void applying(call).then(reply => {
+        clearTimeout(timer);
+        resolve(reply.kind === "applied" ? { kind: "applied", result: reply.value } : { kind: "refused", error: reply.error });
+      });
+    });
+
+    // The store consumes exactly this revision at once, and a newer one keeps its own entry; retention reports its own problem.
+    void drafts.settle(revision, outcome.kind === "applied" ? "acknowledged" : outcome.kind === "refused" ? outcomeOf(outcome.error) : "unknown");
 
     return outcome;
   };

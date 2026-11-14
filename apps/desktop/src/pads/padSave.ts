@@ -6,8 +6,8 @@ export type Save =
   | { kind: "clean" }
   | { kind: "dirty"; due: "autosave" | "keep-mine" | null }
   /** `over`: the conflict still shown until the reply, one this write resolves or one that arrived while it was in flight.
-   * `due`: Keep mine was chosen in flight, so a write over the newer change follows the reply. */
-  | { kind: "sending"; text: string; version: number; over?: Actor | "unknown"; due?: "keep-mine" }
+   * `due`: a write was asked for in flight and follows the reply; only Keep mine writes over a newer change. */
+  | { kind: "sending"; text: string; version: number; over?: Actor | "unknown"; due?: "autosave" | "keep-mine" }
   | { kind: "conflict"; actor: Actor | "unknown"; version: number }
   /** An unknown reply or a recovered draft: the user chooses. */
   | { kind: "paused" }
@@ -18,8 +18,8 @@ export type SaveEvent =
   /** Blur, the autosave pause or an explicit Keep mine asks for a write. */
   | { kind: "due"; due: "autosave" | "keep-mine" }
   | { kind: "send"; text: string; version: number; mine: boolean }
-  /** `typed`: the text changed while the write was in flight, so another write is due. */
-  | { kind: "applied"; version: number; typed: boolean }
+  /** `current`: the reply holds the field's text. Otherwise the field waits for a write asked for in flight or the next one; a reply alone never asks. */
+  | { kind: "applied"; version: number; current: boolean }
   | { kind: "refused" }
   /** Nothing to send after all: a due write that finds the text unchanged or unmappable. */
   | { kind: "skipped" }
@@ -53,6 +53,8 @@ const handlers: Handlers = {
       return save.kind === "conflict" ? save : dirty("keep-mine");
     }
 
+    if (save.kind === "sending") return { ...save, due: save.due ?? "autosave" };
+
     return save.kind === "dirty" ? dirty(save.due ?? "autosave") : save;
   },
   send: (save, event) => {
@@ -63,9 +65,9 @@ const handlers: Handlers = {
   applied: (save, event) => {
     if (save.kind !== "sending") return save;
 
-    if (save.version === event.version) return event.typed ? dirty("autosave") : { kind: "clean" };
+    if (save.version === event.version) return event.current ? { kind: "clean" } : dirty(save.due ?? null);
 
-    return save.due ? dirty(save.due) : { kind: "conflict", actor: save.over ?? "unknown", version: save.version };
+    return save.due === "keep-mine" ? dirty("keep-mine") : { kind: "conflict", actor: save.over ?? "unknown", version: save.version };
   },
   refused: save => {
     if (save.kind !== "sending") return save;
