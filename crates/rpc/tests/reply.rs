@@ -68,13 +68,13 @@ fn r16_reply_preserves_every_rail_field_in_row_order() {
     let expected = json!([{
         "visibility": "shown", "alert_level": "all", "id": "door", "kind": "workstream", "name": "Door 🦀", "parent": null,
         "order": 7, "status": null, "attempt": "9223372036854775807", "status_revision": null,
-        "terminal_id": null, "worktree": null, "can_resume": true, "can_make_workstream": false, "can_save_as_mode": false, "yolo": true, "channel": null,
-        "work": null, "stray": [], "model": "model", "effort": "high"
+        "terminal_id": null, "worktree": null, "can_resume": true, "yolo": true, "channel": null,
+        "work": null, "stray": [], "model": "model", "effort": "high", "auto": false
     }, {
         "visibility": "shown", "alert_level": "quiet", "id": "next", "kind": "workstream", "name": "Next", "parent": null,
         "order": 8, "status": null, "attempt": null, "status_revision": null,
-        "terminal_id": null, "worktree": null, "can_resume": false, "can_make_workstream": false, "can_save_as_mode": false, "yolo": false, "channel": null,
-        "work": null, "stray": [], "model": null, "effort": null
+        "terminal_id": null, "worktree": null, "can_resume": false, "yolo": false, "channel": null,
+        "work": null, "stray": [], "model": null, "effort": null, "auto": false
     }]);
     let nodes: Vec<contracts::agent::RailNode> = serde_json::from_value(expected.clone()).unwrap();
     assert_eq!(rpc::reply(&nodes).unwrap(), expected);
