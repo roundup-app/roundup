@@ -1,5 +1,6 @@
 """C9 artifact gates exercise the command CI calls, using sparse exact-byte fixtures."""
 import pathlib
+import re
 import contextlib
 import importlib.util
 import io
@@ -171,6 +172,52 @@ class Release(unittest.TestCase):
         result = self.run_check("dist", path.parent)
         self.assertEqual(result.returncode, 2)
         self.assertIn(str(path), result.stderr)
+
+
+WORKFLOW = pathlib.Path(__file__).parents[2] / ".github/workflows/check.yml"
+LANES = ["plan", "rust", "mac-clippy", "mac", "mac-package", "web", "chromium"]
+
+
+def jobs():
+    """Job name -> its text, split on the two-space keys under `jobs:` (no YAML parser on the runner)."""
+    text = WORKFLOW.read_text().split("\njobs:\n", 1)[1]
+    parts = re.split(r"^  ([a-z][a-z0-9-]*):\n", text, flags=re.M)
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
+def needs(body):
+    match = re.search(r"^    needs: (.+)$", body, flags=re.M)
+    return re.findall(r"[a-z][a-z0-9-]*", match.group(1)) if match else []
+
+
+def reaches(all_jobs, name):
+    seen, todo = set(), needs(all_jobs[name])
+    while todo:
+        job = todo.pop()
+        if job not in seen:
+            seen.add(job)
+            todo += needs(all_jobs[job])
+    return seen
+
+
+class Publish(unittest.TestCase):
+    def test_df7078a_only_publish_writes_and_only_main_pushes_run_it(self):
+        all_jobs = jobs()
+        text = WORKFLOW.read_text()
+        self.assertEqual(re.findall(r"contents: write", text), ["contents: write"])
+        self.assertIn("contents: write", all_jobs["publish"])
+        self.assertRegex(text.split("\njobs:\n")[0], r"(?m)^permissions:\n  contents: read$")
+        gate = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+        for name in ["bundle", "publish"]:
+            self.assertIn(f"    if: {gate}", all_jobs[name], name)
+            self.assertTrue(set(LANES + ["check"]) <= reaches(all_jobs, name), name)
+        self.assertNotIn("publish", reaches(all_jobs, "check"))
+        self.assertNotIn("bundle", reaches(all_jobs, "check"))
+
+    def test_df7078a_no_step_outside_publish_names_gh_release(self):
+        for name, body in jobs().items():
+            if name != "publish":
+                self.assertNotIn("gh release", body, name)
 
 
 if __name__ == "__main__":
