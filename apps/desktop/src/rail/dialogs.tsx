@@ -16,7 +16,7 @@ export const RailDialogs = (props: { dialog: () => RailDialog | null; close: () 
   const { rail } = useConnectedProject();
   const rowOf = (id: string) => props.rowElement(id) ?? null;
 
-  return <Show when={props.dialog()} keyed>{dialog => {
+  const view = (dialog: RailDialog) => {
     switch (dialog.kind) {
       case "create-mode": return <CreateMode finalFocus={rowOf} onClose={props.close} onCreated={(id, request) => {
         props.close();
@@ -28,5 +28,7 @@ export const RailDialogs = (props: { dialog: () => RailDialog | null; close: () 
       case "opening-prompt": return <ModePrompt restart={() => props.menu.restartMode(dialog.id)} id={dialog.id} onClose={props.close} finalFocus={() => rowOf(dialog.id)} />;
       case "save-as-mode": return <SaveAsMode id={dialog.id} onClose={props.close} finalFocus={() => rowOf(dialog.id)} />;
     }
-  }}</Show>;
+  };
+
+  return <Show when={props.dialog()} keyed>{view}</Show>;
 };
