@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use contracts::machine::{AddParams, Machine};
@@ -22,7 +23,14 @@ type Connect =
 
 /// Where a Machine call finds herdr-core: the local `herdr-core` program, unless a test says other.
 #[derive(Clone)]
-pub(crate) struct Core(Arc<Connect>, Option<Setup>);
+pub(crate) struct Core(Arc<Connect>, Option<Setup>, Arc<Held>);
+
+/// MC62: whether the minute read is armed, and the one connection it keeps until it drops.
+#[derive(Default)]
+struct Held {
+    armed: std::sync::atomic::AtomicBool,
+    conn: tokio::sync::Mutex<Option<Arc<herdr::Conn>>>,
+}
 
 impl Default for Core {
     fn default() -> Self {
@@ -30,6 +38,7 @@ impl Default for Core {
             Arc::new(|| Box::pin(herdr::Conn::connect_local(TIMEOUT))),
             // MC25: until the release build ships `rup-linux-*`, adding a machine installs nothing.
             Some(Setup::system()).filter(Setup::has_artifacts),
+            Arc::default(),
         )
     }
 }
@@ -42,13 +51,39 @@ impl Core {
         + Sync
         + 'static,
     ) -> Self {
-        Self(Arc::new(connect), None)
+        Self(Arc::new(connect), None, Arc::default())
     }
 
     /// MC25: a core whose added machines are set up through `setup`.
     pub(crate) fn with_setup(mut self, setup: Setup) -> Self {
         self.1 = Some(setup);
         self
+    }
+}
+
+impl Core {
+    /// The held connection while it stays open, else a new one, which is kept once armed.
+    async fn open(&self) -> herdr::Result<Arc<herdr::Conn>> {
+        let mut held = self.2.conn.lock().await;
+        if let Some(conn) = held.as_ref().filter(|c| !c.is_closed()) {
+            return Ok(Arc::clone(conn));
+        }
+        let conn = Arc::new((self.0)().await?);
+        *held = self
+            .2
+            .armed
+            .load(Ordering::SeqCst)
+            .then(|| Arc::clone(&conn));
+        Ok(conn)
+    }
+
+    /// Arms the minute read and keeps `conn` for it.
+    async fn arm(&self, conn: &Arc<herdr::Conn>) {
+        self.2.armed.store(true, Ordering::SeqCst);
+        let mut held = self.2.conn.lock().await;
+        if held.as_ref().is_none_or(|c| c.is_closed()) {
+            *held = Some(Arc::clone(conn));
+        }
     }
 }
 
@@ -76,8 +111,12 @@ fn listed(
 
 impl Daemon {
     pub(super) async fn machine_list(&self, _conn: &mut Conn) -> Result<Vec<Machine>, RpcError> {
-        let core = (self.machine_core.0)().await.map_err(failed)?;
-        self.listed_now(&core).await
+        let core = self.machine_core.open().await.map_err(failed)?;
+        let machines = self.listed_now(&core).await?;
+        if !machines.is_empty() {
+            self.machine_core.arm(&core).await;
+        }
+        Ok(machines)
     }
 
     /// The core's list as it stands, with a bridge kept for each Machine on it (MC26).
@@ -93,7 +132,8 @@ impl Daemon {
     }
 
     /// MC26: from the moment this Daemon serves `socket`, hold one bridge per listed Machine,
-    /// read again every minute so a Machine added or removed elsewhere follows.
+    /// read again every minute so a Machine added or removed elsewhere follows. MC62: the read
+    /// starts only once a Machine is known, and reuses its one connection while it stays open.
     pub(crate) fn start_bridges(self: &Arc<Self>, socket: &std::path::Path) {
         self.bridges.serving(socket);
         let daemon = Arc::clone(self);
@@ -101,7 +141,10 @@ impl Daemon {
             let mut every_minute = tokio::time::interval(Duration::from_secs(60));
             loop {
                 every_minute.tick().await;
-                if let Ok(core) = (daemon.machine_core.0)().await {
+                if !daemon.machine_core.2.armed.load(Ordering::SeqCst) {
+                    continue;
+                }
+                if let Ok(core) = daemon.machine_core.open().await {
                     let _ = daemon.listed_now(&core).await;
                 }
             }
@@ -114,8 +157,9 @@ impl Daemon {
         _conn: &mut Conn,
         params: AddParams,
     ) -> Result<Vec<Machine>, RpcError> {
-        let core = (self.machine_core.0)().await.map_err(failed)?;
+        let core = self.machine_core.open().await.map_err(failed)?;
         core.machine_add(&params.name).await.map_err(failed)?;
+        self.machine_core.arm(&core).await;
         if let Some(setup) = &self.machine_core.1 {
             // MC25: the machine's Agents get roundup's hooks and tools.
             install(setup, &params.name)
@@ -149,10 +193,32 @@ mod tests {
     /// A core listing `roundup-ci-control`, recording every request it serves; `machine.add`
     /// puts the added name on the list.
     fn fake_core() -> (Core, Arc<Mutex<Vec<Value>>>) {
+        let (core, seen, _, _) = counted_core(&["roundup-ci-control"]);
+        (core, seen)
+    }
+
+    /// A core listing `initial`, counting its starts; the list is shared by every connection.
+    #[allow(clippy::type_complexity)]
+    fn counted_core(
+        initial: &[&str],
+    ) -> (
+        Core,
+        Arc<Mutex<Vec<Value>>>,
+        Arc<std::sync::atomic::AtomicUsize>,
+        Arc<Mutex<Vec<String>>>,
+    ) {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let log = Arc::clone(&seen);
+        let starts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counted = Arc::clone(&starts);
+        let list = Arc::new(Mutex::new(
+            initial.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>(),
+        ));
+        let shared = Arc::clone(&list);
         let core = Core::new(move || {
             let log = Arc::clone(&log);
+            let names = Arc::clone(&shared);
+            counted.fetch_add(1, Ordering::SeqCst);
             Box::pin(async move {
                 let (mac_r, mut core_w) = duplex(1 << 16);
                 let (core_r, mac_w) = duplex(1 << 16);
@@ -164,7 +230,6 @@ mod tests {
                         .write_all(format!("{HELLO}\n").as_bytes())
                         .await
                         .unwrap();
-                    let mut names = vec!["roundup-ci-control".to_owned()];
                     loop {
                         let mut h = [0u8; 9];
                         if r.read_exact(&mut h).await.is_err() {
@@ -176,9 +241,12 @@ mod tests {
                         let req: Value = serde_json::from_slice(&p).unwrap();
                         log.lock().push(req.clone());
                         if req["method"] == "machine.add" {
-                            names.push(req["params"]["name"].as_str().unwrap().to_owned());
+                            names
+                                .lock()
+                                .push(req["params"]["name"].as_str().unwrap().to_owned());
                         }
                         let machines: Vec<Value> = names
+                            .lock()
                             .iter()
                             .map(|n| json!({"name": n, "state": "ready"}))
                             .collect();
@@ -194,7 +262,88 @@ mod tests {
                 herdr::Conn::over(mac_r, mac_w, Duration::from_secs(2)).await
             })
         });
-        (core, seen)
+        (core, seen, starts, list)
+    }
+
+    async fn ticks(n: u32) {
+        for _ in 0..n {
+            tokio::time::advance(Duration::from_secs(60)).await;
+            for _ in 0..20 {
+                tokio::task::yield_now().await;
+            }
+        }
+    }
+
+    fn served(dir: &std::path::Path, core: Core) -> Arc<Daemon> {
+        let mut daemon = daemon_in(dir);
+        daemon.machine_core = core;
+        let daemon = Arc::new(daemon);
+        daemon.start_bridges(&dir.join("sock"));
+        daemon
+    }
+
+    const LIST: &str = r#"{"jsonrpc":"2.0","id":1,"method":"machine.list"}"#;
+
+    #[tokio::test(start_paused = true)]
+    async fn mc62_zero_machines_start_no_herdr_core() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _, starts, _) = counted_core(&[]);
+        let _daemon = served(dir.path(), core);
+        ticks(2).await;
+        assert_eq!(starts.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn mc62_machine_list_still_answers_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _, starts, _) = counted_core(&[]);
+        let daemon = served(dir.path(), core);
+        assert_eq!(ask(&daemon, LIST).await["result"], json!([]));
+        assert_eq!(starts.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn mc62_a_machine_added_through_the_daemon_is_followed_within_a_minute() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, seen, _, list) = counted_core(&[]);
+        let daemon = served(dir.path(), core);
+        let add = r#"{"jsonrpc":"2.0","id":1,"method":"machine.add","params":{"name":"box"}}"#;
+        ask(&daemon, add).await;
+        list.lock().push("elsewhere".to_owned());
+        let lists = |s: &Mutex<Vec<Value>>| {
+            s.lock()
+                .iter()
+                .filter(|r| r["method"] == "machine.list")
+                .count()
+        };
+        let before = lists(&seen);
+        ticks(1).await;
+        assert!(
+            lists(&seen) > before,
+            "the minute read ran after machine.add"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn mc62_an_external_add_is_seen_at_the_next_list_call() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, seen, _, list) = counted_core(&[]);
+        let daemon = served(dir.path(), core);
+        list.lock().push("outside".to_owned());
+        ticks(2).await;
+        assert!(seen.lock().is_empty(), "no read while unarmed");
+        let reply = ask(&daemon, LIST).await;
+        assert_eq!(reply["result"][0]["name"], "outside");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn mc62_an_open_connection_starts_no_process_per_tick() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _, starts, _) = counted_core(&["a"]);
+        let daemon = served(dir.path(), core);
+        ask(&daemon, LIST).await;
+        ticks(5).await;
+        assert_eq!(starts.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
