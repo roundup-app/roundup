@@ -118,6 +118,13 @@
         "properties": {"removed": {"type": "string"}}
       }
     },
+    "machine.list": {
+      "result": {
+        "type": "object",
+        "required": ["machines"],
+        "properties": {"machines": {"type": "array", "items": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}, "state": {"type": "string"}}}}}
+      }
+    },
     "file.read": {
       "errors": {"invalid_params": -32602, "not_found": -32000, "not_text": -32000, "io": -32000, "machine_unknown": -32000, "unavailable": -32000, "needs_update": -32000},
       "params": {
