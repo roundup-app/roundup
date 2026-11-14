@@ -9,7 +9,7 @@ import { captureFocus, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, on, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, For, on, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -20,7 +20,7 @@ import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
 import { useTreeView } from "@ark-ui/solid/tree-view";
-import { useConnectedProject } from "../state/connectedProject";
+import { useConnectedProject, type ConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailDialogs, type RailDialog } from "./dialogs";
 import { RailConfirm } from "./menu/RailConfirm";
@@ -52,6 +52,22 @@ const taskSchema = v.object({ text: v.string(), parent: v.nullable(v.string()), 
 type Destination = Parameters<typeof createDraftField>[1];
 
 const sameDestination = (a: Destination, b: Destination) => a.surface === b.surface && a.object === b.object && a.recipient === b.recipient;
+
+/** The revision whose recovery entry stands open, one per Project: a retry from a Rail that closed opens it in the Rail that replaced it. */
+type Recovery = { open: () => string | null; set: (revision: string | null) => void };
+
+const recoveries = new WeakMap<ConnectedProject, Recovery>();
+
+const recoveryOf = (project: ConnectedProject): Recovery => {
+  const known = recoveries.get(project);
+
+  if (known) return known;
+  const [open, set] = createSignal<string | null>(null);
+  const created = { open: () => open(), set: (revision: string | null) => { set(revision); } };
+  recoveries.set(project, created);
+
+  return created;
+};
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
@@ -170,9 +186,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return v.is(v.string(), text) ? text : "";
   };
 
-  const taskParent = () => {
-    const saved = task();
-
+  const taskParent = (saved = task()) => {
     if (!saved) return taskDestination();
 
     if (v.is(v.nullable(v.string()), saved.value.parent)) return saved.value.parent;
@@ -180,9 +194,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return saved.destination.object === "" || saved.destination.object === project.path ? null : saved.destination.object;
   };
 
-  const taskAction = () => {
-    const saved = task();
-
+  const taskAction = (saved = task()) => {
     if (saved) return v.is(v.picklist(["note", "spawn"]), saved.value.action) ? saved.value.action : saved.destination.recipient === null ? "spawn" : "note";
 
     const original = rail.nodes.find((node) => node.id === taskDestination());
@@ -487,8 +499,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  /** The revision whose recovery entry stands open. */
-  const [recovering, setRecovering] = createSignal<string | null>(null);
+  const recovering = recoveryOf(connected);
 
   /** Sends the task revision `sent` as a note to `door`, or as a new Agent's prompt; the composer closes unless newer typing waits. */
   const deliver = async (sent: { revision: string; destination: Destination }, prompt: string | null, door: string | null) => {
@@ -500,17 +511,24 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       if (!saved || !canSpawn()) return;
 
       // The open recovery entry shows the exact uncertain revision without sending it twice.
-      if (saved.status === "unknown") setRecovering(saved.revision);
-      else void submitPrompt(prompt);
+      if (saved.status === "unknown") recovering.set(saved.revision);
+      else void submitPrompt(prompt, saved);
     };
 
     const slow = setTimeout(() => setAsking(true), 500);
 
-    try {
-      // Enter is the owner's own send, so a recovered task goes too.
-      compose().save();
+    // A retry runs from the failure line after this Rail may have closed, so the send's field lives in its own root until the reply settles.
+    const send = (call: () => ReturnType<typeof railCommand<string | null>>) => createRoot(async dispose => {
+      const field = createDraftField(connected.drafts, sent.destination, taskSchema, sent);
 
-      const outcome = await compose().send<string | null>(() => door === null
+      // Enter and Retry are the owner's own send, so a recovered task goes too.
+      field.save();
+
+      try { return await field.send(call); } finally { dispose(); }
+    });
+
+    try {
+      const outcome = await send(() => door === null
         ? railCommand(rail, { ...spawn(prompt), label: copy.newAgent, retry })
         : railCommand(rail, { call: () => app.rpc("message.send", { to: door, kind: "note", body: prompt ?? "", replyTo: null }).then(() => null), label: copy.newAgent, retry }));
 
@@ -526,12 +544,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     }
   };
 
-  const submitPrompt = async (prompt: string | null) => {
-    keepDraft(draft());
-    const snapshot = task();
+  /** Sends `saved`, or the newest task revision, keeping the field's text first when no revision exists yet. */
+  const submitPrompt = async (prompt: string | null, saved?: NonNullable<ReturnType<typeof task>>) => {
+    if (!saved && !task()) keepDraft(draft());
+    const snapshot = saved ?? task();
 
     if (!snapshot || snapshot.status === "pending" || snapshot.status === "unknown") return;
-    const under = taskParent();
+    const under = taskParent(snapshot);
 
     if (under !== null && !rail.nodes.some((node) => node.id === under && node.kind === "workstream")) {
       failure.show(copy.railDraftUnavailable);
@@ -539,7 +558,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       return;
     }
 
-    await deliver(snapshot, prompt, prompt !== null && taskAction() === "note" ? snapshot.destination.recipient ?? under : null);
+    await deliver(snapshot, prompt, prompt !== null && taskAction(snapshot) === "note" ? snapshot.destination.recipient ?? under : null);
   };
 
   const canSpawn = () => !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
@@ -777,7 +796,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     </TreeView.RootProvider>
     </div>
 
-      <RailRecovery recovery={recovery} revisions={revisions} destinationName={destinationName} open={recovering} setOpen={setRecovering} discard={revision => {
+      <RailRecovery recovery={recovery} revisions={revisions} destinationName={destinationName} open={recovering.open} setOpen={recovering.set} discard={revision => {
         const current = task()?.revision === revision;
         retained.discard(revision);
 
