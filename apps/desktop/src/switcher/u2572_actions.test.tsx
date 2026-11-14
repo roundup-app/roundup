@@ -86,9 +86,14 @@ it.each(["enter", "pointer"] as const)("u2572b_actions_share_key_behavior_in_the
     return agent("created", "idle", "idle", { terminal_id: "created-terminal" });
   };
 
+  const trees = () => app.calls.filter((call) => call.method === "rail.tree").length;
+  const before = trees();
+
   press("n", { metaKey: true, code: "KeyN" });
   await waitFor(() => expect(outcomes).toHaveLength(1));
   const keyOutcome = outcomes[0];
+  // The creation reads the tree once it is answered; `settled` waits for that read.
+  await waitFor(() => expect(trees()).toBe(before + 1));
   await connected.rail.settled();
   await show();
   await chooseAction("New Agent", how);

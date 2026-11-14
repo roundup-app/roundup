@@ -5,8 +5,8 @@ import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { failureOf } from "../../app/failureOf";
 import { applying } from "../../app/pending";
-import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
 import type { QueueView } from "../../state/queue";
@@ -14,6 +14,7 @@ import { goesLine, staysLine } from "./removal";
 import { isMode } from "../layout";
 import { railOrder } from "../../state/railTopology";
 import { judgeRemoval } from "./removal";
+import { isNotFound, railCommand } from "../railCommands";
 import type { Known, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
 import type { MenuEntry } from "../../ui/contextMenu";
@@ -45,8 +46,6 @@ type RailMenuDeps = {
   known: () => Known | null;
 };
 
-const NOT_FOUND = -32001;
-
 /** U68: an Agent runs while its Terminal does, whatever its Kind; a Workstream keeps U56's Kind rule. */
 const isRunning = (node: RailNode, exit: ExitState | null) =>
   node.kind !== "group" && exit === null && (node.kind === "agent" ? true : node.status?.kind !== "done");
@@ -69,23 +68,25 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   const restartMode = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
     if (restarts[id]?.pending) return { kind: "pending" };
     setRestarts(id, { request, pending: true });
-    const release = rail.launch(id);
 
     try {
-      await app.rpc("agent.restartMode", { id, request });
-      await rail.refresh({ terminals: true });
-      setRestarts(id, undefined);
-      acknowledge(id);
+      const outcome = await railCommand(rail, {
+        item: id,
+        draw: () => rail.launch(id),
+        call: () => app.rpc("agent.restartMode", { id, request }),
+        terminals: true,
+        retry: () => { void restartMode(id); },
+      });
 
-      return { kind: "acknowledged" };
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      rail.commandFailure.show(error.message, id, "rail", () => { void restartMode(id); });
+      if (outcome.kind === "applied") {
+        setRestarts(id, undefined);
 
-      return { kind: outcomeOf(error), message: error.message };
+        return { kind: "acknowledged" };
+      }
+
+      return { kind: outcome.kind === "refused" ? "failed" : "unknown", message: outcome.error.message };
     } finally {
       if (restarts[id]) setRestarts(id, { request, pending: false });
-      release();
     }
   };
 
@@ -98,30 +99,11 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     return contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
   };
 
-  const attempt = async (call: () => Promise<void>, item?: string) => {
-    close();
-
-    try {
-      await call();
-
-      if (item !== undefined) acknowledge(item);
-    } catch (error) {
-      if (error instanceof RpcError && error.code === -32001) {
-        await rail.refresh();
-      } else if (error instanceof Error) {
-        onFailure(error.message, item);
-      } else {
-        throw error;
-      }
-    }
-  };
-
   /** One stop path: the menu's item, the Rail's icon and the confirm's answer all end here. */
   const stopNow = (node: RailNode) => {
+    close();
     // U5991a: the row shows stopped now; the Daemon's reply or failure lifts the drawing.
-    const lift = rail.drawExit(node.id, { kind: "signal" });
-
-    void attempt(async () => { try { await app.rpc("agent.stop", { id: node.id }); await rail.refresh({ terminals: true }); } finally { lift(); } }, node.id);
+    void railCommand(rail, { item: node.id, draw: () => rail.drawExit(node.id, { kind: "signal" }), call: () => app.rpc("agent.stop", { id: node.id }), terminals: true });
   };
 
   /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
@@ -136,44 +118,46 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     if (resuming.has(id)) return;
 
     resuming.add(id);
-    const release = rail.launch(id);
-    // U5991a: the row shows running now; the refresh or a failure lifts the drawing.
-    const lift = rail.drawExit(id, null);
 
     try {
-      await app.rpc("agent.resume", { id });
-      await rail.refresh();
-      acknowledge(id);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
+      await railCommand(rail, {
+        item: id,
+        // U5991a: the row shows running now; the refresh or a failure lifts the drawing.
+        draw: () => {
+          const release = rail.launch(id);
+          const lift = rail.drawExit(id, null);
 
-      if (outcomeOf(error) === "unknown") {
-        await rail.refresh({ terminals: true });
+          return () => { lift(); release(); };
+        },
+        call: () => app.rpc("agent.resume", { id }),
+        unknown: async () => {
+          await rail.refresh({ terminals: true });
 
-        if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
-      } else {
-        onFailure(error.message, id);
-
-        if (error instanceof RpcError && error.code === NOT_FOUND) await rail.refresh();
-      }
-    } finally {
-      lift();
-      resuming.delete(id);
-      release();
-    }
+          if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
+        },
+      });
+    } finally { resuming.delete(id); }
   };
 
   const isResumable = (node: RailNode, exit: ExitState | null) => node.can_resume && !isRunning(node, exit);
 
-  const remove = (current: Removing, scope: "this" | "all") =>
-    attempt(async () => {
-      const result = await applying(() => app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id }));
+  const remove = async (current: Removing, scope: "this" | "all") => {
+    const id = current.node.id;
 
-      if (result.kind === "refused") throw result.error;
+    close();
+    const result = await applying(() => app.rpc("rail.remove", scope === "all" ? { id, scope } : { id }));
 
-      if (result.kind === "pending") rail.keepAsked(current.node.id, { kind: "remove" });
-      else current.removed?.();
-    }, current.node.id);
+    if (result.kind === "refused") {
+      if (isNotFound(result.error)) await rail.refresh();
+      else onFailure(result.error.message, id);
+
+      return;
+    }
+
+    if (result.kind === "pending") rail.keepAsked(id, { kind: "remove" });
+    else current.removed?.();
+    acknowledge(id);
+  };
 
   /** U5991a: the rows leave at once; the call, its receipt and a failure's return of the rows follow in the queue. */
   const removeAtOnce = (ids: string[], name: string, row: string, removed: (() => void) | undefined, leaving: string[] = ids) => {
@@ -200,28 +184,32 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   const judge = async (current: Removing) => {
     setState(current);
 
-    try {
-      const removal = current.node.kind === "workstream" ? await judgeRemoval(app, rail.nodes, current.node.id, new Set(), known()) : null;
-      const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
+    const tree = rail.nodes;
+    const lists = known();
+    const read = current.node.kind === "workstream" ? await applying(() => judgeRemoval(app, tree, current.node.id, new Set(), lists)) : null;
 
-      const losses = lossesOf(chosen);
-
-      if (state() !== current) return;
-
-      if (losses.length || removal?.unread.length) {
-        setState({ ...current, removal, losses });
-
-        return;
-      }
-
-      // Clean: the Workstream and what goes with it leave now; Agents that stay keep their rows.
-      removeAtOnce([current.node.id], current.node.name, current.node.id, current.removed, [current.node.id, ...(removal?.removedIds ?? [])]);
-    } catch (error) {
+    if (read !== null && read.kind !== "applied") {
       close();
+      onFailure(read.error.message, current.node.id);
 
-      if (error instanceof Error) onFailure(error.message, current.node.id);
-      else throw error;
+      return;
     }
+
+    const removal = read?.value ?? null;
+    const chosen = [current.node, ...rail.nodes.filter(node => removal?.removedIds.includes(node.id))];
+
+    const losses = lossesOf(chosen);
+
+    if (state() !== current) return;
+
+    if (losses.length || removal?.unread.length) {
+      setState({ ...current, removal, losses });
+
+      return;
+    }
+
+    // Clean: the Workstream and what goes with it leave now; Agents that stay keep their rows.
+    removeAtOnce([current.node.id], current.node.name, current.node.id, current.removed, [current.node.id, ...(removal?.removedIds ?? [])]);
   };
 
   /** Menu and key capture the same row before consequence judgement. */
@@ -238,24 +226,25 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     try {
       const ids = current.nodes.map(node => node.id);
 
-      if (!current.reversible) {
-        const result = await applying(() => app.rpc("rail.removeSelection", { ids }));
-
-        if (result.kind === "refused") throw result.error;
-
-        if (result.kind === "pending") {
-          for (const id of ids) rail.keepAsked(id, { kind: "remove" });
-        } else current.removed();
-      } else {
+      if (current.reversible) {
         removeAtOnce(ids, current.nodes.map(node => node.name).join(", "), row, current.removed);
 
         return;
       }
 
+      const result = await applying(() => app.rpc("rail.removeSelection", { ids }));
+
+      if (result.kind === "refused") {
+        onFailure(result.error.message, row);
+
+        return;
+      }
+
+      if (result.kind === "pending") {
+        for (const id of ids) rail.keepAsked(id, { kind: "remove" });
+      } else current.removed();
+
       acknowledge(row);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      onFailure(error.message, row);
     } finally { close(); removingSelection = false; }
   };
 
@@ -269,22 +258,26 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     const reading: Confirming = { kind: "reading-selection" };
     setState(reading);
 
-    try {
-      const judgments = await Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, rail.nodes, node.id, ids, known()).then(removal => ({ node, removal }))] : []));
-      const affected = new Set([...chosen.map(node => node.id), ...judgments.flatMap(({ removal }) => removal.removedIds)]);
+    const tree = rail.nodes;
+    const lists = known();
+    const read = await applying(() => Promise.all(chosen.flatMap(node => node.kind === "workstream" ? [judgeRemoval(app, tree, node.id, ids, lists).then(removal => ({ node, removal }))] : [])));
 
-      const losses = lossesOf(railOrder(rail.nodes).filter(node => affected.has(node.id)));
-
-      const summary = [chosen.map(node => node.name).join("\n"), ...judgments.flatMap(({ node, removal }) => [goesLine(removal, node.name), staysLine(removal), ...removal.unread.map(list => copy.listUnread(list))]), ...losses].filter(Boolean).join("\n");
-      const unread = judgments.flatMap(({ removal }) => removal.unread);
-
-      if (state() === reading) setState({ kind: "remove-selection", nodes: chosen, removed, summary, reversible: losses.length === 0 && unread.length === 0 });
-    } catch (error) {
+    if (read.kind !== "applied") {
       close();
+      onFailure(read.error.message, first.id);
 
-      if (!(error instanceof Error)) throw error;
-      onFailure(error.message, first.id);
+      return;
     }
+
+    const judgments = read.value;
+    const affected = new Set([...chosen.map(node => node.id), ...judgments.flatMap(({ removal }) => removal.removedIds)]);
+
+    const losses = lossesOf(railOrder(rail.nodes).filter(node => affected.has(node.id)));
+
+    const summary = [chosen.map(node => node.name).join("\n"), ...judgments.flatMap(({ node, removal }) => [goesLine(removal, node.name), staysLine(removal), ...removal.unread.map(list => copy.listUnread(list))]), ...losses].filter(Boolean).join("\n");
+    const stillUnread = judgments.flatMap(({ removal }) => removal.unread);
+
+    if (state() === reading) setState({ kind: "remove-selection", nodes: chosen, removed, summary, reversible: losses.length === 0 && stillUnread.length === 0 });
   };
 
   /** The answer to the open confirm: each kind of question has its own call. */
@@ -302,44 +295,27 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   };
 
   /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line. */
-  const restart = async (node: RailNode, mode: "normal" | "yolo") => {
-    const release = rail.launch(node.id);
-
-    try {
-      await app.rpc("agent.resume", { id: node.id, mode });
-      await rail.refresh();
-      acknowledge(node.id);
-    } catch (error) {
-      if (!(error instanceof RpcError)) throw error;
-
-      onFailure(error.message, node.id);
-
-      if (error.code === NOT_FOUND) await rail.refresh();
-    } finally {
-      release();
-    }
+  const restart = async (node: RailNode, mode: "normal" | "yolo"): Promise<void> => {
+    await railCommand(rail, { item: node.id, draw: () => rail.launch(node.id), call: () => app.rpc("agent.resume", { id: node.id, mode }) });
   };
 
   /** A5214a: `agent.makeWorkstream`; the row then shows as a Workstream, or the Daemon's message shows. */
-  const makeWorkstream = (node: RailNode) =>
-    attempt(async () => {
-      await app.rpc("agent.makeWorkstream", { id: node.id });
-      await rail.refresh({ terminals: true });
-    }, node.id);
+  const makeWorkstream = (node: RailNode) => {
+    close();
+
+    return railCommand(rail, { item: node.id, call: () => app.rpc("agent.makeWorkstream", { id: node.id }), terminals: true });
+  };
 
   const alertsEntry = (node: RailNode): MenuEntry => ({
     id: "alerts", label: copy.alerts,
     children: (["all", "default", "quiet"] as const).map(level => ({
       id: `alerts:${level}`, label: copy.alertLevels[level], checked: alertLevel(rail.nodes, node) === level,
       run: async () => {
-        try {
+        await railCommand(rail, { item: node.id, call: async () => {
           const ping = await app.rpc("daemon.ping", null);
+
           await app.rpc("rail.setAlertLevel", { project: ping.project, id: node.id, level });
-          await rail.refresh();
-        } catch (error) {
-          if (!(error instanceof Error)) throw error;
-          onFailure(error.message, node.id);
-        }
+        } });
       },
     })),
   });
@@ -349,14 +325,10 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   /** A queued row offers the Queue's own choices; each is one call, and a failure shows as any row action's. */
   const queuedEntries = (node: RailNode, { place, of }: { place: number; of: number }): Candidate[] => {
     const call = (run: () => Promise<void>) => async () => {
-      try {
-        await run();
-        acknowledge(node.id);
-      } catch (error) {
-        if (!(error instanceof Error)) throw error;
+      const failed = await failureOf(run);
 
-        onFailure(error.message, node.id);
-      }
+      if (failed === null) acknowledge(node.id);
+      else onFailure(failed, node.id);
 
       await queue.refresh();
     };
