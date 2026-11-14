@@ -128,7 +128,12 @@ export const actions: Action[] = [
     mount: () => mountRail([agent("a", "idle", "ready", { terminal_id: null, order: 0 }), agent("c", "idle", "ready", { terminal_id: null, order: 1 })]),
     method: "rail.group",
     fire: async ({ app }) => {
-      for (const id of ["a", "c"]) fireEvent.click(rowOf(id), { metaKey: true });
+      // Ark applies each toggle a task later.
+      for (const id of ["a", "c"]) {
+        fireEvent.click(rowOf(id), { metaKey: true });
+        await waitFor(() => expect(rowOf(id).dataset.selected).toBe("true"));
+      }
+
       fireEvent.contextMenu(rowOf("a"));
       await app.pickMenu("Group");
     },
