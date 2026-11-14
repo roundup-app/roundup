@@ -35,6 +35,7 @@ mod github;
 #[cfg(test)]
 mod group_tests;
 mod link;
+mod machine_install;
 mod machines;
 mod memory_guard;
 #[cfg(test)]
