@@ -61,6 +61,13 @@ impl Setup {
         })
     }
 
+    /// Whether any `rup-linux-<arch>` file sits beside this Daemon.
+    pub(crate) fn has_artifacts(&self) -> bool {
+        ["x86_64", "aarch64"]
+            .iter()
+            .any(|arch| self.artifacts.join(format!("rup-linux-{arch}")).is_file())
+    }
+
     pub(crate) fn new(
         artifacts: PathBuf,
         run: impl Fn(String, String, Vec<u8>) -> Pin<Box<dyn Future<Output = io::Result<Ran>> + Send>>

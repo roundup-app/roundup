@@ -27,7 +27,8 @@ impl Default for Core {
     fn default() -> Self {
         Self(
             Arc::new(|| Box::pin(herdr::Conn::connect_local(TIMEOUT))),
-            Some(Setup::system()),
+            // MC25: until the release build ships `rup-linux-*`, adding a machine installs nothing.
+            Some(Setup::system()).filter(Setup::has_artifacts),
         )
     }
 }
