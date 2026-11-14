@@ -126,6 +126,7 @@ async fn fork_make(
     colour: contracts::data::ForkColour,
     projects: Vec<fork::Pick>,
 ) -> Result<(), RpcError> {
+    fork::require_checkout(&fork::checkout())?;
     let home = fork::home(|name| std::env::var_os(name))
         .ok_or_else(|| RpcError::internal("no home folder for the Fork"))?;
     let live = state

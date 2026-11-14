@@ -646,9 +646,12 @@ async fn b44_a_note_in_flight_at_the_kill_is_written_again_not_made_again() {
     let hold = logs.path().join("signal");
     let prompts = logs.path().join("prompts.jsonl");
     let log = prompts.to_str().unwrap();
+    // The fake opens no Channel: wait 100 ms for it, not 15 s, before typing the note.
+    let no_channel = ("ROUNDUP_CHANNEL_DEADLINE_MS", "100");
     let mut project = start(&[
         ("FAKE_CLAUDE_PROMPT_LOG", log),
         ("FAKE_CLAUDE_HOLD_PROMPT", hold.to_str().unwrap()),
+        no_channel,
     ]);
     let user0 = project.client().await;
     let door = start_door(&user0).await;
@@ -671,7 +674,7 @@ async fn b44_a_note_in_flight_at_the_kill_is_written_again_not_made_again() {
     .await;
     assert_eq!(status_of(&user0, id).await, "pending");
 
-    project.restart(&[("FAKE_CLAUDE_PROMPT_LOG", log)]);
+    project.restart(&[("FAKE_CLAUDE_PROMPT_LOG", log), no_channel]);
     let user = project.client().await;
     let m = user
         .request("message.get", json!({ "id": id }))
