@@ -270,6 +270,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Machine (`Machine`, `machine.list`, `machine.add`, an Agent's or Terminal's `machine`, a Machine's `reachable`) | same | — |
+| Bridge (`Bridges`, `bridge::Link`) | same | tunnel |
+| Spool (`rup`'s `spool`, `~/.rupq/spool`) | same | — |
+| Away (a Machine's `away`) | away | — |
 | Daemon | same | — |
 | Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `naming_guide`, `naming_settled`, `naming_settings`) | Automatic renaming, Naming guide | — |
 | Link (`link.read`) | same | — |

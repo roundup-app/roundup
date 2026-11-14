@@ -46,6 +46,12 @@ pub async fn serve(
     let mut running = watchers.spawn(&daemon);
     daemon.extensions.start(&daemon);
     daemon.config.start(&daemon);
+    if let Ok(addr) = listener.local_addr()
+        && let Some(socket) = addr.as_pathname()
+    {
+        // MC26: the Machines' bridges relay into the socket this Daemon serves.
+        daemon.start_bridges(socket);
+    }
     tokio::select! {
         accepted = accept(listener, daemon) => accepted,
         Some(ended) = running.join_next() => Err(io::Error::other(match ended {

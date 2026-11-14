@@ -16,6 +16,11 @@ pub struct Machine {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = bool)]
     pub reachable: Option<bool>,
+    /// MC26: whether no bridge to this Machine is up, for its Agents' rows to show; absent when
+    /// the Daemon holds none for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = bool)]
+    pub away: Option<bool>,
 }
 
 /// `machine.add`: the ssh name of the machine to add.

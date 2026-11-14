@@ -8,6 +8,7 @@ mod attention;
 mod auto;
 #[cfg(test)]
 mod auto_tests;
+pub mod bridge;
 mod builtin;
 mod config;
 mod connection;
@@ -149,6 +150,8 @@ pub struct Daemon {
     config: config::Config,
     /// MC1: how a call reaches herdr-core; a connection opens only when a Machine method asks.
     machine_core: machines::Core,
+    /// MC26: the one ssh bridge to each Machine.
+    bridges: bridge::Bridges,
 }
 
 /// What `rail.remove` left dangling.

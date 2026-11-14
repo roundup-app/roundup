@@ -83,6 +83,7 @@ for line in sys.stdin:
         extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
         config: crate::config::Config::new(std::path::PathBuf::new()),
         machine_core: Default::default(),
+        bridges: Default::default(),
         agents: agents.clone(),
         rail: agents.clone(),
         wake_gate: Default::default(),

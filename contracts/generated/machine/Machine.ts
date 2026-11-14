@@ -6,4 +6,9 @@ export type Machine = {
 	details: { [key in string]: unknown },
 	/**  MC15: whether roundup's ssh to this Machine answers; absent before it has tried. */
 	reachable?: boolean,
+	/**
+	 *  MC26: whether no bridge to this Machine is up, for its Agents' rows to show; absent when
+	 *  the Daemon holds none for it.
+	 */
+	away?: boolean,
 };
