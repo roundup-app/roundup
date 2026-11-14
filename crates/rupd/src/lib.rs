@@ -450,6 +450,8 @@ impl Daemon {
 #[cfg(test)]
 mod actions_tests;
 #[cfg(test)]
+mod mc36_tests;
+#[cfg(test)]
 mod tests;
 
 #[cfg(test)]
