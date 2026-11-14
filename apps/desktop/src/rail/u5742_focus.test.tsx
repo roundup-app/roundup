@@ -4,6 +4,7 @@ import { batch } from "solid-js";
 import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info, mode, NOW, workstream } from "../testing/nodes";
@@ -119,21 +120,23 @@ it("u5742c_overview_choice_focuses_terminal", async () => {
 it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   const m = await mount(["ann", "bea", "cee", "dee"].map(id => agent(id, "idle", "ready")));
   const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id);
-  fireEvent.click(row("ann"), { metaKey: true });
-  expect(selected()).toEqual(["ann"]);
-  expect(document.activeElement).toBe(row("ann"));
-  fireEvent.click(row("cee"), { metaKey: true });
-  expect(selected()).toEqual(["ann", "cee"]);
-  expect(document.activeElement).toBe(row("cee"));
-  fireEvent.click(row("ann"), { metaKey: true });
-  expect(selected()).toEqual(["cee"]);
-  expect(document.activeElement).toBe(row("ann"));
-  fireEvent.click(row("dee"), { shiftKey: true });
-  expect(selected()).toEqual(["ann", "bea", "cee", "dee"]);
-  expect(document.activeElement).toBe(row("dee"));
-  fireEvent.click(row("bea"), { shiftKey: true });
-  expect(selected()).toEqual(["ann", "bea"]);
-  expect(document.activeElement).toBe(row("bea"));
+
+  const user = userEvent.setup();
+
+  // The press focuses its row, and Ark applies the selection a task later.
+  const click = async (id: string, modifier: "Meta" | "Shift", want: string[]) => {
+    await user.keyboard(`{${modifier}>}`);
+    await user.click(row(id));
+    await user.keyboard(`{/${modifier}}`);
+    await waitFor(() => expect(selected()).toEqual(want));
+    expect(document.activeElement).toBe(row(id));
+  };
+
+  await click("ann", "Meta", ["ann"]);
+  await click("cee", "Meta", ["ann", "cee"]);
+  await click("ann", "Meta", ["cee"]);
+  await click("dee", "Shift", ["cee", "dee"]);
+  await click("bea", "Shift", ["bea", "cee"]);
   expect(m.connected.rail.selected()).toBeNull();
   expect(m.app.calls.filter(call => ["agent.spawn", "agent.resume", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
   key("ArrowUp");
@@ -231,7 +234,9 @@ it("u5742d_choice_takes_focus_when_terminal_becomes_ready", async () => {
 it("u5742a_reselect_replaces_modifier_selection_and_focuses_terminal", async () => {
   const m = await mount();
   fireEvent.click(row("ann"), { metaKey: true });
+  await waitFor(() => expect(row("ann").dataset.selected).toBe("true"));
   fireEvent.click(row("dee"), { metaKey: true });
+  await waitFor(() => expect(row("dee").dataset.selected).toBe("true"));
   fireEvent.click(row("ann"));
   await provesChoice(m, "ann");
   row("ann").focus();

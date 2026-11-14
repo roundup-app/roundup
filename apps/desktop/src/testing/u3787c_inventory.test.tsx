@@ -270,7 +270,8 @@ it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_l
   const before = daemon.calls.length;
   const selected = () => rows.filter(row => row.getAttribute("data-selected") === "true");
 
-  for (const [at, metaKey, shiftKey, expected] of [[2, false, true, [2]], [0, true, false, [0, 2]], [0, true, false, [2]], [3, true, true, [0, 1, 2, 3]], [1, false, true, [0, 1]]] as const) {
+  // U3787c's Rail clause: a range starts at the earliest chosen row, and ⌘⇧-click toggles as ⌘-click does.
+  for (const [at, metaKey, shiftKey, expected] of [[1, true, false, [1]], [3, false, true, [1, 2, 3]], [2, true, false, [1, 3]], [4, true, true, [1, 3, 4]], [0, false, true, [0, 1]]] as const) {
     fireEvent.click(rows[at]!, { metaKey, shiftKey });
     await settled();
     expect(selected()).toEqual(expected.map(index => rows[index]));

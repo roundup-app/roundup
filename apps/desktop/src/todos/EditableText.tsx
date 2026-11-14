@@ -195,12 +195,9 @@ export const EditableText = (props: {
   let save: (() => Promise<void>) | undefined;
   let key: ((event: KeyboardEvent) => void) | undefined;
 
-  const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void) => {
+  const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void, yieldFocus?: () => void) => {
     const focus = captureFocus();
-    queueMicrotask(() => {
-      if (!alive) return;
-      focus(focusField);
-    });
+    queueMicrotask(() => { if (alive && !focus(focusField)) yieldFocus?.(); });
 
     const retain = (selectionChanged = false) => batch(() => {
       const value = { ...started.form, text: read() };
@@ -337,12 +334,15 @@ export const EditableText = (props: {
 
     createEffect(on(editing, started => {
       if (!started || !input) return;
+      // The user's own event started this edit, so any later choice outranks it. The shown title gives up focus now, as the
+      // title a field replaced did; an outranked editor closes before Ark focuses its field a frame later.
+      shown()?.blur();
       const field = input;
       binding = bind(started, field, () => field.value, () => ({ start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }), () => {
         field.focus({ preventScroll: true });
 
         if (started.selection) field.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
-      });
+      }, () => { if (!started.recovered && editing() === started) setEditing(null); });
     }));
 
     const close = () => {
@@ -357,16 +357,16 @@ export const EditableText = (props: {
       queueFocus(() => shown()?.focus());
     };
 
-    return <Editable.Root edit={editing() !== null} activationMode="dblclick" selectOnFocus={false} value={editing() ? typed() : props.todo[props.name]}
+    return <Editable.Root edit={editing() !== null} activationMode="none" selectOnFocus={false} value={editing() ? typed() : props.todo[props.name]}
       submitMode={editing()?.recovered ? "none" : "both"} onValueChange={({ value }) => setTyped(value)} placeholder={copy.noField(props.name)}
-      translations={{ edit: props.todo[props.name] || copy.noField(props.name) }} onEditChange={({ edit }) => { if (edit) startWith(); else close(); }}
+      translations={{ edit: props.todo[props.name] || copy.noField(props.name) }} onEditChange={({ edit }) => { if (!edit) close(); }}
       onInteractOutside={event => {
         if (!editing()?.recovered && !keepsDraft(event.target)) return void (ending = "submit");
         event.preventDefault();
         binding?.keep();
       }}>
       <Editable.Context>{api => <Editable.Area style={{ display: "grid", width: "100%" }}>
-        <Editable.Preview asChild={preview => <p {...preview()} class={props.todo[props.name] === "" ? "light" : undefined} />} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
+        <Editable.Preview asChild={preview => <p {...preview()} class={props.todo[props.name] === "" ? "light" : undefined} />} onDblClick={() => { if (!editing()) startWith(); }} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
           style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", overflow: "visible", "text-overflow": "clip", "min-height": "1.4em" }} />
         <Editable.Input asChild={field => <textarea {...field()} class="field-inline" rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck={false} autocorrect="off" autocapitalize="off"
           class="field-inline" aria-label={copy.title}
