@@ -350,7 +350,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return contextMenu(app, [
       { id: "group", label: copy.group, run: async () => {
         const ids = chosen.map(each => each.id);
-        // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the pending change.
+        // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the drawing.
         const outcome = await railCommand(rail, { item: node.id, draw: () => rail.drawGroup(ids, copy.newWorkstreamTitle), call: () => app.rpc("rail.group", { ids }) });
 
         if (outcome.kind !== "applied") return;
