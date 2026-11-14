@@ -102,7 +102,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   /** One stop path: the menu's item, the Rail's icon and the confirm's answer all end here. */
   const stopNow = (node: RailNode) => {
     close();
-    // U5991a: the row shows stopped now; the Daemon's reply or failure lifts the drawing.
+    // U5991a: the row shows stopped now; the Daemon's reply or failure lifts the pending change.
     void railCommand(rail, { item: node.id, draw: () => rail.drawExit(node.id, { kind: "signal" }), call: () => app.rpc("agent.stop", { id: node.id }), terminals: true });
   };
 
@@ -122,7 +122,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     try {
       await railCommand(rail, {
         item: id,
-        // U5991a: the row shows running now; the refresh or a failure lifts the drawing.
+        // U5991a: the row shows running now; the refresh or a failure lifts the pending change.
         draw: () => {
           const release = rail.launch(id);
           const lift = rail.drawExit(id, null);
@@ -162,18 +162,18 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   /** U5991a: the rows leave at once; the call, its receipt and a failure's return of the rows follow in the queue. */
   const removeAtOnce = (ids: string[], name: string, row: string, removed: (() => void) | undefined, leaving: string[] = ids) => {
     removed?.();
-    rail.hide(leaving);
+    const lift = rail.hide(leaving);
     close();
 
     void storage.undo.removeRailSelection(ids, name, "rail").then(async done => {
       if (done) {
         rail.keepRemoved(leaving);
         await rail.refresh();
-        rail.unhide(leaving);
+        lift();
         acknowledge(row);
       } else {
         // The row returns first: a failure line about a row the Rail does not show would clear itself.
-        rail.unhide(leaving);
+        lift();
         const failure = storage.undo.failure();
 
         if (failure) onFailure(failure, row);

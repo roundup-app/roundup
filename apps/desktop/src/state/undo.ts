@@ -117,8 +117,8 @@ export function createTodoUndo() {
   const push = (item: Stacked) => setHistory(produce(draft => { draft.stack.push(item); }));
   const drop = (id: string) => setHistory(produce(draft => { draft.stack.splice(draft.stack.findIndex(item => item.id === id), 1); }));
 
-  /** U5991a: the Rail's drawing of an undo or redo, bound by the Project's Rail state; a call lifts it once the Rail holds the Daemon's result. */
-  let railDrawing: ((direction: "undo" | "redo") => (kept: boolean) => Promise<void>) | null = null;
+  /** U5991a: the Rail's pending change of an undo or redo, bound by the Project's Rail state; a call lifts it once the Rail holds the Daemon's result. */
+  let railPending: ((direction: "undo" | "redo") => (kept: boolean) => Promise<void>) | null = null;
 
   const [redoes, setRedoes] = createSignal<Redo[]>([]);
   const [work, setWork] = createSignal<Work>(idle);
@@ -378,7 +378,7 @@ export function createTodoUndo() {
 
     try {
       if (operation.kind === "rail") {
-        const lift = railDrawing?.("undo");
+        const lift = railPending?.("undo");
         let kept = false;
 
         try {
@@ -476,7 +476,7 @@ export function createTodoUndo() {
         if (receipt.state !== "deleted") throw new Error(copy.todoRestoreUnknown);
         push({ id: crypto.randomUUID(), kind: "todos", receipt, regions: [...action.regions] });
       } else if (action.kind === "rail") {
-        const lift = railDrawing?.("redo");
+        const lift = railPending?.("redo");
         let kept = false;
 
         try {
@@ -616,7 +616,7 @@ export function createTodoUndo() {
       return action ? copy.redoAction(actionName(action)) : copy.redo;
     },
     available, redoAvailable,
-    bindRail: (drawing: NonNullable<typeof railDrawing>) => { railDrawing = drawing; },
+    bindRail: (pending: NonNullable<typeof railPending>) => { railPending = pending; },
     retryDelete: () => {
       const now = work();
 

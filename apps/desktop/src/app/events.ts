@@ -9,6 +9,15 @@ export type Events = {
   subscribe(listener: (event: DaemonEvent) => void, options?: { replay?: boolean }): Unsubscribe;
 };
 
+/** One handler per Event name, each typed by the Event of that name; a name with no row is ignored. */
+export type EventHandlers = { [Name in DaemonEvent["name"]]?: (event: Extract<DaemonEvent, { name: Name }>) => void };
+
+/** Runs the handler `handlers` holds for `event`'s name, if any. */
+export const handleEvent = (handlers: EventHandlers, event: DaemonEvent): void => {
+  // SAFETY: `handlers` is keyed by Event name, so the row under `event.name` takes this Event.
+  (handlers[event.name] as ((event: DaemonEvent) => void) | undefined)?.(event);
+};
+
 /**
  * Opens the single Daemon subscription, replaying every Event the log still keeps (`kept: true`), and fans it out; resolves once the Daemon is sending, so a caller that fetches next misses nothing.
  * The Daemon answers its `head`: an Event numbered at or below it was saved before the subscription and is replay, which only a `replay` listener hears.

@@ -1,7 +1,7 @@
 import { batch, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Message } from "@contracts/message/Message";
-import type { Events } from "../app/events";
+import { handleEvent, type EventHandlers, type Events } from "../app/events";
 import type { AppSeam, DaemonExit } from "../app/seam";
 
 /** P3557c: one refused call. `message` is the Message id of a `message.drop` / `message.deliver`, or `null` for the Agent's `message.list`; `key` is its own identity, so equal text is not the same failure. */
@@ -69,20 +69,18 @@ export const createNoteQueue = (app: AppSeam, events: Events, daemonExit: Access
 
   const clearMessage = (id: number): void => void setFailures((all) => all.filter((failure) => failure.message !== id));
 
-  events.subscribe((event) => {
-    if (event.name === "message.sent" || event.name === "message.dropped") {
-      batch(() => {
-        if (event.name === "message.dropped") clearMessage(event.data.id);
-
-        upsert(event.data);
-      });
-    } else if (event.name === "message.delivered") {
-      batch(() => {
-        clearMessage(event.data.id);
-        upsert(event.data);
-      });
-    }
+  const settle = ({ data }: { data: Message }): void => batch(() => {
+    clearMessage(data.id);
+    upsert(data);
   });
+
+  const handlers: EventHandlers = {
+    "message.sent": ({ data }) => upsert(data),
+    "message.dropped": settle,
+    "message.delivered": settle,
+  };
+
+  events.subscribe(event => handleEvent(handlers, event));
 
   const call = async (message: Message, run: () => Promise<Message>): Promise<void> => {
     if (daemonExit() !== null) return;

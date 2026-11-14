@@ -64,7 +64,7 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
       const lift = rail.draw(tree => movedTo(tree, params.id, { parent: params.parent, index: params.index }));
       const result = await applying(() => app.rpc("rail.move", params));
 
-      // U3800d: the kept move and the lifted drawing are one redraw, not two.
+      // U3800d: the kept move and the lifted pending change are one redraw, not two.
       batch(() => {
         if (result.kind === "applied") rail.keepApplied(params.id, { parent: params.parent, index: params.index });
         lift();

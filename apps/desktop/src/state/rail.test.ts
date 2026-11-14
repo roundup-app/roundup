@@ -1,3 +1,4 @@
+import { createComputed, createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Status } from "@contracts/Status";
@@ -184,20 +185,6 @@ describe("u3 Rail state", () => {
     app.emit(event({ name: "terminal.exited", data: { id: "t-m", code: 2 } }));
 
     expect(rail.exitOf(workstream)).toEqual({ kind: "code", code: 2 });
-  });
-
-  it("u3_events_during_an_in_flight_rail_tree_are_applied_after_it", async () => {
-    const pending = Promise.withResolvers<RailNode[]>();
-    const app = createFakeApp();
-    app.handlers["rail.tree"] = () => pending.promise;
-    const events = await connectEvents(app);
-    const rail = createRailState(app, events);
-
-    app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: status("early") } }));
-    pending.resolve([node("a")]);
-    await rail.settled();
-
-    expect(rail.nodes[0]?.status?.label).toBe("early");
   });
 
   it("u3_a_rail_changed_during_an_in_flight_rail_tree_refetches_after_it", async () => {
@@ -429,5 +416,89 @@ describe("U5151c", () => {
     expect(rail.nodes[0]?.status?.kind).toBe("working");
     expect(rail.dismissed(rail.nodes[0]!)).toBe(false);
     expect(app.calls.filter(call => !call.method.startsWith("rail.") && !call.method.startsWith("terminal.list"))).toEqual([]);
+  });
+});
+
+describe("U5991 pending changes", () => {
+  /** Every value `rail.nodes` takes, as ids, from now on. */
+  const framesOf = (rail: { readonly nodes: readonly RailNode[] }): string[][] => {
+    const frames: string[][] = [];
+
+    createRoot(() => createComputed(() => frames.push(rail.nodes.map(each => each.id))));
+
+    return frames;
+  };
+
+  it("u5991f_no_frame_shows_both_a_pending_change_and_the_daemons_row", async () => {
+    const { app, rail } = await open([node("kept"), node("leaving")]);
+    const frames = framesOf(rail);
+
+    const shown = rail.hide(["leaving"]);
+    const drawn = rail.drawNew("agent", "New", null);
+    app.handlers["rail.tree"] = () => [node("kept"), node("leaving"), node("made")];
+    app.emit(event({ name: "rail.changed" }));
+    await rail.refresh();
+    drawn();
+    shown();
+
+    const added = (ids: string[]) => ids.filter(id => id !== "kept" && id !== "leaving");
+
+    // From the frame the new row is drawn in, each frame holds one row for it: the drawn one or the Daemon's.
+    expect(frames.slice(2).every(ids => added(ids).length === 1), JSON.stringify(frames)).toBe(true);
+    expect(frames.slice(1, -1).some(ids => ids.includes("leaving")), JSON.stringify(frames)).toBe(false);
+    expect(frames.at(-1)).toEqual(["kept", "leaving", "made"]);
+  });
+
+  it("u5991a_events_wait_while_a_fetch_runs", async () => {
+    const { app, rail } = await open([node("a", { name: "Old" })]);
+    const answer = Promise.withResolvers<RailNode[]>();
+    app.handlers["rail.tree"] = () => answer.promise;
+
+    const refreshed = rail.refresh();
+    app.emit(event({ name: "rail.renamed", data: { id: "a", name: "New" } }));
+    expect(rail.nodes[0]?.name).toBe("Old");
+    // The read was asked before the rename, so it answers with the name the rename replaced.
+    answer.resolve([node("a", { name: "Old" })]);
+    await refreshed;
+    await rail.settled();
+
+    expect(rail.nodes[0]?.name).toBe("New");
+  });
+
+  it("u6000a_a_launch_shows_until_the_daemon_row_arrives", async () => {
+    const ended = agent("a", "done", "finished");
+    const { app, rail } = await open([ended]);
+
+    const first = rail.launch("a");
+    const second = rail.launch("a");
+    app.handlers["rail.tree"] = () => [ended];
+    await rail.refresh();
+    expect([rail.launching("a"), rail.nodes[0]?.status?.label]).toEqual([true, "starting"]);
+
+    first();
+    first();
+    expect([rail.launching("a"), rail.nodes[0]?.status?.label]).toEqual([true, "starting"]);
+
+    app.handlers["rail.tree"] = () => [agent("a", "working", "editing")];
+    await rail.refresh();
+    second();
+
+    expect([rail.launching("a"), rail.nodes[0]?.status?.label]).toEqual([false, "editing"]);
+  });
+
+  it.each([
+    ["hide", (rail: Awaited<ReturnType<typeof open>>["rail"]) => rail.hide(["a"])],
+    ["draw", (rail: Awaited<ReturnType<typeof open>>["rail"]) => rail.draw(tree => tree.map(each => ({ ...each, name: "Asked" })))],
+    ["launch", (rail: Awaited<ReturnType<typeof open>>["rail"]) => rail.launch("a")],
+  ] as const)("u5172a_a_refused_change_stands_down_%s", async (_name, show) => {
+    const kept = agent("a", "done", "finished", { name: "Kept" });
+    const { rail } = await open([kept]);
+    const lift = show(rail);
+    expect(rail.nodes).not.toEqual([kept]);
+    // A refused call lifts its pending change (railCommand's `finally`).
+    lift();
+
+    expect(rail.nodes).toEqual([kept]);
+    expect(rail.launching("a")).toBe(false);
   });
 });
