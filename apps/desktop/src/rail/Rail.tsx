@@ -661,7 +661,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         makeEventListener(element, "click", ctrlClick.click, { capture: true });
       }}
     >
-
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
@@ -670,9 +669,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           selection={task()?.selection ?? null}
           onSelection={(selection) => { if (task()?.status === "draft") keepDraft(draft(), selection); }}
           onInput={keepDraft}
-          onSubmit={(prompt) => {
-            if (canSpawn()) submitPrompt(prompt);
-          }}
+          onSubmit={(prompt) => { if (canSpawn()) submitPrompt(prompt); }}
           onCancel={() => { setComposing(false); returnFocus(composeOpener); }}
         />
         <Show when={connected.machines.names().length > 0}><StartMachine machines={connected.machines} /></Show>
