@@ -28,7 +28,7 @@ export const blockerSchema = v.strictObject({
 });
 
 // Shared recovery also retains older title/text/choice snapshots for inspection, without an editable base.
-const commentSchema = v.strictObject({ text: v.string() });
+export const commentSchema = v.strictObject({ text: v.string() });
 
 const snapshotSchema = v.strictObject({ title: v.string(), body: v.optional(v.string()), choices: v.optional(v.array(v.string())) });
 
