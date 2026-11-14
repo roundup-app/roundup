@@ -21,7 +21,7 @@ import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
 import { failureOf } from "../app/failureOf";
 import { useTodoList } from "./todoList";
-import { sentFailure } from "./EditableText";
+import { sentFailure, type Unapplied } from "./EditableText";
 import "./capture.styles.css";
 
 let optimistic = 0;
@@ -209,10 +209,13 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     hide();
 
     if (made || retry || sent.kind === "unknown") void todos.reload();
+    refuse(sent);
+  };
 
+  /** A capture that did not apply says why, and Capture reopens where the user typed it. */
+  const refuse = (sent: Unapplied) => {
     // The empty next editor is disposable; a newer nonempty draft stays current.
     if (sent.kind === "refused" && outcomeOf(sent.error) === "failed" && text() === "" && current()) void draft.discard();
-
     setFailure(sentFailure(sent));
 
     if (port && nativeSession) { setNativeOpen(true); props.onNativeOpen?.(true); void port.show().then(publish); }

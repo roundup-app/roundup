@@ -6,7 +6,7 @@ import { TodoHeader } from "./TodoHeader";
 import { TodoMeta } from "./TodoMeta";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { copy } from "./copy";
-import { createEffect, createRoot, createSignal, on, onCleanup, Show } from "solid-js";
+import { createEffect, createRoot, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -46,8 +46,9 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const { app, drawer, drafts, project, events } = connected;
   drafts.validate("todos", todoDraftSchema);
 
-  const retained = props.recovery ? drafts.list().find(draft => draft.revision === props.recovery?.revision
-    && draft.destination.surface === "todos" && draft.destination.object === String(props.id)) : undefined;
+  // Read once as the body opens; the Drawer mounts a new body for another Todo.
+  const retained = untrack(() => props.recovery ? drafts.list().find(draft => draft.revision === props.recovery?.revision
+    && draft.destination.surface === "todos" && draft.destination.object === String(props.id)) : undefined);
 
   const original = props.todos.byId().get(props.id);
   const originalHome = original?.home;
@@ -175,12 +176,13 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
 
     // Each queued choice owns its revision, even while its History read is outstanding.
     const destination = { surface: "todos", object: String(base.id), recipient: `blockers:${crypto.randomUUID()}` };
+    const expected = capture?.seq ?? null;
 
     const origin = { home: base.home, originalTitle: original.title, originalBody: original.body, originalDone: original.done,
-      originalBlockers: original.blockers.map(String), originalChange: capture?.seq ?? null, action, blocker };
+      originalBlockers: original.blockers.map(String), originalChange: expected, action, blocker };
 
     const waiting = { ...origin, title: original.title, body: original.body, done: original.done,
-      blockers: next(original.blockers).map(String), baseBlockers: original.blockers.map(String), expected_change: capture?.seq ?? null };
+      blockers: next(original.blockers).map(String), baseBlockers: original.blockers.map(String), expected_change: expected };
 
     // Each pick owns its field for as long as it runs.
     const pick = createRoot(dispose => {
@@ -195,13 +197,12 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
         // Discarding a choice before its read returns never authorizes a later mutation.
         if (!choice.draft()) return;
 
-        if (readFailure !== null || !change) {
+        // A failed read leaves no change behind.
+        if (!change) {
           const unread = new Error(readFailure ?? copy.originalUnverified);
-          const refused: Applied<Todo> = { kind: "refused", error: unread, thrown: unread };
-          await choice.send(() => Promise.resolve(refused));
-          setFailure(unread.message);
+          await choice.send(() => Promise.resolve<Applied<Todo>>({ kind: "refused", error: unread, thrown: unread }));
 
-          return;
+          return setFailure(unread.message);
         }
 
         const blockers = next(change.after.blockers);
@@ -231,13 +232,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
         clearFailure();
       };
 
-      return async () => {
-        try {
-          await choose();
-        } finally {
-          dispose();
-        }
-      };
+      return () => choose().finally(dispose);
     });
 
     // A bug that rejects one pick is reported, and the picks behind it still run.

@@ -54,8 +54,10 @@ export const createSavedFailure = (count: () => number): [() => string | null, (
   return [shown, message => keep(message === null ? null : { message, saved: count() })];
 };
 
+export type Unapplied = Extract<Sent<unknown>, { kind: "refused" | "unknown" }>;
+
 /** What the user reads when a send ends without its change applied. */
-export const sentFailure = (sent: Extract<Sent<unknown>, { kind: "refused" | "unknown" }>) => sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown;
+export const sentFailure = (sent: Unapplied) => sent.kind === "refused" ? sent.error.message : copy.draftStatus.unknown;
 
 /** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
 export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; saved?: () => number; onDiscard?: (revision: string) => void }) => {
@@ -161,6 +163,15 @@ export const EditableText = (props: {
     });
   }, { defer: true }));
 
+  // The form a new edit starts from: the captured change's values, else the Todo's own.
+  const freshForm = (): Editing["form"] => {
+    const change = props.captured();
+    const values = change?.after ?? props.todo;
+
+    return { text: values[props.name], base: values[props.name], expected_change: change?.seq ?? null,
+      home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
+  };
+
   const startWith = () => {
     captureFocus(true);
 
@@ -176,17 +187,33 @@ export const EditableText = (props: {
     }
 
     setRetentionFailure(null);
-    const change = props.captured();
-    const values = change?.after ?? props.todo;
-
-    const form = saved && parsed.success ? parsed.output : { text: values[props.name], base: values[props.name], expected_change: change?.seq ?? null,
-      home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
+    const form = saved && parsed.success ? parsed.output : freshForm();
 
     setTyped(form.text);
     setEditing({ form, text: form.text, recovered: saved !== undefined, selection: saved?.selection ?? null });
   };
 
   if (props.revision !== undefined) untrack(startWith);
+
+  /** An acknowledged save clears the failure; when focus fell to the page, it returns to the shown text. */
+  const acknowledge = (restoreFocus: boolean | undefined, retryFocus: ReturnType<typeof captureFocus>) => {
+    if (!alive) return;
+    setFailure(null); props.onSaved?.();
+
+    // A first body save replaces Add notes with prose after acknowledgement.
+    if (restoreFocus && document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown()?.focus());
+  };
+
+  /** A save that did not apply shows why; a refused one reopens the field with its text, unless newer work took its place. */
+  const refuse = (sent: Unapplied, retryFocus: ReturnType<typeof captureFocus>) => {
+    savedFocus = undefined;
+
+    if (!alive) return;
+    setFailure(sentFailure(sent));
+
+    if (sent.kind === "refused" && outcomeOf(sent.error) === "failed" && connected.drawer.content() === content && editing() === null && draft.draft()?.status === "failed"
+      && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(startWith);
+  };
 
   let save: (() => Promise<void>) | undefined;
   let key: ((event: KeyboardEvent) => void) | undefined;
@@ -267,25 +294,8 @@ export const EditableText = (props: {
         return;
       }
 
-      if (sent.kind === "applied") {
-        if (alive) {
-          setFailure(null); props.onSaved?.();
-
-          // A first body save replaces Add notes with prose after acknowledgement.
-          if (restoreFocus && document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown()?.focus());
-        }
-
-        return;
-      }
-
-      savedFocus = undefined;
-
-      if (!alive) return;
-      setFailure(sentFailure(sent));
-
-      // A refused save reopens the field with its text, unless newer work took its place.
-      if (sent.kind === "refused" && outcomeOf(sent.error) === "failed" && connected.drawer.content() === content && editing() === null && draft.draft()?.status === "failed"
-        && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(startWith);
+      if (sent.kind === "applied") acknowledge(restoreFocus, retryFocus);
+      else refuse(sent, retryFocus);
     };
 
     key = event => {
