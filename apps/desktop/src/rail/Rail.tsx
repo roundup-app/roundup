@@ -43,7 +43,6 @@ import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
-import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { StartMachine } from "./StartMachine";
 import { createLaunch, railCommand } from "./railCommands";
 import { createDraftField } from "../state/draftField";
@@ -227,7 +226,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     if (prompt !== undefined) keepDraft(String(prompt));
   };
 
-  const endCompose = () => { setComposing(false); setStartMachine(""); };
+  const endCompose = () => setComposing(false);
 
   const { topology, sectionRows, rows, collection, settleCollection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id), () => container());
 
@@ -351,7 +350,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     return contextMenu(app, [
       { id: "group", label: copy.group, run: async () => {
         const ids = chosen.map(each => each.id);
-        // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the drawing.
+        // U5991a: the Rows show grouped now; the refreshed tree or a failure lifts the pending change.
         const outcome = await railCommand(rail, { item: node.id, draw: () => rail.drawGroup(ids, copy.newWorkstreamTitle), call: () => app.rpc("rail.group", { ids }) });
 
         if (outcome.kind !== "applied") return;
@@ -436,20 +435,11 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
   };
 
   const launch = createLaunch(rail);
-  /** MC34: the Machine the user named for the start; empty leaves the pick to the Door. */
-  const [startMachine, setStartMachine] = createSignal("");
 
   /** U6000a, U6000d: the row shows `starting` at once; launches fired while one is pending reach the Daemon in the order fired. Resolves with the new Agent's id. */
   const spawn = (prompt: string | null) => ({
     draw: () => rail.drawNew("agent", copy.newAgent, null),
-    call: async () => {
-      const machine = startMachine();
-      const params: SpawnParams = { cwd: project.path, prompt, parent: null, model: null, effort: null };
-
-      if (machine) params.machine = machine;
-
-      return (await launch(size => app.rpc("agent.spawn", { ...params, ...size }))).id;
-    },
+    call: async () => (await launch(size => app.rpc("agent.spawn", { cwd: project.path, prompt, parent: null, model: null, effort: null, ...connected.machines.start() && { machine: connected.machines.start() }, ...size }))).id,
   });
 
   const spawnAgent = () => {
@@ -683,9 +673,9 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           onSubmit={(prompt) => {
             if (canSpawn()) submitPrompt(prompt);
           }}
-          onCancel={() => { endCompose(); returnFocus(composeOpener); }}
+          onCancel={() => { setComposing(false); returnFocus(composeOpener); }}
         />
-        <Show when={connected.machines.names().length > 0}><StartMachine names={connected.machines.names()} value={startMachine()} onChange={setStartMachine} /></Show>
+        <Show when={connected.machines.names().length > 0}><StartMachine machines={connected.machines} /></Show>
       </Show>
       <Sortable.Root
         class="rail-sortable"
