@@ -219,7 +219,6 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
 | `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
 | `diamond` | Todo — open created content, not Mode | `rail/pads/AgentPads.tsx`, `PadsControl` |
-| `circle`; `check`; `diamond`; `x` | Progress / Result check / Result report — older or pending; accepted, checked or completed; unknown effect; not performed or unavailable | `orders/WorkProgress.tsx`, result state branches (existing cross-term overlaps) |
 | `check` / `order` (`file-text`) | Todo / Pad — Shelf identity; Pad row identity | `shelf/Shelf.tsx`, `ShelfTabs` through `ink/SectionHead.tsx`; `shelf/frame.ts`, `SHELF_TABS` / `PAD_ICON`; `pads/Pads.tsx` |
 | `right` / `down` | Rail / Shelf / Todo / Draft — disclose content | `rail/RailRow.tsx`; `rail/Rail.tsx`, both recovery summaries; `ink/SectionHead.tsx`, branch indicator; `shelf/OwnerGroups.tsx`; `todos/Todos.tsx`, dependency trigger; `todos/TodoHistory.tsx`; `ui/Disclosure.tsx`; `ask/AskBar.tsx`, target summary; `todos/NewWorkstream.tsx`, picker trigger; `rail/RailHandle.tsx`, expand the Rail (`right`) and fold it (`left`) |
 | `play` | Agent / Door / Terminal — start or resume | `rail/RowIcons.tsx`, resume; `rail/Rail.tsx`, Door action; `terminal/Pane.tsx`, preparation action |
@@ -230,7 +229,7 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | `talk`; `export`; `trash` | Pad — send to Agent; export; delete | `pads/PadDrawer.tsx` |
 | `trash` | Todo deletion — delete | `todos/TodoDrawer.tsx` |
 | `edit` | Draft — recover | `header/ProjectTab.tsx`; `bubbles/Bubbles.tsx` |
-| `x` | Project / Drawer / Draft / Terminal / Status / Result report — close or dismiss action | `header/ProjectTab.tsx`, close and copy failure; `drawer/DrawerHost.tsx`; `ink/ErrorLine.tsx`; `ui/IconButton.tsx`, `ExitButton`; `shelf/BulkDelete.tsx`, failure; `orders/WorkProgress.tsx`, report/read/resume failures; `bubbles/Bubbles.tsx`; `bubbles/Bubble.tsx` |
+| `x` | Project / Drawer / Draft / Terminal / Status — close or dismiss action | `header/ProjectTab.tsx`, close and copy failure; `drawer/DrawerHost.tsx`; `ink/ErrorLine.tsx`; `ui/IconButton.tsx`, `ExitButton`; `shelf/BulkDelete.tsx`, failure; `bubbles/Bubbles.tsx`; `bubbles/Bubble.tsx` |
 | `minus` | Terminal — minimise action | `bubbles/Bubble.tsx` |
 | `left`, `dot`, `pause`, `clear` | No active `Icon` caller | `ink/Icon.tsx`, mapped exports only |
 | Kind Glyphs `○ ⊖ ◔ ◉ ⊗ ✓` | Kind / Glyph — idle, blocked, working, needs-you, error, done; D18 | `ink/KindGlyph.tsx`; consumers: `rail/Rail.tsx`, `rail/RailRow.tsx`, `ask/AskBar.tsx`, `ask/AskRows.tsx`, `todos/OpenRow.tsx`, `todos/Todos.tsx`, `todos/TodoDrawer.tsx`, `todos/TodoComments.tsx`, `drawer/DraftRecovery.tsx`, `importer/ImportPanel.tsx`, `switcher/Switcher.tsx`, `toasts/queue.tsx`, `inbox/Inbox.tsx`, `inbox/InboxRow.tsx` |
