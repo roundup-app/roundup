@@ -1,0 +1,25 @@
+# UI: a question the user can stop being asked
+
+Module: `apps/desktop` (the webview; `app/`, `ui/`, `settings/`, `bubbles/`, `header/`, `rail/`, `shelf/`, `importer/`, `state/`) and `crates/desktop/src` (the native question). Ids: U7157a–U7157d. Work order: [#7157](https://github.com/roundup-app/roundup/issues/7157). Merging this specification delivers no runtime change.
+
+A **question** is any confirmation the App asks before an action: the shared native question (`app.ask`, `app.askRemoval`, `ui/NativeAlert.tsx`) and every in-App dialog that asks the user to confirm. Each question has its own stable key; the keys below are the audit of `apps/desktop/src` on 2026-11-15.
+
+| Key | Where | Question |
+|---|---|---|
+| `close-terminal` | `bubbles/close.tsx` | close a Terminal whose program still runs |
+| `new-terminal-again` | `bubbles/Bubbles.tsx` | open a Terminal again after an unknown outcome |
+| `new-workstream-again` | `state/rail.ts` | start a Workstream again after an unknown outcome |
+| `close-project` | `header/Strip.tsx`, `header/CloseDialog.tsx` | close a Project tab |
+| `rail-confirm` | `rail/Rail.tsx`, `rail/menu/RailConfirm.tsx` | Rail stop, remove and similar |
+| `bulk-delete` | `shelf/BulkDelete.tsx` | delete several items |
+| `import` | `importer/ImportPanel.tsx` | import |
+
+Policy (owner defaults, #7157): each question remembers its own choice; the choice persists with the App's other settings; Settings holds one row, **Reset warnings**; a question that guards loss the user cannot undo still carries the choice. No new RPC method. The native question gains a suppression choice, so the App seam's `ask` and `askRemoval` take an optional `suppressible` label and answer `{ accepted, suppressed }` (a Contract change: `app/seam.ts`, `app/tauri.ts`, the native command `ask_removal` and every caller change in one PR, and the two terms join `GLOSSARY.md`). The PR's `Reuse:` section names the choice between `NSAlert`'s `showsSuppressionButton` for the native question and the `ui/` Checkbox primitive for in-App dialogs, with `@tauri-apps/plugin-dialog` rejected for having no checkbox.
+
+**U7157a closing an ended Terminal asks nothing.** Given a Terminal whose program has ended (`running` false), when the user closes it by any route (its tab's close control, the shortcut, its context menu), then `terminal.close` is sent at once and `app.ask` is not called. A Terminal whose program still runs asks `close-terminal` as before. Test: `u7157a_closing_an_ended_terminal_sends_close_with_no_question` in `apps/desktop/src/bubbles/`, asserting the `terminal.close` call and zero `ask` calls for an ended Terminal, and one `ask` call for a running one. Retires the `closeTerminalOutputWarning` question; no other clause of the close scenarios changes.
+
+**U7157b every question offers "Don't ask again".** Given any question of the table above, when it shows, then it carries a "Don't ask again" choice, unticked, in the native question and in each in-App dialog alike. Cancelling with it ticked records nothing and the action does not run. Test: `u7157b_each_question_carries_an_unticked_dont_ask_again_choice` in `apps/desktop/src/ui/`, a table test over the seven keys that mounts or triggers each question through the fake App seam and asserts the choice's presence, its role and its unticked state, and that a cancel with it ticked leaves the stored record unchanged. Policy: the native `NSAlert` shows it through `showsSuppressionButton`; the Mac look is the user's to report (L46).
+
+**U7157c a question answered with the choice ticked is not asked again.** Given a question's choice ticked and the question confirmed, then the action runs once, and the next time the same action is triggered, in the same session or after a restart, the question does not show and the action runs as if confirmed. Other questions still show; the choice is stored per key in the App Settings record (`roundup:app-settings`, `state/storage.ts`), valid or defaulted field by field, so an unreadable or unknown entry means "ask". Tests: `u7157c_a_suppressed_question_runs_its_action_without_asking` (`apps/desktop/src/ui/`; for each key the second trigger makes zero `ask` calls and one action call), `u7157c_suppressing_one_question_leaves_the_others_asking`, `u7157c_the_choice_survives_a_restart_and_an_unreadable_record_asks` (remount over the same storage).
+
+**U7157d Settings holds "Reset warnings".** Given one or more suppressed questions, when the user opens App Settings (U3799), then it holds one row, **Reset warnings**, with one button; pressing it clears every stored choice, shows no toast and no question, and each question asks again the next time its action runs. With nothing suppressed the button is disabled. Test: `u7157d_reset_warnings_asks_every_question_again` in `apps/desktop/src/settings/`. Observer: the design critic on `just capture U7157d` at 1512×950, dark, `tree-40`, with failure text visible on the densest seed (no test asserts geometry, rule 10).

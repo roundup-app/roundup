@@ -84,6 +84,17 @@ class Save(unittest.TestCase):
             self.assertTrue(git(work, 'log', '-1', '--format=%B').endswith('\n\nAuthor-Agent: builder-77'))
             self.assertEqual(git(work, 'status', '--porcelain', '--ignored').split(), ['!!', 'artifacts/', '!!', 'ignored.log'])
 
+    def test_l23_edits_of_a_run_killed_before_it_made_its_branch_land_on_that_branch_not_main(self):
+        with tempfile.TemporaryDirectory() as path:
+            _, work = Land().moved_head(path, 'theirs.txt')
+            main = git(work, 'rev-parse', 'HEAD')
+            (Path(work) / 'run.txt').write_text('edited\n')
+            with chdir(work):
+                push.save('build/issue-1', ACCOUNT)
+            self.assertEqual(git(work, 'rev-parse', 'HEAD'), git(work, 'rev-parse', 'build/issue-1'))
+            self.assertEqual(git(work, 'rev-list', '--count', f'{main}..build/issue-1'), '1')
+            self.assertEqual(git(work, 'rev-parse', 'fix'), main)
+
 
 if __name__ == '__main__':
     unittest.main()
