@@ -54,7 +54,6 @@
 
 
 .bubble {
-  --bubble-header-height: calc(var(--space-5) + var(--space-1));
   position: absolute;
   box-sizing: border-box;
   display: flex;
@@ -86,7 +85,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  height: var(--bubble-header-height);
+  height: calc(var(--space-5) + var(--space-1));
   padding-inline: var(--space-2);
   cursor: grab;
 }
@@ -289,18 +288,26 @@
   background: var(--ground);
 }
 
-/* U7192: a Bubble’s own failure hangs from the top of its frame, under the header, never over the Terminal's input at the bottom. */
+/* U7192: a Bubble’s own failure takes a row under its header and the Terminal body shrinks by it, so it never covers the output. */
 .bubble .bubble-failure[data-overlay="true"] {
-  top: calc(var(--bubble-header-height) + var(--space-2));
-  bottom: auto;
+  position: static;
+  flex: none;
 }
 
-/* The centre-wide failure hangs from the centre's top edge (U7192), above the Terminal's input. */
+.bubble .bubble-body {
+  order: 1;
+}
+
+/* U7192: the centre-wide failure takes the centre's top row and the Terminal area sits one line lower while it shows. */
 .bubbles .bubble-failure[data-overlay="true"] {
-  top: var(--space-2);
+  top: 0;
   bottom: auto;
   inset-inline: var(--space-2);
   inline-size: auto;
+}
+
+.centre-stack:has(.bubble-failure) .project-center-area {
+  margin-block-start: var(--line);
 }
 
 .bubble-recovery {

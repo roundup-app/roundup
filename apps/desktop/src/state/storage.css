@@ -73,15 +73,16 @@
   gap: var(--space-5);
 }
 
-/* U3787a, U7192: failure feedback joins the centre's other failures at its top edge, never over the Terminal's input; an empty line takes no room in that column. */
-.centre-failures .todo-undo[data-overlay="true"] {
-  position: static;
-  pointer-events: auto;
+/* U3787a, U7192: failure feedback takes the centre's top row and the centre sits one line lower while it shows, so it never covers the Terminal. */
+.todo-undo[data-overlay="true"] {
+  top: 0;
+  bottom: auto;
   padding-inline: var(--space-3);
+  z-index: var(--layer-toast);
 }
 
-.centre-failures .todo-undo[data-empty="true"] {
-  display: none;
+.storage-center:has(.todo-undo:not([data-empty="true"])) .centre-frame {
+  margin-block-start: var(--line);
 }
 
 .storage-gate-folder {
