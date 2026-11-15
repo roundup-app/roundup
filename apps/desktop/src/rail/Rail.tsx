@@ -40,6 +40,7 @@ import { createRailDrag } from "./drag";
 import { createWritableMemo } from "@solid-primitives/memo";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { afterElseBefore } from "../keys/survivor";
+import { RailToggle } from "./RailToggle";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
@@ -101,7 +102,7 @@ const ctrlClickGuard = () => {
   };
 };
 
-export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
+export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: { collapsed: boolean; onToggle: () => void } } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
 
@@ -699,7 +700,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
           <TreeView.NodeProvider node={entryOf(`section:${section.id}`).node} indexPath={entryOf(`section:${section.id}`).indexPath}>
           <TreeView.Branch class="rail-section" aria-label={section.label}>
-            <SectionHead icon={section.icon} label={section.label} disclosure={{ open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} />
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} trailing={section.id === "workstreams" && props.toggle ? <RailToggle collapsed={props.toggle.collapsed} onToggle={props.toggle.onToggle} /> : undefined} />
             <TreeView.BranchContent>
         <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (

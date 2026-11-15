@@ -1,4 +1,4 @@
-import { Show, type ComponentProps } from "solid-js";
+import { Show, type ComponentProps, type JSX } from "solid-js";
 import { TreeView } from "../ui/TreeView";
 import { Icon } from "./Icon";
 
@@ -7,9 +7,11 @@ export const SectionHead = (props: {
   icon: ComponentProps<typeof Icon>["name"];
   label: string;
   disclosure?: { open: boolean; setOpen(open: boolean): void };
+  /** A control after the heading, beside it, never inside its button. */
+  trailing?: JSX.Element;
 }) => (
   <Show when={props.disclosure} fallback={<div class="section-head"><Icon name={props.icon} /><span>{props.label}</span></div>}>
-    {(disclosure) => <TreeView.BranchControl asChild={control => <button {...control()} type="button" class="section-head" data-button="quiet" aria-expanded={disclosure().open} tabIndex={0} onClick={event => {
+    {(disclosure) => <div class="section-head-row"><TreeView.BranchControl asChild={control => <button {...control()} type="button" class="section-head" data-button="quiet" aria-expanded={disclosure().open} tabIndex={0} onClick={event => {
       event.stopPropagation();
       disclosure().setOpen(!disclosure().open);
     }} onKeyDown={event => {
@@ -26,6 +28,6 @@ export const SectionHead = (props: {
     }}>
       <Icon name={props.icon} /><span>{props.label}</span>
       <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
-    </button>} />}
+    </button>} />{props.trailing}</div>}
   </Show>
 );
