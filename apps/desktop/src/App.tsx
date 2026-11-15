@@ -3,6 +3,7 @@ import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import { createProjectPanes } from "./terminal/ProjectPanes";
+import { InProject } from "./window/InProject";
 import { ProjectCentre } from "./window/ProjectCentre";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
@@ -18,7 +19,7 @@ import { CHORDS, LEADER } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
 import { batch, lazy, createEffect, createMemo, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
-import type { Accessor, JSX } from "solid-js";
+import type { Accessor } from "solid-js";
 import { ChooseProject, EmptyShelf } from "./window/FirstRun";
 import { EmptyRail } from "./rail/EmptyRail";
 import { Layout } from "./window/Layout";
@@ -54,16 +55,19 @@ import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
-import { createProjectDrafts, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
+import { createProjectDrafts, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
-import { connectedEntries, connectedOf, createConnections } from "./state/connections";
+import { connectedEntries, connectedOf, createConnections, failedOf } from "./state/connections";
 import { lazyXtermEmulators } from "./terminal/lazyEmulator";
 import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
+import { AskBar } from "./ask/AskBar";
+import { Feedback } from "./feedback/Feedback";
 import { createToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
+import { Switcher } from "./switcher/Switcher";
 import { ProjectPicker } from "./switcher/ProjectPicker";
 import type { ShelfRequest } from "./state/projectView";
 import { createShelfFrame } from "./shelf/frame";
@@ -88,13 +92,6 @@ const linkedItem = (content: LinkContent, onLateFailure: (message: string) => vo
     : content.kind === "todo" ? <TodoHost id={content.todo.id} /> : null;
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
-
-/** Project regions show loading until their connection is ready, and failure if setup fails. */
-const InProject = (props: { open: ConnectedProject | undefined; failure?: Error | undefined; failed?: (failure: Error) => JSX.Element; pending?: JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
-  <Show when={props.open} keyed fallback={<Show when={props.failure} keyed fallback={props.pending}>{(failure) => props.failed?.(failure)}</Show>}>
-    {(open) => <ConnectedProjectContext.Provider value={open}>{props.children(open)}</ConnectedProjectContext.Provider>}
-  </Show>
-);
 
 // The fold helper loads after mount so Motion's layout projection stays out of the entry bundle (R3800).
 const documentMotion = (reducedMotion: Accessor<boolean>) => {
@@ -288,11 +285,7 @@ export const App = (props: {
 
   const activeConnection = createMemo(() => connectionOf(projects.active() ?? ""));
 
-  const activeFailure = createMemo(() => {
-    const connection = connections().get(projects.active() ?? "");
-
-    return connection?.kind === "failed" && !connection.last ? connection.error : undefined;
-  });
+  const activeFailure = createMemo(() => failedOf(connections().get(projects.active() ?? "")));
 
   const activeBusy = () => projects.tabs().length > 0 && activeConnection() === undefined && activeFailure() === undefined;
 
@@ -437,10 +430,8 @@ export const App = (props: {
     };
   } }]);
 
-  const emulators = () => props.createEmulator ?? lazyXtermEmulators();
-
   const panes = createProjectPanes({
-    keys, active: projects.active, connectionOf, ready: () => activeConnection() !== undefined, createEmulator: emulators, observeTerminal: (path, id) => props.observeTerminal?.(path, id),
+    active: projects.active, connectionOf, createEmulator: () => props.createEmulator ?? lazyXtermEmulators(), observeTerminal: (path, id) => props.observeTerminal?.(path, id),
     arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
   });
 
@@ -527,7 +518,11 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)} viewLabel={id => views.find(([view]) => view === id)?.[1]} notify={toasts.notify} onFailure={setJumpFailure} onSwitcherOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
+            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)}>
+              <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
+              <Feedback notify={toasts.notify} />
+              <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
+            </ProjectCentre>
           </Show>
           </div>
           <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>

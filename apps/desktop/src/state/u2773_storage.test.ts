@@ -356,16 +356,19 @@ const openDraftProjects = async () => {
     },
   }));
 
+  // U7155a: a Project's Pane stays mounted across switches, so its newest connection is the one the last Terminal created for it saw.
+  const connection = (index: number) => seen.filter((open) => open.project.path === paths[index]).at(-1);
+
   const select = async (index: number) => {
     const tabs = within(await screen.findByRole("tablist", { name: "Projects" })).getAllByRole("tab");
     fireEvent.click(tabs[index]!);
     fireEvent.click(await waitFor(() => within(screen.getByRole("tree", { name: "Rail" })).getByText(`editor-${index}`)));
-    await waitFor(() => expect(seen.at(-1)?.project.path).toBe(paths[index]));
+    await waitFor(() => expect(connection(index)).toBeDefined());
 
-    return seen.at(-1)!;
+    return connection(index)!;
   };
 
-  return { app, paths, select, current: () => seen.at(-1), header: () => header, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
+  return { app, paths, select, connection, header: () => header, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
 };
 
 it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s", async (status) => {
@@ -385,7 +388,7 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
     expect(returned.drafts.list()).toEqual([{ ...a, status }, b]);
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
-    await waitFor(() => expect(opened.current()).not.toBe(first));
+    await waitFor(() => expect(opened.connection(0)).not.toBe(first));
     const replaced = await opened.select(0);
     expect(replaced).not.toBe(first);
     expect(replaced.drafts.list()).toEqual([{ ...a, status }, b]);
@@ -458,7 +461,7 @@ it("u2773e_shared_project_credentials_stay_memory_only_across_replacement", asyn
     const secret = (await retained(first.drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-shared-2812" }, null, "credential"))).draft;
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
-    await waitFor(() => expect(opened.current()).not.toBe(first));
+    await waitFor(() => expect(opened.connection(0)).not.toBe(first));
     const replaced = await opened.select(0);
     expect(replaced.drafts.list()).toEqual([secret]);
     expect(draftStorage(replaced.project.path).list()).toEqual([]);

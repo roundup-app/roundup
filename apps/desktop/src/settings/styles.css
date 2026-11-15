@@ -104,19 +104,18 @@
 }
 
 /* U7155a: every shown Project's Pane keeps its size; the inactive ones only stop painting. */
-.pane-host {
+.pane-host,
+.project-pending {
   position: absolute;
   inset: 0;
+}
+
+.pane-host {
   display: flex;
   flex-direction: column;
 }
 
 .pane-host[data-inactive] { visibility: hidden; }
-
-.project-pending {
-  position: absolute;
-  inset: 0;
-}
 
 .project-center-area {
   position: relative;
