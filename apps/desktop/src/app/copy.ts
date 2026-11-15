@@ -21,7 +21,6 @@ export const copy = {
   dismissFailure: sharedCopy.dismissFailure,
   openDraft: sharedCopy.openDraft,
   openEvidence: sharedCopy.openEvidence,
-  loadingProject: "Loading Project…",
   recoverNotes: sharedCopy.recoverNotes,
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   quitAndRunJustAppAgainToRebuild: "Quit and run `just app` again to rebuild it.",
