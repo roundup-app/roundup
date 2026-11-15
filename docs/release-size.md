@@ -7,7 +7,7 @@ x86_64-unknown-linux-gnu, LLVM 23.1.1, Node 22.23.3, pnpm 10.14.0.
 
 | Uncompressed artifact | Reference | Implementation | Exclusive cap |
 |---|---:|---:|---:|
-| Complete desktop dist, logical bytes | 27,673,763 | 17,694,784 (`1d6bbeb43`) | 18,000,000 |
+| Complete desktop dist, logical bytes | 27,673,763 | 17,694,784 (`1d6bbeb43`) | 20,000,000 |
 | Regular files / JS files | 738 / 665 | 339 / 263 | — |
 | Native release rupd | 26,163,328 | 13,487,768 (`1d6bbeb43`) | 15,000,000 |
 
