@@ -23,7 +23,7 @@ describe.each([["Solid", sourceToast], ["JS", compiledToast]] as const)("u492_%s
     // Call through to the real observer; detect installation after disposal.
     const observe = vi.spyOn(MutationObserver.prototype, "observe");
     const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
-    const toaster = library.createToaster({ placement: "bottom-end", removeDelay });
+    const toaster = library.createToaster({ placement: "top-end", removeDelay });
 
     const mounted = render(() => u492Fixture(toaster, library));
 

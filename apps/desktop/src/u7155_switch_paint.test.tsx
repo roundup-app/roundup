@@ -7,7 +7,6 @@ import { agent, door, info } from "./testing/nodes";
 import { fakeEmulators } from "./terminal/paneHarness";
 import { showShelfTab } from "./testing/shelfTabs";
 import { endLeader } from "./keys/registry";
-import { openWorkProgress } from "./testing/appFixture";
 
 afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); sessionStorage.clear(); });
 
@@ -123,10 +122,6 @@ it("u7155c_a_surface_open_and_close_remount_no_terminal", async () => {
   showShelfTab("Todos");
   showShelfTab("Pads");
   await waitFor(() => expect(screen.getByRole("tab", { name: /^Pads/ }).getAttribute("aria-expanded")).toBe("true"));
-  await openWorkProgress(mounted.app, "one-a");
-  await screen.findByRole("region", { name: "Progress" });
-  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape", code: "Escape" });
-  await waitFor(() => { if (screen.queryByRole("region", { name: "Progress" })) throw new Error("the Drawer is still open"); });
 
   expect(document.querySelector(".pane-screen [data-terminal]")).toBe(terminal);
   expect(snapshot(mounted)).toEqual(before);

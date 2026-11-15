@@ -282,18 +282,32 @@
 
 .bubble-failure {
   position: absolute;
-  bottom: var(--space-2);
   left: var(--space-2);
   right: var(--space-2);
   pointer-events: auto;
   background: var(--ground);
 }
 
-/* The centre-wide failure stays above navigation; a Bubble’s own failure stays inside its frame. */
+/* U7192: a Bubble’s own failure takes a row under its header and the Terminal body shrinks by it, so it never covers the output. */
+.bubble .bubble-failure[data-overlay="true"] {
+  position: static;
+  flex: none;
+}
+
+.bubble .bubble-body {
+  order: 1;
+}
+
+/* U7192: the centre-wide failure takes the centre's top row and the Terminal area sits one line lower while it shows. */
 .bubbles .bubble-failure[data-overlay="true"] {
-  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+  top: 0;
+  bottom: auto;
   inset-inline: var(--space-2);
   inline-size: auto;
+}
+
+.centre-stack:has(.bubble-failure) .project-center-area {
+  margin-block-start: var(--line);
 }
 
 .bubble-recovery {

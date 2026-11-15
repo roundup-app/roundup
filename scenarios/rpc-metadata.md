@@ -89,8 +89,8 @@ code-to-copy coverage; adding a method using existing codes must need no App edi
    `crates/contracts/src/describe.rs`, `extra_text`, `list` and `describe`:
    current descriptions and public description behavior.
 5. `scenarios/failure-handling.md`, U3791b;
-   `apps/desktop/src/app/u3791b_codes.test.ts`, `u3791b_every_rpc_code_has_copy`
-   and `u3791b_thrown_outcome_preserves_uncertainty`: independent error-code proof.
+   `apps/desktop/src/app/u3791b_codes.test.ts`,
+   `u3791b_thrown_outcome_preserves_uncertainty`: independent error-code proof.
 
 Implementation observer: the C5459b negative fixture and repaired case above,
 the extended C4 addition observer, the retained focused consumer tests and

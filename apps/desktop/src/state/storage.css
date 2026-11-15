@@ -73,11 +73,16 @@
   gap: var(--space-5);
 }
 
-/* U3787a: failure feedback clears the Terminal bar and its hints. */
+/* U3787a, U7192: failure feedback takes the centre's top row and the centre sits one line lower while it shows, so it never covers the Terminal. */
 .todo-undo[data-overlay="true"] {
-  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+  top: 0;
+  bottom: auto;
   padding-inline: var(--space-3);
   z-index: var(--layer-toast);
+}
+
+.storage-center:has(.todo-undo:not([data-empty="true"])) .centre-frame {
+  margin-block-start: var(--line);
 }
 
 .storage-gate-folder {

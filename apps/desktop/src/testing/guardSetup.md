@@ -27,11 +27,13 @@ local measurement. Do not change real-Claude, Rust or U26 failure observers.
 
 `vite.config.ts` uses Vitest 5 inline projects. `webkit-guards` includes exactly
 the three prescribed paths; `app` includes the existing test glob, excludes
-those paths plus Vitest's default exclusions, and owns the unchanged
-`warmChrome.ts` / `globalAppServer.ts` hooks. Both inherit jsdom, domStubs,
-Solid transforms, CSS and module resolution. Keep includes on the projects:
-Vitest concatenates inherited include arrays, which would broaden the cheap
-selection. Root global setup would run even for the cheap project.
+those paths, the browser files and Vitest's default exclusions, and starts no
+browser or App server. `browser` includes the test files that reach
+`chromePage` or `appServer` (T7187a, `browserTests.ts`) and owns the unchanged
+`warmChrome.ts` / `globalAppServer.ts` hooks, as does `heavy`. All inherit
+jsdom, domStubs, Solid transforms, CSS and module resolution. Keep includes on
+the projects: Vitest concatenates inherited include arrays, which would broaden
+the cheap selection. Root global setup would run even for the cheap project.
 
 ## Implementation observation
 

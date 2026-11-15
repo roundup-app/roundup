@@ -1,4 +1,4 @@
-/* U3792: Notification Stack's folded pile, after AffectUI's MIT CSS (https://www.affectui.com/components/notification-stack). Ark sets --index, --y, --scale and --opacity per card: folded, each card behind is 5% smaller and one gap higher; fanned out, each rests at its own offset. */
+/* U3792: Notification Stack's folded pile, after AffectUI's MIT CSS (https://www.affectui.com/components/notification-stack). Ark sets --index, --y, --scale and --opacity per card: folded, each card behind is 5% smaller and one gap lower (U7192: the stack hangs from the top edge); fanned out, each rests at its own offset. */
 .app-toast[data-scope="toast"] {
   right: 0;
   width: calc(var(--shelf-width) - var(--space-6));
@@ -7,7 +7,7 @@
   border-radius: var(--radius-control);
   translate: var(--x) var(--y);
   scale: var(--scale, 1);
-  transform-origin: bottom center;
+  transform-origin: top center;
   opacity: var(--opacity);
   z-index: 0;
   will-change: translate, scale, opacity;
@@ -31,14 +31,14 @@
   visibility: hidden;
 }
 
-/* U3793: a leaving card fades and sinks one gap from where Ark placed it. */
+/* U3793, U7192: a leaving card fades and moves one gap toward the edge it entered from; Ark's --sign is -1 on the top stack. */
 .app-toast[data-state="closed"] {
-  translate: var(--x) calc(var(--lift) * var(--offset) + var(--space-2));
+  translate: var(--x) calc(var(--lift) * var(--offset) + var(--sign) * var(--space-2));
   transition-duration: var(--duration-toast);
 }
 
 .app-toast[data-state="closed"][data-overlap] {
-  translate: var(--x) calc(var(--lift-amount) * var(--index) + var(--space-2));
+  translate: var(--x) calc(var(--lift-amount) * var(--index) + var(--sign) * var(--space-2));
 }
 
 .app-toast-bar {
