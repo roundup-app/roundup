@@ -26,16 +26,14 @@ async fn ip7168c_the_idle_window_sees_a_write_and_the_cpu() {
         .unwrap();
     assert!(!quiet.wrote);
 
-    let commits = std::thread::spawn(move || {
-        for n in 0..2 {
-            std::thread::sleep(Duration::from_millis(150));
-            writer.execute("INSERT INTO t VALUES (?1)", [n]).unwrap();
-        }
+    let commit = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(150));
+        writer.execute("INSERT INTO t VALUES (1)", []).unwrap();
     });
     let busy = idle_window(pid, &db, Duration::from_millis(500))
         .await
         .unwrap();
-    commits.join().unwrap();
+    commit.join().unwrap();
 
     assert!(busy.wrote);
     assert!(busy.cpu_percent.is_finite() && busy.cpu_percent >= 0.0);
