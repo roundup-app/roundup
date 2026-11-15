@@ -2,7 +2,6 @@ import { useTodoList } from "../todos/todoList";
 import { usePadList } from "../pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
-import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "./EmptyRail";
 import { failureOf } from "../app/failureOf";
 import { captureFocus, returnFocus } from "../keys/focus";
@@ -138,13 +137,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
         { when: node.kind === "agent" && node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
         { when: node.kind === "agent" && node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
         { when: isMode(node), id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } },
-        {
-          when: node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null,
-          id: "progress", label: copy.workProgress, run: () => {
-            rowElement(node.id)?.focus({ preventScroll: true });
-            connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
-          },
-        },
         { when: isMode(node), id: "mode-prompt", label: copy.modePromptMenu, run: () => { setDialog({ kind: "opening-prompt", id: node.id }); } },
         { id: "folder", label: copy.openFolder, run: actions.folder },
         { id: "editor", label: copy.openInEditor, run: actions.editor },

@@ -7,7 +7,6 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
 import { captureDir } from "../testing/captures";
-import { progressSeed } from "../testing/progressSeed";
 
 const exec = promisify(execFile);
 
@@ -175,20 +174,6 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
       await wait("!!document.querySelector('.import-panel')");
       await snap("import-controls");
       await controls("import-controls-control", ".import-panel");
-      await load("agents-10");
-      await read(`(() => {
-        const seed = ${JSON.stringify(progressSeed({ project: "/Users/you/project", agent: "agent-1" }))};
-        window.__fake.app.handlers['message.progress'] = () => seed.progress;
-        window.__fake.app.handlers['message.reconcileWork'] = () => seed.plan;
-      })()`);
-      await browser("focus", '.rail-row[data-id="agent-1"]');
-      await browser("press", "Shift+F10");
-      await wait("!!document.querySelector('[role=menuitem]')");
-      await browser("find", "role", "menuitem", "click", "--name", "Work progress", "--exact");
-      await wait("!!document.querySelector('.progress-row')");
-      await browser("click", '.progress-earlier [data-part=trigger]');
-      await snap("work-progress-results");
-      await controls("work-progress-control", ".progress-section");
       await load("tree-40", "&view=made");
       await snap("made-controls");
       await controls("made-controls-control", ".made");
