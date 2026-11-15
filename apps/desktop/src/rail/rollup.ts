@@ -2,7 +2,7 @@ import type { Kind } from "@contracts/Kind";
 import type { WorkstreamState } from "@contracts/agent/WorkstreamState";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { byUrgency } from "../ink/glyph";
-import { attentionCounts, statusOf } from "./attention";
+import { attentionCounts, raisesAttention, statusOf } from "./attention";
 import { agentKindsBelow } from "./layout";
 import { descendantsOf, isWorkstream, type RailSource } from "../state/railTopology";
 
@@ -39,6 +39,6 @@ export const markKind = (kind: Kind | null): Kind => kind ?? "idle";
 export const rowUnread = (source: RailSource, node: RailNode, unseen: (id: string) => boolean, folded: boolean): boolean =>
   unseen(node.id) || ((isWorkstream(node) || node.kind === "group") && folded && descendantsOf(source, node.id).some(each => unseen(each.id)));
 
-/** PS12: how many of the row and its Agents below need you or failed, as the Project's count reads them (quiet and dismissed ones excluded). */
+/** PS12, U7189: how many of the row and its Agents below need you or failed, as the Project's count reads them (quiet, unstarted and dismissed ones excluded). */
 export const rowAttention = (source: RailSource, node: RailNode, dismissed: Dismissed) =>
-  attentionCounts([node, ...descendantsOf(source, node.id)].flatMap(each => each.alert_level !== "quiet" && !dismissed(each) ? [{ status: statusOf(each) }] : []));
+  attentionCounts([node, ...descendantsOf(source, node.id)].flatMap(each => raisesAttention(each) && !dismissed(each) ? [{ status: statusOf(each) }] : []));

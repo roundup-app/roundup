@@ -8,6 +8,10 @@ import { CHORDS, LEADER, leaderKeys, shortcutLabel } from "../keys/chords";
 import { historyRegion, isTextEntry } from "../keys/focus";
 import type { Kind } from "@contracts/Kind";
 import { doorAttempt, doorStatus } from "../state/doorNode";
+import { attentionList, raisesAttention } from "../rail/attention";
+import { nameOf, revealTerminal } from "../bubbles/places";
+import { statusText } from "../terminal/programStatus";
+import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -32,12 +36,16 @@ const short = (text: string) => {
   return parts.length > 24 ? parts.slice(0, 23).join("") + "…" : parts.join("");
 };
 
+/** What a row sends back when chosen: its action's kind and the identity it retains. */
+const actionKey = (action: MenuBar["entries"][number]["action"]): readonly string[] =>
+  action?.kind === "agent" ? [action.kind, action.path, action.agent] : action?.kind === "terminal" ? [action.kind, action.path, action.terminal] : [action?.kind ?? ""];
+
 const sameEntries = (a: MenuBar["entries"], b: MenuBar["entries"]) => a.length === b.length && a.every((x, i) => {
   const y = b[i]!;
+  const [left, right] = [actionKey(x.action), actionKey(y.action)];
 
   return x.label === y.label && x.subtitle === y.subtitle && x.state === y.state && x.head === y.head && x.since === y.since
-    && x.action?.kind === y.action?.kind
-    && (x.action?.kind !== "agent" || (y.action?.kind === "agent" && x.action.path === y.action.path && x.action.agent === y.action.agent));
+    && left.length === right.length && left.every((part, at) => part === right[at]);
 });
 
 const samePresentation = (a: MenuBar, b: MenuBar) => a.mark === b.mark && sameEntries(a.entries, b.entries) && sameEntries(a.dock, b.dock);
@@ -48,7 +56,7 @@ export const watchMenuBar = (options: {
   app: App;
   tabs: () => OpenTab[];
   connection: (path: string) => ConnectedProject | undefined;
-  select: (path: string, agent: string) => void;
+  select: (path: string, agent: string | null) => void;
   open: () => void;
   /** The line the user sees: a publication read that failed, so a marker stays unread. */
   fail: (message: string | null) => void;
@@ -70,12 +78,22 @@ export const watchMenuBar = (options: {
 
       if (!connection || tab.exit) return [];
 
-      return connection.rail.nodes.flatMap(node => {
+      // U7189: the one attention list says who is Waiting; Terminals that need you are Waiting rows too.
+      const attention = attentionList(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed);
+      const waitingNodes = new Set(attention.flatMap(entry => entry.kind === "agent" ? [entry.node.id] : []));
+      const project = tabs.length > 1 ? literal(tab.project.name) : null;
+
+      const terminalRows = attention.flatMap(entry => entry.kind !== "terminal" ? [] : [{
+        path: tab.project.path, id: `terminal:${entry.terminal.id}`, action: { kind: "terminal" as const, path: tab.project.path, terminal: entry.terminal.id }, waiting: true, since: entry.status.since,
+        state: stateOf(entry.status.kind, true), label: sentence(nameOf(entry.terminal)), subtitle: menuBarCopy.subtitle(short(statusText(entry.status)), project),
+      }]);
+
+      return [...terminalRows, ...connection.rail.nodes.flatMap(node => {
         const status = doorStatus(node);
 
-        if (!status || node.alert_level === "quiet" || (node.kind === "workstream" && node.attempt === null)) return [];
+        if (!status || !raisesAttention(node)) return [];
 
-        const waiting = status.kind === "needs-you" || status.kind === "error" && !connection.rail.dismissed(node);
+        const waiting = waitingNodes.has(node.id);
         const publication = connection.unseen.publicationAt(node.id);
         const finish = connection.unseen.of(node.id);
         const ready = finish || publication !== null;
@@ -91,13 +109,13 @@ export const watchMenuBar = (options: {
 
         const since = waiting ? waitingSince.get(key)!.since : Math.max(finish ? connection.unseen.finishAt(node.id) : 0, publication ?? 0);
 
-        return [{ path: tab.project.path, agent: node.id, waiting, since, state: stateOf(status.kind, waiting),
-          label: sentence(node.name), subtitle: menuBarCopy.subtitle(short(status.label), tabs.length > 1 ? literal(tab.project.name) : null) }];
-      });
+        return [{ path: tab.project.path, id: node.id, action: { kind: "agent" as const, path: tab.project.path, agent: node.id }, waiting, since, state: stateOf(status.kind, waiting),
+          label: sentence(node.name), subtitle: menuBarCopy.subtitle(short(status.label), project) }];
+      })];
     }).sort((a, b) => Number(b.waiting) - Number(a.waiting)
       || (a.waiting ? a.since - b.since : b.since - a.since)
       || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
-      || (a.agent < b.agent ? -1 : a.agent > b.agent ? 1 : 0));
+      || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
     for (const key of waitingSince.keys()) {
       if (!current.has(key)) waitingSince.delete(key);
@@ -123,7 +141,7 @@ export const watchMenuBar = (options: {
       for (const row of shown.slice(0, limit)) {
         if (group !== row.waiting) result.push({ label: row.waiting ? menuBarCopy.waiting : menuBarCopy.ready, head: true, action: null });
         group = row.waiting;
-        result.push({ label: row.label, subtitle: row.subtitle, state: row.state, since: row.since, action: { kind: "agent", path: row.path, agent: row.agent } });
+        result.push({ label: row.label, subtitle: row.subtitle, state: row.state, since: row.since, action: row.action });
       }
 
       if (shown.length === 0) result.push({ label: menuBarCopy.empty, action: null });
@@ -162,6 +180,18 @@ export const watchMenuBar = (options: {
  return; }
 
     options.open();
+
+    if (action.kind === "terminal") {
+      const rail = options.tabs().some(tab => tab.project.path === action.path) ? options.connection(action.path)?.rail : undefined;
+      const terminal = rail?.terminals().find(each => each.id === action.terminal);
+
+      // U6249d: a row whose Terminal is gone drops without a message. U7189: its Project opens first; the Bubble mounts there.
+      if (rail && terminal) {
+        options.fail(null);
+        options.select(action.path, terminal.owner === action.path ? null : terminal.owner);
+        queueMicrotask(() => revealTerminal(rail, action.path, terminal));
+      }
+    }
 
     if (action.kind === "agent") {
       const rail = options.connection(action.path)?.rail;
