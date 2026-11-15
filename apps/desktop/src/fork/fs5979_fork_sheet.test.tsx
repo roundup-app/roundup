@@ -233,7 +233,7 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
     await waitFor(() => expect(inputOf(field).value).toBe("fork"));
     await userEvent.setup().clear(field);
     await userEvent.setup().type(field, "MAIN {Enter}");
-    await screen.findByText(/held by the Fork at \/h\/forks\/main/);
+    await screen.findByText(/held by Fork at \/h\/forks\/main/);
     expect(forkMake).not.toHaveBeenCalled();
   });
 

@@ -595,7 +595,7 @@ fn c6629a_a_bad_fork_name_fails_to_parse() {
 }
 
 #[tokio::test]
-async fn ai7152c_data_fork_refuses_a_held_name_or_colour_and_writes_nothing() {
+async fn ai7152c_data_fork_refuses_a_name_or_colour_another_app_has_and_writes_nothing() {
     let live = live();
     let first = live.fork_dir("first");
     let made = fork(&live, &first, json!({"name":"main","colour":"red"})).await;

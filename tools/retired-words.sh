@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B3563f/U5501: reject retired delivery words, except exact held-alert vocabulary.
+# B3563f/U5501: reject retired delivery words, except exact held-alert vocabulary and AI7152c's refusal text.
 # Scan production roots, comments and tests included, in any case. `$1` is the root.
 set -euo pipefail
 root=${1:-.}
@@ -46,6 +46,11 @@ alert_tokens = {
     "crates/rupd/src/attention.rs": {"held"},
     "crates/rupd/src/config_tests.rs": {"held"},
     "apps/desktop/src/testing/shardDurations.json": {"u5501_held"},
+    # AI7152c: the refusal text `name "x" is held by ...`, as `scenarios/app-identity.md` words it.
+    "apps/desktop/src/fork/copy.ts": {"held"},
+    "apps/desktop/src/fork/fs5979_fork_sheet.test.tsx": {"held"},
+    "crates/contracts/src/identity.rs": {"held"},
+    "crates/rupd/src/fork_tests.rs": {"held"},
 }
 
 bad = set()

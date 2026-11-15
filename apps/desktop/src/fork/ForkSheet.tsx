@@ -17,12 +17,11 @@ import { createForkTicks, forkRows, type ForkRow, type ForkSource } from "./fork
 
 const COLOURS: readonly ForkColour[] = ["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"];
 
-/** AI7152a: each Channel's fixed colour, as `contracts::identity::CHANNELS` holds them. */
-const CHANNELS: readonly { holder: string; names: readonly string[]; colour: ForkColour }[] = [
-  { ...forkCopy.channels.stable, colour: "orange" },
-  { ...forkCopy.channels.dev, colour: "violet" },
-  { ...forkCopy.channels.source, colour: "blue" },
-];
+/** AI7152a, AI7152b: a Channel's name, fixed colour and reserved names: the name and its last word (`Roundup Dev`, `Dev`). */
+const channel = (name: string, colour: ForkColour) => ({ name, colour, reserved: [name, name.slice(name.lastIndexOf(" ") + 1)] });
+
+/** As `contracts::identity::CHANNELS` holds them. */
+const CHANNELS = [channel(forkCopy.channelStable, "orange"), channel(forkCopy.channelDev, "violet"), channel(forkCopy.channelSource, "blue")];
 
 /** AI7152d: the first free colour is chosen: teal, then `ForkColour` order. */
 const FIRST: readonly ForkColour[] = ["teal", ...COLOURS.filter(colour => colour !== "teal")];
@@ -70,9 +69,9 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
 
   const holder = (): string | null => {
     const folded = fold(name());
-    const channel = CHANNELS.find(taken => taken.names.some(held => fold(held) === folded));
+    const taker = CHANNELS.find(taken => taken.reserved.some(reserved => fold(reserved) === folded));
 
-    if (channel) return channel.holder;
+    if (taker) return taker.name;
 
     const fork = forks().find(taken => fold(taken.name) === folded);
 
@@ -83,7 +82,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
     if (!validName(name())) return forkCopy.invalidName;
     const taken = holder();
 
-    return taken ? forkCopy.held(name(), taken) : null;
+    return taken ? forkCopy.claimedBy(name(), taken) : null;
   };
 
 

@@ -380,7 +380,7 @@ mod tests {
     }
 
     #[test]
-    fn ai7152e_edit_rewrites_only_fork_json_and_refuses_a_held_value() {
+    fn ai7152e_edit_rewrites_only_fork_json_and_refuses_a_value_another_app_has() {
         let home = scratch("ai7152e-edit");
         let forks = home.join("forks");
         for (folder, name, colour) in [("a", "main", "red"), ("b", "main2", "teal")] {
