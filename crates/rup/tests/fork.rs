@@ -15,8 +15,11 @@ use tokio::net::UnixListener;
 use tokio::sync::mpsc;
 
 /// A stand-in Daemon on `socket`: it answers every call with `null` but `data.fork`, whose params
-/// arrive on the channel and whose answer is `result` (or an error when `result` is `None`).
-fn daemon(socket: &std::path::Path, result: Option<Value>) -> mpsc::UnboundedReceiver<Value> {
+/// arrive on the channel and whose answer is `result`, or the `INVALID_PARAMS` refusal `message`.
+fn daemon(
+    socket: &std::path::Path,
+    result: Result<Value, &'static str>,
+) -> mpsc::UnboundedReceiver<Value> {
     let listener = UnixListener::bind(socket).unwrap();
     let (seen, log) = mpsc::unbounded_channel();
     tokio::spawn(async move {
@@ -31,11 +34,11 @@ fn daemon(socket: &std::path::Path, result: Option<Value>) -> mpsc::UnboundedRec
                     let reply = if request["method"] == "data.fork" {
                         let _ = seen.send(request["params"].clone());
                         match &result {
-                            Some(result) => {
+                            Ok(result) => {
                                 json!({"jsonrpc":"2.0","id":request["id"],"result":result})
                             }
-                            None => {
-                                json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32602,"message":"refused"}})
+                            Err(message) => {
+                                json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":-32602,"message":message}})
                             }
                         }
                     } else {
@@ -74,7 +77,7 @@ async fn fk5977d_the_flags_send_the_picks_and_the_result_is_printed() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
     let result = json!({"path":"/f","projects":[{"key":"a-1","agents":["3"],"todos":2,"pads":1,"messages":4,"history":5}]});
-    let mut log = daemon(&socket, Some(result));
+    let mut log = daemon(&socket, Ok(result));
     let output = rup(
         &socket,
         &[
@@ -115,7 +118,7 @@ async fn fk5977d_the_flags_send_the_picks_and_the_result_is_printed() {
 async fn fk5977d_a_refusal_fails_the_command_and_a_bad_colour_is_bad_usage() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let mut log = daemon(&socket, None);
+    let mut log = daemon(&socket, Err("refused"));
     let refused = rup(
         &socket,
         &["data", "fork", "/f", "--name", "Try", "--colour", "red"],
@@ -131,4 +134,27 @@ async fn fk5977d_a_refusal_fails_the_command_and_a_bad_colour_is_bad_usage() {
     .await;
     assert_eq!(bad.status.code(), Some(2));
     assert!(log.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn ai7152c_the_cli_prints_the_holder_and_exits_failed_with_nothing_written() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let message =
+        "name \"main\" is held by the Fork at /h/forks/main; colour violet is held by Dev";
+    let mut log = daemon(&socket, Err(message));
+    let refused = rup(
+        &socket,
+        &["data", "fork", "/f", "--name", "MAIN", "--colour", "violet"],
+    )
+    .await;
+    assert_eq!(refused.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        stderr.contains(&format!("rup: {message} (INVALID_PARAMS)")),
+        "{stderr}"
+    );
+    assert!(stderr.contains("nothing was written"), "{stderr}");
+    assert!(refused.stdout.is_empty());
+    log.recv().await.unwrap();
 }
