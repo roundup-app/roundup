@@ -496,14 +496,14 @@ export const App = (props: {
         }
         centre={
           <div class="storage-center">
-          <For each={drafts.paths?.() ?? keys()}>{path => {
-            const undo = drafts(path).undo;
-
-            const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
-
-            return <ReservedLine class="todo-undo" overlay message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>} />;
-          }}</For>
           <div class="centre-failures">
+            <For each={drafts.paths?.() ?? keys()}>{path => {
+              const undo = drafts(path).undo;
+
+              const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
+
+              return <ReservedLine class="todo-undo" overlay message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>} />;
+            }}</For>
             <For each={keys()}>{path => {
               const failure = () => connectionOf(path)?.rail.commandFailure;
               const message = () => projects.active() !== path && failure()?.surface() === "rail" ? failure()?.message() : null;

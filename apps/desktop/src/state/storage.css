@@ -73,11 +73,15 @@
   gap: var(--space-5);
 }
 
-/* U3787a: failure feedback clears the Terminal bar and its hints. */
-.todo-undo[data-overlay="true"] {
-  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+/* U3787a, U7192: failure feedback joins the centre's other failures at its top edge, never over the Terminal's input; an empty line takes no room in that column. */
+.centre-failures .todo-undo[data-overlay="true"] {
+  position: static;
+  pointer-events: auto;
   padding-inline: var(--space-3);
-  z-index: var(--layer-toast);
+}
+
+.centre-failures .todo-undo[data-empty="true"] {
+  display: none;
 }
 
 .storage-gate-folder {

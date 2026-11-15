@@ -54,6 +54,7 @@
 
 
 .bubble {
+  --bubble-header-height: calc(var(--space-5) + var(--space-1));
   position: absolute;
   box-sizing: border-box;
   display: flex;
@@ -85,7 +86,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  height: calc(var(--space-5) + var(--space-1));
+  height: var(--bubble-header-height);
   padding-inline: var(--space-2);
   cursor: grab;
 }
@@ -282,16 +283,22 @@
 
 .bubble-failure {
   position: absolute;
-  bottom: var(--space-2);
   left: var(--space-2);
   right: var(--space-2);
   pointer-events: auto;
   background: var(--ground);
 }
 
-/* The centre-wide failure stays above navigation; a Bubble’s own failure stays inside its frame. */
+/* U7192: a Bubble’s own failure hangs from the top of its frame, under the header, never over the Terminal's input at the bottom. */
+.bubble .bubble-failure[data-overlay="true"] {
+  top: calc(var(--bubble-header-height) + var(--space-2));
+  bottom: auto;
+}
+
+/* The centre-wide failure hangs from the centre's top edge (U7192), above the Terminal's input. */
 .bubbles .bubble-failure[data-overlay="true"] {
-  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+  top: var(--space-2);
+  bottom: auto;
   inset-inline: var(--space-2);
   inline-size: auto;
 }
