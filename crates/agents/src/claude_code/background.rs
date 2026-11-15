@@ -437,7 +437,7 @@ mod tests {
 
     /// A7180d: a Stop that background work holds `working` reads its message when the work ends.
     #[test]
-    fn a7180d_a_held_stop_that_asked_shows_needs_you_when_the_work_ends() {
+    fn a7180d_a_stop_kept_working_by_a_process_shows_needs_you_when_it_ends() {
         let mut a = agent();
         hook(&mut a, json!({"hook_event_name":"UserPromptSubmit"}));
         hook(
@@ -445,8 +445,8 @@ mod tests {
             json!({"hook_event_name":"Stop","last_assistant_message":"Should I ship it?"}),
         );
         let shell = [tool_shell(10, 1, 0, "npm test")];
-        let held = a.observe_processes(1, Ok(&shell)).expect("pending");
-        assert_eq!(held.kind, Kind::Working);
+        let running = a.observe_processes(1, Ok(&shell)).expect("pending");
+        assert_eq!(running.kind, Kind::Working);
         let done = a.observe_processes(1, Ok(&[])).expect("released");
         assert_eq!(
             (done.kind, done.label.as_str()),

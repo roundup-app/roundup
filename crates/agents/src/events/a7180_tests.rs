@@ -86,14 +86,26 @@ impl Fixture {
         }
     }
 
+    /// Wait for the Agent's Status to be `kind`; every fold wakes the wait, so no clock polls.
     async fn until(&self, kind: &str) {
-        for _ in 0..400 {
-            if self.status()["kind"] == kind {
-                return;
+        let observed = &self.shared.events.observed;
+        let reached = async {
+            loop {
+                let folded = observed.notified();
+                tokio::pin!(folded);
+                folded.as_mut().enable();
+                if self.status()["kind"] == kind {
+                    return;
+                }
+                folded.await;
             }
-            tokio::time::sleep(Duration::from_millis(5)).await;
+        };
+        if tokio::time::timeout(Duration::from_secs(5), reached)
+            .await
+            .is_err()
+        {
+            panic!("never {kind}: {}", self.status());
         }
-        panic!("never {kind}: {}", self.status());
     }
 }
 

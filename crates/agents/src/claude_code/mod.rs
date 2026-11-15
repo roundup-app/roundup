@@ -141,7 +141,7 @@ pub struct ClaudeCode {
     /// DCL5: when the vendor last gave a Signal or a title; ticks and process snapshots are not activity.
     active_at: i64,
     /// A7180: the `needs-you` label the last Stop's message earned, kept so a Stop that background
-    /// work held shows it when the work ends.
+    /// work keeps `working` shows it when the work ends.
     asking: Option<String>,
     /// A7180: the last Stop's turn, start and text while the model reads what the rules could not.
     unclear: Option<Arc<(String, i64, String)>>,

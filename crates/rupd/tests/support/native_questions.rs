@@ -584,9 +584,15 @@ async fn a5482c_plain_text_question_reaches_the_lead_and_gets_an_inbox_answer() 
         let body = digest["body"].as_str().unwrap();
         assert_eq!(digest["kind"], "note");
         let id = u32::try_from(digest["id"].as_u64().unwrap()).unwrap();
+        // A7180: a final text that asks makes the child `needs-you`; a report leaves it idle.
+        let status = if text == "Publishing is complete" {
+            "builder is idle"
+        } else {
+            "builder is needs-you"
+        };
         let delivered = receive(&run, &lead, id).await;
-        assert!(delivered.contains("builder is idle"), "{delivered}");
-        assert!(body.contains("builder is idle"), "{body}");
+        assert!(delivered.contains(status), "{delivered}");
+        assert!(body.contains(status), "{body}");
         if text.contains('\n') {
             assert!(body.contains("[cut]"), "{body}");
             let read = lead
