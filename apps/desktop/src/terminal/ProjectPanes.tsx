@@ -1,5 +1,5 @@
 import { provideFocusTarget } from "../keys/focus";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, on, onCleanup, Show, untrack } from "solid-js";
 import { Pane } from "./Pane";
 import { doorTerminalId } from "../state/doorNode";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -25,8 +25,18 @@ type Options = {
 export const createProjectPanes = (options: Options) => {
   const [screens, setScreens] = createSignal<ReadonlyMap<string, Screens>>(new Map());
 
+  const [shown, setShown] = createSignal<string[]>([]);
+
   // A Project keeps its Pane from its first connection until its connection ends.
-  const shown = createMemo<string[]>(kept => [...new Set([...kept, options.active() ?? ""])].filter(path => options.connectionOf(path)), []);
+  createEffect(() => {
+    const active = options.active();
+    const kept = untrack(shown);
+    const next = kept.filter(path => options.connectionOf(path));
+
+    if (active !== null && options.connectionOf(active) && !next.includes(active)) next.push(active);
+
+    if (next.length !== kept.length || next.some((path, index) => path !== kept[index])) setShown(next);
+  });
 
   const setScreen = (path: string, shared: Screens | undefined) => setScreens(known => {
     const next = new Map(known);
