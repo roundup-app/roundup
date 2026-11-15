@@ -1,5 +1,5 @@
 import { provideFocusTarget } from "../keys/focus";
-import { createEffect, createSignal, For, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Pane } from "./Pane";
 import { doorTerminalId } from "../state/doorNode";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -63,6 +63,16 @@ export const createProjectPanes = (options: Options) => {
     onCleanup(() => setScreen(path, undefined));
 
     let host: HTMLDivElement | undefined;
+
+    // IP7168d: styles.css pauses a Pane's Terminals while `data-inactive` is set. The attribute's removal draws them in the same task, so the first frame of the switch holds the output they missed; xterm resumes from an observer a task later.
+    onMount(() => {
+      if (!host) return;
+
+      const shown = new MutationObserver(() => { if (!host?.hasAttribute("data-inactive")) screens().get(path)?.redraw(); });
+
+      shown.observe(host, { attributes: true, attributeFilter: ["data-inactive"] });
+      onCleanup(() => shown.disconnect());
+    });
 
     createEffect(on(active, now => {
       if (!now) return;

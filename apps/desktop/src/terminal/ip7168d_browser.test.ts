@@ -11,10 +11,21 @@ const write = (text: string) =>
 const drawn = (text: string) =>
   `[...document.querySelectorAll('.pane-host .xterm-rows')].some(rows => rows.textContent.includes('${text}'))`;
 
-/** Frames and the observer's own turn: xterm pauses and resumes from an `IntersectionObserver` notification. */
+/** xterm pauses from an `IntersectionObserver` notification; this observer is made after xterm's, so it is told once xterm has been. */
+const outsideViewport = () =>
+  read(`new Promise(resolve => {
+    const observer = new IntersectionObserver(entries => {
+      if (entries.at(-1).isIntersecting) return;
+      observer.disconnect();
+      resolve(true);
+    });
+    observer.observe(document.querySelector('.pane-host .xterm-screen'));
+  })`);
+
+/** A render xterm had queued has run by the second frame. */
 const frames = () =>
   read(
-    "new Promise(resolve => setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(resolve)), 300))",
+    "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
   );
 
 it("ip7168d_a_hidden_panes_terminal_parses_output_and_draws_nothing_until_shown", async () => {
@@ -42,7 +53,7 @@ it("ip7168d_a_hidden_panes_terminal_parses_output_and_draws_nothing_until_shown"
   await read(
     "document.querySelector('.pane-host').setAttribute('data-inactive', '')",
   );
-  await frames();
+  await outsideViewport();
   await write("\r\nHIDDENMARK7168");
   await frames();
 
@@ -53,8 +64,12 @@ it("ip7168d_a_hidden_panes_terminal_parses_output_and_draws_nothing_until_shown"
   ).toContain("HIDDENMARK7168");
   expect(await read<boolean>(drawn("HIDDENMARK7168"))).toBe(false);
 
-  await read(
-    "document.querySelector('.pane-host').removeAttribute('data-inactive')",
-  );
-  await wait(drawn("HIDDENMARK7168"));
+  // Shown by the attribute alone: the draw lands in the same task, before any frame.
+  expect(
+    await read<boolean>(`(async () => {
+      document.querySelector('.pane-host').removeAttribute('data-inactive');
+      await Promise.resolve();
+      return ${drawn("HIDDENMARK7168")};
+    })()`),
+  ).toBe(true);
 }, 60_000);
