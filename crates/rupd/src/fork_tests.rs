@@ -595,7 +595,7 @@ fn c6629a_a_bad_fork_name_fails_to_parse() {
 }
 
 #[tokio::test]
-async fn ai7152c_data_fork_refuses_a_held_name_or_colour_and_writes_nothing() {
+async fn ai7152c_data_fork_refuses_a_taken_name_or_colour_and_writes_nothing() {
     let live = live();
     let first = live.fork_dir("first");
     let made = fork(&live, &first, json!({"name":"main","colour":"red"})).await;
@@ -610,13 +610,13 @@ async fn ai7152c_data_fork_refuses_a_held_name_or_colour_and_writes_nothing() {
     let reply = fork(&live, &second, json!({"name":"MAIN ","colour":"green"})).await;
     refused(
         &reply,
-        &format!("is held by the Fork at {}", first.display()),
+        &format!("is taken by the Fork at {}", first.display()),
     );
     let reply = fork(&live, &second, json!({"name":"Other","colour":"violet"})).await;
-    refused(&reply, "colour violet is held by Roundup Dev");
+    refused(&reply, "colour violet is taken by Roundup Dev");
     let reply = fork(&live, &second, json!({"name":"main","colour":"red"})).await;
-    refused(&reply, "name \"main\" is held");
-    refused(&reply, "colour red is held");
+    refused(&reply, "name \"main\" is taken");
+    refused(&reply, "colour red is taken");
     assert!(!second.exists());
     assert_eq!(checksums(&live.data), before);
     let free = fork(&live, &second, json!({"name":"Other","colour":"green"})).await;

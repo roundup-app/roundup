@@ -81,7 +81,7 @@ pub(crate) fn fork(root: &Path, params: &ForkRequest) -> Result<ForkResult, RpcE
             "The Fork folder must not lie inside the live data folder or contain it.",
         ));
     }
-    refuse_held(folder, params)?;
+    refuse_taken(folder, params)?;
     let existed = target.exists();
     if existed && !fs::read_dir(&target).is_ok_and(|mut entries| entries.next().is_none()) {
         return Err(invalid(format!(
@@ -114,15 +114,15 @@ pub(crate) fn fork(root: &Path, params: &ForkRequest) -> Result<ForkResult, RpcE
 /// AI7152c: refuse a name or colour another App holds, before anything is copied. The Forks
 /// compared are those beside `params.path`; Dev's first make, at `<forks>/dev`, may take the
 /// `Dev` name and the `violet` colour.
-fn refuse_held(folder: &Path, params: &ForkParams) -> Result<(), RpcError> {
+fn refuse_taken(folder: &Path, params: &ForkParams) -> Result<(), RpcError> {
     use contracts::identity;
     let Some(forks) = folder.parent() else {
         return Ok(());
     };
     let dev_first =
         folder.file_name().is_some_and(|n| n == "dev") && !folder.join("fork.json").exists();
-    let held = identity::forks_in(forks);
-    match identity::refusal(&held, &params.name, params.colour, None, dev_first) {
+    let taken = identity::forks_in(forks);
+    match identity::refusal(&taken, &params.name, params.colour, None, dev_first) {
         Some(message) => Err(invalid(message)),
         None => Ok(()),
     }

@@ -116,6 +116,7 @@ export const SEAM_COMMANDS = [
   "feedback_capture",
   "fork_branch",
   "fork_make",
+  "fork_list",
   "rename_project",
   "rpc",
   "subscribe",
@@ -211,6 +212,9 @@ export type FeedbackReport = v.InferOutput<typeof feedbackReportSchema>;
 
 export const stateAlertClickedSchema = v.object({ agent: v.string() });
 
+/** AI7152e: one Fork under `$ROUNDUP_HOME/forks`; `collides` names the other App it collides with. */
+export type ForkListed = { path: string; name: string; colour: ForkColour; collides: string | null };
+
 export type App = {
   recentProjects(): Promise<string[]>;
   claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
@@ -278,6 +282,8 @@ export type App = {
   forkBranch(): Promise<string>;
   /** FS5979: makes the Fork and opens the branch's App on it; rejects with the failure's text. */
   forkMake(params: { name: string; colour: ForkColour; projects: ForkPick[] }): Promise<void>;
+  /** AI7152d, AI7152e: the Forks under `$ROUNDUP_HOME/forks`; `collides` names the other App one collides with. */
+  forkList(): Promise<ForkListed[]>;
   /** FS5979a: the application menu's `Fork for development…`; no payload. */
   onForkSheet(listener: () => void): Unsubscribe;
   /** Opens the app-wide center settings view; no payload. */

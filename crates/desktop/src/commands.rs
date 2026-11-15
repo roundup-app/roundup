@@ -29,6 +29,7 @@ pub(crate) fn invoke_handler<R: Runtime>()
         exit_for_update,
         fork_branch,
         fork_make,
+        fork_list,
         rename_project,
         rpc,
         subscribe,
@@ -114,6 +115,16 @@ async fn exit_for_update<R: Runtime>(
 #[tauri::command]
 async fn fork_branch() -> Result<String, RpcError> {
     tokio::task::spawn_blocking(|| fork::branch(&fork::checkout()))
+        .await
+        .map_err(RpcError::internal)
+}
+
+/// AI7152d, AI7152e: the Forks under `$ROUNDUP_HOME/forks` with the App each collides with.
+#[tauri::command]
+async fn fork_list() -> Result<Vec<contracts::identity::ForkListed>, RpcError> {
+    let home = fork::home(|name| std::env::var_os(name))
+        .ok_or_else(|| RpcError::internal("no home folder for the Fork"))?;
+    tokio::task::spawn_blocking(move || contracts::identity::listed(&home.join("forks")))
         .await
         .map_err(RpcError::internal)
 }

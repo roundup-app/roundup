@@ -2,6 +2,7 @@ import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ForkColour } from "@contracts/data/ForkColour";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
@@ -130,11 +131,11 @@ describe("fs5979c the name and the colour", () => {
     await waitFor(() => expect(field.value).toBe("build/login"));
     expect(document.activeElement).toBe(field);
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, "build/login".length]);
-    expect(screen.getAllByRole("radio")).toHaveLength(8);
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
     await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "teal" })).checked).toBe(true));
     screen.getByRole("radio", { name: "teal" }).focus();
     await userEvent.setup().keyboard("{ArrowRight}");
-    await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "blue" })).checked).toBe(true));
+    await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "pink" })).checked).toBe(true));
   });
 
   it.each(["", "x".repeat(41), "a\u0007b"])("fs5979c_an_invalid_name_makes_no_fork", async (bad) => {
@@ -212,5 +213,38 @@ describe("fs5979e a failed Fork stays on the sheet", () => {
     fireEvent.submit(field.closest("form")!);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(forkMake).toHaveBeenCalledTimes(2);
+  });
+});
+
+const listed = (name: string, colour: ForkColour, path = `/h/forks/${name}`) => ({ name, colour, path, collides: null });
+
+describe("ai7152d the Fork sheet offers only free colours", () => {
+  it("ai7152d_the_first_free_colour_is_chosen_and_taken_ones_are_not_offered", async () => {
+    await sheet(app => { app.forkList = async () => [listed("a", "teal")]; });
+    await waitFor(() => expect(screen.getAllByRole("radio")).toHaveLength(4));
+    expect(screen.queryByRole("radio", { name: "teal" })).toBeNull();
+    await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "red" })).checked).toBe(true));
+  });
+
+  it("ai7152d_a_colliding_name_shows_the_holder_and_makes_no_fork", async () => {
+    const forkMake = vi.fn(async () => {});
+    await sheet(app => { app.forkMake = forkMake; app.forkList = async () => [listed("main", "red")]; });
+    const field = await screen.findByLabelText("Name");
+
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
+    await userEvent.setup().clear(field);
+    await userEvent.setup().type(field, "MAIN {Enter}");
+    await screen.findByText(/taken by the Fork at \/h\/forks\/main/);
+    expect(forkMake).not.toHaveBeenCalled();
+  });
+
+  it("ai7152d_every_colour_taken_says_so_and_makes_no_fork", async () => {
+    const forkMake = vi.fn(async () => {});
+    const rest: ForkColour[] = ["red", "amber", "green", "teal", "pink"];
+    await sheet(app => { app.forkMake = forkMake; app.forkList = async () => rest.map(colour => listed(colour, colour)); });
+    await screen.findByText(forkCopy.colourTaken);
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    await userEvent.setup().type(await screen.findByLabelText("Name"), "{Enter}");
+    expect(forkMake).not.toHaveBeenCalled();
   });
 });

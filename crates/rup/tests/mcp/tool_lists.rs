@@ -14,6 +14,7 @@ pub const NO_TOOL: &[&str] = &[
     // FS5979: only the user forks their data; the Fork sheet is the one caller.
     "fork_branch",
     "fork_make",
+    "fork_list",
     "projects",
     // A5765c: the App compares filesystem identities; this read grants no Agent authority.
     "canonical_project_path",

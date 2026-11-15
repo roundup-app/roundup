@@ -1,16 +1,15 @@
 //! AI7152: every App told apart. One table of the Channels' names and colours, and the one
-//! comparison that decides whether a Fork's name or colour is already held.
+//! comparison that decides whether a Fork's name or colour is already taken.
 
 use std::path::{Path, PathBuf};
 
 use crate::data::{ForkColour, ForkRecord};
 
 /// AI7152a: a Channel's fixed name and colour: Stable, Dev, Source.
-pub const CHANNELS: [(&str, ForkColour); 3] = [
-    ("Roundup", ForkColour::Orange),
-    ("Roundup Dev", ForkColour::Violet),
-    ("Roundup Source", ForkColour::Blue),
-];
+pub const STABLE: (&str, ForkColour) = ("Roundup", ForkColour::Orange);
+pub const DEV: (&str, ForkColour) = ("Roundup Dev", ForkColour::Violet);
+pub const SOURCE: (&str, ForkColour) = ("Roundup Source", ForkColour::Blue);
+pub const CHANNELS: [(&str, ForkColour); 3] = [STABLE, DEV, SOURCE];
 
 /// AI7152b: names no Fork may take, besides the Channels' own.
 const RESERVED: [&str; 2] = ["Dev", "Source"];
@@ -22,7 +21,7 @@ pub fn same_name(a: &str, b: &str) -> bool {
 
 /// One Fork under `<home>/forks` that holds a name and colour.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HeldFork {
+pub struct TakenFork {
     pub path: PathBuf,
     pub name: String,
     pub colour: ForkColour,
@@ -30,8 +29,8 @@ pub struct HeldFork {
 }
 
 /// Every Fork under `forks` with a readable `fork.json`, by folder name.
-pub fn forks_in(forks: &Path) -> Vec<HeldFork> {
-    let mut found: Vec<HeldFork> = std::fs::read_dir(forks)
+pub fn forks_in(forks: &Path) -> Vec<TakenFork> {
+    let mut found: Vec<TakenFork> = std::fs::read_dir(forks)
         .into_iter()
         .flatten()
         .flatten()
@@ -39,7 +38,7 @@ pub fn forks_in(forks: &Path) -> Vec<HeldFork> {
             let path = entry.path();
             let text = std::fs::read_to_string(path.join("fork.json")).ok()?;
             let record: ForkRecord = serde_json::from_str(&text).ok()?;
-            Some(HeldFork {
+            Some(TakenFork {
                 path,
                 name: record.name,
                 colour: record.colour,
@@ -56,15 +55,15 @@ pub fn forks_in(forks: &Path) -> Vec<HeldFork> {
 /// the check (its own current values); `dev_first` excuses the `Dev` name and `violet` colour,
 /// which only Dev's own first make may take.
 pub fn refusal(
-    forks: &[HeldFork],
+    forks: &[TakenFork],
     name: &str,
     colour: ForkColour,
     own: Option<&Path>,
     dev_first: bool,
 ) -> Option<String> {
     let mut said = Vec::new();
-    let channel_name = CHANNELS.iter().any(|(held, _)| same_name(held, name));
-    let reserved = RESERVED.iter().any(|held| same_name(held, name));
+    let channel_name = CHANNELS.iter().any(|(taken, _)| same_name(taken, name));
+    let reserved = RESERVED.iter().any(|taken| same_name(taken, name));
     let dev_name = same_name("Dev", name);
     if channel_name || (reserved && !(dev_first && dev_name)) {
         said.push(format!("name {name:?} is reserved by an App"));
@@ -73,17 +72,17 @@ pub fn refusal(
         .find(|f| Some(f.path.as_path()) != own && same_name(&f.name, name))
     {
         said.push(format!(
-            "name {name:?} is held by the Fork at {}",
+            "name {name:?} is taken by the Fork at {}",
             fork.path.display()
         ));
     }
     let channel = CHANNELS
         .iter()
-        .find(|(_, held)| *held == colour)
-        .filter(|(held, _)| !(dev_first && *held == CHANNELS[1].0));
+        .find(|(_, taken)| *taken == colour)
+        .filter(|(taken, _)| !(dev_first && *taken == CHANNELS[1].0));
     if let Some((holder, _)) = channel {
         said.push(format!(
-            "colour {} is held by {holder}",
+            "colour {} is taken by {holder}",
             colour_name(colour)
         ));
     } else if let Some(fork) = forks
@@ -91,7 +90,7 @@ pub fn refusal(
         .find(|f| Some(f.path.as_path()) != own && f.colour == colour)
     {
         said.push(format!(
-            "colour {} is held by the Fork at {}",
+            "colour {} is taken by the Fork at {}",
             colour_name(colour),
             fork.path.display()
         ));
@@ -108,7 +107,7 @@ fn colour_name(colour: ForkColour) -> String {
 
 /// AI7152e: the other App a Fork collides with, or `None`; of two Forks, the later `created_ms`
 /// is the one marked. The Channels are never marked.
-pub fn collides(forks: &[HeldFork], fork: &HeldFork) -> Option<String> {
+pub fn collides(forks: &[TakenFork], fork: &TakenFork) -> Option<String> {
     if let Some((holder, _)) = CHANNELS
         .iter()
         .find(|(n, c)| same_name(n, &fork.name) || *c == fork.colour)
@@ -124,12 +123,35 @@ pub fn collides(forks: &[HeldFork], fork: &HeldFork) -> Option<String> {
         .map(|o| o.name.clone())
 }
 
+/// AI7152e: one row of `fork_list`.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct ForkListed {
+    pub path: String,
+    pub name: String,
+    pub colour: ForkColour,
+    pub collides: Option<String>,
+}
+
+/// AI7152e: every Fork in `forks` with the App it collides with.
+pub fn listed(forks: &Path) -> Vec<ForkListed> {
+    let taken = forks_in(forks);
+    taken
+        .iter()
+        .map(|fork| ForkListed {
+            path: fork.path.to_string_lossy().into_owned(),
+            name: fork.name.clone(),
+            colour: fork.colour,
+            collides: collides(&taken, fork),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn fork(name: &str, colour: ForkColour) -> HeldFork {
-        HeldFork {
+    fn fork(name: &str, colour: ForkColour) -> TakenFork {
+        TakenFork {
             path: format!("/h/forks/{name}").into(),
             name: name.into(),
             colour,
@@ -148,8 +170,8 @@ mod tests {
 
     #[test]
     fn ai7152b_one_comparison() {
-        for held in ["main", "Main ", "MAIN", "\tmain"] {
-            assert!(same_name(held, "main"));
+        for taken in ["main", "Main ", "MAIN", "\tmain"] {
+            assert!(same_name(taken, "main"));
         }
         for free in ["roundups", "Mainline"] {
             assert!(!same_name(free, "main") && !same_name(free, "roundup"));
@@ -166,11 +188,11 @@ mod tests {
         let forks = [fork("main", ForkColour::Teal)];
         let both = refusal(&forks, "MAIN", ForkColour::Violet, None, false).unwrap();
         assert!(
-            both.contains("is held by the Fork at /h/forks/main"),
+            both.contains("is taken by the Fork at /h/forks/main"),
             "{both}"
         );
         assert!(
-            both.contains("colour violet is held by Roundup Dev"),
+            both.contains("colour violet is taken by Roundup Dev"),
             "{both}"
         );
         assert!(refusal(&forks, "Dev", ForkColour::Violet, None, true).is_none());
@@ -184,6 +206,29 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn ai7152e_fork_list_reads_folders_and_marks_the_later() {
+        let home = std::env::temp_dir().join(format!("ai7152e-{}", std::process::id()));
+        for (folder, name, colour, at) in [
+            ("a", "main", "teal", 1),
+            ("b", "Main", "pink", 2),
+            ("c", "x", "red", 3),
+        ] {
+            let dir = home.join(folder);
+            std::fs::create_dir_all(&dir).unwrap();
+            let record = serde_json::json!({"name": name, "colour": colour, "source": "/l", "created_ms": at, "projects": null});
+            std::fs::write(dir.join("fork.json"), record.to_string()).unwrap();
+        }
+        std::fs::create_dir_all(home.join("d")).unwrap();
+        let rows = listed(&home);
+        std::fs::remove_dir_all(&home).unwrap();
+        let marks: Vec<_> = rows
+            .iter()
+            .map(|r| (r.name.as_str(), r.collides.as_deref()))
+            .collect();
+        assert_eq!(marks, [("main", None), ("Main", Some("main")), ("x", None)]);
     }
 
     #[test]
