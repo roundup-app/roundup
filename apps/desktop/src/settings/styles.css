@@ -403,3 +403,5 @@
   align-items: center;
   gap: var(--space-2);
 }
+/* U7157d: the reset button sits in the row's right-hand column. */
+.settings-field .settings-reset-button { justify-self: end; }
