@@ -170,10 +170,12 @@ it("u5552d_focus_move_during_image_decoding_prevents_even_the_save", async () =>
   expect(callsTo(app, "terminal.write")).toEqual([]);
 });
 
+const closeNothing = async (): Promise<void> => {};
+
 it.each(["agent", "door", "bubble"])("u5552d_text_and_image_use_the_focused_emulator %s", async kind => {
   const { app, connected, screens, input } = await mount(kind);
 
-  if (kind === "bubble") render(() => <Bubble id="t-a" screens={screens} name="Shell" place={{ x: 0, y: 0, w: 600, h: 400, min: false }} origin={{ left: 0, top: 0 }} extent={() => ({ width: 800, height: 600 })} setPlace={() => {}} readOnly={() => false} close={async () => {}} menu={() => {}} toggleMinimised={() => {}} />);
+  if (kind === "bubble") render(() => <ConnectedProjectContext.Provider value={connected}><Bubble id="t-a" screens={screens} name="Shell" place={{ x: 0, y: 0, w: 600, h: 400, min: false }} origin={{ left: 0, top: 0 }} extent={() => ({ width: 800, height: 600 })} setPlace={() => {}} readOnly={() => false} close={closeNothing} menu={() => {}} toggleMinimised={() => {}} /></ConnectedProjectContext.Provider>);
   const target = kind === "bubble" ? document.querySelector<HTMLTextAreaElement>(".bubble textarea")! : input();
   target.focus();
   pasteEvent(target, "hello");
