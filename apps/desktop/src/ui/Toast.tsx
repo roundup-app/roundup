@@ -28,8 +28,9 @@ export function createToast(policy: {
 }) {
   // Admission happens before create: no hidden Ark overflow can replay old cards.
   const closing = new Set<string>();
+  // U7192: the stack sits at the top right, below the window bar, so no card covers the input at the bottom.
   // U3791: Ark's group pauses every timer while the pointer or focus is in the stack and resumes each from the time it had left; its own page-idle option sends an event nothing handles, so ToastProvider pauses on a hidden window. U3792: overlap folds the cards behind the newest one; hover or focus fans them out.
-  const store = createToaster({ placement: "bottom-end", max: Infinity, duration: DURATION, removeDelay: 150, pauseOnPageIdle: false, overlap: true, gap: GAP, offsets: { top: "var(--space-3)", left: "var(--space-3)", right: "var(--space-3)", bottom: "calc(var(--space-3) + var(--hint-row-height) + var(--rail-actions-height))" } });
+  const store = createToaster({ placement: "top-end", max: Infinity, duration: DURATION, removeDelay: 150, pauseOnPageIdle: false, overlap: true, gap: GAP, offsets: { top: "calc(var(--header-height) + var(--space-3))", left: "var(--space-3)", right: "calc(var(--toast-inset, var(--length-zero)) + var(--space-3))", bottom: "var(--space-3)" } });
 
   // Ark resumes and folds the stack when the pointer leaves, whatever else holds it: focus still in the stack, or a hidden window, keeps the time frozen and the cards fanned out.
   const { resume, collapse } = store;

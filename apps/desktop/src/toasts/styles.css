@@ -1,4 +1,4 @@
-/* U414: Ark positions the stack above the resource strip; its announcement layer holds no box. */
+/* U414, U7192: Ark positions the stack at the window's top right, below the window bar; its announcement layer holds no box. */
 .toasts,
 .toasts .reserved-content,
 .toasts .reserved-status {

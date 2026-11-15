@@ -349,6 +349,8 @@ p {
 }
 .window[data-rail="closed"] { --fill-rail: 0rem; }
 .window[data-shelf-mode="reserved"][data-shelf-shown="true"]:not([data-shelf-maximised="true"]) { --fill-reserve: var(--shelf-span); }
+/* U7192: a shown Shelf holds the top right under the window bar, so the Toast stack ends at its leading edge, clear of its header controls. */
+.window[data-shelf-shown="true"] { --toast-inset: var(--shelf-span); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
   --drawer-bottom: var(--rail-actions-height);

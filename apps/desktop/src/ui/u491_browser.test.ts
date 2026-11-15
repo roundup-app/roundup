@@ -84,8 +84,8 @@ it("u7059_pointer_in_a_gap_keeps_the_stack_fanned_out", async () => {
   await load();
   await read(`(() => { for (const id of ['a', 'b', 'c']) window.__providers.toast.show({ id, name: 'Card ' + id, content: 'Body ' + id, duration: Infinity }); })()`);
   await wait(`document.querySelectorAll('.app-toast').length === 3`);
-  // The fixture lacks the two Tokens the group's bottom offset reads, which leaves the group at the top of the page.
-  await read(`document.documentElement.style.cssText += '--hint-row-height: 24px; --rail-actions-height: 24px;'`);
+  // The fixture lacks the Token the group's top offset reads (the window defines it in the App), which leaves the group unplaced.
+  await read(`document.documentElement.style.cssText += '--header-height: 24px;'`);
   const rects = `[...document.querySelectorAll('.app-toast')].map((card) => card.getBoundingClientRect()).sort((a, b) => a.top - b.top)`;
   const front = await read<{ x: number, y: number }>(`(() => { const rect = [...document.querySelectorAll('.app-toast:not([data-sibling])')][0].getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
   await browser("mouse", "move", String(front.x), String(front.y));
