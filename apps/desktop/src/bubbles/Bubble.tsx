@@ -8,6 +8,8 @@ import { registerKeys } from "../keys/registry";
 import { Panel } from "../ui/Panel";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
+import { useConnectedProject } from "../state/connectedProject";
+import { createFileDrop } from "../terminal/fileDrop";
 import { copy } from "./copy";
 import type { Screens } from "../terminal/screens";
 import { clamped, resizedAbout, STEP, toggledFill, ZONES } from "./places";
@@ -57,6 +59,7 @@ export const Bubble = (props: {
 
   const place = () => props.place;
   const retry = () => props.screens.retry(id());
+  const dropOver = createFileDrop(useConnectedProject(), () => props.screens, () => props.preparing ? null : id(), () => body);
 
   const refit = () => {
     frame = null;
@@ -87,11 +90,7 @@ export const Bubble = (props: {
       if (terminal !== null) props.screens.resize(terminal, props.screens.show(terminal, host, false));
     }));
 
-    if (typeof ResizeObserver !== "undefined") {
-      const watched = makeResizeObserver(refitNextFrame);
-
-      watched.observe(host);
-    }
+    if (typeof ResizeObserver !== "undefined") makeResizeObserver(refitNextFrame).observe(host);
   };
 
   // A bubble that was folded is fitted again when it comes back.
@@ -227,7 +226,7 @@ export const Bubble = (props: {
               </span>
               <span class="bubble-name">{props.name}</span>
             </header>
-            <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} dismiss={() => props.screens.dismiss(id())} recover={retry() ? { run: () => retry()?.() } : undefined} />
+            <div class="bubble-body" classList={{ "drop-over": dropOver() }} tabindex="-1" ref={(host) => mount(host)} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} dismiss={() => props.screens.dismiss(id())} recover={retry() ? { run: () => retry()?.() } : undefined} />
           </section>
           <For each={ZONES}>{(zone) => (
             <span class="bubble-zone" data-zone={zone.name} data-zone-of={id()} aria-hidden="true" hidden={place().min}
