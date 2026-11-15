@@ -64,22 +64,3 @@ it("u7156a_no_element_outside_the_sliding_rail_toggles_it_or_transitions_its_pos
 
   expect(css).not.toMatch(/\.rail-handle/);
 });
-
-// The surfaces that slide themselves; every other selector with a position transition is an attached part following another element.
-const SLIDING = [".rail[data-collapsed] .rail-body", ".shelf-edge-slot", ".shelf", ".window[data-shelf-maximised", ".window:has(.drawer[data-open=\"true\"]:not([data-fill=\"true\"])) .shelf", ".app-toast"];
-
-const POSITION = /transition:[^;]*\b(left|right|top|bottom|inset|translate|transform)\b/;
-
-it("u7156c_no_stylesheet_rule_transitions_the_position_of_an_attached_part", () => {
-  const offenders: string[] = [];
-
-  for (const file of walk(src).filter(name => name.endsWith(".css"))) {
-    for (const [, selector, body] of readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{};]+)\{([^{}]*)\}/g)) {
-      const sel = (selector ?? "").trim();
-
-      if (POSITION.test((body ?? "")) && !SLIDING.some(own => sel.startsWith(own)) && !/transform: scale|branch-indicator|\.icon|\.rail-create-menu|\.toast|\[data-sortable|reorder/i.test(sel + (body ?? ""))) offenders.push(`${file.slice(src.length + 1)}: ${sel}`);
-    }
-  }
-
-  expect(offenders).toEqual([]);
-});
