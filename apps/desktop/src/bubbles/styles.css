@@ -132,6 +132,7 @@
 
 /* The fit leaves under one cell spare; the body paints it as the Terminal's ground. */
 .bubble-body {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;

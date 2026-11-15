@@ -514,9 +514,10 @@ p {
 
 
 
-/* U3800b: the one file target under the pointer (a Rail row, a Project tab, or the Terminal pane as it reports `drop-over`) takes the drop look of a Sortable slot, a dashed --accent edge inside its rectangle; other targets paint nothing, and no size changes (U5, U46). */
+/* U3800b: the one file target under the pointer (a Rail row, a Project tab, or the Terminal pane or Bubble as it reports `drop-over`) takes the drop look of a Sortable slot, a dashed --accent edge inside its rectangle; other targets paint nothing, and no size changes (U5, U46). */
 .project-tab[data-drop="hover"]::after,
 .pane-body.drop-over::after,
+.bubble-body.drop-over::after,
 .rail-row[data-drop="hover"]::after {
   content: "";
   position: absolute;

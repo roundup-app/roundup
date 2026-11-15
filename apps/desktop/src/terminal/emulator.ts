@@ -77,6 +77,8 @@ export type Emulator = {
   blur?(): void;
   /** The size that fills the current host, or the snapshot grid while `ready` is pending. */
   fit(): Size;
+  /** IP7168d: draws the screen now, past xterm's pause for a Terminal outside the viewport; a Pane shown again calls it so its first frame holds what arrived while it was hidden, which xterm's observer would draw a task later. */
+  redraw?(): void;
   /** Reports a fit caused by loaded faces or xterm's scale/cell-metric redraw, without sending input. */
   onResize?: ((listener: (size: Size) => void) => void) | undefined;
   /** Whether the view sits at the newest line; false once the user has scrolled up. */
@@ -92,8 +94,18 @@ type InputOrigin = Terminal & { _core: { coreService: {
   onUserInput(listener: () => void): { dispose(): void };
 } } };
 
-/** xterm's render service: its public `refresh` waits an animation frame, its `sync` flag does not. */
-type RenderRows = Terminal & { _core: { _renderService?: { refreshRows(start: number, end: number, sync: boolean): void } } };
+/** xterm's render service: its public `refresh` waits an animation frame, its `sync` flag does not; `_isPaused` is what its IntersectionObserver sets for a Terminal outside the viewport. */
+type RenderRows = Terminal & { _core: { _renderService?: { _isPaused: boolean; refreshRows(start: number, end: number, sync: boolean): void } } };
+
+/** Draws every row now. With `resume`, past xterm's pause for a Terminal outside the viewport (IP7168d): that pause lifts from an observer task, a frame late. */
+const drawNow = (terminal: Terminal, resume = false): void => {
+  // SAFETY: pinned xterm 6.1 holds `_core._renderService` on its Terminal; the optional chain covers its absence, and its own observer then resumes as before.
+  const service = (terminal as RenderRows)._core._renderService;
+
+  if (resume && service) service._isPaused = false;
+
+  service?.refreshRows(0, terminal.rows - 1, true);
+};
 
 export { attachRenderer, arabicRuns } from "./renderer";
 
@@ -405,10 +417,7 @@ export const createXtermEmulators = (
       if (fitted.cols !== previous.cols || fitted.rows !== previous.rows) {
         // U6418b: the WebGL renderer clears its canvas on resize and xterm redraws a frame later; drawing the rows
         // here keeps that blank frame from being composited.
-        // SAFETY: pinned xterm 6.1 holds `_core._renderService` on its Terminal; the optional chain covers its absence.
-        const renderService = (terminal as RenderRows)._core._renderService;
-
-        if (opened) renderService?.refreshRows(0, terminal.rows - 1, true);
+        if (opened) drawNow(terminal);
 
         resized(fitted);
       }
@@ -646,6 +655,7 @@ export const createXtermEmulators = (
       paste: (text) => terminal.paste(text),
       show,
       fit: size,
+      redraw: () => { if (opened) drawNow(terminal, true); },
       onResize: (listener) => { resized = listener; },
       focus: () => terminal.focus(),
       blur: () => terminal.blur(),
