@@ -117,6 +117,8 @@ export const SEAM_COMMANDS = [
   "fork_branch",
   "fork_make",
   "fork_list",
+  "fork_rename",
+  "fork_recolour",
   "rename_project",
   "rpc",
   "subscribe",
@@ -284,6 +286,10 @@ export type App = {
   forkMake(params: { name: string; colour: ForkColour; projects: ForkPick[] }): Promise<void>;
   /** AI7152d, AI7152e: the Forks under `$ROUNDUP_HOME/forks`; `collides` names the other App one collides with. */
   forkList(): Promise<ForkListed[]>;
+  /** AI7152e: rewrites that Fork's name and remakes its `.app`; rejects with the refusal's text. */
+  forkRename(path: string, name: string): Promise<void>;
+  /** AI7152e: rewrites that Fork's colour and remakes its `.app`; rejects with the refusal's text. */
+  forkRecolour(path: string, colour: ForkColour): Promise<void>;
   /** FS5979a: the application menu's `Fork for development…`; no payload. */
   onForkSheet(listener: () => void): Unsubscribe;
   /** Opens the app-wide center settings view; no payload. */

@@ -305,17 +305,9 @@ pub(crate) fn make(fork: &Path, binary: &Path) -> Result<PathBuf, String> {
     make_from(fork, binary, ARTWORK)
 }
 
-fn make_from(fork: &Path, binary: &Path, artwork: &[u8]) -> Result<PathBuf, String> {
-    let record =
-        record(fork).ok_or_else(|| format!("{}: no readable fork.json", fork.display()))?;
-    let folder = fork
-        .file_name()
-        .map(|name| slug(&name.to_string_lossy()))
-        .filter(|slug| !slug.is_empty())
-        .ok_or_else(|| format!("{}: no folder name", fork.display()))?;
-    let identifier = format!("app.roundup.fork.{folder}");
-    let file: String = record
-        .name
+/// The `.app` file stem of a Fork's name; `None` when empty.
+pub(crate) fn file_name(name: &str) -> Option<String> {
+    let file: String = name
         .chars()
         .map(|c| {
             if c == '/' || c == ':' || c.is_control() {
@@ -325,6 +317,19 @@ fn make_from(fork: &Path, binary: &Path, artwork: &[u8]) -> Result<PathBuf, Stri
             }
         })
         .collect();
+    (!file.is_empty()).then_some(file)
+}
+
+fn make_from(fork: &Path, binary: &Path, artwork: &[u8]) -> Result<PathBuf, String> {
+    let record =
+        record(fork).ok_or_else(|| format!("{}: no readable fork.json", fork.display()))?;
+    let folder = fork
+        .file_name()
+        .map(|name| slug(&name.to_string_lossy()))
+        .filter(|slug| !slug.is_empty())
+        .ok_or_else(|| format!("{}: no folder name", fork.display()))?;
+    let identifier = format!("app.roundup.fork.{folder}");
+    let file = file_name(&record.name).unwrap_or_default();
     let target = fork.join(format!("{file}.app"));
     let scratch = fork.join(".roundup-app.tmp");
     let _ = fs::remove_dir_all(&scratch);

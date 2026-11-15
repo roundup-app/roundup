@@ -146,6 +146,40 @@ pub fn listed(forks: &Path) -> Vec<ForkListed> {
         .collect()
 }
 
+/// AI7152e: rewrite only `name` and `colour` in the `fork.json` of the Fork at `path`, a folder
+/// directly under `forks`. A value AI7152b holds is refused with AI7152c's message, the Fork's
+/// own current values excepted (Dev's folder keeps `Dev` and `violet`). Returns the name before
+/// the edit.
+pub fn edit(
+    forks: &Path,
+    path: &Path,
+    name: Option<&str>,
+    colour: Option<ForkColour>,
+) -> Result<String, String> {
+    if path.parent() != Some(forks) {
+        return Err(format!(
+            "{} is not a Fork under {}",
+            path.display(),
+            forks.display()
+        ));
+    }
+    let file = path.join("fork.json");
+    let text = std::fs::read_to_string(&file).map_err(|e| format!("{}: {e}", file.display()))?;
+    let mut json: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let record: ForkRecord = serde_json::from_value(json.clone()).map_err(|e| e.to_string())?;
+    let name = name.map_or(record.name.as_str(), str::trim);
+    let colour = colour.unwrap_or(record.colour);
+    let dev = path.file_name().is_some_and(|folder| folder == "dev");
+    if let Some(said) = refusal(&forks_in(forks), name, colour, Some(path), dev) {
+        return Err(said);
+    }
+    json["name"] = name.into();
+    json["colour"] = serde_json::to_value(colour).map_err(|e| e.to_string())?;
+    let out = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
+    std::fs::write(&file, out).map_err(|e| format!("{}: {e}", file.display()))?;
+    Ok(record.name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,5 +277,47 @@ mod tests {
             collides(&all, &fork("x", ForkColour::Orange)).as_deref(),
             Some("Roundup")
         );
+    }
+
+    #[test]
+    fn ai7152e_edit_rewrites_only_fork_json_and_refuses_a_taken_value() {
+        let home = std::env::temp_dir().join(format!("ai7152e-{}", std::process::id()));
+        let forks = home.join("forks");
+        for (folder, name, colour) in [("a", "main", "red"), ("b", "main2", "teal")] {
+            std::fs::create_dir_all(forks.join(folder)).unwrap();
+            std::fs::write(
+                forks.join(folder).join("fork.json"),
+                format!(r#"{{"name":"{name}","colour":"{colour}","source":"s","created_ms":1,"extra":7}}"#),
+            )
+            .unwrap();
+        }
+        let a = forks.join("a");
+        assert!(
+            edit(&forks, &a, Some("MAIN2"), None)
+                .unwrap_err()
+                .contains("is taken by the Fork")
+        );
+        assert!(
+            edit(&forks, &a, None, Some(ForkColour::Teal))
+                .unwrap_err()
+                .contains("colour teal")
+        );
+        assert!(edit(&forks, &a, Some(" Roundup "), None).is_err());
+        assert_eq!(
+            edit(&forks, &a, Some(" fresh "), Some(ForkColour::Pink)).unwrap(),
+            "main"
+        );
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(a.join("fork.json")).unwrap()).unwrap();
+        assert_eq!(
+            (
+                json["name"].as_str(),
+                json["colour"].as_str(),
+                json["extra"].as_i64()
+            ),
+            (Some("fresh"), Some("pink"), Some(7))
+        );
+        assert!(edit(&forks, &home, Some("x"), None).is_err());
+        std::fs::remove_dir_all(&home).unwrap();
     }
 }

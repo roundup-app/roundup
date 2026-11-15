@@ -15,6 +15,8 @@ pub const NO_TOOL: &[&str] = &[
     "fork_branch",
     "fork_make",
     "fork_list",
+    "fork_rename",
+    "fork_recolour",
     "projects",
     // A5765c: the App compares filesystem identities; this read grants no Agent authority.
     "canonical_project_path",

@@ -252,4 +252,19 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
     await screen.findByText("Collides with Roundup Dev.");
     expect(screen.getAllByText(/Collides with/)).toHaveLength(1);
   });
+  it("ai7152e_each_row_renames_and_recolours_through_the_seam", async () => {
+    const forkRename = vi.fn(async () => {});
+    const forkRecolour = vi.fn(async () => {});
+    await sheet(app => { app.forkRename = forkRename; app.forkRecolour = forkRecolour; app.forkList = async () => [listed("old", "teal")]; });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: forkCopy.rename }));
+    const field = screen.getByLabelText("Rename old");
+    await user.clear(field);
+    await user.type(field, "fresh{Enter}");
+    await waitFor(() => expect(forkRename).toHaveBeenCalledWith("/h/forks/old", "fresh"));
+    await user.click(screen.getByRole("button", { name: forkCopy.recolour }));
+    await user.click(screen.getByRole("button", { name: "red" }));
+    await waitFor(() => expect(forkRecolour).toHaveBeenCalledWith("/h/forks/old", "red"));
+    expect(forkRename).toHaveBeenCalledTimes(1);
+  });
 });
