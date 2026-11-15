@@ -102,6 +102,28 @@ impl Default for Failures {
 }
 
 impl Failures {
+    /// Receipts matched every pending Message of `agent`: its failure is repaired.
+    fn forget(&mut self, agent: &str) {
+        self.cause.remove(agent);
+        self.since.remove(agent);
+        self.seen.remove(agent);
+        self.written.remove(agent);
+        self.misses.remove(agent);
+    }
+
+    /// `forget` for every receiver not in `waiting`.
+    fn retain_waiting(&mut self, waiting: &[String]) {
+        let gone: Vec<String> = (self.cause.keys().chain(self.since.keys()))
+            .chain(self.seen.iter().chain(self.written.iter()))
+            .chain(self.misses.keys())
+            .filter(|agent| !waiting.contains(agent))
+            .cloned()
+            .collect();
+        for agent in gone {
+            self.forget(&agent);
+        }
+    }
+
     /// How long after its last write `agent` waits for a receipt before writing again.
     fn wait_ms(&self, agent: &str) -> i64 {
         let misses = self.misses.get(agent).copied().unwrap_or(0) as usize;
@@ -147,49 +169,36 @@ pub(crate) fn record(inner: &Inner, agent: &str, cause: &'static str) {
 pub(crate) fn settle(inner: &Inner, agent: &str) -> Result<(), Error> {
     let waiting = !lock(&inner.store).list_pending_to(agent)?.is_empty();
     if !waiting {
-        let mut failures = lock(&inner.failures);
-        failures.cause.remove(agent);
-        failures.since.remove(agent);
-        failures.seen.remove(agent);
-        failures.written.remove(agent);
-        failures.misses.remove(agent);
+        lock(&inner.failures).forget(agent);
     }
     Ok(())
 }
 
 /// One reconciliation pass, without a new event: every eligible receiver whose Messages waited
 /// the schedule of its last write gets its cause shown and its original batch written again.
-pub(super) async fn sweep(inner: &Arc<Inner>) {
-    if let Err(err) = try_sweep(inner).await {
-        log_failure("sweep", &err.to_string());
+/// Returns whether a Message is still `pending`, so the clock keeps coming back.
+pub(super) async fn sweep(inner: &Arc<Inner>) -> bool {
+    match try_sweep(inner).await {
+        Ok(pending) => pending,
+        Err(err) => {
+            log_failure("sweep", &err.to_string());
+            true
+        }
     }
 }
 
-async fn try_sweep(inner: &Arc<Inner>) -> Result<(), Error> {
-    let (waiting, idle) = {
-        let store = lock(&inner.store);
-        let (mut waiting, mut idle) = (Vec::new(), Vec::new());
-        for agent in store.receivers()? {
-            if store.list_pending_to(&agent)?.is_empty() {
-                idle.push(agent);
-            } else {
-                waiting.push(agent);
-            }
-        }
-        (waiting, idle)
-    };
-    for agent in &idle {
-        settle(inner, agent)?;
-    }
+async fn try_sweep(inner: &Arc<Inner>) -> Result<bool, Error> {
+    let waiting = lock(&inner.store).pending_receivers()?;
+    lock(&inner.failures).retain_waiting(&waiting);
     if waiting.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
     let Ok(nodes) = delivery::load_rail_nodes(inner).await else {
         // Eligibility cannot be established: show the read failure without waiting.
         for agent in &waiting {
             record(inner, agent, UNREADABLE);
         }
-        return Ok(());
+        return Ok(true);
     };
     let now = (inner.clock)();
     for agent in waiting {
@@ -243,7 +252,7 @@ async fn try_sweep(inner: &Arc<Inner>) -> Result<(), Error> {
             delivery::deliver_pending(inner, &agent).await;
         }
     }
-    Ok(())
+    Ok(true)
 }
 
 /// A write that missed its receipt is written again under the same `msg_id`: its flight and

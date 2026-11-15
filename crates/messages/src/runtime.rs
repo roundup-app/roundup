@@ -37,6 +37,9 @@ pub(super) struct Inner {
     pub(super) completed: tokio::sync::broadcast::Sender<&'static str>,
     /// B22: the pushes of each Door's window.
     pub(super) pushes: tokio::sync::Mutex<pushes::Ledger>,
+    /// The push clock sleeps on this while no Message is `pending` and no push waits; the
+    /// `Store` and the ledger signal it. Signalled once more when `Inner` drops, to end the clock.
+    pub(super) work: Arc<tokio::sync::Notify>,
     // A reservation waits for any accepted prompt to finish before its caller stops Agents.
     pub(super) delivery: tokio::sync::RwLock<()>,
     /// B39: the Messages being written to an inbox by this Daemon run, so no second `idle`
@@ -54,6 +57,12 @@ pub(super) struct Inner {
     pub(super) waiting: Mutex<std::collections::HashMap<u32, &'static str>>,
     /// B50: the transport of every Message to an Agent; without one nothing is delivered.
     pub(super) inbox: std::sync::OnceLock<Arc<dyn NoteInbox>>,
+}
+
+impl Drop for Inner {
+    fn drop(&mut self) {
+        self.work.notify_one();
+    }
 }
 
 impl Messages {
@@ -78,6 +87,7 @@ impl Messages {
         let events = bus.subscribe();
         let store = Store::open(dir)?;
         let pushes = pushes::Ledger::load(&store.db);
+        let work = Arc::clone(&store.work);
         let inner = Arc::new(Inner {
             store: Mutex::new(store),
             agents,
@@ -90,6 +100,7 @@ impl Messages {
             #[cfg(test)]
             completed: tokio::sync::broadcast::channel(32).0,
             pushes: tokio::sync::Mutex::new(pushes),
+            work,
             delivery: tokio::sync::RwLock::default(),
             typing: Mutex::default(),
             inbox_written: Mutex::default(),
