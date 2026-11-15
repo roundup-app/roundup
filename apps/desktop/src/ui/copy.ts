@@ -8,6 +8,7 @@ export const copy = {
   minimise: sharedCopy.minimise,
   close: sharedCopy.close,
   keep: sharedCopy.keep,
+  dontAskAgain: sharedCopy.dontAskAgain,
   newAgent: sharedCopy.newAgent,
   nativeRemovalAlertUnavailable: "The removal alert is unavailable. Retry.",
   copied: sharedCopy.copied,

@@ -68,7 +68,7 @@ it("u7157d_reset_warnings_asks_every_question_again", async () => {
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByLabelText("Settings", { selector: "section" });
-  fireEvent.click(screen.getByText("Reset warnings", { selector: '[role="tab"]' }));
+  fireEvent.click(screen.getByText("Alerts", { selector: '[role="tab"]' }));
   const button = await screen.findByRole("button", { name: "Reset warnings" });
 
   expect(button.hasAttribute("disabled")).toBe(false);

@@ -384,6 +384,6 @@ it("u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open
   fireEvent.click(document.querySelector<HTMLButtonElement>('.terminal-tab-pair[data-bubble="7"] button[aria-label^="Close "]')!);
   await answerQuestion(true);
   await waitFor(() => expect(actionNames()).not.toContain("Close the Bubble"));
-  expect(app.calls.filter((call) => call.method === "terminal.close").map((call) => call.params)).toEqual([{ id: "7" }]);
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "terminal.close").map((call) => call.params)).toEqual([{ id: "7" }]));
   expect(field()).not.toBeNull();
 });

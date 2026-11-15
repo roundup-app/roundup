@@ -6,7 +6,6 @@ import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { isSuppressed, suppressQuestion } from "../settings/warnings";
 import type { QuestionKey } from "../settings/preferences";
-import { copy as settingsCopy } from "../settings/copy";
 
 const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion): Promise<NativeAnswer | RemovalAnswer> => {
   if (!("thisLabel" in question)) return app.ask(question);
@@ -17,6 +16,13 @@ const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, que
 };
 
 type Read = { accepted: boolean; suppressed: boolean; each?: "this" | "all" };
+
+/** Asks the native question; a suppressed key answers yes without showing, and a keyed question offers "Don't ask again". */
+const ask = async (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion, key?: QuestionKey): Promise<Read> => {
+  if (key !== undefined && isSuppressed(key)) return { accepted: true, suppressed: false };
+
+  return read(await askNative(app, key === undefined ? question : { ...question, suppressible: copy.dontAskAgain }));
+};
 
 const read = (raw: NativeAnswer | RemovalAnswer): Read => {
   if (raw === "this" || raw === "all") return { accepted: true, suppressed: false, each: raw };
@@ -53,9 +59,7 @@ export const NativeAlert = (props: {
     try {
       const question = { ...props.question };
       const key = "thisLabel" in question ? undefined : props.key;
-      const skipped = key !== undefined && isSuppressed(key);
-      const raw = skipped ? true : await askNative(props.app, key === undefined ? question : { ...question, suppressible: settingsCopy.dontAskAgain });
-      const { accepted, suppressed, each } = read(raw);
+      const { accepted, suppressed, each } = await ask(props.app, question, key);
 
       if (mine !== generation || !props.open) return;
 

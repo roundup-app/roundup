@@ -1,0 +1,1 @@
+let writes = Promise.resolve(); writes = other.then(() => work());

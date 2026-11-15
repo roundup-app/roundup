@@ -16,7 +16,7 @@ import { draftStorage } from "../state/storage";
 import { createSettingsView, type SettingsViewState } from "../state/settingsView";
 import { setByFile } from "./configFile";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
-import { resetWarnings } from "./warnings";
+import { ResetWarnings } from "./ResetWarnings";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 
 /** The segment control loads with the first page that shows one, not with the App. */
@@ -367,7 +367,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
           <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
-          <Tabs.Trigger value="Warnings">{copy.resetWarnings}</Tabs.Trigger>
           <Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger>
         </Tabs.List>
         </Show>
@@ -401,15 +400,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </section>
         {controls.focusMarkers()}
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Warnings"><SettingsGroup name={copy.resetWarnings}>
-        <div class="settings-row"><span>{copy.resetWarnings}</span><button data-button="quiet" type="button" disabled={appSettings().suppressed.length === 0} onClick={() => void resetWarnings().then(setFailure)}>{copy.resetWarnings}</button></div>
-      </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
       <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
         <For each={alertStates}>{state => <div class="settings-alert-row" role="group" aria-label={stateLabel(state)}>
           <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}
             onCheckedChange={checked => save({ stateAlerts: { ...appSettings().stateAlerts, [state]: { ...appSettings().stateAlerts[state], [choice]: checked } } })}>{`${stateLabel(state)} ${copy.choiceLabels[choice]}`}</Switch>}</For>
-        </div>}</For>
+        </div>}</For><ResetWarnings onFailure={setFailure} />
       </SettingsGroup></Tabs.Content>
       </Show>
       <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
