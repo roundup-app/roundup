@@ -48,12 +48,11 @@ impl Channel {
 
     /// AI7152a: the name this build carries and the colour of its icon's plate.
     pub fn identity(self) -> (&'static str, contracts::data::ForkColour) {
-        let index = match self {
-            Self::Stable => 0,
-            Self::Dev => 1,
-            Self::Source => 2,
-        };
-        contracts::identity::CHANNELS[index]
+        match self {
+            Self::Stable => contracts::identity::STABLE,
+            Self::Dev => contracts::identity::DEV,
+            Self::Source => contracts::identity::SOURCE,
+        }
     }
 
     /// AI7152a: the plate colour a running build sets its Dock icon to; Stable keeps `artwork.png`.

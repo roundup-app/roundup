@@ -2,7 +2,7 @@ import "./fork.css";
 import Check from "lucide-solid/icons/check";
 import Minus from "lucide-solid/icons/minus";
 import { createTreeCollection } from "@ark-ui/solid/collection";
-import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { ForkColour } from "@contracts/data/ForkColour";
 import type { App, ForkListed } from "../app/seam";
 import { Dialog } from "../ui/Dialog";
@@ -22,9 +22,12 @@ const CHANNELS: readonly { name: string; colour: ForkColour }[] = [
   { name: "Roundup Dev", colour: "violet" },
   { name: "Roundup Source", colour: "blue" },
 ];
+
 const RESERVED = [...CHANNELS.map(channel => channel.name), "Dev", "Source"];
+
 /** AI7152d: the first free colour is chosen: teal, then `ForkColour` order. */
 const FIRST: readonly ForkColour[] = ["teal", ...COLOURS.filter(colour => colour !== "teal")];
+
 /** AI7152b: names compare equal after trimming and lower-casing. */
 const fold = (name: string): string => name.trim().toLowerCase();
 
@@ -62,18 +65,29 @@ const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => b
 const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef: (element: HTMLInputElement) => void }) => {
   const ticks = createForkTicks(() => props.rows);
   const [name, setName] = createSignal("");
-  const [colour, setColour] = createSignal<ForkColour>("teal");
+  const [picked, setPicked] = createSignal<ForkColour>("teal");
   const [forks, setForks] = createSignal<readonly ForkListed[]>([]);
   const free = () => COLOURS.filter(value => !CHANNELS.some(channel => channel.colour === value) && !forks().some(fork => fork.colour === value));
+
   const holder = (): string | null => {
     const folded = fold(name());
     const channel = RESERVED.find(taken => fold(taken) === folded);
+
     if (channel) return channel;
+
     const fork = forks().find(taken => fold(taken.name) === folded);
     return fork ? `the Fork at ${fork.path}` : null;
   };
-  const problem = (): string | null => !validName(name()) ? forkCopy.invalidName : holder() ? forkCopy.taken(name(), holder() as string) : null;
-  createEffect(() => { if (!free().includes(colour())) setColour(FIRST.find(value => free().includes(value)) ?? colour()); });
+
+  const problem = (): string | null => {
+    if (!validName(name())) return forkCopy.invalidName;
+    const taken = holder();
+
+    return taken ? forkCopy.taken(name(), taken) : null;
+  };
+
+
+  const colour = (): ForkColour => (free().includes(picked()) ? picked() : FIRST.find(value => free().includes(value)) ?? picked());
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
@@ -131,7 +145,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
       <Field.ErrorText>{problem()}</Field.ErrorText>
     </Field.Root>
     <Show when={free().length > 0} fallback={<p class="fork-colours-full">{forkCopy.colourTaken}</p>}>
-      <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={free().map(value => ({ value, label: value }))} value={colour()} onValueChange={setColour} />
+      <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={free().map(value => ({ value, label: value }))} value={colour()} onValueChange={setPicked} />
     </Show>
     <div class="app-dialog-actions">
       <ReservedLine class="fork-failure" message={failure()} dismiss={() => setFailure(null)} />
