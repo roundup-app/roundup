@@ -175,7 +175,19 @@ export type RemovalAnswer = "this" | "all" | "cancel";
 
 export type RemovalQuestion = { title: string; message: string; thisLabel: string; allLabel: string; cancelLabel: string };
 
-export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
+/** `suppressible` is the label of a \"Don't ask again\" choice; the answer says whether it was ticked on a confirm. */
+export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string; suppressible?: string };
+
+/** A bare boolean is a native question that offered no choice. */
+export type NativeAnswer = boolean | { accepted: boolean; suppressed: boolean };
+
+const nativeAnswerSchema = v.union([
+  v.pipe(v.boolean(), v.transform(accepted => ({ accepted, suppressed: false }))),
+  v.object({ accepted: v.boolean(), suppressed: v.boolean() }),
+]);
+
+/** The one shape callers branch on. */
+export const answerOf = (answer: NativeAnswer): { accepted: boolean; suppressed: boolean } => v.parse(nativeAnswerSchema, answer);
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
@@ -222,7 +234,7 @@ export type App = {
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
   writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
-  ask(question: NativeQuestion): Promise<boolean>;
+  ask(question: NativeQuestion): Promise<NativeAnswer>;
   askRemoval(question: RemovalQuestion): Promise<RemovalAnswer>;
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;

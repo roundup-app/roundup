@@ -1,11 +1,14 @@
 import { captureFocus } from "../keys/focus";
 import { questionAsked } from "../keys/registry";
 import { createEffect, createSignal, Show, on, onCleanup, untrack } from "solid-js";
-import type { App, NativeQuestion, RemovalQuestion, RemovalAnswer } from "../app/seam";
+import { answerOf, type App, type NativeAnswer, type NativeQuestion, type RemovalQuestion, type RemovalAnswer } from "../app/seam";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
+import { isSuppressed, suppressQuestion } from "../settings/warnings";
+import type { QuestionKey } from "../settings/preferences";
+import { copy as settingsCopy } from "../settings/copy";
 
-const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion) => {
+const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion): Promise<NativeAnswer | RemovalAnswer> => {
   if (!("thisLabel" in question)) return app.ask(question);
 
   if (!app.askRemoval) throw new Error(copy.nativeRemovalAlertUnavailable);
@@ -13,11 +16,21 @@ const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, que
   return app.askRemoval(question);
 };
 
+type Read = { accepted: boolean; suppressed: boolean; each?: "this" | "all" };
+
+const read = (raw: NativeAnswer | RemovalAnswer): Read => {
+  if (raw === "this" || raw === "all") return { accepted: true, suppressed: false, each: raw };
+
+  return raw === "cancel" ? { accepted: false, suppressed: false } : answerOf(raw);
+};
+
 /** A native question owns one request until answered. A request the system cannot show authorizes nothing and is never replayed (U6249d C10): its cause goes to the log and the same question is asked in the App, where the user answers it. */
 export const NativeAlert = (props: {
   app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>;
   open: boolean;
   question: NativeQuestion | RemovalQuestion;
+  /** U7157: the question's own key; a suppressed one confirms without showing. A removal question has two confirms, so it carries none. */
+  key?: QuestionKey;
   onConfirm: (answer?: RemovalAnswer) => void | Promise<void>;
   onCancel: () => void;
   finalFocus: () => HTMLElement | null;
@@ -39,8 +52,10 @@ export const NativeAlert = (props: {
 
     try {
       const question = { ...props.question };
-      const answer = await askNative(props.app, question);
-      const accepted = answer !== false && answer !== "cancel";
+      const key = "thisLabel" in question ? undefined : props.key;
+      const skipped = key !== undefined && isSuppressed(key);
+      const raw = skipped ? true : await askNative(props.app, key === undefined ? question : { ...question, suppressible: settingsCopy.dontAskAgain });
+      const { accepted, suppressed, each } = read(raw);
 
       if (mine !== generation || !props.open) return;
 
@@ -53,7 +68,9 @@ export const NativeAlert = (props: {
         return;
       }
 
-      if (accepted) await props.onConfirm(answer === "this" || answer === "all" ? answer : undefined);
+      if (accepted && key !== undefined && suppressed) await suppressQuestion(key);
+
+      if (accepted) await props.onConfirm(each);
       else props.onCancel();
       queueMicrotask(() => focus(() => untrack(() => props.finalFocus())?.focus({ preventScroll: true })));
     } catch (error) {

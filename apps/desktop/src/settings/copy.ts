@@ -68,6 +68,8 @@ export const copy = {
   modeHint: "Use a light, dark or system appearance.",
   model: "Model",
   reset: "Reset",
+  dontAskAgain: "Don't ask again",
+  resetWarnings: "Reset warnings",
   settingsAgents: "Agents",
   settingsTerminal: sharedCopy.terminal,
   settingsEditor: "Editor",
