@@ -6,7 +6,7 @@ import { createEdgePeek } from "../ui/edgePeek";
 
 const STRIP = ".rail-strip";
 
-const HANDLE = ".rail-handle";
+const HANDLE = ".rail-toggle";
 
 /** U6228: while the Rail is a strip, a pointer resting on the strip or at the window's leading edge slides the full Rail out over the centre; leaving or Escape slides it back. Using the peeked Rail changes nothing: only an explicit expand opens it. */
 export const createRailPeek = (collapsed: Accessor<boolean>, region: () => Element | null) => {

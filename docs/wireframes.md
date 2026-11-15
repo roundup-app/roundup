@@ -42,7 +42,7 @@ OTHER
   > █        claude's own prompt inside the xterm; nothing else in the app takes typed input
   Stop, Close, History, Export .md, Promote   right-aligned sentence-case words = click targets, light grey (`docs/design-system.md`, "Text case")
   ci red     a Chip: light text after the name, no pill, never changes the glyph
-  toast      one dim line at the window bottom, for extension errors only
+  toast      one dim line at the window's top right, for extension errors only
 ```
 
 ## Screen 1 — Main workspace
