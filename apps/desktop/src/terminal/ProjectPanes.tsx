@@ -1,3 +1,4 @@
+import { provideFocusTarget } from "../keys/focus";
 import { createEffect, createSignal, For, on, onCleanup, Show, untrack } from "solid-js";
 import { Pane } from "./Pane";
 import { isDoor } from "../state/doorNode";
@@ -64,10 +65,17 @@ export const createProjectPanes = (options: Options) => {
       }));
     }));
 
+    let host: HTMLDivElement | undefined;
+
+    // U7155a: only the shown Pane answers for the centre's Terminal.
+    createEffect(() => {
+      if (active()) provideFocusTarget("pane.terminal", () => host?.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]") ?? null);
+    });
+
     return (
       <ConnectedProjectContext.Provider value={open}>
-        <div class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
-          <Pane active={active} observeTerminal={options.observeTerminal && active() ? id => options.observeTerminal?.(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreens(known => new Map(known).set(path, shared))} openObject={options.openObject} />
+        <div ref={host} class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
+          <Pane observeTerminal={options.observeTerminal && active() ? id => options.observeTerminal?.(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreens(known => new Map(known).set(path, shared))} openObject={options.openObject} />
         </div>
       </ConnectedProjectContext.Provider>
     );

@@ -3,7 +3,7 @@ import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import { createProjectPanes } from "./terminal/ProjectPanes";
-import Hourglass from "lucide-solid/icons/hourglass";
+import { ProjectCentre } from "./terminal/ProjectCentre";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
@@ -37,7 +37,7 @@ import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
 import { ReservedLine } from "./ink/ReservedLine";
-import { dismissable, failureLine } from "./ink/ReservedLine";
+import { dismissable } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
@@ -47,7 +47,6 @@ import { createStateAlerts } from "./rail/stateAlerts";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
 import { createRailSlide } from "./rail/slide";
-import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import type { LinkContent } from "@contracts/link/LinkContent";
@@ -65,12 +64,7 @@ import type { Chime } from "./toasts/chime";
 import { createToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
-import { Bubbles } from "./bubbles/Bubbles";
-import { AskBar } from "./ask/AskBar";
-import { Switcher } from "./switcher/Switcher";
 import { ProjectPicker } from "./switcher/ProjectPicker";
-import { Feedback } from "./feedback/Feedback";
-import { ResourceStrip } from "./resources/ResourceStrip";
 import type { ShelfRequest } from "./state/projectView";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/Shelf";
@@ -450,8 +444,6 @@ export const App = (props: {
     arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
   });
 
-  const screensOf = panes.screensOf;
-
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <ProjectOpening opening={opening} />
@@ -535,42 +527,7 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <div class="centre-stack">
-              <div class="project-center-area">
-                <div class="project-center-content" inert={activeConnection()?.settingsView.open()} style={{ visibility: activeConnection()?.settingsView.open() ? "hidden" : "visible" }}>
-                  {/* U7155a: each Project shown once keeps its Pane mounted, so a tab switch moves no Terminal. */}
-                  <div class="pane-stack">
-                    {panes.view()}
-                  </div>
-                  <InProject open={activeConnection()}>
-                    {() => (
-                      <>
-                        <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
-                        <Feedback notify={toasts.notify} />
-                        <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
-                      </>
-                    )}
-                  </InProject>
-                </div>
-                <InProject open={activeConnection()}>{() => <ProjectSettingsView />}</InProject>
-                <Show when={activeConnection() === undefined}>
-                  <div class="project-pending">
-                    <Show when={activeFailure()} keyed fallback={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>{failure => failureLine(failure, () => void projects.reopen(projects.active()!))}</Show>
-                  </div>
-                </Show>
-              </div>
-              <InProject open={activeConnection()}>
-                {(open) => (
-                  <>
-                    <Show when={screensOf(open.project.path)}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip returnFocus={() => { const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
-
-                      if (id) screensOf(open.project.path)?.emulatorFor(id).focus();
-                      else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
-                  </>
-                )}
-              </InProject>
-            </div>
+            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)} viewLabel={id => views.find(([view]) => view === id)?.[1]} notify={toasts.notify} onFailure={setJumpFailure} onSwitcherOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
           </Show>
           </div>
           <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>

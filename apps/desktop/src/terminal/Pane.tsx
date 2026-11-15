@@ -31,7 +31,7 @@ import { doorTerminalId } from "../state/doorNode";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { active?: (() => boolean) | undefined; notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined; openObject?: ((url: string, surface: string) => void) | undefined }) => {
+export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined; openObject?: ((url: string, surface: string) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   let fontSize: number | undefined;
@@ -98,13 +98,6 @@ export const Pane = (props: { active?: (() => boolean) | undefined; notice?: str
   });
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
-  // U7155a: a kept-alive Pane that is not shown never answers for the centre.
-  createEffect(() => {
-    const element = screen();
-
-    if (element && (props.active?.() ?? true)) provideFocusTarget("pane.terminal", () => element.querySelector<HTMLElement>("textarea, [tabindex]"));
-  });
-
   const [preparing, setPreparing] = createSignal(false);
   let preparation: AbortController | undefined;
   rail.prepareTerminal = async () => {
@@ -317,7 +310,7 @@ export const Pane = (props: { active?: (() => boolean) | undefined; notice?: str
           body = element;
         }}
       >
-        <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
+        <div class="pane-screen" ref={element => { setScreen(element); provideFocusTarget("pane.terminal", () => element.querySelector<HTMLElement>("textarea, [tabindex]")); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
