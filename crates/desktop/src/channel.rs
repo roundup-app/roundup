@@ -147,6 +147,30 @@ mod tests {
             assert_eq!(config["productName"], name, "{overlay:?}");
         }
         assert_eq!(merged(None)["app"]["windows"][0]["title"], "Roundup Source");
+        // The bundle icon the build overlay leaves: Dev and Source their own plate, Stable the artwork.
+        let bundle = |overlay| {
+            let mut config = merged(overlay);
+            let base: serde_json::Value = serde_json::from_str(
+                &std::fs::read_to_string(
+                    Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.bundle.conf.json"),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            json_patch::merge(&mut config, &base);
+            if let Some(overlay) = overlay {
+                let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(overlay);
+                let overlay = serde_json::from_str(&std::fs::read_to_string(path).unwrap());
+                json_patch::merge(&mut config, &overlay.unwrap());
+            }
+            config["bundle"]["icon"][0].as_str().unwrap().to_owned()
+        };
+        assert_eq!(bundle(Some("tauri.stable.conf.json")), "icons/icon@2x.png");
+        assert_eq!(bundle(Some("tauri.dev.conf.json")), "icons/dev@2x.png");
+        assert_eq!(
+            bundle(Some("tauri.source.conf.json")),
+            "icons/source@2x.png"
+        );
         assert_eq!(Channel::Stable.dock_colour(), None);
         assert_eq!(
             Channel::Dev.dock_colour(),

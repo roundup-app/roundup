@@ -11,8 +11,8 @@ export const forkCopy = {
   colourTaken: "Every colour is in use. Recolour or delete a Fork to free one.",
   taken: (name: string, holder: string) => `${name} is taken by ${holder}.`,
   list: "Forks",
-  rename: "Rename",
+  rename: sharedCopy.rename,
   recolour: "Recolour",
-  collides: (holder: string) => `Collides with ${holder}.`,
+  collides: (holder: string) => `${holder} holds the same name or colour.`,
   invalidName: "Use 1 to 40 characters, with no control characters.",
 };

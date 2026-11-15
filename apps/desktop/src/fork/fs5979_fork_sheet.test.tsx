@@ -249,8 +249,8 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
 
   it("ai7152e_the_list_marks_a_colliding_fork", async () => {
     await sheet(app => { app.forkList = async () => [{ ...listed("old", "teal"), collides: "Roundup Dev" }, listed("fine", "red")]; });
-    await screen.findByText("Collides with Roundup Dev.");
-    expect(screen.getAllByText(/Collides with/)).toHaveLength(1);
+    await screen.findByText("Roundup Dev holds the same name or colour.");
+    expect(screen.getAllByText(/holds the same name or colour/)).toHaveLength(1);
   });
   it("ai7152e_each_row_renames_and_recolours_through_the_seam", async () => {
     const forkRename = vi.fn(async () => {});

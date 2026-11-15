@@ -1,6 +1,7 @@
 {
   "productName": "Roundup Dev",
   "identifier": "dev.roundup.app.dev",
+  "bundle": { "icon": ["icons/dev@2x.png"] },
   "plugins": {
     "deep-link": { "desktop": { "schemes": ["roundup-dev"] } },
     "updater": {

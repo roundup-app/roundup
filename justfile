@@ -215,7 +215,7 @@ app-bundle channel="source" n="":
     set -euo pipefail
     overlay=()
     case {{quote(channel)}} in
-        source) ;;
+        source) overlay=(--config tauri.source.conf.json) ;;
         stable) overlay=(--config tauri.stable.conf.json --config '{"version":"0.1.0-alpha.{{n}}"}') ;;
         dev) overlay=(--config tauri.dev.conf.json --config '{"version":"0.1.0-dev.{{n}}"}') ;;
         *) echo "channel is source, stable or dev, not {{channel}}" >&2; exit 2 ;;

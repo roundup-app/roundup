@@ -451,6 +451,19 @@ mod tests {
         let rgba = |colour| channel_icon(colour).unwrap().rgba().to_vec();
         assert_ne!(rgba(ForkColour::Violet), rgba(ForkColour::Blue));
         assert_ne!(rgba(ForkColour::Violet), rgba(ForkColour::Orange));
+        // The bundles' committed icons are those renders; Stable's is the artwork itself.
+        let committed = |name: &str| {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("icons")
+                .join(name);
+            Icon::read_png(std::io::Cursor::new(fs::read(path).unwrap()))
+                .unwrap()
+                .into_data()
+                .into_vec()
+        };
+        assert_eq!(committed("dev@2x.png"), rgba(ForkColour::Violet));
+        assert_eq!(committed("source@2x.png"), rgba(ForkColour::Blue));
+        assert_eq!(committed("icon@2x.png"), source().into_data().into_vec());
     }
 
     #[test]

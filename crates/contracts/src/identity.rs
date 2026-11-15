@@ -173,8 +173,12 @@ pub fn edit(
     if let Some(said) = refusal(&forks_in(forks), name, colour, Some(path), dev) {
         return Err(said);
     }
-    json["name"] = name.into();
-    json["colour"] = serde_json::to_value(colour).map_err(|e| e.to_string())?;
+    let object = json.as_object_mut().ok_or("fork.json is not an object")?;
+    object.insert("name".into(), name.into());
+    object.insert(
+        "colour".into(),
+        serde_json::to_value(colour).map_err(|e| e.to_string())?,
+    );
     let out = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
     std::fs::write(&file, out).map_err(|e| format!("{}: {e}", file.display()))?;
     Ok(record.name)
