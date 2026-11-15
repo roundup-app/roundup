@@ -46,6 +46,21 @@ impl Channel {
         self != Self::Source
     }
 
+    /// AI7152a: the name this build carries and the colour of its icon's plate.
+    pub fn identity(self) -> (&'static str, contracts::data::ForkColour) {
+        let index = match self {
+            Self::Stable => 0,
+            Self::Dev => 1,
+            Self::Source => 2,
+        };
+        contracts::identity::CHANNELS[index]
+    }
+
+    /// AI7152a: the plate colour a running build sets its Dock icon to; Stable keeps `artwork.png`.
+    pub fn dock_colour(self) -> Option<contracts::data::ForkColour> {
+        (self != Self::Stable).then(|| self.identity().1)
+    }
+
     /// The herdr-core session its Daemons' Terminals live in; `None` keeps the Daemon's default.
     pub(crate) fn core_session(self) -> Option<&'static str> {
         (self == Self::Dev).then_some("roundup-dev")
@@ -118,6 +133,30 @@ mod tests {
                 assert!(updater.is_null(), "Source has no feed");
             }
         }
+    }
+
+    #[test]
+    fn ai7152a_each_config_names_its_channel_and_dock_icon() {
+        let builds = [
+            (None, Channel::Source),
+            (Some("tauri.stable.conf.json"), Channel::Stable),
+            (Some("tauri.dev.conf.json"), Channel::Dev),
+        ];
+        for (overlay, channel) in builds {
+            let config = merged(overlay);
+            let (name, _) = channel.identity();
+            assert_eq!(config["productName"], name, "{overlay:?}");
+        }
+        assert_eq!(merged(None)["app"]["windows"][0]["title"], "Roundup Source");
+        assert_eq!(Channel::Stable.dock_colour(), None);
+        assert_eq!(
+            Channel::Dev.dock_colour(),
+            Some(contracts::data::ForkColour::Violet)
+        );
+        assert_eq!(
+            Channel::Source.dock_colour(),
+            Some(contracts::data::ForkColour::Blue)
+        );
     }
 
     fn fork(home: &Path, folder: &str, name: &str) {

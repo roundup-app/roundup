@@ -149,6 +149,13 @@ pub(crate) fn fork_icon(folder: &Path) -> Option<Image<'static>> {
     Some(Image::new_owned(icon.into_data().into_vec(), 1024, 1024))
 }
 
+/// AI7152a: the icon of a Channel whose plate is `colour`.
+#[cfg(any(test, target_vendor = "apple"))]
+pub(crate) fn channel_icon(colour: ForkColour) -> Option<Image<'static>> {
+    let icon = render_icon(ARTWORK, colour).ok()?;
+    Some(Image::new_owned(icon.into_data().into_vec(), 1024, 1024))
+}
+
 /// The PNG bytes of `image`, which the native icon call takes.
 #[cfg(any(test, target_vendor = "apple"))]
 pub(crate) fn png(image: &Image<'_>) -> Option<Vec<u8>> {
@@ -432,6 +439,13 @@ mod tests {
             let mean = sin.atan2(cos).to_degrees().rem_euclid(360.0);
             assert!(hue_gap(mean, hue(colour)) < 6.0, "{colour:?}: {mean}");
         }
+    }
+
+    #[test]
+    fn ai7152a_dev_and_source_render_their_own_plate() {
+        let rgba = |colour| channel_icon(colour).unwrap().rgba().to_vec();
+        assert_ne!(rgba(ForkColour::Violet), rgba(ForkColour::Blue));
+        assert_ne!(rgba(ForkColour::Violet), rgba(ForkColour::Orange));
     }
 
     #[test]

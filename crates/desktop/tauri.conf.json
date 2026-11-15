@@ -1,6 +1,6 @@
 {
   "plugins": { "deep-link": { "desktop": { "schemes": ["roundup-source"] } } },
-  "productName": "roundup",
+  "productName": "Roundup Source",
   "identifier": "dev.roundup.app.source",
   "build": {
     "devUrl": "http://localhost:5173",
@@ -8,7 +8,7 @@
   },
   "app": {
     "macOSPrivateApi": true,
-    "windows": [{ "title": "roundup", "width": 1280, "minWidth": 1280, "visible": false, "titleBarStyle": "Overlay", "hiddenTitle": true, "transparent": true }],
+    "windows": [{ "title": "Roundup Source", "width": 1280, "minWidth": 1280, "visible": false, "titleBarStyle": "Overlay", "hiddenTitle": true, "transparent": true }],
     "security": {
       "assetProtocol": { "enable": true, "scope": ["**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.heic", "**/*.PNG", "**/*.JPG", "**/*.JPEG", "**/*.GIF", "**/*.WEBP", "**/*.HEIC"] }
     }

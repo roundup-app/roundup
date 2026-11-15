@@ -1,5 +1,5 @@
 {
-  "productName": "roundup Dev",
+  "productName": "Roundup Dev",
   "identifier": "dev.roundup.app.dev",
   "plugins": {
     "deep-link": { "desktop": { "schemes": ["roundup-dev"] } },

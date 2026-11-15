@@ -8,8 +8,8 @@ use tauri::{AppHandle, Builder, Manager, Runtime};
 #[cfg(feature = "idle-perf")]
 use crate::idle;
 use crate::{
-    AppState, Config, alert, commands, diagnostics, fork_app, launch, menu, menu_bar, navigation,
-    updater, window,
+    AppState, Channel, Config, alert, commands, diagnostics, fork_app, launch, menu, menu_bar,
+    navigation, updater, window,
 };
 
 /// Build with stderr feedback and an observable fatal exit. The native entry point additionally
@@ -35,7 +35,8 @@ pub(crate) fn build_with_feedback<R: Runtime>(
 ) -> Builder<R> {
     let data_dir = config.data_dir.clone();
     let dev_port = config.dev_port.unwrap_or(navigation::DEFAULT_DEV_PORT);
-    let installed = config.channel.installed();
+    let channel = config.channel;
+    let installed = channel.installed();
     let refusal = config.refusal.clone();
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     // CH7077e: only an installed build has a feed to read.
@@ -88,7 +89,7 @@ pub(crate) fn build_with_feedback<R: Runtime>(
                 feedback(app.handle(), message, Some(1));
                 return Ok(());
             }
-            show_fork(app, data_dir.as_deref());
+            show_fork(app, data_dir.as_deref(), channel);
             if installed {
                 updater::watch(app.handle());
             }
@@ -142,20 +143,35 @@ pub(crate) fn build_with_feedback<R: Runtime>(
 }
 
 /// FA5980c, FA5980d: a Fork App sets its own Dock icon and window title; the live App sets neither.
-fn show_fork<R: Runtime>(app: &mut tauri::App<R>, data_dir: Option<&Path>) {
+fn show_fork<R: Runtime>(app: &mut tauri::App<R>, data_dir: Option<&Path>, channel: Channel) {
     let identity = app.state::<fork_app::Identity>();
-    let Some(fork) = identity.0.clone() else {
-        return;
-    };
+    let fork = identity.0.clone();
+    // AI7152a: Dev and Source set their own plate; a Fork App sets its Fork's.
+    #[cfg(target_vendor = "apple")]
+    if let Some(png) = channel
+        .dock_colour()
+        .and_then(|colour| fork_app::channel_icon(colour))
+        .and_then(|image| fork_app::png(&image))
+    {
+        native::set_application_icon(&png);
+    }
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.set_title(&fork_app::window_title(Some(&fork.name), "roundup"));
+        let title = match &fork {
+            Some(fork) => fork_app::window_title(Some(&fork.name), channel.identity().0),
+            None => channel.identity().0.to_owned(),
+        };
+        let _ = window.set_title(&title);
+    }
+    if fork.is_none() {
+        return;
     }
     #[cfg(not(target_vendor = "apple"))]
     let _ = data_dir;
     #[cfg(target_vendor = "apple")]
-    if let Some(png) = data_dir
-        .and_then(fork_app::fork_icon)
-        .and_then(|image| fork_app::png(&image))
+    if channel.dock_colour().is_none()
+        && let Some(png) = data_dir
+            .and_then(fork_app::fork_icon)
+            .and_then(|image| fork_app::png(&image))
     {
         native::set_application_icon(&png);
     }
