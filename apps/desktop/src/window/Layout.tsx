@@ -17,6 +17,11 @@ import type { Widths } from "../resize/widths";
 import { railView } from "../rail/slide";
 import { RailToggle } from "../rail/RailToggle";
 
+/** U7156: the Rail's toggle, in the strip's head when it is collapsed and in the Rail's own head otherwise. */
+const RailHead = (props: { toggle: { collapsed: boolean; onToggle: () => void } | undefined; strip: boolean }) => (
+  <Show when={props.toggle}>{(toggle) => <div class={props.strip ? "rail-strip-head" : "rail-head"}><RailToggle collapsed={props.strip || toggle().collapsed} onToggle={toggle().onToggle} /></div>}</Show>
+);
+
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
 export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; keyed?: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
 
@@ -158,11 +163,11 @@ export const Layout = (props: {
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
       <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={railMode().strip || undefined} data-peek={railMode().peek || undefined} data-slide={props.railSlide} data-layout-panel="rail" aria-label={copy.rail}>
         <Show when={railMode().strip}>
-          <Show when={!railMode().peek ? props.railToggle : undefined}>{(toggle) => <div class="rail-strip-head"><RailToggle collapsed={true} onToggle={toggle().onToggle} /></div>}</Show>
+          <RailHead toggle={props.railToggle} strip={!railMode().peek} />
           {props.railStrip}
         </Show>
         <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={(props.widths?.collapsed() && !props.railPeeking) || undefined}>
-          <Show when={props.railToggle}>{(toggle) => <div class="rail-head"><RailToggle collapsed={toggle().collapsed} onToggle={toggle().onToggle} /></div>}</Show>
+          <RailHead toggle={props.railToggle} strip={false} />
           {props.rail}
         </div>
       </section>

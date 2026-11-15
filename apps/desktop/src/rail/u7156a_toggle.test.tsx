@@ -52,8 +52,9 @@ it("u7156a_no_element_outside_the_sliding_rail_toggles_it_or_transitions_its_pos
   const layout = readFileSync(join(src, "window/Layout.tsx"), "utf8");
   const rail = layout.slice(layout.indexOf('class="rail"'), layout.indexOf("</section>", layout.indexOf('class="rail"')));
 
-  expect(rail.match(/<RailToggle/g)).toHaveLength(2);
-  expect(layout.match(/<RailToggle/g)).toHaveLength(2);
+  expect(rail.match(/<RailHead/g)).toHaveLength(2);
+  expect(layout.match(/<RailHead/g)).toHaveLength(2);
+  expect(layout.match(/<RailToggle/g)).toHaveLength(1);
 
   const css = readFileSync(join(src, "styles.css"), "utf8");
 
