@@ -487,7 +487,7 @@ export const App = (props: {
                 {() => (
                   <>
                     <AttentionKey />
-                    <Rail />
+                    <Rail {...(railToggle() ? { toggle: railToggle()! } : {})} />
                   </>
                 )}
               </InProject>

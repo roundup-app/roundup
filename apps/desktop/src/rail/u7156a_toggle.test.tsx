@@ -44,22 +44,22 @@ it("u7156b_the_icon_follows_the_state", () => {
 });
 
 it("u7156a_no_element_outside_the_sliding_rail_toggles_it_or_transitions_its_position", () => {
-  // The only file that renders the toggle is the Layout, and only inside the Rail's own section.
+  // Only the Layout (the strip) and the Rail (its WORKSTREAMS header) render the toggle, both inside the Rail section.
   const users = walk(src).filter(file => /\.tsx?$/.test(file) && !/\.test\./.test(file) && readFileSync(file, "utf8").includes("<RailToggle"));
 
-  expect(users.map(file => file.slice(src.length + 1))).toEqual(["window/Layout.tsx"]);
+  expect(users.map(file => file.slice(src.length + 1))).toEqual(["rail/Rail.tsx", "window/Layout.tsx"]);
 
   const layout = readFileSync(join(src, "window/Layout.tsx"), "utf8");
   const rail = layout.slice(layout.indexOf('class="rail"'), layout.indexOf("</section>", layout.indexOf('class="rail"')));
 
-  expect(rail.match(/<RailHead/g)).toHaveLength(2);
-  expect(layout.match(/<RailHead/g)).toHaveLength(2);
+  expect(rail.match(/<StripHead/g)).toHaveLength(1);
+  expect(layout.match(/<StripHead/g)).toHaveLength(1);
   expect(layout.match(/<RailToggle/g)).toHaveLength(1);
 
   const css = readFileSync(join(src, "styles.css"), "utf8");
 
   for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (/\.rail-(toggle|head|strip-head)/.test((selector ?? ""))) expect(body ?? "", selector).not.toMatch(/transition/);
+    if (/\.rail-(toggle|strip-head)/.test((selector ?? ""))) expect(body ?? "", selector).not.toMatch(/transition/);
   }
 
 

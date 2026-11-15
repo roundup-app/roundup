@@ -210,19 +210,7 @@ p {
   left: calc(var(--rail-width) - var(--space-1) - var(--hairline-width));
 }
 
-/* U7156a: the Rail's toggle lives in the Rail's header row, trailing, and at the top of the strip; both sit inside the sliding Rail, so the button has no position or transition of its own. */
-.rail-head {
-  display: flex;
-  flex: none;
-  height: 0;
-  justify-content: flex-end;
-  padding: var(--space-2) var(--space-4) 0 0;
-  position: relative;
-  z-index: 1;
-}
-
-.rail-head .rail-toggle { margin-right: var(--space-6); }
-
+/* U7156a: the Rail's toggle trails the WORKSTREAMS header, and sits at the top of the strip; both ride the sliding Rail, so the button has no position or transition of its own. */
 .rail-strip-head {
   display: flex;
   flex: none;
