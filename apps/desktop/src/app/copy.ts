@@ -16,7 +16,6 @@ export const copy = {
   resources: sharedCopy.resources,
   switchProject: sharedCopy.switchProject,
   closeView: sharedCopy.closeView,
-  rpcFailure: sharedCopy.rpcFailure,
   deliverables: sharedCopy.deliverables,
   dismissFailure: sharedCopy.dismissFailure,
   openDraft: sharedCopy.openDraft,
