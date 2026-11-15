@@ -185,11 +185,10 @@ impl crate::Agents {
             runs.iter().find_map(|(agent, entry)| match &entry.slot {
                 crate::Slot::Running(run)
                     if run.terminal_id() == terminal
-                        && run
-                            .view()
-                            .status
-                            .as_ref()
-                            .is_some_and(|status| status.kind == Kind::NeedsYou) =>
+                        && run.view().status.as_ref().is_some_and(|status| {
+                            status.kind == Kind::NeedsYou
+                                && !crate::stop_asks(status.kind, &status.label)
+                        }) =>
                 {
                     Some(*agent)
                 }

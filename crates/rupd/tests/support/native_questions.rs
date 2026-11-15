@@ -399,7 +399,12 @@ async fn native_requests(run: &mut Run, lead: &Peer, child: &Peer) -> usize {
         if let EventData::AgentStatus(status) = event.data
             && status.status.kind == contracts::Kind::NeedsYou
         {
-            assert_ne!(status.id, child.id, "child opened a native question");
+            // A7180: a stop that asks in text shows `needs-you`; a native question is still refused.
+            assert!(
+                status.id != child.id
+                    || agents::stop_asks(status.status.kind, &status.status.label),
+                "child opened a native question"
+            );
             if status.id == lead.id {
                 count += 1;
             }

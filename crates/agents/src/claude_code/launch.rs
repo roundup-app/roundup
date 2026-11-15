@@ -165,7 +165,15 @@ impl Launcher {
         }
     }
 
-    pub(super) fn placement_settings(&self, project: &Path) -> Result<Value, String> {
+    /// The user's settings a one-shot call (Placement, the stop judge) keeps.
+    /// A7180b: the stop judge uses the same binary, through its own one-shot seam.
+    pub fn stop_judge(&self) -> super::StopCall {
+        super::StopCall {
+            launcher: self.clone(),
+        }
+    }
+
+    pub(super) fn one_shot_settings(&self, project: &Path) -> Result<Value, String> {
         user_settings(&self.conversation_dir, project).map_err(|err| err.to_string())
     }
 

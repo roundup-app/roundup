@@ -550,7 +550,7 @@ async fn u5483c_late_final_text_refreshes_rail_without_a_status_change() {
         .unwrap();
     let before = shared.node(&id).unwrap();
     let mut events = bus.subscribe();
-    shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":"Should I publish three pages or five"}))).unwrap();
+    shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":"Published three pages"}))).unwrap();
     let after = shared.node(&id).unwrap();
     assert_eq!(after.status_revision(), before.status_revision());
     assert_eq!(
