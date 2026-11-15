@@ -3,7 +3,7 @@ import { Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { AskBar } from "../ask/AskBar";
 import { Bubbles } from "../bubbles/Bubbles";
-import { copy } from "../app/copy";
+import { copy } from "./copy";
 import { Feedback } from "../feedback/Feedback";
 import { failureLine } from "../ink/ReservedLine";
 import { captureActions } from "../keys/registry";
@@ -13,7 +13,8 @@ import { isDoor } from "../state/doorNode";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import { Switcher } from "../switcher/Switcher";
-import type { createProjectPanes } from "./ProjectPanes";
+import type { createProjectPanes } from "../terminal/ProjectPanes";
+import type { ToastQueue } from "../toasts/queue";
 
 const InOpen = (props: { open: ConnectedProject | undefined; children: (open: ConnectedProject) => JSX.Element }) => (
   <Show when={props.open} keyed>{open => <ConnectedProjectContext.Provider value={open}>{props.children(open)}</ConnectedProjectContext.Provider>}</Show>
@@ -26,7 +27,7 @@ export const ProjectCentre = (props: {
   failure: Error | undefined;
   retry: () => void;
   viewLabel: (id: string) => string | undefined;
-  notify: (text: string) => void;
+  notify: ToastQueue["notify"];
   onFailure: (failure: string | null) => void;
   onSwitcherOpen: () => void;
 }) => (

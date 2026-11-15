@@ -3,7 +3,7 @@ import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
 import { createProjectPanes } from "./terminal/ProjectPanes";
-import { ProjectCentre } from "./terminal/ProjectCentre";
+import { ProjectCentre } from "./window/ProjectCentre";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
@@ -440,7 +440,7 @@ export const App = (props: {
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
   const panes = createProjectPanes({
-    keys, active: projects.active, connectionOf, ready: () => activeConnection() !== undefined, createEmulator: emulators, observeTerminal: props.observeTerminal,
+    keys, active: projects.active, connectionOf, ready: () => activeConnection() !== undefined, createEmulator: emulators, observeTerminal: (path, id) => props.observeTerminal?.(path, id),
     arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
   });
 
