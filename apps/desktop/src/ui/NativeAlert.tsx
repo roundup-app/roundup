@@ -15,19 +15,23 @@ const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, que
   return app.askRemoval(question);
 };
 
-type Read = { accepted: boolean; suppressed: boolean; each?: "this" | "all" };
+type Read = { accepted: boolean; suppress?: QuestionKey; each?: "this" | "all" };
 
-/** Asks the native question; a suppressed key answers yes without showing, and a keyed question offers "Don't ask again". */
-const ask = async (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion, key?: QuestionKey): Promise<Read> => {
-  if (key !== undefined && isSuppressed(key)) return { accepted: true, suppressed: false };
+/** Asks the native question; a suppressed key answers yes without showing, and a keyed question offers "Don't ask again". It returns the pending answer itself, so the caller settles in the same ticks as a bare ask. */
+const ask = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion, key?: QuestionKey): Promise<NativeAnswer | RemovalAnswer> | true => {
+  if (key === undefined) return askNative(app, question);
 
-  return read(await askNative(app, key === undefined ? question : { ...question, suppressible: copy.dontAskAgain }));
+  return isSuppressed(key) ? true : askNative(app, { ...question, suppressible: copy.dontAskAgain });
 };
 
-const read = (raw: NativeAnswer | RemovalAnswer): Read => {
-  if (raw === "this" || raw === "all") return { accepted: true, suppressed: false, each: raw };
+const read = (raw: NativeAnswer | RemovalAnswer, key?: QuestionKey): Read => {
+  if (raw === "this" || raw === "all") return { accepted: true, each: raw };
 
-  return raw === "cancel" ? { accepted: false, suppressed: false } : answerOf(raw);
+  if (raw === "cancel") return { accepted: false };
+
+  const { accepted, suppressed } = answerOf(raw);
+
+  return key !== undefined && suppressed ? { accepted, suppress: key } : { accepted };
 };
 
 /** A native question owns one request until answered. A request the system cannot show authorizes nothing and is never replayed (U6249d C10): its cause goes to the log and the same question is asked in the App, where the user answers it. */
@@ -59,7 +63,7 @@ export const NativeAlert = (props: {
     try {
       const question = { ...props.question };
       const key = "thisLabel" in question ? undefined : props.key;
-      const { accepted, suppressed, each } = await ask(props.app, question, key);
+      const { accepted, suppress, each } = read(await ask(props.app, question, key), key);
 
       if (mine !== generation || !props.open) return;
 
@@ -72,7 +76,7 @@ export const NativeAlert = (props: {
         return;
       }
 
-      if (accepted && key !== undefined && suppressed) await suppressQuestion(key);
+      if (accepted && suppress) await suppressQuestion(suppress);
 
       if (accepted) await props.onConfirm(each);
       else props.onCancel();
