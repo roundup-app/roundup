@@ -18,6 +18,7 @@ pub mod event;
 pub mod export;
 pub mod feedback;
 pub mod github;
+pub mod identity;
 pub mod link;
 pub mod machine;
 pub mod message;
