@@ -44,7 +44,7 @@ pub fn same_name(a: &str, b: &str) -> bool {
 }
 
 /// AI7152c: Dev's own Fork lives in the folder `dev`.
-pub fn is_dev_folder(folder: &Path) -> bool {
+pub fn is_dev_fork_path(folder: &Path) -> bool {
     folder.file_name().is_some_and(|name| name == "dev")
 }
 
@@ -148,7 +148,7 @@ fn colour_name(colour: ForkColour) -> String {
 /// AI7152e: the other App a Fork collides with, or `None`; of two Forks, the later `created_ms`
 /// is the one marked. The Channels are never marked, and Dev's own Fork keeps `Dev` and `violet`.
 pub fn collides(forks: &[TakenFork], fork: &TakenFork) -> Option<String> {
-    let dev = is_dev_folder(&fork.path);
+    let dev = is_dev_fork_path(&fork.path);
     if let Some(channel) =
         channel_named(&fork.name, dev).or_else(|| channel_coloured(fork.colour, dev))
     {
@@ -214,7 +214,7 @@ pub fn edit(
         name,
         colour,
         Some(path),
-        is_dev_folder(path),
+        is_dev_fork_path(path),
     ) {
         return Err(said);
     }
