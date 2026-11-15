@@ -246,4 +246,10 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
     await userEvent.setup().type(await screen.findByLabelText("Name"), "{Enter}");
     expect(forkMake).not.toHaveBeenCalled();
   });
+
+  it("ai7152e_the_list_marks_a_colliding_fork", async () => {
+    await sheet(app => { app.forkList = async () => [{ ...listed("old", "teal"), collides: "Roundup Dev" }, listed("fine", "red")]; });
+    await screen.findByText("Collides with Roundup Dev.");
+    expect(screen.getAllByText(/Collides with/)).toHaveLength(1);
+  });
 });

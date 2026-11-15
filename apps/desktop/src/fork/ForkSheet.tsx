@@ -76,6 +76,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
     if (channel) return channel;
 
     const fork = forks().find(taken => fold(taken.name) === folded);
+
     return fork ? `the Fork at ${fork.path}` : null;
   };
 
@@ -144,6 +145,11 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
       <Field.Input ref={element => { input = element; props.inputRef(element); }} type="text" value={name()} onInput={event => setName(event.currentTarget.value)} />
       <Field.ErrorText>{problem()}</Field.ErrorText>
     </Field.Root>
+    <Show when={forks().length > 0}>
+      <ul class="fork-list" aria-label={forkCopy.list}>
+        <For each={forks()}>{fork => <li><span>{fork.name}</span> <span>{fork.colour}</span>{fork.collides ? <span class="fork-collides"> {forkCopy.collides(fork.collides)}</span> : null}</li>}</For>
+      </ul>
+    </Show>
     <Show when={free().length > 0} fallback={<p class="fork-colours-full">{forkCopy.colourTaken}</p>}>
       <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={free().map(value => ({ value, label: value }))} value={colour()} onValueChange={setPicked} />
     </Show>

@@ -10,5 +10,7 @@ export const forkCopy = {
   make: "Make Fork",
   colourTaken: "Every colour is in use. Recolour or delete a Fork to free one.",
   taken: (name: string, holder: string) => `${name} is taken by ${holder}.`,
+  list: "Forks",
+  collides: (holder: string) => `Collides with ${holder}.`,
   invalidName: "Use 1 to 40 characters, with no control characters.",
 };
