@@ -25,6 +25,7 @@ import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
 import { doorTerminalId } from "../state/doorNode";
+import { centreState } from "./centreState";
 
 
 /**
@@ -275,7 +276,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
           body = element;
         }}
       >
-        <div class="pane-screen" ref={element => { setScreen(element); provideFocusTarget("pane.terminal", () => element.querySelector<HTMLElement>("textarea, [tabindex]")); resizeObserver?.observe(element); }} />
+        <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); provideFocusTarget("pane.terminal", () => element.querySelector<HTMLElement>("textarea, [tabindex]")); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>

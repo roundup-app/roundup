@@ -287,7 +287,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     rail.select(destination);
   };
 
-  // The rows chosen: Zag's tree-view owns range, toggle, select-all and typeahead; opening a row replaces them.
+  // The rows chosen: Zag's tree-view owns range, toggle and select-all; opening a row replaces them. A letter never finds a row here: keys/stray.ts takes it (U7158).
   const [selected, setSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
   const isSelected = (id: string) => selected().includes(id);
 
@@ -300,7 +300,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     onFocusChange: details => setFocused(details.focusedValue),
     expandedValue: expanded(),
     selectionMode: "multiple",
-    typeahead: true,
     selectedValue: selected(),
     onSelectionChange: details => setSelected(details.selectedValue.filter(selectable)),
     expandOnClick: false,

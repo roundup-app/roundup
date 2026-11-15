@@ -114,6 +114,19 @@ export const focusTarget = (name: FocusTarget): HTMLElement | undefined => {
   return element?.isConnected ? element : undefined;
 };
 
+/** U7158: puts the keyboard in the centre Terminal, and says whether the Agent there waits for the user.
+ * `undefined`, with focus untouched, while no Terminal runs or the centre is covered. */
+export const focusCentre = (): { waiting: boolean } | undefined => {
+  const screen = focusTarget("pane.terminal");
+  const host = screen?.closest<HTMLElement>(".pane-screen");
+
+  if (!screen || !host || !("live" in host.dataset) || host.closest("[inert], [hidden]")) return undefined;
+
+  screen.focus({ preventScroll: true });
+
+  return { waiting: "waiting" in host.dataset };
+};
+
 /** An element that takes typed text: a field, an editable region or a Terminal screen. */
 const TEXT_ENTRY = "input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]";
 
