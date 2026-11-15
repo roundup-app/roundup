@@ -769,6 +769,9 @@
   padding-inline-end: var(--rail-edge);
   column-gap: var(--space-3);
 }
+/* U7156a: a section whose head holds the Rail toggle puts it in the trailing column, the chevron one slot before it. */
+.rail-tree .section-head-row > .section-head:not(:last-child) { padding-inline-end: var(--rail-slot); }
+.rail-tree .section-head-row > :not(.section-head) { margin-inline-end: var(--rail-edge); flex: none; }
 .rail-tree [data-part="branch-indicator"] {
   display: inline-flex;
   align-items: center;

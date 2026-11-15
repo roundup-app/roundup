@@ -203,7 +203,6 @@ p.ink[role="alert"] {
 .section-head-row {
   display: flex;
   align-items: center;
-  padding-inline-end: var(--space-4);
 }
 
 .section-head-row .section-head { flex: 1; min-width: 0; }
