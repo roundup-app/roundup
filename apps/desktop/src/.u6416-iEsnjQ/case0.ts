@@ -1,1 +1,0 @@
-setVersion(previous => previous + 1);
