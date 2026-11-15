@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { render } from "@solidjs/testing-library";
 import { expect, it, vi } from "vitest";
 import { WindowBar } from "../header/WindowBar";
-import { Layout } from "../window/Layout";
 import { RailToggle } from "./RailToggle";
 
 const src = join(__dirname, "..");
