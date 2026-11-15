@@ -30,11 +30,11 @@ it("u7189a_the_dock_count_equals_the_menu_bars_waiting_rows", async () => {
       workstream("unstarted", { status: { kind: "needs-you", label: "question", since: 1, finished: "0" } }),
       agent("stopped", "done", "stopped", { terminal_id: null }),
     ],
-    web: [agent("held", "working", "running", { terminal_id: "t-held" }), agent("broken", "error", "failed")],
+    web: [agent("pane", "working", "running", { terminal_id: "t-pane" }), agent("broken", "error", "failed")],
   });
 
   await listing(app, "api", () => [info("free", { status: blocked }), info("ended", { owner: "stopped", running: false, exit_code: 1, status: failed }), info("busy", { status: { ...blocked, kind: "working" } })]);
-  await listing(app, "web", () => [info("t-held", { owner: "held", status: blocked })]);
+  await listing(app, "web", () => [info("t-pane", { owner: "pane", status: blocked })]);
 
   // Four in api (two Agents, a free Terminal, a stopped Agent's ended Terminal) and one in web; a Quiet or unstarted node, an Agent's own pane and a working Terminal count nowhere.
   await waitFor(() => expect(waiting(app)).toHaveLength(5));
