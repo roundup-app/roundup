@@ -103,6 +103,14 @@ impl Reader {
     /// The Rail, the Todos, the Pads and every Message.
     pub async fn world(&self) -> Result<World, RpcError> {
         let daemon = Actor::daemon;
+        // A Stop records a turn's final text and moves its Status in one step. The text is read
+        // before the Rail, so the Rail is never older than the text read with it: a `working`
+        // child never carries the `last` of the turn that just ended, which B35 would keep as its
+        // entry because the `idle` that follows changes nothing.
+        let completed = self
+            .agents
+            .as_ref()
+            .map_or_else(HashMap::new, |agents| agents.completed_text());
         let pads: Vec<contracts::pad::Pad> =
             self.call("pad", "pad.list", Value::Null, daemon()).await?;
         let mut touches = Vec::new();
@@ -120,10 +128,7 @@ impl Reader {
                 .await?,
             pads,
             touches,
-            completed: self
-                .agents
-                .as_ref()
-                .map_or_else(HashMap::new, |agents| agents.completed_text()),
+            completed,
             stalled: self
                 .agents
                 .as_ref()
