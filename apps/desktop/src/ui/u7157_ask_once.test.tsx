@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { NativeAlert } from "./NativeAlert";
+import { questionKeys, type QuestionKey } from "../settings/preferences";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createFakeApp } from "../testing/fakeApp";
-import { AppSettings } from "./AppSettings";
 import { useBrowserStorage } from "../state/storage";
-import { askOnce, isSuppressed } from "./warnings";
+import { askOnce, isSuppressed } from "../settings/warnings";
 
 // Reopening the storage is the restart: the saved record is read again.
 const restart = () => useBrowserStorage(window.localStorage);
@@ -60,21 +60,35 @@ it("u7157c_the_choice_survives_a_restart_and_an_unreadable_record_asks", async (
   expect(ask).toHaveBeenCalledTimes(2);
 });
 
-it("u7157d_reset_warnings_asks_every_question_again", async () => {
-  const { app, ask } = stub({ accepted: true, suppressed: true });
 
-  await askOnce(app, "close-terminal", question);
-  render(() => <AppSettings app={createFakeApp()} project={() => "/p"} />);
-  await Promise.resolve();
-  window.dispatchEvent(new Event("open-app-settings"));
-  await screen.findByLabelText("Settings", { selector: "section" });
-  fireEvent.click(screen.getByText("Alerts", { selector: '[role="tab"]' }));
-  const button = await screen.findByRole("button", { name: "Reset warnings" });
+it.each(questionKeys)("u7157b_each_question_carries_an_unticked_dont_ask_again_choice_%s", async (key: QuestionKey) => {
+  // A native question the system cannot show falls back into the App, where the choice is a checkbox.
+  const ask = vi.fn(async () => { throw new Error("no native alert"); });
+  const onConfirm = vi.fn();
+  const onCancel = vi.fn();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  render(() => <NativeAlert app={{ ask }} open key={key} question={question} onConfirm={onConfirm} onCancel={onCancel} finalFocus={() => null} />);
+  const choice = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Don't ask again" });
 
-  expect(button.hasAttribute("disabled")).toBe(false);
-  fireEvent.click(button);
-  await waitFor(() => expect(isSuppressed("close-terminal")).toBe(false));
-  await askOnce(app, "close-terminal", question);
-  expect(ask).toHaveBeenCalledTimes(2);
-  expect(button.hasAttribute("disabled")).toBe(true);
+  expect(ask).toHaveBeenCalledWith(expect.objectContaining({ suppressible: "Don't ask again" }));
+  expect(choice.checked).toBe(false);
+  fireEvent.click(choice);
+  await waitFor(() => expect(choice.checked).toBe(true));
+  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+  expect(onCancel).toHaveBeenCalledTimes(1);
+  expect(onConfirm).not.toHaveBeenCalled();
+  expect(isSuppressed(key)).toBe(false);
+});
+
+it("u7157b_the_choice_ticked_in_the_app_question_and_confirmed_suppresses_it", async () => {
+  const ask = vi.fn(async () => { throw new Error("no native alert"); });
+  const onConfirm = vi.fn();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  render(() => <NativeAlert app={{ ask }} open key="close-project" question={question} onConfirm={onConfirm} onCancel={() => undefined} finalFocus={() => null} />);
+  const choice = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Don't ask again" });
+  fireEvent.click(choice);
+  await waitFor(() => expect(choice.checked).toBe(true));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+  expect(isSuppressed("close-project")).toBe(true);
 });

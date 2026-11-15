@@ -4,6 +4,7 @@ import { createEffect, createSignal, Show, on, onCleanup, untrack } from "solid-
 import { answerOf, type App, type NativeAnswer, type NativeQuestion, type RemovalQuestion, type RemovalAnswer } from "../app/seam";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
+import { Checkbox } from "./Checkbox";
 import { isSuppressed, suppressQuestion } from "../settings/warnings";
 import type { QuestionKey } from "../settings/preferences";
 
@@ -46,6 +47,7 @@ export const NativeAlert = (props: {
   finalFocus: () => HTMLElement | null;
 }) => {
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [ticked, setTicked] = createSignal(false);
   let pending = false;
   let line: HTMLDivElement | undefined;
   let generation = 0;
@@ -59,6 +61,7 @@ export const NativeAlert = (props: {
     let repeat = false;
     const answered = questionAsked();
     setFailure(null);
+    setTicked(false);
 
     try {
       const question = { ...props.question };
@@ -105,8 +108,12 @@ export const NativeAlert = (props: {
     if (open) untrack(() => void request());
   }));
 
-  const answer = (value?: RemovalAnswer) => {
+  const answer = async (value?: RemovalAnswer) => {
+    const suppress = ticked() && !removal() ? props.key : undefined;
     setFailure(null);
+
+    if (suppress !== undefined) await suppressQuestion(suppress);
+
     void props.onConfirm(value);
   };
 
@@ -120,8 +127,11 @@ export const NativeAlert = (props: {
   const confirm = () => "okLabel" in props.question ? props.question.okLabel : "";
 
   return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} status={props.question.message}>
-    <Show when={removal()} fallback={<button data-button="quiet" type="button" onClick={() => answer()}>{confirm()}</button>}>
-      {each => <><button data-button="quiet" type="button" onClick={() => answer("this")}>{each().thisLabel}</button><button data-button="quiet" type="button" onClick={() => answer("all")}>{each().allLabel}</button></>}
+    <Show when={removal()} fallback={<>
+      <Show when={props.key}><Checkbox checked={ticked()} onCheckedChange={setTicked}>{copy.dontAskAgain}</Checkbox></Show>
+      <button data-button="quiet" type="button" onClick={() => void answer()}>{confirm()}</button>
+    </>}>
+      {each => <><button data-button="quiet" type="button" onClick={() => void answer("this")}>{each().thisLabel}</button><button data-button="quiet" type="button" onClick={() => void answer("all")}>{each().allLabel}</button></>}
     </Show>
     <button data-button="quiet" type="button" onClick={cancel}>{props.question.cancelLabel}</button>
   </ReservedLine></Show>;
