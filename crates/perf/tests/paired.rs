@@ -322,7 +322,8 @@ async fn r16_paired_load_skips_are_loud() {
         } else {
             "head hook_loop_ms not compared"
         }));
-        assert!(text.contains("skipped 8 regression tests"));
+        // Every metric but memory skips: `r16_paired_memory_is_compared_at_any_load`.
+        assert!(text.contains(&format!("skipped {} regression tests", budgets().len() - 1)));
         assert!(text.contains("above 2"));
         let json = serde_json::to_value(&result).unwrap();
         assert_eq!(

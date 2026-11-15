@@ -297,7 +297,7 @@ async fn x11_agent_run_over_mcp_runs_under_the_caller() {
 
 // Production SDK -> RPC -> Daemon -> real Todo and Message stores. Only lifecycle
 // observations are controlled: this fixture creates no program, PTY or vendor.
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn u4593_mcp_assignment_connects_context_owner_and_comment() {
     for (kind, parent_kind, door) in [
         ("agent", Some("workstream"), false),
@@ -677,7 +677,7 @@ async fn t4597_both_roles_read_the_surfaces_they_write() {
     }
 }
 
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn u4698c_mcp_sets_priority_as_the_authenticated_actor() {
     for door in [false, true] {
         let (_dir, shim, user, state) = reply_fixture(door).await;

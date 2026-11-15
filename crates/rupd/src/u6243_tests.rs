@@ -187,6 +187,9 @@ async fn walk(steps: Vec<Step>) -> Told {
     .await;
     let mut events = run.daemon.bus.subscribe();
     settle().await;
+    // Launching an Agent runs the runtime probe, a real child the paused clock would time out
+    // on: the clock stops once the Agents stand.
+    tokio::time::pause();
     tells(&mut events);
     let mut last = fresh(&run).await;
     assert_eq!(told(&run), last);
@@ -267,7 +270,6 @@ async fn walk(steps: Vec<Step>) -> Told {
 fn on_paused_clock(steps: Vec<Step>) -> Told {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
-        .start_paused(true)
         .build()
         .unwrap()
         .block_on(walk(steps))
