@@ -18,12 +18,12 @@ const COLOURS: readonly ForkColour[] = ["red", "orange", "amber", "green", "teal
 
 /** AI7152a: each Channel's name and fixed colour, as `contracts::identity::CHANNELS` holds them. */
 const CHANNELS: readonly { name: string; colour: ForkColour }[] = [
-  { name: "Roundup", colour: "orange" },
-  { name: "Roundup Dev", colour: "violet" },
-  { name: "Roundup Source", colour: "blue" },
+  { name: forkCopy.channelStable, colour: "orange" },
+  { name: forkCopy.channelDev, colour: "violet" },
+  { name: forkCopy.channelSource, colour: "blue" },
 ];
 
-const RESERVED = [...CHANNELS.map(channel => channel.name), "Dev", "Source"];
+const RESERVED = [...CHANNELS.map(channel => channel.name), forkCopy.shortDev, forkCopy.shortSource];
 
 /** AI7152d: the first free colour is chosen: teal, then `ForkColour` order. */
 const FIRST: readonly ForkColour[] = ["teal", ...COLOURS.filter(colour => colour !== "teal")];
@@ -115,7 +115,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
 
     const fork = forks().find(taken => fold(taken.name) === folded);
 
-    return fork ? `the Fork at ${fork.path}` : null;
+    return fork ? forkCopy.forkAt(fork.path) : null;
   };
 
   const problem = (): string | null => {

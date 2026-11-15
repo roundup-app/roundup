@@ -150,7 +150,7 @@ fn show_fork<R: Runtime>(app: &mut tauri::App<R>, data_dir: Option<&Path>, chann
     #[cfg(target_vendor = "apple")]
     if let Some(png) = channel
         .dock_colour()
-        .and_then(|colour| fork_app::channel_icon(colour))
+        .and_then(fork_app::channel_icon)
         .and_then(|image| fork_app::png(&image))
     {
         native::set_application_icon(&png);
