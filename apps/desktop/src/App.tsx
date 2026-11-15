@@ -446,6 +446,54 @@ export const App = (props: {
 
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
+  const [paneShown, setPaneShown] = createSignal<string[]>([]);
+  const [paneScreens, setPaneScreens] = createSignal<ReadonlyMap<string, Screens>>(new Map());
+  const screensOf = (path: string): Screens | undefined => paneScreens().get(path);
+
+  createEffect(() => {
+    const open = keys();
+    const active = projects.active();
+    const shown = untrack(paneShown);
+    const next = shown.filter(path => open.includes(path));
+
+    if (active !== null && activeConnection() && open.includes(active) && !next.includes(active)) next.push(active);
+
+    if (next.length !== shown.length || next.some((path, index) => path !== shown[index])) setPaneShown(next);
+  });
+
+  const projectPane = (open: ConnectedProject) => {
+    const path = open.project.path;
+    const tracked = emulators();
+    const active = () => projects.active() === path;
+
+    onCleanup(() => setPaneScreens(known => { const next = new Map(known); next.delete(path);
+
+ return next; }));
+
+    // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
+    createEffect(on(active, now => {
+      if (!now) return;
+
+      const arrived = projects.arrival(path);
+
+      if (arrived) queueMicrotask(() => arrived(() => {
+        const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
+
+        if (id) screensOf(path)?.emulatorFor(id).focus();
+        else focusPane();
+      }));
+    }));
+
+    return (
+      <ConnectedProjectContext.Provider value={open}>
+        <div class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
+          <Pane active={active} observeTerminal={props.observeTerminal && active() ? id => props.observeTerminal?.(path, id) : undefined} notice={open.rail.failure() ?? (active() ? jumpFailure() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setPaneScreens(known => new Map(known).set(path, shared))} openObject={(url, surface) => routeNativeOpen({ kind: "link", url, surface })} />
+        </div>
+      </ConnectedProjectContext.Provider>
+    );
+  };
+
+
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <ProjectOpening opening={opening} />
@@ -529,40 +577,42 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <InProject open={activeConnection()} failure={activeFailure()} failed={failure => failureLine(failure, () => void projects.reopen(projects.active()!))} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
-              {(open) => {
-                const tracked = emulators();
-                const [screens, setScreens] = createSignal<Screens>();
-                const arrived = projects.arrival(open.project.path);
-
-                // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
-                if (arrived) queueMicrotask(() => arrived(() => {
-                  const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
-
-                  if (id) screens()?.emulatorFor(id).focus();
-                  else focusPane();
-                }));
-
-                return (
-                  <div class="centre-stack">
-                    <div class="project-center-area">
-                    <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={(url, surface) => routeNativeOpen({ kind: "link", url, surface })} />
-                    <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
-                    <Feedback notify={toasts.notify} />
-                    <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
-                    </div>
-                    <ProjectSettingsView />
-                    </div>
-                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+            <div class="centre-stack">
+              <div class="project-center-area">
+                <div class="project-center-content" inert={activeConnection()?.settingsView.open()} style={{ visibility: activeConnection()?.settingsView.open() ? "hidden" : "visible" }}>
+                  {/* U7155a: each Project shown once keeps its Pane mounted, so a tab switch moves no Terminal. */}
+                  <div class="pane-stack">
+                    <For each={paneShown()}>{path => <Show when={connectionOf(path)} keyed>{open => projectPane(open)}</Show>}</For>
+                  </div>
+                  <InProject open={activeConnection()}>
+                    {() => (
+                      <>
+                        <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
+                        <Feedback notify={toasts.notify} />
+                        <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
+                      </>
+                    )}
+                  </InProject>
+                </div>
+                <InProject open={activeConnection()}>{() => <ProjectSettingsView />}</InProject>
+                <Show when={activeConnection() === undefined}>
+                  <div class="project-pending">
+                    <Show when={activeFailure()} keyed fallback={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>{failure => failureLine(failure, () => void projects.reopen(projects.active()!))}</Show>
+                  </div>
+                </Show>
+              </div>
+              <InProject open={activeConnection()}>
+                {(open) => (
+                  <>
+                    <Show when={screensOf(open.project.path)}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <ResourceStrip returnFocus={() => { const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
 
-                      if (id) screens()?.emulatorFor(id).focus();
+                      if (id) screensOf(open.project.path)?.emulatorFor(id).focus();
                       else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
-                  </div>
-                );
-              }}
-            </InProject>
+                  </>
+                )}
+              </InProject>
+            </div>
           </Show>
           </div>
           <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>
