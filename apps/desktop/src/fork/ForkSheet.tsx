@@ -12,18 +12,17 @@ import { RadioGroup } from "../ui/RadioGroup";
 import { TreeView } from "../ui/TreeView";
 import { ReservedLine } from "../ink/ReservedLine";
 import { forkCopy } from "./copy";
+import { ForkList } from "./ForkList";
 import { createForkTicks, forkRows, type ForkRow, type ForkSource } from "./forkTicks";
 
 const COLOURS: readonly ForkColour[] = ["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"];
 
-/** AI7152a: each Channel's name and fixed colour, as `contracts::identity::CHANNELS` holds them. */
-const CHANNELS: readonly { name: string; colour: ForkColour }[] = [
-  { name: forkCopy.channelStable, colour: "orange" },
-  { name: forkCopy.channelDev, colour: "violet" },
-  { name: forkCopy.channelSource, colour: "blue" },
+/** AI7152a: each Channel's fixed colour, as `contracts::identity::CHANNELS` holds them. */
+const CHANNELS: readonly { holder: string; names: readonly string[]; colour: ForkColour }[] = [
+  { ...forkCopy.channels.stable, colour: "orange" },
+  { ...forkCopy.channels.dev, colour: "violet" },
+  { ...forkCopy.channels.source, colour: "blue" },
 ];
-
-const RESERVED = [...CHANNELS.map(channel => channel.name), forkCopy.shortDev, forkCopy.shortSource];
 
 /** AI7152d: the first free colour is chosen: teal, then `ForkColour` order. */
 const FIRST: readonly ForkColour[] = ["teal", ...COLOURS.filter(colour => colour !== "teal")];
@@ -62,44 +61,6 @@ const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => b
   }}</For>
 );
 
-/** AI7152e: a Fork's `Rename` and `Recolour`; a refusal shows beside the row and the list reloads on success. */
-const ForkActions = (props: { app: App; fork: ForkListed; free: readonly ForkColour[]; done: () => void }) => {
-  const [renaming, setRenaming] = createSignal(false);
-  const [recolouring, setRecolouring] = createSignal(false);
-  const [refusal, setRefusal] = createSignal<string | null>(null);
-
-  const run = async (action: Promise<void>) => {
-    try {
-      await action;
-      setRefusal(null);
-      setRenaming(false);
-      setRecolouring(false);
-      props.done();
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      setRefusal(error.message);
-    }
-  };
-
-  return <>
-    <button type="button" data-button="quiet" onClick={() => { setRecolouring(false); setRenaming(!renaming()); }}>{forkCopy.rename}</button>
-    <button type="button" data-button="quiet" onClick={() => { setRenaming(false); setRecolouring(!recolouring()); }}>{forkCopy.recolour}</button>
-    <Show when={renaming()}>
-      <Field.Input type="text" aria-label={`${forkCopy.rename} ${props.fork.name}`} value={props.fork.name} on:keydown={event => {
-        event.stopPropagation();
-
-        if (event.key === "Enter") { event.preventDefault(); void run(props.app.forkRename(props.fork.path, event.currentTarget.value)); }
-
-        if (event.key === "Escape") { event.preventDefault(); setRenaming(false); }
-      }} />
-    </Show>
-    <Show when={recolouring()}>
-      <For each={props.free}>{value => <button type="button" data-button="quiet" onClick={() => void run(props.app.forkRecolour(props.fork.path, value))}>{value}</button>}</For>
-    </Show>
-    <Show when={refusal()}><span class="fork-collides">{refusal()}</span></Show>
-  </>;
-};
-
 const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef: (element: HTMLInputElement) => void }) => {
   const ticks = createForkTicks(() => props.rows);
   const [name, setName] = createSignal("");
@@ -109,9 +70,9 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
 
   const holder = (): string | null => {
     const folded = fold(name());
-    const channel = RESERVED.find(taken => fold(taken) === folded);
+    const channel = CHANNELS.find(taken => taken.names.some(held => fold(held) === folded));
 
-    if (channel) return channel;
+    if (channel) return channel.holder;
 
     const fork = forks().find(taken => fold(taken.name) === folded);
 
@@ -122,7 +83,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
     if (!validName(name())) return forkCopy.invalidName;
     const taken = holder();
 
-    return taken ? forkCopy.taken(name(), taken) : null;
+    return taken ? forkCopy.held(name(), taken) : null;
   };
 
 
@@ -186,9 +147,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
       <Field.ErrorText>{problem()}</Field.ErrorText>
     </Field.Root>
     <Show when={forks().length > 0}>
-      <ul class="fork-list" aria-label={forkCopy.list}>
-        <For each={forks()}>{fork => <li><span>{fork.name}</span> <span>{fork.colour}</span>{fork.collides ? <span class="fork-collides"> {forkCopy.collides(fork.collides)}</span> : null} <ForkActions app={props.app} fork={fork} free={free()} done={reload} /></li>}</For>
-      </ul>
+      <ForkList app={props.app} forks={forks()} free={free()} done={reload} />
     </Show>
     <Show when={free().length > 0} fallback={<p class="fork-colours-full">{forkCopy.colourTaken}</p>}>
       <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={free().map(value => ({ value, label: value }))} value={colour()} onValueChange={setPicked} />

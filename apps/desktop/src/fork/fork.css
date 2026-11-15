@@ -55,14 +55,22 @@
   border-color: var(--swatch);
 }
 
-.fork-swatches [data-choice="red"] { --swatch: var(--fork-red); }
-.fork-swatches [data-choice="orange"] { --swatch: var(--fork-orange); }
-.fork-swatches [data-choice="amber"] { --swatch: var(--fork-amber); }
-.fork-swatches [data-choice="green"] { --swatch: var(--fork-green); }
-.fork-swatches [data-choice="teal"] { --swatch: var(--fork-teal); }
-.fork-swatches [data-choice="blue"] { --swatch: var(--fork-blue); }
-.fork-swatches [data-choice="violet"] { --swatch: var(--fork-violet); }
-.fork-swatches [data-choice="pink"] { --swatch: var(--fork-pink); }
+.fork-swatches [data-choice="red"],
+.fork-dot[data-colour="red"] { --swatch: var(--fork-red); }
+.fork-swatches [data-choice="orange"],
+.fork-dot[data-colour="orange"] { --swatch: var(--fork-orange); }
+.fork-swatches [data-choice="amber"],
+.fork-dot[data-colour="amber"] { --swatch: var(--fork-amber); }
+.fork-swatches [data-choice="green"],
+.fork-dot[data-colour="green"] { --swatch: var(--fork-green); }
+.fork-swatches [data-choice="teal"],
+.fork-dot[data-colour="teal"] { --swatch: var(--fork-teal); }
+.fork-swatches [data-choice="blue"],
+.fork-dot[data-colour="blue"] { --swatch: var(--fork-blue); }
+.fork-swatches [data-choice="violet"],
+.fork-dot[data-colour="violet"] { --swatch: var(--fork-violet); }
+.fork-swatches [data-choice="pink"],
+.fork-dot[data-colour="pink"] { --swatch: var(--fork-pink); }
 
 .fork-failure {
   margin-inline-end: auto;
@@ -73,4 +81,64 @@
 .fork-failure {
   min-inline-size: 0;
   contain: inline-size;
+}
+
+/* AI7152e: the Forks list: one row per Fork, its colour as the swatches' dot, its name, a collision mark and text actions. */
+.fork-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fork-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.fork-dot {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-round);
+  background: var(--swatch);
+}
+
+.fork-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fork-collides {
+  color: var(--grey);
+  font-size: var(--text-caption);
+}
+
+.fork-actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
+.fork-edit {
+  flex-basis: 100%;
+}
+
+.fork-refusal {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--red);
+  font-size: var(--text-caption);
+}
+
+.fork-colours-full {
+  margin: 0;
+  color: var(--grey);
+  font-size: var(--text-caption);
 }

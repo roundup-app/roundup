@@ -19,7 +19,7 @@ The newest `v0.1.0-alpha.<n>` release holds the bundle; the `alpha` release's `l
 ```sh
 tag=$(gh release list -R roundup-app/roundup --json tagName --jq '[.[].tagName | select(startswith("v0.1.0-alpha."))][0]')
 gh release download "$tag" -R roundup-app/roundup -p 'roundup-stable_*_aarch64.app.tar.gz' -O - | tar -xz -C /Applications
-open /Applications/roundup.app
+open /Applications/Roundup.app
 ```
 
 ### Dev
@@ -33,10 +33,10 @@ gh release download dev -R roundup-app/roundup -p 'roundup-dev_*_aarch64.app.tar
 Without a Fork, Dev starts nothing. Install Stable and open it first, then run this in a Terminal inside Stable (it copies the live data through Stable's Daemon, whose socket a plain shell cannot find: "no Daemon answered at ~/.roundup/rupd.sock"; `echo $RUPD_SOCKET` there prints a path):
 
 ```sh
-"/Applications/roundup Dev.app/Contents/MacOS/rup" data fork ~/.roundup/forks/dev --name Dev --colour violet
+"/Applications/Roundup Dev.app/Contents/MacOS/rup" data fork ~/.roundup/forks/dev --name Dev --colour violet
 ```
 
-Then open Dev: `open "/Applications/roundup Dev.app"`.
+Then open Dev: `open "/Applications/Roundup Dev.app"`.
 
 ### Source
 

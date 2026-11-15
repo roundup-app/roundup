@@ -157,8 +157,8 @@ fn show_fork<R: Runtime>(app: &mut tauri::App<R>, data_dir: Option<&Path>, chann
     }
     if let Some(window) = app.get_webview_window("main") {
         let title = match &fork {
-            Some(fork) => fork_app::window_title(Some(&fork.name), channel.identity().0),
-            None => channel.identity().0.to_owned(),
+            Some(fork) => fork_app::window_title(Some(&fork.name), channel.identity().app),
+            None => channel.identity().app.to_owned(),
         };
         let _ = window.set_title(&title);
     }

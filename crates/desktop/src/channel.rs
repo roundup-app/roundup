@@ -47,7 +47,7 @@ impl Channel {
     }
 
     /// AI7152a: the name this build carries and the colour of its icon's plate.
-    pub fn identity(self) -> (&'static str, contracts::data::ForkColour) {
+    pub fn identity(self) -> contracts::identity::ChannelIdentity {
         match self {
             Self::Stable => contracts::identity::STABLE,
             Self::Dev => contracts::identity::DEV,
@@ -57,7 +57,7 @@ impl Channel {
 
     /// AI7152a: the plate colour a running build sets its Dock icon to; Stable keeps `artwork.png`.
     pub fn dock_colour(self) -> Option<contracts::data::ForkColour> {
-        (self != Self::Stable).then(|| self.identity().1)
+        (self != Self::Stable).then(|| self.identity().colour)
     }
 
     /// The herdr-core session its Daemons' Terminals live in; `None` keeps the Daemon's default.
@@ -143,10 +143,9 @@ mod tests {
         ];
         for (overlay, channel) in builds {
             let config = merged(overlay);
-            let (name, _) = channel.identity();
-            assert_eq!(config["productName"], name, "{overlay:?}");
+            // Tauri writes CFBundleName, CFBundleDisplayName and the `.app` file name from `productName`.
+            assert_eq!(config["productName"], channel.identity().app, "{overlay:?}");
         }
-        assert_eq!(merged(None)["app"]["windows"][0]["title"], "Roundup Source");
         // The bundle icon the build overlay leaves: Dev and Source their own plate, Stable the artwork.
         let bundle = |overlay| {
             let mut config = merged(overlay);

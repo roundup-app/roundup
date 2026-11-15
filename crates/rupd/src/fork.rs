@@ -119,8 +119,7 @@ fn refuse_taken(folder: &Path, params: &ForkParams) -> Result<(), RpcError> {
     let Some(forks) = folder.parent() else {
         return Ok(());
     };
-    let dev_first =
-        folder.file_name().is_some_and(|n| n == "dev") && !folder.join("fork.json").exists();
+    let dev_first = identity::is_dev_folder(folder) && !folder.join("fork.json").exists();
     let taken = identity::forks_in(forks);
     match identity::refusal(&taken, &params.name, params.colour, None, dev_first) {
         Some(message) => Err(invalid(message)),

@@ -233,7 +233,7 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
     await waitFor(() => expect(inputOf(field).value).toBe("fork"));
     await userEvent.setup().clear(field);
     await userEvent.setup().type(field, "MAIN {Enter}");
-    await screen.findByText(/taken by Fork at \/h\/forks\/main/);
+    await screen.findByText(/held by the Fork at \/h\/forks\/main/);
     expect(forkMake).not.toHaveBeenCalled();
   });
 
@@ -247,6 +247,24 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
     expect(forkMake).not.toHaveBeenCalled();
   });
 
+  it("ai7152d_a_fork_make_refusal_keeps_the_sheet_open", async () => {
+    const onClose = vi.fn();
+    const refusal = new Error('name "mine" is held by the Fork at /h/forks/mine; colour teal is held by Dev');
+    const app = createFakeApp();
+
+    app.forkMake = vi.fn(async () => { throw refusal; });
+    render(() => <ForkSheet app={app} open sources={sources} onClose={onClose} />);
+    const field = await screen.findByLabelText("Name");
+
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
+    fireEvent.input(field, { target: { value: "mine" } });
+    fireEvent.submit(field.closest("form")!);
+
+    expect((await screen.findByRole("alert")).textContent).toBe(refusal.message);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
   it("ai7152e_the_list_marks_a_colliding_fork", async () => {
     await sheet(app => { app.forkList = async () => [{ ...listed("old", "teal"), collides: "Roundup Dev" }, listed("fine", "red")]; });
     await screen.findByText("Roundup Dev holds the same name or colour.");
@@ -255,16 +273,40 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
   it("ai7152e_each_row_renames_and_recolours_through_the_seam", async () => {
     const forkRename = vi.fn(async () => {});
     const forkRecolour = vi.fn(async () => {});
-    await sheet(app => { app.forkRename = forkRename; app.forkRecolour = forkRecolour; app.forkList = async () => [listed("old", "teal")]; });
+    const forkList = vi.fn(async () => [listed("old", "teal")]);
+    await sheet(app => { app.forkRename = forkRename; app.forkRecolour = forkRecolour; app.forkList = forkList; });
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: forkCopy.rename }));
-    const field = screen.getByLabelText("Rename old");
+    const first = within(await screen.findByRole("listitem"));
+    await user.click(first.getByRole("button", { name: forkCopy.rename }));
+    const field = first.getByLabelText(forkCopy.renameField("old"));
     await user.clear(field);
     await user.type(field, "fresh{Enter}");
     await waitFor(() => expect(forkRename).toHaveBeenCalledWith("/h/forks/old", "fresh"));
-    await user.click(screen.getByRole("button", { name: forkCopy.recolour }));
-    await user.click(screen.getByRole("button", { name: "red" }));
+    // A change reloads the list, which draws its rows again.
+    await waitFor(() => expect(forkList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByLabelText(forkCopy.renameField("old"))).toBeNull());
+    const row = within(await screen.findByRole("listitem"));
+    await user.click(row.getByRole("button", { name: forkCopy.recolour }));
+    await user.click(row.getByRole("radio", { name: "red" }));
     await waitFor(() => expect(forkRecolour).toHaveBeenCalledWith("/h/forks/old", "red"));
     expect(forkRename).toHaveBeenCalledTimes(1);
+    expect(forkRecolour).toHaveBeenCalledTimes(1);
+  });
+
+  it("ai7152e_a_refused_rename_reads_as_the_fields_error_and_keeps_the_editor", async () => {
+    const refusal = 'name "dev" is held by Dev';
+    await sheet(app => { app.forkRename = async () => { throw new Error(refusal); };
+
+ app.forkList = async () => [listed("old", "teal")]; });
+    const user = userEvent.setup();
+    const row = within(await screen.findByRole("listitem"));
+    await user.click(row.getByRole("button", { name: forkCopy.rename }));
+    const field = row.getByLabelText(forkCopy.renameField("old"));
+    await user.clear(field);
+    await user.type(field, "dev{Enter}");
+    const message = await row.findByText(refusal);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(field.getAttribute("aria-describedby")).toContain(message.id);
+    expect(row.getByRole("button", { name: forkCopy.rename }).getAttribute("aria-expanded")).toBe("true");
   });
 });
