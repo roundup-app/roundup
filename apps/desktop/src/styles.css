@@ -214,9 +214,14 @@ p {
 .rail-head {
   display: flex;
   flex: none;
+  height: 0;
   justify-content: flex-end;
-  padding: var(--space-2) var(--space-4) 0;
+  padding: var(--space-2) var(--space-4) 0 0;
+  position: relative;
+  z-index: 1;
 }
+
+.rail-head .rail-toggle { margin-right: var(--space-6); }
 
 .rail-strip-head {
   display: flex;
