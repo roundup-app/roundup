@@ -8,7 +8,7 @@ use super::*;
 /// `agent.status` fired between `open` and this first poll is lost.
 pub(super) fn start_listener(inner: &Arc<Inner>) {
     inner.listener_started.call_once(|| {
-        spawn_push_clock(Arc::downgrade(inner));
+        spawn_push_clock(Arc::downgrade(inner), Arc::clone(&inner.work));
         // Taken at most once, here, inside the `Once`.
         if let Some(events) = lock(&inner.events).take() {
             spawn_status_listener(Arc::clone(inner), events);
@@ -16,8 +16,10 @@ pub(super) fn start_listener(inner: &Arc<Inner>) {
     });
 }
 
-/// B22: every half second, sends the pushed digests whose window ended by the Daemon's clock.
-fn spawn_push_clock(inner: std::sync::Weak<Inner>) {
+/// B22: every half second, sends the pushed digests whose window ended by the Daemon's clock, and
+/// retries the Messages whose receipt is overdue. It runs only while a push waits or a Message is
+/// `pending`; otherwise it sleeps on `Inner::work` and neither reads nor writes the store.
+fn spawn_push_clock(inner: std::sync::Weak<Inner>, work: Arc<tokio::sync::Notify>) {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
         // A stalled clock (a suspended host, a paused test clock) owes one pass, not one per missed tick.
@@ -27,10 +29,15 @@ fn spawn_push_clock(inner: std::sync::Weak<Inner>) {
             let Some(inner) = inner.upgrade() else {
                 break;
             };
-            pushes::flush(&inner).await;
-            failure::sweep(&inner).await;
+            let pushing = pushes::flush(&inner).await;
+            let pending = failure::sweep(&inner).await;
             #[cfg(test)]
             let _ = inner.completed.send("clock");
+            drop(inner);
+            if !(pushing || pending) {
+                work.notified().await;
+                tick.reset();
+            }
         }
     });
 }

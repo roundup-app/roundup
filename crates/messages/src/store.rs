@@ -2,6 +2,7 @@
 
 use crate::Error;
 use std::path::Path;
+use std::sync::Arc;
 
 use contracts::Actor;
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
@@ -14,6 +15,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use storage::Json;
+use tokio::sync::Notify;
 
 pub(crate) type Binding = (i64, i64);
 
@@ -58,6 +60,9 @@ pub(crate) struct Restart {
 
 pub(crate) struct Store {
     pub(crate) db: Connection,
+    /// Signalled when work arrives that the push clock must watch: a `pending` Message stored
+    /// here, or a change kept back in the push ledger. The clock sleeps on it while none waits.
+    pub(crate) work: Arc<Notify>,
 }
 
 impl Store {
@@ -65,6 +70,7 @@ impl Store {
     pub(crate) fn open(dir: &Path) -> Result<Self, OpenError> {
         Ok(Self {
             db: storage::connect(dir)?,
+            work: Arc::new(Notify::new()),
         })
     }
 
@@ -339,6 +345,9 @@ impl Store {
             )
             .map_err(Error::internal)?;
         let id = u32::try_from(self.db.last_insert_rowid()).map_err(Error::internal)?;
+        if status == MessageStatus::Pending {
+            self.work.notify_one();
+        }
         self.get(id)?
             .ok_or_else(|| Error::internal("message vanished right after it was inserted"))
     }
@@ -419,6 +428,14 @@ impl Store {
                 stmt.query_map(params![to, before.0, before.1], row_to_message)?
                     .collect()
             })
+            .map_err(Error::internal)
+    }
+
+    /// The Agents with a `pending` Message, by id; none for the user.
+    pub(crate) fn pending_receivers(&self) -> Result<Vec<String>, Error> {
+        self.db
+            .prepare("SELECT DISTINCT to_id FROM messages WHERE status = 'pending' AND to_id != 'you' ORDER BY to_id")
+            .and_then(|mut q| q.query_map([], |r| r.get(0))?.collect())
             .map_err(Error::internal)
     }
 
