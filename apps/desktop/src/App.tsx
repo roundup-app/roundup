@@ -2,6 +2,7 @@ import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
+import { createProjectPanes } from "./terminal/ProjectPanes";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
@@ -446,53 +447,11 @@ export const App = (props: {
 
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
-  const [paneShown, setPaneShown] = createSignal<string[]>([]);
-  const [paneScreens, setPaneScreens] = createSignal<ReadonlyMap<string, Screens>>(new Map());
-  const screensOf = (path: string): Screens | undefined => paneScreens().get(path);
-
-  createEffect(() => {
-    const open = keys();
-    const active = projects.active();
-    const shown = untrack(paneShown);
-    const next = shown.filter(path => open.includes(path));
-
-    if (active !== null && activeConnection() && open.includes(active) && !next.includes(active)) next.push(active);
-
-    if (next.length !== shown.length || next.some((path, index) => path !== shown[index])) setPaneShown(next);
+  const panes = createProjectPanes({
+    keys, active: projects.active, connectionOf, ready: () => activeConnection() !== undefined, createEmulator: emulators, observeTerminal: props.observeTerminal,
+    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
   });
-
-  const projectPane = (open: ConnectedProject) => {
-    const path = open.project.path;
-    const tracked = emulators();
-    const active = () => projects.active() === path;
-
-    onCleanup(() => setPaneScreens(known => { const next = new Map(known); next.delete(path);
-
- return next; }));
-
-    // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
-    createEffect(on(active, now => {
-      if (!now) return;
-
-      const arrived = projects.arrival(path);
-
-      if (arrived) queueMicrotask(() => arrived(() => {
-        const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
-
-        if (id) screensOf(path)?.emulatorFor(id).focus();
-        else focusPane();
-      }));
-    }));
-
-    return (
-      <ConnectedProjectContext.Provider value={open}>
-        <div class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
-          <Pane active={active} observeTerminal={props.observeTerminal && active() ? id => props.observeTerminal?.(path, id) : undefined} notice={open.rail.failure() ?? (active() ? jumpFailure() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setPaneScreens(known => new Map(known).set(path, shared))} openObject={(url, surface) => routeNativeOpen({ kind: "link", url, surface })} />
-        </div>
-      </ConnectedProjectContext.Provider>
-    );
-  };
-
+  const screensOf = panes.screensOf;
 
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
@@ -582,7 +541,7 @@ export const App = (props: {
                 <div class="project-center-content" inert={activeConnection()?.settingsView.open()} style={{ visibility: activeConnection()?.settingsView.open() ? "hidden" : "visible" }}>
                   {/* U7155a: each Project shown once keeps its Pane mounted, so a tab switch moves no Terminal. */}
                   <div class="pane-stack">
-                    <For each={paneShown()}>{path => <Show when={connectionOf(path)} keyed>{open => projectPane(open)}</Show>}</For>
+                    {panes.view()}
                   </div>
                   <InProject open={activeConnection()}>
                     {() => (
