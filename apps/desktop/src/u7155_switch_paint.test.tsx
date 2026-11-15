@@ -34,12 +34,16 @@ const mount = async () => {
   const emulators = fakeEmulators();
   const constructed: string[] = [];
   const written = new Map<string, number>();
+  const redrawn: string[] = [];
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={(id, copy) => {
     const emulator = emulators.factory(id, copy);
     const write = emulator.write;
 
     constructed.push(id);
+
+    emulator.redraw = () => { redrawn.push(id); };
+
     emulator.write = (bytes, parsed) => { written.set(id, (written.get(id) ?? 0) + 1); write(bytes, parsed); };
 
     return emulator;
@@ -60,7 +64,7 @@ const mount = async () => {
   fireEvent.click(screen.getByRole("tab", { name: /^one/ }));
   await waitFor(() => expect(shownTerminal()).toBe("t-one-a"));
 
-  return { app, constructed, written, tab: (name: string) => screen.getByRole("tab", { name: new RegExp(`^${name}`) }) };
+  return { app, constructed, written, redrawn, tab: (name: string) => screen.getByRole("tab", { name: new RegExp(`^${name}`) }) };
 };
 
 const row = (id: string): HTMLElement => {
@@ -126,4 +130,17 @@ it("u7155c_a_surface_open_and_close_remount_no_terminal", async () => {
 
   expect(document.querySelector(".pane-screen [data-terminal]")).toBe(terminal);
   expect(snapshot(mounted)).toEqual(before);
+});
+
+it("ip7168d_a_project_switch_redraws_the_terminal_it_shows_once", async () => {
+  const mounted = await mount();
+
+  for (const name of ["two", "one"]) {
+    mounted.redrawn.length = 0;
+    fireEvent.click(mounted.tab(name));
+    await waitFor(() => expect(shownTerminal()).toBe(`t-${name}-a`));
+
+    // xterm resumes a hidden Terminal a task after the switch; this redraw is what the first frame shows.
+    expect(mounted.redrawn).toEqual([`t-${name}-a`]);
+  }
 });

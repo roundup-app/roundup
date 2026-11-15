@@ -115,7 +115,9 @@
   flex-direction: column;
 }
 
-.pane-host[data-inactive] { visibility: hidden; }
+/* IP7168d: `visibility` still intersects the viewport, the one thing xterm's renderer pause reads; a Pane moved above it
+   pauses its Terminals and keeps its size, which `display` would not. */
+.pane-host[data-inactive] { visibility: hidden; translate: 0 -200vh; }
 
 .project-center-area {
   position: relative;
