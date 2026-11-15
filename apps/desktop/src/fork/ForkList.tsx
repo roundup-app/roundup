@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import type { ForkColour } from "@contracts/data/ForkColour";
 import type { App, ForkListed } from "../app/seam";
+import { ReservedLine } from "../ink/ReservedLine";
 import { Field } from "../ui/Field";
 import { RadioGroup } from "../ui/RadioGroup";
 import { forkCopy } from "./copy";
@@ -48,7 +49,7 @@ const ForkRow = (props: { app: App; fork: ForkListed; colours: readonly ForkColo
     </Show>
     <Show when={editing() === "recolour"}>
       <RadioGroup class="fork-swatches fork-edit" label={forkCopy.recolourField(props.fork.name)} choices={props.colours.map(value => ({ value, label: value }))} value={props.fork.colour} onValueChange={value => { if (value !== props.fork.colour) void run(props.app.forkRecolour(props.fork.path, value)); }} />
-      <Show when={refusal()}><p class="fork-refusal" role="alert">{refusal()}</p></Show>
+      <ReservedLine class="fork-edit" message={refusal()} dismiss={() => setRefusal(null)} />
     </Show>
   </li>;
 };

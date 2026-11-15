@@ -130,13 +130,6 @@
   flex-basis: 100%;
 }
 
-.fork-refusal {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--red);
-  font-size: var(--text-caption);
-}
-
 .fork-colours-full {
   margin: 0;
   color: var(--grey);

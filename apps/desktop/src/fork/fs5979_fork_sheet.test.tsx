@@ -293,6 +293,19 @@ describe("ai7152d the Fork sheet offers only free colours", () => {
     expect(forkRecolour).toHaveBeenCalledTimes(1);
   });
 
+  it("ai7152e_a_refused_recolour_reads_in_the_row_and_keeps_the_choices", async () => {
+    const refusal = "colour red is held by Dev";
+    const forkRecolour = vi.fn(async () => { throw new Error(refusal); });
+    await sheet(app => { app.forkRecolour = forkRecolour; app.forkList = async () => [listed("old", "teal")]; });
+    const user = userEvent.setup();
+    const row = within(await screen.findByRole("listitem"));
+    await user.click(row.getByRole("button", { name: forkCopy.recolour }));
+    await user.click(row.getByRole("radio", { name: "red" }));
+    await row.findByRole("alert");
+    expect(forkRecolour).toHaveBeenCalledTimes(1);
+    expect(row.getAllByRole("radio")).toHaveLength(5);
+  });
+
   it("ai7152e_a_refused_rename_reads_as_the_fields_error_and_keeps_the_editor", async () => {
     const refusal = 'name "dev" is held by Dev';
     await sheet(app => { app.forkRename = async () => { throw new Error(refusal); };
