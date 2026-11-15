@@ -394,3 +394,24 @@ Checks (on main at specification time; none retired):
 4. `crates/rupd/src/deliverables.rs`, `bounded`: combined BLOB/file accounting and production limit enforcement.
 5. `scenarios/test-cost.md`, R3778c: publication recovery remains required.
 6. `AGENTS.md`, Rules, rule 10: quota tests exceeding five seconds have no process/clock exemption.
+
+# Targeted Rust test runs
+
+Module: `justfile` (`test-rust`, `test-rust-since`) and `loop/affected.py`. Source: #7188. Implementation follows in a dependent Issue; this specification delivers no recipe change. A local run of four tests compiled four crates' whole test suites first (up to 12 minutes, measured on the owner's Mac 2026-11-15), and each worktree compiles from its own `target/`.
+
+**T7188a a named test compiles only its binary.** Given a run that names tests by id (`just test-rust-ids <id>…`), when `loop/affected.py rust-targets <id>…` resolves each id, then it prints one `-p <crate> --test <binary>` pair per integration-test file holding a `fn` whose name starts with the id, and `-p <crate> --lib` for one in `crates/<crate>/src/`; `test-rust` passes those flags and a nextest filter naming the ids, so cargo compiles only those targets (policy for the compile). An id no `fn` holds falls back to `-p <crate>` for every crate, with a printed notice, never to an empty run that passes. Observer: `loop/affected.test.py` on a fixture tree, starting no cargo.
+
+**T7188b a test-file diff compiles only its binaries.** Given a diff whose changed paths are all `crates/<crate>/tests/*.rs` files no other file includes with `mod`, when `just test-rust-since <base>` runs, then it selects `-p <crate> --test <binary>` for each, not the crate; a changed file under `tests/common/` or a subdirectory selects each binary that declares it with `mod`; any other changed path keeps today's selection, whole crates and their dependants (`crates()` in `loop/affected.py`). Every test the diff reaches still runs. Observer: `loop/affected.test.py` fixture diffs, one row per case: one test file, a `common/` file, a `src/` file, a mix.
+
+**T7188c helper binaries build only when a selected binary needs them.** Given a selection, when `test-rust` runs, then `cargo build -p rupd -p rup -p terminal --features terminal/test-support` runs only when a selected target's source reads a helper (`CARGO_BIN_EXE_`, a `with_file_name("rup")` sibling lookup, `terminal/test-support`) or the selection is every test; otherwise it is skipped. A test that needs `rupd`, `rup` or `terminal` finds them built. Observer: `loop/affected.test.py` on the same fixtures prints the helper decision; a real `just test-rust-ids` of one rupd test that spawns `rup` and one `contracts` test passes on the implementation head.
+
+**T7188d the selected compile cache is shared across worktrees (policy).** Given worktrees each holding their own `target/`, when the implementation PR chooses a cache, then its `Reuse:` section compares `sccache` ([mozilla/sccache](https://github.com/mozilla/sccache), Apache-2.0, v0.19.0 2026-10-24), a shared `CARGO_TARGET_DIR` and `Swatinem/rust-cache` for what each saves on a cold worktree, measured on one fixed test, and names the rejected candidates' missing capability (a shared target dir serialises concurrent cargo builds on its lock; `rust-cache` is a CI action with no local effect). CI's `CARGO_TARGET_DIR: target` and lane cache stay as `main` has them unless the measurement shows a gain; rule 7's budgets are untouched.
+
+Regression: `just test-rust` with no filter and each CI lane still run every test; `just test-rust-since <base>` still runs every test the diff reaches; `just contracts-fresh` still runs after a `test-rust`.
+
+Checks (on main; none retired):
+
+1. `justfile`, `test-rust` and `test-rust-since`: the helper build and whole-crate `-p` selection this changes.
+2. `loop/affected.py`, `crates()`, `CRATE_READS`: the selection a diff reaches.
+3. `.config/nextest.toml`, profiles `ci1`…`ci5`: the lanes keep their binaries.
+4. `AGENTS.md`, Rules, rule 9 and rule 10: the cache's `Reuse:` evidence; the observers start no process.
