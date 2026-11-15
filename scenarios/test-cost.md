@@ -182,6 +182,19 @@ After each directory change, report the successful implementation-head CI run UR
 
 Policy: no product outcome, App/RPC contract, runtime performance budget or merge gate changes. Every Principle gate for a changed product path remains in force; this specification changes no such path. Its observers are lint rejection fixtures and independent review of retained behavioral assertions and CI measurements. Implementation scenario amendments may change the ordered test observers or explicitly retire redundant copy/looks proof; they may not retire required product behavior to fit a cut.
 
+# Web test startup cost
+
+Module: `apps/desktop/vite.config.ts` and `apps/desktop/src/testing/`. Source: #7187. Policy: no product outcome, App/RPC contract, performance budget or merge gate changes.
+
+**T7187a a web test run starts Chrome and the App server only for files that use them.** Given a Vitest run of web test files, when none of the files it holds reaches `testing/chromePage.ts` or `testing/appServer.ts` through its imports, then the run starts no Chrome and no App server. When one does, the run starts the warm Chrome and the one shared App server before its first file, and a browser test still reports a missing Chrome itself. Every web test file runs in exactly one project, so `just test-web-since <base>` selects the same files as before, and CI's web shard times stay within 10% of `main`.
+
+Observers: `t7187a_a_test_reaches_chrome_or_the_app_server_through_its_imports` and `t7187a_a_missing_browser_module_fails_instead_of_selecting_nothing` in `apps/desktop/src/testing/browserTests.test.ts` start no process. Policy, recorded in the implementation PR: `vitest list --filesOnly` lists each test file under exactly one project; a run of one jsdom file logs no Chrome start; the web shard times of the implementation head's `check` run against `main`'s.
+
+Checks (on main at specification time; none retired):
+
+1. `apps/desktop/src/testing/u26_chromePage*.test.ts`: the missing-Chrome and cold-start failure observers stay in a project that starts Chrome.
+2. `apps/desktop/src/testing/guardSetup.md`, S3806: the `webkit-guards` project still starts neither.
+
 # Rust test timeout and fixture cost
 
 Module: `.config/nextest.toml` and the Rust observers named below. Source: #3778. All acceptance in R3778 is policy for the dependent implementation and independent review; add no test that rereads this specification or counts test declarations.
