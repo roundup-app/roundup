@@ -232,7 +232,7 @@ async fn fk5977b_each_pick_leaves_out_exactly_what_it_names() {
     let reply = fork(
         &live,
         &folder,
-        json!({"projects":[{"key":key,"agents":[first.to_string()]}]}),
+        json!({"name":"Solo","colour":"pink","projects":[{"key":key,"agents":[first.to_string()]}]}),
     )
     .await;
     assert!(reply.get("error").is_none(), "{reply}");
@@ -458,8 +458,12 @@ async fn fk5977e_the_live_folder_is_unchanged_by_a_fork_and_by_a_write_in_it() {
     drop((daemon, _others));
     let params = |name: &str, projects: Option<Vec<contracts::data::ForkProject>>| {
         request(contracts::data::ForkParams {
-            name: "Try".into(),
-            colour: contracts::data::ForkColour::Teal,
+            name: name.into(),
+            colour: if name == "full" {
+                contracts::data::ForkColour::Teal
+            } else {
+                contracts::data::ForkColour::Pink
+            },
             path: _tmp
                 .path()
                 .join("forks")
@@ -530,8 +534,12 @@ async fn fk5977f_a_database_at_rest_gains_no_wal_or_shm_from_a_fork() {
     let picked = vec![serde_json::from_value(json!({"key":keys[0],"agents":"all"})).unwrap()];
     for (name, projects) in [("full", None), ("picked", Some(picked))] {
         let params = request(contracts::data::ForkParams {
-            name: "Try".into(),
-            colour: contracts::data::ForkColour::Teal,
+            name: name.into(),
+            colour: if name == "full" {
+                contracts::data::ForkColour::Teal
+            } else {
+                contracts::data::ForkColour::Pink
+            },
             path: _tmp
                 .path()
                 .join("forks")
@@ -553,14 +561,14 @@ async fn u6044a_ping_reports_the_fork_colour() {
     let ping = json!({"id":1,"method":"daemon.ping","params":null}).to_string();
     let reply = ask(&live.daemon, &ping).await;
     assert!(reply["result"].get("forkColour").is_none(), "{reply}");
-    let folder = live.fork_dir("blue");
-    let made = fork(&live, &folder, json!({"colour":"blue"})).await;
+    let folder = live.fork_dir("pink");
+    let made = fork(&live, &folder, json!({"colour":"pink"})).await;
     assert!(made.get("error").is_none(), "{made}");
     let copy = Daemon::open(&folder.join("projects").join(&live.keys[0]))
         .unwrap()
         .0;
     let reply = ask(&copy, &ping).await;
-    assert_eq!(reply["result"]["forkColour"], "blue", "{reply}");
+    assert_eq!(reply["result"]["forkColour"], "pink", "{reply}");
 }
 
 fn request(params: contracts::data::ForkParams) -> crate::fork::ForkRequest {
@@ -584,4 +592,44 @@ fn c6629a_a_bad_fork_name_fails_to_parse() {
     }
     parse("x").unwrap();
     parse(&"x".repeat(40)).unwrap();
+}
+
+#[tokio::test]
+async fn ai7152c_data_fork_refuses_a_name_or_colour_another_app_has_and_writes_nothing() {
+    let live = live();
+    let first = live.fork_dir("first");
+    let made = fork(&live, &first, json!({"name":"main","colour":"red"})).await;
+    assert!(made.get("error").is_none(), "{made}");
+    let before = checksums(&live.data);
+    let refused = |reply: &Value, text: &str| {
+        assert_eq!(reply["error"]["code"], rpc::code::INVALID_PARAMS, "{reply}");
+        let message = reply["error"]["message"].as_str().unwrap();
+        assert!(message.contains(text), "{message}");
+    };
+    let second = live.fork_dir("second");
+    let reply = fork(&live, &second, json!({"name":"MAIN ","colour":"green"})).await;
+    refused(
+        &reply,
+        &format!("is held by the Fork at {}", first.display()),
+    );
+    let reply = fork(&live, &second, json!({"name":"Other","colour":"violet"})).await;
+    refused(&reply, "colour violet is held by Dev");
+    let reply = fork(&live, &second, json!({"name":"main","colour":"red"})).await;
+    refused(&reply, "name \"main\" is held");
+    refused(&reply, "colour red is held");
+    assert!(!second.exists());
+    assert_eq!(checksums(&live.data), before);
+    let free = fork(&live, &second, json!({"name":"Other","colour":"green"})).await;
+    assert!(free.get("error").is_none(), "{free}");
+    // Dev's own first make takes `Dev` and `violet`; a second, elsewhere, is refused.
+    let dev = live.fork_dir("dev");
+    let made = fork(&live, &dev, json!({"name":"Dev","colour":"violet"})).await;
+    assert!(made.get("error").is_none(), "{made}");
+    let again = fork(
+        &live,
+        &live.fork_dir("dev-2"),
+        json!({"name":"Dev","colour":"violet"}),
+    )
+    .await;
+    assert_eq!(again["error"]["code"], rpc::code::INVALID_PARAMS, "{again}");
 }

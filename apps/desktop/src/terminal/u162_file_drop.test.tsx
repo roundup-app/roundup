@@ -1,11 +1,17 @@
-import { cleanup } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DaemonExit, FileDrop } from "../app/seam";
 import { tauriFileDrop } from "../app/tauri";
 import { RpcError } from "../app/seam";
+import { mountBubbles } from "../bubbles/bubblesFixture";
 import { info, terminal } from "../testing/nodes";
 import { callsTo, mountPane } from "./paneHarness";
+
+beforeEach(() => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+});
 
 afterEach(cleanup);
 
@@ -207,5 +213,55 @@ describe("u162 drop files on a pane", () => {
       { phase: "over", paths: [], x: 10, y: 5 },
       { phase: "leave", paths: [], x: 0, y: 0 },
     ]);
+  });
+});
+
+describe("u162 drop files on a Bubble", () => {
+  const INSIDE_BUBBLE = { x: 250, y: 150 };
+
+  const mountBubble = async () => {
+    const mounted = await mountBubbles("a");
+
+    await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="1"]')).not.toBeNull());
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')!.hasAttribute("hidden")).toBe(false));
+
+    const body = document.querySelector<HTMLElement>('.bubble[data-bubble="1"] .bubble-body')!;
+
+    body.getBoundingClientRect = () => new DOMRect(200, 100, 300, 200);
+    // jsdom has no layout: the Bubble floats over the pane, so the front element at the point is its body.
+    document.elementFromPoint = () => body;
+
+    return { ...mounted, body };
+  };
+
+  afterEach(() => {
+    // SAFETY: jsdom defines no elementFromPoint, so removing the stub restores the document.
+    delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+  });
+
+  it("u162_a_drop_over_a_bubble_pastes_into_its_terminal_once", async () => {
+    const { app, emulators } = await mountBubble();
+
+    app.dropFiles(drop(["/p/it's a file.png"], INSIDE_BUBBLE));
+
+    const elsewhere = [...emulators.made].filter(([id]) => id !== "1").flatMap(([, emulator]) => emulator.pasted);
+
+    expect(emulators.made.get("1")!.pasted).toEqual([`'/p/it'\\''s a file.png' `]);
+    expect(elsewhere).toEqual([]);
+  });
+
+  it("u162_the_ring_shows_on_a_bubble_over_inside_and_clears_on_leave_and_outside", async () => {
+    const { app, body } = await mountBubble();
+
+    app.dropFiles(over(INSIDE_BUBBLE));
+    expect(body.classList.contains("drop-over")).toBe(true);
+
+    app.dropFiles({ phase: "leave", paths: [], x: 0, y: 0 });
+    expect(body.classList.contains("drop-over")).toBe(false);
+
+    app.dropFiles(over(INSIDE_BUBBLE));
+    app.dropFiles(over(OUTSIDE));
+    expect(body.classList.contains("drop-over")).toBe(false);
   });
 });

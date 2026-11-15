@@ -29,6 +29,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
 | Fork (`data.fork`, `ForkColour`, `fork.json`) | same | — |
+| Fork list (`fork_list`, `ForkListed`, `collides`: the App seam command and its row for each Fork under `$ROUNDUP_HOME/forks`, with the other App it collides with) | Forks | — |
+| Fork rename, Fork recolour (`fork_rename`, `fork_recolour`: App seam commands that rewrite one Fork's `fork.json` and remake its `.app`) | Rename, Recolour | — |
+| Channel identity (`contracts::identity`: `ChannelIdentity`, `CHANNELS`, `TakenFork`, the one comparison `same_name` and the refusal text of `data.fork`) | none | — |
 | Channel (`Channel`: `Stable`, `Dev`, `Source`; the build an identifier names) | Stable, Dev | — |
 | Engine (`engine`, `ModelList.engines`) | same | — |
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |

@@ -29,6 +29,9 @@ pub(crate) fn invoke_handler<R: Runtime>()
         exit_for_update,
         fork_branch,
         fork_make,
+        fork_list,
+        fork_rename,
+        fork_recolour,
         rename_project,
         rpc,
         subscribe,
@@ -116,6 +119,57 @@ async fn fork_branch() -> Result<String, RpcError> {
     tokio::task::spawn_blocking(|| fork::branch(&fork::checkout()))
         .await
         .map_err(RpcError::internal)
+}
+
+/// AI7152d, AI7152e: the Forks under `$ROUNDUP_HOME/forks` with the App each collides with.
+#[tauri::command]
+async fn fork_list() -> Result<Vec<contracts::identity::ForkListed>, RpcError> {
+    let home = fork::home(|name| std::env::var_os(name))
+        .ok_or_else(|| RpcError::internal("no home folder for the Fork"))?;
+    tokio::task::spawn_blocking(move || contracts::identity::listed(&home.join("forks")))
+        .await
+        .map_err(RpcError::internal)
+}
+
+/// AI7152e: rewrite one Fork's `fork.json` and remake its `.app`; its data is untouched.
+async fn edit_fork(
+    path: String,
+    name: Option<String>,
+    colour: Option<contracts::data::ForkColour>,
+) -> Result<(), RpcError> {
+    let home = fork::home(|name| std::env::var_os(name))
+        .ok_or_else(|| RpcError::internal("no home folder for the Fork"))?;
+    tokio::task::spawn_blocking(move || {
+        let forks = home.join("forks");
+        let folder = std::path::PathBuf::from(path);
+        let before = contracts::identity::edit(&forks, &folder, name.as_deref(), colour)
+            .map_err(|message| RpcError::new(rpc::code::INVALID_PARAMS, message))?;
+        if let Some(old) = fork_app::file_name(&before) {
+            let _ = std::fs::remove_dir_all(folder.join(format!("{old}.app")));
+        }
+        // FA5980b: a failed remake leaves the rewritten `fork.json` and no bundle.
+        if let Err(error) = std::env::current_exe()
+            .map_err(|error| error.to_string())
+            .and_then(|binary| fork_app::make(&folder, &binary))
+        {
+            log::warn!("remake the Fork's .app: {error}");
+        }
+        Ok(())
+    })
+    .await
+    .map_err(RpcError::internal)?
+}
+
+/// AI7152e: the row's `Rename`.
+#[tauri::command]
+async fn fork_rename(path: String, name: String) -> Result<(), RpcError> {
+    edit_fork(path, Some(name), None).await
+}
+
+/// AI7152e: the row's `Recolour`.
+#[tauri::command]
+async fn fork_recolour(path: String, colour: contracts::data::ForkColour) -> Result<(), RpcError> {
+    edit_fork(path, None, Some(colour)).await
 }
 
 /// FS5979: makes the Fork with `data.fork` through an open Project's Daemon, then starts the branch's App on it.

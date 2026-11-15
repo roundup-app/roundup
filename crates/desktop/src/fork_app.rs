@@ -149,6 +149,13 @@ pub(crate) fn fork_icon(folder: &Path) -> Option<Image<'static>> {
     Some(Image::new_owned(icon.into_data().into_vec(), 1024, 1024))
 }
 
+/// AI7152a: the icon of a Channel whose plate is `colour`.
+#[cfg(any(test, target_vendor = "apple"))]
+pub(crate) fn channel_icon(colour: ForkColour) -> Option<Image<'static>> {
+    let icon = render_icon(ARTWORK, colour).ok()?;
+    Some(Image::new_owned(icon.into_data().into_vec(), 1024, 1024))
+}
+
 /// The PNG bytes of `image`, which the native icon call takes.
 #[cfg(any(test, target_vendor = "apple"))]
 pub(crate) fn png(image: &Image<'_>) -> Option<Vec<u8>> {
@@ -298,17 +305,9 @@ pub(crate) fn make(fork: &Path, binary: &Path) -> Result<PathBuf, String> {
     make_from(fork, binary, ARTWORK)
 }
 
-fn make_from(fork: &Path, binary: &Path, artwork: &[u8]) -> Result<PathBuf, String> {
-    let record =
-        record(fork).ok_or_else(|| format!("{}: no readable fork.json", fork.display()))?;
-    let folder = fork
-        .file_name()
-        .map(|name| slug(&name.to_string_lossy()))
-        .filter(|slug| !slug.is_empty())
-        .ok_or_else(|| format!("{}: no folder name", fork.display()))?;
-    let identifier = format!("app.roundup.fork.{folder}");
-    let file: String = record
-        .name
+/// The `.app` file stem of a Fork's name; `None` when empty.
+pub(crate) fn file_name(name: &str) -> Option<String> {
+    let file: String = name
         .chars()
         .map(|c| {
             if c == '/' || c == ':' || c.is_control() {
@@ -318,6 +317,19 @@ fn make_from(fork: &Path, binary: &Path, artwork: &[u8]) -> Result<PathBuf, Stri
             }
         })
         .collect();
+    (!file.is_empty()).then_some(file)
+}
+
+fn make_from(fork: &Path, binary: &Path, artwork: &[u8]) -> Result<PathBuf, String> {
+    let record =
+        record(fork).ok_or_else(|| format!("{}: no readable fork.json", fork.display()))?;
+    let folder = fork
+        .file_name()
+        .map(|name| slug(&name.to_string_lossy()))
+        .filter(|slug| !slug.is_empty())
+        .ok_or_else(|| format!("{}: no folder name", fork.display()))?;
+    let identifier = format!("app.roundup.fork.{folder}");
+    let file = file_name(&record.name).unwrap_or_default();
     let target = fork.join(format!("{file}.app"));
     let scratch = fork.join(".roundup-app.tmp");
     let _ = fs::remove_dir_all(&scratch);
@@ -402,35 +414,90 @@ mod tests {
         d.min(360.0 - d)
     }
 
+    /// The mean hue of the plate pixels of `to`, which must equal `from` outside the plate, and how
+    /// many plate pixels there are.
+    fn plate_hue(from: &Icon, to: &[u8]) -> (f64, usize) {
+        let (mut sin, mut cos, mut plate) = (0.0f64, 0.0f64, 0usize);
+        for (a, b) in from
+            .data()
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .zip(to.as_chunks::<4>().0.iter())
+        {
+            assert_eq!(a[3], b[3], "alpha");
+            if a[3] > 0 && is_plate([a[0], a[1], a[2]]) {
+                let (h, s, _) = to_hsl([b[0], b[1], b[2]]);
+                if s > 0.3 {
+                    sin += h.to_radians().sin();
+                    cos += h.to_radians().cos();
+                    plate += 1;
+                }
+            } else {
+                assert_eq!(a, b, "a pixel outside the plate changed");
+            }
+        }
+        (sin.atan2(cos).to_degrees().rem_euclid(360.0), plate)
+    }
+
     #[test]
     fn fa5980a_only_the_plate_takes_the_fork_hue() {
         let from = source();
         for colour in COLOURS {
             let to = render_icon(ARTWORK, colour).unwrap();
             assert_eq!((to.width(), to.height()), (1024, 1024));
-            let (mut sin, mut cos, mut plate) = (0.0f64, 0.0f64, 0usize);
-            for (a, b) in from
-                .data()
-                .as_chunks::<4>()
-                .0
-                .iter()
-                .zip(to.data().as_chunks::<4>().0.iter())
-            {
-                assert_eq!(a[3], b[3], "alpha");
-                if a[3] > 0 && is_plate([a[0], a[1], a[2]]) {
-                    let (h, s, _) = to_hsl([b[0], b[1], b[2]]);
-                    if s > 0.3 {
-                        sin += h.to_radians().sin();
-                        cos += h.to_radians().cos();
-                        plate += 1;
-                    }
-                } else {
-                    assert_eq!(a, b, "a pixel outside the plate changed");
-                }
-            }
+            let (mean, plate) = plate_hue(&from, to.data());
             assert!(plate > 400_000);
-            let mean = sin.atan2(cos).to_degrees().rem_euclid(360.0);
             assert!(hue_gap(mean, hue(colour)) < 6.0, "{colour:?}: {mean}");
+        }
+    }
+
+    #[test]
+    fn ai7152a_dev_and_source_render_their_own_plate() {
+        let rgba = |colour| channel_icon(colour).unwrap().rgba().to_vec();
+        assert_ne!(rgba(ForkColour::Violet), rgba(ForkColour::Blue));
+        assert_ne!(rgba(ForkColour::Violet), rgba(ForkColour::Orange));
+        // The bundles' committed icons are those renders; Stable's is the artwork itself.
+        let committed = |name: &str| {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("icons")
+                .join(name);
+            Icon::read_png(std::io::Cursor::new(fs::read(path).unwrap()))
+                .unwrap()
+                .into_data()
+                .into_vec()
+        };
+        assert_eq!(committed("dev@2x.png"), rgba(ForkColour::Violet));
+        assert_eq!(committed("source@2x.png"), rgba(ForkColour::Blue));
+        assert_eq!(committed("icon@2x.png"), source().into_data().into_vec());
+        // The plate hue of each bundle's icon is its Channel's, within 6° of `docs/design-system.md`.
+        let from = source();
+        for (name, colour) in [
+            ("dev@2x.png", ForkColour::Violet),
+            ("source@2x.png", ForkColour::Blue),
+        ] {
+            let (mean, plate) = plate_hue(&from, &committed(name));
+            assert!(plate > 400_000);
+            assert!(hue_gap(mean, hue(colour)) < 6.0, "{name}: {mean}");
+        }
+    }
+
+    #[test]
+    fn ai7152e_a_colliding_fork_still_resolves_and_makes_its_app() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Violet is Dev's plate; the second Fork also repeats the first one's name.
+        let older = fork_in(tmp.path(), "a", "main", ForkColour::Violet);
+        let later = fork_in(tmp.path(), "b", "Main", ForkColour::Violet);
+        for (folder, name) in [(&older, "main"), (&later, "Main")] {
+            let fork = read(folder).unwrap();
+            assert_eq!(
+                (fork.name.as_str(), fork.colour),
+                (name, ForkColour::Violet)
+            );
+            assert!(fork_icon(folder).is_some());
+            let app = make(folder, Path::new("/bin/true")).unwrap();
+            assert_eq!(app, folder.join(format!("{name}.app")));
+            assert!(app.join("Contents/Info.plist").is_file());
         }
     }
 

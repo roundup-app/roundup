@@ -81,6 +81,7 @@ pub(crate) fn fork(root: &Path, params: &ForkRequest) -> Result<ForkResult, RpcE
             "The Fork folder must not lie inside the live data folder or contain it.",
         ));
     }
+    refuse_taken(folder, params)?;
     let existed = target.exists();
     if existed && !fs::read_dir(&target).is_ok_and(|mut entries| entries.next().is_none()) {
         return Err(invalid(format!(
@@ -108,6 +109,22 @@ pub(crate) fn fork(root: &Path, params: &ForkRequest) -> Result<ForkResult, RpcE
         };
     }
     done
+}
+
+/// AI7152c: refuse a name or colour another App holds, before anything is copied. The Forks
+/// compared are those beside `params.path`; Dev's first make, at `<forks>/dev`, may take the
+/// `Dev` name and the `violet` colour.
+fn refuse_taken(folder: &Path, params: &ForkParams) -> Result<(), RpcError> {
+    use contracts::identity;
+    let Some(forks) = folder.parent() else {
+        return Ok(());
+    };
+    let dev_first = identity::is_dev_fork_path(folder) && !folder.join("fork.json").exists();
+    let taken = identity::forks_in(forks);
+    match identity::refusal(&taken, &params.name, params.colour, None, dev_first) {
+        Some(message) => Err(invalid(message)),
+        None => Ok(()),
+    }
 }
 
 /// Remove the topmost folder `create_dir_all` made for `target`.

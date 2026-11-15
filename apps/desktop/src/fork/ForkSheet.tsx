@@ -4,7 +4,7 @@ import Minus from "lucide-solid/icons/minus";
 import { createTreeCollection } from "@ark-ui/solid/collection";
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { ForkColour } from "@contracts/data/ForkColour";
-import type { App } from "../app/seam";
+import type { App, ForkListed } from "../app/seam";
 import { Dialog } from "../ui/Dialog";
 import { claimKeys } from "../ui/RowCollection";
 import { Field } from "../ui/Field";
@@ -12,9 +12,22 @@ import { RadioGroup } from "../ui/RadioGroup";
 import { TreeView } from "../ui/TreeView";
 import { ReservedLine } from "../ink/ReservedLine";
 import { forkCopy } from "./copy";
+import { ForkList } from "./ForkList";
 import { createForkTicks, forkRows, type ForkRow, type ForkSource } from "./forkTicks";
 
 const COLOURS: readonly ForkColour[] = ["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"];
+
+/** AI7152a, AI7152b: a Channel's name, fixed colour and reserved names: the name and its last word (`Roundup Dev`, `Dev`). */
+const channel = (name: string, colour: ForkColour) => ({ name, colour, reserved: [name, name.slice(name.lastIndexOf(" ") + 1)] });
+
+/** As `contracts::identity::CHANNELS` holds them. */
+const CHANNELS = [channel(forkCopy.channelStable, "orange"), channel(forkCopy.channelDev, "violet"), channel(forkCopy.channelSource, "blue")];
+
+/** AI7152d: the first free colour is chosen: teal, then `ForkColour` order. */
+const FIRST: readonly ForkColour[] = ["teal", ...COLOURS.filter(colour => colour !== "teal")];
+
+/** AI7152b: names compare equal after trimming and lower-casing. */
+const fold = (name: string): string => name.trim().toLowerCase();
 
 /** FS5979c: 1 to 40 characters with no control character. */
 const validName = (name: string): boolean => [...name].length >= 1 && [...name].length <= 40 && !/\p{Cc}/u.test(name);
@@ -50,16 +63,42 @@ const Rows = (props: { rows: ForkRow[]; path: number[]; state: (id: string) => b
 const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef: (element: HTMLInputElement) => void }) => {
   const ticks = createForkTicks(() => props.rows);
   const [name, setName] = createSignal("");
-  const [colour, setColour] = createSignal<ForkColour>("teal");
+  const [picked, setPicked] = createSignal<ForkColour>("teal");
+  const [forks, setForks] = createSignal<readonly ForkListed[]>([]);
+  const free = () => COLOURS.filter(value => !CHANNELS.some(channel => channel.colour === value) && !forks().some(fork => fork.colour === value));
+
+  const holder = (): string | null => {
+    const folded = fold(name());
+    const taker = CHANNELS.find(taken => taken.reserved.some(reserved => fold(reserved) === folded));
+
+    if (taker) return taker.name;
+
+    const fork = forks().find(taken => fold(taken.name) === folded);
+
+    return fork ? forkCopy.forkAt(fork.path) : null;
+  };
+
+  const problem = (): string | null => {
+    if (!validName(name())) return forkCopy.invalidName;
+    const taken = holder();
+
+    return taken ? forkCopy.claimedBy(name(), taken) : null;
+  };
+
+
+  const colour = (): ForkColour => (free().includes(picked()) ? picked() : FIRST.find(value => free().includes(value)) ?? picked());
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
   let tree: HTMLDivElement | undefined;
   const collection = () => createTreeCollection<ForkRow>({ rootNode: { id: "", name: "", kind: "project", path: "", children: props.rows }, nodeToValue: row => row.id, nodeToString: row => row.name });
 
+  const reload = () => void props.app.forkList().then(setForks, () => {});
+
   onMount(() => {
     let alive = true;
 
+    reload();
     void props.app.forkBranch().then(branch => {
       if (!alive) return;
       setName(branch);
@@ -82,7 +121,7 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
   });
 
   const submit = async () => {
-    if (busy() || !validName(name())) return;
+    if (busy() || problem() || free().length === 0) return;
     setBusy(true);
     setFailure(null);
 
@@ -101,12 +140,17 @@ const Form = (props: { app: App; rows: ForkRow[]; onClose: () => void; inputRef:
         <TreeView.Tree aria-label={forkCopy.tree}><Rows rows={props.rows} path={[]} state={ticks.state} toggle={ticks.toggle} /></TreeView.Tree>
       </TreeView.Root>
     </div>
-    <Field.Root invalid={!validName(name())}>
+    <Field.Root invalid={problem() !== null}>
       <Field.Label>{forkCopy.name}</Field.Label>
       <Field.Input ref={element => { input = element; props.inputRef(element); }} type="text" value={name()} onInput={event => setName(event.currentTarget.value)} />
-      <Field.ErrorText>{forkCopy.invalidName}</Field.ErrorText>
+      <Field.ErrorText>{problem()}</Field.ErrorText>
     </Field.Root>
-    <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={COLOURS.map(value => ({ value, label: value }))} value={colour()} onValueChange={setColour} />
+    <Show when={forks().length > 0}>
+      <ForkList app={props.app} forks={forks()} free={free()} done={reload} />
+    </Show>
+    <Show when={free().length > 0} fallback={<p class="fork-colours-full">{forkCopy.colourTaken}</p>}>
+      <RadioGroup class="fork-swatches" label={forkCopy.colour} choices={free().map(value => ({ value, label: value }))} value={colour()} onValueChange={setPicked} />
+    </Show>
     <div class="app-dialog-actions">
       <ReservedLine class="fork-failure" message={failure()} dismiss={() => setFailure(null)} />
       <Dialog.CloseTrigger type="button" data-button="quiet">{forkCopy.close}</Dialog.CloseTrigger>
