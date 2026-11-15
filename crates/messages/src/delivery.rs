@@ -187,7 +187,7 @@ async fn apply_status(
     } else {
         (
             kind == Kind::Done,
-            matches!(kind, Kind::Idle | Kind::Blocked) || stop_recorded(kind, label),
+            matches!(kind, Kind::Idle | Kind::Blocked) || at_prompt(kind, label),
         )
     };
     {
@@ -401,11 +401,16 @@ fn stop_recorded(kind: Kind, label: &str) -> bool {
     kind == Kind::Working && label.starts_with("waiting on ")
 }
 
+/// A7180c: a Stop that asked the user in text leaves the receiver at its prompt, as a hold does.
+fn at_prompt(kind: Kind, label: &str) -> bool {
+    stop_recorded(kind, label) || agents::stop_asks(kind, label)
+}
+
 /// Whether the receiver's status lets a Message be written: idle, blocked, a live error, or a Stop
 /// under a hold (U6404a).
 pub(super) fn ready(status: &contracts::Status) -> bool {
     matches!(status.kind, Kind::Idle | Kind::Blocked | Kind::Error)
-        || stop_recorded(status.kind, &status.label)
+        || at_prompt(status.kind, &status.label)
 }
 
 pub(super) fn binding(node: &RailNode) -> store::Binding {

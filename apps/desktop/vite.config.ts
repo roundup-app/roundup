@@ -7,6 +7,7 @@ import { visualizer } from "rollup-plugin-visualizer";
 import { configDefaults, defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import { captureTests } from "./src/testing/captures.ts";
+import { browserTests } from "./src/testing/browserTests.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
 import { buildModules } from "./budgets/build.ts";
@@ -54,6 +55,11 @@ const webkitGuards = [
 // Files that launch Chromium or a real Daemon starve every test sharing their pool: a shard's reds were a hook timing out
 // beside them. They run one file at a time in their own project, so two of them never overlap.
 const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx}", "src/**/*real*.test.{ts,tsx}", "src/todos/u3718_owner_drag.test.ts"];
+
+// T7187a: only files that reach Chrome or the App server (`browserTests`) run in a project that starts them, so a run of any other file starts neither.
+const browser = browserTests(fileURLToPath(new URL(".", import.meta.url)));
+
+const browserSetup = ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"];
 
 // Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
@@ -241,15 +247,22 @@ export default defineConfig({
     // U6249b: the web tests retry reads without waiting; the one test of the backoff opts back in.
     alias: { "p-retry": fileURLToPath(new URL("./src/testing/immediateRetry.ts", import.meta.url)) },
     setupFiles: ["src/testing/domStubs.ts", "src/testing/ownTempDirs.ts"],
-    // Inline projects inherit jsdom, stubs, transforms and resolution. Only queued App tests start their global setup.
+    // Inline projects inherit jsdom, stubs, transforms and resolution. Only the `browser` and `heavy` projects start their global setup.
     projects: [
       { test: { name: "webkit-guards", include: webkitGuards, exclude: captureExcludes } },
       {
         test: {
           name: "app",
           include: ["src/**/*.test.{ts,tsx}"],
+          exclude: [...configDefaults.exclude, ...webkitGuards, ...heavy, ...browser, ...captureExcludes],
+        },
+      },
+      {
+        test: {
+          name: "browser",
+          include: browser,
           exclude: [...configDefaults.exclude, ...webkitGuards, ...heavy, ...captureExcludes],
-          globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+          globalSetup: browserSetup,
         },
       },
       {
@@ -260,7 +273,7 @@ export default defineConfig({
           fileParallelism: false,
           // Projects of one group share the pool; a later group starts after the earlier one ends, so no app file overlaps a heavy one.
           sequence: { groupOrder: 1 },
-          globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+          globalSetup: browserSetup,
         },
       },
     ],

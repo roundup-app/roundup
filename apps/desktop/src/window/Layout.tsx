@@ -15,8 +15,12 @@ import { setShelfSliding } from "../shelf/sliding";
 import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
 import { railView } from "../rail/slide";
-import { RailHandle } from "../rail/RailHandle";
-import { resizeDragging } from "../resize/dragging";
+import { RailToggle } from "../rail/RailToggle";
+
+/** U7156: the strip's head holds the Rail's toggle while the Rail is collapsed; the open Rail's WORKSTREAMS header holds it otherwise. */
+const StripHead = (props: { toggle: { collapsed: boolean; onToggle: () => void } | undefined }) => (
+  <Show when={props.toggle}>{(toggle) => <div class="rail-strip-head"><RailToggle collapsed onToggle={toggle().onToggle} /></div>}</Show>
+);
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
 export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; keyed?: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
@@ -41,7 +45,7 @@ export const Layout = (props: {
   /** U6228g: how the Rail slides now: a click's drawer motion, a key's, or the reduced-motion fade. */
   railSlide?: "click" | "key" | "fade" | undefined;
   /** U6228h: the Rail's edge handle; absent, none shows. */
-  railHandle?: { collapsed: boolean; onToggle: () => void } | undefined;
+  railToggle?: { collapsed: boolean; onToggle: () => void } | undefined;
   railOpen?: boolean;
   centre: JSX.Element;
   shelf: JSX.Element;
@@ -158,14 +162,18 @@ export const Layout = (props: {
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
       <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={railMode().strip || undefined} data-peek={railMode().peek || undefined} data-slide={props.railSlide} data-layout-panel="rail" aria-label={copy.rail}>
-        <Show when={railMode().strip}>{props.railStrip}</Show>
-        <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={(props.widths?.collapsed() && !props.railPeeking) || undefined}>{props.rail}</div>
+        <Show when={railMode().strip}>
+          <Show when={!railMode().peek}><StripHead toggle={props.railToggle} /></Show>
+          {props.railStrip}
+        </Show>
+        <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={(props.widths?.collapsed() && !props.railPeeking) || undefined}>
+          {props.rail}
+        </div>
       </section>
       <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
-      <Show when={props.railHandle}>{(handle) => <RailHandle collapsed={handle().collapsed} peek={railMode().peek} slide={props.railSlide} dragging={resizeDragging()} onToggle={handle().onToggle} />}</Show>
     </div>
     <Show when={mode() === "overlay" && placement().rendered && !placement().covering}>
       <div class="shelf-scrim" onPointerDown={(event) => event.preventDefault()} onClick={() => placement().onClose?.()} />

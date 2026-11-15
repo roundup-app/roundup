@@ -17,7 +17,7 @@ No SVG paths, Token values, horizontal columns or action targets change.
 | todos/Todos done check/count/Clear done, OpenRow; pads/Pads | ShelfRow / KindGlyph / Icon | todo-summary-rail, wrapped-todos, todo-selected, pads-shelf, pad-drawer |
 | todos/TodoDrawer, TodoComments, TodoHistory, NewWorkstream, BlockerMenu | KindGlyph / Icon / shared controls | todo-drawer, wrapped-todo-drawer, todo-picker |
 | ask/AskRows, AskBar, ToolCallLine; inbox/Inbox, InboxRow | KindGlyph / Icon | ask-history, all-kinds |
-| ink/ErrorLine, ReservedLine; importer/ImportPanel; orders/WorkProgress | Icon / KindGlyph | conflict-failure, import-controls, work-progress-results, work-progress-control |
+| ink/ErrorLine, ReservedLine; importer/ImportPanel | Icon / KindGlyph | conflict-failure, import-controls |
 | ui/Select, Combobox, Form, Checkbox, Disclosure, Menu | installed Ark / Lucide controls | settings-controls, settings-menu, todo-picker, rail-menu |
 | shelf/Shelf, ScopeAction, BulkDelete; drawer/DrawerHost, DraftRecovery | Icon / shared controls | todo-summary-rail, todo-drawer, pads-shelf, pad-drawer |
 | header/Strip, ProjectTab; bubbles/Bubbles, Bubble; terminal/Pane | Icon / KindGlyph / shared flat tabs | project-tabs, floating-terminal |
@@ -41,9 +41,7 @@ The long Todo title wraps in `wrapped-todo-drawer`; the compact Shelf itself
 retains its existing single-line truncation. `made-controls` covers the on-demand centre surface.
 
 The observer also records hover and keyboard focus for each revealed icon-labelled
-control in the Drawer, pickers, tabs, floating panels, import and Work progress.
-`work-progress-results` opens the densest existing progress fixture and its earlier
-results, showing older, accepted, checked, pending, unknown and unavailable marks.
+control in the Drawer, pickers, tabs, floating panels and import.
 Standalone icon buttons retain their existing 24 px hit area.
 
 D8 retains the row-local horizontal inset check. Its old SVG-bottom/font-baseline
