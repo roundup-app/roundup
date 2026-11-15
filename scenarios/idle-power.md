@@ -1,8 +1,8 @@
 # Idle power
 
-Module: `crates/messages`, `crates/perf`. Ids: IP7168a–IP7168c. Work order: [#7168](https://github.com/roundup-app/roundup/issues/7168). Terms: Daemon, Message, Project (`GLOSSARY.md`). Principles: P10.
+Module: `crates/messages`, `crates/perf`, `apps/desktop` (`settings/styles.css`, `terminal/`). Ids: IP7168a–IP7168d. Work order: [#7168](https://github.com/roundup-app/roundup/issues/7168). Terms: Daemon, Message, Project (`GLOSSARY.md`). Principles: P10.
 
-A Daemon with nothing to do writes nothing and wakes rarely. Before this work each Daemon's push clock committed an unchanged ledger twice a second and scanned every pending Message on each tick, so an idle laptop spent its battery on empty work. No RPC or contract changes.
+A Daemon with nothing to do writes nothing and wakes rarely. Before this work each Daemon's push clock committed an unchanged ledger twice a second and scanned every pending Message on each tick, so an idle laptop spent its battery on empty work. A Project's Pane kept mounted but hidden (U7155a) draws nothing either. No RPC or contract changes.
 
 ## Checks on main
 
@@ -17,6 +17,8 @@ A Daemon with nothing to do writes nothing and wakes rarely. Before this work ea
 
 **IP7168c `just perf` measures idle.** Given a fresh Daemon on an empty Project holding ten idle Terminals, when `just perf` waits a fixed window, then it reports `idle_writes` (1 when another connection committed to the Project database in that window, else 0; limit 0.5) and `idle_cpu_percent` (the Daemon's CPU time over the window as a share of one core; limit from the measurement in the PR). A run over either limit fails. Tests: `ip7168c_the_idle_window_sees_a_write_and_the_cpu` in `crates/perf/tests/`, over a synthetic database and process; the limits themselves are held by `just perf`.
 
+**IP7168d a hidden Project's Terminal draws nothing.** Given a Project's Pane kept mounted and hidden (`data-inactive`, U7155a) with a Terminal in it, when output reaches that Terminal, then its buffer holds the output and the renderer draws none of it; when the Pane is shown again, the Terminal draws the output it missed. The `.pane-host` stylesheet rule keeps its size (U7155a), so the hide moves no Terminal and fits none. Test: `ip7168d_a_hidden_panes_terminal_parses_output_and_draws_nothing_until_shown` in `apps/desktop/src/terminal/ip7168d_browser.test.ts`, on the real App page, the real stylesheet and the DOM renderer, which xterm's own pause (the shared `IntersectionObserver` on the screen element) stops the same way as WebGL; it first shows a visible Terminal's draw, so a green run cannot mean the observer saw nothing.
+
 ## Verification
 
-Policy: IP7168a and IP7168b use an in-process runtime with a paused clock, no child process. IP7168c's metric runs the real Daemon only in `just perf`. The PR carries a before and after table of `idle_writes` and `idle_cpu_percent` on one host in one session, taken on a scratch Daemon over a read-only copy of a real Project. The owner's Mac before and after reading follows the merge and is the owner's observation. The Daemon's memory guard (AMG4) still reads the process list once a second; it stays as specified and is the largest idle cost left.
+Policy: IP7168a and IP7168b use an in-process runtime with a paused clock, no child process. IP7168c's metric runs the real Daemon only in `just perf`. IP7168d needs a browser, since only one decides whether a hidden element still intersects the viewport. The PR carries a before and after table of `idle_writes` and `idle_cpu_percent` on one host in one session, taken on a scratch Daemon over a read-only copy of a real Project. The owner's Mac before and after reading follows the merge and is the owner's observation. The Daemon's memory guard (AMG4) still reads the process list once a second; it stays as specified and is the largest idle cost left.
