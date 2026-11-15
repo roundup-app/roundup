@@ -351,7 +351,7 @@ export const App = (props: {
     available: () => activeConnection() != null,
     invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
-  const railHandle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
+  const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement, connection: activeConnection });
@@ -473,7 +473,7 @@ export const App = (props: {
             /></Show>
           </WindowBar>
         }
-        railHandle={railHandle()}
+        railToggle={railToggle()}
         railPeeking={railPeeking()}
         railSlide={railSlide.motion()}
         railStrip={<InProject open={activeConnection()} failure={activeFailure()}>{() => <RailStrip />}</InProject>}
