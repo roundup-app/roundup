@@ -24,6 +24,10 @@ export const connectedOf = (connection: Connection | undefined): ConnectedProjec
   return connection?.kind === "failed" ? connection.last ?? undefined : undefined;
 };
 
+/** What the tab's regions show in place of a connection: the failure of one that failed with no last connected value to keep. */
+export const failedOf = (connection: Connection | undefined): Error | undefined =>
+  connection?.kind === "failed" && !connection.last ? connection.error : undefined;
+
 /** Every open tab that has a connection to read, by Project path. */
 export const connectedEntries = (connections: ReadonlyMap<string, Connection>): [string, ConnectedProject][] =>
   [...connections].flatMap(([path, each]) => {
