@@ -70,8 +70,6 @@ import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
 import { ProjectPicker } from "./switcher/ProjectPicker";
 import { Feedback } from "./feedback/Feedback";
-import { Pane } from "./terminal/Pane";
-import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
 import type { ShelfRequest } from "./state/projectView";
 import { createShelfFrame } from "./shelf/frame";
@@ -451,6 +449,7 @@ export const App = (props: {
     keys, active: projects.active, connectionOf, ready: () => activeConnection() !== undefined, createEmulator: emulators, observeTerminal: props.observeTerminal,
     arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
   });
+
   const screensOf = panes.screensOf;
 
   return (
