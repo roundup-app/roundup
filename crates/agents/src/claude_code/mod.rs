@@ -14,16 +14,19 @@ mod launch;
 mod launch_files;
 mod launch_lean;
 mod models;
+mod one_shot;
 mod overview_cache;
 mod placement;
 mod profiles;
 mod rewind;
 pub mod toolcall;
 pub use placement::Call as PlacementCall;
+pub use stop::Call as StopCall;
 pub mod plugins;
 pub mod skill_setup;
 mod skills;
 mod status_label;
+mod stop;
 mod vendor_list;
 
 use contracts::agent::FinalTextKind;
@@ -31,6 +34,7 @@ use contracts::{Kind, Status};
 use serde_json::Value;
 use std::sync::Arc;
 
+use crate::stop_judge::{self, Verdict};
 use crate::{AgentAdapter, Folded, Observation, View};
 
 pub use brief::{Role, WORKSTREAM_GUIDANCE};
@@ -136,6 +140,11 @@ pub struct ClaudeCode {
     last_compaction: Option<Box<str>>,
     /// DCL5: when the vendor last gave a Signal or a title; ticks and process snapshots are not activity.
     active_at: i64,
+    /// A7180: the `needs-you` label the last Stop's message earned, kept so a Stop that background
+    /// work keeps `working` shows it when the work ends.
+    asking: Option<String>,
+    /// A7180: the last Stop's turn, start and text while the model reads what the rules could not.
+    unclear: Option<Arc<(String, i64, String)>>,
 }
 
 impl ClaudeCode {
@@ -160,6 +169,8 @@ impl ClaudeCode {
             background: Box::default(),
             compactions: 0,
             last_compaction: None,
+            asking: None,
+            unclear: None,
         }
     }
 
@@ -312,7 +323,10 @@ impl ClaudeCode {
             self.background.stopped = false;
             self.turn_started = (self.clock)();
             self.final_text = FinalTextKind::Unknown;
+            self.asking = None;
+            self.unclear = None;
         }
+        let mut reading = None;
         if event == Some("Stop") {
             if let (Some(current), Some(incoming)) =
                 (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
@@ -344,6 +358,16 @@ impl ClaudeCode {
             if self.final_text != FinalTextKind::Present {
                 self.final_text = next;
             }
+            // A7180: each Stop is read anew, by the rules first.
+            reading = payload["last_assistant_message"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .map(|text| (text, stop_judge::rules(text)));
+            self.asking = match &reading {
+                Some((_, Verdict::Asks(question))) => Some(stop_judge::label(question)),
+                _ => None,
+            };
+            self.unclear = None;
         }
         match event {
             Some("UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PostToolUseFailure") => {
@@ -364,15 +388,23 @@ impl ClaudeCode {
         self.after_pre_tool_use = event == Some("PreToolUse");
         self.star_parked_since = None;
         self.spinner_at = None;
-        let changed = self.settle(kind, label);
+        let changed = if event == Some("Stop") && kind == Kind::Idle {
+            self.end_turn()
+        } else {
+            self.settle(kind, label)
+        };
         if event == Some("UserPromptSubmit") {
             self.prompt_id = payload["prompt_id"].as_str().map(Into::into);
         }
-        if event == Some("Stop")
-            && let Some(text) = payload["last_assistant_message"].as_str()
-            && !text.is_empty()
-        {
+        if let Some((text, verdict)) = reading {
             let turn = self.finished.to_string();
+            if verdict == Verdict::Unclear {
+                self.unclear = Some(Arc::new((
+                    turn.clone(),
+                    self.turn_started,
+                    stop_judge::model_input(text).to_owned(),
+                )));
+            }
             // A replayed Stop must not move this turn's boundary past a later Message.
             let ended = self
                 .completed
@@ -447,9 +479,33 @@ impl ClaudeCode {
     fn release_hold(&mut self) -> Option<Status> {
         if self.background.stopped && !self.background.holds() && self.ending == Ending::Running {
             self.background.stopped = false;
-            return self.settle(Kind::Idle, "idle".into());
+            return self.end_turn();
         }
         None
+    }
+
+    /// A7180: a turn ends with nothing holding it: `needs-you` when its last message asked the
+    /// user, else `idle`. Every path that ends a turn comes here, so each reads it the same way.
+    fn end_turn(&mut self) -> Option<Status> {
+        let finish = self
+            .status
+            .as_ref()
+            .is_some_and(|s| s.kind == Kind::Working);
+        match self.asking.clone() {
+            Some(label) => self.settle_counting(Kind::NeedsYou, label, finish),
+            None => self.settle(Kind::Idle, "idle".into()),
+        }
+    }
+
+    /// A7180b: the model read the Stop of `turn` that began at `started`, and found it asks
+    /// `question`. An answer for a turn the Agent has left is dropped.
+    fn judged(&mut self, turn: &str, started: i64, question: &str) -> Option<Status> {
+        self.unclear
+            .take_if(|stop| stop.0 == turn && stop.1 == started)?;
+        let label = stop_judge::label(&stop_judge::label_of(question)?);
+        self.asking = Some(label.clone());
+        let idle = self.status.as_ref().is_some_and(|s| s.kind == Kind::Idle);
+        idle.then(|| self.settle(Kind::NeedsYou, label)).flatten()
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {
@@ -508,6 +564,7 @@ impl ClaudeCode {
             | Observation::Title(_)
             | Observation::Tick
             | Observation::Processes { .. }
+            | Observation::Judged { .. }
             | Observation::Program(_)
                 if self.ending != Ending::Running =>
             {
@@ -530,6 +587,11 @@ impl ClaudeCode {
                 self.set_finished(finished);
                 None
             }
+            Observation::Judged {
+                turn,
+                started,
+                question,
+            } => self.judged(&turn, started, &question),
             Observation::Failed(label) => self.fail(label),
             Observation::Resumed(kept) => {
                 self.resume_background(kept);
@@ -579,6 +641,7 @@ impl ClaudeCode {
             next_due: self.tick_at(),
             needs_snapshot: self.ending == Ending::Running && self.background.stopped,
             quiet_since: self.quiet_since(),
+            unclear: self.unclear.clone(),
         }
     }
 }

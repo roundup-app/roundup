@@ -182,7 +182,8 @@ fn clone_observation(observation: &Observation) -> Observation {
         | Observation::Program(_)
         | Observation::Finished(_)
         | Observation::Failed(_)
-        | Observation::Resumed(_) => {
+        | Observation::Resumed(_)
+        | Observation::Judged { .. } => {
             unreachable!("a timeline never carries a Tick, Stopped or Exit")
         }
     }

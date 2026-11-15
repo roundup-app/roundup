@@ -60,6 +60,8 @@ mod rail;
 pub use rail::{home_in, is_home_in, maker_in, registered_in};
 pub mod rewind;
 mod scan;
+mod stop_judge;
+pub use stop_judge::{StopModel, stop_asks};
 pub mod worktree;
 
 use agent::{Agent, Facts, Fold, Run, Runs, Slot};
@@ -118,6 +120,13 @@ pub enum Observation {
     /// DCL3c: the background work a Daemon reopen kept; the first process snapshot decides what
     /// still runs.
     Resumed(claude_code::background::Retained),
+    /// A7180b: the model read the Stop of `turn` that began at `started` and found it asks
+    /// `question`.
+    Judged {
+        turn: String,
+        started: i64,
+        question: String,
+    },
 }
 
 /// What one fold of an Observation left: the Status change, if any, and the Agent's state as the
@@ -155,6 +164,8 @@ pub struct View {
     pub(crate) needs_snapshot: bool,
     /// DCL5: when a working turn with no tool call or background work last showed activity.
     pub(crate) quiet_since: Option<i64>,
+    /// A7180b: the last Stop's turn, start and text, until the model has read it.
+    pub(crate) unclear: Option<Arc<(String, i64, String)>>,
 }
 
 /// Turns one vendor's program into an Agent's Status. It emits `error`, `needs-you`, `working`,
