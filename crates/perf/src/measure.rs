@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use rpc::{Client, OutputFrame};
+use rusqlite::{Connection, OpenFlags};
 use serde_json::{Value, json};
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tokio::process::{Child, Command};
@@ -17,6 +18,10 @@ const SETTLE: Duration = Duration::from_millis(500);
 const WARMUP: usize = 100;
 const TERMINALS: usize = 10;
 const TREE_SIZES: [usize; 2] = [10, 40];
+
+/// IP7168c: after the Terminals' login shells settle, how long a Daemon with nothing to do is watched.
+const IDLE_SETTLE: Duration = Duration::from_secs(1);
+const IDLE_WINDOW: Duration = Duration::from_secs(4);
 
 /// H15's tool-use loop: 100 tool uses, each running `rup signal` for `PreToolUse` and again for
 /// `PostToolUse`, since `STATE_EVENTS` keeps both.
@@ -52,6 +57,67 @@ fn resident_mb(system: &mut System, pid: u32) -> io::Result<f64> {
         .process(pid)
         .map(|process| process.memory() as f64 / 1_048_576.0)
         .ok_or_else(|| io::Error::other("rupd is gone"))
+}
+
+/// What a Daemon did over an idle window.
+#[derive(Debug, PartialEq)]
+pub struct Idle {
+    /// Whether another connection committed to the Project database during the window.
+    pub wrote: bool,
+    /// The Daemon's CPU time over the window, as a share of one core (100 is one core busy).
+    pub cpu_percent: f64,
+}
+
+fn data_version(reader: &Connection) -> io::Result<i64> {
+    reader
+        .pragma_query_value(None, "data_version", |row| row.get(0))
+        .map_err(io::Error::other)
+}
+
+fn cpu_ms(system: &mut System, pid: u32) -> io::Result<u64> {
+    let pid = Pid::from_u32(pid);
+
+    system.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+
+    system
+        .process(pid)
+        .map(|process| process.accumulated_cpu_time())
+        .ok_or_else(|| io::Error::other("rupd is gone"))
+}
+
+/// IP7168c: watch process `pid` and its Project database `db` for `window`: whether the database was written and the CPU the process spent. `data_version` differs after another connection commits, so a read-only connection that writes nothing sees a commit.
+pub async fn idle_window(pid: u32, db: &Path, window: Duration) -> io::Result<Idle> {
+    let reader = Connection::open_with_flags(db, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(io::Error::other)?;
+    let mut system = System::new();
+    let started = Instant::now();
+    let cpu_before = cpu_ms(&mut system, pid)?;
+    let version = data_version(&reader)?;
+
+    tokio::time::sleep(window).await;
+
+    let wrote = data_version(&reader)? != version;
+    let spent = cpu_ms(&mut system, pid)?.saturating_sub(cpu_before);
+
+    Ok(Idle {
+        wrote,
+        cpu_percent: spent as f64 / ms(started.elapsed()) * 100.0,
+    })
+}
+
+/// The one Project database under a Daemon's data folder.
+fn project_db(data: &Path) -> io::Result<std::path::PathBuf> {
+    let mut found = std::fs::read_dir(data.join("projects"))?
+        .map(|entry| entry.map(|entry| entry.path().join("project.db")))
+        .collect::<io::Result<Vec<_>>>()?;
+
+    match (found.pop(), found.is_empty()) {
+        (Some(db), true) if db.exists() => Ok(db),
+        _ => Err(io::Error::other(format!(
+            "no single Project database under {}",
+            data.display()
+        ))),
+    }
 }
 
 fn call_failed(method: &str, err: impl std::fmt::Display) -> io::Error {
@@ -392,6 +458,13 @@ pub async fn one_run(
 
     tokio::time::sleep(SETTLE).await;
     sample.insert("rss_extra_mb".into(), resident_mb(&mut system, pid)? - idle);
+
+    tokio::time::sleep(IDLE_SETTLE).await;
+
+    let quiet = idle_window(pid, &project_db(&dir.path().join("data"))?, IDLE_WINDOW).await?;
+
+    sample.insert("idle_writes".into(), f64::from(u8::from(quiet.wrote)));
+    sample.insert("idle_cpu_percent".into(), quiet.cpu_percent);
 
     let mut nodes = 0;
 

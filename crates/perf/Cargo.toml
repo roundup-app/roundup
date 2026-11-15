@@ -11,6 +11,7 @@ clap = { version = "4", features = ["derive"] }
 contracts = { path = "../contracts" }
 notify = "8"
 rpc = { path = "../rpc" }
+rusqlite.workspace = true
 rupd = { path = "../rupd" }
 serde = { workspace = true }
 serde_json.workspace = true
@@ -37,7 +38,6 @@ path = "src/idle_run.rs"
 
 [dev-dependencies]
 rupd = { path = "../rupd", features = ["test-support"] }
-rusqlite.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 
 [[bin]]
