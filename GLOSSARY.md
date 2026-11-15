@@ -108,6 +108,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Prepared directory | same | — |
 | Worktree state | same | — |
 | Changed file | same | — |
+| Owned changes (`agent.ownedChanges`) | same | — |
+| Compare endpoint (`project.compareRefs`, `CompareEndpoint`) | same | — |
 | File comparison (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`) | same | — |
 | Base | same | — |
 | Resource use | same | — |

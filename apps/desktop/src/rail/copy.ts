@@ -53,7 +53,6 @@ export const copy = {
   retryStorage: sharedCopy.retryStorage,
   storageRetry: sharedCopy.storageRetry,
   draftRetention: sharedCopy.draftRetention,
-  workProgress: "Work progress",
   todoUndo: sharedCopy.todoUndo,
   moveUp: sharedCopy.moveUp,
   moveDown: sharedCopy.moveDown,
