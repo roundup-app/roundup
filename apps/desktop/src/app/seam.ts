@@ -100,6 +100,7 @@ export type ProjectCalls = {
 /** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
   "ask_removal",
+  "ask_question",
   "plugin:capture-panel|control",
   "native_open",
   "projects",
