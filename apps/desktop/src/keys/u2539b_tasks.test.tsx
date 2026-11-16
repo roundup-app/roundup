@@ -8,9 +8,11 @@ import { createFakeApp } from "../testing/fakeApp";
 import { mountNavigation as mount } from "../testing/navigationFixture";
 import { agent, info } from "../testing/nodes";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
+import { storageIdle } from "../state/storage";
 
 // Connected App seam: acknowledged calls, selection, focus and disposal. Appearance belongs to U26.
-afterEach(() => { cleanup(); localStorage.clear(); });
+// A save queued as the test ends lands after a clear that does not wait for it, and the next test starts with it.
+afterEach(async () => { cleanup(); await storageIdle(); localStorage.clear(); });
 
 const key = (code: string, options: KeyboardEventInit = {}) => {
   const event = new KeyboardEvent("keydown", { code, key: code === "Enter" ? "Enter" : code.replace("Key", "").toLowerCase(), bubbles: true, cancelable: true, ...options });
@@ -128,7 +130,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   } else if (task === "assign") {
     leader("KeyB");
     const todos = within(await screen.findByRole("region", { name: "Todos" }));
-    fireEvent.click(await todos.findByRole("button", { name: /Unassigned/ }));
+    fireEvent.click(await todos.findByRole("treeitem", { name: /Unassigned/ }));
     const row = await todos.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
     flush();

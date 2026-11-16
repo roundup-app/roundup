@@ -2,7 +2,7 @@ import { provideFocusTarget } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
-import { createMemo, createSignal, For, lazy, onSettled, Show, type Accessor } from "solid-js";
+import { createMemo, createSignal, For, lazy, Loading, onSettled, Show, type Accessor } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { Tabs, useTabs, useTabsContext } from "../ui/Tabs";
 
@@ -134,7 +134,7 @@ export const Shelf = (props: { open: Accessor<boolean> }) => {
           {(tab) => (
             <Tabs.Content value={tab.value} class="shelf-panel">
               <Show when={tab.value === "todos"} fallback={<Pads />}>
-                <Todos />
+                <Loading><Todos /></Loading>
               </Show>
             </Tabs.Content>
           )}

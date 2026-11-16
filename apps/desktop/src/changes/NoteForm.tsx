@@ -6,25 +6,44 @@ import { createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Note, Notes, NoteFormDraft } from "./notes";
 
+type Fields = Pick<NoteFormDraft, "side" | "start" | "end" | "text">;
+
 /** Keyboard selection uses the same source and inclusive range as Pierre's gutter selection. */
 export const NoteForm = (props: { id: string; comparison: FileComparison; notes: Notes; selection: { side: "old" | "new"; start: number; end: number }; editing?: Note | undefined; recovered?: NoteFormDraft | undefined; close: () => void }) => {
   const restored = untrack(() => props.recovered ?? props.notes.form(props.id, props.comparison, props.editing?.id));
   const comparison = restored?.comparison ?? props.editing?.comparison ?? props.comparison;
   const revision = restored?.revision ?? crypto.randomUUID();
   const replacing = restored?.replacing ?? props.editing?.id;
-  const [side, setSide] = createSignal(restored?.side ?? props.editing?.side ?? props.selection.side);
-  const [start, setStart] = createSignal(restored?.start ?? String(props.editing?.start ?? props.selection.start));
-  const [end, setEnd] = createSignal(restored?.end ?? String(props.editing?.end ?? props.selection.end));
-  const [text, setText] = createSignal(restored?.text ?? props.editing?.text ?? "");
+
+  const initial: Fields = untrack(() => ({
+    side: restored?.side ?? props.editing?.side ?? props.selection.side,
+    start: restored?.start ?? String(props.editing?.start ?? props.selection.start),
+    end: restored?.end ?? String(props.editing?.end ?? props.selection.end),
+    text: restored?.text ?? props.editing?.text ?? "",
+  }));
+
+  const [fields, setFields] = createSignal(initial);
+  // rc.21 reads lag writes until flush; the retained form must carry what the last edit wrote, so `written` keeps it.
+  let written = initial;
+  const side = () => fields().side;
+  const start = () => fields().start;
+  const end = () => fields().end;
+  const text = () => fields().text;
   let field: HTMLTextAreaElement | undefined;
   let disposed = false;
 
   onCleanup(() => { disposed = true; });
 
   const persist = () => props.notes.editForm(props.id, {
-    revision, comparison, replacing: replacing ?? null, side: side(), start: start(), end: end(), text: text(),
+    revision, comparison, replacing: replacing ?? null, ...written,
     selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : restored?.selection ?? props.editing?.selection ?? null,
   });
+
+  const edit = (change: Partial<Fields>) => {
+    written = { ...written, ...change };
+    setFields(written);
+    persist();
+  };
 
   const lines = () => {
     const content = comparison[side()];
@@ -46,13 +65,13 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
 
     if (valid() && await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision) && !disposed && text() === submitted) props.close();
   }}>
-    <Tabs.Root value={side()} onValueChange={({ value }) => { setSide(value === "old" ? "old" : "new"); persist(); }}>
+    <Tabs.Root value={side()} onValueChange={({ value }) => edit({ side: value === "old" ? "old" : "new" })}>
       <Tabs.List aria-label={copy.noteSide}><Tabs.Trigger value="old">{copy.oldSide}</Tabs.Trigger><Tabs.Trigger value="new">{copy.newSide}</Tabs.Trigger></Tabs.List>
       <Tabs.Content value="old">{copy.selectOldLines}</Tabs.Content><Tabs.Content value="new">{copy.selectNewLines}</Tabs.Content>
     </Tabs.Root>
-    <label>{copy.startLine}<input type="number" min="1" value={start()} onInput={event => { setStart(event.currentTarget.value); persist(); }} /></label>
-    <label>{copy.endLine}<input type="number" min="1" value={end()} onInput={event => { setEnd(event.currentTarget.value); persist(); }} /></label>
-    <label class="note-field">{copy.note}<textarea class="field-frame" spellcheck="false" autocorrect="off" autocapitalize="off" value={text()} maxlength={20000} onInput={event => { setText(event.currentTarget.value); persist(); }} onSelect={() => { if (text() !== "" || restored || replacing !== undefined) persist(); }} ref={element => {
+    <label>{copy.startLine}<input type="number" min="1" value={start()} onInput={event => edit({ start: event.currentTarget.value })} /></label>
+    <label>{copy.endLine}<input type="number" min="1" value={end()} onInput={event => edit({ end: event.currentTarget.value })} /></label>
+    <label class="note-field">{copy.note}<textarea class="field-frame" spellcheck="false" autocorrect="off" autocapitalize="off" value={text()} maxlength={20000} onInput={event => edit({ text: event.currentTarget.value })} onSelect={() => { if (written.text !== "" || restored || replacing !== undefined) persist(); }} ref={element => {
       field = element;
       queueFocus(() => {
         if (!element.isConnected) return;

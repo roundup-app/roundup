@@ -17,8 +17,10 @@ import { mountTodos, todo } from "../todos/testHarness";
 import { ConnectedProjectContext, type ConnectedProject } from "../state/connectedProject";
 import { RpcError } from "../app/seam";
 import { leaderArmed, endLeader } from "./registry";
+import { storageIdle } from "../state/storage";
 
-afterEach(() => { cleanup(); endLeader(); localStorage.clear(); sessionStorage.clear(); });
+// A save queued as the test ends lands after a clear that does not wait for it, and the next test starts with it.
+afterEach(async () => { cleanup(); endLeader(); await storageIdle(); localStorage.clear(); sessionStorage.clear(); });
 
 const renderLeaderHints = (connected: ConnectedProject) => render(() => {
   createLeader(connected);
@@ -137,7 +139,8 @@ const activate = async (keys: string, source: "key" | "pointer", leader = false)
   await waitFor(() => expect(document.querySelector<HTMLButtonElement>(selector)?.disabled).toBe(false));
 
   if (source === "pointer") {
-    // Focus settling can replace HintLine buttons before waitFor resumes; activate the connected one.
+    // The hint line follows focus a microtask after it moves, and Solid 2 draws that write at `flush`; draw it now, or the press replaces the button under the click.
+    flush();
     const button = document.querySelector<HTMLButtonElement>(selector)!;
     fireEvent.pointerDown(button);
     fireEvent.click(button);

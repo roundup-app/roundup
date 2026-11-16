@@ -135,12 +135,12 @@ it("u3800d_a_redraw_that_shows_a_row_fewer_rebuilds_the_items_at_once", async ()
   app.handlers["rail.tree"] = () => structuredClone(nodes);
   const clock = createRoot(() => createMemo(() => NOW));
   const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, clock);
-  const held: boolean[] = [];
+  const kept: boolean[] = [];
 
   const dispose = createRoot(dispose => {
     const tree = createRailTree(connected, () => new Set(), () => undefined);
     // Each redraw records, in its own update, whether the items still hold F7.
-    createEffect(() => tree.rows(), () => { held.push(itemValues(untrack(tree.items)).includes("F7")); });
+    createEffect(() => tree.rows(), () => { kept.push(itemValues(untrack(tree.items)).includes("F7")); });
 
     return dispose;
   });
@@ -150,6 +150,6 @@ it("u3800d_a_redraw_that_shows_a_row_fewer_rebuilds_the_items_at_once", async ()
   await connected.rail.settled();
   await settled();
 
-  expect(held).toEqual([true, false]);
+  expect(kept).toEqual([true, false]);
   dispose();
 });

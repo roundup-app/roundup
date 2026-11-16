@@ -22,19 +22,19 @@ import { copy } from "./copy";
 
 type Field = ReturnType<typeof createDraftField<any>>;
 
-type Held = ReturnType<ConnectedProject["drafts"]["list"]>[number];
+type ListedDraft = ReturnType<ConnectedProject["drafts"]["list"]>[number];
 
 /** How a rename opens: on nothing, the current draft, a selected one, or a branch off either. */
 type Restored = "none" | "current" | "selected" | "branch";
 
-const restoredFor = (retained: Held | undefined, selecting: boolean, otherThanCurrent: boolean): Restored =>
+const restoredFor = (retained: ListedDraft | undefined, selecting: boolean, otherThanCurrent: boolean): Restored =>
   retained?.value.recovery === true || (selecting && otherThanCurrent) ? "branch" : selecting ? "selected" : retained ? "current" : "none";
 
 const appliedOrRefused = (failure: string | null): Applied<null> =>
   failure === null ? { kind: "applied", value: null } : { kind: "refused", error: new Error(failure), thrown: failure };
 
 /** On an input's first focus, once the library has left its caret at the end: restores `caret`, else selects the whole text. */
-const createFirstFocusSelection = (caret: () => Held["selection"]) => {
+const createFirstFocusSelection = (caret: () => ListedDraft["selection"]) => {
   let done = false;
 
   return (input: HTMLInputElement) => {
@@ -90,7 +90,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   let base = "";
   let initial = "";
   let from: { revision: string } | undefined;
-  let selection: Held["selection"] = null;
+  let selection: ListedDraft["selection"] = null;
   let restored: Restored = "none";
   const [changed, change] = createSignal(false);
   // One draft field per rename: a new session opens a new one over the retained revision it started from.

@@ -28,7 +28,7 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
   const draft = field.draft;
   const text = () => String(draft()?.value.text ?? current()?.mode_prompt ?? "");
   const exists = createMemo(() => current() !== undefined);
-  createEffect(exists, held => { if (held) return drafts.editor(destination()); });
+  createEffect(exists, kept => { if (kept) return drafts.editor(destination()); });
 
   const persist = async () => {
     const id = props.id;

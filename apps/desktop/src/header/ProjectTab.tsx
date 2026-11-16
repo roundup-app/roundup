@@ -2,7 +2,7 @@ import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
-import { ProjectDraftsContext } from "../state/connectedProject";
+import { ProjectDraftsContext, type createProjectDrafts } from "../state/connectedProject";
 import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, Show, untrack, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
@@ -23,6 +23,14 @@ import type { Applied } from "../app/pending";
 import type { StripTab } from "./tab";
 
 const schema = v.strictObject({ name: v.string(), base: v.exactOptional(v.string()) });
+
+/** A Project's draft owner, checking its header drafts and recovering only those that name this Project. */
+const headerDrafts = (drafts: ReturnType<ReturnType<typeof createProjectDrafts>> | undefined, path: string) => {
+  drafts?.validate("header", schema);
+  drafts?.registerRecovery("header", draft => draft.destination.object === path ? "available" : "unavailable");
+
+  return drafts;
+};
 
 type Field = ReturnType<typeof createDraftField<v.InferOutput<typeof schema>>>;
 
@@ -151,11 +159,8 @@ export const ProjectTab = (props: {
   let button: HTMLButtonElement | undefined;
   const mark = () => props.suppressed ? null : markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
-  const authority = useContext(ProjectDraftsContext);
   const path = untrack(() => props.tab.path);
-  const drafts = authority?.(path);
-  drafts?.validate("header", schema);
-  drafts?.registerRecovery("header", draft => draft.destination.object === path ? "available" : "unavailable");
+  const drafts = headerDrafts(useContext(ProjectDraftsContext)?.(path), path);
   const destination = Object.freeze({ surface: "header", object: path, recipient: null });
   createEffect(createMemo(() => editing() !== null), open => open && drafts ? drafts.editor(destination) : undefined);
   const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path && draft.destination.recipient === null) ?? []);
@@ -200,7 +205,7 @@ export const ProjectTab = (props: {
   createEffect(() => props.selected, selected => { if (!selected) setEditing(null); });
 
   // A rename field holds the pointer's drags for its text selection.
-  createEffect(() => ({ sortable: props.sort?.sortable, held: editing() !== null }), ({ sortable, held }) => { if (sortable) sortable.disabled = held; });
+  createEffect(() => ({ sortable: props.sort?.sortable, renaming: editing() !== null }), ({ sortable, renaming }) => { if (sortable) sortable.disabled = renaming; });
 
   /** The tab's name button is the sortable's handle for as long as it is shown. */
   const dragHandleRef = () => {

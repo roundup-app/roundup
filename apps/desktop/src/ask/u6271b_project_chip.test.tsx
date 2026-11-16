@@ -77,7 +77,7 @@ describe("u6271b the Project chip", () => {
     type("ship it");
     const trigger = await chip();
 
-    // A pointer press focuses the trigger before the list opens; ui-sdk's Select returns focus to whatever held it then.
+    // A pointer press focuses the trigger before the list opens; ui-sdk's Select returns focus to whatever kept it then.
     trigger.focus();
     fireEvent.click(trigger);
     flush();

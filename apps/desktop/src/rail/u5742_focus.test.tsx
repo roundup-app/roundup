@@ -122,7 +122,7 @@ it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
 
   const user = userEvent.setup();
 
-  // The press focuses its row, and Ark applies the selection a task later.
+  // The press focuses its row, and ui-sdk applies the selection a task later.
   const click = async (id: string, modifier: "Meta" | "Shift", want: string[]) => {
     await user.keyboard(`{${modifier}>}`);
     await user.click(row(id));
@@ -134,8 +134,9 @@ it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   await click("ann", "Meta", ["ann"]);
   await click("cee", "Meta", ["ann", "cee"]);
   await click("ann", "Meta", ["cee"]);
-  await click("dee", "Shift", ["cee", "dee"]);
-  await click("bea", "Shift", ["bea", "cee"]);
+  // ui-sdk anchors a ⇧-range on the last ⌘-clicked row, here "ann", and keeps the ⌘-clicked "cee".
+  await click("dee", "Shift", ["ann", "bea", "cee", "dee"]);
+  await click("bea", "Shift", ["ann", "bea", "cee"]);
   expect(m.connected.rail.selected()).toBeNull();
   expect(m.app.calls.filter(call => ["agent.spawn", "agent.resume", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
   key("ArrowUp");

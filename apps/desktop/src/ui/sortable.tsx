@@ -140,16 +140,16 @@ const createStanding = () => {
     },
     /** `restore` puts the row next to the elements it had at lift, but the library's placeholder now follows it, so it lands past the text node the list keeps after each row, and the list's next redraw then moves the wrong rows. This puts it back exactly, and forgets the lift. */
     unmove: () => {
-      const held = lifted;
+      const kept = lifted;
 
       lifted = null;
 
-      if (!held || held.element.parentNode !== held.parent || held.element.previousSibling === held.before) return;
+      if (!kept || kept.element.parentNode !== kept.parent || kept.element.previousSibling === kept.before) return;
 
-      if (held.before && held.before.parentNode !== held.parent) return;
+      if (kept.before && kept.before.parentNode !== kept.parent) return;
 
-      if (held.before) held.before.after(held.element);
-      else held.parent.prepend(held.element);
+      if (kept.before) kept.before.after(kept.element);
+      else kept.parent.prepend(kept.element);
     },
   };
 };

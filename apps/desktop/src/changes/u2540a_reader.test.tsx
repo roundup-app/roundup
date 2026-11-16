@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { COMPARISON, openDiff, saveNote } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { DiffReader } from "./DiffReader";
 import { notesFor } from "./notes";
@@ -30,7 +30,10 @@ it("u5646a_equal_replies_keep_render_and_selection", async () => {
   const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
   // Pierre supplies this public callback when the user selects line numbers.
   const line = (lineNumber: number, shiftKey = false) => click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey }) });
-  line(1); line(2, true);
+  line(1);
+  flush();
+  line(2, true);
+  flush();
   const add = screen.getByRole("button", { name: "Add note" });
   add.focus();
 

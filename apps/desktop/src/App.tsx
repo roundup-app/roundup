@@ -18,7 +18,7 @@ import { captureActions, registerKeys } from "./keys/registry";
 import { CHORDS, LEADER, chordsOf } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { lazy, createEffect, createMemo, createRoot, createSignal, createUniqueId, For, getOwner, onCleanup, onSettled, runWithOwner, Show, untrack, type Accessor } from "solid-js";
+import { lazy, createEffect, createMemo, createRoot, createSignal, createUniqueId, For, getOwner, Loading, onCleanup, onSettled, runWithOwner, Show, untrack, type Accessor } from "solid-js";
 import { ChooseProject, EmptyShelf } from "./window/FirstRun";
 import { EmptyRail } from "./rail/EmptyRail";
 import { Layout } from "./window/Layout";
@@ -519,7 +519,7 @@ export const App = (props: {
             </ProjectCentre>
           </Show>
           </div>
-          <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>
+          <Show when={forkAsked()}><Loading><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Loading></Show>
           <AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
             const open = activeConnection();
 

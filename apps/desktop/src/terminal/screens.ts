@@ -71,11 +71,13 @@ type Holder = {
   resizeSize: Size | null;
 };
 
-/** `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address. */
+/**
+ * `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address.
+ * An emulator is made when a Terminal shows, from an effect's apply, which has no owner of its own: it belongs to whoever created the screens.
+ */
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, openObject?: (url: string, surface: string) => void): Screens => {
   const { app, rail, daemonExit, project } = connected;
-  // An emulator is made when a Terminal shows, from an effect's apply, which has no owner of its own: it belongs to whoever created the screens.
-  const owner = getOwner();
+  const emulatorOwner = getOwner();
   const holders = new Map<string, Holder>();
   /** The offset up to which a Terminal's output was shown, kept when its stream is released. */
   const shownTo = new Map<string, number>();
@@ -167,15 +169,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
-
   const isFocused = (id: string): boolean => {
     const active = document.activeElement;
     const host = holders.get(id)?.host;
 
     return !disposed && !!host?.isConnected && active instanceof HTMLElement
       && host.contains(active) && active.closest<HTMLElement>("[data-terminal]")?.dataset.terminal === id
-      && !active.closest("[hidden], [inert]")
-      && getComputedStyle(active).visibility !== "hidden";
+      && !active.closest("[hidden], [inert]") && getComputedStyle(active).visibility !== "hidden";
   };
 
   const holderFor = (id: string, prepared?: Emulator): Holder => {
@@ -183,7 +183,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = prepared ?? runWithOwner(owner, () => createEmulator(id, (text) => clipboard.copy(id, text)));
+    const emulator = prepared ?? runWithOwner(emulatorOwner, () => createEmulator(id, (text) => clipboard.copy(id, text)));
 
     const [atBottom, setAtBottom] = createSignal(true);
     const type = createTyping(emulator, (data) => attempt(id, app.rpc("terminal.write", { id, data })));

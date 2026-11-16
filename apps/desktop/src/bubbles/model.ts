@@ -58,7 +58,7 @@ export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writ
 
   // An opening is begun, reserved and finished in one turn, each step reading the last. These two hold what the steps wrote; `opening` and `reserved` show it once the change settles.
   let began: Opening = IDLE;
-  let held: Record<string, string | null> = {};
+  let kept: Record<string, string | null> = {};
   const [opening, setOpening] = createSignal<Opening>(IDLE);
   const [reserved, setReserved] = createSignal<Record<string, string | null>>({});
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
@@ -69,7 +69,7 @@ export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writ
   };
 
   const hold = (next: Record<string, string | null>): void => {
-    held = next;
+    kept = next;
     setReserved(next);
   };
 
@@ -81,7 +81,7 @@ export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writ
     const controller = new AbortController();
 
     begin({ kind: "opening", key, selection, controller, arrive });
-    hold({ ...held, [key]: null });
+    hold({ ...kept, [key]: null });
 
     return { key, controller };
   };
@@ -90,8 +90,8 @@ export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writ
   const finish = (key: string): void => {
     if (began.kind === "opening" && began.key === key) begin(IDLE);
 
-    if (held[key] === null) {
-      const { [key]: _released, ...rest } = held;
+    if (kept[key] === null) {
+      const { [key]: _released, ...rest } = kept;
 
       hold(rest);
     }
@@ -103,7 +103,7 @@ export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writ
   };
 
   const reserve = (key: string, id: string): void => {
-    hold({ ...held, [key]: id });
+    hold({ ...kept, [key]: id });
   };
 
   /** The reservations at one read: the keys still preparing, and the key that reserved each listed Terminal, so a keyed `<For>` never remounts a bubble when its Terminal is listed. */

@@ -283,3 +283,5 @@
 {"file":"apps/desktop/src/ui/u492_provider.test.tsx","test":"u492_hover_focus_resume_from_time_left","identity":"58ac3ac5703317c9c07933554c0f603bac54258f118ccf15935e3ddd81a77fd8"}
 {"file":"apps/desktop/src/ui/u492_provider.test.tsx","test":"u492_hover_focus_resume_from_time_left","identity":"e150abb7056c4b7c79ee3aa49513a9bfc8284d338d0121ded2a20e6be12c27d7"}
 {"file":"apps/desktop/src/ui/u492_provider.test.tsx","test":"u492_configurable_provider_lifecycle_%s","identity":"b1aff7e997fd805d9494755713a1cf80f7c8628021e8fdd3f77f52533acf4658"}
+{"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"e4bc6c1afbcf467f70117f27f48b3ad486cb429ebb7a44d2d196c54dc4d1f29d"}
+{"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"d5a59ea7326312e6e127e4adbc0a2e512ca300ee4f07b6ab974e57b51008823c"}

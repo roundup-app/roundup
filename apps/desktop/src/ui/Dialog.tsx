@@ -78,9 +78,9 @@ export const createFloatingControl = (
 
   createEffect(
     () => [requested(), blocked(), dismissed()] as const,
-    ([wanted, outside, held]) => {
+    ([wanted, outside, kept]) => {
       if (!wanted) setDismissed(false);
-      else if (outside && !held) {
+      else if (outside && !kept) {
         setDismissed(true);
         setLocal(false);
         props.onOpenChange?.({ open: false });

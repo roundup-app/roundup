@@ -85,11 +85,7 @@ export const Bubble = (props: {
 
   const mount = () => {
     provideFocusTarget(`bubble.${id()}`, () => body?.querySelector<HTMLElement>("textarea"));
-    createEffect(createMemo(() => props.preparing ? null : id()), terminal => {
-      const host = body;
-
-      if (terminal !== null && host) untrack(() => props.screens.resize(terminal, props.screens.show(terminal, host, false)));
-    });
+    createEffect(createMemo(() => props.preparing ? null : id()), terminal => untrack(() => { if (terminal !== null && body) props.screens.resize(terminal, props.screens.show(terminal, body, false)); }));
 
     const watched = typeof ResizeObserver !== "undefined" ? makeResizeObserver(refitNextFrame) : undefined;
 

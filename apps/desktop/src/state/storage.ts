@@ -67,6 +67,9 @@ export const useBrowserStorage = (adapter: Storage) => {
   setOpened({});
 };
 
+/** Resolves once every save queued so far has landed, so a test that resets the browser storage resets it after the last write, not before it. */
+export const storageIdle = (): Promise<void> => queue.onIdle();
+
 /** U6249d C6: the user's own choice to start fresh removes every `roundup:` key obsolete saved work left in the browser. */
 export const deleteSavedWork = () => {
   for (const key of Object.keys(window.localStorage).filter(each => each.startsWith("roundup:"))) window.localStorage.removeItem(key);
@@ -297,13 +300,13 @@ const unparsable = (drafts: readonly Draft[], parsers: ReadonlyMap<string, v.Gen
   return schema !== undefined && !v.safeParse(schema, draft.value).success;
 });
 
-/** The records held with those saved ones added that are neither held nor retired; work that was sending when saved is unknown. */
-const withRestored = (held: readonly Draft[], saved: readonly Draft[], retired: ReadonlySet<string>): Draft[] => {
-  const known = new Set(held.map(draft => draft.revision));
+/** The records in memory with those saved ones added that are neither in memory nor retired; work that was sending when saved is unknown. */
+const withRestored = (inMemory: readonly Draft[], saved: readonly Draft[], retired: ReadonlySet<string>): Draft[] => {
+  const known = new Set(inMemory.map(draft => draft.revision));
 
   return [...saved.flatMap((draft): Draft[] => known.has(draft.revision) || retired.has(draft.revision) ? [] : [{
     ...draft, status: draft.status === "pending" ? "unknown" : draft.status,
-  }]), ...held];
+  }]), ...inMemory];
 };
 
 /** The records a new edit of `target` replaces: its editable drafts, or only the one revision named. */
@@ -324,14 +327,14 @@ const replacedBy = (target: Destination, revision?: string | null) => (previous:
 export const draftStorage = (project: string) => {
   const storage = storedValue(`roundup:drafts:${project}`, draftsSchema);
   // The calls below read the records and the problem this holder last wrote, as the next call of a caller must. `list` and `problem` read signals that show them once the change settles.
-  let held: Draft[] = [];
+  let inMemory: Draft[] = [];
   let reported: DraftProblem | null = null;
   let publish = (): void => undefined;
 
-  const current = (): Draft[] => held;
+  const current = (): Draft[] => inMemory;
 
   const hold = (next: Draft[]): void => {
-    held = next;
+    inMemory = next;
     publish();
   };
 
@@ -389,10 +392,10 @@ export const draftStorage = (project: string) => {
   restore();
 
   // The signals start from the first restore, so a read in the turn that built this holder sees it.
-  const [kept, setKept] = createSignal(held, { ownedWrite: true });
+  const [kept, setKept] = createSignal(inMemory, { ownedWrite: true });
   const [flagged, setFlagged] = createSignal<DraftProblem | null>(reported, { ownedWrite: true });
   publish = () => {
-    setKept(held);
+    setKept(inMemory);
     setFlagged(reported);
   };
 
