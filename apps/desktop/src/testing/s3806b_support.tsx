@@ -184,7 +184,7 @@ export const appTodoWorkstreamCases = casesOf([CAPTURE_ROW, WORKSTREAM_ROW]);
 
 export const bubbleCases = casesOf(BUBBLE_ROWS);
 
-/** One action of a Switcher, held at its reply while the surface closes and its owner unmounts; `outcome` says how the reply and the surface end. */
+/** One action of a Switcher, paused at its reply while the surface closes and its owner unmounts; `outcome` says how the reply and the surface end. */
 export const actionSurvivesSurfaceClose = async ({ row, how, outcome }: (typeof cases)[number]) => {
   const trace: string[] = [];
   const nativeCalls: undefined[] = [];

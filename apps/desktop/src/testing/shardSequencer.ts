@@ -11,9 +11,10 @@ interface Shard {
   files: string[];
 }
 
-// A shard's test files run side by side on a 4-vCPU runner: measured on `main`, a shard takes about its longest file, or
-// its summed file time over this many files at once, whichever is longer.
-const PARALLEL_FILES = 2.8;
+// A shard's test files run side by side on a 4-vCPU runner: a shard takes about its longest file, or its summed file time
+// over this many files at once, whichever is longer. CI7295a: in 24 shards, a shard of mostly App files ran two at once
+// (runs 43978648036 and 43980573815): beside Chromium, each took up to half again its measured time.
+const PARALLEL_FILES = 2;
 
 // A file's environment and imports cost this much besides the duration vitest prints for it: on `main`, they took 36%
 // of the time of a shard holding 117 files, about two seconds a file.
