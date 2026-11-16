@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
 import { appSettings, saveAppSettings } from "./preferences";
@@ -64,6 +65,7 @@ it("u5232b_a_change_survives_a_reload_and_reaches_every_tab", async () => {
 it("u5232b_an_invalid_field_falls_back_alone", () => {
   localStorage.setItem("roundup:app-settings", JSON.stringify({ stateAlerts: { done: { alert: "yes", sound: true }, working: 3 } }));
   useBrowserStorage(localStorage);
+  flush();
 
   const { stateAlerts } = appSettings();
 
@@ -117,6 +119,7 @@ it("u7259_an_agent_entering_error_leaves_the_badge_and_turning_the_switch_on_cou
 it("u7259_a_saved_choice_stays_as_saved", () => {
   localStorage.setItem("roundup:app-settings", JSON.stringify({ stateAlerts: { error: { alert: false, sound: true, badge: true }, "needs-you": { alert: false, sound: true, badge: true } } }));
   useBrowserStorage(localStorage);
+  flush();
 
   const { stateAlerts } = appSettings();
 
