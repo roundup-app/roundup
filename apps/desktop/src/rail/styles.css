@@ -755,13 +755,11 @@
 .rail-row .row-tail {
   inline-size: 0;
   min-inline-size: 0;
-  margin-inline-start: calc(-1 * var(--rail-gap));
   justify-content: flex-end;
 }
 .rail-row .row-tail:has(.rail-group-chevron) {
   inline-size: var(--rail-slot);
   min-inline-size: var(--rail-slot);
-  margin-inline-start: 0;
 }
 .rail-row :is(.row-controls, .sortable-handle) {
   background-color: var(--sunken);
