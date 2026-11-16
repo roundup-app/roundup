@@ -61,13 +61,13 @@ it("u7191b_restart_asks_only_when_it_interrupts_work", async () => {
 });
 
 it("u7191c_the_row_shows_the_restart_failure", async () => {
-  const { app } = await mountRail([agent("a", "idle", "ready", { has_conversation: true })]);
+  const { app, rail } = await mountRail([agent("a", "idle", "ready", { has_conversation: true })]);
   app.handlers["agent.resume"] = () => { throw new RpcError(-32003, "a has no saved conversation"); };
 
   open("a");
   await app.pickMenu(copy.restart);
 
-  await waitFor(() => expect(document.body.textContent).toContain("a has no saved conversation"));
+  await waitFor(() => expect(rail.commandFailure.message()).toContain("a has no saved conversation"));
   open("a");
   expect(app.menuLabels()).toContain(copy.restart);
 });

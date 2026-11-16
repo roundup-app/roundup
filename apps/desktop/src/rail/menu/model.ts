@@ -63,6 +63,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   let removingSelection = false;
   const resuming = new Set<string>();
   const { restartMode, restartPending } = createModeRestart(app, rail);
+
   const lossesOf = (chosen: readonly RailNode[]) => chosen.flatMap(node => [
     ...(isDoor(node) && node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
     ...((isDoor(node) && node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
