@@ -4,7 +4,6 @@ import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
 import { createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { failureOf } from "../../app/failureOf";
 import { applying } from "../../app/pending";
