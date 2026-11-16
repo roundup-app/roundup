@@ -1,3 +1,4 @@
+import { handoffTaker } from "./handoff";
 import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { askOnce } from "../settings/warnings";
@@ -289,6 +290,37 @@ const withTerminalStatus = (listed: readonly TerminalInfo[], id: string, status:
   return status ? { ...rest, status } : rest;
 });
 
+/** U5172a: how a read of the tree settles one unconfirmed change: null leaves it marked, else the failure to show (null for none). */
+const settledChange = (tree: readonly RailNode[], id: string, change: PendingChange): { failure: string | null } | null => {
+  const node = tree.find(each => each.id === id);
+
+  if (node === undefined) return { failure: null };
+
+  if (change.kind === "move") {
+    const place = placeOf(tree, id)!;
+
+    if (place.parent === change.base.parent && place.index === change.base.index) return null;
+
+    return { failure: place.parent !== change.asked.parent || place.index !== change.asked.index ? copy.moveDidNotApply : null };
+  }
+
+  if (change.kind !== "rename" || node.name === change.base) return null;
+
+  return { failure: node.name !== change.asked ? copy.renameDidNotApply(change.asked, node.name) : null };
+};
+
+/** U5172a: a read or Event settles an unconfirmed change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
+const settleAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<string, PendingChange>>, forget: (id: string) => void, commandFailure: ReturnType<typeof createItemFailure>) => {
+  for (const [id, change] of Object.entries(unconfirmed)) {
+    const settled = settledChange(tree, id, change);
+
+    if (settled === null) continue;
+    forget(id);
+
+    if (settled.failure !== null) commandFailure.show(settled.failure, id, "rail");
+  }
+};
+
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
@@ -332,6 +364,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let workstreamUnknown: string | null = null;
   let workstreamFocus = captureFocus();
   let selectionRevision = 0;
+  /** H7200d: the rows on the Rail when the selection was last made. */
+  let seenAtSelect: ReadonlySet<string> = new Set();
   let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
@@ -359,32 +393,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const [unconfirmed, setAsked] = createStore<Record<string, PendingChange>>({});
 
-  /** U5172a: a read or Event settles an unconfirmed change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
-  const reconcileAsked = (tree: readonly RailNode[]) => {
-    for (const [id, change] of Object.entries(unconfirmed)) {
-      const node = tree.find(each => each.id === id);
-
-      if (node === undefined) {
-        setAsked(draft => { delete draft[id]; });
-        continue;
-      }
-
-      if (change.kind === "move") {
-        const place = placeOf(tree, id)!;
-
-        if (place.parent === change.base.parent && place.index === change.base.index) continue;
-        setAsked(draft => { delete draft[id]; });
-
-        if (place.parent !== change.asked.parent || place.index !== change.asked.index) commandFailure.show(copy.moveDidNotApply, id, "rail");
-        continue;
-      }
-
-      if (change.kind !== "rename" || node.name === change.base) continue;
-      setAsked(draft => { delete draft[id]; });
-
-      if (node.name !== change.asked) commandFailure.show(copy.renameDidNotApply(change.asked, node.name), id, "rail");
-    }
-  };
+  const reconcileAsked = (tree: readonly RailNode[]) => settleAsked(tree, unconfirmed, id => setAsked(draft => { delete draft[id]; }), commandFailure);
 
   /** Fetches run one after another, and Events that arrive meanwhile wait behind them: the answer may predate them. */
   const queue = new PQueue({ concurrency: 1 });
@@ -396,6 +405,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
+    seenAtSelect = new Set(latest(() => model.tree.map(node => node.id)));
     // A refresh may have written the tree while async work still holds the write back: `latest` sees the row `refresh` just fetched.
     const next = id !== null && latest(() => model.tree.some((node) => node.id === id)) ? id : null;
 
@@ -410,6 +420,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const fetchTree = async () => {
     const tree = await app.rpc("rail.tree", null);
+    const before = model.tree.map(({ id, kind, parent }) => ({ id, kind, parent }));
 
     reconcileAsked(tree);
     // The asked changes as reconcileAsked left them.
@@ -417,7 +428,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     const resumptionChanged = syncResumptions(tree);
 
     settleDoors(tree);
-    settleSelection(tree);
+    settleSelection(tree, before);
 
     if (resumptionChanged) await saveResumptions();
 
@@ -438,8 +449,23 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     }
   };
 
-  /** The first tree restores the saved selection and folds; a later one clears a selection whose row is gone. */
-  const settleSelection = (tree: readonly RailNode[]) => {
+  /** The selected row left the Rail: H7200d's taker takes the selection, else nothing is selected. */
+  const reselect = (tree: readonly RailNode[], before: readonly Pick<RailNode, "id" | "kind" | "parent">[]) => {
+    const id = selected();
+
+    if (id === null || tree.some((node) => node.id === id)) return;
+
+    const taker = handoffTaker(before, tree, id, seenAtSelect);
+
+    if (taker !== null) select(taker, terminalFocus(), selectionIntent() === "open" ? "open" : undefined);
+    else {
+      setSelected(null);
+      save({ selected: null, collapsed: [...collapsed()] });
+    }
+  };
+
+  /** The first tree restores the saved selection and folds; a later one hands a selection whose row is gone to its taker, or clears it. */
+  const settleSelection = (tree: readonly RailNode[], before: readonly Pick<RailNode, "id" | "kind" | "parent">[]) => {
     if (firstTree) {
       firstTree = false;
       const saved = storage?.read();
@@ -450,18 +476,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         // Revealing reads the topology of the tree just written, before the selection is.
         flush();
         setSelected(chosen);
+        seenAtSelect = new Set(tree.map(node => node.id));
         setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
         setRestored(chosen !== null);
         save({ selected: chosen, collapsed: [...reveal(chosen)] });
       }
-    } else {
-      const id = selected();
-
-      if (id !== null && !tree.some((node) => node.id === id)) {
-        setSelected(null);
-        save({ selected: null, collapsed: [...collapsed()] });
-      }
-    }
+    } else reselect(tree, before);
   };
 
   /** Once the tree holds the Workstream just created, select it and start its Door. */

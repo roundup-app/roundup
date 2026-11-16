@@ -110,6 +110,14 @@ impl Daemon {
         self.restart_mode(&conn.actor, p).await
     }
 
+    pub(super) async fn agent_handoff(
+        &self,
+        conn: &mut Conn,
+        p: contracts::agent::HandoffParams,
+    ) -> Result<contracts::agent::RailNode, RpcError> {
+        self.handoff(&conn.actor, p).await
+    }
+
     pub(super) async fn todo_start_workstream(
         &self,
         conn: &mut Conn,

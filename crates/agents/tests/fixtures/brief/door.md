@@ -83,6 +83,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_worktreeState`: read what a Worktree holds and whether it can land; yours or one in your Reach.
 - `route_list`: see the Routes: whom each Agent's questions go to.
 - `project_get`: read the Project's settings.
+- `project_compareRefs`: list every git worktree state and branch head of the Project to compare.
 - `project_setWorktrees`: turn Worktrees on or off for the Project and set the command Landing runs.
 - `provenance_history`: list the Touches on one item, such as `todo:3` or `rail:5`.
 - `provenance_touched`: list the Touches one Actor made.
@@ -90,6 +91,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `project_start`: start an Agent, Workstream or Mode in a target Project through the App; return its canonical path, kind and row id.
 - `project_rename`: ask the App to give this Project another name; the answer means asked, not done.
 - `agent_spawn`: delegate a whole job to a named child with an order and working prompt.
+- `agent_handoff`: hand the build to a Job in your place: order, Pad name; you end once it runs; only if asked.
 - `terminal_screen`: read a Terminal's screen as it is now, as plain text, with the `offset` to read from next.
 - `terminal_read`: read new Terminal output from your last offset.
 - `terminal_search`: search a Terminal's output for a regular expression and get only the matching lines with their offsets.

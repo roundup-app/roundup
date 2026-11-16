@@ -112,7 +112,8 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
           return node.id;
         })()`);
 
-        await browser("click", `.rail-row[data-id="${selected}"]`);
+        // U7205c: hover overlays a row's end with its controls, so the click lands on the row's start (its state glyph), not its centre.
+        await browser("click", `.rail-row[data-id="${selected}"] .row-state`);
 
         if (lane === "base") await browser("click", ".worktree-control");
         await until("!!document.querySelector('[role=alert]')");
@@ -125,7 +126,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
 
       for (const count of [0, 1, 500]) {
         await evaluate(`window.__fake.app.handlers['agent.changedFiles'] = () => ({files: Array.from({length:${count}}, (_, n) => ({path:'folder/' + 'p'.repeat(120) + n + '.ts', status:'modified', line:1}))})`);
-        await browser("click", '.rail-row[data-id="worktree-agent"]');
+        await browser("click", '.rail-row[data-id="worktree-agent"] .row-state');
 
         if (lane === "head" && count === 0) {
           await until("!document.querySelector('.worktree-control')");
@@ -144,7 +145,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
       }
 
       await evaluate("window.__fake.app.handlers['agent.changedFiles'] = () => { throw new Error('Changed files unavailable: the Worktree directory could not be read. Retry to check it again.') }");
-      await browser("click", '.rail-row[data-id="worktree-agent"]');
+      await browser("click", '.rail-row[data-id="worktree-agent"] .row-state');
 
       if (lane === "base") await browser("click", ".worktree-control");
       await until("!!document.querySelector('[role=alert]')");

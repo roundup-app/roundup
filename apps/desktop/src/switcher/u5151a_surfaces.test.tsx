@@ -15,7 +15,7 @@ describe("U5151a", () => {
   it("u5151a_each_error_surface_explains_recovery", async () => {
     await mountSwitcher(null, [failed]);
 
-    expect(screen.getByRole("treeitem", { name: /Cy/ }).textContent).toContain(failed.status!.label);
+    expect(screen.getByRole("treeitem", { name: /Cy/ }).querySelector("[role=img]")!.getAttribute("aria-label")).toContain(failed.status!.label);
 
     openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());

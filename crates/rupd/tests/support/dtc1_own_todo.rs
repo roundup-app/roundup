@@ -69,6 +69,13 @@ async fn dtc1_a_user_assigned_todo_is_still_handed_to_the_door() {
             .await
             .unwrap();
     }
+    // TS1: the Assigned note starts the Door's turn; the Stop ending it is the idle edge that
+    // hands off.
+    run.idle_edge().await;
+    until("the Door takes the Assigned note", async || {
+        (!run.entries().is_empty()).then_some(())
+    })
+    .await;
     run.idle_edge().await;
     until("the user's assignment is handed", async || {
         (handed_changes(&run, id).await == 1).then_some(())

@@ -1,6 +1,13 @@
 //! Records the transcript receipt of Messages written to an inbox.
 use super::*;
 
+/// Judges `agent`'s delivery failure after Messages to it left `pending`.
+pub(crate) fn settle(inner: &Inner, agent: &str) {
+    if let Err(err) = failure::settle(inner, agent) {
+        log_failure("confirm_inbox", &err.to_string());
+    }
+}
+
 pub(crate) fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
     let ids = ids.to_vec();
     let confirmed = lock(&inner.store).confirm_flight(agent, &ids);
@@ -13,9 +20,7 @@ pub(crate) fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
                     .bus
                     .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
             }
-            if let Err(err) = failure::settle(inner, agent) {
-                log_failure("confirm_inbox", &err.to_string());
-            }
+            settle(inner, agent);
             repeated
         }
         Err(err) => {

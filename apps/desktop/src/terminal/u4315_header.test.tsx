@@ -122,7 +122,7 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
     expect(connected().rail.selected()).toBe("a0");
     openProjectPage("import-work", "/p");
     await waitFor(() => expect(connected().importing.loading()).toBe(false));
-    const reopened = within(screen.getByRole("region", { name: "Import Claude Code" }));
+    const reopened = within(await screen.findByRole("region", { name: "Import Claude Code" }));
     expect(reopened.getByRole("checkbox", { name: /First work/ }).getAttribute("aria-checked")).toBe("true");
     expect(reopened.getByRole("checkbox", { name: /Second work/ }).getAttribute("aria-checked")).toBe("true");
     expect(reopened.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");

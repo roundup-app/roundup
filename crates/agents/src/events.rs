@@ -18,6 +18,8 @@ impl Observation {
             Self::Failed(_) => "failed",
             Self::Resumed(_) => "resumed",
             Self::Judged { .. } => "stop judged",
+            Self::Delivered => "message delivery",
+            Self::Interrupted => "interrupt",
         }
     }
 }
@@ -164,7 +166,9 @@ impl InboxState {
         self.watch(agent, &path);
         let (ids, next) = read(&path, *offset);
         *offset = next;
-        drop(offset);
+        // The report stays under the transcript's lock, so a scan that reads later ids cannot
+        // report them first: receipts reach the observer, and `message.delivered` the Bus, in
+        // the order Claude Code recorded them (B3563c).
         if !ids.is_empty() {
             observer(agent, &ids);
         }

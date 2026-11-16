@@ -21,7 +21,7 @@ describe("u6 rows", () => {
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {
     await mountRail([agent("gateway", "needs-you", "asks")]);
 
-    expect(glyphOf("gateway").getAttribute("aria-label")).toBe("Needs-you");
+    expect(glyphOf("gateway").getAttribute("aria-label")).toBe("Needs-you, asks");
   });
 
   it("u6_a_door_shows_its_status_glyph", async () => {
@@ -57,6 +57,6 @@ describe("u6 rows", () => {
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "b", status: { kind: "error", label: "x", since: 2, finished: "0" } } }));
     await rail.settled();
 
-    expect([rowNames(), glyphOf("b").getAttribute("aria-label")]).toEqual([["a", "b"], "Error"]);
+    expect([rowNames(), glyphOf("b").getAttribute("aria-label")]).toEqual([["a", "b"], "Error, x"]);
   });
 });

@@ -21,9 +21,8 @@ pub(super) fn hook_status(payload: &Value) -> Option<(Kind, String)> {
         "PermissionRequest" => Some((Kind::NeedsYou, permission_label(payload))),
         "StopFailure" => Some((Kind::Error, failure_label(payload["error"].as_str()))),
         "SessionEnd" => Some((Kind::Done, session_end_label(text("reason").as_deref()))),
-        "Notification" | "SubagentStart" | "SubagentStop" | "MessageDisplay" | "PostToolBatch" => {
-            None
-        }
+        "Notification" | "PreCompact" | "SubagentStart" | "SubagentStop" | "MessageDisplay"
+        | "PostToolBatch" => None,
         other => {
             eprintln!("agents: ignoring an unrecognised hook event {other}");
             None
