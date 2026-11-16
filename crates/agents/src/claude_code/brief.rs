@@ -256,6 +256,10 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     ("project_get", "read the Project's settings"),
     (
+        "project_compareRefs",
+        "list every git worktree state and branch head of the Project to compare",
+    ),
+    (
         "project_setWorktrees",
         "turn Worktrees on or off for the Project and set the command Landing runs",
     ),

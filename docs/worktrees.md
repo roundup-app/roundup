@@ -28,7 +28,8 @@ P5 says "a dropped or rejected Agent leaves no worktree and no branch". The user
 | `project.setWorktrees` | `{on, check}` | `null` |
 | `project.get` | `null` | `{worktrees: {on, check}}` |
 | `agent.worktreeState` | `{id}` | `{ahead, behind, dirty}` |
-| `agent.changedFiles` | `{id}` | `{files: [{path, status, line, from?}]}` (U2539a) |
+| `agent.changedFiles` | `{id, from?, to?}` | `{files: [{path, status, line, from?}]}` (U2539a) |
+| `project.compareRefs` | `null` | `{refs: [{kind, path?, branch, label}]}` (U7186b) |
 | `agent.ownedChanges` | `{id}` | `{groups: [{repo, branch, base, files: [{path, status, line, from?}]}]}` (U7186a) |
 | `agent.land` | `{id}` | `{base}` |
 | `agent.discard` | `{id}` | `null` |

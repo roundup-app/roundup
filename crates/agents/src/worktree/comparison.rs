@@ -190,7 +190,7 @@ impl Git {
 
 /// The new-side first line of the first hunk of one `git diff -U0` section; `None` for a binary
 /// file, 1 for a change with no hunk (a pure rename or mode change).
-fn first_changed_line(section: &str) -> Option<u32> {
+pub(super) fn first_changed_line(section: &str) -> Option<u32> {
     if section
         .lines()
         .any(|line| line.starts_with("Binary files "))
@@ -231,7 +231,7 @@ fn validate_comparison_path(path: &str) -> Result<(), RpcError> {
     Ok(())
 }
 
-fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcError> {
+pub(super) fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcError> {
     use rustix::fs::{Mode, OFlags, open, openat};
     validate_comparison_path(path)?;
     let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK;
@@ -275,7 +275,7 @@ fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcErr
     Err(invalid("unsafe_path", "missing file"))
 }
 
-fn file_content(bytes: Option<Vec<u8>>) -> contracts::agent::FileContent {
+pub(super) fn file_content(bytes: Option<Vec<u8>>) -> contracts::agent::FileContent {
     use contracts::agent::FileContent;
     use sha2::{Digest, Sha256};
     let Some(bytes) = bytes else {
