@@ -9,7 +9,8 @@ const read = async (list: Machine[], choose = "") => {
   app.handlers["machine.list"] = () => list;
 
   return await createRoot(async dispose => {
-    const machines = createMachines(app, createSignal(0)[0], () => null);
+    const [tick] = createSignal(0);
+    const machines = createMachines(app, tick, () => null);
     machines.nameStart(choose);
     machines.watch(() => true);
     await new Promise(resolve => setTimeout(resolve, 20));

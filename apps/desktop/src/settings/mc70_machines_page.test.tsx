@@ -100,11 +100,10 @@ it("mc73_empty_entry_submits_nothing", async () => {
 
 it("mc73_a_failing_host_shows_the_hint_inline_and_keeps_the_text", async () => {
   const app = createFakeApp();
-  const list = await open(app, []);
+  await open(app, []);
   app.handlers["machine.add"] = () => {
     throw new RpcError(-32603, "ssh_refused: check the host name");
   };
-
 
   const field = screen.getByRole("textbox", { name: "Add machine" });
   fireEvent.input(field, { target: { value: "nowhere" } });
