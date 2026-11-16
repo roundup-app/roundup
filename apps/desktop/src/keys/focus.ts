@@ -116,6 +116,9 @@ export const focusTarget = (name: FocusTarget): HTMLElement | undefined => {
 
 /** U7158: puts the keyboard in the centre Terminal, and says whether the Agent there waits for the user.
  * `undefined`, with focus untouched, while no Terminal runs or the centre is covered. */
+/** Whether `element` is inside the centre Terminal's pane. */
+export const inCentre = (element: Element): boolean => element.closest(".pane-screen") !== null;
+
 export const focusCentre = (): { waiting: boolean } | undefined => {
   const screen = focusTarget("pane.terminal");
   const host = screen?.closest<HTMLElement>(".pane-screen");

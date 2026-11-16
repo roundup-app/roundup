@@ -216,6 +216,25 @@ describe("u7158 a stray key goes to the centre", () => {
     expect(rpcCalls(app, "terminal.write")).toEqual([]);
   });
 
+  it("u7158f_a_key_typed_inside_the_waiting_terminal_is_left_alone", async () => {
+    await mount();
+    await choose("b", "t-b");
+
+    const inside = document.createElement("div");
+    const seen = vi.fn();
+
+    await waitFor(() => expect(document.querySelector(".pane-screen")).not.toBeNull());
+    document.querySelector(".pane-screen")?.appendChild(inside);
+
+    inside.dataset.fixture = "";
+    inside.tabIndex = 0;
+    // listener-owner: the fixture element is removed by afterEach.
+    inside.addEventListener("keydown", seen);
+    inside.focus();
+
+    expect([fireEvent.keyDown(inside, { key: "x" }), seen.mock.calls.length]).toEqual([true, 1]);
+  });
+
   it("u7158g_a_composed_key_and_a_dead_key_arrive_whole", async () => {
     await mount();
     await choose("a", "t-a");

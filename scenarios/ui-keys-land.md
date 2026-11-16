@@ -20,9 +20,10 @@ Policy (owner, #7158): one rule owns stray keys, `keys/stray.ts`, called by the 
 - Test: `u7158e_with_no_running_terminal_a_stray_key_does_nothing`.
 
 **U7158f A waiting Agent gets the focus and not the key.** Given the centre Agent needs the user, a stray character moves focus to its Terminal, is cancelled and sends no `terminal.write`.
-- Test: `u7158f_an_agent_that_needs_you_gets_the_focus_and_not_the_key`.
+A key typed while focus is already inside that Terminal reaches it untouched.
+- Tests: `u7158f_an_agent_that_needs_you_gets_the_focus_and_not_the_key`, `u7158f_a_key_typed_inside_the_waiting_terminal_is_left_alone`.
 
 **U7158g Composed and dead keys arrive whole.** A key during IME composition stays where it is; a dead key moves focus without being cancelled, so the browser composes it in the Terminal.
 - Test: `u7158g_a_composed_key_and_a_dead_key_arrive_whole`.
 
-Retired by this Issue: the name-prefix steps of `u3787c_each_list_navigates_visible_rows` (Ask, Importer, Inbox, Changes, Rail inventory and Rail G clause) and `u3787c_name_prefix_precedes_commands`; each list's remaining steps prove the rest of U3787c X3. The Pierre trees patch keeps its `typeahead` option; the Changes tree no longer sets it.
+Retired by this Issue: the name-prefix steps of `u3787c_each_list_navigates_visible_rows` (Ask, Importer, Inbox, Changes, Rail inventory and Rail G clause) and `u3787c_name_prefix_precedes_commands`, and the final `z` step of `u5645c_keyboard_skips_unavailable_rows` (it now asserts the letter finds no row); each list's remaining steps prove the rest of U3787c X3. The Pierre trees patch keeps its `typeahead` option; the Changes tree no longer sets it.
