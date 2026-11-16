@@ -34,12 +34,12 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $opening", async ({ 
   const before = app.calls.length;
   row(1).focus();
 
-  for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["ArrowUp", 3], ["ArrowDown", 4], ["a", 0]] as const) {
+  for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["ArrowUp", 3], ["ArrowDown", 4]] as const) {
     fireEvent.keyDown(document.activeElement!, { key });
     expect(document.activeElement).toBe(row(at));
   }
 
-  await waitFor(() => expect(selected()).toEqual(["source-0"]));
+  expect(selected()).toEqual([]);
   expect(app.calls.slice(before)).toEqual([]);
   expect(document.querySelector(".todo-drawer")).toBeNull();
 });

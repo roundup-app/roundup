@@ -4,7 +4,7 @@ import { CHORDS } from "../keys/chords";
 import Maximize from "lucide-solid/icons/maximize";
 import Minimize from "lucide-solid/icons/minimize";
 import { createShelfFrame } from "../shelf/frame";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, focusCentre } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
@@ -82,7 +82,10 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         savedFocus = null;
         savedRegion = null;
 
-        if (stayedInDrawer && connected?.rail.selected() === openingSelection && toRefocus?.isConnected) captureFocus()(() => {
+        if (stayedInDrawer && connected?.rail.selected() === openingSelection) captureFocus()(() => {
+          // U7158: a Terminal running in the centre takes the keyboard back; the return to the row holds when none runs.
+          if (focusCentre() || !toRefocus?.isConnected) return;
+
           if (regionDestination && !toRefocus.hasAttribute("tabindex")) toRefocus.tabIndex = -1;
           toRefocus.focus({ preventScroll: true });
         });
