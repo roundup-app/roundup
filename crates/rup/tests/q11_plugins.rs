@@ -105,7 +105,12 @@ async fn q11_plugins_survive_real_daemon_launch_and_resume() {
             .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
             .collect();
         // LC5: the same bundles survive every role's launch and resume.
-        let bundled = [("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")];
+        let bundled = [
+            ("hope", "13.1.0"),
+            ("hunch", "0.9.4"),
+            ("hold", "0.0.9"),
+            ("roundup", "1.0.0"),
+        ];
         let wanted = &bundled;
         assert_eq!(paths.len(), wanted.len());
         for (path, &(name, version)) in paths.iter().zip(wanted) {
