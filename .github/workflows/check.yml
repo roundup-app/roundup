@@ -41,7 +41,7 @@ defaults:
 jobs:
   # L89: on a PR, what the diff reaches decides which lanes run; a lane the diff misses is skipped at job level and
   # holds no runner. `main` pushes have no base, so `affected.py` prints `all` and every lane runs. The runner's own
-  # cargo suffices: `affected.py` only reads the manifests, and `stable` keeps rustup from fetching the pinned toolchain.
+  # cargo suffices: `affected.py` only reads the manifests and the changed test sources, and `stable` keeps rustup from fetching the pinned toolchain.
   plan:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
