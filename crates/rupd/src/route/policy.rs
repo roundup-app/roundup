@@ -142,6 +142,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("agent.discard", Policy { inputs: Inputs::Id, ..PLAIN }),
     ("agent.extras", PLAIN),
     ("agent.extras_add", Policy { inputs: Inputs::Id, ..PLAIN }),
+    ("agent.handoff", Policy { actor: Actor::Caller, ..PLAIN }),
     ("agent.instructions", Policy { actor: Actor::Caller, inputs: Inputs::Id, ..PLAIN }),
     ("agent.interrupt", Policy { actor: Actor::Caller, observed: true, inputs: Inputs::Id, ..PLAIN }),
     ("agent.land", Policy { inputs: Inputs::Id, ..PLAIN }),

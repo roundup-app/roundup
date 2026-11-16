@@ -35,6 +35,7 @@ mod fork_tests;
 mod github;
 #[cfg(test)]
 mod group_tests;
+mod handoff;
 mod link;
 mod machine_install;
 mod machines;
@@ -117,6 +118,8 @@ pub struct Daemon {
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
     restarting: tokio::sync::Mutex<()>,
+    /// H7200b: handoffs whose caller ends after its reply.
+    handoffs: parking_lot::Mutex<Vec<handoff::Pending>>,
     /// MC20: one report is checked, applied and marked at a time, so a repeat never races its twin.
     reports: tokio::sync::Mutex<()>,
     /// A3196: what the Workstream Queue remembers between passes.

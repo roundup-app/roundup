@@ -238,6 +238,16 @@ impl StartAttribution {
     }
 }
 
+/// H7200a: a settled Work order and the Pad holding the builder's detail; the Agent that sends it
+/// is the one handed off.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct HandoffParams {
+    /// The settled Work order: title, ask, done, limits.
+    pub order: Order,
+    /// The name of the Pad the builder reads for the detail the order leaves out.
+    pub pad: String,
+}
+
 /// A4452c: a user-requested fresh Mode Agent run. Retries retain `request`.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ModeRestartParams {
