@@ -7,12 +7,13 @@ import type { AppSeam, DaemonExit } from "../app/seam";
 export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: Accessor<DaemonExit | null>) => {
   const [list, setList] = createSignal<Machine[]>([]);
   const [start, setStart] = createSignal("");
+  const online = () => list().filter(machine => machine.reachable !== false);
 
   return {
-    /** Whether any other Machine exists; an Agent on this Mac shows a chip only then. */
-    any: () => list().length > 0,
-    /** MC34: the Machines the user may name for a start. */
-    names: () => list().map(machine => machine.name),
+    /** MC74: whether any other Machine is reachable; an Agent on this Mac shows a chip only then. */
+    any: () => online().length > 0,
+    /** MC34, MC76: the online Machines the user may name for a start. */
+    names: () => online().map(machine => machine.name),
     /** MC34: the Machine the user named for the start; empty leaves the pick to the Door. */
     start,
     nameStart: setStart,
@@ -28,7 +29,16 @@ export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: 
         let stale = false;
 
         onCleanup(() => { stale = true; });
-        untrack(() => { void app.rpc("machine.list", null).then(machines => { if (!stale) setList(machines); }, () => {}); });
+        untrack(() => {
+          void app.rpc("machine.list", null).then(machines => {
+            if (stale) return;
+
+            setList(machines);
+
+            // MC76: a name the user chose goes when its Machine is removed or offline.
+            if (!machines.some(machine => machine.name === start() && machine.reachable !== false)) setStart("");
+          }, () => {});
+        });
       });
     },
   };

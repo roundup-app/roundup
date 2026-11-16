@@ -17,6 +17,7 @@ import { createSettingsView, type SettingsViewState } from "../state/settingsVie
 import { setByFile } from "./configFile";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { ResetWarnings } from "./ResetWarnings";
+import { MachinesSettings } from "./MachinesSettings";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 
 /** The segment control loads with the first page that shows one, not with the App. */
@@ -368,6 +369,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
           <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
           <Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger>
+          <Tabs.Trigger value="Machines">{copy.settingsMachines}</Tabs.Trigger>
         </Tabs.List>
         </Show>
         </aside>
@@ -400,6 +402,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </section>
         {controls.focusMarkers()}
       </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Machines"><SettingsGroup hideHeading name={copy.settingsMachines}><MachinesSettings app={props.app} project={props.project} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
       <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
         <For each={alertStates}>{state => <div class="settings-alert-row" role="group" aria-label={stateLabel(state)}>
