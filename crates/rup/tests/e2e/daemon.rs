@@ -447,8 +447,8 @@ async fn needs_you_within(bound: Duration, client: &Client, agent: &str) {
     .await;
 }
 
-pub async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
+pub async fn poll_until<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
+    tokio::time::timeout(BOUND, async {
         loop {
             if let Some(value) = found().await {
                 return value;
@@ -460,7 +460,9 @@ pub async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) 
     .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
 }
 
-/// Allow the permission prompt on `agent`'s Terminal: type the number of its first choice, "Yes".
+/// Allow the permission prompt on `agent`'s Terminal: type the number of its first choice, "Yes", until
+/// Claude's dialog goes. The Agent turns needs-you (`PermissionRequest`) before the dialog is drawn, and
+/// Claude drops a key typed while it draws or just after, so one keystroke on needs-you is not enough.
 pub async fn allow_prompt(client: &Client, agent: &str) {
     use base64::Engine as _;
     let terminal = rail_tree(client)
@@ -470,14 +472,37 @@ pub async fn allow_prompt(client: &Client, agent: &str) {
         .unwrap()
         .terminal_id()
         .unwrap();
-    client
-        .request(
-            "terminal.write",
-            json!({"id": terminal,
-                "data": base64::engine::general_purpose::STANDARD.encode("1")}),
-        )
-        .await
-        .unwrap();
+    let choice_shown = async || {
+        let screen = client
+            .request("terminal.screen", json!({ "id": terminal }))
+            .await
+            .unwrap();
+        let lines = screen["lines"].as_array().unwrap();
+        lines
+            .iter()
+            .any(|line| line.as_str().is_some_and(|line| line.contains("1. Yes")))
+    };
+    let mut typed_at: Option<Instant> = None;
+    poll_until("the permission dialog to take a key", async || {
+        match (choice_shown().await, typed_at) {
+            (false, Some(_)) => Some(()),
+            (false, None) => None,
+            (true, Some(at)) if at.elapsed() < Duration::from_millis(500) => None,
+            (true, _) => {
+                client
+                    .request(
+                        "terminal.write",
+                        json!({"id": terminal,
+                            "data": base64::engine::general_purpose::STANDARD.encode("1")}),
+                    )
+                    .await
+                    .unwrap();
+                typed_at = Some(Instant::now());
+                None
+            }
+        }
+    })
+    .await;
 }
 
 #[test]

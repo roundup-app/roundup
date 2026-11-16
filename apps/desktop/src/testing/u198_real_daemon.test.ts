@@ -61,10 +61,17 @@ it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () 
     const signal = (payload: SignalParams["payload"]) => app.rpc("agent.signal", { id: child.id, attempt: doorOf(child)!.attempt!, payload });
 
     // Real Adapter input classes, including a question beyond a displayed excerpt.
-    // The Rail never receives or inspects these strings.
-    const replies = ["Should I publish three pages or five", "Published the pages", `${"Context line\n".repeat(80)}Should I publish three pages or five`, undefined, ""];
+    // The Rail never receives or inspects these strings. A7180: the Daemon reads a Stop that asks
+    // the user and shows it needs-you, which stays shown like any native needs-you.
+    const replies: [string | undefined, boolean][] = [
+      ["Should I publish three pages or five", true],
+      ["Published the pages", false],
+      [`${"Context line\n".repeat(80)}Should I publish three pages or five`, true],
+      [undefined, false],
+      ["", false],
+    ];
 
-    for (const [turn, reply] of replies.entries()) {
+    for (const [turn, [reply, asks]] of replies.entries()) {
       const promptId = `u5483-${turn}`;
       await signal({ hook_event_name: "UserPromptSubmit", prompt_id: promptId, prompt: "Continue" });
       await waitFor(() => expect(doorOf(connected.rail.nodes.find(node => node.id === child.id))?.status?.kind).toBe("working"));
@@ -72,12 +79,18 @@ it("u5940a_adapter_text_and_questions_do_not_protect_a_settled_child", async () 
       await signal({ hook_event_name: "Stop", prompt_id: promptId, last_assistant_message: reply });
       await waitFor(() => {
         const node = doorOf(connected.rail.nodes.find(node => node.id === child.id));
-        expect(node?.status?.kind).toBe("idle");
+        expect(node?.status?.kind).toBe(asks ? "needs-you" : "idle");
         expect(node?.final_text?.kind).toBe(reply === undefined ? "unknown" : reply === "" ? "empty" : "present");
       });
       const node = doorOf(connected.rail.nodes.find(node => node.id === child.id))!;
       setNow(node.status!.since + 300_000);
-      await waitFor(() => expect(rowNames()).not.toContain("Child"));
+
+      if (asks) {
+        expect(node.status!.label).toMatch(/^asks: /);
+        expect(rowNames()).toContain("Child");
+      } else {
+        await waitFor(() => expect(rowNames()).not.toContain("Child"));
+      }
     }
 
     expect(await typed()).toEqual(before);
