@@ -5,6 +5,7 @@ import { byUrgency } from "../ink/glyph";
 import { attentionCounts, raisesAttention, statusOf } from "./attention";
 import { agentKindsBelow } from "./layout";
 import { descendantsOf, isWorkstream, type RailSource } from "../state/railTopology";
+import { appSettings } from "../settings/preferences";
 
 /** U5940a, DCL2: whether the owner dismissed the node's current failure. */
 type Dismissed = (node: RailNode) => boolean;
@@ -39,6 +40,10 @@ export const markKind = (kind: Kind | null): Kind => kind ?? "idle";
 export const rowUnread = (source: RailSource, node: RailNode, unseen: (id: string) => boolean, folded: boolean): boolean =>
   unseen(node.id) || ((isWorkstream(node) || node.kind === "group") && folded && descendantsOf(source, node.id).some(each => unseen(each.id)));
 
-/** PS12, U7189: how many of the row and its Agents below need you or failed, as the Project's count reads them (quiet, unstarted and dismissed ones excluded). */
-export const rowAttention = (source: RailSource, node: RailNode, dismissed: Dismissed) =>
-  attentionCounts([node, ...descendantsOf(source, node.id)].flatMap(each => raisesAttention(each) && !dismissed(each) ? [{ status: statusOf(each) }] : []));
+/** PS12, U7189, U7259: how many of the row and its Agents below need you or failed, as the Project's count reads them (quiet, unstarted and dismissed ones excluded). */
+export const rowAttention = (source: RailSource, node: RailNode, dismissed: Dismissed) => {
+  const counts = attentionCounts([node, ...descendantsOf(source, node.id)].flatMap(each => raisesAttention(each) && !dismissed(each) ? [{ status: statusOf(each) }] : []));
+
+  // U7259: an error counts only while its Dock badge switch is on.
+  return appSettings().stateAlerts.error.badge ? counts : { ...counts, error: 0 };
+};
