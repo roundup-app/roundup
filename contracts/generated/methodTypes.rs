@@ -118,6 +118,7 @@
     Method { name: "machine.list", params: "null", result: "machine_Machine[]" },
     Method { name: "machine.add", params: "machine_AddParams", result: "machine_Machine[]" },
     Method { name: "machine.remove", params: "machine_RemoveParams", result: "machine_Machine[]" },
+    Method { name: "machine.update", params: "machine_UpdateParams", result: "machine_Machine[]" },
     Method { name: "skill.status", params: "null", result: "skill_SkillFiles" },
     Method { name: "skill.setup", params: "null", result: "skill_SkillFiles" },
     Method { name: "skill.remove", params: "null", result: "skill_SkillFiles" },

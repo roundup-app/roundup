@@ -134,6 +134,8 @@ pub struct ClaudeCode {
     prompted: bool,
     /// TS1: a Message started the turn, so no prompt Signal opened it and no title tells its end.
     delivered: bool,
+    /// TS5: when the latest ◐/◑ title of a Message-started turn came.
+    spun_at: Option<i64>,
     /// TS1: between `PreCompact` and `PostCompact` the vendor shows a star with the turn running.
     compacting: bool,
     /// DCL3: work still running after the foreground turn.
@@ -171,6 +173,7 @@ impl ClaudeCode {
             prompt_id: None,
             prompted: false,
             delivered: false,
+            spun_at: None,
             compacting: false,
             background: Box::default(),
             compactions: 0,
@@ -214,6 +217,10 @@ impl ClaudeCode {
 
     /// `settle`, with the finish count raised first when `finish` holds.
     fn settle_counting(&mut self, kind: Kind, label: String, finish: bool) -> Option<Status> {
+        // TS1: an `idle` Agent runs no Message-started turn.
+        if kind == Kind::Idle {
+            self.delivered = false;
+        }
         if kind == Kind::Working && self.status.as_ref().is_some_and(|s| s.kind == Kind::Idle) {
             self.turn_started = (self.clock)();
         }
@@ -266,15 +273,25 @@ impl ClaudeCode {
     /// reading it as idle would flicker `idle` before `needs-you`. A spinner after that star shows
     /// the tool still running and drops the hold. A spinner that turns an Agent `working` is its
     /// only evidence, so it holds for `SPINNER_HOLD` (A2b); a star or a Signal drops that hold.
+    /// TS5: an Esc ends a Message-started turn with no hook and one star within `SPINNER_HOLD` of
+    /// the last spinner, which is read as above, outside compaction.
     fn retitle(&mut self, title: &str) -> Option<Status> {
         let kind = self.status.as_ref().map(|status| status.kind);
         let first = title.chars().next()?;
+        let mut esc = false;
         if first == '✳' {
             self.spinner_at = None;
+            esc = self
+                .spun_at
+                .take()
+                .is_some_and(|at| (self.clock)() - at < SPINNER_HOLD);
         }
         match first {
             '◐' | '◑' => {
                 self.star_parked_since = None;
+                if self.delivered {
+                    self.spun_at = Some((self.clock)());
+                }
                 if kind == Some(Kind::NeedsYou) {
                     return None;
                 }
@@ -283,7 +300,9 @@ impl ClaudeCode {
                 }
                 self.settle(Kind::Working, "working".into())
             }
-            '✳' if kind == Some(Kind::Working) && self.sheltered() => None,
+            '✳' if kind == Some(Kind::Working) && (self.compacting || (self.delivered && !esc)) => {
+                None
+            }
             '✳' if kind == Some(Kind::Working) && self.after_pre_tool_use => {
                 let now = (self.clock)();
                 self.star_parked_since.get_or_insert(now);
@@ -294,7 +313,8 @@ impl ClaudeCode {
         }
     }
 
-    /// TS1: only a Stop, an Interrupt or a session start ends the turn: a title is no evidence.
+    /// TS1: only a Stop, an Interrupt or a session start ends the turn: a title is no evidence
+    /// (TS5 reads the one star an Esc leaves).
     fn sheltered(&self) -> bool {
         self.delivered || self.compacting
     }
@@ -526,6 +546,7 @@ impl ClaudeCode {
         self.after_pre_tool_use = false;
         self.star_parked_since = None;
         self.spinner_at = None;
+        self.spun_at = None;
         self.asking = None;
         self.unclear = None;
         self.settle(Kind::Working, "working".into())

@@ -13,10 +13,10 @@ afterEach(cleanup);
 const accepted = (node: RailNode, live: boolean, params: { mode?: string }) => (live ? params.mode !== undefined : doorOf(node)?.can_resume);
 
 const rows: { name: string; node: RailNode; live: boolean }[] = [
-  { name: "agent-exited-with-data", node: agent("x", "done", "done", { can_resume: true }), live: false },
+  { name: "agent-exited-with-data", node: agent("x", "done", "done", { can_resume: true, has_conversation: true }), live: false },
   { name: "agent-exited-without-data", node: agent("x", "done", "done"), live: false },
   { name: "agent-running", node: agent("x", "working", "busy"), live: true },
-  { name: "door-exited-with-data", node: door("x", "done", "done", { can_resume: true }), live: false },
+  { name: "door-exited-with-data", node: door("x", "done", "done", { can_resume: true, has_conversation: true }), live: false },
   { name: "door-exited-without-data", node: door("x", "done", "done"), live: false },
   { name: "door-running", node: door("x", "working", "busy"), live: true },
   { name: "group", node: workstream("x"), live: false },
@@ -29,7 +29,7 @@ describe("a5213 offered means accepted", () => {
 
       app.handlers["agent.resume"] = () => node;
       fireEvent.contextMenu(rowOf("x"), { clientX: 120, clientY: 80 });
-      const offered = (app.shownMenus.at(-1)?.items ?? []).filter((item) => item.enabled && ["Resume", "Start YOLO"].includes(item.label)).map((item) => item.label);
+      const offered = (app.shownMenus.at(-1)?.items ?? []).filter((item) => item.enabled && ["Restart", "Start YOLO"].includes(item.label)).map((item) => item.label);
 
       for (const label of offered) {
         const before = railCallsTo(app, "agent.resume").length;

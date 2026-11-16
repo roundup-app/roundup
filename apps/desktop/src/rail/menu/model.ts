@@ -348,12 +348,6 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
       { when: canHandOff(node, exit), id: "hand-off", label: copy.handOff, run: () => handOff({ app, rail }, node) },
       { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
-      // U7191a: a row holding a conversation lists Restart, which resumes it, so Resume serves a row without one.
-      { when: isResumable(node, exit) && !hasConversation(node), id: "resume", label: copy.resume, run: () => {
-        rail.select(node.id);
-
-        return resume(node.id);
-      } },
     ];
   };
 

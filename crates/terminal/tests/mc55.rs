@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use tokio::process::Command;
 
 const T: Duration = Duration::from_secs(10);
-const PINNED: &str = "0.1.20";
+const PINNED: &str = "0.1.21";
 
 fn schema() -> Value {
     let path = format!(

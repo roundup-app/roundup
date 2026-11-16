@@ -595,7 +595,7 @@ async fn mc58_real_core_sequence_matches_ps() {
     };
     let pinned: Value = serde_json::from_str(
         &std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../herdr/schema/herdr-core-0.1.20.json"),
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../herdr/schema/herdr-core-0.1.21.json"),
         )
         .unwrap(),
     )

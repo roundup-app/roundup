@@ -42,7 +42,7 @@ async fn closed_conn() -> Conn {
         let mut line = String::new();
         r.read_line(&mut line).await.unwrap();
         let hello =
-            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
+            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.21","methods":[]}}"#;
         core_w
             .write_all(format!("{hello}\n").as_bytes())
             .await
@@ -90,7 +90,7 @@ where
         let mut line = String::new();
         r.read_line(&mut line).await.unwrap();
         let hello =
-            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
+            r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.21","methods":[]}}"#;
         core_w
             .write_all(format!("{hello}\n").as_bytes())
             .await
@@ -239,7 +239,7 @@ async fn ch7077g_an_older_core_is_refused_naming_both_versions() {
             "{text}"
         );
     }
-    for new in [crate::MIN_CORE, "0.1.20-rc.1", "0.2.0"] {
+    for new in [crate::MIN_CORE, "0.1.21-rc.1", "0.2.0"] {
         assert!(hello_from(new).await.is_ok(), "{new}");
     }
 }

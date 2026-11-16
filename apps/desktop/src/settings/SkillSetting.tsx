@@ -88,7 +88,7 @@ export const SkillSetting = (props: { app: App }) => {
         </>}</Show>
       </div>
       <Show when={list().some(i => i.state === "outdated")}>
-        <button class="word" data-button="quiet" type="button" disabled={busy()} onClick={() => void run("skill.setup")}>{copy.skillUpdate}</button>
+        <button class="word" data-button="quiet" type="button" disabled={busy()} onClick={() => void run("skill.setup")}>{copy.update}</button>
       </Show>
     </div>
   </>}</Show>;
