@@ -74,7 +74,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
         <span class="settings-machine-name">{machine.name}</span>
         <span class="settings-machine-state" data-state={machine.reachable === false ? "offline" : "online"}>{machine.reachable === false ? copy.machineOffline : copy.machineOnline}</span>
         <Show when={machine.outdated === true}>
-          <button class="settings-machine-update" data-button="quiet" type="button" aria-label={copy.machineUpdateLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void update(machine.name)}>{updating().has(machine.name) ? copy.machineUpdating : copy.machineUpdate}</button>
+          <button class="settings-machine-update" data-button="quiet" type="button" aria-label={copy.machineUpdateLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void update(machine.name)}>{updating().has(machine.name) ? copy.machineUpdating : copy.update}</button>
         </Show>
         <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
         <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{failure => <ReservedLine message={failure().hint} dismiss={() => setRowFailure(null)} />}</Show>
