@@ -218,11 +218,11 @@ export type ForkPick = { key: string; agents: "all" | "none" | string[] };
 
 export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
 
-/** FB2, FB3: the shot of the window and the App's own facts, as the `feedback_capture` command answers. */
+/** U7210b, U7210d: the shot of the window and the App's versions, as the `feedback_capture` command answers. */
 export const feedbackReportSchema = v.object({
   shot: v.nullable(v.string()),
   shot_error: v.nullable(v.string()),
-  facts: v.object({ version: v.string(), commit: v.string(), macos: v.string(), log: v.array(v.string()) }),
+  facts: v.object({ version: v.string(), commit: v.string(), macos: v.string() }),
 });
 
 export type FeedbackReport = v.InferOutput<typeof feedbackReportSchema>;
@@ -309,6 +309,8 @@ export type App = {
   forkRecolour(path: string, colour: ForkColour): Promise<void>;
   /** FS5979a: the application menu's `Fork for development…`; no payload. */
   onForkSheet(listener: () => void): Unsubscribe;
+  /** U7210a: the application menu's `Send feedback…`; no payload. */
+  onFeedback(listener: () => void): Unsubscribe;
   /** Opens the app-wide center settings view; no payload. */
   onAppSettings(listener: () => void): Unsubscribe;
   onDaemonExited(listener: (exit: DaemonExited) => void): Unsubscribe;

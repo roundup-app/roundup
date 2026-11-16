@@ -35,6 +35,8 @@ cap-std = "4"
 thiserror.workspace = true
 rustix = { version = "1", features = ["fs"] }
 reflink-copy = "0.1.32"
+semver = "1"
+tempfile.workspace = true
 
 [dev-dependencies]
 rusqlite_migration.workspace = true
@@ -43,7 +45,6 @@ allocation-counter = "0.8.1"
 tokio = { workspace = true, features = ["test-util"] }
 agents = { path = "../agents", features = ["test-support"] }
 jsonschema = { version = "0.60.2", default-features = false }
-tempfile.workspace = true
 proptest = { version = "1.12.0", default-features = false, features = ["std"] }
 
 [lints]

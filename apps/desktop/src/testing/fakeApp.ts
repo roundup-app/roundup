@@ -508,6 +508,11 @@ export const createFakeApp = (): FakeApp => {
 
       return () => window.removeEventListener("open-fork-sheet", listener);
     },
+    onFeedback: (listener) => {
+      window.addEventListener("open-feedback", listener);
+
+      return () => window.removeEventListener("open-feedback", listener);
+    },
     onAppSettings: (listener) => {
       window.addEventListener("open-app-settings", listener);
 

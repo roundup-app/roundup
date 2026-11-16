@@ -1,28 +1,25 @@
-import { copy as sharedCopy } from "../sharedCopy";
-
-const FEEDBACK = sharedCopy.feedback;
-
 export const copy = {
-  title: FEEDBACK,
-  line: "What feels wrong?",
-  shotAlt: "Window shot",
-  removeShot: "Remove the shot",
-  noShot: (cause: string) => `No shot: ${cause}`,
-  noCapture: "Capture unavailable. Allow Screen Recording for roundup in macOS Privacy settings",
-  facts: "Sent with it",
-  log: (count: number) => `Log, ${count} lines`,
-  send: "Send report",
-  close: sharedCopy.close,
-  /** @prose */
-  posted: "Your report is posted. Select to open it.",
-  /** @prose */
-  keptRetry: (folder: string) => `Kept in ${folder}. Select to retry.`,
-  /** @prose */
-  notSent: "Your report was not sent.",
+  title: "Send feedback",
+  line: "What happened?",
+  attach: "Attach a screenshot of this window",
+  noShot: (cause: string) => `No screenshot: ${cause}`,
+  noCapture:
+    "Capture unavailable. Allow Screen Recording for roundup in macOS Privacy settings",
+  oldGh: "This gh is older than 2.103, so the screenshot is not sent.",
+  noGh: "gh is not installed, so roundup cannot send this. Copy it and file it yourself.",
+  signedOut:
+    "gh is signed out, so roundup cannot send this. Copy it, or run gh auth login.",
+  checking: "Checking gh…",
   noCommit: "no commit",
-  service: "Service",
-  up: "up",
-  project: sharedCopy.project,
-  selected: "Selected",
-  none: "none",
+  unknown: "unknown",
+  send: "Send",
+  sending: "Sending…",
+  copy: "Copy",
+  close: "Cancel",
+  /** @prose */
+  filed: (number: number) => `Feedback sent as Issue #${number}`,
+  /** @prose */
+  openIssue: "Select to open it.",
+  /** @prose */
+  notSent: "Your feedback was not sent.",
 } as const;

@@ -72,7 +72,7 @@ export const copy = {
   leaderWaitsForAKey: "More keys…",
   switchToARowByName: "Find row",
   openTheSwitcher: "Find anything",
-  sendFeedback: "Send feedback",
+  sendFeedback: "Send feedback…",
   jumpToWhatNeedsYouInAnotherProject: "Needs you elsewhere",
   exportMd: sharedCopy.exportMd,
   assign: sharedCopy.assign,

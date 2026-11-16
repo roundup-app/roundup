@@ -1,5 +1,5 @@
-//! FB2, FB3: the shot of the roundup window and the App's debug facts for a Feedback report
-//! (`scenarios/feedback-report.md`). The capture sits behind `Display`; the OS side stays outside the tests.
+//! U7210b, U7210d (`scenarios/send-feedback.md`): the shot of the roundup window, under 2 MB, and the
+//! App's versions for Send feedback…. The capture sits behind `Display`; the OS side stays outside the tests.
 
 use std::path::{Path, PathBuf};
 
@@ -10,6 +10,9 @@ use tauri::{Manager, Runtime, WebviewWindow};
 
 /// Policy: the log lines a report carries.
 const LOG_LINES: usize = 200;
+
+/// U7210d: a shot of more bytes than this is scaled down until it has fewer.
+const SHOT_LIMIT: usize = 2_000_000;
 
 /// The seam: a PNG of the window as drawn now.
 pub(crate) trait Display {
@@ -103,8 +106,31 @@ pub(crate) fn facts(host: &dyn Host) -> AppFacts {
     }
 }
 
+/// U7210d: `png` as it is when it fits, else scaled down in steps of at least a tenth until it does.
+fn fit(mut png: Vec<u8>) -> Result<Vec<u8>, String> {
+    if png.len() <= SHOT_LIMIT {
+        return Ok(png);
+    }
+    let mut image = image::load_from_memory_with_format(&png, image::ImageFormat::Png)
+        .map_err(|error| error.to_string())?;
+    while png.len() > SHOT_LIMIT {
+        let scale = (SHOT_LIMIT as f64 / png.len() as f64).sqrt() * 0.9;
+        let side = |length: u32| ((f64::from(length) * scale) as u32).max(1);
+        image = image.resize_exact(
+            side(image.width()),
+            side(image.height()),
+            image::imageops::FilterType::Triangle,
+        );
+        png.clear();
+        image
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(png)
+}
+
 pub(crate) fn report(display: &dyn Display, host: &dyn Host) -> Report {
-    let (shot, shot_error) = match display.capture_png() {
+    let (shot, shot_error) = match display.capture_png().and_then(fit) {
         Ok(png) => (
             Some(base64::engine::general_purpose::STANDARD.encode(png)),
             None,
@@ -206,6 +232,36 @@ mod tests {
     }
 
     const PNG: &[u8] = b"\x89PNG\r\n\x1a\nfixed";
+
+    /// A 1000 by 1000 PNG of noise, over 2 MB because noise does not compress.
+    fn noisy_png() -> Vec<u8> {
+        let image = image::RgbImage::from_fn(1000, 1000, |x, y| {
+            let h = (u64::from(x) * 0x9E37_79B9_7F4A_7C15 ^ u64::from(y) * 0xC2B2_AE3D_27D4_EB4F)
+                .wrapping_mul(0x1656_67B1_9E37_79F9);
+            image::Rgb([(h >> 8) as u8, (h >> 24) as u8, (h >> 40) as u8])
+        });
+        let mut png = Vec::new();
+        image
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        png
+    }
+
+    #[test]
+    fn u7210d_a_shot_over_2_mb_is_scaled_under_it() {
+        let big = noisy_png();
+        assert!(big.len() > SHOT_LIMIT);
+        let fitted = fit(big).unwrap();
+        assert!(fitted.len() <= SHOT_LIMIT);
+        let image = image::load_from_memory_with_format(&fitted, image::ImageFormat::Png).unwrap();
+        assert!(image.width() < 1000 && image.height() < 1000);
+        assert_eq!(image.width(), image.height(), "the shot keeps its shape");
+    }
+
+    #[test]
+    fn u7210d_a_shot_under_2_mb_is_unchanged() {
+        assert_eq!(fit(PNG.to_vec()).unwrap(), PNG);
+    }
 
     #[test]
     fn fb2_the_capture_seam_returns_a_png_of_the_window() {

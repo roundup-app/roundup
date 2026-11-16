@@ -1,74 +1,106 @@
-import { isDoor } from "../state/doorNode";
-import { createSignal, Show } from "solid-js";
-import type { Sent } from "@contracts/feedback/Sent";
+import { createSignal, onCleanup, Show, untrack } from "solid-js";
+import type { Check } from "@contracts/feedback/Check";
+import type { Filed } from "@contracts/feedback/Filed";
 import type { FeedbackReport } from "../app/seam";
 import { queueFocus } from "../keys/focus";
 import { CHORDS } from "../keys/chords";
 import { modalOpen, registerKeys } from "../keys/registry";
-import { appSettings } from "../settings/preferences";
 import { useConnectedProject } from "../state/connectedProject";
 import type { ToastQueue } from "../toasts/queue";
+import { Checkbox } from "../ui/Checkbox";
+import { CopyButton } from "../ui/CopyButton";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { copy } from "./copy";
-import { Disclosure } from "../ui/Disclosure";
-import { factsText, logText, sentText } from "./facts";
+import { versionsText } from "./facts";
 import "./styles.css";
 
-type Report = { id: string; capture: FeedbackReport | null; cause: string | null };
+/** What the shot left: the window as drawn, or why there is none. */
+type Opened = { capture: FeedbackReport | null; cause: string | null };
 
-/** FB1 to FB5: `⇧⌘F` takes the shot, then opens the form; Send closes it and posts in the background, and a Toast links the comment or names the folder of the kept report. */
+/** U7210a to U7210e: a request takes the shot, then opens the dialog; Send files one Issue and closes it, a failure keeps it open with the text. */
 export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
-  const { app, rail, project } = useConnectedProject();
-  const [report, setReport] = createSignal<Report | null>(null);
+  const { app, project } = useConnectedProject();
+  const [opened, setOpened] = createSignal<Opened | null>(null);
   const [capturing, setCapturing] = createSignal(false);
+  const [check, setCheck] = createSignal<Check | null>(null);
+  const [checkFailure, setCheckFailure] = createSignal<string | null>(null);
   const [text, setText] = createSignal("");
-  const [shot, setShot] = createSignal<string | null>(null);
+  const [attach, setAttach] = createSignal(true);
+  const [sending, setSending] = createSignal(false);
+  const [failure, setFailure] = createSignal<string | null>(null);
   let form: HTMLFormElement | undefined;
 
-  const selection = () => {
-    const node = rail.nodes.find(each => each.id === rail.selected());
+  const versions = () =>
+    versionsText(opened()?.capture?.facts ?? null, check()?.herdrCore);
 
-    return node ? { kind: node.kind, name: node.name, state: isDoor(node) ? node.status?.kind ?? null : null } : null;
+  /** The line saying why Send is not offered, once `gh` is known. */
+  const blocked = () =>
+    checkFailure() ??
+    (check()?.gh === "missing"
+      ? copy.noGh
+      : check()?.gh === "signed-out"
+        ? copy.signedOut
+        : null);
+
+  const shot = () => opened()?.capture?.shot ?? null;
+
+  const attached = () => shot() !== null && check()?.attach === true;
+
+  const noShotLine = () => {
+    if (shot() === null)
+      return opened()?.cause ? copy.noShot(opened()!.cause!) : null;
+
+    return check() !== null && !check()!.attach && blocked() === null
+      ? copy.oldGh
+      : null;
   };
 
-  const facts = () => factsText(report()?.capture ?? null, project.path, selection());
+  const notify = (candidate: {
+    name: string;
+    line: string;
+    kind: "done" | "error";
+    open: () => Promise<string | null> | string | null;
+  }) => {
+    const key = `feedback:${crypto.randomUUID()}`;
 
-  const log = () => logText(report()?.capture ?? null);
+    props.notify({
+      key,
+      item: key,
+      project: project.path,
+      selected: false,
+      ...candidate,
+    });
+  };
 
-  const done = (id: string, sent: Sent) => {
-    const base = { key: `feedback:${id}`, item: `feedback:${id}`, project: project.path, selected: false };
-
-    if (sent.state === "posted") {
-      props.notify({ ...base, kind: "done", name: copy.title, line: copy.posted, open: async () => {
+  const filed = (issue: Filed) =>
+    notify({
+      kind: "done",
+      name: copy.filed(issue.number),
+      line: copy.openIssue,
+      open: async () => {
         try {
-          await app.openTarget({ kind: "url", url: sent.url });
+          await app.openTarget({ kind: "url", url: issue.url });
 
           return null;
         } catch (error) {
-          return String(error instanceof Error ? error.message : error);
+          if (!(error instanceof Error)) throw error;
+
+          return error.message;
         }
-      } });
-
-      return;
-    }
-
-    props.notify({ ...base, kind: "error", name: sent.cause, line: copy.keptRetry(sent.dir.split("/").slice(-2).join("/")), open: async () => {
-      try {
-        done(id, await app.rpc("feedback.retry", { id, target: appSettings().feedbackIssue }));
-
-        return null;
-      } catch (error) {
-        return String(error instanceof Error ? error.message : error);
-      }
-    } });
-  };
-
-  const refused = (id: string, cause: string) => props.notify({ key: `feedback:${id}`, item: `feedback:${id}`, project: project.path, selected: false, kind: "error", name: cause, line: copy.notSent, open: () => null });
+      },
+    });
 
   const begin = async () => {
-    setCapturing(true);
+    if (opened() !== null || capturing()) return;
 
+    setCapturing(true);
+    setCheck(null);
+    setCheckFailure(null);
+    // `gh` is asked while the window is captured, so the dialog opens knowing what it can send.
+    void app
+      .rpc("feedback.check", null)
+      .then(setCheck, (error: Error) => setCheckFailure(error.message));
     let capture: FeedbackReport | null = null;
     let cause: string | null = null;
 
@@ -76,59 +108,174 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
       if (app.feedbackCapture) capture = await app.feedbackCapture();
       else cause = copy.noCapture;
     } catch (error) {
-      cause = error instanceof Error ? error.message : String(error);
+      if (!(error instanceof Error)) throw error;
+
+      cause = error.message;
     }
 
     setCapturing(false);
     cause ??= capture?.shot_error ?? (capture?.shot ? null : copy.noCapture);
     setText("");
-    setShot(capture?.shot ?? null);
-    setReport({ id: crypto.randomUUID(), capture, cause });
+    setAttach(true);
+    setSending(false);
+    setFailure(null);
+    setOpened({ capture, cause });
   };
 
-  registerKeys({ kind: "app" }, [{ action: CHORDS["feedback.open"], searchable: false, capture: () => ({ available: () => report() === null && !capturing() && !modalOpen(), invoke: () => void begin() }) }]);
+  registerKeys({ kind: "app" }, [
+    {
+      action: CHORDS["feedback.open"],
+      capture: () => ({
+        available: () => opened() === null && !capturing() && !modalOpen(),
+        invoke: () => void begin(),
+      }),
+    },
+  ]);
+  onCleanup(untrack(() => app.onFeedback(begin)));
 
-  const send = () => {
-    const current = report();
+  const send = async () => {
+    const current = opened();
 
-    if (!current) return;
+    if (
+      !current ||
+      sending() ||
+      text().trim() === "" ||
+      check() === null ||
+      blocked() !== null
+    )
+      return;
 
-    const params: Parameters<typeof app.rpc<"feedback.send">>[1] = { id: current.id, text: text(), facts: sentText(current.capture, project.path, selection()), target: appSettings().feedbackIssue };
+    const params: Parameters<typeof app.rpc<"feedback.send">>[1] = {
+      text: text(),
+      versions: versions(),
+    };
+
     const picture = shot();
-    const node = rail.selected();
 
-    if (picture) params.shot = picture;
+    if (picture && attach() && attached()) params.shot = picture;
 
-    if (node) params.selected = node;
+    setSending(true);
+    setFailure(null);
 
-    setReport(null);
-    void app.rpc("feedback.send", params).then(sent => done(current.id, sent), error => refused(current.id, error instanceof Error ? error.message : String(error)));
+    try {
+      const issue = await app.rpc("feedback.send", params);
+
+      // A dialog cancelled meanwhile, or opened again since, is not this one's to close.
+      if (opened() === current) setOpened(null);
+      filed(issue);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (opened() === current) {
+        setFailure(error.message);
+        setSending(false);
+      } else
+        notify({
+          kind: "error",
+          name: error.message,
+          line: copy.notSent,
+          open: () => null,
+        });
+    }
   };
 
-  return <Dialog.Root open={report() !== null} initialFocusEl={() => form?.querySelector("textarea") ?? null} onOpenChange={({ open }) => { if (!open) setReport(null); }}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form feedback-form">
-      <form ref={element => { form = element; queueFocus(() => { if (element.isConnected) element.querySelector("textarea")?.focus({ preventScroll: true }); }); }} onSubmit={event => { event.preventDefault(); send(); }}>
-        <Dialog.Title>{copy.title}</Dialog.Title>
-        <Field.Root>
-          <Field.Label>{copy.line}</Field.Label>
-          <Field.Textarea rows={4} value={text()} onInput={event => setText(event.currentTarget.value)} />
-        </Field.Root>
-        <Show when={shot()} fallback={<Show when={report()?.cause}>{cause => <p class="feedback-noshot">{copy.noShot(cause())}</p>}</Show>}>
-          {data => <div class="feedback-shot">
-            <img src={`data:image/png;base64,${data()}`} alt={copy.shotAlt} />
-            <button type="button" data-button="quiet" onClick={() => setShot(null)}>{copy.removeShot}</button>
-          </div>}
-        </Show>
-        <section class="feedback-sent">
-          <h3>{copy.facts}</h3>
-          <pre class="feedback-facts">{facts()}</pre>
-          <Show when={log()}><Disclosure label={copy.log(report()!.capture!.facts.log.length)}><pre class="feedback-log">{log()}</pre></Disclosure></Show>
-        </section>
-        <div class="app-dialog-actions">
-          <Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger>
-          <button type="submit" data-button="primary">{copy.send}</button>
-        </div>
-      </form>
-    </Dialog.Content></Dialog.Positioner>
-  </Dialog.Root>;
+  return (
+    <Dialog.Root
+      open={opened() !== null}
+      initialFocusEl={() => form?.querySelector("textarea") ?? null}
+      onOpenChange={({ open }) => {
+        if (!open) setOpened(null);
+      }}
+    >
+      <Dialog.Positioner>
+        <Dialog.Content class="app-dialog-form feedback-form">
+          <form
+            ref={(element) => {
+              form = element;
+              queueFocus(() => {
+                if (element.isConnected)
+                  element
+                    .querySelector("textarea")
+                    ?.focus({ preventScroll: true });
+              });
+            }}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void send();
+            }}
+          >
+            <Dialog.Title>{copy.title}</Dialog.Title>
+            <Field.Root>
+              <Field.Label>{copy.line}</Field.Label>
+              <Field.Textarea
+                rows={4}
+                value={text()}
+                onInput={(event) => setText(event.currentTarget.value)}
+              />
+            </Field.Root>
+            <Show
+              when={attached()}
+              fallback={
+                <Show when={noShotLine()}>
+                  {(line) => <p class="feedback-note">{line()}</p>}
+                </Show>
+              }
+            >
+              <Checkbox checked={attach()} onCheckedChange={setAttach}>
+                {copy.attach}
+              </Checkbox>
+            </Show>
+            <p class="feedback-versions">{versions()}</p>
+            <Show when={blocked()}>
+              {(line) => (
+                <p class="feedback-note" role="status">
+                  {line()}
+                </p>
+              )}
+            </Show>
+            <Show when={failure()}>
+              {(line) => (
+                <p class="feedback-error" role="alert">
+                  {line()}
+                </p>
+              )}
+            </Show>
+            <div class="app-dialog-actions">
+              <Dialog.CloseTrigger type="button" data-button="quiet">
+                {copy.close}
+              </Dialog.CloseTrigger>
+              <Show
+                when={blocked() === null}
+                fallback={
+                  <Show when={check() !== null || checkFailure() !== null}>
+                    <CopyButton
+                      app={app}
+                      text={`${text().trimEnd()}\n\n${versions()}\n`}
+                      onFailure={(error) => setFailure(error.message)}
+                    >
+                      {copy.copy}
+                    </CopyButton>
+                  </Show>
+                }
+              >
+                <button
+                  type="submit"
+                  data-button="primary"
+                  disabled={
+                    text().trim() === "" || check() === null || sending()
+                  }
+                >
+                  {sending()
+                    ? copy.sending
+                    : check() === null
+                      ? copy.checking
+                      : copy.send}
+                </button>
+              </Show>
+            </div>
+          </form>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
+  );
 };
