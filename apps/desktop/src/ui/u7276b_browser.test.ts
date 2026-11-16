@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, it } from "vitest";
 import { browser, closeBrowser, openBrowser, read } from "./u484Browser";
-import { expectControlPressNeverDrags, harness, liftAndCancel, pointIn, todos } from "./u7276Browser";
+import { expectControlPressNeverDrags, harness, liftAndEscape, pointIn, todos } from "./u7276Browser";
 
 beforeAll(openBrowser, 90_000);
 
@@ -32,5 +32,5 @@ it.each(CONTROLS)("u7276b_a_press_on_a_control_never_drags ($control)", expectCo
 it("u7276b_a_todo_title_button_drags", async () => {
   const surface = '.todos-tab [data-todo="1"] .todo-row-button';
   await harness("tree-40", todos, surface);
-  await liftAndCancel(surface, await pointIn(surface, null), 6);
+  await liftAndEscape(surface, await pointIn(surface, null), 6);
 }, 60_000);

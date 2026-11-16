@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { browser, closeBrowser, openBrowser, read } from "./u484Browser";
-import { REORDERS, harness, liftAndCancel, pointIn, todos } from "./u7276Browser";
+import { REORDERS, harness, liftAndEscape, pointIn, todos } from "./u7276Browser";
 
 beforeAll(openBrowser, 90_000);
 
@@ -24,7 +24,7 @@ const SURFACES = [
 // A Todo row's body is its title button, so U7276b's `u7276b_a_todo_title_button_drags` is this test's Todos row.
 it.each(SURFACES.filter(row => row.list !== "todos"))("u7276a_a_press_on_the_row_body_and_a_move_drags_it ($list)", async ({ seed, open, surface }) => {
   await harness(seed, open, surface);
-  await liftAndCancel(surface, await pointIn(surface, 4), 12);
+  await liftAndEscape(surface, await pointIn(surface, 4), 12);
 }, 60_000);
 
 it.each(SURFACES)("u7276a_a_press_under_the_threshold_stays_a_click ($list)", async ({ seed, open, surface }) => {

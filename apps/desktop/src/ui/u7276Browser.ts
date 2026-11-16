@@ -46,7 +46,7 @@ const holds = (selector: string) => read<boolean>(`(() => {
 })()`);
 
 /** Presses at `at`, moves `by` px down in steps and waits for the lifted row; Escape and the release then cancel it. */
-export const liftAndCancel = async (selector: string, at: { x: number; y: number }, by: number) => {
+export const liftAndEscape = async (selector: string, at: { x: number; y: number }, by: number) => {
   await browser("mouse", "move", String(at.x), String(at.y));
   await browser("mouse", "down");
 
