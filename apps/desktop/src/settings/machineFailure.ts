@@ -14,5 +14,5 @@ export const machineFailure = (error: Error, action: MachineAction, name = ""): 
 
   if (sentence !== undefined) return sentence(name === "" ? copy.thatMachine : name);
 
-  return copy.machineFailureFallback(copy.machineFailureVerbs[action], name === "" || action === "list" ? "" : ` ${name}`);
+  return copy.machineActionFailed[action](name);
 };

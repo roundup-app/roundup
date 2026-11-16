@@ -213,7 +213,7 @@ it("mc71_a_failing_list_shows_a_sentence_not_an_empty_page", async () => {
   };
 
   const list = await open(app, [], "0.1.21", [], true);
-  await within(list).findByText(/herdr isn't installed on this computer/);
+  await within(list).findByText(/herdr is not installed on this computer/);
   expect(screen.queryByText(copy.noOtherMachines)).toBeNull();
 });
 
@@ -233,7 +233,7 @@ it("mc74_this_computer_shows_connected_with_the_core_version", async () => {
 });
 
 it("mc74_this_computer_without_a_core_reads_not_connected_and_why", async () => {
-  for (const [kind, words] of [["core_missing", /isn't installed/], ["core_too_old", /too old/]] as const) {
+  for (const [kind, words] of [["core_missing", /is not installed/], ["core_too_old", /too old/]] as const) {
     cleanup();
     const app = createFakeApp();
     app.handlers["machine.list"] = () => {
@@ -299,7 +299,7 @@ it("mc75_a_failed_update_shows_the_sentence_not_the_json_and_offers_it_again", a
   };
 
   fireEvent.click(await within(list).findByRole("button", { name: "Update old" }));
-  await screen.findByText(/old isn't in your machine list/);
+  await screen.findByText(/old is not in your machine list/);
   expect(within(list).getByRole("button", { name: "Update old" }).hasAttribute("disabled")).toBe(false);
   const text = list.textContent ?? "";
 
