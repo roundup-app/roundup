@@ -24,7 +24,8 @@
     align-items: center;
     justify-content: center;
   }
-  .milkdown svg {
+  /* A Mermaid diagram keeps the fills its own markup draws, so it is outside the icon rule. */
+  .milkdown svg:not(.visual-mermaid svg) {
     width: var(--space-4);
     height: var(--space-4);
     fill: currentcolor;
@@ -32,7 +33,6 @@
   .visual-mermaid svg {
     width: 100%;
     height: auto;
-    fill: revert-layer;
   }
   .milkdown .ProseMirror {
     position: relative;

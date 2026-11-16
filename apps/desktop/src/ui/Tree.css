@@ -4,6 +4,7 @@
   max-width: none;
   padding: var(--space-1);
   font-size: inherit;
+  color: var(--text);
 }
 
 /* A leaf is told from a branch inside :where(), so the Rail's own display and columns (.rail-tree .rail-row) still win. */
@@ -39,7 +40,10 @@
   padding-inline-start: var(--space-4);
 }
 
-.app-tree [data-slot="tree-indicator"] { rotate: none; }
+.app-tree [data-slot="tree-indicator"] {
+  rotate: none;
+  color: inherit;
+}
 
 /* The library rings the label of a focused item; the App draws no control ring (U4382a). */
 .app-tree [data-slot="tree-label"] { outline: none; }

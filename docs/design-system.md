@@ -205,6 +205,21 @@ Except D18 and D19, each check is measured from computed style and the DOM of th
 | D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
 | D19 | For every added or changed icon, the design critic approves its meaning against the complete icon/status inventory below: one glyph identifies one concept, and section-head icons share no bare circle/dot/square family with their rows' status marks. Inspect changed production icons at their rendered size beside neighbours in light and dark; labels and colour cannot rescue a shape collision. | U4898 |
 
+### Vendor sheet and the checks (U7283)
+
+The U26 harness and `main.tsx` load one list of sheets, `apps/desktop/src/sheets.ts`, with ui-sdk's `@ui-sdk/core/web.css` first. D1 and D2 judge the App's own styles and tell the vendor sheet from the App's by the sheet that owns the rule, never by a value, selector or colour: D1 skips the rules of the `style` element whose `data-vite-dev-id` names `@ui-sdk/core/…/web.css`, as it skips `tokens.css`'s Token definitions; D2 skips a margin, padding or font size only when every rule matching the element that declares it sits in that sheet. A rule of the App that declares it, a Token override of a vendor rule included, makes the value the App's, and D1 and D2 judge it. The sheet sits in `@layer ui-sdk`, so every App rule wins over it whatever its specificity.
+
+#### Vendor defaults kept
+
+Each rule of `web.css` that moves a computed style of an element the App renders is overridden with Tokens (`ui/Tabs.css`, `ui/Tree.css`, `ui/Toast.css`) or listed here by its selector with its reason. `u7283c_every_kept_vendor_rule_is_named` fails on an entry that matches no rule of the sheet.
+
+- `:where(:root, :host)`: defines the `--ui-*` custom properties and `color-scheme` that the vendor's own rules read; the App draws with its Tokens and reads none of them.
+- `[data-slot]`: `box-sizing: border-box`, the box model every App rule is written for.
+- `:where(a, button, input, select, textarea, label, summary, [data-slot])`: `touch-action: manipulation` and a transparent tap highlight, behaviour with no colour or space of its own.
+- `[data-slot="tree"]`: `display: flex` in a column, the layout the Rail and Shelf trees build on; its gap, width, padding, font size and colour are overridden in `ui/Tree.css`.
+- `[data-slot="tree-indicator"]`: `display: inline-flex` and `flex-shrink: 0`, the chevron's box; its colour and rotation are overridden in `ui/Tree.css`.
+- `[data-slot="toast-list"]`: the stack's flex column, zero margin and padding and no list marker; its gap is overridden in `ui/Toast.css`.
+
 ### Icon meaning and inventory (U4898)
 
 D19 is critic-only specification policy; it adds no DOM, SVG-path or pixel assertion. Apply it to every PR adding or changing an icon, including a direct library import, status mark, dynamic name or wrapper caller. Resolve every alternative, assign its existing glossary term and role (identity, state or action), then compare the changed glyph with all inventory rows. The same action across objects is one concept; two object terms are not. Bare circles, dots, squares and rotated squares form the status families; compound drawings such as `bot` and `workflow` do not become bare squares because they contain square nodes. Render each changed icon beside its actual neighbours at its production size in both themes. The critic's explicit D19 approval is the only outside visual acceptance; no user or Mac-only check is added. U4898 specifies the paired Rail captures and retains all other passing Checks.

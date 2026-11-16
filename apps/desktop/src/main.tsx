@@ -1,3 +1,5 @@
+// U7283a: first, so the list loads before any component imports its own sheet.
+import "./sheets";
 import { StorageRecovery } from "./window/StorageRecovery";
 import { createRoot } from "solid-js";
 import { render } from "@solidjs/web";
@@ -5,23 +7,6 @@ import { CapturePanel } from "./todos/CapturePanel";
 import { App } from "./App";
 import { createReducedMotion } from "./app/reducedMotion";
 import { createTauriApp, followMaterial } from "./app/tauri";
-import "@ui-sdk/core/web.css";
-import "./tokens.css";
-import "./styles.css";
-import "./scrollbar.css";
-// U4709d: a surface's look at rest never waits on another surface's chunk, so these load after every other sheet, the order they land in today.
-import "./fork/fork.css";
-import "./importer/import.css";
-import "./pads/editor.css";
-import "./pads/styles.css";
-import "./plain/styles.css";
-import "./todos/blockerMenu.styles.css";
-import "./todos/drawer.styles.css";
-import "./todos/rowButton.styles.css";
-import "./ui/Progress.css";
-import "./ui/RadioGroup.css";
-import "./ui/SegmentGroup.css";
-import "./ui/reading.styles.css";
 import { trackScrollbars } from "./scrollHover";
 import { routeWebLinks } from "./app/webLinks";
 import { applyForkColour } from "./app/forkColour";
