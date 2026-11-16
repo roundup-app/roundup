@@ -518,7 +518,7 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)}>
+            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)} notify={toasts.notify}>
               <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
               <Feedback notify={toasts.notify} />
               <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />

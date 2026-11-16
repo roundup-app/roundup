@@ -69,6 +69,8 @@ export const copy = {
   captureATodo: sharedCopy.captureATodo,
   leaderShortInbox: "Inbox",
   openTheInbox: "Open the Inbox",
+  leaderShortResume: sharedCopy.resume,
+  resumeUnfinishedWork: sharedCopy.resumeUnfinished,
   leaderWaitsForAKey: "More keys…",
   switchToARowByName: "Find row",
   openTheSwitcher: "Find anything",

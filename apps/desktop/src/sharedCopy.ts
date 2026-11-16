@@ -14,6 +14,17 @@ export const staleSuffix = ", stale";
 
 const noCi = "No CI";
 
+const rpcFailures = new Map<number, string>([
+  [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
+  [-32602, "Check the input and try again."], [-32603, "Completion is unconfirmed. Check before trying again."],
+  [-32001, "The item is unavailable. Try again to check."], [-32002, "This action is not allowed. Check access before trying again."],
+  [-32003, "The item was changed. Check the current item before trying again."], [-32004, "The reply was lost. Check before trying again."],
+  [-32005, "The Agent is busy. Wait until it is idle."], [-32006, "Delivery is unconfirmed. Check the Agent before trying again."],
+  [-32007, "The Agent is not running. Try again to check."], [-32008, "The interruption is unconfirmed. Check the Agent before trying again."],
+  [-32009, "Earlier changes are unavailable. Reopen to check current work."], [-32010, "The inbox is unavailable. Check the Agent before trying again."],
+  [-32011, "The roundup App is not open. Open it and try again."],
+]);
+
 export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": word.newMode, "opening-prompt": word.firstPrompt, "row-name": word.name, rail: "Project item", agent: word.agent, workstream: word.workstream, terminal: word.terminal, orders: "Order", pads: word.pad, todos: word.todo, thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: word.ask, header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" }));
 
 export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Another window has changed stored unfinished work." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
@@ -55,6 +66,7 @@ export const copy = {
   closeView: (name: string) => `Close ${name}`,
   railDraftConflict: "The original name has changed. Your unfinished work remains. Copy it or discard it before renaming again.",
   railDraftMissingTarget: "Unavailable target",
+  rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   settings: "Settings",
   settingsForward: "Forward →",
   deliverables: "Made",
@@ -204,6 +216,7 @@ export const copy = {
   todo: word.todo,
   newTodoTitle: "New Todo title",
   resume: "Resume",
+  resumeUnfinished: "Resume unfinished work",
   copy: "Copy",
   comma: ", ",
   unreadResult: "Unread result",

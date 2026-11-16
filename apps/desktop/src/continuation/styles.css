@@ -1,0 +1,4 @@
+.resume-bar {
+  flex: none;
+  padding-inline: var(--space-2);
+}
