@@ -120,7 +120,6 @@ export const copy = {
   newAgentWithAPrompt: "Agent with prompt",
   newTerminal: "New Terminal",
   remove: "Remove",
-  update: "Update",
   thisMac: "This Mac",
   removeQuestion: (name: string) => `Remove ${name}?`,
   pressAKey: "Press a key",
