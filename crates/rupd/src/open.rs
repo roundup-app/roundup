@@ -110,6 +110,7 @@ impl Daemon {
             terminals: Arc::clone(&terminals),
             wake_gate: Default::default(),
             restarting: Default::default(),
+            handoffs: Default::default(),
             reports: Default::default(),
             queue: Default::default(),
             auto: Default::default(),

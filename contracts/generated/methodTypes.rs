@@ -171,6 +171,7 @@
     Method { name: "message.retryDelivery", params: "agent_NodeId", result: "null" },
     Method { name: "workstream.rewind", params: "workstream_RewindParams", result: "workstream_Rewind" },
     Method { name: "agent.restartMode", params: "agent_ModeRestartParams", result: "agent_RailNode" },
+    Method { name: "agent.handoff", params: "agent_HandoffParams", result: "agent_RailNode" },
     Method { name: "todo.startWorkstream", params: "workstream_StartWorkstreamParams", result: "agent_RailNode" },
     Method { name: "workstream.queue", params: "null", result: "workstream_QueueState" },
     Method { name: "workstream.dequeue", params: "workstream_QueuedWorkstream", result: "null" },

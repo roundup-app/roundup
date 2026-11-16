@@ -14,6 +14,7 @@ import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { FileComparison as agent_FileComparison } from "./agent/FileComparison";
 import type { GroupParams as agent_GroupParams } from "./agent/GroupParams";
+import type { HandoffParams as agent_HandoffParams } from "./agent/HandoffParams";
 import type { Instructions as agent_Instructions } from "./agent/Instructions";
 import type { Landed as agent_Landed } from "./agent/Landed";
 import type { ModePromptParams as agent_ModePromptParams } from "./agent/ModePromptParams";
@@ -357,6 +358,7 @@ export type RpcMethods = {
   "message.retryDelivery": { params: agent_NodeId; result: null };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
   "agent.restartMode": { params: agent_ModeRestartParams; result: agent_RailNode };
+  "agent.handoff": { params: agent_HandoffParams; result: agent_RailNode };
   "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };
   "workstream.queue": { params: null; result: workstream_QueueState };
   "workstream.dequeue": { params: workstream_QueuedWorkstream; result: null };

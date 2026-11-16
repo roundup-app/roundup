@@ -148,6 +148,8 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             if let Some(reply) = reply {
                 let _ = request_conn.events.send(reply);
             }
+            // H7200b: a handoff's caller ends only after its reply is queued.
+            daemon.finish_handoff(&request_conn.actor.id).await;
         });
         while let Some(joined) = ordinary.try_join_next() {
             joined.map_err(io::Error::other)?;
