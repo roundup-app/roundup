@@ -27,6 +27,6 @@ export const copy = {
   dragKeysList: "⌥↑/⌥↓ move",
   dragKeysTree: "⌥↑/⌥↓ move, ⌥←/⌥→ change depth",
   dragStarted: "Picked up",
-  dragEnded: "Dropped",
+  dragEnded: "Put down",
   dragCancelled: "Move cancelled",
 } as const;
