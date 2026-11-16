@@ -737,11 +737,6 @@ impl<'de> serde::Deserialize<'de> for Skipped {
     }
 }
 
-/// The transcript file a hook payload names.
-pub fn transcript_of(payload: &Value) -> Option<PathBuf> {
-    at(payload, "transcript_path").as_str().map(PathBuf::from)
-}
-
 impl Launcher {
     /// The private folder Agents' messaging sockets are made in.
     pub(super) fn socket_dir(&self) -> std::io::Result<&Path> {

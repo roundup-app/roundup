@@ -634,11 +634,6 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rupd/tests/lean_specialists.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/rupd/tests/support/door_terminals.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",

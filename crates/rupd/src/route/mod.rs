@@ -313,41 +313,10 @@ impl Daemon {
             }
             Gate::None | Gate::UserOnly | Gate::RefTarget | Gate::Spawn => {}
         }
-        let outcome = if row.gate == Gate::Spawn && params.field("specialist").is_string() {
-            self.spawn_specialist(&conn.actor, params.clone()).await
-        } else {
-            module
-                .call(&self.ctx(conn.actor.clone()), method, params.clone())
-                .await
-        };
+        let outcome = module
+            .call(&self.ctx(conn.actor.clone()), method, params.clone())
+            .await;
         match row.after {
-            After::MessageSend | After::AgentSignal if outcome.is_ok() => {
-                let id = if row.after == After::MessageSend {
-                    Some(conn.actor.id.as_str())
-                } else if params.field("payload").field("hook_event_name") == "Stop" {
-                    Some(params.field("id").as_str().unwrap_or_default())
-                } else {
-                    None
-                };
-                if let Some(id) = id {
-                    let is_specialist = self
-                        .specialists
-                        .lock()
-                        .await
-                        .values()
-                        .any(|specialist| specialist.id == id);
-                    if is_specialist {
-                        let repair = if row.after == After::MessageSend {
-                            self.specialist_summary(&conn.actor, &params).await
-                        } else {
-                            self.specialist_stop(&params).await
-                        };
-                        if let Err(err) = repair {
-                            eprintln!("rupd: specialist handoff: {}", err.message);
-                        }
-                    }
-                }
-            }
             After::TodoCreate | After::PadCreate if conn.actor.kind == ActorKind::Agent => {
                 return self
                     .home_in_workstream(row.after == After::PadCreate, &conn.actor, outcome?)

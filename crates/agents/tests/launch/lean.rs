@@ -731,21 +731,7 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
 }
 
 #[test]
-fn lc11_the_brief_names_a_standing_specialist_and_a_job_sized_child() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Door);
-    for token in ["standing specialist", "job-sized"] {
-        assert!(text.contains(token), "{token}");
-    }
-}
-
-#[test]
-fn lc12_the_brief_names_the_specialist_field() {
-    assert!(brief(&setup(), "7", Role::Door).contains("`specialist: \"<name>\"`"));
-}
-
-#[test]
-fn lc13_the_brief_sizes_a_job_under_160k() {
+fn lc27_the_brief_sizes_a_job_under_160k() {
     let text = brief(&setup(), "7", Role::Door);
     for token in ["160k", "whole job"] {
         assert!(text.contains(token), "{token}");
