@@ -249,9 +249,7 @@ async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
                 Some(())
             })
             .await;
-            let mut seen = run.seen().await;
-            seen.sort_unstable();
-            assert_eq!(seen, ids);
+            assert_eq!(run.seen().await, ids);
             assert!(run.in_flight(&ids).is_empty());
             run.record(&ids).await;
             run.idle_edge().await;

@@ -28,6 +28,7 @@ export const labels = new Map([
 
 export const copy = {
   ageNow: "now",
+  ageSeconds: (value: number) => `${value}s`,
   workstream: word.workstream,
   feedback: "Feedback",
   defaultChoice: "Default",
@@ -120,7 +121,6 @@ export const copy = {
   newAgentWithAPrompt: "Agent with prompt",
   newTerminal: "New Terminal",
   remove: "Remove",
-  thisMac: "This Mac",
   removeQuestion: (name: string) => `Remove ${name}?`,
   pressAKey: "Press a key",
   leaderShortShelf: word.bench,

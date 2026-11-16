@@ -153,7 +153,7 @@ const reads = new Set<RpcMethodName>([
   "terminal.snapshot", "terminal.screen", "terminal.read", "terminal.search",
   "todo.list", "todo.get", "todo.listHanded", "todo.getHistory", "todo.comments",
   "todo.unread", "todo.refs", "todo.deletion", "pad.list", "pad.read", "pad.getDeletion",
-  "agent.worktreeState", "machine.list", "agent.changedFiles", "agent.compareFile", "agent.spawnPrompt",
+  "agent.worktreeState", "machine.list", "agent.changedFiles", "agent.ownedChanges", "project.compareRefs", "agent.compareFile", "agent.spawnPrompt",
   "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
   "project.get", "project.resources", "models.list", "import.list", "project.importDiscover",
   "message.get", "message.list", "message.reconcileWork",
