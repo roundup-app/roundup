@@ -441,6 +441,8 @@ async fn b5763d_committed_rename_and_todo_handoff_share_the_repeat_rule() {
             (!run.entries().is_empty()).then_some(())
         })
         .await;
+        // TS1: a delivered note starts a turn that the Agent's Stop ends.
+        run.idle_edge().await;
         let body = if producer == "rename" {
             "you are now called \"final-name\" on the Rail".to_owned()
         } else {

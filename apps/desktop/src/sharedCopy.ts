@@ -22,7 +22,7 @@ export type CopyValue = string | number | undefined;
 
 export const labels = new Map([
   ["held", "held alerts"], ["open-tab", "the selected Project"], ["tab-order", "the Project tab order"], ["project-alerts", "Project alert levels"], ["unseen", "read markers"], ["drafts", "unfinished work"],
-  ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
+  ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"], ["updates-told", "update notices"],
   ["viewer", "panel layout"],
  ]);
 
@@ -121,6 +121,8 @@ export const copy = {
   newAgentWithAPrompt: "Agent with prompt",
   newTerminal: "New Terminal",
   remove: "Remove",
+  thisMac: "This Mac",
+  removeQuestion: (name: string) => `Remove ${name}?`,
   pressAKey: "Press a key",
   leaderShortShelf: word.bench,
   leaderShortCapture: "Capture",
@@ -177,6 +179,10 @@ export const copy = {
   todos: word.todos,
   pads: word.pads,
   roundup: "roundup",
+  herdrCore: "herdr-core",
+  terminals: "Terminals",
+  updates: "Updates",
+  updateName: (program: string, version: string) => `${program} ${version}`,
   newMode: word.newMode,
   ci: "CI",
   questionMark: "?",

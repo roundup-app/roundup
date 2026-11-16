@@ -31,7 +31,7 @@ const doorFacts = (id: string): Omit<Of<"agent">, "kind" | "id" | "name" | "pare
   status_revision: "1",
   terminal_id: `t-${id}`,
   worktree: null,
-  can_resume: false, yolo: false,
+  can_resume: false, has_conversation: false, yolo: false,
   channel: null,
   stray: [],
   model: null,

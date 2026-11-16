@@ -136,7 +136,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
         { when: moveAgent.available(node.id), id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) },
         { when: node.kind === "agent" && node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
         { when: node.kind === "agent" && node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
-        { when: isMode(node), id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } },
         { when: isMode(node), id: "mode-prompt", label: copy.modePromptMenu, run: () => { setDialog({ kind: "opening-prompt", id: node.id }); } },
         { id: "folder", label: copy.openFolder, run: actions.folder },
         { id: "editor", label: copy.openInEditor, run: actions.editor },
@@ -467,7 +466,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
     if (isMode(node)) actions.restart = {
       pending: menu.restartPending(node.id),
-      run: () => { void menu.restartMode(node.id); },
+      run: () => { menu.restartRow(node.id); },
       menu: click => {
         if (!(click.currentTarget instanceof HTMLElement)) return;
         const box = click.currentTarget.getBoundingClientRect();
@@ -582,7 +581,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
       return {
         available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && isMode(node)),
-        invoke: () => { if (id) void menu.restartMode(id); },
+        invoke: () => { if (id) menu.restartRow(id); },
       };
     } },
     { action: CHORDS["agent.new"], match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {

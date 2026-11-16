@@ -406,3 +406,88 @@ async fn a2693a_cleanup_stop_keeps_the_last_acknowledged_mode() {
             .yolo()
     );
 }
+
+/// U7191a: Restart is `agent.resume` with the mode the run held: the old run stops, one run resumes
+/// the same conversation under the same row and a fresh Terminal.
+#[tokio::test]
+async fn u7191a_restart_resumes_the_same_conversation() {
+    for mode in ["normal", "yolo"] {
+        let f = Arc::new(Fixture::running("echo \"$@\" > argv.txt; sleep 30"));
+        let node = f.spawn(None, None).await.unwrap();
+        f.session_start(&node.id, CONVERSATION, "startup")
+            .await
+            .unwrap();
+        let held = resume_in_mode(&f, &node, Some(mode)).await;
+        let restarted = resume_in_mode(&f, &held, Some(mode)).await;
+        assert_eq!(restarted.id, node.id);
+        assert_eq!(restarted.yolo(), mode == "yolo");
+        assert_ne!(restarted.terminal_id(), held.terminal_id());
+        let argv = until_resumed(&f).await;
+        assert!(argv.contains(&format!("--resume {CONVERSATION}")));
+        assert_eq!(
+            argv.contains("--dangerously-skip-permissions"),
+            mode == "yolo"
+        );
+        let terminals = f.terminals.list().await;
+        assert_eq!(terminals.iter().filter(|t| t.running).count(), 1);
+    }
+}
+
+/// U7191b: the row says whether the Daemon holds a conversation, running or exited.
+#[tokio::test]
+async fn u7191b_the_row_reports_a_conversation() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    assert!(!node.has_conversation());
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let running = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    assert!(running.has_conversation() && !running.can_resume());
+    f.call("agent.stop", json!({"id": node.id})).await.unwrap();
+    let exited = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    assert!(exited.has_conversation() && exited.can_resume());
+}
+
+/// U7191c: a Restart the Daemon cannot start names the cause and leaves the row and Terminal as before.
+#[tokio::test]
+async fn u7191c_a_failed_restart_names_the_cause() {
+    let f = Arc::new(Fixture::running("sleep 30"));
+    let node = f.spawn(None, None).await.unwrap();
+    let err = f
+        .call("agent.resume", json!({"id": node.id, "mode": "normal"}))
+        .await
+        .unwrap_err();
+    assert!(
+        err.message.contains("no saved conversation"),
+        "{}",
+        err.message
+    );
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    std::fs::remove_file(f.dir.path().join("fake-claude")).unwrap();
+    let err = f
+        .call("agent.resume", json!({"id": node.id, "mode": "normal"}))
+        .await
+        .unwrap_err();
+    assert!(!err.message.is_empty());
+    let after = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    assert_eq!(after.terminal_id(), node.terminal_id());
+    assert!(after.has_conversation());
+}

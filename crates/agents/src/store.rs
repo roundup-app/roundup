@@ -322,7 +322,18 @@ impl Agents {
             .inspect_err(|state| {
                 self.shared.events.inbox.set(id, *state);
             })?;
+        let attempt = matches!(runs.slot(id), Some(Slot::Running(_)))
+            .then(|| runs.slot(id).map(|slot| slot.attempt().to_string()))
+            .flatten();
         drop(runs);
+        // TS1: a delivered Message is the next prompt, and the vendor fires no prompt Signal for it.
+        if let Some(attempt) = attempt
+            && let Err(err) =
+                self.shared
+                    .observe(Actor::daemon(), id, &attempt, crate::Observation::Delivered)
+        {
+            eprintln!("agents: could not read {id}'s Message delivery as a turn start: {err}");
+        }
         // Claude Code may have taken the entries up before they were in flight.
         self.shared.events.inbox.rescan(id);
         Ok(())
