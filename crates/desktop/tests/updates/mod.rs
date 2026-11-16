@@ -2,7 +2,6 @@
 use super::*;
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::sync::Mutex;
 
 /// A `herdr-core` on a `PATH` of its own, so its script uses shell built-ins only: `--version` prints
 /// the version kept in `core-version`, and `update` runs `update_body` after noting that it ran.
@@ -24,24 +23,16 @@ fn fake_core(fx: &mut Fixture, version: &str, update_body: &str) {
     fx.config.search_path = bin.into_os_string();
 }
 
-/// A release feed that answers every request with `body`, once `go` is sent; its URL, `go` and the
-/// request lines it has been asked.
-fn serve_feed(body: &'static str) -> (String, mpsc::Sender<()>, Arc<Mutex<Vec<String>>>) {
+/// A release feed that answers every request with `body`, once `go` is sent; its URL.
+fn serve_feed(body: &'static str) -> (String, mpsc::Sender<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}/core/latest.json", listener.local_addr().unwrap());
     let (go, wait) = mpsc::channel::<()>();
-    let asked = Arc::new(Mutex::new(Vec::new()));
-    let seen = Arc::clone(&asked);
     std::thread::spawn(move || {
         let _ = wait.recv();
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
-            let mut request = [0; 1024];
-            let read = stream.read(&mut request).unwrap_or(0);
-            let line = String::from_utf8_lossy(&request[..read]);
-            seen.lock()
-                .unwrap()
-                .push(line.lines().next().unwrap_or("").to_owned());
+            let _ = stream.read(&mut [0; 1024]);
             let _ = write!(
                 stream,
                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
@@ -49,7 +40,7 @@ fn serve_feed(body: &'static str) -> (String, mpsc::Sender<()>, Arc<Mutex<Vec<St
             );
         }
     });
-    (url, go, asked)
+    (url, go)
 }
 
 fn updates_changed(app: &App<MockRuntime>) -> mpsc::Receiver<Value> {
@@ -113,10 +104,13 @@ fn u7208c_a_failed_core_update_names_its_last_line() {
 fn u7208d_updates_answers_the_versions_and_what_is_ready() {
     let mut fx = Fixture::new(SERVE_AND_WAIT);
     fake_core(&mut fx, "0.1.21", "");
-    let (url, go, asked) = serve_feed(r#"{"version":"0.1.22","generation":3}"#);
+    let (url, go) = serve_feed(r#"{"version":"0.1.22","generation":3}"#);
     fx.config.core_feed = Some(url);
-    let (app, webview) = app(fx.config.clone(), None);
+    let (mut app, webview) = app(fx.config.clone(), None);
     let looked = updates_changed(&app);
+    // Tauri runs the setup hook, which starts the look, when the event loop starts.
+    #[allow(deprecated)]
+    app.run_iteration(|_, _| {});
     assert_eq!(
         invoke(&webview, "updates", json!({})).unwrap(),
         json!({"roundup": null, "core": {"version": "0.1.21", "ready": null}}),
@@ -125,14 +119,9 @@ fn u7208d_updates_answers_the_versions_and_what_is_ready() {
 
     go.send(()).unwrap();
     let expected = json!({"roundup": null, "core": {"version": "0.1.21", "ready": "0.1.22"}});
-    let sent = looked.recv_timeout(WAIT).unwrap_or_else(|why| {
-        panic!(
-            "the look sent no `updates-changed` ({why}); `updates` answers {}; the feed was asked {:?}; proxies {:?}",
-            invoke(&webview, "updates", json!({})).unwrap(),
-            asked.lock().unwrap(),
-            std::env::vars().filter(|(name, _)| name.to_lowercase().contains("proxy")).collect::<Vec<_>>()
-        )
-    });
+    let sent = looked
+        .recv_timeout(WAIT)
+        .expect("the look sent no `updates-changed`");
 
     assert_eq!(sent, expected);
     assert_eq!(invoke(&webview, "updates", json!({})).unwrap(), expected);
