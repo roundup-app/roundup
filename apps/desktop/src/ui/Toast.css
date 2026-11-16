@@ -188,3 +188,8 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+/* U7283c: ui-sdk spaces the stack's list by two of its own steps; the App's gap is one Token step. */
+:where([data-slot="toast-list"]) {
+  gap: var(--space-2);
+}

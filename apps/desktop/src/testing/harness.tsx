@@ -1,3 +1,5 @@
+// U7283a: first, so the list loads before any component imports its own sheet.
+import "../sheets";
 import { Menu } from "../ui/Menu";
 import type { MenuItem } from "../app/seam";
 import { StorageRecovery } from "../window/StorageRecovery";
@@ -20,9 +22,6 @@ import { createServedApp } from "./realSeam";
 import { isSeedName, SEEDS, seedApp } from "./seeds";
 import type { Controls } from "./seeds";
 import type { AppSeam } from "../app/seam";
-import "../tokens.css";
-import "../styles.css";
-import "../scrollbar.css";
 import { trackScrollbars } from "../scrollHover";
 import "./todoWorstCase.styles.css";
 

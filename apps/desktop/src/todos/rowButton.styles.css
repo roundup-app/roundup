@@ -26,7 +26,7 @@
 
 /* U361: draw a 16 px Token box; the native input retains a 24 px hit area
    starting on the Glyph edge. Its extra width stays in the column gap. */
-.todo-tick {
+input.todo-tick {
   appearance: none;
   font-size: var(--text-body);
   position: relative;

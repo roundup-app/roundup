@@ -27,12 +27,13 @@ describe("u130 tokens", () => {
   });
 
   it("u130_main_and_the_harness_import_tokens_css_before_styles_css", () => {
-    const entries = import.meta.glob<string>(["../main.tsx", "../testing/harness.tsx"], { query: "?raw", import: "default", eager: true });
+    // U7283a: both entries import the one list, `sheets.ts`, which holds the order.
+    const entries = import.meta.glob<string>(["../sheets.ts"], { query: "?raw", import: "default", eager: true });
 
     const positions = Object.values(entries).map((code) => [code.search(/import "\.{1,2}\/tokens\.css"/), code.search(/import "\.{1,2}\/styles\.css"/)]);
 
-    expect(positions).toHaveLength(2);
-    expect(positions.map(([tokens = -1, styles = -1]) => tokens >= 0 && tokens < styles)).toEqual([true, true]);
+    expect(positions).toHaveLength(1);
+    expect(positions.map(([tokens = -1, styles = -1]) => tokens >= 0 && tokens < styles)).toEqual([true]);
   });
 
   it("u130_every_token_has_a_dark_value", () => {

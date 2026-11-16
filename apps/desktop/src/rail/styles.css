@@ -165,6 +165,7 @@
 
 /* U3744: a queued Workstream's place is state, so it stays visible beside the name and never wraps; the actions keep the trailing edge (U112). */
 .rail-row .queue-badge {
+  opacity: 1;
   flex: none;
   white-space: nowrap;
   font-size: var(--text-caption);

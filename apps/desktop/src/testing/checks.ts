@@ -173,15 +173,84 @@ const terminalRule = (selectorText: string) => {
   });
 };
 
+// U7283b: the sheet that owns a rule tells the vendor's from the App's; no value, selector or colour is allow-listed.
+const vendorSheets = (doc: Document): Set<CSSStyleSheet | null> =>
+  new Set([...doc.querySelectorAll<HTMLStyleElement | HTMLLinkElement>('style[data-vite-dev-id*="@ui-sdk/core/"][data-vite-dev-id$="web.css"], link[href*="@ui-sdk/core/"][href*="web.css"]')].map(el => el.sheet));
+
+const SIDES = { top: ["block-start"], bottom: ["block-end"], left: ["inline-start"], right: ["inline-end"] } as const;
+
+// The properties whose declaration, longhand, logical or shorthand, sets `property`.
+const settersOf = (property: string): string[] => {
+  // SAFETY: a property named `<kind>-<side>` has a side from SIDES whenever `kind` is margin or padding, the only case that reads it.
+  const [kind, side] = property.split("-") as [string, keyof typeof SIDES];
+
+  if (kind !== "margin" && kind !== "padding") return property === "font-size" ? ["font-size", "font"] : [property];
+
+  const axis = side === "top" || side === "bottom" ? "block" : "inline";
+
+  return [property, ...SIDES[side].map(logical => `${kind}-${logical}`), `${kind}-${axis}`, kind];
+};
+
+const matches = (el: Element, selector: string): boolean => {
+  try {
+    return el.matches(selector);
+  } catch {
+    return false;
+  }
+};
+
+type Declared = { selector: string; sheet: CSSStyleSheet | null; rule: CSSStyleRule };
+
+// Every style rule of the page, nested ones included, with the selector it has once `&` is the parent's.
+const declaredRules = (doc: Document): Declared[] => {
+  const walk = (rules: CSSRuleList, parent: string | null): Declared[] =>
+    [...rules].flatMap((rule): Declared[] => {
+      if ("selectorText" in rule) {
+        // SAFETY: a rule with `selectorText` is a CSSStyleRule.
+        const own = rule as CSSStyleRule;
+        const selector = parent === null ? own.selectorText : own.selectorText.replace(/&/g, `:is(${parent})`);
+        // A nested rule that names no `&` still hangs below its parent.
+        const joined = parent !== null && !own.selectorText.includes("&") ? `:is(${parent}) ${own.selectorText}` : selector;
+
+        return [{ selector: joined, sheet: own.parentStyleSheet, rule: own }, ...walk(own.cssRules, joined)];
+      }
+
+      // SAFETY: a rule with `cssRules` is a grouping rule.
+      return "cssRules" in rule ? walk((rule as CSSGroupingRule).cssRules, parent) : [];
+    });
+
+  return [...doc.styleSheets].flatMap(sheet => {
+    try {
+      return walk(sheet.cssRules, null);
+    } catch {
+      return [];
+    }
+  });
+};
+
+// U7283b: true when the rules matching `el` that declare `property` are all the vendor sheet's, so the App has not set the value D2 judges.
+const vendorWins = (page: Page, el: Element, property: string): boolean => {
+  const setters = settersOf(property);
+
+  // SAFETY: only an HTML or SVG element carries a `style` attribute, and both have `.style`.
+  if (el.getAttribute("style") && setters.some(name => (el as HTMLElement).style.getPropertyValue(name))) return false;
+
+  const vendor = vendorSheets(page.doc);
+  const declaring = declaredRules(page.doc).filter(({ rule, selector }) => setters.some(name => rule.style.getPropertyValue(name) !== "") && matches(el, selector));
+
+  return declaring.length > 0 && declaring.every(({ sheet }) => vendor.has(sheet));
+};
+
 const colourProperties = ["color", "background-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"] as const;
 
 // D1: nothing but a Token read supplies a colour, font size, radius, shadow or duration.
 const d1 = ({ doc, elements, rules }: Page): Measure => {
   const tokenSheets = new Set([...doc.querySelectorAll<HTMLStyleElement>('style[data-vite-dev-id$="/src/tokens.css"]')].map(el => el.sheet));
+  const vendor = vendorSheets(doc);
 
   // CSSOM serializes the permitted unitless zero radius as `0px`; keep nonzero radii in the literal scan.
   const found = rules
-    .filter((rule) => !tokenSheets.has(rule.parentStyleSheet) && !terminalRule(rule.selectorText))
+    .filter((rule) => !tokenSheets.has(rule.parentStyleSheet) && !vendor.has(rule.parentStyleSheet) && !terminalRule(rule.selectorText))
     .flatMap((rule) => lookLiterals(rule.cssText.slice(rule.cssText.indexOf("{")).replace(/(border(?:-[\w]+)?-radius:\s*)0px\b/g, "$10")).map((literal) => ({ selector: rule.selectorText, literal })));
 
   const inline = elements.flatMap((el) => lookLiterals(inlineStyleCss(`style={{${(el.getAttribute("style") ?? "").split(";").filter(Boolean).map((pair) => pair.replace(/^\s*([^:]+):\s*(.*)$/, '"$1": "$2"')).join(",")}}}`)).map((literal) => ({ selector: selectorOf(el), literal })));
@@ -210,7 +279,7 @@ const d2 = (page: Page): Measure =>
     const padRatio = Number(page.token("pad-type-ratio"));
     const padTypes = inPad ? [-1, 0, 1, 2, 3, 4].map(power => padBody * padRatio ** power) : [];
 
-    if (size !== null && ![20, 24, ...[...TYPE_STEPS].map(step => step * scale), ...padTypes].some(step => Math.abs(size - step) < 0.01)) return { fontSize: style.fontSize };
+    if (size !== null && ![20, 24, ...[...TYPE_STEPS].map(step => step * scale), ...padTypes].some(step => Math.abs(size - step) < 0.01) && !vendorWins(page, el, "font-size")) return { fontSize: style.fontSize };
 
     const level = Number(el.getAttribute("aria-level"));
 
@@ -238,7 +307,7 @@ const d2 = (page: Page): Measure =>
       const conforms = keyGap ? true : chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
         : value === null || SPACE_STEPS.has(value) || padSpaces.some(step => Math.abs(value - step) < 0.01) || (property === treeSide && treePadding !== null && value === treePadding);
 
-      if (!conforms) return { [property]: style.getPropertyValue(property) };
+      if (!conforms && !(/^(margin|padding)-/.test(property) && vendorWins(page, el, property))) return { [property]: style.getPropertyValue(property) };
     }
 
     return null;
