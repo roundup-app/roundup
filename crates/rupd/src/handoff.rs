@@ -22,11 +22,10 @@ impl Daemon {
             ));
         }
         let ctx = self.ctx(actor.clone());
-        let pads = self
-            .modules
-            .get("pad")
-            .ok_or_else(|| RpcError::internal("Pads are unavailable"))?;
-        pads.call(&ctx, "pad.read", json!({"name": p.pad})).await?;
+        let _: contracts::pad::Pad = self
+            .reader()
+            .call("pad", "pad.read", json!({"name": p.pad}), actor.clone())
+            .await?;
         let caller = self
             .rail()
             .await?

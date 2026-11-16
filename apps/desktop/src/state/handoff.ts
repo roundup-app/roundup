@@ -5,7 +5,7 @@ type Row = Pick<RailNode, "id" | "kind" | "parent">;
 /**
  * H7200d: the row that takes the selection when the selected Agent `gone` leaves the Rail, or `null`.
  * A builder stands ahead of the Agent that handed off until that Agent ends, then at its index, so
- * the taker is a sibling that arrived after the selection (`seen` held the rows when it was made)
+ * the taker is a sibling that arrived after the selection (`seen` lists the rows when it was made)
  * either just ahead of `gone` or at its index once `gone` is out of the list.
  */
 export const handoffTaker = (before: readonly Row[], after: readonly Row[], gone: string, seen: ReadonlySet<string>): string | null => {
@@ -13,8 +13,8 @@ export const handoffTaker = (before: readonly Row[], after: readonly Row[], gone
 
   if (!old || old.kind !== "agent") return null;
 
-  const was = before.filter(row => row.parent === old.parent).map(row => row.id);
-  const now = after.filter(row => row.parent === old.parent && row.kind === "agent").map(row => row.id);
+  const was = before.flatMap(row => row.parent === old.parent ? [row.id] : []);
+  const now = after.flatMap(row => row.parent === old.parent && row.kind === "agent" ? [row.id] : []);
   const at = was.indexOf(gone);
   const ahead = was[at - 1];
 

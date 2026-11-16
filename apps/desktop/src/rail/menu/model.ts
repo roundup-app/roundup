@@ -55,6 +55,13 @@ const needsConfirmation = (node: RailNode, exit: ExitState | null) =>
   isDoor(node) && isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
+/** H7200f: an Agent that is idle or needs you may be handed off; a Door never is. */
+const canHandOff = (node: RailNode, exit: ExitState | null) =>
+  node.kind === "agent" && exit === null && (node.status?.kind === "idle" || node.status?.kind === "needs-you");
+
+/** H7200f: the user's own `/handoff`, typed into the Agent; the Agent then calls `agent.handoff` itself. */
+const handOff = async ({ app, rail }: Pick<RailMenuDeps, "app" | "rail">, node: RailNode) => { await railCommand(rail, { item: node.id, call: () => app.rpc("agent.prompt", { id: node.id, text: "/handoff" }) }); };
+
 export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, rename, queue, extra, feedback, known }: RailMenuDeps) => {
   const [state, setState] = createSignal<Confirming | null>(null);
   let removingSelection = false;
@@ -96,9 +103,8 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   };
 
   /** U2694g: pointer menus address their row without activating it. */
-  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) => {
-    return contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
-  };
+  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) =>
+    contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
 
   /** One stop path: the menu's item, the Rail's icon and the confirm's answer all end here. */
   const stopNow = (node: RailNode) => {
@@ -342,13 +348,6 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     ];
   };
 
-  /** H7200f: the user's own `/handoff`, typed into the Agent; the Agent then calls `agent.handoff` itself. */
-  const handOff = async (node: RailNode) => { await railCommand(rail, { item: node.id, call: () => app.rpc("agent.prompt", { id: node.id, text: "/handoff" }) }); };
-
-  /** H7200f: an Agent that is idle or needs you may be handed off; a Door never is. */
-  const canHandOff = (node: RailNode, exit: ExitState | null) =>
-    node.kind === "agent" && exit === null && (node.status?.kind === "idle" || node.status?.kind === "needs-you");
-
   const lifecycleEntries = (node: RailNode, exit: ExitState | null): Candidate[] => {
     const running = isRunning(node, exit);
 
@@ -357,7 +356,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
       { when: isYolo(node) && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
-      { when: canHandOff(node, exit), id: "hand-off", label: copy.handOff, run: () => handOff(node) },
+      { when: canHandOff(node, exit), id: "hand-off", label: copy.handOff, run: () => handOff({ app, rail }, node) },
       { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
       { when: isResumable(node, exit), id: "resume", label: copy.resume, run: () => {
         rail.select(node.id);

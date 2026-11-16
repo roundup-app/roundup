@@ -61,6 +61,7 @@ describe("h7200 hand off", () => {
       ],
       [exitedTerminal("gone", 0)],
     );
+
     const offered = (name: string) => {
       fireEvent.contextMenu(rowOf(name), { clientX: 1, clientY: 1 });
 

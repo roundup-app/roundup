@@ -232,6 +232,46 @@ const shownOver = (tree: readonly RailNode[], pending: readonly Pending[]): read
   return starting.size === 0 ? drawn : drawn.map(node => starting.has(node.id) && isDoor(node) ? { ...node, status: startingStatus(node.status?.since) } : node);
 };
 
+/** U5172a: a read or Event settles an unconfirmed change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
+const settleAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<string, PendingChange>>, forget: (id: string) => void, commandFailure: ReturnType<typeof createItemFailure>) => {
+  for (const [id, change] of Object.entries(unconfirmed)) {
+    const node = tree.find(each => each.id === id);
+
+    if (node === undefined) {
+      forget(id);
+      continue;
+    }
+
+    if (change.kind === "move") {
+      const place = placeOf(tree, id)!;
+
+      if (place.parent === change.base.parent && place.index === change.base.index) continue;
+      forget(id);
+
+      if (place.parent !== change.asked.parent || place.index !== change.asked.index) commandFailure.show(copy.moveDidNotApply, id, "rail");
+      continue;
+    }
+
+    if (change.kind !== "rename" || node.name === change.base) continue;
+    forget(id);
+
+    if (node.name !== change.asked) commandFailure.show(copy.renameDidNotApply(change.asked, node.name), id, "rail");
+  }
+};
+
+/** The Daemon's tree with each unconfirmed rename and move shown as asked. */
+const withAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<string, PendingChange>>): readonly RailNode[] => {
+  let shown = tree.map((node) => {
+    const change = unconfirmed[node.id];
+
+    return change?.kind === "rename" ? { ...node, name: change.asked } : node;
+  });
+
+  for (const [id, change] of Object.entries(unconfirmed)) if (change.kind === "move") shown = movedTo(shown, id, change.asked);
+
+  return shown;
+};
+
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
@@ -313,32 +353,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const [unconfirmed, setAsked] = createStore<Record<string, PendingChange>>({});
 
-  /** U5172a: a read or Event settles an unconfirmed change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
-  const reconcileAsked = (tree: readonly RailNode[]) => {
-    for (const [id, change] of Object.entries(unconfirmed)) {
-      const node = tree.find(each => each.id === id);
-
-      if (node === undefined) {
-        setAsked(id, undefined!);
-        continue;
-      }
-
-      if (change.kind === "move") {
-        const place = placeOf(tree, id)!;
-
-        if (place.parent === change.base.parent && place.index === change.base.index) continue;
-        setAsked(id, undefined!);
-
-        if (place.parent !== change.asked.parent || place.index !== change.asked.index) commandFailure.show(copy.moveDidNotApply, id, "rail");
-        continue;
-      }
-
-      if (change.kind !== "rename" || node.name === change.base) continue;
-      setAsked(id, undefined!);
-
-      if (node.name !== change.asked) commandFailure.show(copy.renameDidNotApply(change.asked, node.name), id, "rail");
-    }
-  };
+  const reconcileAsked = (tree: readonly RailNode[]) => settleAsked(tree, unconfirmed, id => setAsked(id, undefined!), commandFailure);
 
   /** Fetches run one after another, and Events that arrive meanwhile wait behind them: the answer may predate them. */
   const queue = new PQueue({ concurrency: 1 });
@@ -362,6 +377,21 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const hasLiveTerminal = (node: RailNode) => isDoor(node) && node.terminal_id !== null && !(node.terminal_id in model.exited);
 
+  /** The selected row left the Rail: H7200d's taker takes the selection, else nothing is selected. */
+  const reselect = (tree: readonly RailNode[], before: readonly Pick<RailNode, "id" | "kind" | "parent">[]) => {
+    const id = selected();
+
+    if (id === null || tree.some((node) => node.id === id)) return;
+
+    const taker = handoffTaker(before, tree, id, seenAtSelect);
+
+    if (taker !== null) select(taker, terminalFocus(), selectionIntent() === "open" ? "open" : undefined);
+    else {
+      setSelected(null);
+      save();
+    }
+  };
+
   const fetchTree = async () => {
     const tree = await app.rpc("rail.tree", null);
     const before = model.tree.map(({ id, kind, parent }) => ({ id, kind, parent }));
@@ -370,15 +400,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     batch(() => {
       reconcileAsked(tree);
 
-      let shown = tree.map((node) => {
-        const change = unconfirmed[node.id];
-
-        return change?.kind === "rename" ? { ...node, name: change.asked } : node;
-      });
-
-      for (const [id, change] of Object.entries(unconfirmed)) if (change.kind === "move") shown = movedTo(shown, id, change.asked);
-
-      setModel("tree", reconcile(shown, { key: "id" }));
+      setModel("tree", reconcile(withAsked(tree, unconfirmed), { key: "id" }));
 
       for (const id of Object.keys(resumed)) {
         if (tree.some(node => node.id === id && isDoor(node) && node.attempt === resumed[id]?.attempt)) continue;
@@ -411,17 +433,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
           save();
         }
       } else {
-        const id = selected();
-
-        if (id !== null && !tree.some((node) => node.id === id)) {
-          const taker = handoffTaker(before, tree, id, seenAtSelect);
-
-          if (taker !== null) select(taker, terminalFocus(), selectionIntent() === "open" ? "open" : undefined);
-          else {
-            setSelected(null);
-            save();
-          }
-        }
+        reselect(tree, before);
       }
     });
 
