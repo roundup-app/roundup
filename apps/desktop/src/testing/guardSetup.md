@@ -6,8 +6,9 @@ The runner owns selection. Run every available prescribed class guard with:
 pnpm --filter desktop exec vitest run --project webkit-guards --retry=0
 ```
 
-S3806b remains incomplete until `src/ui/s3806b_actions.test.tsx` merges. Parent
-#3850 must verify all three guards before completion. The Switcher U2572 suite
+S3806b remains incomplete until its surface files `src/ui/s3806b_*_actions.test.tsx`
+(sharing `src/testing/s3806b_support.tsx`) merge. Parent #3850 must verify all three
+guards before completion. The Switcher U2572 suite
 is an existing regression observer, not the S3806b guard.
 
 ## Baseline observation
@@ -26,7 +27,7 @@ local measurement. Do not change real-Claude, Rust or U26 failure observers.
 ## Configuration ownership
 
 `vite.config.ts` uses Vitest 5 inline projects. `webkit-guards` includes exactly
-the three prescribed paths; `app` includes the existing test glob, excludes
+the prescribed guard paths; `app` includes the existing test glob, excludes
 those paths, the browser files and Vitest's default exclusions, and starts no
 browser or App server. `browser` includes the test files that reach
 `chromePage` or `appServer` (T7187a, `browserTests.ts`) and owns the unchanged

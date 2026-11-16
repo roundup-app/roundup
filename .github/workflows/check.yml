@@ -175,9 +175,8 @@ jobs:
       BASE: >-
         ${{ github.event_name == 'pull_request' && !startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && 'HEAD^1' || '' }}
     name: rust ${{ matrix.partition }}
-    # T7295: the first failing lane cancels the others of its matrix, so a red verdict waits on no slower sibling.
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         partition: [1, 2, 3, 4, 5]
     runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-rust-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
@@ -478,9 +477,8 @@ jobs:
     env:
       CARGO_TARGET_DIR: target
     name: web ${{ matrix.partition }}
-    # T7295: the first failing shard cancels the others.
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
     runs-on: ${{ fromJSON((vars.BOXD_CHECK == '1' || contains(fromJSON(vars.BOXD_CHECK || '[]'), github.event.pull_request.number)) && format('["self-hosted","boxd","roundup-check-web-{0}-{1}-{2}"]', github.run_id, github.run_attempt, matrix.partition) || '"ubuntu-24.04"') }}
@@ -558,7 +556,8 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 tools/e14/observe.py run --install-dependencies --lane web${{ matrix.partition }} ${{ runner.environment != 'self-hosted' && format('--fault-log {0}/chromium-faults-{1}.jsonl', runner.temp, matrix.partition) || '' }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
-      # CI7295b: on `main`, a web lane whose setup took over 90 s or whose tests took over 4 min fails, naming itself.
+      # CI7295b: on `main`, a web lane whose setup took over 90 s or whose tests took over 5 min fails, and one whose tests
+      # took over 4 min warns, naming itself: file times swing up to half again between runs, and noise must not fail `main`.
       - name: CI7295b lane time budget
         if: github.event_name == 'push' && runner.environment != 'self-hosted'
         env:
@@ -570,15 +569,17 @@ jobs:
           import json, os, sys
           from datetime import datetime
           lane = os.environ["LANE"]
-          budgets = {"Run ./.github/actions/setup": ("setup", 90), "test-web": ("test step", 240)}
+          budgets = {"Run ./.github/actions/setup": ("setup", 90, 90), "test-web": ("test step", 240, 300)}
           over = []
           for step in map(json.loads, sys.stdin):
               if step["name"] in budgets and step["completed_at"]:
                   seconds = (datetime.fromisoformat(step["completed_at"]) - datetime.fromisoformat(step["started_at"])).total_seconds()
-                  what, limit = budgets[step["name"]]
-                  print(f"{lane}: {what} {seconds:.0f} s, budget {limit} s")
+                  what, aim, limit = budgets[step["name"]]
+                  print(f"{lane}: {what} {seconds:.0f} s, aim {aim} s, limit {limit} s")
                   if seconds > limit:
                       over.append(f"{what} took {seconds:.0f} s, over {limit} s")
+                  elif seconds > aim:
+                      print(f"::warning::{lane}: {what} took {seconds:.0f} s, over {aim} s")
           if over:
               print(f"::error::{lane}: " + "; ".join(over))
               sys.exit(1)
