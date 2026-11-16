@@ -1,5 +1,5 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
-import { lane, fresh, run, quote, wait, cases, openCreateLane, closeCreateLane } from "./u5555_support";
+import { lane, fresh, run, quote, wait, cases, openCreateLane, closeCreateLane } from "./u5555Browser";
 
 beforeAll(() => openCreateLane(), 60_000);
 

@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from "vitest";
 import { browser, read } from "../ui/tabsBrowser";
-import { batch, load, setViewport } from "./u514_support";
+import { batch, load, setViewport } from "./u514Browser";
 
 beforeAll(setViewport);
 

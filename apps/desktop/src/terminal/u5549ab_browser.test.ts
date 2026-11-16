@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from "vitest";
 import { browser, read } from "../ui/tabsBrowser";
-import { placement, reportingSelection, rightAt, setViewport } from "./u514_support";
+import { placement, reportingSelection, rightAt, setViewport } from "./u514Browser";
 
 beforeAll(setViewport);
 

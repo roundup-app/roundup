@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
-import { peekBench } from "./u6224_support";
+import { peekBench } from "./u6224Browser";
 
 const { browser, evaluate, settle, calls, saved, pause, toEdge, toCentre, waitFor, closedBenchOverATerminal } = peekBench();
 

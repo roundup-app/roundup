@@ -4,7 +4,7 @@ import { beforeAll, expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
-import { batch, doubleAt, drag, editor, editorKinds, load, optionDrag, placement, reportingSelection, rightAt, selectRow, setViewport } from "./u514_support";
+import { batch, doubleAt, drag, editor, editorKinds, load, optionDrag, placement, reportingSelection, rightAt, selectRow, setViewport } from "./u514Browser";
 
 beforeAll(setViewport);
 

@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { expect, it } from "vitest";
-import { documentBrowser, output, title } from "./u4698d_support";
+import { documentBrowser, output, title } from "./u4698dBrowser";
 
 const { browser, evaluate, settle, openDocument } = documentBrowser();
 

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { captureDir } from "../testing/captures";
 import { expect, it } from "vitest";
 import { browser, read, wait } from "../ui/tabsBrowser";
-import { capture, load, openTodo } from "./u3756_support";
+import { capture, load, openTodo } from "./u3756Browser";
 
 it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer_bubble_and_input_%s", async seed => {
   const dir = captureDir("U3756a");

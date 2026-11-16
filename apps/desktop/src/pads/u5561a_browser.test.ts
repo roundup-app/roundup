@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { batch, browser, read, url, wait } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
-import { opened, openPad, source } from "./u5561a_support";
+import { opened, openPad, source } from "./u5561aBrowser";
 
 it("u5561a_pad_disclosure_toggles_without_writing", { retry: 0, timeout: 90_000 }, async () => {
   await opened("/harness.html?seed=tree-40");

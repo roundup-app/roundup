@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
-import { fresh, load, newer } from "./u3756_support";
+import { fresh, load, newer } from "./u3756Browser";
 
 for (const path of ["ask", "switcher", "rail-name", "todo-title"]) {
   it(`u3756b_queued_${path}_appearance_yields_to_a_newer_rail_choice`, async () => {

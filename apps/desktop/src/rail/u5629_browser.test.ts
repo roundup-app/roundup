@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, afterAll, it, expect } from "vitest";
 import { captureDir } from "../testing/captures";
-import { lane, fresh, run, quote, wait, menuClosed, menuFocused, openCreateLane, closeCreateLane } from "./u5555_support";
+import { lane, fresh, run, quote, wait, menuClosed, menuFocused, openCreateLane, closeCreateLane } from "./u5555Browser";
 
 const artifacts = captureDir("U5629");
 

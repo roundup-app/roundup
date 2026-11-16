@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { batch, browser, read, wait } from "../ui/tabsBrowser";
 import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
-import { captureSha, headingHitAreas, opened } from "./u5561a_support";
+import { captureSha, headingHitAreas, opened } from "./u5561aBrowser";
 
 it.each([false, true])("u5575a_headings_fold_only_their_sections editable=%s", { retry: 0, timeout: 180_000 }, async (editable) => {
   await opened(`/src/pads/u5561a.html${editable ? "?editable" : ""}`);

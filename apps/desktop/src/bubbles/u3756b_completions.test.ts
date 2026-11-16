@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { browser, read, wait } from "../ui/tabsBrowser";
-import { capture, fresh, lateUserTerminalOpen, load, newer, richPadInitialization } from "./u3756_support";
+import { capture, fresh, lateUserTerminalOpen, load, newer, richPadInitialization } from "./u3756Browser";
 
 for (const choice of ["drawer", "ask", "rail"]) {
   it(`u3756b_older_appearance_cannot_replace_a_newer_focus_choice_${choice}`, async () => {

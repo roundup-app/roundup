@@ -33,7 +33,7 @@ Checks on main (numbers identify checks, never source lines):
 
 1. D2 type/space, D5 contrast and D6 targets/focus: `docs/design-system.md`, heading **The checks**; `apps/desktop/src/testing/checks.ts`, `runChecks`. These Checks move; every Check passing on main stays passing.
 2. D7 single interaction cue and D8 baseline/inset extensions: `scenarios/ui-visual.md`, headings **U133 press and row states extensions (D4, D7)** and **U131 row alignment extension (D8)**. The stricter quiet Todo cue above applies to this work.
-3. Selection/Open separation: `scenarios/ui-shelf.md`, **U3789a a row selects before it opens**; connected behavior at `apps/desktop/src/shelf/u3789_rows.test.tsx` and its browser companion.
+3. Selection/Open separation: `scenarios/ui-shelf.md`, **U3789a a row selects before it opens**; connected behavior at `apps/desktop/src/shelf/u3789a_rows.test.tsx` and its browser companion.
 4. Nest depth and commit order: `apps/desktop/src/todos/u3710_browser.test.ts`, `u3710_a_drag_that_changes_both_sets_blockers_then_reorders` and `u3710_depth_is_bounded_by_the_row_above`.
 5. Shared tree drop identity: `apps/desktop/src/ui/u535_browser.test.ts`, `u535_first_child_and_clamp` and `u535_no_drop_into_descendant`; U7276c cut `u535_keyboard_depth`, whose depth then-clause `u7276c_alt_right_nests_under_the_row_above` and `u7276c_alt_left_unnests_after_the_parent` prove.
 6. Journey stages and next-gap rule: `.agents/data/journey.md`, **What must work**, **How a Builder closes a gap** and **The viewport**; captures: `.agents/data/harness.md`, **Captures**.

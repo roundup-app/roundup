@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, wait } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
-import { opened, openPad, source } from "./u5561a_support";
+import { opened, openPad, source } from "./u5561aBrowser";
 
 it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ input, present }))))("u5561b_block_menu_adds_agent_details $input $present", { retry: 0, timeout: 90_000 }, async ({ input, present }) => {
   await opened("/harness.html?seed=tree-40");

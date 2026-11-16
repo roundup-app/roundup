@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { peekBench } from "./u6224_support";
+import { peekBench } from "./u6224Browser";
 
 const { browser, evaluate, calls, phase, pause, toEdge, toCentre, dispatch, waitFor, closedBenchOverATerminal } = peekBench();
 

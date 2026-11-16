@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { browser, origin, read } from "./u484_support";
+import { browser, origin, read } from "./u484Browser";
 
 // U7276a–b run in the App harness, whose lists hold real rows, controls and RPC calls.
 export const REORDERS = "window.__fake.app.calls.filter(c => ['rail.move', 'todo.reorder', 'todo.setBlockers', 'todo.move', 'pad.reorder', 'pad.setOwner'].includes(c.method)).length";

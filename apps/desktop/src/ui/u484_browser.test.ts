@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
-import { browser, closeBrowser, openBrowser, origin, read } from "./u484_support";
+import { browser, closeBrowser, openBrowser, origin, read } from "./u484Browser";
 
 beforeAll(openBrowser, 90_000);
 

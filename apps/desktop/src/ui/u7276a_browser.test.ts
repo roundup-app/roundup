@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { browser, closeBrowser, openBrowser, read } from "./u484_support";
-import { REORDERS, harness, liftAndCancel, pointIn, todos } from "./u7276_support";
+import { browser, closeBrowser, openBrowser, read } from "./u484Browser";
+import { REORDERS, harness, liftAndCancel, pointIn, todos } from "./u7276Browser";
 
 beforeAll(openBrowser, 90_000);
 

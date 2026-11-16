@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
-import { captureSha, headingHitAreas, opened, openPad, source } from "./u5561a_support";
+import { captureSha, headingHitAreas, opened, openPad, source } from "./u5561aBrowser";
 
 it("u5561b_failed_save_keeps_the_edited_agent_details", { retry: 0, timeout: 90_000 }, async () => {
   const failureSource = captureDir("U5704a")

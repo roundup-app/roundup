@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from "vitest";
 import { browser, read, wait } from "../ui/tabsBrowser";
-import { app, batch, doubleAt, drag, editor, placement, point, selectRow, setViewport } from "./u514_support";
+import { app, batch, doubleAt, drag, editor, placement, point, selectRow, setViewport } from "./u514Browser";
 
 beforeAll(setViewport);
 

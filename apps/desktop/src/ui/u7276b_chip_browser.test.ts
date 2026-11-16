@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, it } from "vitest";
-import { browser, closeBrowser, openBrowser, read } from "./u484_support";
-import { expectControlPressNeverDrags } from "./u7276_support";
+import { browser, closeBrowser, openBrowser, read } from "./u484Browser";
+import { expectControlPressNeverDrags } from "./u7276Browser";
 
 beforeAll(openBrowser, 90_000);
 

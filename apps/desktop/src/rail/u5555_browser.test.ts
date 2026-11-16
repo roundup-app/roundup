@@ -1,6 +1,6 @@
 import { beforeAll, afterAll, it, expect } from "vitest";
 import { captureDir } from "../testing/captures";
-import { lane, fresh, run, quote, wait, menuClosed, menuFocused, cases, openCreateLane, closeCreateLane } from "./u5555_support";
+import { lane, fresh, run, quote, wait, menuClosed, menuFocused, cases, openCreateLane, closeCreateLane } from "./u5555Browser";
 
 const recording = captureDir("U5555");
 

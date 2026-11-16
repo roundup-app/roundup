@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
-import { capture, fresh, lateUserTerminalOpen, load, newer, richPadInitialization } from "./u3756_support";
+import { capture, fresh, lateUserTerminalOpen, load, newer, richPadInitialization } from "./u3756Browser";
 
 for (const listFirst of [false, true]) {
   it(`u3756d_a_late_user_terminal_open_${listFirst ? "list" : "reply"}_first_takes_initial_focus`, () => lateUserTerminalOpen(listFirst, false), 90_000);
