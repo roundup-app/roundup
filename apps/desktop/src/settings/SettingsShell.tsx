@@ -6,6 +6,9 @@ import { copy } from "./copy";
 import "./styles.css";
 
 /** U3764: the centre's settings view, shared by Project settings and App Settings: a title, a close control and named groups. Escape closes it. */
+/** ui-sdk keeps a dialog, menu or list in place in the top layer, so its Escape bubbles through the view; that Escape is the layer's own. */
+const inLayer = (target: EventTarget | null) => target instanceof Element && target.closest("[popover]") !== null;
+
 export const SettingsShell = (props: { heading: string; hideHeading?: boolean; onClose: () => void; children: JSX.Element }) => {
   let view!: HTMLElement;
 
@@ -14,7 +17,7 @@ export const SettingsShell = (props: { heading: string; hideHeading?: boolean; o
   onSettled(() => { initialFocus(() => view.focus()); });
 
   return (
-  <section ref={view} tabindex="-1" class="settings-view" aria-label={props.heading} onKeyDown={event => { if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) { event.preventDefault(); props.onClose(); } }}>
+  <section ref={view} tabindex="-1" class="settings-view" aria-label={props.heading} onKeyDown={event => { if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && !inLayer(event.target)) { event.preventDefault(); props.onClose(); } }}>
     <Show when={!props.hideHeading}><header class="settings-head">
       <h2 class="settings-title">{props.heading}</h2>
       <button data-button="quiet" class="word" type="button" onClick={() => props.onClose()}>{copy.close}</button>

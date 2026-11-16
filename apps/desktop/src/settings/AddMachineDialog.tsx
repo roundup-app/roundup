@@ -30,7 +30,7 @@ export const AddMachineDialog = (props: {
   };
 
   return <Dialog.Root open={props.open} finalFocusEl={props.finalFocus} onOpenChange={details => { if (!details.open) { setFailure(null); props.close(); } }}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form add-machine">
+    <Dialog.Content class="app-dialog-form add-machine">
       <Dialog.Title>{copy.addMachine}</Dialog.Title>
       <Dialog.Description>{copy.addMachineIntro}</Dialog.Description>
       <Show when={props.hosts.length > 0}>
@@ -48,7 +48,7 @@ export const AddMachineDialog = (props: {
         <Field.Root invalid={failure() !== null}>
           <Field.Label>{copy.typeSshTarget}</Field.Label>
           <div class="add-machine-entry">
-            <Field.Input value={typed()} placeholder={copy.sshTargetPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.sshTargetLabel} onInput={event => setTyped(event.currentTarget.value)} />
+            <Field.Input value={typed()} placeholder={copy.sshTargetPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.sshTargetLabel} onValueChange={value => setTyped(value)} />
             <button type="submit" data-button="primary">{copy.add}</button>
           </div>
           <Field.HelperText>{copy.sshTargetHint}</Field.HelperText>
@@ -58,6 +58,6 @@ export const AddMachineDialog = (props: {
       <div class="app-dialog-actions">
         <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
       </div>
-    </Dialog.Content></Dialog.Positioner>
+    </Dialog.Content>
   </Dialog.Root>;
 };
