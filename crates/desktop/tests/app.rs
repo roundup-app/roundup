@@ -760,3 +760,5 @@ mod reopen;
 #[path = "app/start.rs"]
 mod start;
 mod update_exit;
+#[path = "updates/mod.rs"]
+mod updates;

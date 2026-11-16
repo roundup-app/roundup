@@ -31,7 +31,7 @@ Policy: no new binding. Naming an action adds no chord, no menu accelerator and 
 | Triage `T` `A` `W` `Tab` `⇧Tab` `X` `C` `Esc` | `todo.triage-enter` `todo.triage-assign` `todo.triage-workstream` `todo.triage-nest` `todo.triage-unnest` `todo.triage-done` `todo.triage-comment` `todo.triage-leave` | — |
 | Triage `J K` | `todo.triage-move` | `direction` choice `up`\|`down`, required |
 | editor `⇧⌘B` `⌥⌘8` `⌥⌘7` `⌥⌘C` `⌘I` `⌘E` | `editor.quote` `editor.bullet-list` `editor.numbered-list` `editor.code-block` `editor.italic` `editor.inline-code` | — |
-| Leader `A` `P` `C` `J` `⇧J` `K` `M` `W` `B` `T` `I` | `leader.assign` `leader.project` `leader.changes` `leader.attention` `leader.attention-other-project` `leader.row` `leader.bubble-minimise` `leader.bubble-close` `leader.shelf` `leader.capture` `leader.inbox` | `leader.row`: `query` string, optional, pre-fills the Switcher; others — |
+| Leader `A` `P` `C` `J` `⇧J` `K` `M` `W` `B` `T` `I` `U` | `leader.assign` `leader.project` `leader.changes` `leader.attention` `leader.attention-other-project` `leader.row` `leader.bubble-minimise` `leader.bubble-close` `leader.shelf` `leader.capture` `leader.inbox` `leader.resume` | `leader.row`: `query` string, optional, pre-fills the Switcher; others — |
 
 An entry added later (#5215's Workstream and Mode chords) takes a name by the rule above in the PR that adds it.
 

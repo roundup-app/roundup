@@ -11,6 +11,7 @@
     Method { name: "agent.interrupt", params: "agent_NodeId", result: "null" },
     Method { name: "agent.worktreeState", params: "agent_NodeId", result: "agent_WorktreeState" },
     Method { name: "agent.changedFiles", params: "agent_NodeId", result: "agent_ChangedFiles" },
+    Method { name: "agent.ownedChanges", params: "agent_NodeId", result: "agent_OwnedChanges" },
     Method { name: "agent.compareFile", params: "agent_CompareFileParams", result: "agent_FileComparison" },
     Method { name: "agent.land", params: "agent_NodeId", result: "agent_Landed" },
     Method { name: "agent.discard", params: "agent_NodeId", result: "null" },

@@ -33,6 +33,8 @@ pub struct Config {
     pub channel: Channel,
     /// CH7077c: why this build opens nothing, said to the user before any Daemon starts.
     pub refusal: Option<String>,
+    /// U7208d: the feed herdr-core's newest version is read from; `None` reads none.
+    pub core_feed: Option<String>,
 }
 
 impl Config {
@@ -61,6 +63,7 @@ impl Config {
             dev_port: None,
             channel: Channel::Source,
             refusal: None,
+            core_feed: None,
         })
     }
 
@@ -147,6 +150,11 @@ impl Config {
         config.channel = channel;
         config.claude_bin = var("ROUNDUP_CLAUDE_BIN");
         config.search_path = var("PATH").unwrap_or_default();
+        config.core_feed = Some(crate::core_update::feed(
+            var("HERDR_RELEASES_URL")
+                .as_deref()
+                .and_then(|url| url.to_str()),
+        ));
         config.dev_port = checkout("ROUNDUP_DEV_PORT")
             .and_then(|port| port.to_str().and_then(|port| port.parse().ok()));
         match channel {
