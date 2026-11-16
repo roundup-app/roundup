@@ -112,7 +112,7 @@ export const copy = {
   expand: "Expand",
   hiddenAgents: (n: number) => `${n} hidden Agents`,
   liftedChildren: (n: number) => `${n} moving rows`,
-  liftedCount: (n: number) => `+${n}`,
+  liftedCount: sharedCopy.plus,
   retryDoor: sharedCopy.retryDoor,
   startDoor: sharedCopy.startDoor,
   rowActions: "Row actions",

@@ -41,12 +41,14 @@ export const mountRail = async (
   neighbors: RailNeighbors = {},
   pads: Pad[] = [],
   project = { name: "p", path: "/p" },
+  setup?: (app: ReturnType<typeof createFakeApp>) => void,
 ) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => terminals;
   app.handlers["pad.list"] = () => pads;
   app.handlers["machine.list"] = () => neighbors.machines ?? [];
+  setup?.(app);
 
   const [now, setNow] = createSignal(NOW);
   const connected = await connectProject(app, project, reducedMotion, now, daemonExit);
