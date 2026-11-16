@@ -102,10 +102,18 @@ impl Daemon {
         let (target, key, heading) = parse(&url)?;
         // Publications carry their stored Project identity; their reader checks it rather than
         // the current-content link key, so neither identity can substitute for the other.
-        if !matches!(&target, Target::Deliverable(_)) && key != self.project_key {
-            return Err(RpcError::other_project(format!(
-                "the link belongs to another Project, `{key}`"
-            )));
+        if key != self.project_key {
+            // LK6: any other caller reads another open Project through the App; the App's own
+            // connection keeps `other-project`, which its native open needs to find the owner.
+            if conn.actor.kind != ActorKind::User || !self.actions.is_app(conn.peer) {
+                let value = self.relay_link_read(&url).await?;
+                return serde_json::from_value(value).map_err(RpcError::internal);
+            }
+            if !matches!(&target, Target::Deliverable(_)) {
+                return Err(RpcError::other_project(format!(
+                    "the link belongs to another Project, `{key}`"
+                )));
+            }
         }
         let content = match target {
             Target::Deliverable(id) => {

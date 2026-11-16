@@ -3,7 +3,9 @@ import type { Accessor } from "solid-js";
 import type { ShelfRequest } from "./projectView";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
+import { RpcError } from "../app/seam";
 import type { App as AppCalls, ActionReply, ActionRequest, Project } from "../app/seam";
+import { projectKeyOf } from "../projectLink";
 import { applyConfig } from "../settings/configApply";
 import { connectProject } from "./connectedProject";
 import type { ConnectedProject, createProjectDrafts } from "./connectedProject";
@@ -63,6 +65,23 @@ export type ConnectionDeps = {
   openShelf: ShelfRequest;
 };
 
+/** LK6: a link of another open Project, read from that Project's Daemon; a key no open Project holds is NOT_FOUND naming it. */
+const answerLinkRead = async (app: AppCalls, { id, params: { url } }: Extract<ActionRequest, { method: "link.read" }>): Promise<ActionReply> => {
+  const key = URL.canParse(url) ? new URL(url).searchParams.get("project") : null;
+
+  try {
+    for (const project of (await app.projects()).filter(each => each.running)) {
+      if (await projectKeyOf(app.forProject(project.path)).catch(() => null) === key && app.linkRead) return { jsonrpc: "2.0", id, result: await app.linkRead(project.path, url) };
+    }
+
+    return { jsonrpc: "2.0", id, error: { code: -32001, message: `Project ${key ?? ""} is not open` } };
+  } catch (failure) {
+    if (!(failure instanceof RpcError)) throw failure;
+
+    return { jsonrpc: "2.0", id, error: { code: failure.code, message: failure.message } };
+  }
+};
+
 /** One Project's live connection, kept while its tab is open and its regions are not on screen, so its Tab mark stays current (U181). */
 const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connection> => {
   const tab = () => deps.tabOf(path);
@@ -84,7 +103,8 @@ const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connecti
       const calls = deps.app.forProject(path);
 
       const open = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
-        await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
+        await calls.serveActions?.(request => request.method === "link.read" ? answerLinkRead(deps.app, request)
+          : (request.method === "project.open" || request.method === "project.start")
           ? deps.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
       } }, project, deps.reducedMotion, deps.now, () => tab()?.generation === generation ? tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), deps.drafts(path), () => deps.viewing(path), deps.clock, { app: deps.app, open: deps.open, nodes: deps.nodes, show: deps.openIn }, deps.openShelf);
 
