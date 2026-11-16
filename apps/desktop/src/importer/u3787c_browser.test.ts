@@ -55,8 +55,9 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
     await lane.browser("press", "ArrowDown");
     expect(await lane.evaluate("document.activeElement.dataset.collectionValue")).toBe("source-4");
     await lane.browser("press", "Home");
+    // U7158: a letter finds no row; with no Terminal running it moves no focus.
     await lane.browser("press", "終");
-    expect(await lane.evaluate("document.activeElement.dataset.collectionValue")).toBe("source-4");
+    expect(await lane.evaluate("document.activeElement.dataset.collectionValue")).toBe("source-0");
     await lane.browser("press", "Meta+a");
     expect(await lane.evaluate("[...document.querySelectorAll('.import-check input:checked')].map(el=>el.dataset.collectionValue)")).toEqual(["source-0", "source-1", "source-2", "source-3", "source-4"]);
     expect(await lane.evaluate(`${daemon}.calls`)).toEqual([]);
