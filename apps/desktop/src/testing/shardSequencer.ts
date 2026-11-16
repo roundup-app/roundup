@@ -44,6 +44,19 @@ export function longestFirst(files: readonly string[], measured: Seconds): strin
  * the same answer from the same file list, so the shards partition it. Returns, per shard (0-based), the files it runs.
  */
 export function assignShards(files: readonly string[], measured: Seconds, count: number, serial: ReadonlySet<string> = new Set()): string[][] {
+  return place(files, measured, count, serial).map((shard) => shard.files);
+}
+
+/** CI7295a: the fewest shards, at most `max`, whose longest takes at most `budget` seconds as `assignShards` places the files; `max` when none does. */
+export function shardCount(files: readonly string[], measured: Seconds, budget: number, max: number, serial: ReadonlySet<string> = new Set()): number {
+  for (let count = 1; count < max; count++) {
+    if (place(files, measured, count, serial).every((shard) => shardTime(shard.weights, shard.serial) <= budget)) return count;
+  }
+
+  return max;
+}
+
+function place(files: readonly string[], measured: Seconds, count: number, serial: ReadonlySet<string>): Shard[] {
   const fallback = median(Object.values(measured));
   const weight = (file: string) => measured[file] ?? fallback;
   const shards = Array.from({ length: count }, (): Shard => ({ weights: [], serial: [], files: [] }));
@@ -63,7 +76,7 @@ export function assignShards(files: readonly string[], measured: Seconds, count:
     soonest.files.push(file);
   }
 
-  return shards.map((shard) => shard.files);
+  return shards;
 }
 
 /** Vitest's `--shard` hook: balances shards by the durations measured on `main` (`just web-durations`), not by path hash. */

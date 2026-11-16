@@ -1,7 +1,7 @@
 import { globSync } from "node:fs";
 import { expect, test } from "vitest";
 import measuredDurations from "./shardDurations.json" with { type: "json" };
-import { assignShards, longestFirst, shardTime } from "./shardSequencer";
+import { assignShards, longestFirst, shardCount, shardTime } from "./shardSequencer";
 
 const durations: Record<string, number> = measuredDurations;
 
@@ -48,4 +48,19 @@ test("t_l89_web_shards_balance_serial_files_after_parallel_work", () => {
 
     expect(seconds).toBeLessThan(210);
   }
+});
+
+// CI7295a: a run gets the fewest shards that keep each one's measured time within the budget, serial files counted whole.
+test("ci7295a_web_runs_get_the_fewest_shards_within_the_time_budget", () => {
+  const measured = { "app-a": 100, "app-b": 100, "app-c": 100, "heavy-a": 90 };
+  const serial = new Set(["heavy-a"]);
+  const apps = ["app-a", "app-b", "app-c"];
+
+  // Three 100 s files on one shard take max(100, 306 / 2.8) ≈ 109 s; two shards take 100 s.
+  expect(shardCount(apps, measured, 110, 9)).toBe(1);
+  expect(shardCount(apps, measured, 100, 9)).toBe(2);
+  // The serial file adds its whole 92 s to the shard it joins: only a fourth shard holds it within 100 s.
+  expect(shardCount(Object.keys(measured), measured, 100, 9, serial)).toBe(4);
+  // No count meets a budget below the longest file: the cap.
+  expect(shardCount(apps, measured, 50, 9)).toBe(9);
 });

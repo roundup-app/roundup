@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base] | shards <test files|all>
+"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base] | shards <count|all>
 | rust-targets <test id>... | rust-helpers [nextest args]
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
@@ -60,15 +60,14 @@ PATH_ATTRIBUTE = re.compile(r'\bpath\s*=\s*"([^"]+)"')
 INCLUDE = re.compile(r'\binclude!\(\s*"([^"]+)"')
 LIBRARIES = {'lib', 'rlib', 'dylib', 'cdylib', 'staticlib', 'proc-macro'}
 
-# A web shard costs about four minutes of setup, so one is worth about this many test files; a full run has 9 shards.
-FILES_PER_SHARD = 50
-MAX_SHARDS = 9
+# CI7295a: a full web run in this many shards keeps each one's measured time near 200 s (`shardCount` of
+# apps/desktop/src/testing/shardSequencer.ts); it caps a PR's count, which check's `plan` sizes by measured time.
+MAX_SHARDS = 22
 
 
-def shards(files):
-    """The web shard numbers for `files` test files, or 'all': one shard per FILES_PER_SHARD, at least one, at most
-    MAX_SHARDS."""
-    return list(range(1, MAX_SHARDS + 1 if files == 'all' else min(MAX_SHARDS, max(1, -(-files // FILES_PER_SHARD))) + 1))
+def shards(count):
+    """The web shard numbers for `count` shards, or 'all': at least one, at most MAX_SHARDS."""
+    return list(range(1, (MAX_SHARDS if count == 'all' else min(MAX_SHARDS, max(1, count))) + 1))
 
 
 def under(path, prefixes):
