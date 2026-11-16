@@ -45,8 +45,11 @@
   transition-duration: var(--duration-instant);
 }
 
+/* The list is as wide as its longest label, never narrower than its trigger, never wider than the room Zag measures. */
 .app-select-list {
   z-index: var(--layer-menu);
+  min-width: var(--reference-width);
+  max-width: var(--available-width);
   max-height: calc(var(--space-5) * 8);
   overflow-y: auto;
   overscroll-behavior: contain;

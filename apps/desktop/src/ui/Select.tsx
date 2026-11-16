@@ -66,7 +66,7 @@ export const Select = (props: {
     disabled: props.disabled ?? field?.().disabled ?? false, readOnly: field?.().readOnly ?? false, invalid: field?.().invalid ?? false, required: field?.().required ?? false,
     dir: locale().dir, getRootNode: environment().getRootNode,
     onValueChange: details => props.onValueChange(details.value[0] ?? props.value),
-    open: control.open(), onOpenChange: control.change, positioning: { strategy: "fixed" as const, sameWidth: true },
+    open: control.open(), onOpenChange: control.change, positioning: { strategy: "fixed" as const, sameWidth: false },
   }));
 
   const api = createMemo(() => select.connect(service, normalizeProps));

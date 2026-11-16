@@ -131,11 +131,18 @@
   gap: var(--space-2);
   box-sizing: border-box;
   padding: var(--space-3);
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: clip;
   background: var(--surface);
   font-family: var(--font-ui);
   font-size: var(--text-small);
+}
+
+/* OverlayScrollbars gives every scrolling element position: relative, so the box over the centre never scrolls and its body does. */
+.changes-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .changes-head {
@@ -188,6 +195,8 @@
 .changes-status {
   color: var(--grey);
 }
+
+.changes-groups button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
 
 .changes-counts [data-sign="added"] { color: var(--text); }
 

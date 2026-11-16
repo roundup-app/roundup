@@ -20,9 +20,12 @@ const HEAD: CompareEndpoint = { kind: "head", branch: "" };
 
 const keyOf = (endpoint: CompareEndpoint) => endpoint.kind === "worktree" ? `worktree:${endpoint.path}` : `head:${endpoint.branch}`;
 
+/** A repository's name in the Project: its folder relative to the Project's root, else its own folder name; never an absolute path. */
+const nameOf = (repo: string, root: string) => repo.startsWith(`${root}/`) ? repo.slice(root.length + 1) : repo.split("/").filter(Boolean).at(-1) ?? repo;
+
 const sameEndpoint = (a: CompareEndpoint, b: CompareEndpoint) => keyOf(a) === keyOf(b);
 
-const labelOf = (refs: readonly CompareRef[], endpoint: CompareEndpoint) => refs.find(ref => sameEndpoint(ref, endpoint))?.label ?? (endpoint.kind === "worktree" ? endpoint.branch : endpoint.branch);
+const labelOf = (refs: readonly CompareRef[], endpoint: CompareEndpoint) => refs.find(ref => sameEndpoint(ref, endpoint))?.label ?? endpoint.branch;
 
 /** The `+added -removed` line counts of one file between two endpoints; none for a binary file or a failed read. */
 const countsOf = async (app: AppSeam, id: string, path: string, from: CompareEndpoint, to: CompareEndpoint): Promise<{ added: number; removed: number } | null> => {
@@ -126,11 +129,11 @@ const Surface = (props: { id: string; name: string }) => {
   return <section class="changes-view" aria-label={copy.changes}>
     <header class="changes-head">
       <h2>{title()}</h2>
-      <button type="button" data-button="quiet" onClick={() => hideView("changes")}>{copy.closeChanges}</button>
+      <Show when={!path()}><button type="button" data-button="quiet" onClick={() => hideView("changes")}>{copy.closeChanges}</button></Show>
     </header>
     <Show when={groups().length > 1 && !picked()}>
       <ul class="changes-groups" aria-label={copy.changeGroups}>
-        <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(each.repo, each.branch)}</button></li>}</For>
+        <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
       </ul>
     </Show>
     <Show when={ends()}>{current => <div class="changes-pickers">
@@ -138,11 +141,13 @@ const Surface = (props: { id: string; name: string }) => {
       <Select label={copy.compareTo} choices={withEnd(current().to)} value={keyOf(current().to)} onValueChange={value => choose("to", value)} />
     </div>}</Show>
     <ReservedLine message={listed()?.failure ?? null} blocked recover={{ run: () => { void refetch(); } }} />
+    <div class="changes-body">
     <Show when={path()} fallback={<ul class="changes-files" aria-label={copy.changedFilesList}>
       <For each={files()}>{file => <FileRow id={props.id} file={file} from={ends()?.from ?? HEAD} to={ends()?.to ?? HEAD} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
     </ul>}>
       {chosen => <Suspense><DiffReader id={props.id} name={props.name} path={chosen()} from={ends()?.from} to={ends()?.to} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Suspense>}
     </Show>
+    </div>
   </section>;
 };
 
