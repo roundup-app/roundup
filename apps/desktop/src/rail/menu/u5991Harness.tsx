@@ -104,7 +104,7 @@ export const actions: Action[] = [
     method: "agent.stop",
     fire: async ({ app }) => { fireEvent.contextMenu(rowOf("a")); await app.pickMenu("Stop"); },
     // The row now offers Resume, not Stop.
-    shown: () => { expect(rowIcon("a", copy.resume)).not.toBeNull(); expect(rowIcon("a", copy.stop)).toBeNull(); },
+    shown: () => { expect(rowIcon("a", copy.restart)).not.toBeNull(); expect(rowIcon("a", copy.stop)).toBeNull(); },
     call: { id: "a" },
   },
   {
@@ -112,8 +112,8 @@ export const actions: Action[] = [
     mount: () => mountRail([resumable("a")], [exitedTerminal("a", 0)]),
     method: "agent.resume",
     fire: () => resumeRow("a"),
-    shown: () => { expect(rowIcon("a", copy.stop)).not.toBeNull(); expect(rowIcon("a", copy.resume)).toBeNull(); },
-    call: { id: "a" },
+    shown: () => { expect(rowIcon("a", copy.stop)).not.toBeNull(); expect(rowIcon("a", copy.restart)).toBeNull(); },
+    call: { id: "a", mode: "normal" },
   },
   {
     name: "reorder",

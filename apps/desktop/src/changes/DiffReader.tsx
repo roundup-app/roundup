@@ -3,6 +3,8 @@ import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
+import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
+import type { CompareFileParams } from "@contracts/agent/CompareFileParams";
 import { useConnectedProject } from "../state/connectedProject";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "../app/failureOf";
@@ -17,8 +19,19 @@ let library: Promise<typeof import("@pierre/diffs")> | undefined;
 /** U2540d: startup and Agent selection never fetch the renderer. */
 export const diffsLoaded = () => library !== undefined;
 
+const compareParams = (id: string, path: string, from: CompareEndpoint | undefined, to: CompareEndpoint | undefined): CompareFileParams => {
+  const params: CompareFileParams = { id, path };
+
+  if (from && to) {
+    params.from = from;
+    params.to = to;
+  }
+
+  return params;
+};
+
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void; recover: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; from?: CompareEndpoint | undefined; to?: CompareEndpoint | undefined; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
@@ -54,11 +67,11 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
   const worktree = createMemo(() => worktrees.read(props.id));
 
-  createEffect(() => [version(), worktree(), props.id, props.path], () => {
+  createEffect(() => [version(), worktree(), compareParams(props.id, props.path, props.from, props.to)] as const, ([, , params]) => {
     setLoading(true);
-    const target = { id: props.id, path: props.path };
+    const target = { id: params.id, path: params.path };
     let current = true;
-    void reply(() => app.rpc("agent.compareFile", { id: props.id, path: props.path })).then(result => {
+    void reply(() => app.rpc("agent.compareFile", params)).then(result => {
       if (!current) return;
 
       setLoading(false);

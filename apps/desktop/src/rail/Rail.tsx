@@ -512,7 +512,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     };
 
     if (menu.isRunning(node, exit)) actions.stop = () => menu.requestStop(node, exit);
-    else if (menu.isResumable(node, exit)) actions.resume = () => menu.requestResume(node);
+    else if (!actions.restart && isDoor(node) && node.can_resume) actions.play = () => menu.requestRestart(node, exit);
 
     return actions;
   };

@@ -17,6 +17,7 @@ import type { AppSeam, DaemonExit, Project } from "../app/seam";
 import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
 import { createWorktreeState } from "./worktrees";
+import { createOwnedChanges } from "../changes/owned";
 import { createMachines } from "./machines";
 import { createAsks } from "./asks";
 import { createContinuation } from "./continuation";
@@ -126,6 +127,8 @@ export type ConnectedProject = ProjectView & {
   continuation: Continuation;
   importing: ReturnType<typeof createImport>;
   worktrees: ReturnType<typeof createWorktreeState>;
+  /** U7186c: what each Agent owns, for the Rail icon and the Changes view. */
+  owned: ReturnType<typeof createOwnedChanges>;
   /** MC3, MC15: the Machines Agents run on. */
   machines: ReturnType<typeof createMachines>;
   drawer: DrawerState;
@@ -278,7 +281,7 @@ export const connectProject = async (
 
   const projectView = createProjectView(rail.selected, openShelf);
 
-  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
+  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), owned: inChildren(() => createOwnedChanges(app, events, daemonExit)), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

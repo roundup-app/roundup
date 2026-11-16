@@ -594,9 +594,9 @@ it("u4275b_row_actions_keep_menu_semantics_resume", async () => {
   await app.rpc("agent.stop", {id:"tokens"});
   emit({ actor: {kind:"user",id:"you",parent:null}, name:"rail.changed" });
   const row = document.querySelector('.rail-row[data-id="tokens"]')!;
-  await waitFor(() => expect(row.querySelector('[aria-label="Resume"]')).not.toBeNull());
-  fireEvent.click(row.querySelector('[aria-label="Resume"]')!);
-  await waitFor(() => expect(rpcCalls(app, "agent.resume")).toEqual([{id:"tokens"}]));
+  await waitFor(() => expect(row.querySelector('[aria-label="Restart"]')).not.toBeNull());
+  fireEvent.click(row.querySelector('[aria-label="Restart"]')!);
+  await waitFor(() => expect(rpcCalls(app, "agent.resume")).toEqual([{id:"tokens",mode:"normal"}]));
 });
 
 

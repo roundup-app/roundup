@@ -45,8 +45,9 @@
   transition-duration: var(--duration-instant);
 }
 
+/* The list is as wide as its longest label, never wider than the room ui-sdk measures; ui-sdk keeps it no narrower than its trigger. */
 .app-select-list {
-  width: var(--anchor-width);
+  max-width: var(--available-width);
   max-height: calc(var(--space-5) * 8);
   overflow-y: auto;
   overscroll-behavior: contain;

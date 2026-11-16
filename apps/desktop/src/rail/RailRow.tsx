@@ -33,6 +33,7 @@ import { Trunks, tabStop } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
 import type { RailTopology } from "../state/railTopology";
 import { PadsControl } from "./pads/AgentPads";
+import { ChangesIcon } from "../changes/ChangesIcon";
 import { createDraftField } from "../state/draftField";
 
 const nameSchema = v.object({ text: v.string(), base: v.string() });
@@ -344,7 +345,7 @@ export const RailRowView = (props: {
       <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><button type="button" class="rail-resume" data-button="quiet" aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</button></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
-        <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
+        <Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
         <Show when={isGroup()}><FoldControl class="rail-group-chevron" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
       </span>

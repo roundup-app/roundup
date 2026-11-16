@@ -1,4 +1,5 @@
 import { provideFocusTarget } from "../keys/focus";
+import { ChangesView } from "../changes/ChangesView";
 import { siblingsOf } from "../state/railTopology";
 import { EmptyState } from "../ink/EmptyState";
 import { makeEventListener } from "@solid-primitives/event-listener";
@@ -281,7 +282,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   });
 
   return (
-    <div class="pane">
+    <div class="pane"><ChangesView />
       <div class="pane-origin">
 
       <div

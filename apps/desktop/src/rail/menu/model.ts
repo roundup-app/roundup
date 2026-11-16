@@ -106,33 +106,6 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   const requestStop = askFirst("stop", stopNow);
   const requestRestart = askFirst("restart", restartNow);
 
-  const resume = async (id: string) => {
-    if (resuming.has(id)) return;
-
-    resuming.add(id);
-
-    try {
-      await railCommand(rail, {
-        item: id,
-        // U5991a: the row shows running now; the refresh or a failure lifts the pending change.
-        draw: () => {
-          const release = rail.launch(id);
-          const lift = rail.drawExit(id, null);
-
-          return () => { lift(); release(); };
-        },
-        call: () => app.rpc("agent.resume", { id }),
-        unknown: async () => {
-          await rail.refresh({ terminals: true });
-
-          if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
-        },
-      });
-    } finally { resuming.delete(id); }
-  };
-
-  const isResumable = (node: RailNode, exit: ExitState | null) => isDoor(node) && node.can_resume && !isRunning(node, exit);
-
   const remove = async (current: Removing, scope: "this" | "all") => {
     const id = current.node.id;
 
@@ -289,9 +262,35 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     }
   };
 
-  /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line (U7191c). */
+  /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line (U7191c). An exited row is selected, and a reply lost after the send refreshes the row and shows the failure, with no second start while one is pending. */
   const restart = async (node: RailNode, mode: "normal" | "yolo"): Promise<void> => {
-    await railCommand(rail, { item: node.id, draw: () => rail.launch(node.id), call: () => app.rpc("agent.resume", { id: node.id, mode }) });
+    const id = node.id;
+    const exited = !isRunning(node, rail.exitOf(node));
+
+    if (resuming.has(id)) return;
+
+    resuming.add(id);
+
+    if (exited) rail.select(id);
+
+    try {
+      await railCommand(rail, {
+        item: id,
+        // U5991a: the row shows running now; the refresh or a failure lifts the pending change.
+        draw: () => {
+          const release = rail.launch(id);
+          const lift = exited ? rail.drawExit(id, null) : () => {};
+
+          return () => { lift(); release(); };
+        },
+        call: () => app.rpc("agent.resume", { id, mode }),
+        unknown: async () => {
+          await rail.refresh({ terminals: true });
+
+          if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
+        },
+      });
+    } finally { resuming.delete(id); }
   };
 
   /** A5214a: `agent.makeWorkstream`; the row then shows as a Workstream, or the Daemon's message shows. */
@@ -383,9 +382,8 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     makeWorkstream,
     restartPending,
     requestStop,
+    requestRestart,
     isRunning,
-    requestResume: (node: RailNode) => void resume(node.id),
-    isResumable,
   };
 };
 
