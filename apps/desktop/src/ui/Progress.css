@@ -9,6 +9,7 @@
 
 .app-progress-track {
   display: block;
+  gap: 0;
   width: auto;
   min-width: 0;
   height: var(--space-1);
