@@ -1,8 +1,8 @@
 import { untrack, type JSX } from "solid-js";
 import type { App } from "../app/seam";
-import type { ToastQueue } from "../toasts/queue";
-import { watchUpdates } from "../toasts/updates";
-import { createUpdates, UpdatesProvider } from "./updates";
+import { createUpdates, UpdatesProvider } from "../state/updates";
+import type { ToastQueue } from "./queue";
+import { watchUpdates } from "./updates";
 
 /** U7208: the update facts for Settings below it, and a Toast for each new version they name. */
 export const UpdatesHost = (props: {

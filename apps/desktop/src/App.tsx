@@ -44,7 +44,7 @@ import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
 import { createProjectAlerts } from "./state/projectAlerts";
-import { UpdatesHost } from "./state/UpdatesHost";
+import { UpdatesHost } from "./toasts/UpdatesHost";
 import { createStateAlerts } from "./rail/stateAlerts";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
