@@ -116,6 +116,7 @@ export const SEAM_COMMANDS = [
   "exit_for_update",
   "feedback_capture",
   "fork_branch",
+  "fork_colour",
   "fork_make",
   "fork_list",
   "fork_rename",
@@ -296,6 +297,8 @@ export type App = {
   onProjectPage(listener: (page: { path: string; command: string }) => void): Unsubscribe;
   /** FS5979: the name of the branch the live App's source checkout is on, or `fork`. */
   forkBranch(): Promise<string>;
+  /** U6044a: the colour of the Fork whose data folder the App runs on, or `null` on the live folder. */
+  forkColour(): Promise<ForkColour | null>;
   /** FS5979: makes the Fork and opens the branch's App on it; rejects with the failure's text. */
   forkMake(params: { name: string; colour: ForkColour; projects: ForkPick[] }): Promise<void>;
   /** AI7152d, AI7152e: the Forks under `$ROUNDUP_HOME/forks`; `collides` names the other App one collides with. */
