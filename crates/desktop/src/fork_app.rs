@@ -31,6 +31,10 @@ impl Identity {
         Self(folder.and_then(read))
     }
 
+    pub(crate) fn colour(&self) -> Option<ForkColour> {
+        self.0.as_ref().map(|fork| fork.colour)
+    }
+
     pub(crate) fn name(&self) -> Option<&str> {
         self.0.as_ref().map(|fork| fork.name.as_str())
     }
@@ -438,6 +442,16 @@ mod tests {
             }
         }
         (sin.atan2(cos).to_degrees().rem_euclid(360.0), plate)
+    }
+
+    #[test]
+    fn u6044a_fork_colour_reads_fork_json() {
+        let tmp = tempfile::tempdir().unwrap();
+        let fork = fork_in(tmp.path(), "a", "A", ForkColour::Violet);
+        assert_eq!(Identity::of(Some(&fork)).colour(), Some(ForkColour::Violet));
+        assert_eq!(Identity::of(Some(&tmp.path().join("live"))).colour(), None);
+        fs::write(fork.join("fork.json"), "{").unwrap();
+        assert_eq!(Identity::of(Some(&fork)).colour(), None);
     }
 
     #[test]

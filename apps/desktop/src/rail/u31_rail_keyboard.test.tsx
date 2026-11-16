@@ -486,7 +486,8 @@ it("u5645c_keyboard_skips_unavailable_rows", async () => {
   press("ArrowLeft");
   await settled();
   expect(document.activeElement).toBe(rowOf("g"));
+  // U7158: a letter finds no row; the focus stays.
   press("z");
   await settled();
-  expect(document.activeElement).toBe(rowOf("z"));
+  expect(document.activeElement).toBe(rowOf("g"));
 });

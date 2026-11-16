@@ -30,7 +30,6 @@ export const copy = {
   terminalOriginalWorkstreamUnavailable: "The original Workstream is unavailable. Choose another before opening a Terminal.",
   terminalOpenAgainQuestion: "The earlier opening may have succeeded. Open another Terminal in the original Workstream?",
   closeTerminalWarning: "The Terminal and its output will be removed. Its running program will stop.",
-  closeTerminalOutputWarning: "The Terminal and its output will be removed.",
   keep: sharedCopy.keep,
   retry: sharedCopy.retry,
   closeChord: "⌘K W",

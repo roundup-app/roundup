@@ -185,6 +185,9 @@ pub(super) async fn run(args: &[String]) -> ExitCode {
                     p.history
                 );
             }
+            for r in done.refused {
+                println!("refused {}: {}", r.key, r.cause);
+            }
             ExitCode::from(DONE)
         }
         Err(err) => {
