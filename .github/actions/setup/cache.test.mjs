@@ -41,11 +41,12 @@ async function cacheInputs(title, number = 4018, sha = 'first-head', options = {
     github: { event_name: 'pull_request', ref: 'refs/pull/4018/merge', sha,
       event: { pull_request: { title, number } } },
     runner: { os: 'Linux', environment: 'github-hosted' },
-    matrix: { partition: 1 }, steps: {}, ...options,
+    steps: {}, ...options,
   };
 
   context.env = Object.fromEntries(Object.entries(workflow.env).map(([key, item]) => [key, render(item, context)]));
-  const call = workflow.jobs.rust.steps.find(step => step.uses === './.github/actions/setup');
+  // `cache` is the job that saves the Rust cache (L84); the lanes read their base from `rust`.
+  const call = workflow.jobs.cache.steps.find(step => step.uses === './.github/actions/setup');
   context.inputs = Object.fromEntries(Object.entries(setup.inputs).map(([key, item]) => [key, item.default]));
   Object.assign(context.inputs, Object.fromEntries(Object.entries(call.with).map(([key, item]) => [key, render(item, context)])));
   const step = setup.runs.steps.find(item => item.id === 'experiment');

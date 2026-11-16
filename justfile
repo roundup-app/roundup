@@ -112,7 +112,13 @@ test-rust-lane profile base *args:
     shift 2
     selection=$(python3 loop/affected.py rust-lane {{quote(profile)}} {{quote(base)}})
     if [ -z "$selection" ]; then echo "no test of {{profile}} reaches the diff since {{base}}"; exit 0; fi
-    exec cargo nextest run $selection --profile {{quote(profile)}} {{ if base == "" { "" } else { "--no-tests pass" } }} "$@"
+    # Builders read backtraces: the workspace's own crates keep line tables, and dependencies keep the debug level
+    # the Rust cache built them at, so the cache still matches.
+    lines=()
+    for crate in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+        lines+=(--config "profile.test.package.$crate.debug=\"line-tables-only\"")
+    done
+    exec cargo nextest run $selection "${lines[@]}" --profile {{quote(profile)}} {{ if base == "" { "" } else { "--no-tests pass" } }} "$@"
 
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
 [script('loop/keep-going.sh')]

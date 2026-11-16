@@ -234,6 +234,8 @@ jobs:
         with:
           fetch-depth: 2
       - uses: ./.github/actions/setup
+        with:
+          experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C4 addition and freshness observers
         run: |
           # The two observers run one after the other, so they share the one target directory.
@@ -253,6 +255,8 @@ jobs:
         with:
           fetch-depth: 2
       - uses: ./.github/actions/setup
+        with:
+          experiment-cache: ${{ env.CI3781_CACHE }}
       - name: C9b native release size
         run: |
           cargo build --locked --release -p rupd
@@ -284,10 +288,13 @@ jobs:
           python3 tools/e14/observe.test.py
 
   # L84: on `main`, build every test target, the contract generator, clippy's checks and the release daemon, so the Linux
-  # cache this job saves holds every dependency the lanes, `contracts`, `observers` and `pre`'s `lint` build.
+  # cache this job saves holds every dependency the lanes, `contracts`, `observers` and `pre`'s `lint` build. A CI3781
+  # experiment PR saves its own namespace the same way.
   cache:
     needs: plan
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.title, 'CI3781 experiment: '))
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -297,7 +304,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           save-cache: 'true'
-      - run: cargo test --locked --workspace --no-run
+          experiment-cache: ${{ env.CI3781_CACHE }}
+      - run: python3 loop/app-data.py cargo test --locked --workspace --no-run
       - run: just contracts
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo build --locked --release -p rupd
