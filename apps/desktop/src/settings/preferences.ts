@@ -27,7 +27,9 @@ const stateRow = (initial: Row) => v.fallback(
 );
 
 const none = rowDefault(false, false, false);
+
 const needsYou = rowDefault(true, true, true);
+
 const error = rowDefault(false, true, false);
 
 /** U7157: every question that can stop being asked, each under its own stable key. */

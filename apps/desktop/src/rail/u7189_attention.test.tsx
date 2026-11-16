@@ -36,6 +36,7 @@ it("u7189a_the_dock_count_equals_the_menu_bars_waiting_rows", async () => {
     ],
     web: [agent("pane", "working", "running", { terminal_id: "t-pane" }), agent("broken", "error", "failed")],
   });
+
   await errorBadgeOn();
 
   await listing(app, "api", () => [info("free", { title: "npm run dev --port 5199", status: blocked }), info("ended", { owner: "stopped", running: false, exit_code: 1, status: failed }), info("busy", { status: { ...blocked, kind: "working" } })]);
