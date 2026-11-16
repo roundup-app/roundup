@@ -232,35 +232,39 @@ const shownOver = (tree: readonly RailNode[], pending: readonly Pending[]): read
   return starting.size === 0 ? drawn : drawn.map(node => starting.has(node.id) && isDoor(node) ? { ...node, status: startingStatus(node.status?.since) } : node);
 };
 
+/** U5172a: how a read of the tree settles one unconfirmed change: null leaves it marked, else the failure to show (null for none). */
+const settledChange = (tree: readonly RailNode[], id: string, change: PendingChange): { failure: string | null } | null => {
+  const node = tree.find(each => each.id === id);
+
+  if (node === undefined) return { failure: null };
+
+  if (change.kind === "move") {
+    const place = placeOf(tree, id)!;
+
+    if (place.parent === change.base.parent && place.index === change.base.index) return null;
+
+    return { failure: place.parent !== change.asked.parent || place.index !== change.asked.index ? copy.moveDidNotApply : null };
+  }
+
+  if (change.kind !== "rename" || node.name === change.base) return null;
+
+  return { failure: node.name !== change.asked ? copy.renameDidNotApply(change.asked, node.name) : null };
+};
+
 /** U5172a: a read or Event settles an unconfirmed change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
 const settleAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<string, PendingChange>>, forget: (id: string) => void, commandFailure: ReturnType<typeof createItemFailure>) => {
   for (const [id, change] of Object.entries(unconfirmed)) {
-    const node = tree.find(each => each.id === id);
+    const settled = settledChange(tree, id, change);
 
-    if (node === undefined) {
-      forget(id);
-      continue;
-    }
-
-    if (change.kind === "move") {
-      const place = placeOf(tree, id)!;
-
-      if (place.parent === change.base.parent && place.index === change.base.index) continue;
-      forget(id);
-
-      if (place.parent !== change.asked.parent || place.index !== change.asked.index) commandFailure.show(copy.moveDidNotApply, id, "rail");
-      continue;
-    }
-
-    if (change.kind !== "rename" || node.name === change.base) continue;
+    if (settled === null) continue;
     forget(id);
 
-    if (node.name !== change.asked) commandFailure.show(copy.renameDidNotApply(change.asked, node.name), id, "rail");
+    if (settled.failure !== null) commandFailure.show(settled.failure, id, "rail");
   }
 };
 
 /** The Daemon's tree with each unconfirmed rename and move shown as asked. */
-const withAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<string, PendingChange>>): readonly RailNode[] => {
+const withAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<string, PendingChange>>): RailNode[] => {
   let shown = tree.map((node) => {
     const change = unconfirmed[node.id];
 
