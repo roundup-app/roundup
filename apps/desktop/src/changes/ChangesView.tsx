@@ -50,7 +50,7 @@ const FileRow = (props: { id: string; file: ChangedFile; from: CompareEndpoint; 
   return <li><button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
     <span class="changes-path">{props.file.path}</span>
     <span class="changes-status">{statusText[props.file.status]}</span>
-    <Show when={counts()}>{value => <span class="changes-counts"><span data-sign="added">+{value().added}</span> <span data-sign="removed">-{value().removed}</span></span>}</Show>
+    <Show when={counts()}>{value => <span class="changes-counts"><span data-sign="added">{copy.addedLines(value().added)}</span> <span data-sign="removed">{copy.removedLines(value().removed)}</span></span>}</Show>
   </button></li>;
 };
 
@@ -130,7 +130,7 @@ const Surface = (props: { id: string; name: string }) => {
     </header>
     <Show when={groups().length > 1 && !picked()}>
       <ul class="changes-groups" aria-label={copy.changeGroups}>
-        <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each} onClick={() => { setActive(index()); setPath(undefined); }}>{each.repo} · {each.branch}</button></li>}</For>
+        <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(each.repo, each.branch)}</button></li>}</For>
       </ul>
     </Show>
     <Show when={ends()}>{current => <div class="changes-pickers">
