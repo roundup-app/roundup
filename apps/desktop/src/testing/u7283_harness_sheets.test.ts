@@ -28,7 +28,7 @@ describe("U7283a the harness loads what the entry loads", () => {
 rendered("U7283a the harness page", () => {
   let page: Awaited<ReturnType<typeof openPage>>;
 
-  beforeAll(async () => { page = await openPage(chrome); }, 90_000);
+  beforeAll(async () => { page = await openPage(chrome ?? ""); }, 90_000);
   afterAll(async () => { await page?.close(); });
 
   it("u7283a_the_harness_loads_the_stylesheets_main_loads", async () => {
