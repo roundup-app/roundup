@@ -15,6 +15,7 @@ export const copy = {
   resumeNote: "Your last turn was cut off by a Claude service error. Please continue where you left off.",
   actionsUnregistered: "The App could not register its actions.",
   projectNoLongerOpen: "Project is closed.",
+  projectKeyNotOpen: (key: string) => `Project ${key} is not open.`,
   projectClosedDuringSetup: (path: string) => `${path} closed`,
   childCreatedNothing: "A child created nothing.",
   terminalOutcomeUnknown: sharedCopy.terminalOutcomeUnknown,
