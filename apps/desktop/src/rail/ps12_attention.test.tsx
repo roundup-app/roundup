@@ -1,12 +1,16 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mountRail, settled } from "./railFixture";
 import { attentionHolders, attentionCounts } from "./attention";
 import { sectionsOf } from "../inbox/rows";
 import { agent, event, info } from "../testing/nodes";
 import { renderTabs, path, tab } from "../header/stripFixture";
+import { appSettings, saveAppSettings } from "../settings/preferences";
 
 afterEach(cleanup);
+
+// U7259: an error counts only while its Dock badge switch is on.
+beforeEach(() => saveAppSettings({ stateAlerts: { ...appSettings().stateAlerts, error: { ...appSettings().stateAlerts.error, badge: true } } }));
 
 const blocked = { kind: "needs-you", label: "Allow?", since: 0, finished: "0" } as const;
 

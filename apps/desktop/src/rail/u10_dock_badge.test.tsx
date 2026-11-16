@@ -1,9 +1,13 @@
 import { cleanup } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mountRail } from "./railFixture";
 import { agent, event, workstream, door, terminal } from "../testing/nodes";
+import { appSettings, saveAppSettings } from "../settings/preferences";
 
 afterEach(cleanup);
+
+// U7259: an error counts only while its Dock badge switch is on.
+beforeEach(() => saveAppSettings({ stateAlerts: { ...appSettings().stateAlerts, error: { ...appSettings().stateAlerts.error, badge: true } } }));
 
 describe("u10 Dock badge", () => {
   it("u10_the_badge_counts_agents_needing_you_or_in_error", async () => {

@@ -94,6 +94,7 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
       onResize: (listener) => run(emulator => emulator.onResize?.(listener)),
       isAtBottom: () => real?.isAtBottom() ?? true,
       onScroll: (listener) => run(emulator => emulator.onScroll(listener)),
+      onRows: (listener) => run(emulator => emulator.onRows?.(listener)),
       scrollToBottom: () => run(emulator => emulator.scrollToBottom()),
       dispose: () => {
         disposed = true;

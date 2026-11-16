@@ -53,6 +53,23 @@ fn runs_on(version: &str) -> bool {
     }
 }
 
+/// Whether `e` says the pipe to the core is gone: it ended before any answer, or a write found it shut.
+fn pipe_gone(e: &Error) -> bool {
+    match e {
+        Error::Closed => true,
+        Error::Io(io) => io.kind() == std::io::ErrorKind::BrokenPipe,
+        _ => false,
+    }
+}
+
+/// The JSON-RPC request for `method`. A test build refuses `params` the pinned schema does not allow
+/// (MC72), as the core would.
+fn request(id: u64, method: &str, params: Value) -> Result<Value> {
+    #[cfg(feature = "test-support")]
+    crate::schema::check(method, &params)?;
+    Ok(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))
+}
+
 /// One framed connection to a herdr-core. Requests match by id; events go to [`Conn::events`].
 pub struct Conn {
     out: mpsc::UnboundedSender<Vec<u8>>,
@@ -103,13 +120,17 @@ impl Conn {
         let stdin = child.stdin.take().ok_or(Error::Closed)?;
         let stdout = child.stdout.take().ok_or(Error::Closed)?;
         match Self::over(stdout, stdin, timeout).await {
-            Err(Error::Closed) => match child.wait().await {
-                Ok(s) if s.code() == Some(NOT_FOUND_EXIT) => Err(Error::Missing),
-                _ => Err(Error::Closed),
-            },
             Ok(mut conn) => {
                 conn._child = Some(child);
                 Ok(conn)
+            }
+            // A core that exits before hello is written breaks the pipe; one that exits after it
+            // ends the reply. Which comes first is the scheduler's, so both read the exit status.
+            Err(e) if pipe_gone(&e) => {
+                Err(match tokio::time::timeout(timeout, child.wait()).await {
+                    Ok(Ok(s)) if s.code() == Some(NOT_FOUND_EXIT) => Error::Missing,
+                    _ => Error::Closed,
+                })
             }
             Err(e) => Err(e),
         }
@@ -122,7 +143,7 @@ impl Conn {
         W: AsyncWrite + Unpin + Send + 'static,
     {
         let mut reader = BufReader::new(reader);
-        let hello = json!({"jsonrpc":"2.0","id":0,"method":"hello","params":{"generation":GENERATION,"framed":true}});
+        let hello = request(0, "hello", json!({"generation":GENERATION,"framed":true}))?;
         let mut line = serde_json::to_vec(&hello).map_err(|e| Error::Protocol(e.to_string()))?;
         line.push(b'\n');
         let say = async {
@@ -294,13 +315,12 @@ impl Conn {
         claim: Option<mpsc::UnboundedSender<Ev>>,
     ) -> Result<Value> {
         let id = self.next.fetch_add(1, Ordering::SeqCst);
+        let body = serde_json::to_vec(&request(id, method, params)?)
+            .map_err(|e| Error::Protocol(e.to_string()))?;
         let rx = self.register(id)?;
         if let Some(tx) = claim {
             locked(&self.pending).claims.insert(id, tx);
         }
-        let body =
-            serde_json::to_vec(&json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}))
-                .map_err(|e| Error::Protocol(e.to_string()))?;
         if self.out.send(frame(0, DATA, &body)).is_err() {
             let mut w = locked(&self.pending);
             w.calls.remove(&id);
@@ -362,14 +382,14 @@ impl Conn {
         serde_json::from_value(list).map_err(|e| Error::Protocol(format!("machine.list: {e}")))
     }
 
-    /// `machine.add` for an ssh name; returns the core's answer.
-    pub async fn machine_add(&self, name: &str) -> Result<Value> {
-        self.call("machine.add", json!({"name": name})).await
+    /// `machine.add` for the ssh `target`; returns the core's answer.
+    pub async fn machine_add(&self, target: &str) -> Result<Value> {
+        self.call("machine.add", json!({"target": target})).await
     }
 
-    /// `machine.rm` for a listed name: herdr-core forgets the machine.
-    pub async fn machine_rm(&self, name: &str) -> Result<Value> {
-        self.call("machine.rm", json!({"name": name})).await
+    /// `machine.rm` for a listed `machine` name: herdr-core forgets the machine.
+    pub async fn machine_rm(&self, machine: &str) -> Result<Value> {
+        self.call("machine.rm", json!({"machine": machine})).await
     }
 }
 

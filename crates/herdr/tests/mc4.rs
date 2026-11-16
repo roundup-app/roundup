@@ -64,7 +64,7 @@ fn list_core(req: &Value) -> Option<Vec<Value>> {
             json!({"jsonrpc":"2.0","id":id,"result":{"machines":[{"name":"herdr-spike","status":"up"},{"name":"roundup-ci-control","status":"up"}]}}),
         ]),
         "machine.add" => Some(vec![
-            json!({"jsonrpc":"2.0","id":id,"result":{"name":req["params"]["name"]}}),
+            json!({"jsonrpc":"2.0","id":id,"result":{"name":req["params"]["target"]}}),
         ]),
         _ => Some(vec![
             json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"data":{"hint":"see `hc ls --all`","kind":"not_found"},"message":"no terminal"}}),
@@ -93,7 +93,7 @@ async fn mc4_machine_list_returns_recorded_list_and_typed_errors() {
         conn.machine_add("box.example").await.unwrap(),
         json!({"name":"box.example"})
     );
-    let Err(Error::Rpc(e)) = conn.call("terminal.get", json!({})).await else {
+    let Err(Error::Rpc(e)) = conn.call("terminal.get", json!({"terminal": "t"})).await else {
         panic!("want Rpc")
     };
     assert_eq!(
@@ -130,12 +130,21 @@ async fn mc4_missing_refused_silent_return_coded_error() {
         .err()
         .unwrap();
     assert!(matches!(none, Error::Missing));
-    let mut sh = tokio::process::Command::new("sh");
-    sh.args(["-c", "exit 127"]);
-    assert!(matches!(
-        Conn::spawn(sh, T).await.err().unwrap(),
-        Error::Missing
-    ));
+    // Many at once, so some shells exit before hello is written and break the pipe: still Missing.
+    let mut shells = tokio::task::JoinSet::new();
+    for _ in 0..50 {
+        shells.spawn(async {
+            let mut sh = tokio::process::Command::new("sh");
+            sh.args(["-c", "exit 127"]);
+            Conn::spawn(sh, Duration::from_secs(10))
+                .await
+                .err()
+                .unwrap()
+        });
+    }
+    while let Some(err) = shells.join_next().await {
+        assert!(matches!(err.unwrap(), Error::Missing));
+    }
 
     let codes: Vec<_> = [&refused, &closed, &silent, &none]
         .iter()

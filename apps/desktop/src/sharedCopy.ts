@@ -8,7 +8,7 @@ const running = "Running";
 
 const failed = "Failed";
 
-const word = { project: "Project", name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
+const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", workstream: "Workstream" } as const;
 
 export const staleSuffix = ", stale";
 
@@ -30,7 +30,6 @@ export const copy = {
   ageNow: "now",
   ageSeconds: (value: number) => `${value}s`,
   workstream: word.workstream,
-  feedback: "Feedback",
   defaultChoice: "Default",
   padWidths: [{ value: "narrow", label: "Narrow" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full" }] as const,
   alerts: "Alerts",
@@ -129,6 +128,7 @@ export const copy = {
   captureATodo: "Capture a Todo",
   inboxEmpty: "Nothing needs you",
   save: "Save",
+  send: "Send",
   copied: word.copied,
   exportMd: "Export .md",
   delete: "Delete",
@@ -188,7 +188,6 @@ export const copy = {
   questionMark: "?",
   triage: "Triage",
   auto: "Auto",
-  project: word.project,
   projectRoot: word.projectRoot,
   askBarShortcut: "Focus Ask bar",
   switcherPlaceholder: word.name,

@@ -331,6 +331,11 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
       return () => window.removeEventListener("open-fork-sheet", listener);
     },
+    onFeedback: (listener) => {
+      window.addEventListener("open-feedback", listener);
+
+      return () => window.removeEventListener("open-feedback", listener);
+    },
     onAppSettings: (listener) => {
       const receive = (event: Event) => listener(v.parse(appSettingsPageSchema, event instanceof CustomEvent ? event.detail : undefined) ?? null);
 

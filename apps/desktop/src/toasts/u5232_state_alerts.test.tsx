@@ -34,6 +34,16 @@ describe("u5232 each choice follows the state", () => {
     expect(sounds).toEqual([]);
   });
 
+  it("u7259_an_agent_entering_needs_you_posts_one_state_alert", async () => {
+    const { app } = await mountToasts(tree(), { front: false });
+
+    app.emit(status("a", "needs-you"));
+    app.emit(status("b", "error"));
+    await settle();
+
+    expect(app.stateAlerts).toEqual([{ agent: "a", title: "scout", body: "Needs you", alert: true, sound: false }]);
+  });
+
   it("u5232c_each_choice_acts_only_when_on", async () => {
     const { app } = await mountToasts(tree(), { front: false });
 

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent } from "../testing/nodes";
 import { openTabs, tab } from "./stripFixture";
+import { appSettings, saveAppSettings } from "../settings/preferences";
 
 // jsdom has no layout; Ark excludes zero-size controls from its focus targets.
 beforeEach(() => {
@@ -49,6 +50,7 @@ describe("u6220d right-click a Project tab to set its alert level", () => {
   it("u6220d_the_dock_badge_drops_an_off_project_and_keeps_a_needs_you_only_one", async () => {
     const { app } = await openTabs({ api: [agent("a", "needs-you", "x"), agent("b", "working", "x")], web: [agent("c", "error", "x")] });
 
+    await saveAppSettings({ stateAlerts: { ...appSettings().stateAlerts, error: { ...appSettings().stateAlerts.error, badge: true } } }); // U7259
     await waitFor(() => expect(app.badges.at(-1)).toBe(2));
 
     open("api");

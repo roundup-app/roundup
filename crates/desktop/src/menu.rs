@@ -51,6 +51,11 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         )?,
         2,
     )?;
+    // U7210a: disabled until a Project is open (`select_project_menu` enables it), as the Fork item is.
+    application.insert(
+        &MenuItem::with_id(app, "send-feedback", "Send feedback…", false, None::<&str>)?,
+        3,
+    )?;
     // Keep the standard native editing commands; only history changes with region focus.
     let edit_position = menu
         .items()?
@@ -89,6 +94,7 @@ enum MenuCommand<'a> {
     Update,
     AppSettings,
     ForkSheet,
+    SendFeedback,
     /// An id the Project or Edit menu holds, kept whole as the payload's `command`.
     Project(&'a str),
     /// Any other id: the popped-up menu's pending `Choice`.
@@ -101,6 +107,7 @@ impl<'a> MenuCommand<'a> {
             crate::updater::ITEM => Self::Update,
             "app-settings" => Self::AppSettings,
             "fork-sheet" => Self::ForkSheet,
+            "send-feedback" => Self::SendFeedback,
             "import-work" | "project-settings" => Self::Project(id),
             _ if id.starts_with("view:") || id.starts_with("action:") => Self::Project(id),
             _ => Self::Choice,
@@ -115,6 +122,11 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
         MenuCommand::ForkSheet => {
             if let Err(error) = app.emit("open-fork-sheet", ()) {
                 crate::diagnostics::failure("open the Fork sheet", &error);
+            }
+        }
+        MenuCommand::SendFeedback => {
+            if let Err(error) = app.emit("open-feedback", ()) {
+                crate::diagnostics::failure("open Send feedback", &error);
             }
         }
         MenuCommand::Project(command) => open_project_page(app, command),
@@ -185,9 +197,12 @@ pub fn select_project_menu<R: Runtime>(
     project.set_enabled(true).map_err(internal)?;
     if let Some(MenuItemKind::Submenu(application)) =
         menu.items().map_err(internal)?.into_iter().next()
-        && let Some(MenuItemKind::MenuItem(fork)) = application.get("fork-sheet")
     {
-        fork.set_enabled(path.is_some()).map_err(internal)?;
+        for id in ["fork-sheet", "send-feedback"] {
+            if let Some(MenuItemKind::MenuItem(item)) = application.get(id) {
+                item.set_enabled(path.is_some()).map_err(internal)?;
+            }
+        }
     }
     let mut items = items.unwrap_or_default();
     if path.is_none() {
