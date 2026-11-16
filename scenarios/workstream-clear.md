@@ -12,7 +12,7 @@ Rendered observer: Intervene in `.agents/data/journey.md`, isolated headless U26
 
 Policy: delete `crates/rupd/src/clear.rs` and its registration/coordinator state, acknowledgement/timeout/retry/archive paths, `workstream_handoff` offering/result prose and both methods' declarations, params/results/events/exports. Remove `workstream.cleared` and `workstream.clearFailed`; regenerate `contracts/generated/` from `crates/contracts`, never edit generated output by hand. Update every caller, contract inventory and fixture in the same contract PR. Remove Clear-only fresh-session Handoff launch plumbing, `end_iteration`, Rail/Message/Mark Iteration fields, storage reads/writes and eligibility guards, including Clear-only stored tables/columns. No release exists: drop that stored state outright, without a data conversion or compatibility alias. Preserve all unrelated Project data, ordinary Message history, Checkpoint snapshots and Rewind's stale-Mark rules. Update fresh/reopened schema observers and retain Rewind tests for those surviving boundaries.
 
-Policy: remove `Clear`, `Handoff`, `Iteration` and the two Clear control terms from `GLOSSARY.md` with their last production consumers. A specialist's ordinary summary (LC12/LC13), Todo Hand-off, Message batching, Restart/Retirement reservations and a Mode's first prompt are separate capabilities and stay. A Mode's first prompt is typed once only after the user's fresh restart of that Mode Agent (A4452c); plain resume and Rewind type none. #4465's saved setting/inbox work merged in #4603; fresh restart/delivery remains in #4574. Do not rebuild that feature or route it through Clear.
+Policy: remove `Clear`, `Handoff`, `Iteration` and the two Clear control terms from `GLOSSARY.md` with their last production consumers. Todo Hand-off, Message batching, Restart/Retirement reservations and a Mode's first prompt are separate capabilities and stay. A Mode's first prompt is typed once only after the user's fresh restart of that Mode Agent (A4452c); plain resume and Rewind type none. #4465's saved setting/inbox work merged in #4603; fresh restart/delivery remains in #4574. Do not rebuild that feature or route it through Clear.
 
 ## Entry-path audit
 
@@ -30,7 +30,6 @@ Policy: the implementation PR records each row's removal or retained behavior an
 | `crates/rup/src/mcp.rs`, `mcp/agent_tools.rs`; M5/M2706a (`scenarios/mcp.md`) | Remove Door Handoff tool, success prose, special permission/dispatch branch and Clear exclusion row; reject retired calls. |
 | `crates/agents/src/door.rs`, Rail/Marks; `crates/checkpoints`; `crates/messages` | Remove only Clear's fresh-Handoff restart and Iteration storage/guards; retain session restart reservations, normal history and Rewind. |
 | A33 (`scenarios/agents.md`), `docs/messages.md`, Message delivery | Keep Todo-blocked presentation with the underlying idle inbox eligible for ordinary Messages. Remove only the Clear/Handoff example; blocked Todo state is not Terminal-busy state. |
-| `crates/rupd/src/specialist.rs`, LC12/LC13 | Keep specialist summary/replacement behavior; it never calls `workstream.handoff`. P14's separate token-count retirement remains in force. |
 | `contracts/c4-before.ts`, `contracts/c4-shapes.ts`, MCP before-fixtures | Remove Clear-specific inventory/shape obligations along with live declarations, preserving other contract boundaries. |
 
 ## Retired acceptance
@@ -47,7 +46,7 @@ Policy: these retirements authorize deletion of the tests that prove only the re
 | D9 | Only Clear completion/failure and App-bound-Clear probes retire; independent requests, connection state ordering, event delivery, cancellation and removal bounds stay. |
 | A35, N14 | Earlier-Iteration invalidation/round-trip fields retire; old Marks, selected children, original files, conversation copies and later-Rewind invalidation stay. |
 | A4452a/d/e, U3801/U3802, A3516a, B2706 | Remove Clear/Handoff launch examples and Clear-specific regression branches. Keep idle launch, inbox coordination, user launch settings and permission authority. A4452c retains once-only delivery of a Mode's first prompt on its fresh restart, independent of Clear. |
-| LC12/LC13, I5, I2706a, M2706a, F2/F8, Q11 | Drop A32 support, Handoff command/result and Clear launch examples only; specialist summaries, caller identity, naming and launch settings stay. |
+| I5, I2706a, M2706a, F2/F8, Q11 | Drop A32 support, Handoff command/result and Clear launch examples only; caller identity, naming and launch settings stay. |
 | E10–E13, A2961, TC1/T4b | Retire inventories of `a32_*` positive Clear tests, `b55_*`, Clear-only D9 tests and `a35_a_clear_makes_earlier_marks_unusable`; retain process-cost requirements for surviving behavior. |
 
 Policy: The Clear/Handoff retirement requirements are held by A32 and U350 above, following #4542. `docs/perf.md` drops Clear-only RPC coverage entries with the removed methods.
