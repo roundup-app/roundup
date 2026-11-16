@@ -101,6 +101,7 @@ export type ProjectCalls = {
 /** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
   "ask_removal",
+  "ask_question",
   "plugin:capture-panel|control",
   "native_open",
   "projects",
@@ -116,6 +117,7 @@ export const SEAM_COMMANDS = [
   "exit_for_update",
   "feedback_capture",
   "fork_branch",
+  "fork_colour",
   "fork_make",
   "fork_list",
   "fork_rename",
@@ -180,7 +182,19 @@ export type RemovalAnswer = "this" | "all" | "cancel";
 
 export type RemovalQuestion = { title: string; message: string; thisLabel: string; allLabel: string; cancelLabel: string };
 
-export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
+/** `suppressible` is the label of a \"Don't ask again\" choice; the answer says whether it was ticked on a confirm. */
+export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string; suppressible?: string };
+
+/** A bare boolean is a native question that offered no choice. */
+export type NativeAnswer = boolean | { accepted: boolean; suppressed: boolean };
+
+const nativeAnswerSchema = v.union([
+  v.pipe(v.boolean(), v.transform(accepted => ({ accepted, suppressed: false }))),
+  v.object({ accepted: v.boolean(), suppressed: v.boolean() }),
+]);
+
+/** The one shape callers branch on. */
+export const answerOf = (answer: NativeAnswer): { accepted: boolean; suppressed: boolean } => v.parse(nativeAnswerSchema, answer);
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
@@ -188,6 +202,7 @@ export const claudeBinarySchema = v.object({ path: v.string(), version: v.string
 /** U5502/U5503: both native menus retain original identities and surface Dock failures. */
 export const menuBarActionSchema = v.variant("kind", [
   v.object({ kind: v.literal("agent"), path: v.string(), agent: v.string() }),
+  v.object({ kind: v.literal("terminal"), path: v.string(), terminal: v.string() }),
   v.object({ kind: v.literal("open") }),
   v.object({ kind: v.literal("failure"), message: v.string() }),
 ]);
@@ -230,7 +245,7 @@ export type App = {
   /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
   writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
-  ask(question: NativeQuestion): Promise<boolean>;
+  ask(question: NativeQuestion): Promise<NativeAnswer>;
   askRemoval(question: RemovalQuestion): Promise<RemovalAnswer>;
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
@@ -286,6 +301,8 @@ export type App = {
   onProjectPage(listener: (page: { path: string; command: string }) => void): Unsubscribe;
   /** FS5979: the name of the branch the live App's source checkout is on, or `fork`. */
   forkBranch(): Promise<string>;
+  /** U6044a: the colour of the Fork whose data folder the App runs on, or `null` on the live folder. */
+  forkColour(): Promise<ForkColour | null>;
   /** FS5979: makes the Fork and opens the branch's App on it; rejects with the failure's text. */
   forkMake(params: { name: string; colour: ForkColour; projects: ForkPick[] }): Promise<void>;
   /** AI7152d, AI7152e: the Forks under `$ROUNDUP_HOME/forks`; `collides` names the other App one collides with. */

@@ -413,16 +413,15 @@ describe("u1 calls and events", () => {
   });
 });
 
-it.each(["Remove", "Keep"])("u3512a_native_adapter_preserves_the_question_and_result_%s", async answer => {
+it.each([true, false])("u3512a_native_adapter_preserves_the_question_and_result_%s", async accepted => {
   mockIPC((command, args) => {
     calls.push({ command, args });
 
-    return answer;
+    return { accepted, suppressed: accepted };
   });
-  const result = await createTauriApp().ask({ title: "Remove 雪?", message: "Goes: 2 Todos\nAgent α stays", okLabel: "Remove", cancelLabel: "Keep" });
-  expect({ result, calls }).toEqual({ result: answer === "Remove", calls: [{ command: "plugin:dialog|message", args: {
-    title: "Remove 雪?", message: "Goes: 2 Todos\nAgent α stays", kind: "warning", buttons: { OkCancelCustom: ["Remove", "Keep"] },
-  } }] });
+  const question = { title: "Remove 雪?", message: "Goes: 2 Todos\nAgent α stays", okLabel: "Remove", cancelLabel: "Keep", suppressible: "Don't ask again" };
+  const result = await createTauriApp().ask(question);
+  expect({ result, calls }).toEqual({ result: { accepted, suppressed: accepted }, calls: [{ command: "ask_question", args: { question } }] });
 });
 
 it.each(["this", "all", "cancel"])("u4461_the_native_alert_resolves_to_the_chosen_button_%s", async answer => {

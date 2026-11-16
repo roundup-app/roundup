@@ -5,6 +5,8 @@ use std::path::Path;
 pub const NO_TOOL: &[&str] = &[
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
     "ask_removal",
+    // U7157: the user answers every native question; an Agent cannot press its buttons.
+    "ask_question",
     // D8: the App's Resource strip
     "close_project",
     // S5981a: only the user quits the App for an update; an Agent cannot end the Daemons.
@@ -13,6 +15,7 @@ pub const NO_TOOL: &[&str] = &[
     "feedback_capture",
     // FS5979: only the user forks their data; the Fork sheet is the one caller.
     "fork_branch",
+    "fork_colour",
     "fork_make",
     "fork_list",
     "fork_rename",

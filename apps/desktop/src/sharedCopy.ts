@@ -131,6 +131,7 @@ export const copy = {
   delete: "Delete",
   terminalOutcomeUnknown: "Outcome is unknown. ",
   keep: "Keep",
+  dontAskAgain: "Don't ask again",
   padBody: "Pad body",
   addPad: "Add Pad",
   pad: word.pad,

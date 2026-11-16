@@ -566,3 +566,20 @@ Recorded numbers (Mac, 16 CPUs, 2026-11-08, median of 11 fresh Daemons or cores 
 | 10 idle Terminals, extra RSS (MB) | 3.5 | 15.25 | 150 |
 
 herdr-core passes all three limits. The owner decided on 2026-11-08 that rule 7 means the limits, so the ×2.6 to ×9.3 rise against the PTY arm does not keep the PTY path. No Terminal is switched here and no budget changes.
+
+## C9e desktop dist trim (2026-11-15)
+
+Linux x86_64, clean `pnpm --filter desktop build`, `python3 tools/release/check.py dist apps/desktop/dist`:
+
+| Revision | Bytes | Files | Checker |
+|---|---:|---:|---|
+| B `7ec8f3409` (main) | 17,994,270 | 461 | passed |
+| H (this PR) | 15,761,506 | 348 | passed, 17,000,000 or fewer |
+
+| Cut | Delta | Disposition |
+|---|---:|---|
+| One Mermaid copy: `@excalidraw/mermaid-to-excalidraw>mermaid` overridden to 12.1.0 (it pinned 11.17.2, so 65 chunks, 1,525,137 bytes, shipped a second set of every diagram) | -2,232,764 | Selected |
+| Source maps | 0 | None emitted |
+| `.vite/manifest.json` and `modules.json` (468 KB) | not cut | C9d's check and R3800 read them |
+
+`tools/release/inventory.json` drops the 66 `mermaid@11.17.2` module entries and `check.py modules` still passes. Every diagram kind, Excalidraw's Mermaid import, the language chunks and the fonts stay; the Mermaid and Drawing Pad tests pass (24).

@@ -10,6 +10,10 @@ pub const REAL_BOUND: Duration = Duration::from_secs(120);
 
 pub const KEY: &str = "sk-mock-key-000000000000000000000001";
 
+/// Fixtures every Model loads before its own, for requests no test scripts: the Rail rename note, and
+/// A7180's stop judge, which Claude Code answers for each Stop the rules cannot read.
+const SHARED: [&str; 2] = ["rail_rename_note", "stop_judge"];
+
 pub struct Model {
     child: Child,
     pub url: String,
@@ -36,7 +40,8 @@ impl Model {
             .local_addr()
             .unwrap()
             .port();
-        let child = Command::new(package_bin("llmock"))
+        let mut command = Command::new(package_bin("llmock"));
+        command
             .env("AIMOCK_API_KEYS", KEY)
             .args(["--port", &port.to_string(), "--host", "127.0.0.1"])
             .args([
@@ -47,12 +52,15 @@ impl Model {
                 "0",
                 "--log-level",
                 "warn",
-                "--fixtures",
-            ])
-            .arg(
+            ]);
+        for shared in SHARED {
+            command.arg("--fixtures").arg(
                 Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("../rup/tests/e2e/fixtures/rail_rename_note.json"),
-            )
+                    .join("../rup/tests/e2e/fixtures")
+                    .join(format!("{shared}.json")),
+            );
+        }
+        let child = command
             .arg("--fixtures")
             .arg(fixture)
             .stdout(Stdio::null())
