@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { batch } from "solid-js";
 import { App } from "./App";
 import { createFakeApp } from "./testing/fakeApp";
 import { agent, door, info } from "./testing/nodes";
@@ -8,7 +7,7 @@ import { fakeEmulators } from "./terminal/paneHarness";
 import { showShelfTab } from "./testing/shelfTabs";
 import { endLeader } from "./keys/registry";
 
-afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { cleanup(); endLeader(); localStorage.clear(); sessionStorage.clear(); });
 
 const PROJECTS = ["/one", "/two", "/three"];
 

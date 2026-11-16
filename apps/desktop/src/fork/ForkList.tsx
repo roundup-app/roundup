@@ -31,13 +31,13 @@ const ForkRow = (props: { app: App; fork: ForkListed; colours: readonly ForkColo
     <span class="fork-name">{props.fork.name}</span>
     <Show when={props.fork.collides}>{holder => <span class="fork-collides">{forkCopy.collides(holder())}</span>}</Show>
     <span class="fork-actions">
-      <button type="button" data-button="quiet" aria-expanded={editing() === "rename"} onClick={() => toggle("rename")}>{forkCopy.rename}</button>
-      <button type="button" data-button="quiet" aria-expanded={editing() === "recolour"} onClick={() => toggle("recolour")}>{forkCopy.recolour}</button>
+      <button type="button" data-button="quiet" aria-expanded={editing() === "rename" ? "true" : "false"} onClick={() => toggle("rename")}>{forkCopy.rename}</button>
+      <button type="button" data-button="quiet" aria-expanded={editing() === "recolour" ? "true" : "false"} onClick={() => toggle("recolour")}>{forkCopy.recolour}</button>
     </span>
     <Show when={editing() === "rename"}>
       <Field.Root class="fork-edit" invalid={refusal() !== null}>
         <Field.Label>{forkCopy.renameField(props.fork.name)}</Field.Label>
-        <Field.Input type="text" value={props.fork.name} ref={element => queueMicrotask(() => { element.focus(); element.select(); })} on:keydown={event => {
+        <Field.Input type="text" value={props.fork.name} ref={element => queueMicrotask(() => { element.focus(); element.select(); })} onKeyDown={event => {
           event.stopPropagation();
 
           if (event.key === "Enter") { event.preventDefault(); void run(props.app.forkRename(props.fork.path, event.currentTarget.value)); }

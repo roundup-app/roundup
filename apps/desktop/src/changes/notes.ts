@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
-import { createSignal } from "solid-js";
+import { createSignal, untrack } from "solid-js";
 import * as v from "valibot";
 import { parse, stringify } from "flatted";
 import { draftStorage } from "../state/storage";
@@ -149,10 +149,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     }
   };
 
-  load();
+  untrack(load);
   const [all, setAll] = createSignal<ReadonlyMap<string, Recipient>>(restored);
   const [sends, setSends] = createSignal<ReadonlyMap<string, Send>>(new Map());
-  const [problem, setProblem] = createSignal(storage.problem());
+  const [problem, setProblem] = createSignal(untrack(storage.problem));
   const [invalidCount, setInvalidCount] = createSignal(invalid.size);
   const recipient = (id: string): Recipient => all().get(id) ?? { version: 1, notes: [], forms: [], submissions: [], recovered: [] };
   const list = (id: string): readonly Note[] => recipient(id).notes;
