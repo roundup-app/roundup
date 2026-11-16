@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use agents::claude_code::ClaudeCode;
+use agents::claude_code::{ClaudeCode, STAR_HOLD};
 use agents::{AgentAdapter, Observation};
 use contracts::Kind;
 use serde_json::json;
@@ -109,6 +109,30 @@ fn ts2_only_the_current_turns_stop_ends_it() {
     assert_eq!(turn.woke(), 1, "only the first turn's Stop finished");
     assert_eq!(turn.signal(60, stop(Some("second"))), Kind::Idle);
     assert_eq!(turn.woke(), 2);
+}
+
+/// The vendor spins ◐/◑ about once a second while it works and sends no hook for an Esc: it shows
+/// one ✳ within a second of the last spinner (`spikes/hooks-state/REPORT.md`).
+#[test]
+fn ts5_an_esc_in_the_terminal_ends_a_message_started_turn() {
+    // Thinking: no tool call, so the star is read as idle at once.
+    let mut turn = Turn::idle();
+    turn.at(1_000, Observation::Delivered);
+    turn.title(1_100, "✳ Claude Code");
+    assert_eq!(turn.title(2_000, "◐ Claude Code"), Kind::Working);
+    assert_eq!(turn.title(2_960, "◑ Claude Code"), Kind::Working);
+    assert_eq!(turn.title(3_030, "✳ Claude Code"), Kind::Idle);
+    assert_eq!(turn.woke(), 1, "one finish, one wake");
+
+    // A tool call is running, so the star waits `STAR_HOLD` for a dialog before it reads as idle.
+    let mut turn = Turn::idle();
+    turn.at(1_000, Observation::Delivered);
+    turn.title(1_100, "◐ Claude Code");
+    turn.event(1_500, "PreToolUse");
+    turn.title(2_000, "◑ Claude Code");
+    assert_eq!(turn.title(2_070, "✳ Claude Code"), Kind::Working);
+    assert_eq!(turn.tick(2_070 + STAR_HOLD), Kind::Idle);
+    assert_eq!(turn.woke(), 1);
 }
 
 #[test]
