@@ -5,7 +5,7 @@ import { runChecks } from "./checks";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-const importsOf = (source: string) => [...source.matchAll(/^import\s+"([^"]+)";/gm)].map(match => match[1]!);
+const importsOf = (source: string) => [...source.matchAll(/^import\s+"([^"]+)";/gm)].map(match => match[1] ?? "");
 
 const LIST = importsOf(read("../sheets.ts"));
 
@@ -28,7 +28,7 @@ describe("U7283a the harness loads what the entry loads", () => {
 rendered("U7283a the harness page", () => {
   let page: Awaited<ReturnType<typeof openPage>>;
 
-  beforeAll(async () => { page = await openPage(chrome!); }, 90_000);
+  beforeAll(async () => { page = await openPage(chrome); }, 90_000);
   afterAll(async () => { await page?.close(); });
 
   it("u7283a_the_harness_loads_the_stylesheets_main_loads", async () => {
@@ -38,11 +38,11 @@ rendered("U7283a the harness page", () => {
     const loaded = await page.call<string[]>(`() => [...document.querySelectorAll('style[data-vite-dev-id]')].map(el => el.dataset.viteDevId)`);
     // A dev id is the sheet's path, so a list entry names the sheet by its tail.
     const tail = (path: string) => path.replace(/^\.\//, "").replace(/^@ui-sdk\/core\//, "");
-    const seen = LIST.map(entry => loaded.findIndex(id => id.split("?")[0]!.endsWith(`/${tail(entry)}`)));
+    const seen = LIST.map(entry => loaded.findIndex(id => (id.split("?")[0] ?? "").endsWith(`/${tail(entry)}`)));
 
-    expect(seen.every(index => index >= 0), `missing: ${LIST.filter((_, index) => seen[index]! < 0).join(", ")}`).toBe(true);
+    expect(seen.every(index => index >= 0), `missing: ${LIST.filter((_, index) => (seen[index] ?? -1) < 0).join(", ")}`).toBe(true);
     expect(seen).toEqual([...seen].sort((a, b) => a - b));
-    expect(seen[0]).toBeLessThan(seen[LIST.indexOf("./tokens.css")]!);
+    expect(seen[0]).toBeLessThan(seen[LIST.indexOf("./tokens.css")] ?? -1);
   }, 60_000);
 });
 
@@ -51,6 +51,7 @@ describe("U7283b D1 and D2 judge the App's own styles", () => {
     const el = document.head.appendChild(document.createElement("style"));
 
     el.dataset.u7283 = "";
+
     if (devId) el.dataset.viteDevId = devId;
     el.textContent = css;
   };
@@ -91,7 +92,7 @@ describe("U7283c every kept vendor rule is named", () => {
 
     for (const [, selector, reason] of entries) {
       expect(vendor, `no rule of web.css has the selector ${selector}`).toContain(`  ${selector} {`);
-      expect(reason!.length, `${selector} names no reason`).toBeGreaterThan(10);
+      expect((reason ?? "").length, `${selector} names no reason`).toBeGreaterThan(10);
     }
   });
 });

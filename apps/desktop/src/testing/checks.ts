@@ -181,6 +181,7 @@ const SIDES = { top: ["block-start"], bottom: ["block-end"], left: ["inline-star
 
 // The properties whose declaration, longhand, logical or shorthand, sets `property`.
 const settersOf = (property: string): string[] => {
+  // SAFETY: a property named `<kind>-<side>` has a side from SIDES whenever `kind` is margin or padding, the only case that reads it.
   const [kind, side] = property.split("-") as [string, keyof typeof SIDES];
 
   if (kind !== "margin" && kind !== "padding") return property === "font-size" ? ["font-size", "font"] : [property];
@@ -205,6 +206,7 @@ const declaredRules = (doc: Document): Declared[] => {
   const walk = (rules: CSSRuleList, parent: string | null): Declared[] =>
     [...rules].flatMap((rule): Declared[] => {
       if ("selectorText" in rule) {
+        // SAFETY: a rule with `selectorText` is a CSSStyleRule.
         const own = rule as CSSStyleRule;
         const selector = parent === null ? own.selectorText : own.selectorText.replace(/&/g, `:is(${parent})`);
         // A nested rule that names no `&` still hangs below its parent.
@@ -213,6 +215,7 @@ const declaredRules = (doc: Document): Declared[] => {
         return [{ selector: joined, sheet: own.parentStyleSheet, rule: own }, ...walk(own.cssRules, joined)];
       }
 
+      // SAFETY: a rule with `cssRules` is a grouping rule.
       return "cssRules" in rule ? walk((rule as CSSGroupingRule).cssRules, parent) : [];
     });
 
@@ -229,6 +232,7 @@ const declaredRules = (doc: Document): Declared[] => {
 const vendorWins = (page: Page, el: Element, property: string): boolean => {
   const setters = settersOf(property);
 
+  // SAFETY: only an HTML or SVG element carries a `style` attribute, and both have `.style`.
   if (el.getAttribute("style") && setters.some(name => (el as HTMLElement).style.getPropertyValue(name))) return false;
 
   const vendor = vendorSheets(page.doc);
