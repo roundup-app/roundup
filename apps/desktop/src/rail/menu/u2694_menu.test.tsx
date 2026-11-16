@@ -72,12 +72,12 @@ describe("u2694 the Rail's system menu", () => {
 
   it.each([
     ["stopped", false, false, false, []],
-    ["running", true, false, true, [copy.startYolo, copy.stop]],
+    ["running", true, false, true, [copy.restart, copy.startYolo, copy.stop]],
     ["yolo", true, true, false, [copy.startNormal, copy.stop]],
     ["stopped-yolo", false, true, false, []],
-    ["resumable", false, false, true, [copy.startYolo, copy.resume]],
+    ["resumable", false, false, true, [copy.restart, copy.startYolo]],
   ] as const)("u3812_a_row_menu_lists_only_the_actions_its_state_allows_%s", async (_state, running, yolo, can_resume, actions) => {
-    const { app } = await mountRail([door("w", running ? "idle" : "done", "ready", { yolo, can_resume })], running ? [] : [exitedTerminal("w", 0)]);
+    const { app } = await mountRail([door("w", running ? "idle" : "done", "ready", { yolo, can_resume, has_conversation: can_resume })], running ? [] : [exitedTerminal("w", 0)]);
 
     open("w");
 

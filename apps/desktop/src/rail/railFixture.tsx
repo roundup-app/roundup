@@ -19,6 +19,7 @@ import { DockBadge } from "./DockBadge";
 import { attentionHolders } from "./attention";
 import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
+import { copy } from "./copy";
 
 // Drafts survive unmount; unrelated layout fixtures retain their existing lifecycle.
 afterEach(() => {
@@ -121,6 +122,11 @@ export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(
 export const chooseAction = async (app: ReturnType<typeof createFakeApp>, name: string, label: string) => {
   fireEvent.contextMenu(rowOf(name), { clientX: 1, clientY: 1 });
   await app.pickMenu(label);
+};
+
+/** The row's Resume icon: the one control that sends `agent.resume {id}` (U428, U68). */
+export const resumeRow = (name: string): void => {
+  fireEvent.click(within(rowOf(name)).getByRole("button", { name: copy.resume }));
 };
 
 /** Chooses a creation kind through the shared footer menu. */

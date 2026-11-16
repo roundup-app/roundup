@@ -1,10 +1,11 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import { agent, door, event, workstream, terminal, doorOf } from "../../testing/nodes";
 import { fakeEmulators } from "../../terminal/paneHarness";
-import { exitedTerminal, mountRail as mountFixture, railCallsTo, rowOf } from "../railFixture";
+import { copy } from "../copy";
+import { exitedTerminal, mountRail as mountFixture, railCallsTo, resumeRow, rowOf } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -20,20 +21,22 @@ const mountRail = async (...args: Parameters<typeof mountFixture>) => {
   return mounted;
 };
 
-/** The enabled items of the last menu that U56 and U68 name. */
-const labels = () => (shown.shownMenus.at(-1)?.items ?? []).filter((item) => item.enabled && ["Stop", "Resume", "Remove"].includes(item.label)).map((item) => item.label);
+/** The enabled items of the last menu that U56 and U7191a name. */
+const labels = () => (shown.shownMenus.at(-1)?.items ?? []).filter((item) => item.enabled && ["Stop", "Restart", "Remove"].includes(item.label)).map((item) => item.label);
+
+const resumeIcon = (name: string) => within(rowOf(name)).queryByRole("button", { name: copy.resume });
 
 const exited = (id: string) => exitedTerminal(id, 0);
 
-const resumable = (id: string, over: Partial<Extract<RailNode, { kind: "agent" }>> = {}) => agent(id, "done", "done", { can_resume: true, ...over });
+const resumable = (id: string, over: Partial<Extract<RailNode, { kind: "agent" }>> = {}) => agent(id, "done", "done", { can_resume: true, has_conversation: true, ...over });
 
 describe("u68 resume from the Rail menu", () => {
-  it("u68_an_exited_resumable_agent_offers_resume_then_remove", async () => {
+  it("u68_an_exited_resumable_agent_offers_restart_then_remove", async () => {
     await mountRail([resumable("a")], [exited("a")]);
 
     openAt("a");
 
-    expect(labels()).toEqual(["Resume", "Remove"]);
+    expect(labels()).toEqual(["Restart", "Remove"]);
   });
 
   it("u68_menu_per_row_kind", async () => {
@@ -44,24 +47,24 @@ describe("u68 resume from the Rail menu", () => {
         agent("gone", "done", "done"),
         resumable("run", { status: { kind: "working", label: "busy", since: 0, finished: "0" } }),
         workstream("g"),
-        door("d", "done", "done", { can_resume: true }),
+        door("d", "done", "done", { can_resume: true, has_conversation: true }),
         terminal("t"),
       ],
       [exited("gone"), exited("d")],
     );
 
     openAt("live-done");
-    expect(labels()).toEqual(["Stop", "Remove"]);
+    expect(labels()).toEqual(["Restart", "Stop", "Remove"]);
     openAt("live-error");
     expect(labels()).toEqual(["Stop", "Remove"]);
     openAt("gone");
     expect(labels()).toEqual(["Remove"]);
     openAt("run");
-    expect(labels()).toEqual(["Stop", "Remove"]);
+    expect(labels()).toEqual(["Restart", "Stop", "Remove"]);
     openAt("g");
     expect(labels()).toEqual(["Remove"]);
     openAt("d");
-    expect(labels()).toEqual(["Resume", "Remove"]);
+    expect(labels()).toEqual(["Restart", "Remove"]);
     openAt("t");
     expect(labels()).toEqual(["Stop", "Remove"]);
   });
@@ -70,12 +73,12 @@ describe("u68 resume from the Rail menu", () => {
     const { app } = await mountRail([resumable("a")]);
 
     openAt("a");
-    expect(labels()).toEqual(["Stop", "Remove"]);
+    expect(labels()).toEqual(["Restart", "Stop", "Remove"]);
 
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
     await waitFor(() => {
       openAt("a");
-      expect(labels()).toEqual(["Resume", "Remove"]);
+      expect(labels()).toEqual(["Restart", "Remove"]);
     });
   });
 
@@ -83,11 +86,8 @@ describe("u68 resume from the Rail menu", () => {
     const { app } = await mountRail([resumable("a"), resumable("b")], [exited("a"), exited("b")]);
 
     app.handlers["agent.resume"] = () => resumable("a");
-    openAt("a");
-    await app.pickMenu("Resume");
-
-    openAt("b");
-    await app.pickMenu("Resume");
+    resumeRow("a");
+    resumeRow("b");
 
     await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }, { id: "b" }]));
 
@@ -99,11 +99,9 @@ describe("u68 resume from the Rail menu", () => {
     let finish: (node: RailNode) => void = () => {};
 
     app.handlers["agent.resume"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
-    openAt("a");
-    await app.pickMenu("Resume");
+    resumeRow("a");
     // U5991a: the row already shows running, so a second activation has no Resume to choose.
-    openAt("a");
-    expect(labels()).not.toContain("Resume");
+    await waitFor(() => expect(resumeIcon("a")).toBeNull());
 
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
     finish(resumable("a"));
@@ -124,8 +122,7 @@ describe("u68 resume from the Rail menu", () => {
       return tree[0];
     };
 
-    openAt("a");
-    await app.pickMenu("Resume");
+    resumeRow("a");
 
     await waitFor(() => expect(emulators.made.has("t-a2")).toBe(true));
     expect(rail.nodes.map((node) => node.id)).toEqual(["a", "other"]);
@@ -140,8 +137,7 @@ describe("u68 resume from the Rail menu", () => {
     let finish: (node: RailNode) => void = () => {};
 
     app.handlers["agent.resume"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
-    openAt("a");
-    await app.pickMenu("Resume");
+    resumeRow("a");
     rail.select("other");
     rowOf("other").focus();
     tree[0] = agent("a", "working", "starting", { terminal_id: "t-a2" });
@@ -162,8 +158,7 @@ describe("u68 resume from the Rail menu", () => {
     rail.select("a");
     app.handlers["agent.resume"] = () => { throw new RpcError(-32003, "cannot start\nsecond line"); };
 
-    openAt("a");
-    await app.pickMenu("Resume");
+    resumeRow("a");
 
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot start"));
     expect(rail.selected()).toBe("a");
@@ -187,8 +182,7 @@ describe("u68 resume from the Rail menu", () => {
 
     const trees = railCallsTo(app, "rail.tree").length;
     const lists = railCallsTo(app, "terminal.list").length;
-    openAt("a");
-    await app.pickMenu("Resume");
+    resumeRow("a");
 
     await waitFor(() => expect(emulators.made.has("t-a2")).toBe(true));
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
@@ -208,13 +202,9 @@ describe("u68 resume from the Rail menu", () => {
       throw new RpcError(-32004, "the Daemon may have run the call");
     };
 
-    openAt("a");
-    await app.pickMenu("Resume");
+    resumeRow("a");
 
-    await waitFor(() => {
-      openAt("a");
-      expect(labels()).toEqual(["Resume", "Remove"]);
-    });
+    await waitFor(() => expect(resumeIcon("a")).not.toBeNull());
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
   });
 
@@ -227,8 +217,7 @@ describe("u68 resume from the Rail menu", () => {
       throw new RpcError(-32004, "the Daemon may have run the call");
     };
 
-    openAt("a");
-    await app.pickMenu("Resume");
+    resumeRow("a");
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
