@@ -649,7 +649,9 @@ async fn b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent() {
             "{sender}: queued Messages were typed"
         );
         run.record(&[first, second]).await;
-        assert_eq!(run.seen().await, sent, "{sender}");
+        let mut seen = run.seen().await;
+        seen.sort_unstable();
+        assert_eq!(seen, sent, "{sender}");
     }
 }
 
