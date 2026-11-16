@@ -282,7 +282,7 @@ async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
         let mut project = daemon::start(&fake);
         let c = project.client().await;
         project.spawn_agent(&c).await;
-        let child_pid = daemon::h21_poll("the Agent's child PID", async || {
+        let child_pid = daemon::poll_until("the Agent's child PID", async || {
             std::fs::read_to_string(&child)
                 .ok()?
                 .trim()
