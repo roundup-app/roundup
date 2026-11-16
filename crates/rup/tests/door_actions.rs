@@ -199,7 +199,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         })
         .await;
     // DTC2: the child's idle Digest is quiet; it waits in the ledger until a Message reaches the Door.
-    daemon::h21_poll("the child's idle Digest in the Door's ledger", async || {
+    daemon::poll_until("the child's idle Digest in the Door's ledger", async || {
         let ledger = user.request("message.list", json!({"to":door})).await;
         let ledger = ledger.ok()?.to_string();
         (ledger.contains("B37 child is idle") && ledger.contains("open todos: 1")).then_some(())
@@ -332,7 +332,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     .expect("the Door went idle with a new status revision after the needs-you note");
     // The note reaches the model in a later request, so wait for that request in the journal.
     let model = project.model.as_ref().unwrap();
-    daemon::h21_poll("the Door's model request carrying the note", async || {
+    daemon::poll_until("the Door's model request carrying the note", async || {
         model.journal().iter().any(has_note).then_some(())
     })
     .await;
@@ -686,10 +686,13 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
     let mut completed = std::collections::BTreeSet::new();
     let mut working = std::collections::BTreeSet::new();
     while completed.len() < 2 {
-        let (id, kind) = project
+        let (id, kind, ended) = project
             .next(&mut client, |event| match event {
                 EventData::AgentStatus(status) if status.id == door || status.id == spawned.id => {
-                    Some((status.id.clone(), status.status.kind))
+                    // A7180: a turn that ends on a question to the user shows needs-you, not idle.
+                    let ended = status.status.kind == Kind::Idle
+                        || agents::stop_asks(status.status.kind, &status.status.label);
+                    Some((status.id.clone(), status.status.kind, ended))
                 }
                 _ => None,
             })
@@ -697,7 +700,7 @@ async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream(
         if kind == Kind::Working {
             working.insert(id.clone());
         }
-        if kind == Kind::Idle && working.contains(&id) {
+        if ended && working.contains(&id) {
             completed.insert(id);
         }
     }
