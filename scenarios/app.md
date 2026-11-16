@@ -45,6 +45,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | `open-fork-sheet` | none | The application menu's `Fork for development…` (enabled while a Project is open) asks the webview to open the Fork sheet (FS5979a). |
 | `open-feedback` | none | The application menu's `Send feedback…` (enabled while a Project is open) asks the webview to open the Send feedback dialog (U7210a, `scenarios/send-feedback.md`). |
 | `updates-changed` | `{roundup, core}` as `updates` answers | After each hourly look for a newer roundup or herdr-core (U7208d), the facts it left. |
+| `update-progress` | `{downloaded, total, stage}`: bytes so far, the total or `null`, and `"downloading"` or `"installing"` | While `install_update` runs, as the updater reports the download and when it starts to install (U7208b). Sent at most a few times a second; none outside an install. |
 | `open-app-settings` | none, or `"updates"` | The webview opens App Settings in the center (U3799); works without an open Project. `"updates"` (the application menu's `Update available`, U7208f) shows its Updates page. |
 
 Every command fails with `{code, message}`, using the codes in `rpc::code`; an error from the Daemon passes through unchanged. When the Daemon ends while the App runs, the App emits the Tauri event `daemon-exited` with `{path, code: number | null}`. `scenarios/project-tabs.md` (S8 to S10) holds the several-Project rules this table follows; where S1, S2, S3 and S5 say one Project or one Daemon, they now say it of each.
