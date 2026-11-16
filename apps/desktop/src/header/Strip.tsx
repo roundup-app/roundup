@@ -488,8 +488,7 @@ export const Strip = (props: {
             <Sortable.Root
               {...list}
               ref={(element) => applyRef(list.ref, element)}
-              plain
-              horizontal
+              plain horizontal
               ids={paths()}
               onOrderChange={(ids) => props.onReorder(ids)}
             >
@@ -502,7 +501,7 @@ export const Strip = (props: {
                   );
 
                   return (
-                    <Sortable.Item id={path} index={at()} pressable>
+                    <Sortable.Item id={path} index={at()}>
                       {(sort) => (
                         <ProjectTab
                           sort={sort}

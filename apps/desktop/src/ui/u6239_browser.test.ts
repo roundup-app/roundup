@@ -144,17 +144,17 @@ run("u6239 Project tab drag", () => {
     expect(await saved()).not.toEqual(savedBefore);
   }, 60_000);
 
-  /** The centre of the first grip `selector` names that a press there would hit, or null while none shows. */
+  /** A point near the start of the first row surface `selector` names that a press there would hit, or null while none shows. */
   const grip = (selector: string) => `() => {
-    for (const handle of document.querySelectorAll(${JSON.stringify(selector)})) {
-      const b = handle.getBoundingClientRect();
-      const at = { x: b.left + b.width / 2, y: b.top + b.height / 2 };
-      if (b.width > 0 && document.elementFromPoint(at.x, at.y)?.closest('.sortable-handle') === handle) return at;
+    for (const surface of document.querySelectorAll(${JSON.stringify(selector)})) {
+      const b = surface.getBoundingClientRect();
+      const at = { x: b.left + Math.min(8, b.width / 2), y: b.top + b.height / 2 };
+      if (b.width > 0 && surface.contains(document.elementFromPoint(at.x, at.y))) return at;
     }
     return null;
   }`;
 
-  /** Press that grip (a row drags only from its grip), move it over the next row and read what paints the held element: its ground's alpha and whether it sits in the top layer, above every row. */
+  /** Press that row's surface (U7276a), move it over the next row and read what paints the held element: its ground's alpha and whether it sits in the top layer, above every row. */
   const held = async (selector: string, onRail = false) => {
     const from = await page.call<{ x: number; y: number }>(grip(selector));
 
@@ -226,10 +226,10 @@ run("u6239 Project tab drag", () => {
   const shelfUrl = "/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40";
 
   for (const [surface, url, open, selector, rail] of [
-    ["rail", "/harness.html?seed=tree-40", async () => {}, ".rail .rail-row .sortable-handle", true],
-    ["todo", shelfUrl, todos, ".shelf .todo-row .sortable-handle", false],
-    ["pad", shelfUrl, () => shelfTab("pads"), ".shelf .pad-row-head .sortable-handle", false],
-    ["shelf", shelfUrl, todos, ".shelf .sortable-handle", true],
+    ["rail", "/harness.html?seed=tree-40", async () => {}, ".rail .rail-row .name", true],
+    ["todo", shelfUrl, todos, ".shelf .todo-row .todo-row-button", false],
+    ["pad", shelfUrl, () => shelfTab("pads"), ".shelf .pad-row-head .pad-name", false],
+    ["shelf", shelfUrl, todos, ".shelf [data-drag-surface]", true],
   ] as const) {
     it(`u6554b_every_held_row_is_opaque_and_on_top_${surface}`, async () => {
       await page.scheme("dark");

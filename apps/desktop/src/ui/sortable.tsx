@@ -1,20 +1,18 @@
-import GripVertical from "@lucide/solid/icons/grip-vertical";
-import { IconButton } from "./IconButton";
 import { ReducedMotionContext } from "../app/reducedMotion";
 import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import { dropLine } from "./dropLine";
 import { pointerSensor } from "./pointerSensor";
+import { copy } from "./copy";
 import { fixedSlots } from "./fixedSlots";
-import { depthReading, depthsAt, dropAt, gapAt, isInPlace, keyDrop, keyStart, keyTurn, legalIndexOf, resolveDrop, withDepth, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
+import { depthReading, depthsAt, dropAt, gapAt, isInPlace, legalIndexOf, resolveDrop, withDepth, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
 import { easingOut, glide, reorderMs, translateOf } from "./reorderMotion";
 import "./sortable.css";
-import { Accessibility, AutoScroller, Cursor, DragDropManager, Feedback, PointerSensor, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Draggable, type DropAnimationFunction } from "@dnd-kit/dom";
+import { Accessibility, AutoScroller, Cursor, DragDropManager, Feedback, KeyboardSensor, PointerSensor, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Draggable, type DropAnimationFunction } from "@dnd-kit/dom";
 import type { CollisionDetector, Data } from "@dnd-kit/abstract";
 import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers";
 import { showPopover } from "@dnd-kit/dom/utilities";
 import { effect } from "@dnd-kit/state";
-import { makeEventListener } from "@solid-primitives/event-listener";
 import { isSortable, resolveSortableTransition, Sortable as LibrarySortable, type SortableInput } from "@dnd-kit/dom/sortable";
 import { createContext, createEffect, createSignal, createMemo, flush, omit, onCleanup, onSettled, untrack, useContext } from "solid-js";
 import type { JSX } from "@solidjs/web";
@@ -22,7 +20,7 @@ import type { JSX } from "@solidjs/web";
 /** Longest the dragged row waits at its new place for the Daemon's answer to show in the list. */
 const ANSWER_WAIT_MS = 2500;
 
-/** What a row reads from its list: the manager its sortable joins, the collision detector, and whether a keyboard drag may stop at index `to`. */
+/** What a row reads from its list: the manager its sortable joins, the collision detector, and whether a drag may stop at index `to`. */
 const ListContext = createContext<{ manager: DragDropManager; detect: CollisionDetector & { takes: (to: number) => boolean } }>();
 
 /** A drop target outside the list; `element` carries `data-drop` while the pointer is over it. */
@@ -52,11 +50,11 @@ type SortableTree = DropRules & {
   /** The row content's inset from its border box, in pixels, at its current depth. */
   inset: (element: HTMLElement) => number;
   /** Called with the dragged row's id as its drag starts, before the rows are measured, and with null once the drop is shown or the drag is cancelled: a caller may fold the row's children in between. */
-  onLift?: (id: string | null, keyboard: boolean) => void;
+  onLift?: (id: string | null) => void;
   /** A string the promise resolves to is the Daemon's refusal; the dragged row then blends back once. */
   onMove: (move: SortableMove) => MoveAnswer;
   /** The drop a release would commit, or null once the drag ends. */
-  onPreview: (drop: SortableDrop | null) => void;
+  onPreview?: (drop: SortableDrop | null) => void;
   /** False when a pointer release would not land `move` as the line shows it (the Rail ignores a release outside it; Todos refuse a nest that makes a cycle): the drop then shows no line and commits nothing. */
   accepts?: (move: SortableMove) => boolean;
 };
@@ -67,7 +65,7 @@ type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElemen
   onOrderChange?: ((ids: string[], moved: string) => MoveAnswer) | undefined;
   tree?: SortableTree | undefined;
   external?: External<T> | undefined;
-  /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
+  /** The rows are buttons that keep their own meaning and move by no key (Project tabs): the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
   plain?: boolean;
   /** The rows run left to right: the landing slot takes the dragged row's width as well as its height, shows as a gap with no outline, and the list does not auto-scroll under the pointer (U6220c). */
   horizontal?: boolean;
@@ -122,7 +120,7 @@ const createStanding = () => {
   let lifted: { element: Element; parent: ParentNode; before: ChildNode | null } | null = null;
 
   return {
-    /** Notes where the row stands among its siblings when its drag is about to start: the library's own sorting (a keyboard drag) moves it in the DOM. */
+    /** Notes where the row stands among its siblings when its drag is about to start: the library's placeholder moves it in the DOM. */
     stand: (element: Element) => { stood = { previous: element.previousElementSibling, next: element.nextElementSibling, parent: element.parentElement }; },
     /** Puts the row back next to the elements it had when it was noted. */
     restore: (element: Element) => {
@@ -190,6 +188,15 @@ const createSlides = (options: { horizontal: () => boolean | undefined; reduced:
   };
 };
 
+/** U7276c: the screen-reader text of a list whose rows move by `keys`; a drag is spoken without the library's ids. */
+const spoken = (keys: string) => ({
+  screenReaderInstructions: { draggable: keys },
+  announcements: {
+    dragstart: () => copy.dragStarted,
+    dragend: ({ canceled }: { canceled: boolean }) => canceled ? copy.dragCancelled : copy.dragEnded,
+  },
+});
+
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
   const rest = omit(props, "ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children");
@@ -213,7 +220,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const arrivals = new Set<() => void>();
 
   // The rows' offsets go in the same update that redraws the list: a list that slides its rows reads where they show before it redraws and again after.
-  // The list moves the dropped row's node when it shows the move, which drops focus; the handle takes it back.
+  // The list moves the dropped row's node when it shows the move, which drops focus; the row takes it back.
   let refocus: HTMLElement | null = null;
 
   createEffect(shownOrder, () => {
@@ -251,13 +258,13 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const others = (source: Draggable | null) => isSortable(source) ? slots.rowsAtLift().flatMap((element, index) => index !== source.initialIndex && element instanceof HTMLElement ? [{ element, index }] : []) : [];
 
   // A pointer drag moves no row in the DOM; the list changes only when the Daemon answers. Until then the siblings slide to the places the drop gives them, and stay.
-  const showDrop = (source: Draggable | null, to: number, slide: boolean) => {
+  const showDrop = (source: Draggable | null, to: number) => {
     const shifts = isSortable(source) ? slots.shifts(source.initialIndex, to) : null;
     const dragged = shifts ? others(source) : [];
 
     const these = unclipped;
 
-    place(dragged.map(({ element, index }) => ({ element, shift: shifts![index] ?? 0 })), slide);
+    place(dragged.map(({ element, index }) => ({ element, shift: shifts![index] ?? 0 })), true);
 
     return {
       undo: () => { place(dragged.map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(these); },
@@ -359,53 +366,17 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     });
   };
 
-  // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
-  let keyboard: { slot: number; depth: number } | null = null;
   let previewed: SortableDrop | null = null;
   let ownDepth = 0;
 
-  let stopListening: (() => void) | undefined;
-
-  // A keyboard drag shifts the dragged row's gap right of where it began by the drop's depth; a pointer drag's line shows the depth, and the dragged row stays at the pointer.
   const preview = (drop: SortableDrop | null) => {
     if (drop?.parent === previewed?.parent && drop?.index === previewed?.index && drop?.depth === previewed?.depth) return;
 
     previewed = drop;
-
-    if (props.tree && keyboard) list?.style.setProperty("--sortable-shift", `${((drop?.depth ?? ownDepth) - ownDepth) * props.tree.indent}px`);
-    props.tree?.onPreview(drop);
+    props.tree?.onPreview?.(drop);
   };
-
-  /** The drop for the gap before index `index` of the dragged row: a keyboard drag at its own depth, else `level` levels from the row's own depth. */
-  const resolve = (tree: SortableTree, dragged: string, index: number, level: number) => {
-    const out = resolveDrop(tree, dragged, index, level, keyboard, legalAt);
-
-    keyboard = out.keyboard;
-    legalAt = out.gap;
-
-    return out;
-  };
-
-  /** The gap the last resolve took, for the direction of a key past a refused one. */
-  let legalAt = 0;
 
   const legalIndex = legalIndexOf();
-
-  /** A keyboard drag in a tree: ArrowLeft and ArrowRight pick the depth among those the owner takes for the gap the row stands at. */
-  const holdKeys = (tree: SortableTree, dragged: string) => {
-    keyboard = keyStart(tree.rows, dragged);
-    legalAt = keyboard.slot;
-
-    const turn = (key: KeyboardEvent) => {
-      if (!keyboard || (key.key !== "ArrowLeft" && key.key !== "ArrowRight")) return;
-      key.preventDefault();
-      key.stopPropagation();
-      keyboard = keyTurn(tree, dragged, keyboard, key.key === "ArrowRight" ? 1 : -1);
-      preview(keyDrop(tree, dragged, keyboard));
-    };
-
-    stopListening = makeEventListener(window, "keydown", turn, { capture: true });
-  };
 
   /** The pose callback of a pointer drag of `source`: the other rows follow the pointer, sliding when the far zone flips or, where the owner refuses slots, from slot to slot. */
   const follow = (source: Draggable | null) => {
@@ -428,8 +399,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   };
 
   /** Starts the lifted row's motion: the other rows' transitions, the line of a pointer drag in a tree, and the tracking of the drop. */
-  const grab = (source: Draggable, element: HTMLElement, tree: SortableTree | undefined, pointerLift: boolean) => {
-    const duration = !pointerLift || reduced() ? 0 : reorderMs(element);
+  const grab = (source: Draggable, element: HTMLElement, tree: SortableTree | undefined) => {
+    const duration = reduced() ? 0 : reorderMs(element);
     const easing = easingOut(element);
 
     // The other rows make room by sortable transitions; the dragged row follows the pointer with none.
@@ -439,7 +410,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     ownDepth = tree ? withDepth(tree.rows).find(row => row.id === String(source.id))?.depth ?? 0 : 0;
 
-    if (tree && pointerLift) {
+    if (tree) {
       const frame = () => { painted = picked; latch = requestAnimationFrame(frame); };
 
       picking = true;
@@ -452,27 +423,13 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       const position = source.manager?.dragOperation.position;
 
       if (!isSortable(source)) return;
-      const index = indexOf(source);
 
       // A pointer drag moves no row in the library: the slot the pointer takes is the index.
-      list?.setAttribute("data-sortable-index", String(pointerLift ? slots.slot() : index));
-
-      track(source);
+      list?.setAttribute("data-sortable-index", String(slots.slot()));
 
       // The line rides the dragged row's top edge: the library moves the row in this same update, so both show on one frame.
       if (picking && position) line.ride(slots.snappedTop() ?? lineTop + position.current.y - position.initial.y);
     });
-  };
-
-  /** The index a drop gives the dragged row: the library's for a keyboard drag, the slot under the pointer otherwise. */
-  const indexOf = (source: Draggable & { index: number }) => source.manager?.dragOperation.activatorEvent instanceof KeyboardEvent ? source.index : slots.slot();
-
-  // A keyboard drag's drop follows its keys; a pointer drag's is its pick (`showPick`).
-  const track = (source: Draggable | null) => {
-    const tree = props.tree;
-
-    if (!tree || !isSortable(source) || !keyboard) return;
-    preview(resolve(tree, String(source.id), source.index, 0).drop);
   };
 
   // A pointer drag in a tree picks its drop as the pointer moves: the gap at the drop slot, at the depth the pointer's band gives, clamped to what the gap allows.
@@ -504,7 +461,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     if (!picking || !tree || !isSortable(source)) return;
     const id = String(source.id), index = slots.slot();
-    const { rows, drop } = resolve(tree, id, index, slots.level());
+    const { rows, drop } = resolveDrop(tree, id, index, slots.level());
     const next = slots.isFar() || over || (!isInPlace(rows, id, drop) && tree.accepts?.({ id, parent: drop.parent, index: drop.index }) === false) ? null : { index, drop };
 
     line.steps(slots.steps());
@@ -569,35 +526,24 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopPointer?.();
 
     // The children fold before the rows are measured, so the slots are those of the folded list.
-    if (tree && source) tree.onLift?.(String(source.id), event.operation.activatorEvent instanceof KeyboardEvent);
+    if (tree && source) tree.onLift?.(String(source.id));
     flush();
 
     slots.allow(tree && source ? (to) => legalIndex(tree, String(source.id), to) : () => true);
     standing.lift(source?.element);
-    const pointerLift = !(event.operation.activatorEvent instanceof KeyboardEvent);
-
     picking = false;
     picked = null;
     painted = null;
     cancelAnimationFrame(latch);
 
     // The other rows follow the pointer; they slide only when the far zone flips. In a tree the pointer also picks the drop's depth.
-    stopPointer = slots.begin(source, event.operation.position.initial, event.operation.position.current, follow(source), tree && pointerLift && isSortable(source) ? depthReading(tree, String(source.id), window.innerWidth) : undefined);
+    stopPointer = slots.begin(source, event.operation.position.initial, event.operation.position.current, follow(source), tree && isSortable(source) ? depthReading(tree, String(source.id), window.innerWidth) : undefined);
 
-    if (!(event.operation.activatorEvent instanceof KeyboardEvent)) unclip(slots.rowsAtLift());
+    unclip(slots.rowsAtLift());
 
-    if (source?.element instanceof HTMLElement) grab(source, source.element, tree, pointerLift);
+    if (source?.element instanceof HTMLElement) grab(source, source.element, tree);
 
-    stopListening?.();
     props.onDrag?.(true);
-
-    if (!tree || !isSortable(source) || !(event.operation.activatorEvent instanceof KeyboardEvent)) {
-      keyboard = null;
-
-      return;
-    }
-
-    holdKeys(tree, String(source.id));
   };
 
   const onDragMove = (event: DragMoveEvent) => {
@@ -607,8 +553,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const x = event.to?.x ?? position.current.x + (event.by?.x ?? 0);
     const y = event.to?.y ?? position.current.y + (event.by?.y ?? 0);
 
-    if (!(event.operation.activatorEvent instanceof KeyboardEvent)) slots.moved(x, y);
-    track(source);
+    slots.moved(x, y);
 
     if (!props.external || !source) return;
     mark(props.external.target(String(source.id), x, y));
@@ -618,8 +563,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const onDragEnd = (event: DragEndEvent) => {
     const source = event.operation.source;
     const outside = over;
-    const pointerDrag = !(event.operation.activatorEvent instanceof KeyboardEvent);
-    const far = pointerDrag && slots.isFar();
+    const far = slots.isFar();
     // A tree's pointer drop is the pick the last painted frame showed, unless the release itself falls where nothing drops (far, outside or refused).
     const shown = picked && (painted ?? picked);
 
@@ -638,13 +582,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     mark(null);
     props.onDrag?.(false);
-    stopListening?.();
-    stopListening = undefined;
 
     const focus = captureFocus();
-    const handle = source?.handle;
+    // The pressed row, or the control in it that had focus, takes focus back once the library has settled the drop.
+    const focusedEl = source?.element?.contains(document.activeElement) && document.activeElement instanceof HTMLElement ? document.activeElement : source?.element;
 
-    if (source && handle instanceof HTMLElement) {
+    if (source && focusedEl instanceof HTMLElement) {
       stopRestoringFocus?.();
       stopRestoringFocus = effect(() => {
         if (source.status !== "idle") return;
@@ -652,8 +595,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         queueMicrotask(() => {
           stopRestoringFocus?.();
 
-          focus(() => { if (handle.isConnected) handle.focus(); });
-          refocus = handle;
+          focus(() => { if (focusedEl.isConnected) focusedEl.focus(); });
+          refocus = focusedEl;
         });
       });
     }
@@ -662,25 +605,24 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const point = event.operation.position.current;
 
     // The preview shows what a release commits: far from the list it shows no move, and nothing commits.
-    const index = isSortable(source) ? tree && pointerDrag ? shown?.index ?? source.initialIndex : pointerDrag && event.operation.shape?.initial.containsPoint(point) ? source.initialIndex : pointerDrag ? slots.slot() : source.index : null;
+    const index = isSortable(source) ? tree ? shown?.index ?? source.initialIndex : event.operation.shape?.initial.containsPoint(point) ? source.initialIndex : slots.slot() : null;
 
     // A pointer release that commits nothing sends the other rows back.
     const relax = () => {
       stopLibrarySlides(source, tree);
-      tree?.onLift?.(null, !pointerDrag);
+      tree?.onLift?.(null);
 
-      if (pointerDrag) { place(others(source).map(({ element }) => ({ element, shift: 0 })), !tree); reclipAfterSlide(); }
+      place(others(source).map(({ element }) => ({ element, shift: 0 })), !tree);
+      reclipAfterSlide();
     };
 
     const final = !tree || event.canceled || !isSortable(source) ? null
-      : pointerDrag ? shown && { rows: withDepth(tree.rows), drop: shown.drop }
-      : resolve(tree, String(source.id), index ?? source.index, 0);
+      : shown && { rows: withDepth(tree.rows), drop: shown.drop };
 
-    keyboard = null;
     previewed = null;
-    tree?.onPreview(null);
+    tree?.onPreview?.(null);
 
-    if (pointerDrag) swallowNextClick();
+    swallowNextClick();
 
     // The row ends over another list: the list's glide (U3311) is its one motion, so the library's drop animation stays off.
     if (outside && source && props.external) {
@@ -705,12 +647,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         const run = () => {
           const answer = tree.onMove({ id: String(source?.id), parent: final.drop.parent, index: final.drop.index });
 
-          tree.onLift?.(null, !pointerDrag);
+          tree.onLift?.(null);
 
           return answer;
         };
 
-        if (isSortable(source)) hold({ start: slots.startAt(source.initialIndex, index ?? source.index), run, key: shownOrder(), ...showDrop(source, index ?? source.index, pointerDrag) });
+        if (isSortable(source)) hold({ start: slots.startAt(source.initialIndex, index ?? source.index), run, key: shownOrder(), ...showDrop(source, index ?? source.index) });
         else run();
       } else relax();
 
@@ -731,13 +673,14 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     order.splice(index ?? source.initialIndex, 0, moved);
     const run = () => props.onOrderChange?.(order, String(source.id));
 
-    hold({ start: slots.startAt(source.initialIndex, index ?? source.initialIndex), run, key: shownOrder(), ...showDrop(source, index ?? source.initialIndex, pointerDrag) });
+    hold({ start: slots.startAt(source.initialIndex, index ?? source.initialIndex), run, key: shownOrder(), ...showDrop(source, index ?? source.initialIndex) });
   };
 
+  // Rows drag by pointer and move by the lists' own ⌥ chords (U7276c), so the library's screen-reader text names those chords, not its keyboard lift.
   const manager = untrack(() => new DragDropManager({
-    sensors: defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor),
+    sensors: defaults => defaults.filter(sensor => sensor !== KeyboardSensor).map(sensor => sensor === PointerSensor ? pointerSensor() : sensor),
     modifiers: props.horizontal ? [RestrictToHorizontalAxis] : [],
-    plugins: (defaults) => defaults.filter((plugin) => plugin !== Cursor && !(props.plain && plugin === Accessibility) && !(props.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle, keyboardTransition: null }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin),
+    plugins: (defaults) => defaults.filter((plugin) => plugin !== Cursor && !(props.plain && plugin === Accessibility) && !(props.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Accessibility ? Accessibility.configure(spoken(props.tree ? copy.dragKeysTree : copy.dragKeysList)) : plugin === Feedback ? Feedback.configure({ dropAnimation: settle }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin),
   }));
 
   const context = { manager, detect: slots.detect };
@@ -760,7 +703,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     }),
   ];
 
-  onCleanup(() => { for (const stop of stopMonitoring) stop(); manager.destroy(); clearPreview(); stopPointer?.(); stopRestoringFocus?.(); stopListening?.(); mark(null); reclip(); cancelAnimationFrame(latch); line.remove(); });
+  onCleanup(() => { for (const stop of stopMonitoring) stop(); manager.destroy(); clearPreview(); stopPointer?.(); stopRestoringFocus?.(); mark(null); reclip(); cancelAnimationFrame(latch); line.remove(); });
 
   return <ListContext value={context}><div {...rest} ref={element => { list = element; props.ref?.(element); }} data-plain={props.plain ? "" : undefined} data-horizontal={props.horizontal ? "" : undefined}>{props.children}</div>{props.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</ListContext>;
 };
@@ -768,12 +711,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 type ItemProps = Pick<SortableInput<Data>, "id" | "index" | "disabled"> & {
   /** The row holds a slot others can land on but cannot be lifted: it has no drag activator, so it is announced neither draggable nor disabled. */
   fixed?: boolean;
-  /** The handle is also a button: a pointer drag starts after 4 px, so a click stays a click, and Space and Enter stay the button's own. */
-  pressable?: boolean;
   children: (parts: SortableParts) => JSX.Element;
 };
 
-/** What `Item` hands its row: the refs of the row and its handle, and the library's sortable. */
+/** What `Item` hands its row: its ref, the library's sortable and, for a row whose one button is its drag surface (a Project tab), that button's ref. */
 export type SortableParts = {
   sortable: LibrarySortable;
   isDragging: () => boolean;
@@ -786,7 +727,6 @@ const Item = (props: ItemProps) => {
   const [dragging, setDragging] = createSignal(false);
   const fixed = untrack(() => props.fixed);
 
-  // A keyboard drag's next target skips the rows whose index the owner refuses: the library then moves the row to the next index it takes.
   const sortable: LibrarySortable = untrack(() => {
     const input: ConstructorParameters<typeof LibrarySortable>[0] = {
       id: props.id,
@@ -796,9 +736,9 @@ const Item = (props: ItemProps) => {
       collisionDetector: detect,
       accept: (): boolean => detect.takes(sortable.index),
       register: false,
+      // A press on the row and a move of 4 px start its drag; the keyboard moves a row by chords, so no keyboard sensor.
+      sensors: [pointerSensor()],
     };
-
-    if (props.pressable) input.sensors = [pointerSensor()];
 
     return new LibrarySortable(input, manager);
   });
@@ -827,16 +767,4 @@ const Item = (props: ItemProps) => {
   }));
 };
 
-/** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. The row beside it names what moves, so it shows no tooltip (U6614a). */
-const Handle = (props: { label: string; onLift?: () => void; ref: (element: HTMLButtonElement | undefined) => void }) => {
-  onCleanup(() => props.ref(undefined));
-
-  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} bare ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => {
-    // Solid 2 runs this handler at the app's root, before the body, where the library hears the Escape that cancels a pointer drag.
-    if (event.key !== "Escape") event.stopPropagation();
-
-    if (event.key === " " || event.key === "Enter") props.onLift?.();
-  }}><GripVertical aria-hidden="true" /></IconButton>;
-};
-
-export const Sortable = { Root, Item, Handle };
+export const Sortable = { Root, Item };

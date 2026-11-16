@@ -57,10 +57,10 @@ const shelf: List = {
   },
 };
 
-const centre = (rows: string, n: number, grip = true) => page.call<Point>(`(rows, n, grip) => {
-  const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = (grip ? el.closest('.todo-row').querySelector('.sortable-handle') : el).getBoundingClientRect();
+const centre = (rows: string, n: number) => page.call<Point>(`(rows, n) => {
+  const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = el.getBoundingClientRect();
   return {x: b.left + b.width / 2, y: b.top + b.height / 2};
-}`, rows, n, grip);
+}`, rows, n);
 
 const state = (rows: string) => page.call<State>(`rows => ({
   ids: [...document.querySelectorAll(rows)].map(b => Number(/#(\\d+)/.exec(b.getAttribute('aria-label'))[1])),
@@ -185,7 +185,7 @@ for (const list of [shelf]) {
       const last = await centre(rows, before.ids.length - 1);
 
       // The original gap is the row's own box at lift: a pointer drag moves no row and inserts none.
-      const gap = await centre(rows, before.ids.length - 1, false);
+      const gap = await centre(rows, before.ids.length - 1);
 
       await page.pointer("down", last.x, last.y);
       await page.pointer("move", last.x + 6, last.y);
@@ -197,7 +197,8 @@ for (const list of [shelf]) {
       expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
     }, 60_000);
 
-    it("u490a_keyboard_reorders", async () => {
+    // U490a and U7276c: ⌥↑ and ⌥↓ move a focused Todo one slot with one call each, and focus stays on it.
+    it("u7276c_alt_up_and_down_move_one_slot_in_todos", async () => {
       await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
@@ -214,10 +215,20 @@ for (const list of [shelf]) {
       expect(after.ids.slice(0, 2)).toEqual([before.ids[1], before.ids[0]]);
       expect(after.active).toContain(`#${before.ids[1]} `);
 
+      await page.press("ArrowDown", "ArrowDown", ALT);
+      await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'todo.reorder').length === 2`);
+      await settled();
+
+      const back = await state(rows);
+
+      expect(back.ids.slice(0, 2)).toEqual(before.ids.slice(0, 2));
+      expect(back.reorders).toHaveLength(2);
+      expect(back.active).toContain(`#${before.ids[1]} `);
+
       await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
       await page.press("ArrowUp", "ArrowUp", ALT);
       await settled();
-      expect((await state(rows)).reorders).toHaveLength(1);
+      expect((await state(rows)).reorders).toHaveLength(2);
     }, 60_000);
 
   });

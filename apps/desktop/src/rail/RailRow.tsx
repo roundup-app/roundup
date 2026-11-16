@@ -1,5 +1,4 @@
 import { alertLevel } from "./alertLevel";
-import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { applying } from "../app/pending";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -123,7 +122,7 @@ const WorktreeChips = (props: { id: string }) => {
     return current?.failure === null ? current.state : null;
   };
 
-  return <span class="worktree-chips row-secondary">
+  return <span class="worktree-chips row-secondary" data-no-drag="">
         <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
         <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={String(ci().stale)} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
         <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={String(pr().stale)} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
@@ -176,8 +175,6 @@ export const RailRowView = (props: {
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: (id?: string) => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
   lifted: boolean; /** U6550a: the drag holds this row and its children are folded under it. */ folded: boolean; sortRef: (element: HTMLElement | undefined) => void;
-  handleRef: (element: HTMLButtonElement | undefined) => void;
-  draggable: boolean;
   onOpenMenu: (x: number, y: number) => void;
 }) => {
   const connected = useConnectedProject();
@@ -346,7 +343,6 @@ export const RailRowView = (props: {
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
-        <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
         <Show when={isGroup()}><FoldControl class="rail-group-chevron" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
       </span>
       <RowAge since={doorStatus()?.since} />

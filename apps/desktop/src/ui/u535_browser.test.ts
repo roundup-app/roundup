@@ -54,9 +54,9 @@ const moves = async () => JSON.parse(await output("Moves")) as unknown[];
 
 const box = (selector: string) => read<{ x: number; y: number; bottom: number }>(`(() => { const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, bottom: rect.bottom }; })()`);
 
-/** Presses the handle of `id`, then moves the pointer to the gap below `below` shifted `shift` indents right of where the press began. */
+/** Presses the row of `id`, then moves the pointer to the gap below `below` shifted `shift` indents right of where the press began. */
 const dragToGapBelow = async (id: string, below: string, shift: number) => {
-  const start = await box(`[aria-label="Move ${id}"]`);
+  const start = await box(`[data-id="${id}"] span`);
   const target = await box(`[data-id="${below}"]`);
   const x = Math.round(start.x);
   await browser("mouse", "move", String(x), String(Math.round(start.y)));
@@ -128,33 +128,10 @@ it("u535_in_place_reports_nothing", async () => {
   expect(await moves()).toEqual([]);
 }, 90_000);
 
-it("u535_keyboard_depth", async () => {
-  const lift = async () => {
-    await load();
-    await browser("focus", `[aria-label="Move P2"]`);
-    await browser("press", "Space");
-    await browser("wait", "--fn", `document.querySelector('[data-id="P2"]').dataset.dragging === 'true'`);
-    await browser("press", "ArrowDown");
-    await browser("press", "ArrowRight");
-  };
-
-  await lift();
-  await browser("press", "ArrowLeft");
-  await browser("press", "Space");
-  await browser("wait", "--fn", `document.querySelector('[aria-label="Moves"]').textContent !== '[]'`);
-  expect(await moves()).toEqual([{ id: "P2", parent: null, index: 2 }]);
-  expect(await read<string>(`document.activeElement.getAttribute('aria-label')`)).toBe("Move P2");
-
-  await lift();
-  await browser("press", "Space");
-  await browser("wait", "--fn", `document.querySelector('[aria-label="Moves"]').textContent !== '[]'`);
-  expect(await moves()).toEqual([{ id: "P2", parent: "Q", index: 0 }]);
-}, 90_000);
-
 it("u535_release_swallows_the_click", async () => {
   await load();
 
-  const handle = await box(`[aria-label="Move R"]`);
+  const handle = await box(`[data-id="R"] span`);
   const x = String(Math.round(handle.x));
   const y = String(Math.round(handle.y));
   await browser("mouse", "move", x, y);

@@ -53,11 +53,11 @@ it.each([true, false].flatMap(base => [1280, 1512].map(width => ({base, width}))
     })()`);
     await wait("document.querySelector('.todos-tab')");
     await browser("eval", `document.querySelectorAll('.shelf-groups .shelf-group-control[aria-expanded=false], .todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())`);
-    const selector = await read<string>("'.todos-tab [data-todo=\"'+window.__gripIds[3]+'\"] .sortable-handle'");
+    const selector = await read<string>("'.todos-tab [data-todo=\"'+window.__gripIds[3]+'\"] .todo-row-button'");
     await browser("scrollintoview", selector);
 
     const shot = async (step: string) => {
-      const readings = await read(`({viewport:[innerWidth,innerHeight],seed:'tree-40',checks:window.__checks(),distance:window.__distance,step:getComputedStyle(document.documentElement).getPropertyValue('--tree-step'),panel:document.querySelector('.shelf')?.getBoundingClientRect().toJSON(),controls:Array.from(document.querySelectorAll('.shelf button')).filter(el=>el.checkVisibility()).map(el=>({label:el.getAttribute('aria-label'),box:el.getBoundingClientRect().toJSON()})),rows:Array.from(document.querySelectorAll('.shelf .shelf-row')).map(row=>({id:row.dataset.todo??row.dataset.pad,depth:row.getAttribute('aria-level'),box:row.getBoundingClientRect().toJSON(),grip:row.querySelector('.sortable-handle')?.getBoundingClientRect().toJSON(),age:row.querySelector('.item-age')?.getBoundingClientRect().toJSON()})),slot:document.querySelector('[data-dnd-placeholder]')?.getBoundingClientRect().toJSON(),calls:window.__fake.app.calls.filter(c=>['todo.setBlockers','todo.reorder','todo.move'].includes(c.method))})`);
+      const readings = await read(`({viewport:[innerWidth,innerHeight],seed:'tree-40',checks:window.__checks(),distance:window.__distance,step:getComputedStyle(document.documentElement).getPropertyValue('--tree-step'),panel:document.querySelector('.shelf')?.getBoundingClientRect().toJSON(),controls:Array.from(document.querySelectorAll('.shelf button')).filter(el=>el.checkVisibility()).map(el=>({label:el.getAttribute('aria-label'),box:el.getBoundingClientRect().toJSON()})),rows:Array.from(document.querySelectorAll('.shelf .shelf-row')).map(row=>({id:row.dataset.todo??row.dataset.pad,depth:row.getAttribute('aria-level'),box:row.getBoundingClientRect().toJSON(),age:row.querySelector('.item-age')?.getBoundingClientRect().toJSON()})),slot:document.querySelector('[data-dnd-placeholder]')?.getBoundingClientRect().toJSON(),calls:window.__fake.app.calls.filter(c=>['todo.setBlockers','todo.reorder','todo.move'].includes(c.method))})`);
 
       for (const directory of directories) {
         writeFileSync(join(directory, `${width}-${step}.checks.json`), JSON.stringify({revision,readings})+"\n");
@@ -100,10 +100,7 @@ it.each([true, false].flatMap(base => [1280, 1512].map(width => ({base, width}))
     if (!base) {
       await browser("eval", "window.__fake.failNext(-32003, 'Cannot move this Todo because its dependency changed. Refresh and try again.', 'todo.setBlockers')");
       await browser("focus", selector);
-      await browser("press", "Space");
-      await wait("!!document.querySelector('[data-dnd-placeholder]')");
-      await browser("press", "ArrowLeft");
-      await browser("press", "Space");
+      await browser("press", "Alt+ArrowLeft");
       await wait("!!document.querySelector('.todo-row [role=alert]')");
       await browser("mouse", "move", "1", "1");
       await wait("!Array.from(document.querySelectorAll('[role=tooltip]')).some(element => element.checkVisibility())");

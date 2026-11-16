@@ -23,7 +23,8 @@ existing `before` translation (`u490a_nested_order_boundary`).
 Given the same list with a row focused, when Alt+Up or Alt+Down moves it, then
 exactly one reorder call is made, the refetched order changes and focus stays
 on the moved row; moving past either boundary calls nothing
-(`u490a_keyboard_reorders`).
+(`u7276c_alt_up_and_down_move_one_slot_in_todos`, which proves U7276c's Todos
+clause too).
 
 Implementation composes `ui/Sortable`, deletes `todos/reorder.ts`, adds no
 local drag engine and delegates drag interaction state to the primitive

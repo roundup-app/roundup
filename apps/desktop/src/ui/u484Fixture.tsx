@@ -27,10 +27,9 @@ const u484Fixture = () => {
       aria-label="Ordered rows" class="sortable-fixture" onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => { event.preventDefault(); file([...files(), ...Array.from(event.dataTransfer?.files ?? [], (entry) => entry.name)]); }}>
       <For each={ids()}>{(id, index) => <Sortable.Item id={id} index={index()}>{(parts) =>
-        <div ref={parts.ref} data-id={id} class="sortable-row" data-dragging={String(parts.isDragging())}>
+        <div ref={parts.ref} data-id={id} tabindex="0" class="sortable-row" data-dragging={String(parts.isDragging())}>
           <span>{id}</span>
           <button data-button="quiet" aria-label={`Inspect ${id}`} onClick={() => action(actions() + 1)}>Inspect</button>
-          <Sortable.Handle ref={parts.handleRef} label={`Move ${id}`} />
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>

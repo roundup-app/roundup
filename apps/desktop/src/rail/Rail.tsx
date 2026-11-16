@@ -17,6 +17,7 @@ import { Icon } from "../ink/Icon";
 import { CHORDS, type ActionValue } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
+import { keyMove, type DropRules, type RowKey, type TreeRow } from "../ui/treeDrop";
 import { AppTree, tabStop, Trunks } from "../ui/TreeView";
 import { TreeItem, TreeItemIndicator, createTreeController } from "@ui-sdk/solid/tree";
 import { useConnectedProject, type ConnectedProject } from "../state/connectedProject";
@@ -74,9 +75,22 @@ const recoveryOf = (project: ConnectedProject): Recovery => {
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
 
-// U41: an arrow with a modifier does nothing in the Rail, but ui-sdk's tree takes Alt+←/→ on a row as collapse or expand of everything below it.
-const ignoreAltArrows = (element: HTMLElement) => makeEventListener(element, "keydown", press => {
-  if (press.altKey && (press.key === "ArrowLeft" || press.key === "ArrowRight") && press.target instanceof Element && press.target.matches(ROW)) press.stopPropagation();
+const ROW_KEYS = new Map<string, RowKey>([["ArrowUp", "up"], ["ArrowDown", "down"], ["ArrowRight", "in"], ["ArrowLeft", "out"]]);
+
+// U41, U7276c: `⌥` with an arrow on a focused row moves it one call, and a chord with no move leaves the press as it was; ui-sdk's tree would take Alt+←/→ as collapse or expand of everything below it, so no press of these reaches it.
+const rowKeys = (element: HTMLElement, tree: () => DropRules & { rows: readonly TreeRow[] }, commit: (move: SortableMove) => void) => makeEventListener(element, "keydown", press => {
+  const key = ROW_KEYS.get(press.key);
+
+  if (!key || !press.altKey || press.ctrlKey || press.metaKey || press.shiftKey || !(press.target instanceof HTMLElement) || !press.target.matches(ROW)) return;
+  press.stopPropagation();
+
+  const id = press.target.dataset.id ?? "";
+  // A Mode row stays put, as under a pointer; a row the tree lacks has no move.
+  const move = press.repeat || press.target.dataset.mode === "true" ? null : keyMove(tree(), id, key);
+
+  if (!move) return;
+  press.preventDefault();
+  commit({ id, ...move });
 }, { capture: true });
 
 // U5531b, U5991a: reports the row inside `element` that holds focus, so one that leaves hands its focus to the nearest row left. ui-sdk's tree reports only the keyboard's moves, and a press or a `focus()` call moves focus too.
@@ -441,8 +455,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     }
   };
 
-  const { railStep, pointerOutside, placeDrop } = createRailDrag(rail, container, openRow, focusRow);
-
+  const { railStep, pointerOutside } = createRailDrag(rail, container, openRow);
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: an Agent in the idle branch is still a sibling. */
   const trueIndex = (id: string, parent: string | null, shown: number): number => {
@@ -458,6 +471,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
     return moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
+
 
   const parent = (): string | null => {
     const selected = rail.nodes.find((node) => node.id === rail.selected());
@@ -698,7 +712,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
         if (entries.length > 0) void contextMenu(app, entries, x, y);
       });
     }}>
-    <div class="rail-tree" data-history-region="rail" tabindex="-1" ref={element => { setContainer(element); guardCtrlClick(element); ignoreAltArrows(element); trackFocus(element, setFocused); }}>
+    <div class="rail-tree" data-history-region="rail" tabindex="-1" ref={element => { setContainer(element); guardCtrlClick(element); rowKeys(element, () => ({ rows: treeRows(), ...dropRules }), moveTo); trackFocus(element, setFocused); }}>
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
@@ -727,7 +741,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
           },
           ...dropRules,
           onMove: moveTo,
-          onPreview: (next) => placeDrop(next),
           accepts: () => !pointerOutside(),
         }}
       >
@@ -798,8 +811,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
                           }}
                           lifted={parts.isDragging()} folded={lifted() === view().node.id}
                           sortRef={parts.ref}
-                          handleRef={parts.handleRef}
-                          draggable={daemonExit() === null && !isMode(view().node)}
                           onOpenMenu={(x, y) => void openSelectionMenu(view().node, x, y)}
                         />
                         }</Sortable.Item>

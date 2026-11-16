@@ -174,17 +174,20 @@ export const Pads = (props: {
     remove: name => bulk.ask(false, name),
   });
 
-  let lifted: Pad | undefined;
-
-  const reorder = async (ids: string[]) => {
-    const source = lifted;
+  const reorder = async (ids: string[], moved: string) => {
+    const source = pads().find(pad => pad.name === moved);
 
     if (!source || !pads().some(pad => pad.incarnation === source.incarnation && pad.name === source.name)) return;
     const before = ids[ids.indexOf(source.name) + 1] ?? null;
     const message = await changeFailureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
 
+    // U7276c: a key's move keeps focus on the row, which the redraw may have replaced.
+    const focused = rowButtons.get(source.name) === document.activeElement;
+
     reportItemFailure(source, message, copy.moveItem(source.name));
     await list.reload();
+
+    if (focused && (document.activeElement === document.body || document.activeElement === null)) rowButtons.get(source.name)?.focus({ preventScroll: true });
   };
 
   const [dragging, setDragging] = createSignal(false);
@@ -239,8 +242,7 @@ export const Pads = (props: {
         shown={() => group().items}
         onItemFailure={reportItemFailure}
         rowButtons={rowButtons}
-        onOrderChange={ids => void reorder(ids)}
-        onLift={pad => { lifted = { ...pad }; }}
+        onOrderChange={(ids, moved) => void reorder(ids, moved)}
         onDrag={setDragging}
       />}</OwnerGroups>
       <Show when={naming()}>
@@ -285,15 +287,14 @@ const PadRows = (props: {
   shown: Accessor<readonly Pad[]>;
   onItemFailure: (pad: Pad, message: string | null, action: string) => void;
   rowButtons: Map<string, HTMLButtonElement>;
-  onOrderChange: (ids: string[]) => void;
-  onLift: (pad: Pad) => void;
+  onOrderChange: (ids: string[], moved: string) => void;
   onDrag: Setter<boolean>;
 }) => {
   const picked = createProjection(() => Object.fromEntries(props.selection.selected().map(incarnation => [incarnation, true])));
   const isSelected = (incarnation: string) => picked[incarnation] === true;
 
   return (
-    <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
+    <Sortable.Root class="shelf-list" role="list" ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
           <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} isSelected={isSelected} {...props} />}</Sortable.Item>
@@ -301,6 +302,23 @@ const PadRows = (props: {
       </For>
     </Sortable.Root>
   );
+};
+
+const CHORD_STEPS = new Map([["ArrowUp", -1], ["ArrowDown", 1]]);
+
+/** U7276c: the list `⌥↑` or `⌥↓` makes by moving `name` one slot, null where it would leave the list, or undefined for any other press. */
+const chordOrder = (event: KeyboardEvent, names: readonly string[], name: string): string[] | null | undefined => {
+  const by = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey ? CHORD_STEPS.get(event.key) : undefined;
+
+  if (by === undefined) return undefined;
+
+  const at = names.indexOf(name);
+  const order = names.filter(each => each !== name);
+
+  if (event.repeat || at < 0 || at + by < 0 || at + by >= names.length) return null;
+  order.splice(at + by, 0, name);
+
+  return order;
 };
 
 const selectedPad = (selection: Parameters<typeof PadRows>[0]["selection"], incarnation: string, name: string) => (selection.focused() ?? selection.selected()[0]) === incarnation ? name : undefined;
@@ -376,7 +394,8 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
               ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message, copy.link), () => props.onItemFailure(pad, null, copy.link), copied),
               { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(false, pad.incarnation); } },
             ], x, y))}
-            class="pad-inset"
+            // A row the list owns, with no tab stop of its own, so the drag library stamps it neither a button nor a second tab stop (U7276c).
+            class="pad-inset" role="listitem" tabindex="-1"
             glyph={<Icon name={PAD_ICON} />}
           >
             <div class="pad-row-head">
@@ -393,12 +412,24 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
             <button
               type="button"
               class="pad-name"
+              data-drag-surface=""
               aria-busy={asked() !== null ? "true" : undefined}
               aria-pressed={props.selection.selected().includes(pad.incarnation) ? "true" : "false"}
               ref={(element) => {
                 row = element;
                 props.selection.register(pad.incarnation, element);
                 makeEventListener(element, "keydown", (event) => {
+                  // U7276c: one chord press is one `pad.reorder`.
+                  const order = chordOrder(event, props.shown().map(each => each.name), pad.name);
+
+                  if (order !== undefined) {
+                    event.preventDefault();
+
+                    if (order && !editing() && !props.bulk.pending()) props.onOrderChange(order, pad.name);
+
+                    return;
+                  }
+
                   props.bulk.key(event);
 
                   if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.incarnation, event);
@@ -417,7 +448,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
             <Show when={!editing()}>
               <Age updatedAt={pad.updated_at} />
               <OpenButton name={pad.name} onOpen={() => open("pointer")} />
-              <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} onLift={() => props.onLift(pad)} />
             </Show>
             </div>
           </ShelfRow>

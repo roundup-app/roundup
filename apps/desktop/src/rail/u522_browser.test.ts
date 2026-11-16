@@ -27,7 +27,7 @@ const load = async () => {
 
 const moves = () => read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').map(call => call.params)`);
 
-const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.querySelector(".sortable-handle").getBoundingClientRect(); const bounds = row.getBoundingClientRect(); return { x: r.x + Math.min(8, r.width / 2), y: r.y + r.height / 2, top: bounds.top, bottom: bounds.bottom, left: bounds.left }; })()`);
+const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.querySelector(".name").getBoundingClientRect(); const bounds = row.getBoundingClientRect(); return { x: r.x + Math.min(8, r.width / 2), y: r.y + r.height / 2, top: bounds.top, bottom: bounds.bottom, left: bounds.left }; })()`);
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
@@ -118,19 +118,6 @@ it("u522_edge_scroll_reaches_an_offscreen_row", async () => {
   await page.press("Escape", "Escape");
   await mouse("up");
   expect(await moves()).toEqual([]);
-}, 90_000);
-
-it("u522_keyboard_move", async () => {
-  await load();
-  await read<void>(`document.querySelector('[role="treeitem"][data-id="tokens"] .sortable-handle').focus()`);
-  await page.press(" ", "Space");
-  await wait(`document.querySelector('[data-dnd-placeholder]')`);
-  await page.press("ArrowDown", "ArrowDown");
-  await page.press("ArrowRight", "ArrowRight");
-  await page.press(" ", "Space");
-  await settle(1);
-  expect(await moves()).toEqual([{ id: "tokens", parent: "auth", index: 1 }]);
-  await wait(`document.activeElement?.closest('[data-id]')?.dataset.id === 'tokens'`);
 }, 90_000);
 
 it("u522_a_press_on_a_button_starts_no_drag", async () => {

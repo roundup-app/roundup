@@ -24,4 +24,9 @@ export const copy = {
   linkUrl: sharedCopy.linkUrl,
   linkNote: sharedCopy.linkNote,
   copyLink: sharedCopy.copyLink,
+  dragKeysList: "⌥↑/⌥↓ move",
+  dragKeysTree: "⌥↑/⌥↓ move, ⌥←/⌥→ change depth",
+  dragStarted: "Picked up",
+  dragEnded: "Put down",
+  dragCancelled: "Move cancelled",
 } as const;

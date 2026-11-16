@@ -202,7 +202,7 @@
 
 .changes-counts [data-sign="removed"] { color: var(--grey); }
 
-/* The count is part of the button, so the button is as wide as its mark and count and the revealed grip never covers a digit. */
+/* The count is part of the button, so the button is as wide as its mark and count and the revealed icon beside it never covers a digit. */
 .changes-icon[data-button="icon"] {
   display: inline-flex;
   flex: none;

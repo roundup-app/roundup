@@ -1,17 +1,12 @@
 import { createEffect, createSignal } from "solid-js";
-import { captureFocus } from "../keys/focus";
 import type { ConnectedProject } from "../state/connectedProject";
 import { ROW } from "./rows";
 
-export const createRailDrag = (rail: ConnectedProject["rail"], container: () => HTMLElement | undefined, openRow: (id: string) => void, focusRow: (id: string) => void) => {
+export const createRailDrag = (rail: ConnectedProject["rail"], container: () => HTMLElement | undefined, openRow: (id: string) => void) => {
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
   const [railStep, setRailStep] = createSignal(1);
 
-  /** Whether the press that began the drag was a pointer's: a keyboard lift has no pointer to leave the Rail. */
-  let pointerPressed = false;
   let pointerAt: { x: number; y: number } | null = null;
-  /** The row a keyboard lift began on: the library returns focus only to a handle, and the whole row is the Rail's. */
-  let liftedRow: string | null = null;
 
   /** Whether the release fell outside the Rail, kept from `pointerup` until the next press or key: the move runs after the drop's glide, when the pointer may be elsewhere. */
   let released: boolean | null = null;
@@ -22,7 +17,7 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
     return box !== undefined && (point.x < box.left || point.x >= box.right || point.y < box.top || point.y >= box.bottom);
   };
 
-  const pointerOutside = () => released ?? (pointerPressed && pointerAt !== null && outside(pointerAt));
+  const pointerOutside = () => released ?? (pointerAt !== null && outside(pointerAt));
 
   createEffect(container, tree => {
     if (!tree) return;
@@ -39,23 +34,18 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
     }
 
     const press = (event: PointerEvent) => {
-      pointerPressed = true;
       released = null;
       pointerAt = { x: event.clientX, y: event.clientY };
     };
 
-    const release = (event: PointerEvent) => { if (pointerPressed) released = outside({ x: event.clientX, y: event.clientY }); };
+    const release = (event: PointerEvent) => { released = outside({ x: event.clientX, y: event.clientY }); };
 
     const clear = () => { released = null; };
 
     const follow = (event: PointerEvent) => { pointerAt = { x: event.clientX, y: event.clientY }; };
 
-    const lift = (key: KeyboardEvent) => {
-      pointerPressed = false;
-
-      if (key.code === "Space" && key.target instanceof HTMLElement && key.target.matches(ROW)) liftedRow = key.target.closest<HTMLElement>("[data-id]")?.dataset.id ?? null;
-
-      // U31: Enter on a row selects it. The library would lift on Enter too, so Enter stops here and selects, and only Space lifts.
+    // U31: Enter on a row selects it.
+    const enter = (key: KeyboardEvent) => {
       if (key.key !== "Enter" || key.metaKey || key.ctrlKey || key.altKey || key.shiftKey || !(key.target instanceof HTMLElement) || !key.target.matches(ROW)) return;
 
       const id = key.target.closest<HTMLElement>("[data-id]")?.dataset.id;
@@ -70,28 +60,17 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
     window.addEventListener("pointermove", follow, { capture: true });
     window.addEventListener("pointerup", release, { capture: true });
     window.addEventListener("keydown", clear, { capture: true });
-    tree.addEventListener("keydown", lift, { capture: true });
+    // listener-owner: this effect's cleanup removes it with the window listeners when the tree element changes.
+    tree.addEventListener("keydown", enter, { capture: true });
 
     return () => {
       window.removeEventListener("pointerdown", press, { capture: true });
       window.removeEventListener("pointermove", follow, { capture: true });
       window.removeEventListener("pointerup", release, { capture: true });
       window.removeEventListener("keydown", clear, { capture: true });
-      tree.removeEventListener("keydown", lift, { capture: true });
+      tree.removeEventListener("keydown", enter, { capture: true });
     };
   });
 
-  const placeDrop = (next: { depth: number } | null) => {
-    if (next !== null) return;
-    const back = liftedRow;
-
-    liftedRow = null;
-
-    if (back !== null) {
-      const focus = captureFocus();
-      requestAnimationFrame(() => focus(() => focusRow(back)));
-    }
-  };
-
-  return { railStep, pointerOutside, placeDrop };
+  return { railStep, pointerOutside };
 };

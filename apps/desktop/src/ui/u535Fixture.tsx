@@ -42,7 +42,6 @@ const u535Fixture = () => {
       <For each={rows()}>{(row, index) => <Sortable.Item id={row.id} index={index()}>{(parts) =>
         <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={String(parts.isDragging())}>
           <span>{row.id}</span>
-          <Sortable.Handle ref={parts.handleRef} label={`Move ${row.id}`} />
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>

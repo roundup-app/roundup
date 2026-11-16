@@ -15,7 +15,8 @@ const PINNED = `agent.new agent.new-with-prompt workstream.new mode.new terminal
 agent.restart-mode rail.remove ask.open todo.assign-slot todo.open-draft todo.add todo.assign shelf.maximise todo.delete todo.export shelf.close rail.close-peek terminal.text-larger terminal.text-smaller
 terminal.text-reset editor.quote editor.bullet-list editor.numbered-list editor.code-block editor.italic editor.inline-code terminal.find edit.undo edit.redo settings.open settings.forward
 todo.triage-enter todo.triage-move todo.triage-assign todo.triage-workstream todo.triage-nest todo.triage-unnest todo.triage-done todo.triage-comment todo.triage-leave project.choose-folder
-leader.assign leader.project leader.changes leader.attention leader.attention-other-project leader.row leader.bubble-minimise leader.bubble-close leader.shelf leader.rail leader.capture leader.inbox leader.resume`.split(/\s+/);
+leader.assign leader.project leader.changes leader.attention leader.attention-other-project leader.row leader.bubble-minimise leader.bubble-close leader.shelf leader.rail leader.capture leader.inbox leader.resume
+row.move-up row.move-down row.nest row.unnest`.split(/\s+/);
 
 const probe = (element: Element, name = "terminal.find") => {
   const calls: unknown[] = [];
