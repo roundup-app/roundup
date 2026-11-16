@@ -145,6 +145,8 @@ export const copy = {
   copyLink: sharedCopy.copyLink,
   restart: "Restart",
   startYolo: "Start YOLO",
+  handOff: "Hand off",
+  startNormal: "Start normal",
   failed: sharedCopy.failed,
   moveItem: sharedCopy.moveItem,
   newMode: sharedCopy.newMode,
@@ -178,10 +180,11 @@ export const copy = {
   comma: sharedCopy.comma,
   unreadResult: sharedCopy.unreadResult,
   stopQuestion: (name: string) => `Stop ${name}?`,
+  restartQuestion: (name: string) => `Restart ${name}?`,
   stopAndRemoveQuestion: (name: string) => `Stop and remove ${name}?`,
   group: "Group",
   removeSelectionQuestion: "Remove selected rows?",
-  removeQuestion: (name: string) => `Remove ${name}?`,
+  removeQuestion: sharedCopy.removeQuestion,
   moveTo: sharedCopy.moveTo,
 } as const;
 

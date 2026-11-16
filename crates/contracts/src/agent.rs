@@ -19,8 +19,8 @@ mod rail_node;
 pub use rail_node::{AgentNode, DoorFacts, NodeBase, RailNode, Role, WorkstreamNode};
 mod launch;
 pub use launch::{
-    CreateModeParams, CreateWorkstreamParams, Extras, ExtrasAddParams, ModeRestartParams,
-    PermissionMode, SpawnParams, SpawnRole, StartAttribution, StartDoorParams,
+    CreateModeParams, CreateWorkstreamParams, Extras, ExtrasAddParams, HandoffParams,
+    ModeRestartParams, PermissionMode, SpawnParams, SpawnRole, StartAttribution, StartDoorParams,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]

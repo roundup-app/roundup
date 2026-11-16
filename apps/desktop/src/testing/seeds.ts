@@ -121,7 +121,7 @@ const nestedTree = (now: number): RailNode[] => [
     name: "login-store",
     parent: "auth",
     order: 1,
-    can_resume: true,
+    can_resume: true, has_conversation: true,
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
   agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30), final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } }),

@@ -584,6 +584,8 @@ impl Run {
 
     pub(crate) fn wait_for_interrupt(&mut self, acked: oneshot::Sender<()>) {
         self.interrupt = Some(acked);
+        // TS1: the Esc leaves no Stop, so the turn it ends is read from the title that follows.
+        self.fold.observe(Observation::Interrupted);
     }
 
     /// An Interrupt is written and its title has not come.

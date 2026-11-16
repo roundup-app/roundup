@@ -29,3 +29,10 @@ pub struct AddParams {
     /// An ssh name, as `ssh <name>` takes it.
     pub name: String,
 }
+
+/// `machine.remove`: the name of the listed machine herdr-core forgets (MC71).
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RemoveParams {
+    /// A name `machine.list` gave; This Mac's own name is refused.
+    pub name: String,
+}

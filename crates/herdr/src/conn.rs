@@ -366,6 +366,11 @@ impl Conn {
     pub async fn machine_add(&self, name: &str) -> Result<Value> {
         self.call("machine.add", json!({"name": name})).await
     }
+
+    /// `machine.rm` for a listed name: herdr-core forgets the machine.
+    pub async fn machine_rm(&self, name: &str) -> Result<Value> {
+        self.call("machine.rm", json!({"name": name})).await
+    }
 }
 
 /// U7029: the viewer facts herdr-core answers display queries from. A zero `cell` makes its
