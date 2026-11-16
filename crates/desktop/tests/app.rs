@@ -164,8 +164,17 @@ impl Fixture {
 }
 
 fn app(config: Config, folder: Option<PathBuf>) -> (App<MockRuntime>, WebviewWindow<MockRuntime>) {
+    app_in(mock_context(noop_assets()), config, folder)
+}
+
+/// `app` on `context`.
+fn app_in(
+    context: tauri::Context<MockRuntime>,
+    config: Config,
+    folder: Option<PathBuf>,
+) -> (App<MockRuntime>, WebviewWindow<MockRuntime>) {
     let app = build(mock_builder(), config, folder, |app, code| app.exit(code))
-        .build(mock_context(noop_assets()))
+        .build(context)
         .unwrap();
     let webview = WebviewWindowBuilder::new(&app, "main", WebviewUrl::default())
         .build()

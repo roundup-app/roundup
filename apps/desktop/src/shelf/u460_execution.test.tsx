@@ -122,7 +122,7 @@ it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
 
   await askToDelete(2);
   await screen.findByRole("button", { name: "Retry" });
-  expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Delete 2" }).getAttribute("aria-disabled")).toBe("true");
   lost = false;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByText("2 selected");
@@ -145,7 +145,7 @@ it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
   old.resolve([todo(1), todo(2)]);
   // Observe that no retry is offered while the newer list response is stale.
   await new Promise((resolve) => setTimeout(resolve, 40));
-  expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Delete 2" }).getAttribute("aria-disabled")).toBe("true");
   fresh.resolve([todo(2)]);
   await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).toBeNull());
   await questionClosed();

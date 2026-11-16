@@ -1,8 +1,9 @@
 import { queueFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { Tabs } from "../ui/Tabs";
-import { createSignal, onCleanup, Show, untrack } from "solid-js";
+import { createSignal, onCleanup, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Note, Notes, NoteFormDraft } from "./notes";
 
@@ -60,13 +61,14 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
 
   const valid = () => text().trim() !== "" && start() !== "" && end() !== "" && Number.isInteger(Number(start())) && Number.isInteger(Number(end())) && Number(start()) >= 1 && Number(end()) >= Number(start()) && Number(end()) <= lines().length && (replacing !== undefined || props.notes.list(props.id).length < 200);
 
-  return <form class="note-form" aria-label={copy.lineNote} onSubmit={async event => {
-    event.preventDefault();
-
+  const save = async () => {
     const submitted = text();
 
     if (valid() && await props.notes.save(props.id, { comparison, side: side(), start: Number(start()), end: Number(end()), source: lines().slice(Number(start()) - 1, Number(end())).join("\n"), text: text(), selection: field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null }, replacing, revision) && !disposed && text() === submitted) props.close();
-  }}>
+  };
+
+  // U170: the Save click holds the save, so the button is busy while it runs; Enter clicks it too.
+  return <form class="note-form" aria-label={copy.lineNote} onSubmit={event => { event.preventDefault(); void save(); }}>
     <Tabs.Root value={side()} onValueChange={({ value }) => edit({ side: value === "old" ? "old" : "new" })}>
       <Tabs.List aria-label={copy.noteSide}><Tabs.Trigger value="old">{copy.oldSide}</Tabs.Trigger><Tabs.Trigger value="new">{copy.newSide}</Tabs.Trigger></Tabs.List>
       <Tabs.Content value="old">{copy.selectOldLines}</Tabs.Content><Tabs.Content value="new">{copy.selectNewLines}</Tabs.Content>
@@ -85,6 +87,10 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
       });
     }} /></label>
     <ReservedLine status={(comparison.oldPath !== props.comparison.oldPath || comparison.newPath !== props.comparison.newPath || comparison.base !== props.comparison.base || comparison.old.revision !== props.comparison.old.revision || comparison.new.revision !== props.comparison.new.revision ? copy.originalContextStatus : null) || (props.notes.list(props.id).length >= 200 ? copy.notesFull : copy.chooseLines) || null} />
-    <div class="diff-actions"><button type="button" data-button="quiet" onClick={props.close}>{copy.close}</button><button type="submit" data-button="quiet" disabled={!valid()}>{copy.save}</button></div>
+    <div class="diff-actions"><button type="button" data-button="quiet" onClick={() => props.close()}>{copy.close}</button><BusyButton kind="quiet" type="submit" disabled={!valid()} busyLabel={copy.saving} onClick={event => {
+      event.preventDefault();
+
+      return save();
+    }}>{copy.save}</BusyButton></div>
   </form>;
 };

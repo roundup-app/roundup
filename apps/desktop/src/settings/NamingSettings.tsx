@@ -1,4 +1,5 @@
 import { createSignal, refresh, Show } from "solid-js";
+import { BusyButton } from "../ui/BusyButton";
 import * as v from "valibot";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
@@ -58,7 +59,7 @@ export const NamingSettings = (props: { app: App }) => {
           drafts.edit(destination, { text: input.value }, { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection }, "ordinary");
         }} />
         <Field.HelperText>{copy.namingGuideHint}</Field.HelperText>
-        <button class="word" data-button="quiet" type="button" disabled={saving()} onClick={() => void save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</button>
+        <BusyButton kind="quiet" class="word" busyLabel={copy.saving} busy={saving()} onClick={() => save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</BusyButton>
         <Field.ErrorText render={error => <div {...error}><ReservedLine message={failure()} dismiss={() => setFailure(null)} /></div>} />
       </Field.Root>
     </>}</Show>

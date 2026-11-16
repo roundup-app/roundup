@@ -63,6 +63,8 @@ it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
   let body = "";
   app.handlers["message.send"] = params => { body = params.body; throw new Error("disconnected"); };
 
+  // U170: the failed send keeps its button busy until the send settles.
+  await waitFor(() => expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).matches("[aria-busy]")).toBe(false));
   fireEvent.click(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }));
   await screen.findByRole("button", { name: "Check Message history" });
   fireEvent.click(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }));
@@ -90,7 +92,7 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
 
   if (outcome === "acknowledged") resolve(message(1, { to: "a" }));
   else reject(outcome === "failed" ? new RpcError(-32003, "refused A") : new Error("lost reply A"));
-  await waitFor(() => expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).hasAttribute("disabled")).toBe(outcome === "unknown"));
+  await waitFor(() => expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).getAttribute("aria-disabled") === "true").toBe(outcome === "unknown"));
 
   if (outcome === "failed") await screen.findByText("refused A");
 
@@ -131,7 +133,7 @@ it("u2773b_changes_pending_reload_reconciles_without_resending", async () => {
   view.unmount();
   const reopened = await openDiff();
   reopened.app.handlers["message.list"] = () => [message(42, { body, to: "a", from: { kind: "user", id: "you", parent: null } })];
-  expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).hasAttribute("disabled")).toBe(true);
+  expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
   await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -221,7 +223,7 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
   // reconcile persists its settlement before returning; wait for that emitted boundary, not the request count.
   await waitFor(() => expect(retained.mock.calls.some(([key]) => key === "roundup:drafts:/p")).toBe(true));
-  expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).hasAttribute("disabled")).toBe(true);
+  expect(within(screen.getByLabelText("Agent notes", { selector: "section" })).getByRole("button", { name: /Send notes:/ }).getAttribute("aria-disabled")).toBe("true");
   expect(notesFor(reopened.app, "/p").list("a").map(note => note.text)).toEqual(["exact possibly accepted note"]);
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });

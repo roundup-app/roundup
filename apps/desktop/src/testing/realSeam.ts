@@ -226,6 +226,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     installUpdate: async () => {},
     updateCore: async () => ({ roundup: null, core: null }),
     onUpdatesChanged: () => () => {},
+    onUpdateProgress: () => () => {},
     showContextMenu: async (items) => probeMenu(items),
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,

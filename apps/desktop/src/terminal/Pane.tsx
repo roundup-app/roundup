@@ -6,6 +6,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { appSettings, saveAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { layoutMoving } from "../resize/motion";
 import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, For, untrack } from "solid-js";
@@ -321,10 +322,10 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
         <Show when={doorState()}>
           {(state) => (
-            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.launching(selected()!.id) || connected.daemonExit() !== null ? "true" : undefined} onClick={() => { if (!rail.launching(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
+            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<BusyButton kind="primary" class="word pane-action" busy={rail.launching(selected()!.id)} disabled={connected.daemonExit() !== null} busyLabel={copy.starting} onClick={() => rail.startDoor(selected()!.id)}>
                 <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
-              </button>} />
+              </BusyButton>} />
             </div>
           )}
         </Show>

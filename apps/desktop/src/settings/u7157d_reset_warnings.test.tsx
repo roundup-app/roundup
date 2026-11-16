@@ -28,10 +28,10 @@ it("u7157d_reset_warnings_asks_every_question_again", async () => {
   fireEvent.click(screen.getByText("Alerts", { selector: '[role="tab"]' }));
   const button = await screen.findByRole("button", { name: "Reset warnings" });
 
-  expect(button.hasAttribute("disabled")).toBe(false);
+  expect(button.getAttribute("aria-disabled")).not.toBe("true");
   fireEvent.click(button);
   await waitFor(() => expect(isSuppressed("close-terminal")).toBe(false));
   await askOnce(app, "close-terminal", question);
   expect(ask).toHaveBeenCalledTimes(2);
-  expect(button.hasAttribute("disabled")).toBe(true);
+  expect(button.getAttribute("aria-disabled")).toBe("true");
 });

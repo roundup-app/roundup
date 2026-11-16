@@ -683,7 +683,7 @@ export const Todos = (props: {
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={`${triage.on()}`} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
         <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
-      <ReservedLine overlay message={shelfFailure.message()} dismiss={shelfFailure.dismiss} recover={{ run: () => void todos.reload() }} />
+      <ReservedLine overlay message={shelfFailure.message()} dismiss={shelfFailure.dismiss} recover={{ run: () => todos.reload() }} />
       <Show when={isEmpty() && !typing() && !todos.failure() && !createFailure()}>
         <EmptyState art="running" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
@@ -870,7 +870,7 @@ export const Todos = (props: {
           const unavailable = dismissable(() => copy.draftIdentity(copy.originalUnavailable, object));
 
           return <div>
-            <ReservedLine message={unavailable.message()} dismiss={unavailable.dismiss} recover={{ run: () => void todos.reload() }} />
+            <ReservedLine message={unavailable.message()} dismiss={unavailable.dismiss} recover={{ run: () => todos.reload() }} />
             <TodoDraftRecovery object={object} />
           </div>;
         }}</For>

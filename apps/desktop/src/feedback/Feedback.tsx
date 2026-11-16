@@ -9,6 +9,7 @@ import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { createFeedbackSession } from "./session";
 import "./styles.css";
 
@@ -94,18 +95,16 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
                   disabled={session.text().trim() !== ""}
                 >
                   {(trigger) => (
-                    <button
+                    <BusyButton
                       {...trigger()}
+                      kind="primary"
                       type="submit"
-                      data-button="primary"
-                      aria-disabled={session.canSend() ? "false" : "true"}
+                      busy={session.sending()}
+                      disabled={!session.canSend()}
+                      busyLabel={copy.sending}
                     >
-                      {session.sending()
-                        ? copy.sending
-                        : session.check() === null
-                          ? copy.checking
-                          : copy.send}
-                    </button>
+                      {session.check() === null ? copy.checking : copy.send}
+                    </BusyButton>
                   )}
                 </Tip>
               </Show>

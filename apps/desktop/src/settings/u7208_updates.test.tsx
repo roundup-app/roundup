@@ -117,11 +117,11 @@ it("u7208b_a_failed_install_shows_its_cause_and_keeps_the_button", async () => {
   };
 
   fireEvent.click(press);
-  await waitFor(() => expect(press).toHaveProperty("disabled", true));
+  await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
   expect(installs).toBe(1);
 
   finish();
-  await waitFor(() => expect(press).toHaveProperty("disabled", false));
+  await waitFor(() => expect(press.matches("[aria-busy]")).toBe(false));
 
   app.installUpdate = async () => {
     installs += 1;
@@ -132,10 +132,54 @@ it("u7208b_a_failed_install_shows_its_cause_and_keeps_the_button", async () => {
   fireEvent.click(press);
   expect(await row(copy.roundup).findByText(cutOff.message)).toBeTruthy();
   expect(installs).toBe(2);
-  expect(press).toHaveProperty("disabled", false);
+  expect(press.matches("[aria-busy]")).toBe(false);
   expect(
     row(copy.roundup).getByText(copy.updateReady("0.5.0", copy.settingsAgents)),
   ).toBeTruthy();
+});
+
+it("u7208b_a_pending_install_shows_updating_and_its_progress_and_ignores_a_second_click", async () => {
+  const app = await mount(BOTH_READY, "updates");
+  const press = await screen.findByRole("button", { name: copy.updateRoundup });
+  let finish!: () => void;
+
+  app.updateGate = new Promise<void>((resolve) => { finish = resolve; });
+  fireEvent.click(press);
+  fireEvent.click(press);
+  await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
+  expect(screen.getByText("Updating…").closest("button")).toBe(press);
+  expect(app.updateInstalls).toBe(1);
+
+  const mb = 1_000_000;
+
+  app.emitUpdateProgress({ downloaded: 12 * mb, total: 40 * mb, stage: "downloading" });
+  // U7208b: the row counts megabytes come and megabytes in all, never a percent.
+  const line = await screen.findByText(copy.updateDownloading(12 * mb, 40 * mb));
+
+  expect(line.textContent?.match(/\d+/g)?.map(Number)).toEqual([12, 40]);
+  app.emitUpdateProgress({ downloaded: 40_000_000, total: 40_000_000, stage: "installing" });
+  expect(await screen.findByText(copy.updateInstalling)).toBeTruthy();
+
+  finish();
+  await waitFor(() => expect(press.matches("[aria-busy]")).toBe(false));
+  expect(screen.queryByText(copy.updateInstalling)).toBeNull();
+  expect(screen.getByRole("button", { name: copy.updateRoundup })).toBe(press);
+});
+
+it("u7208c_a_pending_core_update_shows_updating_and_ignores_a_second_click", async () => {
+  const app = await mount(BOTH_READY, "updates");
+  const press = await screen.findByRole("button", { name: copy.updateCore });
+  let finish!: () => void;
+
+  app.updateGate = new Promise<void>((resolve) => { finish = resolve; });
+  fireEvent.click(press);
+  fireEvent.click(press);
+  await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
+  expect(screen.getByText("Updating…").closest("button")).toBe(press);
+  expect(app.coreUpdates).toBe(1);
+
+  finish();
+  await waitFor(() => expect(screen.queryByRole("button", { name: copy.updateCore })).toBeNull());
 });
 
 it("u7208c_the_core_row_shows_the_new_version_or_the_failure", async () => {

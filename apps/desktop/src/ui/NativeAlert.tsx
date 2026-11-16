@@ -3,6 +3,7 @@ import { questionAsked } from "../keys/registry";
 import { createEffect, createMemo, createSignal, Show, onCleanup, untrack } from "solid-js";
 import { answerOf, type App, type NativeAnswer, type NativeQuestion, type RemovalQuestion, type RemovalAnswer } from "../app/seam";
 import { copy } from "./copy";
+import { BusyButton } from "./BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Checkbox } from "./Checkbox";
 import { isSuppressed, suppressQuestion } from "../settings/warnings";
@@ -117,7 +118,7 @@ export const NativeAlert = (props: {
 
     if (suppress !== undefined) await suppressQuestion(suppress);
 
-    void props.onConfirm(value);
+    return props.onConfirm(value);
   };
 
   const cancel = () => {
@@ -132,9 +133,9 @@ export const NativeAlert = (props: {
   return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} status={props.question.message}>
     <Show when={removal()} fallback={<>
       <Show when={props.key}><Checkbox checked={ticked()} onCheckedChange={setTicked}>{copy.dontAskAgain}</Checkbox></Show>
-      <button data-button="quiet" type="button" onClick={() => void answer()}>{confirm()}</button>
+      <BusyButton kind="quiet" busyLabel={copy.confirming} onClick={() => answer()}>{confirm()}</BusyButton>
     </>}>
-      {each => <><button data-button="quiet" type="button" onClick={() => void answer("this")}>{each().thisLabel}</button><button data-button="quiet" type="button" onClick={() => void answer("all")}>{each().allLabel}</button></>}
+      {each => <><BusyButton kind="quiet" busyLabel={copy.removing} onClick={() => answer("this")}>{each().thisLabel}</BusyButton><BusyButton kind="quiet" busyLabel={copy.removing} onClick={() => answer("all")}>{each().allLabel}</BusyButton></>}
     </Show>
     <button data-button="quiet" type="button" onClick={cancel}>{props.question.cancelLabel}</button>
   </ReservedLine></Show>;

@@ -9,7 +9,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
-import { actionRequestSchema, appSettingsPageSchema, updateFactsSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, retryRead, rpcFailureSchema, RpcError } from "./seam";
+import { actionRequestSchema, appSettingsPageSchema, updateFactsSchema, updateProgressSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, retryRead, rpcFailureSchema, RpcError } from "./seam";
 import { copy } from "./copy";
 import type { App, ForkListed, CaptureAction, CaptureState, OutputMessage, Unsubscribe } from "./seam";
 
@@ -181,10 +181,9 @@ export const createTauriApp = (): App => {
     installUpdate: () => command<void>("install_update", {}),
     updateCore: () => parsedCommand(updateFactsSchema, "update_core", {}),
     onUpdatesChanged: (listener) => subscribe(() => listen("updates-changed", event => listener(v.parse(updateFactsSchema, event.payload)))),
+    onUpdateProgress: (listener) => subscribe(() => listen("update-progress", event => listener(v.parse(updateProgressSchema, event.payload)))),
     showContextMenu: (items, x, y) => parsedCommand(v.nullable(v.string()), "show_context_menu", { items, x, y }),
-    openInEditor: async (path, line, editor) => {
-      await command("open_in_editor", { path, line, editor: editor || undefined });
-    },
+    openInEditor: (path, line, editor) => command<void>("open_in_editor", { path, line, editor: editor || undefined }),
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),

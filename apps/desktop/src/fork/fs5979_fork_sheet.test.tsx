@@ -172,7 +172,7 @@ describe("fs5979d Enter makes the Fork", () => {
 
     expect(forkMake).toHaveBeenCalledTimes(1);
     expect(forkMake).toHaveBeenCalledWith({ name: "fork", colour: "teal", projects: [{ key: FIRST.path, agents: ["d1", "a2", "a3"] }] });
-    expect(makeButton().disabled).toBe(true);
+    expect(makeButton().getAttribute("aria-disabled")).toBe("true");
     expect(onClose).not.toHaveBeenCalled();
     finish();
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -209,7 +209,7 @@ describe("fs5979e a failed Fork stays on the sheet", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(box("Agent one").getAttribute("aria-checked")).toBe("false");
     expect(inputOf(field).value).toBe("mine");
-    expect(makeButton().disabled).toBe(false);
+    expect(makeButton().getAttribute("aria-disabled")).not.toBe("true");
     fireEvent.submit(field.closest("form")!);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(forkMake).toHaveBeenCalledTimes(2);

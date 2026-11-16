@@ -11,6 +11,7 @@ import { IconButton } from "../ui/IconButton";
 import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { Icon } from "../ink/Icon";
 import { createEffect, createMemo, createSignal, flush as commitWrites, lazy, Loading, onCleanup, Show, useContext, untrack, type Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
@@ -450,9 +451,11 @@ const PadBody = (props: {
   });
 
   const useTheirs = () => {
-    void field.discard();
-    setInvalid(false);
-    settle(pad());
+    // The draft goes first: settling the editor must not keep a new one for discard to take.
+    const discarded = field.discard();
+    setInvalid(false); settle(pad());
+
+    return discarded;
   };
 
   const nameCut = createCutTitle(() => name);
@@ -484,15 +487,15 @@ const PadBody = (props: {
         status={saved() && cycle.save().kind === "clean" ? copy.padSaved : null} dismiss={() => { if (actionFailure.message()) { actionFailure.clear(); props.onFailureCleared?.(); } else note.dismiss(); }} recover={retentionProblem() ? { run: () => connected.drafts.retry(), label: copy.storageRetry } : undefined} action={<>
         <Show when={retentionProblem()}>
           <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
-          <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
+          <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={useTheirs}>{copy.discardRevision}</BusyButton>
         </Show>
         <Show when={actionFailure.kind() === "source-mapping"}>
           <CopyButton app={connected.app} text={editor?.snapshot().text ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{copy.copyMyText}</CopyButton>
         </Show>
-        <Show when={awaitingResume() && !retentionProblem()}><button data-button="primary" type="button" disabled={resumeBlocked()} onClick={() => void resume()}>{copy.resume}</button></Show>
+        <Show when={awaitingResume() && !retentionProblem()}><BusyButton kind="primary" disabled={resumeBlocked()} busyLabel={copy.resuming} onClick={() => resume()}>{copy.resume}</BusyButton></Show>
         <Show when={conflictActor()}>
           <button data-button="quiet" type="button" class="word" onClick={() => keepMine()}>{copy.keepMine}</button>
-          <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>
+          <BusyButton kind="quiet" class="word" busyLabel={copy.discarding} onClick={useTheirs}>{copy.useTheirs}</BusyButton>
         </Show>
       </>} />
       <Loading>

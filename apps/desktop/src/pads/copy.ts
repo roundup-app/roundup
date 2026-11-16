@@ -1,6 +1,8 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  resuming: sharedCopy.resuming,
+  discarding: sharedCopy.discarding,
   padWidth: "Width",
   padWidths: sharedCopy.padWidths,
   toggle: "Toggle",

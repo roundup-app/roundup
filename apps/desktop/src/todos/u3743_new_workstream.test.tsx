@@ -67,7 +67,7 @@ it("u3743_after_todo_needs_a_picked_todo_and_a_name_is_required", async () => {
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "  " } });
   expect(create().getAttribute("aria-disabled")).toBe("true");
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Docs" } });
-  expect(create().getAttribute("aria-disabled")).toBe("false");
+  expect(create().getAttribute("aria-disabled")).not.toBe("true");
   await pick(dialog.getByRole("radio", { name: "Start after Todo" }));
   expect(create().getAttribute("aria-disabled")).toBe("true");
 
@@ -77,7 +77,7 @@ it("u3743_after_todo_needs_a_picked_todo_and_a_name_is_required", async () => {
   expect(options.map(option => option.textContent)).toEqual(expect.arrayContaining(["Write docs#2"]));
   expect(options).toHaveLength(1);
   fireEvent.click(options.find(option => option.textContent?.includes("#2"))!);
-  await waitFor(() => expect(create().getAttribute("aria-disabled")).toBe("false"));
+  await waitFor(() => expect(create().getAttribute("aria-disabled")).not.toBe("true"));
   fireEvent.click(create());
 
   await waitFor(() => expect(callsTo(app, "todo.startWorkstream")).toHaveLength(1));

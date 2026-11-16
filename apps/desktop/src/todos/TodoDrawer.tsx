@@ -6,6 +6,7 @@ import { TodoHeader } from "./TodoHeader";
 import { TodoMeta } from "./TodoMeta";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { createEffect, createMemo, createRoot, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
@@ -306,7 +307,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
           status={deletionRefusal() && !drafts.undo.uncertain() ? deletionRefusal() : null}
           content={deletionRefusal() ? <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show> : undefined}
           dismiss={() => { setDeleteRefused(0); setFailure(null); }}
-          recover={deletionRefusal() && drafts.undo.uncertain() ? { run: () => void drafts.undo.retryDelete(), label: copy.todoDeleteRetry } : undefined} />
+          recover={deletionRefusal() && drafts.undo.uncertain() ? { run: () => drafts.undo.retryDelete(), label: copy.todoDeleteRetry } : undefined} />
           <Show
             when={todo()}
             fallback={
@@ -345,7 +346,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
                 />
                 </div>
                 <Show when={!props.recovery}><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
-                <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
+                <Show when={blockerForm()}><p><BusyButton kind="quiet" class="word" busyLabel={copy.saving} onClick={() => saveBlockers()}>{copy.save}</BusyButton></p></Show>
                 <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} onCapture={setCaptured} /></Show>
               </>
             )}

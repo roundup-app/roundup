@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { createSignal, flush, Show } from "solid-js";
+import { createRoot, createSignal, flush, Show } from "solid-js";
 import { createFakeApp } from "../testing/fakeApp";
-import { CopyButton } from "./CopyButton";
+import { CopyButton, createCopyFeedback } from "./CopyButton";
 import { copy } from "./copy";
 import { withStylesheets } from "../testing/contrast";
 
@@ -60,23 +60,22 @@ it("u3010c_copy_disposal_cancels_feedback", () => withStylesheets(async () => {
   expect(screen.getAllByRole("button")).toHaveLength(1);
 }));
 
-it("u3010c_newer_copy_failure_survives_an_older_acknowledgement", async () => {
-  const app = createFakeApp();
+it("u3010c_newer_copy_failure_survives_an_older_acknowledgement", () => withStylesheets(async () => {
+  // A busy CopyButton refuses a second press (U170), so the overlap runs through the helper every copy control shares.
   const failed = vi.fn();
-  let acknowledge: (() => void) | undefined;
-  app.writeClipboardText = () => new Promise<void>(resolve => { acknowledge = resolve; });
-  render(() => <CopyButton app={app} text="retained" onFailure={failed}>Original</CopyButton>);
-  const control = screen.getByRole("button", { name: "Original" });
-  fireEvent.click(control);
-  app.writeClipboardText = async () => { throw new Error("latest refusal"); };
+  const succeeded = vi.fn();
+  let acknowledge!: () => void;
+  const [feedback, dispose] = createRoot(release => [createCopyFeedback(), release] as const);
+  const older = feedback.run(() => new Promise<void>(resolve => { acknowledge = resolve; }), succeeded, failed);
 
-  fireEvent.click(control);
-  await Promise.resolve();
-  acknowledge!();
-  await Promise.resolve();
+  await feedback.run(async () => { throw new Error("latest refusal"); }, succeeded, failed);
+  acknowledge();
+  await older;
   expect(failed).toHaveBeenCalledOnce();
-  expect(screen.getByRole("button", { name: "Original" })).toBe(control);
-});
+  expect(succeeded).not.toHaveBeenCalled();
+  expect(feedback.failed()).toBe(true);
+  dispose();
+}));
 
 it("u3010c_a_replacement_revision_does_not_inherit_copy_feedback", async () => {
   const app = createFakeApp();

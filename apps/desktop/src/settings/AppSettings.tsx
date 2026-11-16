@@ -4,6 +4,7 @@ import type { JSX } from "@solidjs/web";
 import type { App, AppSettingsPage } from "../app/seam";
 import { useUpdates } from "../state/updates";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
@@ -403,9 +404,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       </Show>
       <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
       <ReservedLine message={conflictLine.message()} dismiss={conflictLine.dismiss} action={<>
-        <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <button data-button="quiet" type="button" onClick={() => { const draft = current(name);
+        <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => { const draft = current(name);
 
- if (draft) void drafts.discard(draft.revision); }}>{copy.discardSettingsEdit(label)}</button>}</For>
+ return draft ? drafts.discard(draft.revision) : undefined; }}>{copy.discardSettingsEdit(label)}</BusyButton>}</For>
       </>} />
       <ReservedLine message={draftLine.message()} dismiss={draftLine.dismiss} recover={{ run: () => drafts.retry(), label: copy.storageRetry }} />
       </div></Tabs.Root>

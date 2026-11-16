@@ -17,7 +17,7 @@ export const copy = {
   noCommit: "no commit",
   unknown: "unknown",
   send: sharedCopy.send,
-  sending: "Sending…",
+  sending: sharedCopy.sending,
   copy: sharedCopy.copy,
   close: sharedCopy.close,
   /** @prose */

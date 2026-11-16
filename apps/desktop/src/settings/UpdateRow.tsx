@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import { BusyButton } from "../ui/BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { Program, Updates } from "../state/updates";
 import { copy } from "./copy";
@@ -28,6 +29,15 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
     return facts ? copy.updateName(own().name, facts.version) : own().name;
   };
 
+  /** U7208b: how far the roundup download has got, shown on the row's line while it runs. */
+  const progress = () => {
+    const now = props.program === "roundup" ? props.updates.progress() : null;
+
+    if (!now) return null;
+
+    return now.stage === "installing" ? copy.updateInstalling : copy.updateDownloading(now.downloaded, now.total);
+  };
+
   const state = () => {
     const ready = row()?.ready;
 
@@ -45,19 +55,20 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
       <span class="settings-field-caption">{caption()}</span>
       <span class="settings-hint">{state()}</span>
       <Show when={row()?.ready}>
-        <button
+        <BusyButton
           class="settings-update-button"
-          data-button="quiet"
-          type="button"
-          disabled={props.updates.running(props.program)}
-          onClick={() => void props.updates.update(props.program)}
+          kind="quiet"
+          busyLabel={copy.updating}
+          busy={props.updates.running(props.program)}
+          onClick={() => props.updates.update(props.program)}
         >
           {own().button}
-        </button>
+        </BusyButton>
       </Show>
       <ReservedLine
         message={props.updates.failure(props.program)}
         dismiss={() => props.updates.dismiss(props.program)}
+        status={progress()}
       />
     </div>
   );

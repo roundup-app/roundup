@@ -46,7 +46,7 @@ const isChecked = (name: RegExp): boolean => {
 
 /** The confirm button once the listing it confirms is verified: it stays disabled while a refresh is under way. */
 const readyButton = async (name: string) => {
-  await waitFor(() => expect(screen.getByRole("button", { name })).toHaveProperty("disabled", false));
+  await waitFor(() => expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).not.toBe("true"));
 
   return screen.getByRole("button", { name });
 };
@@ -79,7 +79,7 @@ it("u2875d_period_change_clears_selection", async () => {
   await waitFor(() => expect(calls(app, "project.importDiscover")).toHaveLength(2));
   await waitFor(() => expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy());
   await waitFor(() => expect(isChecked(/first/)).toBe(false));
-  expect(screen.getByRole("button", { name: "Import" })).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "Import" }).getAttribute("aria-disabled")).toBe("true");
 });
 
 it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("u2875d_rejected_call_keeps_period_and_selection (%s)", async (failure) => {
@@ -173,7 +173,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
     expect(await lane.calls("project.importCommit")).toEqual([]);
     await lane.evaluate("[...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').focus()");
     await lane.browser("press", "Enter");
-    await lane.until("document.querySelector('.import-confirm')?.disabled === false && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
+    await lane.until("document.querySelector('.import-confirm')?.getAttribute('aria-disabled') !== 'true' && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
     await lane.capture("U3049b", "recovered");
     await lane.evaluate(`(() => {
       const read = Storage.prototype.getItem;
@@ -207,7 +207,7 @@ it("u3037d_discovery_deadline_and_retry", async () => {
   await connected.importing.refresh();
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Import" })).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "Import" }).getAttribute("aria-disabled")).toBe("true");
 });
 
 
@@ -618,7 +618,7 @@ it("u3791b_copy_depends_on_codes_not_messages_import_refusals", async () => {
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
     await waitFor(() => expect(connected.importing.failed().get("s1")).toMatchObject({ code, message }));
     await waitFor(() => expect(connected.importing.pending()).toBe(false));
-    expect(screen.getByRole("button", { name: "Import 1" })).toHaveProperty("disabled", ![-32003, -32001].includes(code));
+    expect(screen.getByRole("button", { name: "Import 1" }).getAttribute("aria-disabled") === "true").toBe(![-32003, -32001].includes(code));
     const row = screen.getByText("first").closest("li")!;
     fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(JSON.parse(app.clipboardWrites.at(-1)!).error.message).toBe(message));
@@ -637,7 +637,7 @@ it("u3791b_copy_depends_on_codes_not_messages_import_refusals", async () => {
   expect(uncertain).not.toBe(refusal);
   code = -99999;
   await connected.importing.refresh();
-  await waitFor(() => expect(screen.getByRole("button", { name: "Import 1" })).toHaveProperty("disabled", false));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Import 1" }).getAttribute("aria-disabled")).not.toBe("true"));
   expect(await submit()).toBe(uncertain);
 });
 
@@ -722,7 +722,7 @@ it.skipIf(!captureDir("U5558a"))("u5558e_open_surfaces_update_and_keep_failed_re
     })()`);
     await wait("!!document.querySelector('.import-prompt')");
     await click("Start import Agent");
-    await wait("window.__fake.app.calls.some(call => call.method === 'agent.spawn') && !document.querySelector('.import-instructions button').disabled");
+    await wait("window.__fake.app.calls.some(call => call.method === 'agent.spawn') && document.querySelector('.import-instructions button').getAttribute('aria-disabled') !== 'true'");
     await evaluate(`window.__fake.app.handlers['project.importDiscover'] = () => ({candidates:Array.from({length:10},(_,n)=>({source:'candidate-'+n,revision:'saved-'+n,title:'Conversation '+n+' — '+ '長い成果 🐝 '.repeat(6),cwd:'src/'+ 'long-path/'.repeat(5),last_activity_ms:1n})),excluded:[{source:'incomplete',title:'Incomplete saved conversation',cause:'noCompleteRecords',reason:'No complete records',last_activity_ms:null}]})`);
     await evaluate("window.__fake.emit({actor:{kind:'agent',id:'listing-agent',parent:null},name:'rail.changed'})");
     await wait("document.querySelectorAll('.import-check input').length === 10");

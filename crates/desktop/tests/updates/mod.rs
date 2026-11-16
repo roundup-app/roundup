@@ -43,9 +43,10 @@ fn serve_feed(body: &'static str) -> (String, mpsc::Sender<()>) {
     (url, go)
 }
 
-fn updates_changed(app: &App<MockRuntime>) -> mpsc::Receiver<Value> {
+/// Every payload of the Tauri event `name`, as the App sends it.
+fn payloads(app: &App<MockRuntime>, name: &str) -> mpsc::Receiver<Value> {
     let (tx, rx) = mpsc::channel();
-    app.listen("updates-changed", move |event| {
+    app.listen(name, move |event| {
         tx.send(serde_json::from_str(event.payload()).unwrap())
             .unwrap();
     });
@@ -107,7 +108,7 @@ fn u7208d_updates_answers_the_versions_and_what_is_ready() {
     let (url, go) = serve_feed(r#"{"version":"0.1.22","generation":3}"#);
     fx.config.core_feed = Some(url);
     let (mut app, webview) = app(fx.config.clone(), None);
-    let looked = updates_changed(&app);
+    let looked = payloads(&app, "updates-changed");
     // Tauri runs the setup hook, which starts the look, when the event loop starts.
     #[allow(deprecated)]
     app.run_iteration(|_, _| {});
@@ -126,4 +127,91 @@ fn u7208d_updates_answers_the_versions_and_what_is_ready() {
     assert_eq!(sent, expected);
     assert_eq!(invoke(&webview, "updates", json!({})).unwrap(), expected);
     assert_eq!(fx.file("ran"), "", "a look never runs herdr-core update");
+}
+
+/// A feed that offers roundup `99.0.0` at `/latest.json` and serves its `archive`-byte package at
+/// `/archive`, which the signature in the feed does not match; the feed's URL.
+fn serve_update(archive: usize) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let latest = json!({
+        "version": "99.0.0",
+        "url": format!("{origin}/archive"),
+        "signature": "not a signature",
+    })
+    .to_string();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let mut stream = stream.unwrap();
+            let mut request = [0; 1024];
+            let read = stream.read(&mut request).unwrap_or(0);
+            let body = if request[..read].starts_with(b"GET /archive ") {
+                vec![0; archive]
+            } else {
+                latest.clone().into_bytes()
+            };
+            let _ = write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            let _ = stream.write_all(&body);
+        }
+    });
+    format!("{origin}/latest.json")
+}
+
+/// The Stable build's `plugins.updater`, reading `feed` instead of the alpha feed, over plain HTTP.
+fn updater_config(feed: &str) -> Value {
+    let overlay = Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.stable.conf.json");
+    let overlay: Value = serde_json::from_slice(&std::fs::read(overlay).unwrap()).unwrap();
+    let mut updater = overlay["plugins"]["updater"].clone();
+    updater["endpoints"] = json!([feed]);
+    updater["dangerousInsecureTransportProtocol"] = json!(true);
+    updater
+}
+
+#[test]
+fn u7208b_install_update_emits_progress_while_it_runs() {
+    const ARCHIVE: usize = 5000;
+    let mut fx = Fixture::new(SERVE_AND_WAIT);
+    fx.config.channel = desktop::Channel::Stable;
+    let mut context = mock_context(noop_assets());
+    context
+        .config_mut()
+        .plugins
+        .0
+        .insert("updater".to_owned(), updater_config(&serve_update(ARCHIVE)));
+    let (mut app, webview) = app_in(context, fx.config.clone(), None);
+    let looked = payloads(&app, "updates-changed");
+    let progress = payloads(&app, "update-progress");
+    // Tauri runs the setup hook, which starts the look, when the event loop starts.
+    #[allow(deprecated)]
+    app.run_iteration(|_, _| {});
+    let facts = looked
+        .recv_timeout(WAIT)
+        .expect("the look sent no `updates-changed`");
+    assert_eq!(facts["roundup"]["ready"], "99.0.0");
+    assert!(
+        progress.try_recv().is_err(),
+        "a look sent `update-progress`"
+    );
+
+    let error = invoke(&webview, "install_update", json!({})).unwrap_err();
+
+    assert_eq!(error["code"], code::INTERNAL);
+    assert_eq!(error["message"], "the update's signature was refused");
+    let sent: Vec<Value> = progress.try_iter().collect();
+    let Some((installing, downloading)) = sent.split_last() else {
+        panic!("install_update sent no `update-progress`")
+    };
+    assert_eq!(
+        *installing,
+        json!({"downloaded": ARCHIVE, "total": ARCHIVE, "stage": "installing"})
+    );
+    assert!(!downloading.is_empty(), "no `downloading` event: {sent:?}");
+    for event in downloading {
+        assert_eq!(event["stage"], "downloading", "{sent:?}");
+        assert_eq!(event["total"], ARCHIVE, "{sent:?}");
+    }
 }

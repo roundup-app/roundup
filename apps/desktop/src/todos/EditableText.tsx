@@ -6,6 +6,7 @@ import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import { Editable } from "../ui/Editable";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
@@ -469,7 +470,7 @@ export const EditableText = (props: {
         {(started) => <RichBody started={started} />}
       </Show>
     </Show>
-    <Show when={editing()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void save?.()}>{copy.save}</button></Show>
+    <Show when={editing()}><BusyButton kind="quiet" class="word" busyLabel={copy.saving} onMouseDown={event => event.preventDefault()} onClick={() => save?.()}>{copy.save}</BusyButton></Show>
     </div>
   );
 };

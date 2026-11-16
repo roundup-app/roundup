@@ -11,6 +11,7 @@ import type { RpcError } from "../app/seam";
 import type { ActionRow } from "@contracts/action/ActionRow";
 import { createReply } from "../state/read";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { KindGlyph } from "../ink/KindGlyph";
 import { errorCause, shownKind } from "../ink/FailureLine";
 import { Combobox } from "../ui/Combobox";
@@ -193,11 +194,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (failure && failure.revision !== revision) setCopyFailure(null);
   });
 
-  const copyQuery = (): void => {
+  const copyQuery = () => {
     const revision = current()?.revision ?? null;
 
     const query = text();
-    void feedback.run(() => writeText(app, query), () => {
+
+    return feedback.run(() => writeText(app, query), () => {
       if (revision === (current()?.revision ?? null)) setCopyFailure(null);
     }, () => {
       if (revision === (current()?.revision ?? null)) setCopyFailure({ revision });
@@ -435,7 +437,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <ReservedLine message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>
           <Show when={text() !== "" && !copyFailure()}>
-            <button data-button="quiet" ref={restoreFocusOnRemoval()} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
+            <BusyButton kind="quiet" ref={restoreFocusOnRemoval()} busyLabel={copy.copying} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</BusyButton>
           </Show>
           <Show when={text() !== ""}>
             <button data-button="quiet" ref={restoreFocusOnRemoval()} onClick={() => {
@@ -447,7 +449,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           </Show>
         </>} />
         <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} dismiss={() => { setCopyFailure(null); restoreQueryFocus(); }} action={<>
-          <button data-button="quiet" ref={restoreFocusOnRemoval()} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
+          <BusyButton kind="quiet" ref={restoreFocusOnRemoval()} busyLabel={copy.copying} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</BusyButton>
         </>} />
         <Show when={refusal()}>{shown => <ReservedLine message={shown().cause} dismiss={() => { setRefusal(null); restoreQueryFocus(); }} />}</Show>
       </DialogContent>

@@ -6,6 +6,7 @@ import "./import.css";
 import { createSignal, For, onCleanup, onSettled, Show } from "solid-js";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { useConnectedProject } from "../state/connectedProject";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { Checkbox } from "../ui/Checkbox";
@@ -74,7 +75,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       <SettingsGroup name={copy.importPrompt}>
         <div class="import-instructions">
           <textarea rows={1} class="import-prompt field-frame" aria-label={copy.importPrompt} value={state.prompt()} spellcheck="false" autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
-          <button type="button" data-button="quiet" disabled={daemonExit() !== null || pending() || state.starting() || state.prompt().trim().length === 0} onClick={() => void state.start()}>{copy.importStart}</button>
+          <BusyButton kind="quiet" busy={state.starting()} disabled={daemonExit() !== null || pending() || state.prompt().trim().length === 0} busyLabel={copy.starting} onClick={() => state.start()}>{copy.importStart}</BusyButton>
         </div>
         <ReservedLine message={state.startFailure()} dismiss={state.dismissStartFailure} />
       </SettingsGroup>
@@ -90,7 +91,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       <SettingsGroup name={copy.importResults}><div class="import-panel">
           <ReservedLine status={state.listingAgent() && !found()?.candidates.length ? copy.importListing(listing()?.name ?? copy.importAgentName) : null}
             content={<span class="import-listing"><KindGlyph kind={doorStatus(listing())?.kind ?? "working"} /><span>{copy.importListing(listing()?.name ?? copy.importAgentName)}</span></span>} />
-          <ReservedLine message={line.message()} dismiss={line.dismiss} recover={failure() ? { run: () => void state.refresh() } : state.restoreFailure() || state.retentionFailure() ? { run: state.retryStorage, label: copy.retryStorage } : undefined}
+          <ReservedLine message={line.message()} dismiss={line.dismiss} recover={failure() ? { run: () => state.refresh() } : state.restoreFailure() || state.retentionFailure() ? { run: state.retryStorage, label: copy.retryStorage } : undefined}
             aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null} />
           <Show when={state.hasConflict()}>
             <section class="import-recovery" aria-label={copy.importChoices}>
@@ -152,9 +153,9 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       </div>
           <p class="import-words">
             <span class="import-actions">
-              <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || state.starting() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
+              <BusyButton kind="primary" class="word import-confirm" disabled={daemonExit() !== null || pending() || state.starting() || !state.verified() || wanted().size === 0} busyLabel={copy.importing} onClick={() => confirm()}>
                 {copy.importConfirm(wanted().size)}
-              </button>
+              </BusyButton>
             </span>
           </p>
     </SettingsShell>

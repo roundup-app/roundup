@@ -1,6 +1,7 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  retrying: sharedCopy.retrying,
   terminalPreparationCancelled: sharedCopy.terminalPreparationCancelled,
   railDraftConflict: sharedCopy.railDraftConflict,
   dismissFailure: sharedCopy.dismissFailure,

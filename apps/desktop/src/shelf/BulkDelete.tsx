@@ -4,6 +4,7 @@ import { captureFocus, focusTarget } from "../keys/focus";
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { createItemFailures } from "../ink/itemFailures";
 import { createContext, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack, useContext, type Accessor } from "solid-js";
 import { type JSX, Portal } from "@solidjs/web";
@@ -205,7 +206,7 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={props.selected().length > 0}>
           <div class="shelf-bulk-line" hidden={question()?.kind === "question"}>
             <span>{props.selected().length}{copy.selected}</span>
-            <button data-button="quiet" type="button" ref={(button) => { deleteButton = button; }} disabled={question()?.kind === "pending"} onClick={() => ask()}>{copy.deleteWord}{props.selected().length}</button>
+            <BusyButton kind="quiet" ref={(button: HTMLButtonElement) => { deleteButton = button; }} busy={question()?.kind === "pending"} busyLabel={copy.deleting} onClick={() => ask()}>{copy.deleteWord}{props.selected().length}</BusyButton>
             <button data-button="quiet" type="button" disabled={question()?.kind === "pending"} onClick={() => { props.cancelSelection(); clearFailures(); }}>{copy.clear}</button>
           </div>
         </Show>
@@ -217,7 +218,7 @@ export const createBulkDelete = <Id,>(props: {
         </Show>
         <ReservedLine data-deletion-pending={busy()} aria-busy={busy()} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}
           dismiss={() => { if (readFailure() !== null) setReadFailure(null); else if (shown().length > 0) clearFailure(shown()[0]!); }}
-          recover={readFailure() !== null ? { run: () => void readback?.() } : undefined} />
+          recover={readFailure() !== null ? { run: () => readback?.() } : undefined} />
         <For each={shown().slice(1)}>{failure => (
           <ReservedLine message={failureText(failure)} dismiss={() => clearFailure(failure)} />
         )}</For>

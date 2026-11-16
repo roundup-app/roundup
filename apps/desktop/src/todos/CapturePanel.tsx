@@ -3,6 +3,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import type { CapturePort, CaptureState } from "../app/seam";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import "./capture.styles.css";
 
 /** Presentation only. Edits and deliberate actions return to the original Capture owner. */
@@ -32,19 +33,19 @@ export const CapturePanel = (props: { port: CapturePort }) => {
   const file = (keepOpen: boolean) => {
     const current = state();
 
-    if (current) void send({ kind: "file", session: current.session, sequence: ++sequence, text: text(), keepOpen });
+    return current ? send({ kind: "file", session: current.session, sequence: ++sequence, text: text(), keepOpen }) : undefined;
   };
 
   const dismiss = () => {
     const current = state();
 
-    if (current) void send({ kind: "dismiss", session: current.session });
+    return current ? send({ kind: "dismiss", session: current.session }) : undefined;
   };
 
   makeEventListener(window, "blur", dismiss);
 
   return <section class="capture capture-native" aria-label={copy.captureLabel} onKeyDown={event => {
-    if (event.key === "Escape") { event.preventDefault(); dismiss(); }
+    if (event.key === "Escape") { event.preventDefault(); void dismiss(); }
   }}>
     <textarea spellcheck="false" autocorrect="off" autocapitalize="off" ref={input} class="capture-field field-frame" rows={1} aria-label={copy.captureLabel} placeholder={copy.capturePlaceholder} value={text()}
       onInput={event => {
@@ -53,28 +54,28 @@ export const CapturePanel = (props: { port: CapturePort }) => {
 
         if (current) void send({ kind: "edit", session: current.session, sequence: ++sequence, text: text() });
       }} onKeyDown={event => {
-        if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); file(event.shiftKey); }
+        if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); void file(event.shiftKey); }
       }} />
     <p class="capture-target"><span>{state()?.owner}</span><span>{state()?.home}</span></p>
     <ReservedLine message={failure() ?? published.message()} dismiss={() => failure() ? setFailure(null) : published.dismiss()} recover={state()?.retention ? { run: () => {
       const current = state();
 
-      if (current) void send({ kind: "retry", session: current.session });
+      return current ? send({ kind: "retry", session: current.session }) : undefined;
     } } : undefined} />
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
       <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readonly value={draft.text} />
       <div class="capture-actions">
-        <button data-button="quiet" onClick={() => {
+        <BusyButton kind="quiet" busyLabel={copy.copying} onClick={() => {
           const current = state();
 
-          if (current) void send({ kind: "copy", session: current.session, revision: draft.revision }); }}>{copy.copy}</button>
-        <button data-button="quiet" onClick={() => {
+          return current ? send({ kind: "copy", session: current.session, revision: draft.revision }) : undefined; }}>{copy.copy}</BusyButton>
+        <BusyButton kind="quiet" busyLabel={copy.discarding} onClick={() => {
           const current = state();
 
-          if (current) void send({ kind: "discard-revision", session: current.session, revision: draft.revision }); }}>{copy.discardRevision}</button>
+          return current ? send({ kind: "discard-revision", session: current.session, revision: draft.revision }) : undefined; }}>{copy.discardRevision}</BusyButton>
       </div>
     </div>}</For>
-    <div class="capture-actions"><button data-button="quiet" onClick={dismiss}>{copy.close}</button><button data-button="primary" disabled={!state() || text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
+    <div class="capture-actions"><BusyButton kind="quiet" busyLabel={copy.closing} onClick={dismiss}>{copy.close}</BusyButton><BusyButton kind="primary" disabled={!state() || text().trim() === ""} busyLabel={copy.capturing} onClick={() => file(false)}>{copy.captureATodo}</BusyButton></div>
   </section>;
 };

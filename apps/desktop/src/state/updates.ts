@@ -1,6 +1,6 @@
 import { createContext, createSignal, onCleanup, untrack, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
-import type { App, AppSettingsPage, UpdateFacts } from "../app/seam";
+import type { App, AppSettingsPage, UpdateFacts, UpdateProgress } from "../app/seam";
 
 /** U7208: the two programs an update row names. */
 export const PROGRAMS = ["roundup", "core"] as const;
@@ -13,8 +13,10 @@ type ShownPage = NonNullable<AppSettingsPage>;
 export type Updates = {
   /** What the App last said, `null` until it first answers. */
   facts: Accessor<UpdateFacts | null>;
-  /** U7208b, U7208c: the program's update is running; its button is disabled. */
+  /** U7208b, U7208c: the program's update is running; its button is busy (U170). */
   running(program: Program): boolean;
+  /** U7208b: how far roundup's install has come, `null` until the updater reports and once the install ends. */
+  progress: Accessor<UpdateProgress | null>;
   /** The one-line cause of the program's last failed update, until the next attempt or Dismiss. */
   failure(program: Program): string | null;
   dismiss(program: Program): void;
@@ -29,6 +31,7 @@ export type Updates = {
 /** U7208d: the facts the App holds, at launch and after each hourly look. */
 export const createUpdates = (app: App): Updates => {
   const [facts, setFacts] = createSignal<UpdateFacts | null>(null);
+  const [progress, setProgress] = createSignal<UpdateProgress | null>(null);
   const [running, setRunning] = createSignal<ReadonlySet<Program>>(new Set());
 
   const [failures, setFailures] = createSignal<
@@ -39,6 +42,7 @@ export const createUpdates = (app: App): Updates => {
   let heard = false;
 
   untrack(() => {
+    onCleanup(app.onUpdateProgress(setProgress));
     onCleanup(app.onUpdatesChanged(next => { heard = true; setFacts(next); }));
     void app.updates().then(next => { if (!heard) setFacts(next); });
   });
@@ -50,6 +54,7 @@ export const createUpdates = (app: App): Updates => {
 
   return {
     facts,
+    progress,
     running: (program) => running().has(program),
     failure: (program) => failures()[program] ?? null,
     dismiss: clear,
@@ -73,6 +78,7 @@ export const createUpdates = (app: App): Updates => {
 
         setFailures((previous) => ({ ...previous, [program]: cause.message }));
       } finally {
+        setProgress(null);
         setRunning(
           (previous) => new Set([...previous].filter((item) => item !== program)),
         );
@@ -82,7 +88,7 @@ export const createUpdates = (app: App): Updates => {
 };
 
 /** What Settings shows when nothing provides the facts: no rows. */
-const unknown: Updates = { facts: () => null, running: () => false, failure: () => null, dismiss: () => {}, update: async () => {}, show: () => {}, onShow: () => () => {} };
+const unknown: Updates = { facts: () => null, progress: () => null, running: () => false, failure: () => null, dismiss: () => {}, update: async () => {}, show: () => {}, onShow: () => () => {} };
 
 const UpdatesContext = createContext<Updates>(unknown);
 

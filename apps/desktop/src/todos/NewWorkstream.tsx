@@ -3,6 +3,7 @@ import { createEffect, createMemo, createSignal, Show, untrack, type Accessor } 
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { StartChoice } from "@contracts/workstream/StartChoice";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
@@ -122,7 +123,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
           <div class="app-dialog-actions">
             <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
             <Tip disabled={ready()} text={createBlocked()}>{trigger =>
-              <button {...trigger()} type="submit" data-button="primary" aria-disabled={ready() ? "false" : "true"}>{copy.createWorkstream}</button>
+              <BusyButton {...trigger()} kind="primary" type="submit" busy={pending()} disabled={!ready()} busyLabel={copy.creating}>{copy.createWorkstream}</BusyButton>
             }</Tip>
           </div>
         </form>

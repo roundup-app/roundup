@@ -1,6 +1,14 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  copying: sharedCopy.copying,
+  discarding: sharedCopy.discarding,
+  closing: "Closing…",
+  saving: sharedCopy.saving,
+  sending: sharedCopy.sending,
+  removing: sharedCopy.removing,
+  creating: sharedCopy.creating,
+  capturing: "Capturing…",
   changeDidNotApply: "The change did not apply; the earlier value was kept. Try again.",
   dismissFailure: sharedCopy.dismissFailure,
   draftSurface: sharedCopy.draftSurface,

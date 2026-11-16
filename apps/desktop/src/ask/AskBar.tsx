@@ -11,6 +11,7 @@ import { createWritableMemo } from "@solid-primitives/memo";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { ASK_CLOSE, CHORDS, chordsOf } from "../keys/chords";
 import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
@@ -351,14 +352,12 @@ export const AskBar = (props: {
               <span class="ask-unknown-text">{label()}</span>
               <span data-state="unknown">{cause() ? copy.askUnknown + cause() : copy.askUnknownState}</span>
             </div>
-            <button type="button" data-button="quiet" aria-label={copy.askCheckAcceptanceLabel(label())} onClick={() => {
-              void asks.reconcile(revision).then(outcome => {
+            <BusyButton kind="quiet" busyLabel={copy.checking} aria-label={copy.askCheckAcceptanceLabel(label())} onClick={() => asks.reconcile(revision).then(outcome => {
                 drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
                 if (outcome.kind === "unknown") setCause(outcome.message);
                 else refusals.clear(revision);
-              });
-            }}>{copy.askCheckAcceptance}</button>
+              })}>{copy.askCheckAcceptance}</BusyButton>
           </div>;
         }}</For>
         </>} />

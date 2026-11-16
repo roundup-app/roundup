@@ -2,6 +2,7 @@ import { createSignal, omit, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ErrorLine } from "./ErrorLine";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import "./styles.css";
 
 type Shared = Omit<JSX.HTMLAttributes<HTMLDivElement>, "role" | "children"> & {
@@ -12,7 +13,7 @@ type Shared = Omit<JSX.HTMLAttributes<HTMLDivElement>, "role" | "children"> & {
   overlay?: boolean;
 };
 
-/** U6249e: a failure line is Dismissible or Blocked (below). A Dismissible one lets the user recover: `dismiss` is required: ReservedLine draws the Dismiss button from it (or, with `dismissIn: "menu"`, leaves the button to the row's context menu, whose item calls the same function). `recover` is the verb to try again, drawn as a button labelled Retry unless it names its own label. */
+/** U6249e: a failure line is Dismissible or Blocked (below). A Dismissible one lets the user recover: `dismiss` is required: ReservedLine draws the Dismiss button from it (or, with `dismissIn: "menu"`, leaves the button to the row's context menu, whose item calls the same function). `recover` is the verb to try again, drawn as a button labelled Retry unless it names its own label; a promise its `run` returns keeps that button busy (U170). */
 export type Dismissible = {
   dismiss: () => void;
   recover?: { run: () => void; label?: string | undefined } | undefined;
@@ -44,7 +45,7 @@ type Loose = { message?: string | null | false; children?: JSX.Element; action?:
 
 /** The Retry and Dismiss controls a failure line draws from its `Recovery`. */
 export const RecoveryButtons = (props: { dismiss?: (() => void) | undefined; recover?: Recovery["recover"]; dismissIn?: Recovery["dismissIn"] }) => <>
-  <Show when={props.recover}>{recover => <button type="button" data-button="quiet" onMouseDown={event => event.preventDefault()} onClick={() => recover().run()}>{recover().label ?? copy.retry}</button>}</Show>
+  <Show when={props.recover}>{recover => <BusyButton kind="quiet" busyLabel={copy.retrying} onMouseDown={event => event.preventDefault()} onClick={() => recover().run()}>{recover().label ?? copy.retry}</BusyButton>}</Show>
   <Show when={props.dismiss && props.dismissIn !== "menu" ? props.dismiss : undefined}>{dismiss => <button type="button" data-button="quiet" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
 </>;
 

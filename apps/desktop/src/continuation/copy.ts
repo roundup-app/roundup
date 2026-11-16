@@ -20,7 +20,7 @@ export const copy = {
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   /** @prose */
   stopped: "This Agent stopped mid-work before the restart.",
-  resuming: "Resuming…",
+  resuming: sharedCopy.resuming,
   /** @prose */
   checkFailed: (cause: string) =>
     `Unfinished work could not be checked. ${cause}`,

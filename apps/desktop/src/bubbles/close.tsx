@@ -4,6 +4,7 @@ import type { JSX } from "@solidjs/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { askOnce } from "../settings/warnings";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -81,11 +82,12 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
   };
 
   const Failure = (props: { message: string | null; action?: JSX.Element; onDismiss: () => void }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message} dismiss={props.onDismiss} action={<>
-    <Show when={retry()?.message === props.message ? retry() : null}>{failed => <button data-button="quiet" type="button" onClick={() => {
+    <Show when={retry()?.message === props.message ? retry() : null}>{failed => <BusyButton kind="quiet" busyLabel={copy.retrying} onClick={() => {
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
       focusTarget(`bubble.${failed().id}.close`)?.focus();
-      void close(failed().id);
-    }}>{copy.retry}</button>}</Show>
+
+      return close(failed().id);
+    }}>{copy.retry}</BusyButton>}</Show>
     {props.action}
   </>} />;
 

@@ -1,6 +1,9 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  checking: sharedCopy.checking,
+  sending: sharedCopy.sending,
+  saving: sharedCopy.saving,
   changes: "Changes",
   versus: "vs",
   changeGroups: "Repositories and branches",

@@ -1,6 +1,7 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  retrying: sharedCopy.retrying,
   statusAge: {
     now: sharedCopy.ageNow,
     minutes: (value: number) => `${value} min`,

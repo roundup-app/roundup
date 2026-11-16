@@ -33,6 +33,11 @@ const updateRowSchema = v.object({ version: v.string(), ready: v.nullable(v.stri
 /** U7208d: what `updates` answers and `updates-changed` carries. `roundup` is `null` on a build with no update feed and `core` when no herdr-core runs; `ready` is the newer version, if any. */
 export const updateFactsSchema = v.object({ roundup: v.nullable(updateRowSchema), core: v.nullable(updateRowSchema) });
 
+/** U7208b: the `update-progress` event, sent only while `install_update` runs. `total` is `null` when the feed gives none. */
+export const updateProgressSchema = v.object({ downloaded: v.number(), total: v.nullable(v.number()), stage: v.picklist(["downloading", "installing"]) });
+
+export type UpdateProgress = v.InferOutput<typeof updateProgressSchema>;
+
 export type UpdateFacts = v.InferOutput<typeof updateFactsSchema>;
 
 /** U7208f: the page `open-app-settings` names; no payload opens App Settings as it was. */
@@ -310,6 +315,8 @@ export type App = {
   installUpdate(): Promise<void>;
   /** U7208c: runs `herdr-core update` and resolves the facts it left. Rejects with the last line the program printed when it fails. */
   updateCore(): Promise<UpdateFacts>;
+  /** U7208b: how far `installUpdate` has come, as the updater reports it. */
+  onUpdateProgress(listener: (progress: UpdateProgress) => void): Unsubscribe;
   /** U7208d: the App looked for newer versions again; the facts it left. */
   onUpdatesChanged(listener: (facts: UpdateFacts) => void): Unsubscribe;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
