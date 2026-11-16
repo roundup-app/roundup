@@ -307,7 +307,7 @@ fn narrowed(
     mut file: serde_json::Value,
     kept: &BTreeSet<&str>,
 ) -> serde_json::Value {
-    let held = |path: &str| {
+    let in_fork = |path: &str| {
         crate::data::project_data(source, Path::new(path))
             .ok()
             .and_then(|dir| dir.file_name().map(|n| n.to_string_lossy().into_owned()))
@@ -315,11 +315,11 @@ fn narrowed(
     };
     for field in ["open", "recent"] {
         if let Some(list) = file.get_mut(field).and_then(|v| v.as_array_mut()) {
-            list.retain(|v| v.as_str().is_some_and(held));
+            list.retain(|v| v.as_str().is_some_and(in_fork));
         }
     }
     if let Some(names) = file.get_mut("names").and_then(|v| v.as_object_mut()) {
-        names.retain(|path, _| held(path));
+        names.retain(|path, _| in_fork(path));
     }
     file
 }
