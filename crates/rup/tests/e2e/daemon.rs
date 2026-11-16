@@ -447,8 +447,8 @@ async fn needs_you_within(bound: Duration, client: &Client, agent: &str) {
     .await;
 }
 
-pub async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
+pub async fn poll_until<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
+    tokio::time::timeout(BOUND, async {
         loop {
             if let Some(value) = found().await {
                 return value;
@@ -483,7 +483,7 @@ pub async fn allow_prompt(client: &Client, agent: &str) {
             .any(|line| line.as_str().is_some_and(|line| line.contains("1. Yes")))
     };
     let mut typed_at: Option<Instant> = None;
-    h21_poll("the permission dialog to take a key", async || {
+    poll_until("the permission dialog to take a key", async || {
         match (choice_shown().await, typed_at) {
             (false, Some(_)) => Some(()),
             (false, None) => None,
