@@ -1,11 +1,14 @@
 import { captureFocus } from "../keys/focus";
 import { questionAsked } from "../keys/registry";
 import { createEffect, createSignal, Show, on, onCleanup, untrack } from "solid-js";
-import type { App, NativeQuestion, RemovalQuestion, RemovalAnswer } from "../app/seam";
+import { answerOf, type App, type NativeAnswer, type NativeQuestion, type RemovalQuestion, type RemovalAnswer } from "../app/seam";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
+import { Checkbox } from "./Checkbox";
+import { isSuppressed, suppressQuestion } from "../settings/warnings";
+import type { QuestionKey } from "../settings/preferences";
 
-const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion) => {
+const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion): Promise<NativeAnswer | RemovalAnswer> => {
   if (!("thisLabel" in question)) return app.ask(question);
 
   if (!app.askRemoval) throw new Error(copy.nativeRemovalAlertUnavailable);
@@ -13,16 +16,38 @@ const askNative = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, que
   return app.askRemoval(question);
 };
 
+type Read = { accepted: boolean; suppress?: QuestionKey; each?: "this" | "all" };
+
+/** Asks the native question; a suppressed key answers yes without showing, and a keyed question offers "Don't ask again". It returns the pending answer itself, so the caller settles in the same ticks as a bare ask. */
+const ask = (app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>, question: NativeQuestion | RemovalQuestion, key?: QuestionKey): Promise<NativeAnswer | RemovalAnswer> | true => {
+  if (key === undefined) return askNative(app, question);
+
+  return isSuppressed(key) ? true : askNative(app, { ...question, suppressible: copy.dontAskAgain });
+};
+
+const read = (raw: NativeAnswer | RemovalAnswer, key?: QuestionKey): Read => {
+  if (raw === "this" || raw === "all") return { accepted: true, each: raw };
+
+  if (raw === "cancel") return { accepted: false };
+
+  const { accepted, suppressed } = answerOf(raw);
+
+  return key !== undefined && suppressed ? { accepted, suppress: key } : { accepted };
+};
+
 /** A native question owns one request until answered. A request the system cannot show authorizes nothing and is never replayed (U6249d C10): its cause goes to the log and the same question is asked in the App, where the user answers it. */
 export const NativeAlert = (props: {
   app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>;
   open: boolean;
   question: NativeQuestion | RemovalQuestion;
+  /** U7157: the question's own key; a suppressed one confirms without showing. A removal question has two confirms, so it carries none. */
+  key?: QuestionKey;
   onConfirm: (answer?: RemovalAnswer) => void | Promise<void>;
   onCancel: () => void;
   finalFocus: () => HTMLElement | null;
 }) => {
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [ticked, setTicked] = createSignal(false);
   let pending = false;
   let line: HTMLDivElement | undefined;
   let generation = 0;
@@ -36,11 +61,12 @@ export const NativeAlert = (props: {
     let repeat = false;
     const answered = questionAsked();
     setFailure(null);
+    setTicked(false);
 
     try {
       const question = { ...props.question };
-      const answer = await askNative(props.app, question);
-      const accepted = answer !== false && answer !== "cancel";
+      const key = "thisLabel" in question ? undefined : props.key;
+      const { accepted, suppress, each } = read(await ask(props.app, question, key), key);
 
       if (mine !== generation || !props.open) return;
 
@@ -53,7 +79,9 @@ export const NativeAlert = (props: {
         return;
       }
 
-      if (accepted) await props.onConfirm(answer === "this" || answer === "all" ? answer : undefined);
+      if (accepted && suppress) await suppressQuestion(suppress);
+
+      if (accepted) await props.onConfirm(each);
       else props.onCancel();
       queueMicrotask(() => focus(() => untrack(() => props.finalFocus())?.focus({ preventScroll: true })));
     } catch (error) {
@@ -80,8 +108,12 @@ export const NativeAlert = (props: {
     if (open) untrack(() => void request());
   }));
 
-  const answer = (value?: RemovalAnswer) => {
+  const answer = async (value?: RemovalAnswer) => {
+    const suppress = ticked() && !removal() ? props.key : undefined;
     setFailure(null);
+
+    if (suppress !== undefined) await suppressQuestion(suppress);
+
     void props.onConfirm(value);
   };
 
@@ -95,8 +127,11 @@ export const NativeAlert = (props: {
   const confirm = () => "okLabel" in props.question ? props.question.okLabel : "";
 
   return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} status={props.question.message}>
-    <Show when={removal()} fallback={<button data-button="quiet" type="button" onClick={() => answer()}>{confirm()}</button>}>
-      {each => <><button data-button="quiet" type="button" onClick={() => answer("this")}>{each().thisLabel}</button><button data-button="quiet" type="button" onClick={() => answer("all")}>{each().allLabel}</button></>}
+    <Show when={removal()} fallback={<>
+      <Show when={props.key}><Checkbox checked={ticked()} onCheckedChange={setTicked}>{copy.dontAskAgain}</Checkbox></Show>
+      <button data-button="quiet" type="button" onClick={() => void answer()}>{confirm()}</button>
+    </>}>
+      {each => <><button data-button="quiet" type="button" onClick={() => void answer("this")}>{each().thisLabel}</button><button data-button="quiet" type="button" onClick={() => void answer("all")}>{each().allLabel}</button></>}
     </Show>
     <button data-button="quiet" type="button" onClick={cancel}>{props.question.cancelLabel}</button>
   </ReservedLine></Show>;

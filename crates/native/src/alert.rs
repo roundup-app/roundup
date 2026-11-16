@@ -54,3 +54,49 @@ pub fn removal_alert<R: Runtime>(
         }
     })
 }
+
+/// A two-button question; `suppress` is the label of AppKit's suppression checkbox (`showsSuppressionButton`), unticked.
+/// The callback gets whether the first button was pressed and whether the checkbox was ticked.
+pub fn question_alert<R: Runtime>(
+    app: &AppHandle<R>,
+    title: String,
+    message: String,
+    labels: [String; 2],
+    suppress: Option<String>,
+    answer: impl FnOnce(bool, bool) + Send + 'static,
+) -> tauri::Result<()> {
+    app.run_on_main_thread(move || {
+        let (Some(_main), Some(class)) = (MainThreadMarker::new(), AnyClass::get(c"NSAlert"))
+        else {
+            log::warn!(target: "roundup::shell", "native question alert unavailable");
+            answer(false, false);
+            return;
+        };
+        // SAFETY: as `removal_alert`: the alert lives on AppKit's main thread until runModal returns.
+        unsafe {
+            let alert: Retained<AnyObject> = msg_send![class, new];
+            let _: () = msg_send![&*alert, setMessageText: &*NSString::from_str(&title)];
+            let _: () = msg_send![&*alert, setInformativeText: &*NSString::from_str(&message)];
+            let _: () = msg_send![&*alert, setAlertStyle: 1usize];
+            for (index, label) in labels.iter().enumerate() {
+                let button: Retained<AnyObject> =
+                    msg_send![&*alert, addButtonWithTitle: &*NSString::from_str(label)];
+                let key = if index == 0 { "\r" } else { "\u{1b}" };
+                let _: () = msg_send![&*button, setKeyEquivalent: &*NSString::from_str(key)];
+                let _: () = msg_send![&*button, setKeyEquivalentModifierMask: 0usize];
+            }
+            if let Some(label) = &suppress {
+                let _: () = msg_send![&*alert, setShowsSuppressionButton: Bool::YES];
+                let checkbox: Retained<AnyObject> = msg_send![&*alert, suppressionButton];
+                let _: () = msg_send![&*checkbox, setTitle: &*NSString::from_str(label)];
+            }
+            let response: isize = msg_send![&*alert, runModal];
+            let ticked = suppress.is_some() && {
+                let checkbox: Retained<AnyObject> = msg_send![&*alert, suppressionButton];
+                let state: isize = msg_send![&*checkbox, state];
+                state == 1
+            };
+            answer(response == 1000, ticked);
+        }
+    })
+}

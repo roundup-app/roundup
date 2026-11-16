@@ -1,5 +1,6 @@
 import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
+import { askOnce } from "../settings/warnings";
 import { createItemFailure } from "./itemFailure";
 import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
@@ -537,7 +538,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const lift = state.drawNew("workstream", params.name, null);
 
       try {
-        if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
+        if (workstreamUnknown !== null && !await askOnce(app, "new-workstream-again", { title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
 
         workstreamFocus = captureFocus(true);
         workstreamSelection = selectionRevision;
