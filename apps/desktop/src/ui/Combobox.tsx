@@ -102,7 +102,11 @@ const Root = (props: {
     ["Tab", pickHighlighted],
   ]);
 
+  // ui-sdk 0.1.0-beta.5 recurses without end when a Command unmounts in the turn it mounted while its value names a row, so the value names one only once settled.
+  const [settled, setSettled] = createSignal(false);
+
   onSettled(() => {
+    setSettled(true);
     const element = input;
 
     if (!element) return;
@@ -154,7 +158,7 @@ const Root = (props: {
     </CommandItem>;
   };
 
-  return <Command class="app-combobox" value={highlighted()} loop={!props.contentRow} filter={false} query={props.inputValue} onAction={pick}
+  return <Command class="app-combobox" value={settled() ? highlighted() : null} loop={!props.contentRow} filter={false} query={props.inputValue} onAction={pick}
     onValueChange={(value, details) => { if (details.reason === "item-hover") details.cancel(); else props.onHighlightChange(value); }}
     onQueryChange={(query, details) => { if (details.reason === "escape-key") details.cancel(); else props.onInput(query); }}>
     <CommandInput class="app-combobox-input" aria-label={props.label} placeholder={props.placeholder} spellcheck="false" autocorrect="off" autocapitalize="off"
