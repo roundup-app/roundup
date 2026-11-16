@@ -7,7 +7,7 @@
   color: inherit;
 }
 
-/* The one place a modal is positioned: the top layer centres it in the window on both axes. */
+/* The one place a modal is positioned: the top layer centres it in the window on both axes, by alignment so its margins stay 0. */
 .app-dialog {
   position: fixed;
   inset: 0;
@@ -16,7 +16,8 @@
   height: fit-content;
   max-width: calc(100vw - var(--space-6) * 2);
   max-height: calc(100vh - var(--space-6) * 2);
-  margin: auto;
+  margin: 0;
+  place-self: center;
   color: var(--text);
   padding: var(--space-4);
 }

@@ -25,6 +25,7 @@ import type { Candidate } from "../toasts/queue";
 import { copy } from "./copy";
 import { versionsText } from "./facts";
 import { Feedback } from "./Feedback";
+import { notices } from "../testing/notices";
 
 const ISSUE = "https://github.com/roundup-app/roundup/issues/7300";
 
@@ -116,7 +117,7 @@ const form = () => document.querySelector(".feedback-form");
 const versions = () =>
   document.querySelector(".feedback-versions")?.textContent;
 
-const note = () => screen.queryByRole("status")?.textContent;
+const note = () => notices("status")[0]?.textContent;
 
 /** Send refuses with `aria-disabled`, never the `disabled` attribute, so it stays focusable. */
 const refused = () => submit().getAttribute("aria-disabled") === "true";

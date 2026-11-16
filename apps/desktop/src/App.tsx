@@ -19,7 +19,7 @@ import { captureActions, registerKeys } from "./keys/registry";
 import { CHORDS, LEADER, chordsOf } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { lazy, createEffect, createMemo, createRoot, createSignal, createUniqueId, For, getOwner, Loading, onCleanup, onSettled, runWithOwner, Show, untrack, type Accessor } from "solid-js";
+import { lazy, createEffect, createMemo, createRoot, createSignal, createUniqueId, For, getOwner, isDisposed, Loading, onCleanup, onSettled, runWithOwner, Show, untrack, type Accessor } from "solid-js";
 import { ChooseProject, EmptyShelf } from "./window/FirstRun";
 import { EmptyRail } from "./rail/EmptyRail";
 import { Layout } from "./window/Layout";
@@ -243,10 +243,11 @@ export const App = (props: {
   let nativeHandler: Promise<(request: OpenRequest) => void> | undefined;
   const routeNativeOpen = (request: OpenRequest) => void nativeHandler?.then(handle => handle(request)).catch(error => failNative(String(error)));
   const owner = getOwner();
+  // The module can load after the App has gone; a gone App watches nothing.
   onSettled(() => {
     const app = props.app;
 
-    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
+    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => owner && isDisposed(owner) ? () => {} : runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
 
     return app.onNativeOpen?.(routeNativeOpen, cause => failNative(cause));
   });
