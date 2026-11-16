@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { copy } from "./copy";
 import type { ToolCall } from "@contracts/agent/ToolCall";
@@ -27,6 +28,7 @@ const toggle = async (name: string) => {
 const setVisibility = (state: DocumentVisibilityState) => {
   Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
   document.dispatchEvent(new Event("visibilitychange"));
+  flush();
 };
 
 beforeEach(() => {
@@ -52,10 +54,12 @@ it("u3780b_a_running_call_ticks_and_a_finished_one_does_not", async () => {
   expect(row("ann").textContent).toContain("Running");
   expect(row("ann").textContent).toContain("0s");
   vi.advanceTimersByTime(3000);
+  flush();
   expect(row("ann").textContent).toContain("3s");
 
   await send(app, connected, "ann", call({ state: "done", duration_ms: 3200, result: "ok" }));
   vi.advanceTimersByTime(5000);
+  flush();
   expect(row("ann").textContent).toContain("Done");
   expect(row("ann").textContent).toContain("3s");
 });
@@ -64,9 +68,11 @@ it("u3780b_a_hidden_window_does_not_tick", async () => {
   await mountAskBar([], null, tree());
   setVisibility("hidden");
   vi.advanceTimersByTime(5000);
+  flush();
   expect(row("ann").textContent).toContain("0s");
   setVisibility("visible");
   vi.advanceTimersByTime(2000);
+  flush();
   expect(row("ann").textContent).toContain("7s");
 });
 
@@ -176,6 +182,7 @@ it("u3780c_reduced_motion_folds_at_once", async () => {
 it("u3780c_payload_text_is_inert", async () => {
   await mountAskBar([], null, tree({ ann: call({ arguments: "<img src=x onerror=alert(1)>" }) }));
   fireEvent.click(line("ann"));
+  flush();
 
   // SAFETY: the open fold renders this region, or the next line throws.
   const region = document.querySelector(".call-fold") as HTMLElement;

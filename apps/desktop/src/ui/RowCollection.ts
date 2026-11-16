@@ -1,5 +1,17 @@
-import { createListCollection, useListSelection } from "@ark-ui/solid/collection";
-import { createComputed, createSignal, onMount, onCleanup } from "solid-js";
+import { createTypeahead } from "@ui-sdk/core";
+import { createEffect, createMemo, createSignal, onCleanup, onSettled } from "solid-js";
+
+type Row = { value: string; label: string };
+
+export type RowSelection = {
+  selectedValues: () => string[];
+  isEmpty: () => boolean;
+  isSelected: (value: string | null) => boolean;
+  toggle: (value: string) => void;
+  replace: (value: string | null) => void;
+  setSelectedValues: (values: string[]) => void;
+  clear: () => void;
+};
 
 const keys = new WeakMap<Element, (event: KeyboardEvent) => boolean>();
 
@@ -7,26 +19,67 @@ const keys = new WeakMap<Element, (event: KeyboardEvent) => boolean>();
 export const rowKey = (event: KeyboardEvent) => event.target instanceof Element
   && keys.get(event.target)?.(event) === true;
 
-/** A modal passes these keys to the focused element's own handler (Ark's tree view) instead of swallowing them. */
+/** A modal passes these keys to the focused element's own handler (a tree row) instead of swallowing them. */
 export const claimKeys = (element: Element, claims: (event: KeyboardEvent) => boolean) => { keys.set(element, claims); };
 
 // U7158: type-to-find lives only in an open menu or dialog; every other list leaves a letter to its shortcut or to the centre.
 const FINDING = "[role=menu], [role=dialog], [role=alertdialog]";
 
-// Shortcut guards and the row handler consult the same library search for one press.
+// Shortcut guards and the row handler consult the same search for one press.
 const searches = new WeakMap<Element, (event: KeyboardEvent) => string | null>();
 
 export const rowTypeahead = (event: KeyboardEvent) => event.target instanceof Element
   && searches.get(event.target)?.(event) != null;
 
-/** Ark owns selection, ranges, navigation and the buffered name search of existing row buttons. */
-export const createRowCollection = (items: () => { value: string; label: string }[], interaction?: { onFocus?: (value: string) => void; onActivate: (value: string) => void }, retained?: Pick<ReturnType<typeof useListSelection>, "setSelectedValues" | "toggle" | "replace" | "isSelected" | "isEmpty" | "clear" | "selectedValues">) => {
+const rowList = (items: readonly Row[]) => {
+  const values = items.map(item => item.value);
+
+  const neighbour = (value: string, step: number) => {
+    const at = values.indexOf(value);
+
+    return at === -1 ? null : values[at + step] ?? null;
+  };
+
+  return {
+    items,
+    firstValue: values[0] ?? null,
+    lastValue: values.at(-1) ?? null,
+    getValues: () => [...values],
+    has: (value: string) => values.includes(value),
+    getNextValue: (value: string) => neighbour(value, 1),
+    getPreviousValue: (value: string) => neighbour(value, -1),
+    getValueRange: (from: string, to: string) => {
+      const start = values.indexOf(from);
+      const end = values.indexOf(to);
+
+      return start === -1 || end === -1 ? [] : values.slice(Math.min(start, end), Math.max(start, end) + 1);
+    },
+  };
+};
+
+const createRowSelection = (): RowSelection => {
+  const [chosen, setChosen] = createSignal<ReadonlySet<string>>(new Set());
+  const selectedValues = createMemo(() => [...chosen()]);
+  const isEmpty = createMemo(() => chosen().size === 0);
+
+  return {
+    selectedValues, isEmpty,
+    isSelected: value => value !== null && chosen().has(value),
+    toggle: value => setChosen(previous => new Set(previous.has(value) ? [...previous].filter(each => each !== value) : [...previous, value])),
+    replace: value => { if (value !== null) setChosen(new Set([value])); },
+    setSelectedValues: values => setChosen(new Set(values)),
+    clear: () => setChosen(new Set()),
+  };
+};
+
+/** Selection, ranges, arrow and Home/End navigation and the buffered name search of existing row buttons. */
+export const createRowCollection = (items: () => Row[], interaction?: { onFocus?: (value: string) => void; onActivate: (value: string) => void }, retained?: RowSelection) => {
   const [mounted, setMounted] = createSignal(false);
-  onMount(() => setMounted(true));
-  const collection = () => createListCollection({ items: mounted() ? items() : [], itemToValue: item => item.value, itemToString: item => item.label });
+  onSettled(() => { setMounted(true); });
   // Native hidden/inert changes need a fresh eligibility read at each selection gesture.
-  const selection = retained ?? useListSelection(() => ({ get collection() { return collection(); }, selectionMode: "multiple" }));
-  const state = { keysSoFar: "", timer: -1 };
+  const collection = () => rowList(mounted() ? items() : []);
+  const selection = retained ?? createRowSelection();
+  const typeahead = createTypeahead(350);
   const results = new WeakMap<KeyboardEvent, string | null>();
 
   const search = (event: KeyboardEvent) => {
@@ -36,29 +89,27 @@ export const createRowCollection = (items: () => { value: string; label: string 
 
     if (results.has(event)) return results.get(event)!;
     const row = event.target instanceof HTMLElement ? event.target : null;
-
-    // Ark cycles past the current row for a repeated letter. Its sole match still owns typing.
-    const value = collection().search(event.key, { state, currentValue: row?.dataset.collectionValue ?? null })
-      ?? collection().search("", { state, currentValue: null });
+    const visible = collection().items;
+    const found = typeahead(event.key, visible.map(item => item.label), visible.findIndex(item => item.value === row?.dataset.collectionValue));
+    const value = visible[found]?.value ?? null;
 
     results.set(event, value);
 
     return value;
   };
 
-  const rows = new Map<string, HTMLElement>();
+  // Refs register without an owner, so nothing releases a removed row: hold it weakly.
+  const rows = new Map<string, WeakRef<HTMLElement>>();
 
   let anchor: string | undefined;
   let pending: { value: string } | null = null;
 
-  createComputed(() => {
-    const visible = collection();
-
+  createEffect(collection, visible => {
     if (pending && !visible.has(pending.value)) pending = null;
   });
 
   const complete = (request: { value: string }) => {
-    const row = rows.get(request.value);
+    const row = rows.get(request.value)?.deref();
 
     if (pending !== request || !row?.isConnected || !collection().has(request.value)) return;
     pending = null;
@@ -138,18 +189,16 @@ export const createRowCollection = (items: () => { value: string; label: string 
     return false;
   };
 
-  const reset = () => { window.clearTimeout(state.timer); state.keysSoFar = ""; };
-
-  onCleanup(() => { pending = null; reset(); });
+  onCleanup(() => { pending = null; typeahead.reset(); });
 
   return {
-    collection, selection, search, reset, click,
+    collection, selection, search, reset: typeahead.reset, click,
     register: (row: HTMLElement, value: string) => {
       row.dataset.collectionValue = value;
       searches.set(row, search);
 
       if (interaction) {
-        rows.set(value, row); keys.set(row, key);
+        rows.set(value, new WeakRef(row)); keys.set(row, key);
         const request = pending;
 
         if (request?.value === value) {
@@ -157,11 +206,6 @@ export const createRowCollection = (items: () => { value: string; label: string 
           queueMicrotask(() => complete(request));
         }
       }
-
-      onCleanup(() => {
-        if (rows.get(value) === row) rows.delete(value);
-        keys.delete(row); searches.delete(row);
-      });
     },
   };
 };

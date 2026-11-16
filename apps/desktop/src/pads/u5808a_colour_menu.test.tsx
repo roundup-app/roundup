@@ -40,3 +40,19 @@ it("u5808a_keyboard_open_and_escape_keep_the_colour_trigger", { retry: 0 }, asyn
   expect(state.pads[0]?.text).toBe(source);
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(0);
 });
+
+it("u5808a_picking_the_chosen_colour_returns_focus_to_the_editor", { retry: 0 }, async () => {
+  const { app } = await openShelf([padOf("note", USER, "before word after")]);
+  const field = await openPad("note");
+  field.setSelectionRange(8, 12, "forward");
+  const trigger = screen.getByRole("button", { name: "Text colour" });
+  const user = userEvent.setup();
+  trigger.focus();
+  await user.keyboard("{Enter}");
+  await user.click(await screen.findByRole("menuitemradio", { name: "Default", checked: true }));
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  await waitFor(() => expect(field.contains(document.activeElement)).toBe(true));
+  expect(document.activeElement).not.toBe(trigger);
+  expect(field.value).toBe("before word after");
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(0);
+});

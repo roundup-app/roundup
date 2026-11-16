@@ -32,7 +32,7 @@ const choose = async (choice: string) => {
 
 const selected = async (choice: string) => {
   const group = await screen.findByRole("radiogroup", { name: "Width" });
-  await waitFor(() => expect(within(group).getByRole<HTMLInputElement>("radio", { name: choice }).checked).toBe(true));
+  await waitFor(() => expect(within(group).getByRole("radio", { name: choice }).getAttribute("aria-checked")).toBe("true"));
 };
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -89,7 +89,7 @@ it.each(["narrow", "invalid", null])("u5560b_default_survives_restart_and_defaul
   useBrowserStorage(localStorage);
   const group = await settings();
   const expected = stored === "narrow" ? "Narrow" : "Wide";
-  expect(within(group).getByRole<HTMLInputElement>("radio", { name: expected }).checked).toBe(true);
+  expect(within(group).getByRole("radio", { name: expected }).getAttribute("aria-checked")).toBe("true");
   fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
   expect(await screen.findByRole("spinbutton", { name: "Font size" })).toHaveProperty("value", "19");
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));

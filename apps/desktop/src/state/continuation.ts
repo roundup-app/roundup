@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal } from "solid-js";
+import { createMemo, createSignal, refresh } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ContinuationAction } from "@contracts/message/ContinuationAction";
@@ -6,8 +6,8 @@ import type { ResumeWorkParams } from "@contracts/message/ResumeWorkParams";
 import type { AppSeam } from "../app/seam";
 import { isDoor } from "./doorNode";
 
-/** What one read of the Daemon saw: the state of each Door it read at, and the work still open then. */
-type Seen = { keys: ReadonlyMap<string, string>; open: ReadonlyMap<string, readonly ContinuationAction[]> };
+/** What one read of the Daemon saw: the state of each Door it read at, the work still open then, and why the read failed, if it did. */
+type Seen = { keys: ReadonlyMap<string, string>; open: ReadonlyMap<string, readonly ContinuationAction[]>; failure: Error | null };
 
 /** A resume that failed, good only while its Door stays in the state it failed at. */
 type Failed = { cause: Error; door: string | undefined };
@@ -19,7 +19,7 @@ const none: Tally = { resumed: 0, failed: 0 };
 
 const sum = (tallies: readonly Tally[]): Tally => tallies.reduce((total, each) => ({ resumed: total.resumed + each.resumed, failed: total.failed + each.failed }), none);
 
-const unread: Seen = { keys: new Map(), open: new Map() };
+const unread: Seen = { keys: new Map(), open: new Map(), failure: null };
 
 /**
  * U7211a: the Doors that can hold work to resume, each with the state a read of it is good for. Only a stopped Door
@@ -36,25 +36,32 @@ const sameKeys = (a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>
  * user's choice to resume it. Nothing resumes without a call to `resume` or `resumeAll`.
  */
 export const createContinuation = (app: AppSeam, project: string, nodes: Accessor<readonly RailNode[]>, live: Accessor<boolean>) => {
-  const doors = createMemo(() => live() ? readable(nodes()) : new Map<string, string>(), undefined, { equals: sameKeys });
+  const doors = createMemo(() => live() ? readable(nodes()) : new Map<string, string>(), { equals: sameKeys });
 
-  const [seen, { mutate, refetch }] = createResource(doors, async (wanted, { value }) => {
-    const known = value ?? unread;
+  // A write lands at once and never reads again; the next change of the Doors reads from what was written.
+  const [seen, setSeen] = createSignal(async (known: Seen): Promise<Seen> => {
+    const wanted = doors();
 
-    const entries = await Promise.all([...wanted].map(async ([id, key]) => {
-      if (known.keys.get(id) === key) return [id, known.open.get(id) ?? []] as const;
+    try {
+      const entries = await Promise.all([...wanted].map(async ([id, key]) => {
+        if (known.keys.get(id) === key) return [id, known.open.get(id) ?? []] as const;
 
-      const plan = await app.rpc("message.reconcileWork", { project, id });
+        const plan = await app.rpc("message.reconcileWork", { project, id });
 
-      return [id, plan.actions.filter(action => action.decision === null)] as const;
-    }));
+        return [id, plan.actions.filter(action => action.decision === null)] as const;
+      }));
 
-    return { keys: wanted, open: new Map(entries) };
-  }, { initialValue: unread });
+      return { keys: wanted, open: new Map(entries), failure: null };
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
 
-  const open = (id: string): readonly ContinuationAction[] => seen.error ? [] : seen.latest.open.get(id) ?? [];
+      return { ...known, failure: thrown };
+    }
+  }, { loadingValue: unread });
 
-  const agents = (): string[] => seen.error ? [] : [...seen.latest.open].flatMap(([id, actions]) => actions.length > 0 ? [id] : []);
+  const open = (id: string): readonly ContinuationAction[] => seen().failure === null ? seen().open.get(id) ?? [] : [];
+
+  const agents = (): string[] => seen().failure === null ? [...seen().open].flatMap(([id, actions]) => actions.length > 0 ? [id] : []) : [];
 
   const [dismissed, setDismissed] = createSignal<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = createSignal<ReadonlySet<string>>(new Set());
@@ -73,7 +80,7 @@ export const createContinuation = (app: AppSeam, project: string, nodes: Accesso
     return only !== undefined && actions.length === 1 ? { project, id, request, action: only.id } : { project, id, request };
   };
 
-  const handled = (id: string) => mutate(previous => ({ keys: previous?.keys ?? new Map(), open: new Map(previous?.open).set(id, []) }));
+  const handled = (id: string) => setSeen(previous => ({ ...previous, open: new Map(previous.open).set(id, []) }));
 
   const resume = async (id: string): Promise<Tally> => {
     const actions = open(id);
@@ -116,8 +123,8 @@ export const createContinuation = (app: AppSeam, project: string, nodes: Accesso
       return last !== undefined && last.door === doors().get(id) ? last.cause : null;
     },
     /** Why the read of unfinished work failed. */
-    readFailure: (): Error | null => seen.error instanceof Error ? seen.error : null,
-    reread: () => void refetch(),
+    readFailure: (): Error | null => seen().failure,
+    reread: () => { refresh(seen); },
     resume,
     resumeAll,
     dismiss: (id: string) => setDismissed(previous => new Set([...previous, ...open(id).map(action => action.id)])),

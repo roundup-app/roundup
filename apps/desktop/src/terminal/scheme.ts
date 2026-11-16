@@ -1,3 +1,4 @@
+import { untrack } from "solid-js";
 import type { AppSeam } from "../app/seam";
 import { appDark, followAppAppearance } from "../settings/preferences";
 import { copy } from "./copy";
@@ -10,8 +11,8 @@ export const syncTerminalScheme = async (app: AppSeam) => {
 
   const send = async (): Promise<void> => {
     const mine = ++latest;
-    const dark = appDark();
-    const theme = terminalThemeFor();
+    // The colours as they are now; a switch's effect asks from its apply, which reads nothing it should track.
+    const { dark, theme } = untrack(() => ({ dark: appDark(), theme: terminalThemeFor() }));
 
     try {
       await app.rpc("terminal.scheme", { scheme: dark ? "dark" : "light", background: theme.background, foreground: theme.foreground });

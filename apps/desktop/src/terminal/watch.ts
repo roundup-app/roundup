@@ -1,5 +1,4 @@
-import { createEffect, untrack } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createEffect, untrack, createStore } from "solid-js";
 import { isWorkstreamChild } from "../state/railTopology";
 import { retryRead } from "../app/seam";
 import { copy as appCopy } from "./copy";
@@ -45,7 +44,7 @@ export const createWatches = ({ connected, exited, streaming, shownTo, disposed 
 
     if (on && rail.nodes.some((node) => ((isDoor(node) && node.terminal_id === id) || node.id === owner) && isWorkstreamChild(rail.nodes, node))) return;
 
-    if (!!untrack(() => unseenIds[id]) !== on) setUnseen(id, on ? true : undefined);
+    if (!!untrack(() => unseenIds[id]) !== on) setUnseen(draft => { if (on) draft[id] = true; else delete draft[id]; });
   };
 
   const stop = async (id: string): Promise<void> => {
@@ -118,22 +117,28 @@ export const createWatches = ({ connected, exited, streaming, shownTo, disposed 
   };
 
   /** A plain Terminal no one is streaming gets a watch until it is unseen; a Door's or Agent's Terminal, an exited one and one already unseen get none. */
-  const reconcile = (): void => {
+  const plan = () => {
     const panes = new Set(rail.nodes.flatMap((node) => isDoor(node) && node.terminal_id !== null ? [node.terminal_id] : []));
     const wanted = new Set(rail.terminals().filter((terminal) => !panes.has(terminal.id)).map((terminal) => terminal.id));
 
-    for (const id of watches.keys()) {
-      if (!wanted.has(id) || exited(id)) void stop(id);
-    }
-
-    for (const id of wanted) {
-      if (!streaming(id) && !watches.has(id) && !unseenIds[id] && !exited(id)) start(id);
-    }
-
-    for (const id of Object.keys(unseenIds)) if (!wanted.has(id)) setUnseen(id, undefined);
+    return {
+      stops: [...watches.keys()].filter((id) => !wanted.has(id) || exited(id)),
+      starts: [...wanted].filter((id) => !streaming(id) && !watches.has(id) && !unseenIds[id] && !exited(id)),
+      cleared: Object.keys(unseenIds).filter((id) => !wanted.has(id)),
+    };
   };
 
-  createEffect(reconcile);
+  const reconcileTo = ({ stops, starts, cleared }: ReturnType<typeof plan>): void => {
+    for (const id of stops) void stop(id);
+
+    for (const id of starts) start(id);
+
+    if (cleared.length) setUnseen(draft => { for (const id of cleared) delete draft[id]; });
+  };
+
+  const reconcile = (): void => reconcileTo(plan());
+
+  createEffect(plan, reconcileTo);
 
   return {
     subscribe,
@@ -142,7 +147,7 @@ export const createWatches = ({ connected, exited, streaming, shownTo, disposed 
     markUnseen,
     unseen: (id) => !!unseenIds[id],
     setBubbled: (id, on) => {
-      if (!!bubbled[id] !== on) setBubbled(id, on ? true : undefined);
+      if (!!bubbled[id] !== on) setBubbled(draft => { if (on) draft[id] = true; else delete draft[id]; });
     },
     bubbled: (id) => !!bubbled[id],
     reconcile,

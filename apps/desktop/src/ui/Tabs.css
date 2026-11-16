@@ -1,3 +1,24 @@
+/* ui-sdk's stylesheet gives tabs a look of its own: these zero-specificity rules hand every property it sets back to the App's buttons and panels, and any rule of the App wins over them. */
+:where([data-slot="tabs"]) {
+  display: revert;
+  flex-direction: revert;
+}
+
+:where([data-slot="tabs-list"]) {
+  border: 0;
+}
+
+:where([data-slot="tabs-tab"]) {
+  display: revert;
+  height: revert;
+  margin: revert;
+}
+
+:where([data-slot="tabs-panel"]) {
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .app-tabs-list {
   display: flex;
   gap: var(--space-1);

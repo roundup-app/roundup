@@ -36,9 +36,9 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
     connected.worktrees.watch(() => true);
 
     return (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <WorktreeControl />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     );
   });
 

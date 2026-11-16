@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { createDrawer } from "../drawer/drawer";
 import { DrawerHost } from "../drawer/DrawerHost";
@@ -19,8 +20,8 @@ const load = async (reduced = false) => {
   const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=selection`;
   await browser("open", url);
   await browser("wait", ".shelf-tabs");
-  await browser("wait", "--fn", `!!document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"], .shelf [data-todo] button')`);
-  await evaluate(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return true; })()`);
+  await browser("wait", "--fn", `!!document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control, .shelf [data-todo] button')`);
+  await evaluate(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control[aria-expanded="false"]')?.click(); return true; })()`);
   await browser("wait", "--fn", `!!document.querySelector('.shelf [data-todo] button')`);
   await settle();
 };
@@ -89,7 +90,8 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     await leader();
     expect(await keyFrame("k", "KeyK", "!!document.querySelector('.switcher') && document.querySelector('.switcher').contains(document.activeElement)")).toBe(true);
     await browser("wait", ".switcher input");
-    expect(await keyFrame("Escape", "Escape", "!document.querySelector('.switcher') && document.activeElement === window.__layerOrigin")).toBe(true);
+    // The key close is instant; ui-sdk keeps the closed Dialog's content, inert, until its next-frame animation check finds none.
+    expect(await keyFrame("Escape", "Escape", "!document.querySelector('.switcher:not([inert])') && document.activeElement === window.__layerOrigin")).toBe(true);
     await settle();
     await leader();
     // U3721b: a key size change slides in the key duration; the Bench settles after it, not by the next frame.
@@ -107,7 +109,7 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     // Select the row itself: its centre can contain a quick action on hover.
     await browser("focus", '.rail-row[data-id="backend"]');
     await browser("press", "Enter");
-    await browser("wait", "--fn", `!!document.querySelector('.rail-row[data-selected="true"]') && !!document.activeElement.closest('.pane-screen')`);
+    await browser("wait", "--fn", `!!document.querySelector('.rail-row[data-selected]') && !!document.activeElement.closest('.pane-screen')`);
     await settle();
     await evaluate(`(() => { window.__bubbleOrigin = document.activeElement; return true; })()`);
     expect(await keyFrame("t", "KeyT", "!!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.bubble')", true)).toBe(true);
@@ -164,6 +166,8 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
         close.focus();
         close.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key === "Space" ? " " : key)}, code: ${JSON.stringify(key)}, bubbles: true}));
         if (${JSON.stringify(key)} !== 'Escape') close.click();
+        // A person's key and the next frame are separate tasks: the close's own writes have settled, and the App's frame callback stands before this one.
+        window.__flush();
         return await new Promise(resolve => requestAnimationFrame(() => resolve({
           content: !!document.querySelector('.drawer > :not(.drawer-controls)'),
           returned: document.activeElement === button
@@ -199,6 +203,7 @@ it("u2580a_key_close_returns_focus_before_content_is_removed", () => {
   const origin = screen.getByRole("button", { name: "Origin" });
   origin.focus();
   drawer.open(() => <button type="button" onClick={(event) => drawer.close(event.detail === 0 ? "key" : "pointer")}>Finish</button>);
+  flush();
   const finish = screen.getByRole("button", { name: "Finish" });
   finish.focus();
   fireEvent.click(finish, { detail: 0 });

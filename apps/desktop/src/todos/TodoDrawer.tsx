@@ -6,7 +6,7 @@ import { TodoHeader } from "./TodoHeader";
 import { TodoMeta } from "./TodoMeta";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { copy } from "./copy";
-import { createEffect, createRoot, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -50,12 +50,15 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   const retained = untrack(() => props.recovery ? drafts.list().find(draft => draft.revision === props.recovery?.revision
     && draft.destination.surface === "todos" && draft.destination.object === String(props.id)) : undefined);
 
-  const original = props.todos.byId().get(props.id);
-  const originalHome = original?.home;
+  const original = untrack(() => props.todos.byId().get(props.id));
+  const originalHome = untrack(() => original?.home);
   const fieldForm = v.safeParse(formSchema, retained?.value);
   const blockersForm = v.safeParse(blockerSchema, retained?.value);
 
-  if (props.recovery && (props.recovery.project !== project.path || props.todos.project !== project.path || !props.todos.isLoaded() || props.todos.failure() !== null
+  const recovery = untrack(() => props.recovery);
+  const todos = untrack(() => ({ project: props.todos.project, loaded: props.todos.isLoaded() && props.todos.failure() === null }));
+
+  if (recovery && (recovery.project !== project.path || todos.project !== project.path || !todos.loaded
     || !original || !retained || (retained.value.home !== undefined && retained.value.home !== originalHome) || !(fieldForm.success && (retained.destination.recipient === "title" || retained.destination.recipient === "body")
       || blockersForm.success && retained.destination.recipient?.startsWith("blockers:")))) return null;
 
@@ -101,10 +104,6 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   // U6249d F3: a Todo someone else deleted leaves nothing to show, so the Drawer closes; unsaved text kept for it keeps the line that says why.
   const keptText = () => drafts.list().some(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id));
 
-  createEffect(() => {
-    if (props.todos.isLoaded() && !todo() && !removedByMe() && !deleting() && !props.recovery && !keptText()) drawer.close("key");
-  });
-
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
 
@@ -131,6 +130,10 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
     return current && form ? { ...current, title: form.title, body: form.body, done: form.done, blockers: form.blockers.map(Number) } : current;
   };
 
+  createEffect(createMemo(() => props.todos.isLoaded() && !todo() && !removedByMe() && !deleting() && !props.recovery && !keptText()), gone => {
+    if (gone) drawer.close("key");
+  });
+
   let detail: HTMLDivElement | undefined;
   let titleRow: HTMLDivElement | undefined;
 
@@ -150,7 +153,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
   let picks: Promise<unknown> = Promise.resolve();
 
   // The list state does not refire when only this Todo's fields change, so the cache watches the blockers itself.
-  createEffect(on(() => todo()?.blockers.join(","), () => setAnswered(null), { defer: true }));
+  createEffect(createMemo(() => todo()?.blockers.join(",")), () => { setAnswered(null); }, { defer: true });
 
   const blockerBase = () => answered() ?? todo();
 
@@ -185,55 +188,53 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
       blockers: next(original.blockers).map(String), baseBlockers: original.blockers.map(String), expected_change: expected };
 
     // Each pick owns its field for as long as it runs.
-    const pick = createRoot(dispose => {
-      const choice = createDraftField(drafts, destination, blockerSchema);
-      choice.keep(waiting, null);
+    const [choice, dispose] = createRoot(done => [createDraftField(drafts, destination, blockerSchema), done] as const);
+    choice.keep(waiting, null);
 
-      const choose = async () => {
-        // A queued add/remove composes with the preceding accepted pick, using one Values/sequence pair.
-        let change: Change | undefined;
-        const readFailure = await failureOf(async () => { change = (await app.rpc("todo.getHistory", { id: targetId })).changes.at(-1); });
+    const choose = async () => {
+      // A queued add/remove composes with the preceding accepted pick, using one Values/sequence pair.
+      let change: Change | undefined;
+      const readFailure = await failureOf(async () => { change = (await app.rpc("todo.getHistory", { id: targetId })).changes.at(-1); });
 
-        // Discarding a choice before its read returns never authorizes a later mutation.
-        if (!choice.draft()) return;
+      // Discarding a choice before its read returns never authorizes a later mutation.
+      if (!choice.draft()) return;
 
-        // A failed read leaves no change behind.
-        if (!change) {
-          const unread = new Error(readFailure ?? copy.originalUnverified);
-          await choice.send(() => Promise.resolve<Applied<Todo>>({ kind: "refused", error: unread, thrown: unread }));
+      // A failed read leaves no change behind.
+      if (!change) {
+        const unread = new Error(readFailure ?? copy.originalUnverified);
+        await choice.send(() => Promise.resolve<Applied<Todo>>({ kind: "refused", error: unread, thrown: unread }));
 
-          return setFailure(unread.message);
-        }
+        return setFailure(unread.message);
+      }
 
-        const blockers = next(change.after.blockers);
-        const seq = change.seq;
+      const blockers = next(change.after.blockers);
+      const seq = change.seq;
 
-        choice.keep({ ...origin, title: change.after.title, body: change.after.body,
-          done: change.after.done, blockers: blockers.map(String), baseBlockers: change.after.blockers.map(String), expected_change: seq }, null);
+      choice.keep({ ...origin, title: change.after.title, body: change.after.body,
+        done: change.after.done, blockers: blockers.map(String), baseBlockers: change.after.blockers.map(String), expected_change: seq }, null);
 
-        let bug: unknown;
+      let bug: unknown;
 
-        const sent = await choice.send(async () => {
-          const reply = await applying(() => app.rpc("todo.setBlockers", { id: targetId, blockers, expected_change: seq }));
+      const sent = await choice.send(async () => {
+        const reply = await applying(() => app.rpc("todo.setBlockers", { id: targetId, blockers, expected_change: seq }));
 
-          if (reply.kind !== "applied" && !(reply.thrown instanceof Error)) bug = reply.thrown;
+        if (reply.kind !== "applied" && !(reply.thrown instanceof Error)) bug = reply.thrown;
 
-          return reply;
-        });
+        return reply;
+      });
 
-        // A throw that is no Error is a bug: the queue reports it.
-        if (bug !== undefined) throw bug;
+      // A throw that is no Error is a bug: the queue reports it.
+      if (bug !== undefined) throw bug;
 
-        if (sent.kind === "skipped") return;
+      if (sent.kind === "skipped") return;
 
-        if (sent.kind !== "applied") return setFailure(sentFailure(sent));
+      if (sent.kind !== "applied") return setFailure(sentFailure(sent));
 
-        if (targetId === props.id) setAnswered(sent.result);
-        clearFailure();
-      };
+      if (targetId === props.id) setAnswered(sent.result);
+      clearFailure();
+    };
 
-      return () => choose().finally(dispose);
-    });
+    const pick = () => choose().finally(dispose);
 
     // A bug that rejects one pick is reported, and the picks behind it still run.
     picks = picks.then(pick, (bug) => {
@@ -297,7 +298,7 @@ const TodoDrawerBody = (props: DrawerProps & { navigation: string | null }) => {
 
   return (
     <>
-      <div class="todo-detail" tabIndex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
+      <div class="todo-detail" tabindex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
         <Show when={todo()}>{current => <TodoHeader navigation={props.navigation} todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
         <ReservedLine class="todo-delete-feedback"
           aria-live={drafts.undo.uncertain() ? undefined : "polite"} aria-atomic="true"

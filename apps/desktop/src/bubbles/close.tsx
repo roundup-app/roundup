@@ -1,11 +1,10 @@
 import { captureFocus, focusTarget } from "../keys/focus";
-import { onCleanup, Show } from "solid-js";
+import { flush, onCleanup, Show, createSignal, type Accessor } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
 import { askOnce } from "../settings/warnings";
-import { createSignal } from "solid-js";
-import type { Accessor, JSX } from "solid-js";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { ConnectedProject } from "../state/connectedProject";
 
@@ -31,6 +30,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
     if (!mounted) publish();
     else {
       setFailure(error.message, terminal);
+      flush();
       const original = failureRecord();
       transfer = () => { if (failureRecord() === original) publish(); };
     }
@@ -83,7 +83,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
   const Failure = (props: { message: string | null; action?: JSX.Element; onDismiss: () => void }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message} dismiss={props.onDismiss} action={<>
     <Show when={retry()?.message === props.message ? retry() : null}>{failed => <button data-button="quiet" type="button" onClick={() => {
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
-      document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${failed().id}"] button:last-child`)?.focus();
+      focusTarget(`bubble.${failed().id}.close`)?.focus();
       void close(failed().id);
     }}>{copy.retry}</button>}</Show>
     {props.action}

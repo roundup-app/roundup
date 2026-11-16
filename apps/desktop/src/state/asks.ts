@@ -1,4 +1,4 @@
-import { batch, createEffect, createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
@@ -133,16 +133,25 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
   let sequence = 0;
   const fail = (message: string): AskFailure => ({ id: ++sequence, message });
   let loaded = false;
-  const [loadState, setLoadState] = createSignal<"loading" | "ready" | "failed">("loading");
+  // The bar asks for the list from its body, which is an owned scope.
+  const [loadState, setLoadState] = createSignal<"loading" | "ready" | "failed">("loading", { ownedWrite: true });
 
   const upsert = (ask: Ask): void => {
     const invalid = new Set(ask.parts.flatMap((part, index) => part.state !== "typed" ? [partKey({ key: ask.id, parts: ask.parts }, index)] : []));
-    const kept = acknowledged().filter(key => !invalid.has(key));
+    // The updater reads the latest write, so several upserts in one turn each filter the list the last one left.
+    // SAFETY: the updater below assigns it; flow analysis does not follow an assignment made inside a callback.
+    let kept = undefined as string[] | undefined;
 
-    if (kept.length !== acknowledged().length) {
-      setAcknowledged(kept);
-      void storage.write(kept);
-    }
+    setAcknowledged(all => {
+      const next = all.filter(key => !invalid.has(key));
+
+      if (next.length === all.length) return all;
+      kept = next;
+
+      return next;
+    });
+
+    if (kept) void storage.write(kept);
 
     setAsks((all) => [ask, ...all.filter((each) => each.id !== ask.id)].sort((a, b) => Number(b.at) - Number(a.at)));
   };
@@ -154,7 +163,7 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
   createEffect(() => {
     const target = viewed?.target();
 
-    if (!target) return;
+    if (!target) return undefined;
 
     const keys = asks().flatMap(ask => ask.parts.flatMap((part, index) => {
       const destination = part.placement.kind === "unclear" ? null : part.placement.workstream;
@@ -164,7 +173,9 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
 
     const next = [...new Set([...acknowledged(), ...keys])];
 
-    if (next.length === acknowledged().length) return;
+    return next.length === acknowledged().length ? undefined : next;
+  }, next => {
+    if (!next) return;
 
     setAcknowledged(next);
     void storage.write(next);
@@ -201,12 +212,10 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
           return;
         }
 
-        batch(() => {
-          setLoadState("ready");
-          setListFailure(null);
+        setLoadState("ready");
+        setListFailure(null);
 
-          for (const ask of [...result.value].reverse()) upsert(ask);
-        });
+        for (const ask of [...result.value].reverse()) upsert(ask);
       });
     },
 
@@ -315,33 +324,29 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
     pick: async (id, part, target) => {
       const key = `${id}:${part}`;
 
-      batch(() => {
-        setPicking((all) => new Set(all).add(key));
-      });
+      setPicking((all) => new Set(all).add(key));
 
       const result = await call(() => app.rpc("ask.pick", { id, part, target }));
 
-      batch(() => {
-        setPicking((all) => {
-          const next = new Set(all);
+      setPicking((all) => {
+        const next = new Set(all);
+        next.delete(key);
+
+        return next;
+      });
+
+      if (result.ok) {
+        upsert(result.value);
+
+        setPickFailures((all) => {
+          const next = new Map(all);
           next.delete(key);
 
           return next;
         });
-
-        if (result.ok) {
-          upsert(result.value);
-
-          setPickFailures((all) => {
-            const next = new Map(all);
-            next.delete(key);
-
-            return next;
-          });
-        } else {
-          setPickFailures((all) => new Map(all).set(key, fail(result.message)));
-        }
-      });
+      } else {
+        setPickFailures((all) => new Map(all).set(key, fail(result.message)));
+      }
 
       return result.ok ? null : result.message;
     },
@@ -354,15 +359,13 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
     partFailure: (id, part) => pickFailures().get(`${id}:${part}`),
 
     dismiss: (target) => {
-      batch(() => {
-        if (listFailure()?.id === target.id) setListFailure(null);
+      if (listFailure()?.id === target.id) setListFailure(null);
 
-        if (intakeFailure()?.id === target.id) setIntakeFailure(null);
+      if (intakeFailure()?.id === target.id) setIntakeFailure(null);
 
-        if ([...pickFailures().values()].some((each) => each.id === target.id)) {
-          setPickFailures((all) => new Map([...all].filter(([, each]) => each.id !== target.id)));
-        }
-      });
+      if ([...pickFailures().values()].some((each) => each.id === target.id)) {
+        setPickFailures((all) => new Map([...all].filter(([, each]) => each.id !== target.id)));
+      }
     },
   };
 };

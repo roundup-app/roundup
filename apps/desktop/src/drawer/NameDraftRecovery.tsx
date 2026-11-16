@@ -1,5 +1,5 @@
-import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createMemo, createSignal, For, Show, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { Dialog } from "../ui/Dialog";
 import { CopyButton } from "../ui/CopyButton";
 import type { App } from "../app/seam";
@@ -42,12 +42,12 @@ export const NameDraftRecovery = <T extends { revision: string }>(props: {
   const isCurrent = (draft: T) => draft.revision === props.current?.revision;
 
   return <Dialog.Root instant open={props.open} onOpenChange={details => props.onOpenChange(details.open)} finalFocusEl={props.finalFocusEl}>
-    <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class={`draft-recovery ${props.class}`} ref={props.panel}>
-      <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
+    <Dialog.Content class={`draft-recovery ${props.class}`} ref={props.panel}>
+      <Dialog.Title>{copy.unfinishedWork}</Dialog.Title>
       <Dialog.Description class="draft-identity">{props.identity}</Dialog.Description>
       {props.lines}
-      <Show when={props.records.length > 1} fallback={<Show when={props.solo ? props.records.at(-1) : undefined}>{draft => props.solo!(draft(), isCurrent(draft()))}</Show>}>
-        <For each={recoveryOrder(props.records, props.current)}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{props.label(draft, index(), isCurrent(draft))}</button>}</For>
+      <Show when={props.records.length > 1} fallback={<Show when={props.solo ? props.records.at(-1) : undefined}>{draft => untrack(() => props.solo!(draft(), isCurrent(draft())))}</Show>}>
+        <For each={recoveryOrder(props.records, props.current)}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision ? "true" : "false"} onClick={() => inspect(draft.revision)}>{props.label(draft, index(), isCurrent(draft))}</button>}</For>
       </Show>
       <Show when={shown()}>{draft => <>
         {props.detail?.(draft())}
@@ -61,7 +61,7 @@ export const NameDraftRecovery = <T extends { revision: string }>(props: {
         </>}</Show>
         <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
       </div>
-    </Dialog.Content></Dialog.Positioner></Portal>
+    </Dialog.Content>
   </Dialog.Root>;
 };
 

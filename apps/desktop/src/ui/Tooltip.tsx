@@ -1,73 +1,89 @@
-import { Tooltip as ArkTooltip, useTooltipContext } from "@ark-ui/solid/tooltip";
-import { floatingControl } from "./Dialog";
-import { anchorBox } from "./anchorBox";
-import { createContext, createEffect, createSignal, onCleanup, Show, splitProps, useContext } from "solid-js";
+import { makeEventListener } from "@solid-primitives/event-listener";
+import type { ComponentProps, JSX } from "@solidjs/web";
+import { isFocusFromKeyboard } from "@ui-sdk/core";
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, type TooltipProps } from "@ui-sdk/solid/tooltip";
+import { createContext, createEffect, createSignal, omit, Show, useContext } from "solid-js";
 import type { Chord } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
+import { createFloatingControl } from "./Dialog";
+import { anchorBox } from "./anchorBox";
+import "./Trigger.css";
 import "./Tooltip.css";
 
-const Ownership = createContext<{ pointer: (event: PointerEvent) => void; focus: (event: FocusEvent, id: string | undefined) => void }>();
+const Owner = createContext<{ track: (element: HTMLElement) => void; show: () => void }>();
 
-const Root = (props: ArkTooltip.RootProps) => {
-  const [owner, setOwner] = createSignal<HTMLElement>();
-  const control = floatingControl(props, () => owner());
+type RootProps = Omit<TooltipProps, "open" | "defaultOpen" | "onOpenChange"> & {
+  open?: boolean | undefined;
+  defaultOpen?: boolean | undefined;
+  onOpenChange?: ((details: { open: boolean }) => void) | undefined;
+};
+
+const Root = (props: RootProps) => {
+  const [trigger, setTrigger] = createSignal<HTMLElement>();
+  const control = createFloatingControl(props, trigger);
   let pointer: { x: number; y: number } | undefined;
-  // U6236a: a re-render replaces the trigger's element; its id finds the replacement.
-  const rect = () => anchorBox(owner(), () => document.getElementById(owner()?.id ?? ""));
 
-  const ownership = {
-    pointer: (event: PointerEvent) => {
-      if (event.pointerType === "touch") return;
-      setOwner(event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined);
-      pointer = { x: event.clientX, y: event.clientY };
-    },
-    focus: (event: FocusEvent, id: string | undefined) => {
-      const current = event.currentTarget;
+  const track = (element: HTMLElement) => {
+    const note = (event: PointerEvent) => { pointer = event.pointerType === "touch" ? undefined : { x: event.clientX, y: event.clientY }; };
 
-      setOwner(current instanceof HTMLElement ? (id ? current.ownerDocument.getElementById(id) : null) ?? current : undefined);
-      pointer = undefined;
-    },
+    setTrigger(element);
+    makeEventListener(element, "pointerenter", note, true);
+    makeEventListener(element, "pointermove", note, true);
+    makeEventListener(element, "focusin", () => { pointer = undefined; }, true);
   };
 
-  createEffect(() => {
-    if (!control.open()) return;
-    const watch = new MutationObserver(() => rect() || control.change({ open: false }));
+  // U6236a: a trigger that leaves the document with no replacement takes its open tooltip with it.
+  createEffect(control.open, open => {
+    if (!open) return;
+    const watch = new MutationObserver(() => { if (!trigger()?.isConnected) control.change({ open: false }); });
 
     watch.observe(document.body, { childList: true, subtree: true });
-    onCleanup(() => watch.disconnect());
+
+    return () => watch.disconnect();
   });
 
-  return <Ownership.Provider value={ownership}><ArkTooltip.Root lazyMount unmountOnExit {...props}
-    open={control.open()} disabled={props.disabled || control.blocked()}
-    positioning={{ strategy: "fixed", ...props.positioning, getAnchorRect: rect }}
-    onOpenChange={(details) => {
-      if (details.open && pointer && (import.meta.env.DEV || import.meta.env.VITEST === "true")) {
-        const box = rect();
+  const show = () => {
+    if (props.disabled) return;
+    pointer = undefined;
+    control.change({ open: true });
+  };
 
-        if (!box || pointer.x < box.left || pointer.x > box.right || pointer.y < box.top || pointer.y > box.bottom) {
-          throw new Error("Tooltip anchor excludes its opening pointer");
+  const rest = omit(props, "open", "defaultOpen", "onOpenChange", "disabled");
+
+  return <Owner value={{ track, show }}>
+    <UiTooltip {...rest} open={control.open()} disabled={props.disabled || control.blocked()}
+      onOpenChange={open => {
+        if (open && pointer && (import.meta.env.DEV || import.meta.env.VITEST === "true")) {
+          const box = anchorBox(trigger());
+
+          if (!box || pointer.x < box.left || pointer.x > box.right || pointer.y < box.top || pointer.y > box.bottom) {
+            throw new Error("Tooltip anchor excludes its opening pointer");
+          }
         }
-      }
 
-      control.change(details);
-    }} /></Ownership.Provider>;
+        control.change({ open });
+      }} />
+  </Owner>;
 };
 
 export const Tooltip = {
-  ...ArkTooltip,
   Root,
-  Trigger: (props: ArkTooltip.TriggerProps) => {
-    const ownership = useContext(Ownership);
-    const tooltip = useTooltipContext();
-    const [triggerProps] = splitProps(props, ["value"]);
+  Trigger: (props: ComponentProps<typeof TooltipTrigger>) => {
+    const owner = useContext(Owner);
 
-    return <ArkTooltip.Trigger {...props} onPointerMove={ownership?.pointer} onPointerOver={ownership?.pointer} onFocusIn={(event) => ownership?.focus(event, tooltip().getTriggerProps(triggerProps).id)} />;
+    return <TooltipTrigger {...props} ref={[props.ref, owner.track]} />;
   },
-  Content: (props: ArkTooltip.ContentProps & { chord?: Chord | undefined }) => {
-    const [local, rest] = splitProps(props, ["chord", "children", "class"]);
+  /** The `onFocusIn` of a control enclosing the trigger: ui-sdk's focus open needs the trigger to contain the focused element, so the keyboard focus of an enclosing control opens the Tooltip here. */
+  useEnclosingFocusIn: () => {
+    const owner = useContext(Owner);
 
-    return <ArkTooltip.Content {...rest} class={`app-tooltip ${local.class ?? ""}`}>
-      <Show when={local.chord} fallback={local.children}>{(chord) => <KeyHint chipAfter keys={chord().keys}>{local.children}</KeyHint>}</Show>
-    </ArkTooltip.Content>;
+    return () => { if (isFocusFromKeyboard()) owner.show(); };
+  },
+  Content: (props: Omit<ComponentProps<typeof TooltipContent>, "class" | "children"> & { class?: string | undefined; chord?: Chord | undefined; children?: JSX.Element }) => {
+    const rest = omit(props, "chord", "children", "class");
+
+    return <TooltipContent {...rest} class={["app-tooltip", props.class]}>
+      <Show when={props.chord} fallback={props.children}>{chord => <KeyHint chipAfter keys={chord().keys}>{props.children}</KeyHint>}</Show>
+    </TooltipContent>;
   },
 };

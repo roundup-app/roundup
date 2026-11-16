@@ -1,6 +1,6 @@
 import { provideFocusTarget } from "../keys/focus";
-import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
-import type { JSX } from "solid-js";
+import { createEffect, createRoot, createSignal, For, getOwner, onCleanup, onSettled, runWithOwner, Show, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { Pane } from "./Pane";
 import { doorTerminalId } from "../state/doorNode";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -38,8 +38,8 @@ export const createProjectPanes = (options: Options) => {
 
     if (active !== null && options.connectionOf(active) && !next.includes(active)) next.push(active);
 
-    if (next.length !== kept.length || next.some((path, index) => path !== kept[index])) setShown(next);
-  });
+    return next.length !== kept.length || next.some((path, index) => path !== kept[index]) ? next : undefined;
+  }, next => { if (next) setShown(next); });
 
   const setScreen = (path: string, shared: Screens | undefined) => setScreens(known => {
     const next = new Map(known);
@@ -62,39 +62,45 @@ export const createProjectPanes = (options: Options) => {
     const path = open.project.path;
     const tracked = options.createEmulator();
     const active = () => options.active() === path;
+    const owner = getOwner();
 
     onCleanup(() => setScreen(path, undefined));
 
     let host: HTMLDivElement | undefined;
 
     // IP7168d: styles.css pauses a Pane's Terminals while `data-inactive` is set. The attribute's removal draws them in the same task, so the first frame of the switch holds the output they missed; xterm resumes from an observer a task later.
-    onMount(() => {
+    onSettled(() => {
       if (!host) return;
 
-      const shown = new MutationObserver(() => { if (!host?.hasAttribute("data-inactive")) screens().get(path)?.redraw(); });
+      const watcher = new MutationObserver(() => { if (!host?.hasAttribute("data-inactive")) screens().get(path)?.redraw(); });
 
-      shown.observe(host, { attributes: true, attributeFilter: ["data-inactive"] });
-      onCleanup(() => shown.disconnect());
+      watcher.observe(host, { attributes: true, attributeFilter: ["data-inactive"] });
+
+      return () => watcher.disconnect();
     });
 
-    createEffect(on(active, now => {
+    createEffect(active, now => {
       if (!now) return;
-
-      // U7155a: only the shown Pane answers for the centre's Terminal.
-      provideFocusTarget("pane.terminal", () => host?.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]") ?? null);
 
       const arrived = options.arrival(path);
 
       // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
       if (arrived) queueMicrotask(() => arrived(() => focusSelected(open, options.focusPane)));
-    }));
+
+      // U7155a: only the shown Pane answers for the centre's Terminal, until it is hidden; an effect's apply has no owner of its own, so the answer belongs to this Pane.
+      return runWithOwner(owner, () => createRoot(dispose => {
+        provideFocusTarget("pane.terminal", () => host?.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]") ?? null);
+
+        return dispose;
+      }));
+    });
 
     return (
-      <ConnectedProjectContext.Provider value={open}>
+      <ConnectedProjectContext value={open}>
         <div ref={host} class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
           <Pane over={options.over(active)} observeTerminal={active() ? id => options.observeTerminal(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreen(path, shared)} openObject={options.openObject} />
         </div>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     );
   };
 

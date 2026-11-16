@@ -91,7 +91,7 @@ export const step = (save: Save, event: SaveEvent): Save => {
   return event.kind === "gone" ? { kind: "deleted", byMe: save.byMe || event.byMe } : save;
 };
 
-/** The save cycle as a signal; `version` numbers the external changes so an older reply is told from a newer one. */
+/** The save cycle as a signal; `send` answers the cycle it moved to, which `save` shows once the change settles. `version` numbers the external changes so an older reply is told from a newer one. */
 export const createSave = (initial: Save) => {
   const [save, set] = createSignal(initial);
   let version = 0;

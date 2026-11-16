@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { renderMarkdown } from "../plain/renderMarkdown";
 import { cpuText, MISSING, sizeText } from "../resources/format";
 import { ErrorLine } from "./ErrorLine";
+import { notice } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -10,7 +11,7 @@ it("u501_copy_preserves_content", () => {
   // A returned error is content: its accessible name is the message byte for byte, its text the first line.
   const returned = "rename failed: «ünï/cødé» → ~/Docs/a b.md\r\nsecond line";
   render(() => <ErrorLine message={returned} />);
-  const alert = screen.getByRole("alert");
+  const alert = notice("alert");
   expect(alert.getAttribute("aria-label")).toBe(returned);
   expect(alert.textContent).toBe("rename failed: «ünï/cødé» → ~/Docs/a b.md");
 

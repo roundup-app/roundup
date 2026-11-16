@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
-import { createSignal } from "solid-js";
+import { createSignal, untrack } from "solid-js";
 import * as v from "valibot";
 import { parse, stringify } from "flatted";
 import { draftStorage } from "../state/storage";
@@ -63,6 +63,25 @@ const parseRecipient = (data: string): Recipient => {
 };
 
 type Send = { kind: "idle"; text: string } | { kind: "failed"; text: string; submission: string; notes: readonly number[] | null } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
+
+/** A signal whose reads return what was last written. rc.21 reads lag writes until flush, so a call that follows its own write would otherwise see the old value; a read still tracks the signal, which shows the value once the write settles. */
+const createReadYourWrites = <K, V>(initial: ReadonlyMap<K, V>) => {
+  let kept = initial;
+  const [signal, setSignal] = createSignal(initial);
+
+  const read = () => {
+    signal();
+
+    return kept;
+  };
+
+  const write = (next: ReadonlyMap<K, V>) => {
+    kept = next;
+    setSignal(next);
+  };
+
+  return [read, write] as const;
+};
 
 const stores = new WeakMap<AppSeam["rpc"], Map<string, ReturnType<typeof createNotes>>>();
 
@@ -149,12 +168,12 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     }
   };
 
-  load();
-  const [all, setAll] = createSignal<ReadonlyMap<string, Recipient>>(restored);
-  const [sends, setSends] = createSignal<ReadonlyMap<string, Send>>(new Map());
-  const [problem, setProblem] = createSignal(storage.problem());
+  untrack(load);
+  const [recipients, holdRecipients] = createReadYourWrites(restored);
+  const [sent, holdSends] = createReadYourWrites(new Map<string, Send>());
+  const [problem, setProblem] = createSignal(untrack(storage.problem));
   const [invalidCount, setInvalidCount] = createSignal(invalid.size);
-  const recipient = (id: string): Recipient => all().get(id) ?? { version: 1, notes: [], forms: [], submissions: [], recovered: [] };
+  const recipient = (id: string): Recipient => recipients().get(id) ?? { version: 1, notes: [], forms: [], submissions: [], recovered: [] };
   const list = (id: string): readonly Note[] => recipient(id).notes;
 
   const state = (id: string): Send => {
@@ -162,13 +181,13 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
     if (submission) return submission.status === "pending" ? { kind: "pending" } : { kind: "unknown", submission, text: submission.text };
 
-    return sends().get(id) ?? { kind: "idle", text: "" };
+    return sent().get(id) ?? { kind: "idle", text: "" };
   };
 
-  const putState = (id: string, value: Send) => setSends(old => new Map(old).set(id, value));
+  const putState = (id: string, value: Send) => holdSends(new Map(sent()).set(id, value));
 
   const clearItem = (id: string, note: number) => {
-    const failed = sends().get(id);
+    const failed = sent().get(id);
 
     if (failed?.kind !== "failed" || failed.notes === null) return;
     const remaining = failed.notes.filter(value => value !== note);
@@ -179,13 +198,10 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const retain = async (id: string, value: Recipient) => {
     const empty = !value.notes.length && !value.forms.length && !value.submissions.length && !value.recovered.length;
 
-    setAll(old => {
-      const next = new Map(old);
+    const next = new Map(recipients());
 
-      if (empty) next.delete(id); else next.set(id, value);
-
-      return next;
-    });
+    if (empty) next.delete(id); else next.set(id, value);
+    holdRecipients(next);
 
     // Invalid records are recoverable evidence, never overwritten by a fresh edit.
     if (invalid.size) return;
@@ -216,13 +232,13 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
   const notes = {
     list, state,
     failure: (id: string) => {
-      const value = sends().get(id);
+      const value = sent().get(id);
 
       return value?.kind === "failed" ? value.text : null;
     },
-    dismiss: (id: string) => { if (sends().get(id)?.kind === "failed") putState(id, { kind: "idle", text: "" }); },
+    dismiss: (id: string) => { if (sent().get(id)?.kind === "failed") putState(id, { kind: "idle", text: "" }); },
     project,
-    entries: () => [...all().entries()],
+    entries: () => [...recipients().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,
     retry: async () => {
       setProblem(await storage.retry());
@@ -240,19 +256,19 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
           const value = parseRecipient(String(draft.value.data));
 
           remember(value);
-          const current = all().get(id);
+          const current = recipients().get(id);
 
           if (!current) {
-            setAll(old => new Map(old).set(id, { ...value, submissions: value.submissions.map(submission => submission.status === "pending" ? { ...submission, status: "unknown" } : submission) }));
+            holdRecipients(new Map(recipients()).set(id, { ...value, submissions: value.submissions.map(submission => submission.status === "pending" ? { ...submission, status: "unknown" } : submission) }));
           } else if (JSON.stringify(v.parse(recipientSchema, current)) !== JSON.stringify(v.parse(recipientSchema, value)) && !current.recovered.some(entry => entry.revision === draft.revision)) {
-            setAll(old => new Map(old).set(id, { ...current, recovered: [...current.recovered, { revision: draft.revision, data: { version: value.version, notes: value.notes, forms: value.forms, submissions: value.submissions.map(submission => submission.status === "pending" ? { ...submission, status: "unknown", text: copy.notesNoReply } : submission) } }, ...value.recovered.filter(entry => !current.recovered.some(known => known.revision === entry.revision))] }));
+            holdRecipients(new Map(recipients()).set(id, { ...current, recovered: [...current.recovered, { revision: draft.revision, data: { version: value.version, notes: value.notes, forms: value.forms, submissions: value.submissions.map(submission => submission.status === "pending" ? { ...submission, status: "unknown", text: copy.notesNoReply } : submission) } }, ...value.recovered.filter(entry => !current.recovered.some(known => known.revision === entry.revision))] }));
           }
         } catch { invalid.add(draft.revision); }
       }
 
       setInvalidCount(invalid.size);
 
-      if (!invalid.size) for (const [id, value] of all()) await retain(id, value);
+      if (!invalid.size) for (const [id, value] of recipients()) await retain(id, value);
     },
     invalid: () => { invalidCount();
 
@@ -274,7 +290,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       setInvalidCount(invalid.size);
       setProblem(await storage.discard(revision));
 
-      if (!invalid.size) for (const [id, value] of all()) await retain(id, value);
+      if (!invalid.size) for (const [id, value] of recipients()) await retain(id, value);
     },
     form: (id: string, comparison: FileComparison, replacing?: number) => recipient(id).forms.find(form => form.replacing === (replacing ?? null) && form.comparison.newPath === comparison.newPath),
     editForm: (id: string, form: NoteFormDraft) => {
@@ -307,7 +323,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       await retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== revision) });
 
       if (notes.problem()) return;
-      const failure = sends().get(id);
+      const failure = sent().get(id);
 
       if (failure?.kind === "failed" && failure.notes !== null && failure.submission === revision) putState(id, { kind: "idle", text: "" });
 

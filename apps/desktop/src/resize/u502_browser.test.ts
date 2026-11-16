@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
-/** U502 in a real Chromium: the shared Ark Splitter reads real geometry, so widths, keys and drags are observed in the rendered App. */
+/** U502 in a real Chromium: the shared Splitter reads real geometry, so widths, keys and drags are observed in the rendered App. */
 
 const found = chromePath();
 
@@ -43,7 +43,8 @@ const load = async (width: number) => {
 
 const commits = () => page.call<number>(`() => window.__commits`);
 
-const value = (edge: Edge) => page.call<number>(`() => Number(document.querySelector('[aria-label="${edge.label}"]').getAttribute("aria-valuenow"))`);
+// The width in px is the separator's `aria-valuetext`; its `aria-valuenow` is the percent of the window.
+const value = (edge: Edge) => page.call<number>(`() => parseInt(document.querySelector('[aria-label="${edge.label}"]').getAttribute("aria-valuetext"))`);
 
 // Starts at the control just before the edge in Tab order, so one real Tab must land on the edge.
 const tabTo = async (edge: Edge) => {
@@ -57,7 +58,7 @@ const tabTo = async (edge: Edge) => {
   expect(await page.call<string | null>(`() => document.activeElement?.getAttribute("aria-label") ?? null`)).toBe(edge.label);
 };
 
-const settled = (edge: Edge, px: number) => page.until(`() => document.querySelector("${edge.panel}").getBoundingClientRect().width === ${px} && document.querySelector('[aria-label="${edge.label}"]').getAttribute("aria-valuenow") === "${px}"`);
+const settled = (edge: Edge, px: number) => page.until(`() => document.querySelector("${edge.panel}").getBoundingClientRect().width === ${px} && parseInt(document.querySelector('[aria-label="${edge.label}"]').getAttribute("aria-valuetext")) === ${px}`);
 
 const drag = async (edge: Edge, by: number, finish: "release" | "escape", kept?: () => Promise<void>) => {
   const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('[aria-label="${edge.label}"]').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: 200 }; }`);
@@ -73,7 +74,7 @@ const drag = async (edge: Edge, by: number, finish: "release" | "escape", kept?:
   await page.release(at.x + by, at.y);
 };
 
-run("u502 resize edges use Ark Splitter", () => {
+run("u502 resize edges use the shared Splitter", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
   it("u502_rail_arrow_keys_resize", async () => {

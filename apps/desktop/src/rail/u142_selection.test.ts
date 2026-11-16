@@ -36,7 +36,7 @@ const selected = () => browser.call<string>("() => window.getSelection().toStrin
 
 const load = async (size: { width: number; height: number }) => {
   await browser.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", size.width, size.height);
-  await browser.until(`() => Boolean(window.__fake && window.__fake.app.calls.some((call) => call.method === "pad.list") && document.querySelector('.rail-fold[data-part="branch-control"]'))`);
+  await browser.until(`() => Boolean(window.__fake && window.__fake.app.calls.some((call) => call.method === "pad.list") && document.querySelector('.rail-fold'))`);
   await browser.call("() => window.getSelection().removeAllRanges()");
 };
 
@@ -58,7 +58,7 @@ const editName = async (nth: number) => {
   const at = await pointOf(".rail-row", { dx: 2, nth });
 
   await browser.click(at.x, at.y);
-  await browser.until(`() => document.querySelectorAll(".rail-row")[${nth}].dataset.selected === "true"`);
+  await browser.until(`() => document.querySelectorAll(".rail-row")[${nth}].hasAttribute("data-selected")`);
   await browser.call(`nth => document.querySelectorAll(".rail-row .name")[nth].closest(".rail-row").focus()`, nth);
   await browser.press("F2", "F2");
   await browser.until(`() => document.activeElement?.matches(".rail-row input") && document.activeElement.selectionEnd > document.activeElement.selectionStart`);

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { Layout } from "../window/Layout";
 import { Tabs } from "../ui/Tabs";
@@ -23,12 +24,18 @@ it("u3721b_each_size_change_sends_exactly_one_terminal_resize", async () => {
     const fit = vi.spyOn(emulator, "fit");
 
     connected.drawer.open(() => <p>detail</p>, "key");
+    flush();
     fit.mockClear();
+    vi.advanceTimersByTime(1000);
+    flush();
     vi.advanceTimersByTime(1000);
     expect(fit).toHaveBeenCalledTimes(1);
 
     fit.mockClear();
     fireEvent.keyDown(screen.getByLabelText("Close"), { key: "Escape" });
+    flush();
+    vi.advanceTimersByTime(1000);
+    flush();
     vi.advanceTimersByTime(1000);
     expect(fit).toHaveBeenCalledTimes(1);
   } finally {
@@ -65,6 +72,7 @@ it("u3721b_each_bench_size_change_by_key_or_pointer_sends_exactly_one_terminal_r
     const change = async (action: () => void, exact: boolean) => {
       fit.mockClear();
       action();
+      flush();
       // The Shelf's transition end, which jsdom never fires.
       state.settle();
       await new Promise(done => setTimeout(done, 300));

@@ -39,7 +39,11 @@ it("mc76_adding_through_the_dialog_shows_the_field", async () => {
   expect(machines.names()).toEqual([]);
 
   const dialog = within(await screen.findByRole("dialog"));
-  fireEvent.input(dialog.getByRole("textbox"), { target: { value: "box" } });
+  const field = dialog.getByRole("textbox");
+
+  // The field takes text once the dialog has put the caret in it.
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  fireEvent.input(field, { target: { value: "box" } });
   fireEvent.click(dialog.getByRole("button", { name: copy.add }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   setTick(1);

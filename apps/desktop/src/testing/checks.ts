@@ -133,8 +133,8 @@ const pageOf = (doc: Document): Page => {
     return computed;
   };
 
-  // An element inside a `display: none` ancestor has no layout, so no check can read it.
-  const visible = (el: Element): boolean => !el.closest("[hidden], [aria-hidden=true]") && style(el).display !== "none" && !(el.parentElement && el.parentElement !== doc.body && !visible(el.parentElement));
+  // An element inside a `display: none` ancestor has no layout, so no check can read it. ui-sdk's live-region announcer is clipped to one pixel, a screen-reader channel with no look to measure.
+  const visible = (el: Element): boolean => !el.closest("[hidden], [aria-hidden=true], [data-ui-sdk-announcer]") && style(el).display !== "none" && !(el.parentElement && el.parentElement !== doc.body && !visible(el.parentElement));
 
   return { doc, view, rules, states: new Map(), elements: [...doc.body.querySelectorAll("*")].filter((el) => !/^(SCRIPT|STYLE)$/.test(el.tagName) && visible(el)), style, token, resolve };
 };
@@ -451,7 +451,9 @@ const d6 = (page: Page): Measure => {
 
   for (const el of targets) {
     const style = page.style(el);
-    const height = Math.max(el.getBoundingClientRect().height, px(page.resolve(style.height)) ?? 0, px(page.resolve(style.minHeight)) ?? 0);
+    // A switch's track is smaller than its hit area: a click anywhere on its label toggles it.
+    const hitBox = el.matches("[role=switch]") ? el.closest("label") ?? el : el;
+    const height = Math.max(hitBox.getBoundingClientRect().height, px(page.resolve(style.height)) ?? 0, px(page.resolve(style.minHeight)) ?? 0);
 
     if (height > 0) measured += 1;
 
@@ -496,7 +498,7 @@ const d8 = (page: Page): Measure => {
 
     if (!hairline) return { border: NOT_MEASURABLE };
 
-    const formFrame = el.matches(':is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]), .app-dialog-form textarea, .field-frame, .field-inline, .import-prompt, .note-form input, .note-form textarea, .app-select-trigger, .app-combobox-input, .app-checkbox-box, .app-switch-track, .app-radio-mark');
+    const formFrame = el.matches('[data-slot="field"] :is([data-slot="input"], [data-slot="textarea"]), .app-dialog-form textarea, .field-frame, .field-inline, .import-prompt, .note-form input, .note-form textarea, .app-select-trigger, .app-combobox-input, .app-checkbox-box, .app-switch-track, .app-radio-mark');
     const frameColours = formFrame ? ["--form-border", "--accent", "--red", "--disabled"].map(token => parseColour(resolveAt(page, el, `var(${token})`))) : [];
 
     for (const side of ["top", "right", "bottom", "left"]) {
@@ -551,7 +553,7 @@ const d8 = (page: Page): Measure => {
     };
 
     // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
-    const surfaceShadow = el.matches(".shelf[data-open=true], .rail[data-peek] .rail-body, .app-dialog[data-scope=dialog][data-part=content][role=dialog], .app-dialog[data-scope=dialog][data-part=content][role=alertdialog], .app-menu[data-scope=menu][data-part=content][role=menu], .app-popover[data-scope=popover][data-part=content], .milkdown-slash-menu, .worktree-panel, .pane .terminal-find, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--elevation)");
+    const surfaceShadow = el.matches(".shelf[data-open=true], .rail[data-peek] .rail-body, .app-dialog[data-slot=dialog-content][role=dialog], .app-dialog[data-slot=alert-dialog-content][role=alertdialog], .app-menu[data-slot=menu-content][role=menu], .app-popover[data-slot=popover-content], .milkdown-slash-menu, .worktree-panel, .pane .terminal-find, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-slot=select-content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--elevation)");
 
     if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 

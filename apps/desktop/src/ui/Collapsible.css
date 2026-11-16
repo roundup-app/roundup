@@ -1,0 +1,17 @@
+/* Zero specificity: only ui-sdk's own defaults give way, never a caller's rule. */
+:where([data-slot="collapsible-trigger"]) {
+  display: revert;
+  align-items: revert;
+  justify-content: revert;
+  gap: revert;
+}
+
+:where([data-slot="collapsible-trigger"])::after {
+  content: none;
+}
+
+:where([data-slot="collapsible-panel"]) {
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}

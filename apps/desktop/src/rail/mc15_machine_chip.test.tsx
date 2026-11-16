@@ -41,6 +41,6 @@ it("u7205d_a_remote_agent_shows_the_server_icon_with_the_machine_name_or_offline
 
   expect(icon.hasAttribute("data-offline")).toBe(false);
   expect(screen.queryByRole("alert")).toBeNull();
-  fireEvent.pointerMove(icon, { pointerType: "mouse" });
+  fireEvent.pointerEnter(icon, { pointerType: "mouse", clientX: 0, clientY: 0 });
   await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(icon.getAttribute("aria-label")));
 });

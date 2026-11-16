@@ -2,7 +2,7 @@ import { captureFocus } from "../keys/focus";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { render, waitFor } from "@solidjs/testing-library";
 import { vi } from "vitest";
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createSignal, flush, onCleanup, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { createFakeApp } from "../testing/fakeApp";
@@ -85,14 +85,14 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
     const [screens, setScreens] = createSignal<Screens>();
 
     return (
-      <DisplayClockContext.Provider value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext.Provider value={connected}>
+      <DisplayClockContext value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext value={connected}>
         <div class="rail-row" tabindex="0">row</div>
         <div class="centre-stack">
           <Pane createEmulator={unfocused} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
           <Show when={hasHost()}><ResourceStrip /></Show>
         </div>
-      </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
+      </ConnectedProjectContext></DisplayClockContext>
     );
   });
 
@@ -112,6 +112,7 @@ export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: E
   const press = new KeyboardEvent("keydown", { key, code, metaKey: true, bubbles: true, cancelable: true, ...init });
 
   target.dispatchEvent(press);
+  flush();
 
   return press;
 };

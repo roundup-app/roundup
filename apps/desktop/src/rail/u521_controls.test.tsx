@@ -36,9 +36,10 @@ it("u521_icon_controls_show_their_names", { timeout: 60_000 }, async () => {
     expect(button.getAttribute("title") ?? "").toBe("");
 
     // Hover and keyboard focus each open the name, independently of the other.
-    fireEvent.pointerMove(button, { pointerType: "mouse" });
+    fireEvent.pointerEnter(button, { pointerType: "mouse" });
     await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(true));
-    fireEvent.pointerLeave(button, { pointerType: "mouse" });
+    // ui-sdk keeps a tooltip open while the pointer leaves toward it, so a leave carries where the pointer went: away from it.
+    fireEvent.pointerLeave(button, { pointerType: "mouse", clientX: 400, clientY: 400 });
     await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(false));
 
     fireEvent.keyDown(document, { key: "Tab" });

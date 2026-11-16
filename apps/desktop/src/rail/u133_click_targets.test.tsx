@@ -51,7 +51,7 @@ describe("u133 click targets", () => {
     const pad = await found(() => document.querySelector<HTMLElement>(".shelf .pad-name"));
     const group = pad.closest<HTMLElement>("[data-shelf-group]");
 
-    if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+    if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group);
     pad.focus();
     fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
     const exportMd = await exportButton();

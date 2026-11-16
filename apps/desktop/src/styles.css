@@ -51,7 +51,12 @@ p {
   pointer-events: none;
 }
 
-.overlay :is(.drawer, .help, .app-dialog-positioner, .reserved-line) {
+.overlay :is(.drawer, .help, .reserved-line) {
+  pointer-events: auto;
+}
+
+/* A closing Dialog keeps its own `pointer-events: none` (Dialog.css). */
+.overlay .app-dialog:not([data-closed]) {
   pointer-events: auto;
 }
 
@@ -186,7 +191,9 @@ p {
   bottom: 0;
   z-index: 1;
   width: var(--space-2);
-  cursor: col-resize;
+  /* ui-sdk paints its resize handle as a bar with a focus ring; the edge draws only the accent bar below (no shadow: tokens.css). */
+  background: none;
+  cursor: ew-resize;
   touch-action: none;
 }
 
@@ -403,9 +410,6 @@ p {
 /* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
 .window[data-rail="open"]:has(.drawer[data-mounted="true"]) .columns {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
-}
-
-.drawer[data-open="true"] {
 }
 
 /* U409: the Shelf lies wholly under an open Drawer, so once the slide ends it leaves the tab order; closing shows it at once. */

@@ -3,7 +3,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { CopyButton } from "../ui/CopyButton";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, For, onCleanup, onSettled, Show } from "solid-js";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
@@ -19,7 +19,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const { app, importing: state, drafts, project, rail, daemonExit, now, events } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
-  onMount(() => { if (!state.loading() && state.discovery() === null) void state.refresh(); });
+  onSettled(() => { if (!state.loading() && state.discovery() === null) void state.refresh(); });
 
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
@@ -37,7 +37,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
   const pending = state.pending;
   const choose = state.setPeriod;
   const confirm = state.confirm;
-  const heads = new Map<string, HTMLInputElement>();
+  const heads = new Map<string, HTMLButtonElement>();
 
   const toggle = (source: string) => {
     const candidate = found()?.candidates.find(candidate => candidate.source === source);
@@ -61,10 +61,9 @@ export const ImportPanel = (props: { onClose: () => void }) => {
     toggle,
   });
 
-  const head = (source: string, element: HTMLInputElement) => {
+  const head = (source: string, element: HTMLButtonElement) => {
     heads.set(source, element);
     content.register(element, source);
-    onCleanup(() => heads.delete(source));
   };
 
   const dismiss = () => { if (!pending()) props.onClose(); };
@@ -74,7 +73,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       <div class="import-content">
       <SettingsGroup name={copy.importPrompt}>
         <div class="import-instructions">
-          <textarea rows={1} class="import-prompt field-frame" aria-label={copy.importPrompt} value={state.prompt()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
+          <textarea rows={1} class="import-prompt field-frame" aria-label={copy.importPrompt} value={state.prompt()} spellcheck="false" autocorrect="off" autocapitalize="off" onInput={event => void state.setPrompt(event.currentTarget.value)} />
           <button type="button" data-button="quiet" disabled={daemonExit() !== null || pending() || state.starting() || state.prompt().trim().length === 0} onClick={() => void state.start()}>{copy.importStart}</button>
         </div>
         <ReservedLine message={state.startFailure()} dismiss={state.dismissStartFailure} />
@@ -82,7 +81,7 @@ export const ImportPanel = (props: { onClose: () => void }) => {
       <SettingsGroup name={copy.importPeriod}>
           <div role="group" aria-label={copy.importPeriod} class="import-period">
             <For each={PERIODS}>{(each) => (
-              <button type="button" data-button="quiet" aria-pressed={period() === each} onClick={() => choose(each)}>
+              <button type="button" data-button="quiet" aria-pressed={period() === each ? "true" : "false"} onClick={() => choose(each)}>
                 {copy.importPeriodName(each)}
               </button>
             )}</For>
@@ -111,24 +110,28 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           <Show when={found()}>
             {(result) => <>
               <ul class="import-list" aria-label={copy.importResults}>
-                <For each={result().candidates}>{(candidate) => (
+                <For each={result().candidates}>{(candidate) => {
+                  onCleanup(() => heads.delete(candidate.source));
+
+                  return (
                   <li class="import-candidate">
-                    <Checkbox class="import-check" inputRef={element => head(candidate.source, element)} onKeyDown={rowKey} onClickCapture={event => {
+                    <Checkbox class="import-check" controlRef={element => head(candidate.source, element)} onKeyDown={rowKey} onClickCapture={event => {
                       if (event.ctrlKey || !event.metaKey && !event.shiftKey) return;
                       event.preventDefault(); event.stopPropagation();
-                      // Let native canceled-checkbox activation roll back before Ark syncs the retained choice.
+                      // Let the canceled click settle before the retained choice is clicked again.
                       queueMicrotask(() => content.click(event));
                     }} checked={wanted().has(candidate.source)} onCheckedChange={(checked) => state.choose(candidate.source, candidate.title, candidate.revision, checked)}>
                       <span class="import-title">{candidate.title || copy.importUnnamed}</span>
                       <span class="import-meta">
                         <span class="import-cwd"><bdi>{copy.importLocation(candidate.cwd, project.name)}</bdi></span>
-                        <time dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
+                        <time datetime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
                         <ReservedLine status={refused().get(candidate.source) ? (copy.importRowRefusal((refused().get(candidate.source))!)) : null} />
                       </span>
                     </Checkbox>
                     <CopyButton app={app} text={JSON.stringify({ ...candidate, error: refused().get(candidate.source) ?? null, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>
                   </li>
-                )}</For>
+                  );
+                }}</For>
                 <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li class="import-candidate"><div class="import-text"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine status={copy.importRowRefusal(reason)} /></div><CopyButton app={app} text={JSON.stringify({ source, error: reason }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton></li>}</For>
               </ul>
               <Show when={result().excluded.length > 0}>

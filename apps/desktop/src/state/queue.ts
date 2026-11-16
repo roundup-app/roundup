@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import type { QueueEntry } from "@contracts/workstream/QueueEntry";
 import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
@@ -28,11 +28,7 @@ export const createQueue = (app: AppSeam, events: Events, rail: RailState): Queu
   // A Row drawn before the Daemon holds it (U5991a) is not one, and a drawing alone asks nothing.
   const waiting = createMemo(() => rail.nodes.filter(node => node.kind === "workstream" && node.attempt === null && !isProvisional(node)).map(node => node.id).join());
 
-  createEffect(() => {
-    const ids = waiting();
-
-    untrack(() => { if (ids !== "") void refresh(); else setEntries([]); });
-  });
+  createEffect(waiting, ids => { if (ids !== "") void refresh(); else setEntries([]); });
 
   return {
     entryOf: workstream => {

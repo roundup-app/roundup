@@ -1,25 +1,30 @@
+/* Dialog content is a popover: its UA box (centred, canvas-coloured, sized to fit) gives way to the surface's own rules. */
+:where([data-slot="dialog-content"]) {
+  inset: auto;
+  width: auto;
+  height: auto;
+  margin: 0;
+  color: inherit;
+}
+
+/* The one place a modal is positioned: the top layer centres it in the window on both axes, by alignment so its margins stay 0. */
 .app-dialog {
+  position: fixed;
+  inset: 0;
   box-sizing: border-box;
+  width: fit-content;
+  height: fit-content;
   max-width: calc(100vw - var(--space-6) * 2);
   max-height: calc(100vh - var(--space-6) * 2);
+  margin: 0;
+  place-self: center;
   color: var(--text);
   padding: var(--space-4);
 }
 
-.app-dialog [data-part="title"] {
+.app-dialog [data-slot$="dialog-title"] {
   margin: 0;
   font: inherit;
-}
-
-/* The one place a modal is positioned: its centre is the window's centre on both axes. */
-.app-dialog-positioner {
-  position: fixed;
-  inset: 0;
-  z-index: var(--layer-dialog);
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  padding: var(--space-6);
 }
 
 /* A titled form dialog: the title leads, fields stack on space Tokens, the actions sit right-aligned. */
@@ -30,7 +35,7 @@
   min-width: min(var(--dialog-min-width), calc(100vw - var(--space-6)));
 }
 
-.app-dialog-form [data-part="title"] {
+.app-dialog-form [data-slot$="dialog-title"] {
   font-size: var(--text-title);
   font-weight: 600;
 }
@@ -99,25 +104,21 @@
 .app-dialog-backdrop {
   position: fixed;
   inset: 0;
-  z-index: var(--layer-popover);
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
   background-color: var(--scrim);
 }
 
-:is(.app-dialog, .app-dialog-backdrop) {
-  opacity: 1;
-}
-
 :is(.app-dialog, .app-dialog-backdrop)[data-motion="fade"] {
- transition: opacity var(--duration-crossfade) var(--easing-out);
- @starting-style { opacity: 0; }
+  transition: opacity var(--duration-crossfade) var(--easing-out);
+
+  &:is([data-starting-style], [data-ending-style]) { opacity: 0; }
 }
 
-:is(.app-dialog, .app-dialog-backdrop)[data-open="false"] {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.app-dialog-positioner:has(.app-dialog[inert]) { pointer-events: none; }
+:is(.app-dialog, .app-dialog-backdrop)[data-closed] { pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
  :is(.app-dialog, .app-dialog-backdrop)[data-motion="fade"] { transition-duration: var(--duration-instant); }

@@ -3,8 +3,7 @@ import { movedTo } from "../state/rail";
 import { applying } from "../app/pending";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { SortableMove } from "../ui/sortable";
-import { batch, createSignal, Show } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createSignal, Show, untrack } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { Popover } from "../ui/Popover";
 import { copy } from "./copy";
@@ -22,6 +21,7 @@ export const MovePicker = (props: {
   const [highlight, setHighlight] = createSignal<string | null>(null);
   const items = () => props.destinations.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
   let panel: HTMLDivElement | undefined;
+  const replacement = () => untrack(() => props.replacement?.(target.id));
 
   const close = () => {
     props.close();
@@ -29,9 +29,8 @@ export const MovePicker = (props: {
   };
 
   return <Popover.Root open closeOnInteractOutside finalFocusEl={() => target.anchor}
-    onOpenChange={({ open }) => { if (!open) close(); }}
-    positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: () => anchorBox(target.anchor, () => props.replacement?.(target.id)) }}>
-    <Portal><Popover.Positioner><Popover.Content class="choice-picker" ref={element => { panel = element; }} aria-label={copy.moveTo}>
+    onOpenChange={({ open }) => { if (!open) close(); }}>
+    <Popover.Content side="bottom" align="start" anchor={{ getBoundingClientRect: () => untrack(() => anchorBox(target.anchor, replacement) ?? target.anchor.getBoundingClientRect()) }} class="choice-picker" ref={element => { panel = element; }} aria-label={copy.moveTo}>
       <Combobox.Root items={items()} inputValue={query()} onInput={setQuery}
         highlightedValue={items().some(item => item.value === highlight()) ? highlight() : items()[0]?.value ?? null} onHighlightChange={setHighlight}
         focusScope={() => panel} onDismiss={close}
@@ -41,7 +40,7 @@ export const MovePicker = (props: {
           // Return to the source row after unmount before the move captures focus ownership.
           queueMicrotask(() => props.choose(target.id, parent));
         }} />
-    </Popover.Content></Popover.Positioner></Portal>
+    </Popover.Content>
   </Popover.Root>;
 }}</Show>;
 
@@ -65,10 +64,8 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
       const result = await applying(() => app.rpc("rail.move", params));
 
       // U3800d: the kept move and the lifted pending change are one redraw, not two.
-      batch(() => {
-        if (result.kind === "applied") rail.keepApplied(params.id, { parent: params.parent, index: params.index });
-        lift();
-      });
+      if (result.kind === "applied") rail.keepApplied(params.id, { parent: params.parent, index: params.index });
+      lift();
 
       if (result.kind === "refused") throw result.error;
 

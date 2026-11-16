@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { leaveTitle, titleClosed, mountTodos, todo, todoCallsTo as callsTo } from "./testHarness";
+import { RpcError } from "../app/seam";
+import { historyLoaded, leaveTitle, titleClosed, mountTodos, todo, todoCallsTo as callsTo } from "./testHarness";
 
 afterEach(cleanup);
 
@@ -11,6 +12,7 @@ const open = async () => {
   { const focusedRow = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
   await within(drawer()).findByText("one two", { exact: false }).catch(() => undefined);
+  await historyLoaded(mounted.app);
 
   return mounted;
 };
@@ -74,5 +76,37 @@ describe("u445 edit in place", () => {
     fireEvent.input(await titleField(), { target: { value: "typed again" } });
     fireEvent.keyDown(await titleField(), { key: "Enter" });
     await waitFor(() => expect(callsTo(app, "todo.update")).toHaveLength(1));
+  });
+
+  it("u445_a_press_in_the_drawer_saves_the_changed_title_and_one_outside_it_keeps_the_field_open", async () => {
+    const { app } = await open();
+    fireEvent.dblClick(preview());
+    const field = await titleField();
+
+    fireEvent.input(field, { target: { value: "typed" } });
+    fireEvent.pointerDown(document.body);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(field.style.visibility).not.toBe("hidden");
+    expect(field.value).toBe("typed");
+    expect(callsTo(app, "todo.update")).toEqual([]);
+
+    fireEvent.pointerDown(within(drawer()).getByRole("textbox", { name: "Write a comment" }));
+    await waitFor(() => expect(callsTo(app, "todo.update")).toHaveLength(1));
+  });
+
+  it("u445_a_refused_save_started_by_a_press_reopens_the_field_with_the_typed_text", async () => {
+    const { app } = await open();
+    app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32602, "title is empty"));
+    preview().focus();
+    fireEvent.dblClick(preview());
+    const field = await titleField();
+
+    fireEvent.input(field, { target: { value: "typed" } });
+    // A press on a blank part of the Drawer saves, then focus falls to the page as the pointer lands.
+    fireEvent.pointerDown(drawer());
+    field.blur();
+    await waitFor(() => expect(callsTo(app, "todo.update")).toHaveLength(1));
+
+    await waitFor(() => expect(within(drawer()).getByRole("textbox", { name: "Title" })).toHaveProperty("value", "typed"));
   });
 });

@@ -1,4 +1,4 @@
-import { batch, createMemo, createSignal, type Accessor } from "solid-js";
+import { createMemo, createSignal, type Accessor } from "solid-js";
 import { createItemFailures } from "../ink/itemFailures";
 
 export type BubbleTerminal = { id: string; incarnation: string };
@@ -57,15 +57,13 @@ export const createBubbleFailure = (present: Accessor<readonly BubbleTerminal[] 
   });
 
   const set = (value: BubbleFailure | null): void => {
-    batch(() => {
-      const prior = failed();
+    const prior = failed();
 
-      if (prior !== null) failures.clear(keyOf(prior));
-      setGeneral(value !== null && value.terminal === null ? value.message : null);
-      setFailed(value?.terminal ?? null);
+    if (prior !== null) failures.clear(keyOf(prior));
+    setGeneral(value !== null && value.terminal === null ? value.message : null);
+    setFailed(value?.terminal ?? null);
 
-      if (value?.terminal) failures.fail(keyOf(value.terminal), value.message);
-    });
+    if (value?.terminal) failures.fail(keyOf(value.terminal), value.message);
   };
 
   return { failure, set, clearGeneral: (): void => { setGeneral(null); }, clearTerminal: (terminal: BubbleTerminal): void => failures.clear(keyOf(terminal)) };

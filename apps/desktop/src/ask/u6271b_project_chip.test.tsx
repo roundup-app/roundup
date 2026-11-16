@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Ask } from "@contracts/ask/Ask";
 import type { SendParams } from "@contracts/ask/SendParams";
@@ -38,8 +39,8 @@ const enter = () => press("Enter", {}, input()!);
 
 const chip = () => screen.findByRole("combobox", { name: "Project" }, slow);
 
-/** The Project the chip currently holds: the value of the Select's hidden native field. */
-const chosen = () => document.querySelector<HTMLSelectElement>(".ask-chips select")?.value;
+/** The Project the chip currently holds: the value of the Select's hidden form field. */
+const chosen = () => document.querySelector<HTMLInputElement>(".ask-chips [data-slot=select-form-input]")?.value;
 
 describe("u6271b the Project chip", () => {
   it("u6271b_the_chip_reads_the_active_project_until_a_pick_returns", async () => {
@@ -74,11 +75,19 @@ describe("u6271b the Project chip", () => {
     const { app, places, sent } = await setup();
 
     type("ship it");
-    fireEvent.click(await chip());
+    const trigger = await chip();
+
+    // A pointer press focuses the trigger before the list opens; ui-sdk's Select returns focus to whatever kept it then.
+    trigger.focus();
+    fireEvent.click(trigger);
+    flush();
     const choice = await screen.findByRole("option", { name: "other" });
     fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
+    flush();
     fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
+    flush();
     fireEvent.click(choice);
+    flush();
     await waitFor(() => expect(chosen()).toBe("other"));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "Project" })));
     enter();
@@ -102,11 +111,15 @@ describe("u6271b each part's chip", () => {
     app.handlers["ask.place"] = () => two;
     type("fix login. pay invoices");
     fireEvent.click(await screen.findByRole("combobox", { name: "Project for fix login" }, slow));
+    flush();
     const choice = await screen.findByRole("option", { name: "other" });
     fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
+    flush();
     fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
+    flush();
     fireEvent.click(choice);
-    await waitFor(() => expect([...document.querySelectorAll<HTMLSelectElement>(".ask-chips select")].map(select => select.value)).toEqual(["other", "p"]));
+    flush();
+    await waitFor(() => expect([...document.querySelectorAll<HTMLInputElement>(".ask-chips [data-slot=select-form-input]")].map(field => field.value)).toEqual(["other", "p"]));
     enter();
     await waitFor(() => expect(sent).toHaveLength(2));
     expect(sent.find(request => request.text === "fix login")?.parts).toEqual([{ text: "fix login", placement: { kind: "new", title: "fix login", project: "other" } }]);
@@ -119,6 +132,7 @@ describe("u6271b the chip's list", () => {
     await setup();
     type("ship it");
     fireEvent.click(await chip());
+    flush();
     const choice = await screen.findByRole("option", { name: "other" });
 
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -138,13 +152,17 @@ describe("u6271b the chip and the send agree", () => {
     ] satisfies PlacedPart[];
     type("fix login. pay invoices");
     fireEvent.click(await screen.findByRole("combobox", { name: "Project for pay invoices" }, slow));
+    flush();
     const choice = await screen.findByRole("option", { name: "other" });
     fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
+    flush();
     fireEvent.pointerUp(choice, { pointerType: "mouse", button: 0 });
+    flush();
     fireEvent.click(choice);
-    await waitFor(() => expect([...document.querySelectorAll<HTMLSelectElement>(".ask-chips select")].map(select => select.value)).toEqual(["p", "other"]));
+    flush();
+    await waitFor(() => expect([...document.querySelectorAll<HTMLInputElement>(".ask-chips [data-slot=select-form-input]")].map(field => field.value)).toEqual(["p", "other"]));
     type("fix login. pay invoices today");
-    await waitFor(() => expect(document.querySelectorAll(".ask-chips select")).toHaveLength(1));
+    await waitFor(() => expect(document.querySelectorAll(".ask-chips [data-slot=select-form-input]")).toHaveLength(1));
     const shown = chosen();
     enter();
     await waitFor(() => expect(input()!.value).toBe(""));
@@ -163,8 +181,9 @@ describe("u6271c a sent row names its Project", () => {
     await mountAskBar([ask("a1", 1, [part])], null, [door("lead", "idle", "idle", { name: "lead" })], false, "/p", false, () => true, routing);
     await openAsk();
 
-    const row = await screen.findByText("other / billing");
+    const row = await screen.findByText("other / billing", { selector: ".ask-name" });
     fireEvent.click(row.closest("button")!);
+    flush();
     expect(shown).toEqual([["/other", "w9"]]);
   });
 });

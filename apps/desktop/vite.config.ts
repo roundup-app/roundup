@@ -67,7 +67,9 @@ const browserSetup = ["src/testing/warmChrome.ts", "src/testing/globalAppServer.
 export default defineConfig({
   // R3800: the native startup gate reached 438,241 gzip bytes against a 437,814-byte cap.
   // Keep Solid’s shared runtime together to reduce per-chunk gzip/import overhead.
-  build: { manifest: true, rolldownOptions: { output: { codeSplitting: { groups: [{ name: "solid", test: /\/node_modules\/solid-js\// }] } } } },
+  // ui-sdk: the App and @ui-sdk/solid share one copy of the core in development.
+  optimizeDeps: { exclude: ["@ui-sdk/core"] },
+  build: { manifest: true, rolldownOptions: { output: { codeSplitting: { groups: [{ name: "solid", test: /\/node_modules\/(?:solid-js|@solidjs\/web)\// }] } } } },
   plugins: [solid(), buildModules(), visualizer({ filename: "../../target/release-modules.json", template: "raw-data" }), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",
     apply: "serve",
@@ -278,7 +280,7 @@ export default defineConfig({
       },
     ],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
-    server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
+    server: { deps: { inline: [/solid-js/, /@solidjs\/web/, /@excalidraw/] } },
   },
   resolve: {
     conditions: ["browser", "development|production"],

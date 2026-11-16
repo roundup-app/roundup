@@ -1,6 +1,6 @@
 import { isDoor } from "./doorNode";
-import { createEffect, createResource, createRoot, createSignal, onCleanup, untrack } from "solid-js";
-import type { Accessor, Resource } from "solid-js";
+import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
+import type { Accessor } from "solid-js";
 import type { Worktree } from "@contracts/agent/Worktree";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { AppSeam, DaemonExit } from "../app/seam";
@@ -11,7 +11,7 @@ import { NOW_TICK_MS } from "./clock";
 
 type Read = { failure: null; state: WorktreeState } | { failure: string };
 
-type Entry = { identity: Worktree; read: Resource<Read>; refresh: () => Promise<Read>; dispose: () => void; attempted: number };
+type Entry = { identity: Worktree; read: Accessor<Read | undefined>; loading: () => boolean; refresh: () => Promise<Read>; attempted: number };
 
 /** One visible Project owner; neither consumer can retain an entry across a recorded identity change. */
 export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor<number>, daemonExit: Accessor<DaemonExit | null>) => {
@@ -24,8 +24,38 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
     return !daemonExit() ? entries.get(id) : undefined;
   };
 
+  const openEntry = (id: string, identity: Worktree): Entry => {
+    const [read, setRead] = createSignal<Read>();
+    let latest!: Promise<Read>;
+    let loading = false;
+
+    const load = () => {
+      loading = true;
+
+      const request = latest = (async (): Promise<Read> => {
+        let state!: WorktreeState;
+        const failure = await failureOf(async () => { state = await app.rpc("agent.worktreeState", { id }); });
+
+        return failure === null ? { failure, state } : { failure };
+      })();
+
+      void request.then(result => {
+        loading = false;
+        setRead(result);
+      });
+    };
+
+    load();
+
+    return { identity, read, loading: () => loading, attempted: untrack(now) + NOW_TICK_MS, refresh: () => {
+      // Keep the request outcome available to its caller even after the entry is dropped.
+      if (!loading) load();
+
+      return latest;
+    } };
+  };
+
   const clear = () => {
-    for (const entry of entries.values()) entry.dispose();
     entries.clear();
     changed((value) => value + 1);
   };
@@ -38,7 +68,7 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
       if (!entry) return Promise.resolve({ failure: copy.worktreeReadUnavailable });
 
       // A view can open just before a coarse tick; skip that tick rather than poll twice within five seconds.
-      if (!entry.read.loading) entry.attempted = now() + NOW_TICK_MS;
+      if (!entry.loading()) entry.attempted = untrack(now) + NOW_TICK_MS;
 
       return entry.refresh();
     },
@@ -46,66 +76,37 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
     watch: (visible: Accessor<boolean>) => {
       // U5643c: Rail ownership changes independently of the coarse polling clock.
       // Only these fields are tracked; name/Status changes leave resources alone.
-      createEffect(() => {
-        const identities = visible() && !daemonExit() ? rail.nodes.flatMap(node => {
-          const worktree = isDoor(node) ? node.worktree : null;
+      createEffect(() => visible() && !daemonExit() ? rail.nodes.flatMap(node => {
+        const worktree = isDoor(node) ? node.worktree : null;
 
-          return worktree ? [{ id: node.id, path: worktree.path, branch: worktree.branch, base: worktree.base }] : [];
-        }) : [];
+        return worktree ? [{ id: node.id, path: worktree.path, branch: worktree.branch, base: worktree.base }] : [];
+      }) : [], identities => {
+        const live = new Set<string>();
+        let replaced = false;
 
-        untrack(() => {
-          const live = new Set<string>();
-          let replaced = false;
+        for (const { id, path, branch, base } of identities) {
+          live.add(id);
+          const existing = entries.get(id);
 
-          for (const { id, path, branch, base } of identities) {
-            live.add(id);
-            const existing = entries.get(id);
+          if (existing && existing.identity.path === path && existing.identity.branch === branch && existing.identity.base === base) continue;
+          entries.set(id, openEntry(id, { path, branch, base }));
+          replaced = true;
+        }
 
-            if (existing && existing.identity.path === path && existing.identity.branch === branch && existing.identity.base === base) continue;
-            existing?.dispose();
+        for (const id of entries.keys()) {
+          if (live.has(id)) continue;
+          entries.delete(id);
+          replaced = true;
+        }
 
-            const entry = createRoot((dispose): Entry => {
-              let latest: Promise<Read>;
-
-              const [read, { refetch }] = createResource(() => latest = (async (): Promise<Read> => {
-                let state!: WorktreeState;
-                const failure = await failureOf(async () => { state = await app.rpc("agent.worktreeState", { id }); });
-
-                return failure === null ? { failure, state } : { failure };
-              })());
-
-              return { identity: { path, branch, base }, read, dispose, attempted: now() + NOW_TICK_MS, refresh: () => {
-                // Keep the request outcome available to its caller even after resource disposal.
-                if (!read.loading) void refetch();
-
-                return latest;
-              } };
-            });
-
-            entries.set(id, entry);
-            replaced = true;
-          }
-
-          for (const [id, entry] of entries) {
-            if (live.has(id)) continue;
-            entry.dispose();
-            entries.delete(id);
-            replaced = true;
-          }
-
-          if (replaced) changed(value => value + 1);
-        });
+        if (replaced) changed(value => value + 1);
       });
-      createEffect(() => {
-        const time = now();
-
-        untrack(() => {
-          for (const entry of entries.values()) {
-            if (time - entry.attempted < 5_000) continue;
-            entry.attempted = time;
-            void entry.refresh();
-          }
-        });
+      createEffect(now, time => {
+        for (const entry of entries.values()) {
+          if (time - entry.attempted < 5_000) continue;
+          entry.attempted = time;
+          void entry.refresh();
+        }
       });
       onCleanup(clear);
     },

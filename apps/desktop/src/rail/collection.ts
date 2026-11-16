@@ -1,31 +1,40 @@
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
+import type { TreeItemData } from "@ui-sdk/solid/tree";
 import { copy } from "./copy";
 import { isWorkstream } from "../state/railTopology";
 import type { RailRow } from "./layout";
 
-/** What Ark's tree walks: the node's id and name (typeahead jumps by it), and its children. A Workstream is a branch even with none. */
-type TreeNode = { id: string; name: string; childrenCount?: number; children?: TreeNode[] };
-
-/** U520: the rows of an unfolded layout (every Workstream and idle branch open) as the nested tree Ark reads; Ark skips the children of a branch its `expandedValue` leaves out. */
-export const railCollection = (rows: readonly RailRow[]) => {
-  const root: TreeNode = { id: "", name: "", children: [] };
-  const path: TreeNode[] = [root];
+/** U520: the rows of an unfolded layout (every Workstream and idle branch open) as the nested items the tree walks, with its keys by name (typeahead jumps by it). A Workstream is a branch even with no children. */
+export const railItems = (rows: readonly RailRow[]): TreeItemData[] => {
+  const root: TreeItemData = { value: "", label: "", children: [] };
+  const path: TreeItemData[] = [root];
 
   for (const row of rows) {
-    const node: TreeNode = row.kind === "fold"
-      ? { id: row.key, name: `${row.count}${row.group === "internal" ? copy.internalCount : copy.idleCount}`, childrenCount: row.count, children: [] }
-      : isWorkstream(row.node) || row.node.kind === "group"
-      ? { id: row.node.id, name: row.node.name, childrenCount: 0, children: [] }
-      : { id: row.node.id, name: row.node.name };
+    const item: TreeItemData =
+      row.kind === "fold"
+        ? {
+            value: row.key,
+            label: `${row.count}${row.group === "internal" ? copy.internalCount : copy.idleCount}`,
+            children: [],
+          }
+        : isWorkstream(row.node) || row.node.kind === "group"
+          ? { value: row.node.id, label: row.node.name, children: [] }
+          : { value: row.node.id, label: row.node.name };
 
     const parent = path[row.depth];
 
-    if (!parent) throw new Error(`no node parent at depth ${row.depth} for ${node.id}`);
+    if (!parent)
+      throw new Error(`no item parent at depth ${row.depth} for ${item.value}`);
 
-    (parent.children ??= []).push(node);
+    (parent.children ??= []).push(item);
     path.length = row.depth + 1;
-    path.push(node);
+    path.push(item);
   }
 
-  return createTreeCollection<TreeNode>({ nodeToValue: (node) => node.id, nodeToString: (node) => node.name, rootNode: root });
+  return root.children ?? [];
 };
+
+/** The values of the items that have children or may have, in order. */
+export const branchesOf = (items: readonly TreeItemData[]): string[] =>
+  items.flatMap((item) =>
+    item.children ? [item.value, ...branchesOf(item.children)] : [],
+  );

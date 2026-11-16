@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { EventData } from "@contracts/EventData";
 import { USER } from "../testing/nodes";
 import { padHandlers } from "../testing/stores";
 import { openPad, openShelf, padOf } from "./padsFixture";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -20,7 +21,7 @@ it("u3789a_rename_refetch_retains_exact_pending_text_and_original_target_without
   expect(draft).toBeDefined();
 
   const renamed = await app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: original.incarnation });
-  await screen.findAllByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   expect(field.value).toBe(pendingText);
   expect(renamed).toEqual({ ...original, name: "Plan" });
   expect(connected.drafts.list().at(-1)).toEqual(draft);

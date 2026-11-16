@@ -1,15 +1,15 @@
 import { createMaximiseSlide } from "../ui/slideLifetime";
-import Maximize from "lucide-solid/icons/maximize";
-import Minimize from "lucide-solid/icons/minimize";
-import X from "lucide-solid/icons/x";
+import Maximize from "@lucide/solid/icons/maximize";
+import Minimize from "@lucide/solid/icons/minimize";
+import X from "@lucide/solid/icons/x";
 import { IconButton } from "../ui/IconButton";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { triage } from "../todos/triage";
 import { copy } from "./copy";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { createComputed, createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
-import type { JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
 import { setResizeDragging } from "../resize/dragging";
@@ -26,6 +26,13 @@ const StripHead = (props: { toggle: { collapsed: boolean; onToggle: () => void }
 export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: boolean; rendered: boolean; shown: boolean; animated: boolean; keyed?: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void; attach?: (element: HTMLElement) => void; sliding?: boolean };
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
+
+/** What the window reports of the Shelf: open, peeking over the centre, or closed. */
+const shelfStateOf = (placement: ShelfPlacement) => placement.open ? "open" : placement.peeking ? "peek" : "closed";
+
+/** The focused element when it sits in the Shelf outside the controls that keep their own keys, else null. */
+const shelfFocusOf = (focus: Element | null): Element | null =>
+  focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null;
 
 /** Rail left, centre right; nesting and columns are never drawn as boxes. The Shelf reserves the centre when it has room; the overlay floats over both; every region starts below the window bar. */
 export const Layout = (props: {
@@ -56,38 +63,13 @@ export const Layout = (props: {
   overlay: JSX.Element;
   /** Publishes whether the Shelf floats over the centre. */
   onOverlaid?: (overlaid: boolean) => void;
-  /** U491 / #2003: an existing edge can find its host with
-   * closest('[data-layout-root]') and its panels with [data-layout-panel].
-   * These markers also exist without splitter props, so a shared adapter needs
-   * no App caller change or App class selector to bind the current Layout.
-   * For declarative binding, spread useSplitter().getRootProps() on root and getPanelProps()
-   * on rail/centre/shelf. All three owned panels are descendants of the measured
-   * window root, including the absolute Shelf. Do not use an edge as the root.
-   * Layout discards library flex styles, refs, classes and children: CSS grid,
-   * Shelf placement and widths.style() retain geometry ownership. Map controlled
-   * pixel widths to percentages of root.getBoundingClientRect().width in the
-   * shared ui/ adapter; it also handles the hidden/overlay Shelf allocation.
-   * Bind triggers through the existing ResizeEdge callers in #2003, never add
-   * another drag/key machine here. IDs let Ark resolve hosts without selectors
-   * for App classes; ownership attributes let it discover the real panels.
-   */
-  splitter?: Partial<Record<"root" | "rail" | "centre" | "shelf", JSX.HTMLAttributes<HTMLElement>>>;
 }) => {
-  const binding = (part: "root" | "rail" | "centre" | "shelf") =>
-    splitProps(props.splitter?.[part] ?? {}, ["style", "ref", "class", "classList", "children"])[1];
-
   const [shelfFocus, setShelfFocus] = createSignal<Element | null>(null);
 
-  const sync = () => {
-    const focus = document.activeElement;
+  const sync = () => setShelfFocus(shelfFocusOf(document.activeElement));
 
-    setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
-  };
-
-  onMount(() => {
-    makeEventListener(document, "focusin", sync);
-    makeEventListener(document, "focusout", sync);
-  });
+  makeEventListener(document, "focusin", sync);
+  makeEventListener(document, "focusout", sync);
 
   const placement = () => props.shelfPlacement ?? SETTLED;
 
@@ -97,7 +79,7 @@ export const Layout = (props: {
   const [measured, setMeasured] = createSignal<"reserved" | "overlay">("reserved");
   // U6224: a peek covers the centre and reserves nothing, so it lays out as the overlay without its scrim.
   const mode = () => placement().covering ? "overlay" : measured();
-  createEffect(() => props.onOverlaid?.(mode() === "overlay"));
+  createEffect(createMemo(() => mode() === "overlay"), overlaid => { props.onOverlaid?.(overlaid); });
 
   const measure = () => {
     if (!windowElement || windowElement.clientWidth === 0) return;
@@ -107,7 +89,7 @@ export const Layout = (props: {
   };
 
   // ResizeObserver sees previews as well as committed and restored panel widths.
-  onMount(() => {
+  onSettled(() => {
     measure();
 
     if (typeof ResizeObserver === "undefined") return;
@@ -118,59 +100,57 @@ export const Layout = (props: {
       if (element) observer.observe(element);
     }
 
-    onCleanup(() => observer.disconnect());
+    return () => observer.disconnect();
   });
-  createEffect(() => {
-    props.widths?.style();
-    measure();
-  });
+  createEffect(() => props.widths?.style(), () => { measure(); });
   // Memos: the placement object is rebuilt when any field changes, `sliding` ending included, and that must not start a slide again.
   const shownNow = createMemo(() => placement().shown);
   const coveringNow = createMemo(() => placement().covering);
 
-  createEffect(on([shownNow, coveringNow], () => {
+  createEffect(() => [shownNow(), coveringNow()], () => {
     const drawer = windowElement?.querySelector('.drawer[data-open="true"]');
-    setShelfSliding(!drawer && mode() === "reserved" && placement().animated && placement().rendered);
-  }, { defer: true }));
-  createEffect(() => { if (placement().sliding === false) setShelfSliding(false); });
+    setShelfSliding(untrack(() => !drawer && mode() === "reserved" && placement().animated && placement().rendered));
+  }, { defer: true });
+  createEffect(() => placement().sliding === false, stopped => { if (stopped) setShelfSliding(false); });
   onCleanup(() => placement().onSettle());
   const shelfElement = () => windowElement?.querySelector<HTMLElement>(".shelf") ?? undefined;
   const maximiseSlide = createMaximiseSlide(shelfElement, () => placement().open && !placement().reducedMotion);
 
   const maximised = createMemo(() => placement().maximised === true);
-  let widthBefore = 0;
 
   // U3721b: the width before the change, read while the old size still draws.
-  createComputed(on(maximised, () => { widthBefore = maximiseSlide.visibleWidth(); }, { defer: true }));
+  createEffect(() => {
+    maximised();
 
-  createEffect(on(maximised, () => {
+    return maximiseSlide.visibleWidth();
+  }, widthBefore => {
     const shelf = shelfElement();
     maximiseSlide.cancel();
 
-    if (!windowElement || !shelf?.animate || mode() !== "reserved" || !placement().animated || !placement().open) return;
-    maximiseSlide.start(widthBefore, placement().keyed === true, () => setShelfSliding(false));
-  }, { defer: true }));
+    if (!windowElement || !shelf?.animate || untrack(() => mode() !== "reserved" || !placement().animated || !placement().open)) return;
+    maximiseSlide.start(widthBefore, untrack(() => placement().keyed === true), () => setShelfSliding(false));
+  }, { defer: true });
 
   // U3721b: the centre takes its final width once, when the slide ends, never by interpolating it.
-  const reserved = createMemo<boolean>(prev => placement().sliding === true ? prev && placement().shown : placement().shown, false);
-  createEffect(() => { if (placement().reducedMotion) setShelfSliding(false); });
+  const reserved = createMemo<boolean>((prev = false) => placement().sliding === true ? prev && placement().shown : placement().shown);
+  createEffect(() => placement().reducedMotion, reduced => { if (reduced) setShelfSliding(false); });
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div {...binding("root")} class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={mode() === "reserved" && placement().maximised === true} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : placement().peeking ? "peek" : "closed"} data-shelf-peek={placement().covering === true} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-reserved={reserved()} data-shelf-key={placement().keyed === true} data-shelf-animated={placement().animated}>
+  <div class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={String(mode() === "reserved" && placement().maximised === true)} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={shelfStateOf(placement())} data-shelf-peek={String(placement().covering === true)} data-shelf-mode={mode()} data-shelf-shown={String(placement().shown)} data-shelf-reserved={String(reserved())} data-shelf-key={String(placement().keyed === true)} data-shelf-animated={String(placement().animated)}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>
-      <section {...binding("rail")} class="rail" aria-busy={props.busy || undefined} data-collapsed={railMode().strip || undefined} data-peek={railMode().peek || undefined} data-slide={props.railSlide} data-layout-panel="rail" aria-label={copy.rail}>
+      <section class="rail" aria-busy={props.busy ? "true" : undefined} data-collapsed={railMode().strip ? "true" : undefined} data-peek={railMode().peek ? "true" : undefined} data-slide={props.railSlide} data-layout-panel="rail" aria-label={copy.rail}>
         <Show when={railMode().strip}>
           <Show when={!railMode().peek}><StripHead toggle={props.railToggle} /></Show>
           {props.railStrip}
         </Show>
-        <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={(props.widths?.collapsed() && !props.railPeeking) || undefined}>
+        <div class="rail-body" inert={(props.widths?.collapsed() && !props.railPeeking) || undefined} aria-hidden={props.widths?.collapsed() && !props.railPeeking ? "true" : undefined}>
           {props.rail}
         </div>
       </section>
-      <section {...binding("centre")} class="centre" aria-busy={props.busy || undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>
+      <section class="centre" aria-busy={props.busy ? "true" : undefined} data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
@@ -180,15 +160,14 @@ export const Layout = (props: {
     </Show>
     <div class="overlay">{props.overlay}</div>
     <section
-      {...binding("shelf")}
       class="shelf"
       data-layout-panel="shelf"
       aria-label={copy.shelfLabel}
-      data-open={placement().shown}
-      data-animated={placement().animated}
+      data-open={String(placement().shown)}
+      data-animated={String(placement().animated)}
       hidden={!placement().rendered}
       inert={!placement().open && !placement().peeking}
-      ref={element => placement().attach?.(element)}
+      ref={element => untrack(placement).attach?.(element)}
     >
       {props.shelfTabs}
       <div class="shelf-controls">
@@ -207,8 +186,8 @@ export const Layout = (props: {
       {(widths) => (
         <div
           class="shelf-edge-slot"
-          data-open={placement().shown}
-          data-animated={placement().animated}
+          data-open={String(placement().shown)}
+          data-animated={String(placement().animated)}
           hidden={!placement().rendered || (mode() === "reserved" && placement().maximised === true)}
           inert={!placement().open}
         >

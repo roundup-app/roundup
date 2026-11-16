@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -6,7 +5,7 @@ import { RpcError } from "../../app/seam";
 import { agent, door, mode } from "../../testing/nodes";
 import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
 
-afterEach(() => batch(cleanup));
+afterEach(cleanup);
 
 const open = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120, clientY: 80 });
 

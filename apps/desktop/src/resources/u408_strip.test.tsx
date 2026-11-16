@@ -1,5 +1,5 @@
 import { cleanup, render } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
@@ -28,9 +28,9 @@ const mount = async (tree: RailNode[], options: { select?: string | null; result
   connected.rail.select(options.select === undefined ? "a" : options.select);
 
   const view = render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <ResourceStrip />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   const calls = () => app.calls.filter((call) => call.method === "project.resources").length;
@@ -142,6 +142,7 @@ describe("u408 the Resource strip", () => {
     await settle(2000);
     expect(strip()?.querySelector('.resource-values [role="status"]')).toBeNull();
     strip()?.querySelector<HTMLButtonElement>('button')?.click();
+    flush();
     expect(connected.hasView("resources")).toBe(false);
     expect(app.calls.filter(call => ["agent.spawn", "ask.send", "terminal.write"].includes(call.method))).toHaveLength(0);
   });

@@ -1,8 +1,8 @@
 import { modalOpen } from "../keys/registry";
 import { strandedFocus } from "../keys/stranded";
 
-/** The focusable element of a row of the Rail's tree: Ark's item, or the control of a branch. */
-export const ROW = '[data-part="item"], [data-part="branch-control"]';
+/** The focusable element of a row of the Rail's tree: its tree item. */
+export const ROW = '[role="treeitem"]';
 
 /** A control inside a row owns its keys: the tree walks, selects and types ahead only on a key whose target is a row (U31). */
 export const ownKeys = { onKeyDown: (press: KeyboardEvent) => press.stopPropagation() };

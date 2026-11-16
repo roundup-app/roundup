@@ -64,7 +64,7 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
     // U5163 keeps both schemes’ readings; Builder media stays dark-only.
     if (!captureDir("U5163") || name.startsWith("dark-")) await browser("screenshot", join(dir, `${name}.png`));
     const observation = await read(`({ revision: ${JSON.stringify(revision)}, checks: window.__checks(), empty: [...document.querySelectorAll('.empty-state')].map(el => ({name: el.querySelector('h3')?.textContent, artHidden: el.querySelector('.empty-state-art')?.getAttribute('aria-hidden')})), failures: [...document.querySelectorAll('[role=alert]')].map(el => el.textContent) })`);
-    const palette = await read(`(() => { const root = getComputedStyle(document.documentElement); const tokens = Object.fromEntries(['accent','ground','sunken','selected','selected-hover','button-accent-fill','button-accent-ink','button-key-ink','text-selection','text-selection-ink','doodle-ground'].map(name => [name, root.getPropertyValue('--'+name).trim()])); return {increasedContrast:matchMedia('(prefers-contrast: more)').matches,tokens,buttons:[...document.querySelectorAll('.empty-state button')].map(el => ({label:el.textContent,ink:getComputedStyle(el).color,fill:getComputedStyle(el).backgroundColor,key:el.querySelector('kbd') ? getComputedStyle(el.querySelector('kbd')).color : null})),selection:{fill:getComputedStyle(document.body,'::selection').backgroundColor,ink:getComputedStyle(document.body,'::selection').color},formRings:[...document.querySelectorAll('.app-select-trigger,.app-combobox-input,[data-scope="field"][data-part="input"]')].map(el => ({ink:getComputedStyle(el).outlineColor,ground:getComputedStyle(el).backgroundColor}))}; })()`);
+    const palette = await read(`(() => { const root = getComputedStyle(document.documentElement); const tokens = Object.fromEntries(['accent','ground','sunken','selected','selected-hover','button-accent-fill','button-accent-ink','button-key-ink','text-selection','text-selection-ink','doodle-ground'].map(name => [name, root.getPropertyValue('--'+name).trim()])); return {increasedContrast:matchMedia('(prefers-contrast: more)').matches,tokens,buttons:[...document.querySelectorAll('.empty-state button')].map(el => ({label:el.textContent,ink:getComputedStyle(el).color,fill:getComputedStyle(el).backgroundColor,key:el.querySelector('kbd') ? getComputedStyle(el.querySelector('kbd')).color : null})),selection:{fill:getComputedStyle(document.body,'::selection').backgroundColor,ink:getComputedStyle(document.body,'::selection').color},formRings:[...document.querySelectorAll('.app-select-trigger,.app-combobox-input,[data-slot="field"] [data-slot="input"]')].map(el => ({ink:getComputedStyle(el).outlineColor,ground:getComputedStyle(el).backgroundColor}))}; })()`);
     writeFileSync(join(dir, `${name}.palette.json`), JSON.stringify(palette, null, 2));
     writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(observation.checks, null, 2));
     writeFileSync(join(dir, `${name}.observation.json`), JSON.stringify(observation, null, 2));
@@ -192,10 +192,10 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
       await snap(`${theme}-draft-recovery`);
       await load("tree-40");
       await browser("click", '[aria-label="Create"]');
-      await wait(`!!document.querySelector('[data-part="item"][data-value="workstream"]')`);
+      await wait(`!!document.querySelector('[role="menuitem"][data-value="workstream"]')`);
       expect(await read(`window.__u5606Calls`)).toBe(0);
       await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name', 'rail.createWorkstream')`);
-      await browser("click", '[data-part="item"][data-value="workstream"]');
+      await browser("click", '[role="menuitem"][data-value="workstream"]');
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected: choose another Workstream name')`);
       await snap(`${theme}-dense-failure`);
       expect(await read(`window.__u5606Calls`)).toBe(1);
@@ -267,7 +267,7 @@ it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", asyn
       await browser("set", "media", "color-scheme", theme);
       await load("agents-10");
       await browser("eval", `(async () => {
-        const {render} = await import('/node_modules/solid-js/web/dist/web.js');
+        const {render} = await import('/node_modules/@solidjs/web/dist/web.js');
         const {createComponent} = await import('/node_modules/solid-js/dist/solid.js');
         const {KindGlyph} = await import('/src/ink/KindGlyph.tsx');
         const sheet = document.createElement('div');

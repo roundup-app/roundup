@@ -1,6 +1,6 @@
 import { ExitButton } from "../ui/IconButton";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, onCleanup, on, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import type { VirtualizedFileDiff } from "@pierre/diffs";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
@@ -36,9 +36,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
 
-  createEffect(() => {
-    const note = props.editing;
-
+  createEffect(() => props.editing, note => {
     if (note) setForm({ comparison: note.comparison, selection: note, editing: note });
   });
 
@@ -69,11 +67,11 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
 
   const worktree = createMemo(() => worktrees.read(props.id));
 
-  createEffect(on(() => [version(), worktree(), props.id, props.path, props.from, props.to], () => {
+  createEffect(() => [version(), worktree(), compareParams(props.id, props.path, props.from, props.to)] as const, ([, , params]) => {
     setLoading(true);
-    const target = { id: props.id, path: props.path };
+    const target = { id: params.id, path: params.path };
     let current = true;
-    void reply(() => app.rpc("agent.compareFile", compareParams(props.id, props.path, props.from, props.to))).then(result => {
+    void reply(() => app.rpc("agent.compareFile", params)).then(result => {
       if (!current) return;
 
       setLoading(false);
@@ -95,8 +93,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
       }
       else setFailure(result.text);
     });
-    onCleanup(() => { current = false; });
-  }));
+
+    return () => { current = false; };
+  });
 
   // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
   const notes = createMemo(() => props.notes.list(props.id));
@@ -106,6 +105,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
     const view = renderer();
     const annotations = notes().filter(note => value && note.comparison.oldPath === value.oldPath && note.comparison.newPath === value.newPath && note.comparison.base === value.base && note.comparison.old.revision === value.old.revision && note.comparison.new.revision === value.new.revision);
 
+    return { view, annotations };
+  }, ({ view, annotations }) => {
     view?.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })) });
   });
 
@@ -113,7 +114,12 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
     const value = read();
     const mount = host();
 
-    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null) return;
+    if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null) return undefined;
+
+    return { value, mount };
+  }, target => {
+    if (!target) return;
+    const { value, mount } = target;
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
@@ -136,8 +142,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
         onLineNumberClick: ({ lineNumber, annotationSide, event }) => {
           const clickedSide = annotationSide === "deletions" ? "old" : "new";
           const old = selection();
-          setSelection({ side: clickedSide, start: event.shiftKey && old.side === clickedSide ? Math.min(old.start, lineNumber) : lineNumber, end: event.shiftKey && old.side === clickedSide ? Math.max(old.start, lineNumber) : lineNumber });
-          const range = selection();
+          const range: ReturnType<typeof selection> = { side: clickedSide, start: event.shiftKey && old.side === clickedSide ? Math.min(old.start, lineNumber) : lineNumber, end: event.shiftKey && old.side === clickedSide ? Math.max(old.start, lineNumber) : lineNumber };
+          setSelection(range);
           view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
         },
         renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start === metadata.end ? `${metadata.start}` : `${metadata.start}–${metadata.end}`, metadata.start === metadata.end)}: ${metadata.text}`;
@@ -185,13 +191,14 @@ export const DiffReader = (props: { id: string; name: string; path: string; from
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
       dispose = () => { setRenderer(undefined); initialLayout.disconnect(); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
     }).then(error => { if (current && error) setFailure(error); });
-    onCleanup(() => { current = false; dispose?.(); });
+
+    return () => { current = false; dispose?.(); };
   });
 
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <div class="diff-identity">
-        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
+        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</>}</Show></p>
       </div>
       <div class="diff-actions">
         <Show when={read()}>{value => <>

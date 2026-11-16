@@ -1,6 +1,6 @@
 import * as xtermModule from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { createComponent, createSignal } from "solid-js";
+import { createComponent, createSignal, flush } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { Pane } from "./Pane";
@@ -90,18 +90,18 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
   let screens!: Screens;
 
   const mounted = render(() => {
-    if (hostKind !== "Bubble") return createComponent(ConnectedProjectContext.Provider, {
+    if (hostKind !== "Bubble") return createComponent(ConnectedProjectContext, {
       value: connected,
       get children() { return createComponent(Pane, { createEmulator: factory, screensRef: value => { screens = value; } }); },
     });
 
     screens = createScreens(connected, factory);
 
-    return createComponent(ConnectedProjectContext.Provider, {
+    return createComponent(ConnectedProjectContext, {
       value: connected,
       get children() {
         return createComponent(Bubble, {
-          id: "t-a", screens, name: "Shell", get place() { return place(); },
+          id: "t-a", screens, name: "Shell", get place() { return place(); }, placed: true,
           origin: { left: 0, top: 0 }, extent: () => ({ width: 1000, height: 800 }),
           setPlace() {}, readOnly: () => false, close: async () => {}, menu() {}, toggleMinimised() {},
         });
@@ -111,7 +111,8 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
 
   stops.push(() => screens.dispose(), mounted.unmount);
 
-  if (hostKind !== "Bubble") connected.rail.select("a");
+  if (hostKind !== "Bubble") { connected.rail.select("a"); flush(); }
+
   const host = document.querySelector<HTMLElement>(".pane-screen, .bubble-body");
 
   if (!host) throw new Error("Terminal host not mounted");
@@ -188,6 +189,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
 
   if (hostKind === "Bubble") setPlace({ ...place(), min: true });
   else connected.rail.select(null);
+  flush();
   cols = 80; rows = 20;
   notify(1);
   expect(callsTo(app, "terminal.resize")).toHaveLength(3);
@@ -199,6 +201,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
 
   if (hostKind === "Bubble") {
     setPlace({ ...place(), min: false });
+    flush();
     // Input can arrive before Bubble's queued frame. Its resize must already precede this deliberate input.
     terminal.focus();
     terminal.input("resume", true);
@@ -206,6 +209,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
       .toEqual(["terminal.resize", "terminal.write"]);
   } else {
     connected.rail.select("a");
+    flush();
     expect(focused).toEqual([{ cols: 80, rows: 20 }]);
   }
 

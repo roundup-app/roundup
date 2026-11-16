@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { DaemonExit } from "../app/seam";
@@ -31,6 +31,7 @@ describe("u391 the footer button keeps U9 and U25", () => {
 
     expect(disabled()).toBe(false);
     setExit({ code: 1 });
+    flush();
     expect(disabled()).toBe(true);
     fireEvent.click(pinnedAdd());
     expect(railCallsTo(exited.app, "rail.createWorkstream")).toEqual([]);

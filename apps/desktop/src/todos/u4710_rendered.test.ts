@@ -52,7 +52,7 @@ it.each([true, false].flatMap(base => [1280, 1512].map(width => ({base, width}))
       if(tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait("document.querySelector('.todos-tab')");
-    await browser("eval", `document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control], .todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())`);
+    await browser("eval", `document.querySelectorAll('.shelf-groups .shelf-group-control[aria-expanded=false], .todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())`);
     const selector = await read<string>("'.todos-tab [data-todo=\"'+window.__gripIds[3]+'\"] .sortable-handle'");
     await browser("scrollintoview", selector);
 

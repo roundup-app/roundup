@@ -1,4 +1,4 @@
-import type { ComponentProps } from "solid-js";
+import type { ComponentProps } from "@solidjs/web";
 import { App } from "../App";
 
 /** Existing connected observers explicitly inspect navigation; U2539b mounts App directly. */

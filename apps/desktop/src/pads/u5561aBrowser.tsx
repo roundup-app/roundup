@@ -1,4 +1,4 @@
-import { render } from "solid-js/web";
+import { render } from "@solidjs/web";
 import { runChecks } from "../testing/checks";
 import PadRichEditor from "./PadRichEditor";
 import "../tokens.css";

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
 import { MIN_HEIGHT, MIN_WIDTH, placesStorage, resizedAbout, ZONES } from "./places";
@@ -33,9 +34,12 @@ const shown = async (centred = false) => {
 
 const drag = async (name: string, dx: number, dy: number) => {
   fireEvent.pointerDown(zone(name), { button: 0, clientX: 500, clientY: 400 });
+  flush();
   fireEvent(window, new MouseEvent("pointermove", { clientX: 500 + dx, clientY: 400 + dy }));
+  flush();
   await frame();
   fireEvent(window, new MouseEvent("pointerup"));
+  flush();
 };
 
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
@@ -65,12 +69,16 @@ describe("u2236 any edge or corner resizes the bubble", () => {
     const before = geometry();
 
     fireEvent.pointerDown(zone("e"), { button: 0, clientX: 500, clientY: 400 });
+    flush();
     fireEvent(window, new MouseEvent("pointermove", { clientX: 520, clientY: 400 }));
+    flush();
     await frame();
     expect(geometry().w).toBe(before.w + 40);
     fireEvent.keyDown(window, { key: "Escape" });
+    flush();
     expect(geometry()).toEqual(before);
     fireEvent(window, new MouseEvent("pointermove", { clientX: 560, clientY: 400 }));
+    flush();
     await frame();
     expect(geometry()).toEqual(before);
   });
@@ -83,12 +91,14 @@ describe("u2236 any edge or corner resizes the bubble", () => {
 
     watched.observe(bubble("2"), { attributes: true, attributeFilter: ["style"] });
     fireEvent.pointerDown(zone("e"), { button: 0, clientX: 500, clientY: 400 });
+    flush();
 
     for (let at = 1; at <= 10; at++) fireEvent(window, new MouseEvent("pointermove", { clientX: 500 + at, clientY: 400 }));
 
     await frame();
     await frame();
     fireEvent(window, new MouseEvent("pointerup"));
+    flush();
     watched.disconnect();
     expect(writes).toBe(1);
   });
@@ -172,7 +182,9 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     const before = geometry();
 
     fireEvent.dblClick(header());
+    flush();
     fireEvent.dblClick(header());
+    flush();
     expect(geometry()).toEqual(before);
     expect(placesStorage("/p").read()["2"]?.restore).toBeUndefined();
   });
@@ -183,6 +195,7 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     const before = geometry();
 
     fireEvent.dblClick(header());
+    flush();
     await drag("e", -20, 0);
     expect(placesStorage("/p").read()["2"]?.restore).toEqual(before);
   });
@@ -190,6 +203,7 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
   it("u2237_a_filled_bubble_survives_a_reload", async () => {
     await shown();
     fireEvent.dblClick(header());
+    flush();
 
     const restore = placesStorage("/p").read()["2"]?.restore;
 
@@ -205,15 +219,20 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     const before = geometry();
 
     fireEvent.click(header());
+    flush();
     expect(geometry()).toEqual(before);
 
     fireEvent.pointerDown(header(), { button: 0, clientX: 500, clientY: 400 });
+    flush();
     fireEvent(window, new MouseEvent("pointermove", { clientX: 520, clientY: 410 }));
+    flush();
     await frame();
     fireEvent(window, new MouseEvent("pointerup"));
+    flush();
     expect(geometry()).toMatchObject({ x: before.x + 20, y: before.y + 10, w: before.w, h: before.h });
 
     fireEvent.dblClick(document.querySelector('.terminal-tab[data-bubble="2"] .terminal-tab-name')!);
+    flush();
     await waitFor(() => expect(document.querySelector(".terminal-tab-editor input")).not.toBeNull());
   });
 });

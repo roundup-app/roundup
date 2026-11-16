@@ -1,8 +1,10 @@
 import { cleanup, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { mountPane, subscribed } from "./paneHarness";
 import { info, node, terminal } from "../testing/nodes";
+import { notices } from "../testing/notices";
 
 const decoded = (chunks: Uint8Array[]): string[] => chunks.map((chunk) => new TextDecoder().decode(chunk));
 
@@ -13,6 +15,7 @@ describe("u11 one emulator per Terminal", () => {
     const { app, connected, emulators } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
 
     connected.rail.select("a");
+    flush();
     await subscribed(app, "t-a");
     app.emitOutput("t-a", "one");
     app.emitOutput("t-b", "elsewhere");
@@ -26,6 +29,7 @@ describe("u11 one emulator per Terminal", () => {
     const { connected, emulators, container } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
 
     connected.rail.select("b");
+    flush();
 
     expect([emulators.get("t-b")?.host?.textContent, container.querySelector(".pane-screen")?.textContent]).toEqual([
       "t-b",
@@ -37,7 +41,9 @@ describe("u11 one emulator per Terminal", () => {
     const { connected, container } = await mountPane([node("a"), node("g", { kind: "workstream", status: null, terminal_id: null })]);
 
     connected.rail.select("a");
+    flush();
     connected.rail.select("g");
+    flush();
 
     expect(container.querySelector(".pane-screen")?.textContent).toBe("");
   });
@@ -47,16 +53,18 @@ describe("u11 one emulator per Terminal", () => {
 
     app.outputFailure = new RpcError(-32603, "channel refused");
     connected.rail.select("a");
+    flush();
 
     await screen.findByRole("alert", { name: /^Terminal output stopped\.\s+channel refused$/ });
 
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(notices("alert")).toHaveLength(1);
   });
 
   it("u11_closing_the_pane_disposes_every_emulator", async () => {
     const { connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     cleanup();
 
     expect(emulators.get("t-a")?.disposed).toBe(true);

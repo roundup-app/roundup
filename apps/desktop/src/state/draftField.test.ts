@@ -1,4 +1,4 @@
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { applying } from "../app/pending";
@@ -46,10 +46,12 @@ it("u2773b_a_refused_send_keeps_both_revisions", async () => {
   pad.keep({ text: "A" }, null);
   // U3791b: only a typed refusal proves the write failed; any other throw leaves it unknown.
   const sending = pad.send(() => applying(() => Promise.reject(new RpcError(-32602, "no"))));
+  flush();
   await vi.waitFor(() => expect(drafts.list()[0]?.status).toBe("pending"));
   pad.keep({ text: "B" }, null);
 
   expect(await sending).toMatchObject({ kind: "refused" });
+  flush();
   expect(settled(drafts)).toEqual([[{ text: "A" }, "failed"], [{ text: "B" }, "draft"]]);
 });
 
@@ -71,10 +73,12 @@ it("u2773a_a_caret_only_change_writes_no_revision", async () => {
   const drafts = open("d");
   const pad = field(drafts);
   pad.keep({ text: "abc" }, { start: 0, end: 0, direction: "none" });
+  flush();
   const [first] = drafts.list();
   const edit = vi.spyOn(drafts, "edit");
   pad.keep({ text: "abc" }, { start: 2, end: 2, direction: "none" });
   pad.keep({ text: "abc" }, { start: 2, end: 2, direction: "none" });
+  flush();
 
   expect(edit).not.toHaveBeenCalled();
   expect(drafts.list()).toEqual([{ ...first, selection: { start: 2, end: 2, direction: "none" } }]);
@@ -91,6 +95,7 @@ it("u2773c_a_recovered_draft_never_sends_until_save", async () => {
   expect(await pad.send(call)).toEqual({ kind: "skipped" });
   expect(call).not.toHaveBeenCalled();
   pad.save();
+  flush();
 
   expect(pad.recovered()).toBe(false);
   expect(await pad.send(call)).toEqual({ kind: "applied", result: "ok" });

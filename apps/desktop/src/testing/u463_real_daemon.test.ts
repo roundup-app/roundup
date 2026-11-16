@@ -106,7 +106,7 @@ const width = 1280;
       await activate('[aria-label="Create"]');
       await batch(
         ["press", "ArrowDown"],
-        ["wait", "--fn", "document.querySelector('[role=menuitem][data-highlighted]')?.dataset.value === 'workstream'"],
+        ["wait", "--fn", "document.querySelector('[role=menuitem][data-highlighted]')?.textContent.startsWith('Workstream')"],
         ["press", "Enter"]
       );
 
@@ -327,7 +327,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await activate(".import-confirm");
       await wait("document.querySelector('.import-candidate [role=alert]')?.textContent.includes('The saved conversation changed')");
       expect((await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'project.importCommit').at(-1).params.selections.length")).result).toBe(2);
-      expect((await browser("eval", "document.querySelectorAll('.import-check[data-state=checked]').length")).result).toBe(1);
+      expect((await browser("eval", "document.querySelectorAll('.import-check [role=checkbox][aria-checked=true]').length")).result).toBe(1);
       await capture("partial-failure");
       await browser("eval", "document.querySelector('.import-list').scrollTop = document.querySelector('.import-list').scrollHeight");
       await wait("document.querySelector('.import-list').scrollTop > 0");
@@ -393,8 +393,8 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
     for (const action of ["door", "agent", "prompt", "shell", "quick"]) {
       await read("window.__launches.length = 0");
 
-      if (action === "door") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][data-value="workstream"]'); }
-      else if (action === "agent") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][data-value="agent"]'); }
+      if (action === "door") { await browser("click", '[aria-label="Create"]'); await browser("find", "role", "menuitem", "click", "--name", "Workstream"); }
+      else if (action === "agent") { await browser("click", '[aria-label="Create"]'); await browser("find", "role", "menuitem", "click", "--name", "Agent"); }
       else if (action === "prompt") {
         await batch(
           ["press", "Meta+Shift+n"],

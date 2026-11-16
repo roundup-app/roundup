@@ -12,8 +12,7 @@ import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
-import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show, Suspense, useContext, untrack } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, flush as commitWrites, lazy, Loading, onCleanup, Show, useContext, untrack, type Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
@@ -23,6 +22,7 @@ import { failureOf } from "../app/failureOf";
 import { createFailure } from "./failure";
 import { outcomeOf, RpcError } from "../app/seam";
 import { createDraftField } from "../state/draftField";
+
 import { createSave, type Save } from "./padSave";
 import { usePadList } from "./padList";
 import type { PadList } from "./padList";
@@ -55,6 +55,21 @@ const conflictText = (actor: Actor | "unknown" | null, nameOf: (actor: Actor) =>
 const restoredSave = (changed: boolean, retained: boolean): Save =>
   changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" };
 
+/** Markdown can normalize live spaces and empty paragraphs; the editor's exact native draft is retained until acknowledgement, whenever its text cannot be mapped to source or no longer equals the one loaded. */
+const nativeSnapshot = (editor: PadEditorHandle | undefined, text: string | null) =>
+  editor && (text === null || !editor.unchanged()) ? editor.snapshot() : null;
+
+/** The caret a Pad edit retains: the editor's, else the recovered draft's, else none. */
+const caretOf = (editor: PadEditorHandle | undefined, recovered: { selection: ReturnType<PadEditorHandle["selection"]> | null } | undefined) =>
+  editor?.selection() ?? recovered?.selection ?? null;
+
+/** What a Pad edit retains: its source over the base it began from, and the editor's native document when it has one. */
+const draftOf = (original: { name: string; base: string; revision: number }, source: string, snapshot: ReturnType<PadEditorHandle["snapshot"]> | null) => {
+  const value = { originalName: original.name, source, base: original.base, baseRevision: original.revision };
+
+  return snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
+};
+
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
@@ -72,8 +87,9 @@ const PadBody = (props: {
   const list = props.list ?? usePadList();
   const maximised = useContext(DrawerMaximisedContext);
   const [width, setWidth] = createSignal(untrack(() => appSettings().padWidth));
-  const name = props.initial.name;
-  const destination = { surface: "pads", object: props.initial.incarnation, recipient: null };
+  // The body opens on the Pad as it is now, read once.
+  const { name, ...opened } = untrack(() => ({ name: props.initial.name, incarnation: props.initial.incarnation, text: props.initial.text, revision: props.initial.revision }));
+  const destination = { surface: "pads", object: opened.incarnation, recipient: null };
   const ownDrafts = () => connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
   // The body reopens the draft it opened with, read once.
   const retained = untrack(() => ownDrafts().filter(draft => props.revision === undefined || draft.revision === props.revision).at(-1));
@@ -83,9 +99,9 @@ const PadBody = (props: {
 
   const draft = parsed?.success ? parsed.output : undefined;
   const recovered = draft && retained;
-  const source = draft ? draft.editorSource ?? draft.source : props.initial.text;
-  const base = draft ? draft.base : props.initial.text;
-  let sourceRevision = draft ? draft.baseRevision : props.initial.revision;
+  const source = draft ? draft.editorSource ?? draft.source : opened.text;
+  const base = draft ? draft.base : opened.text;
+  let sourceRevision = draft ? draft.baseRevision : opened.revision;
   let originalBase = base;
   let originalRevision = sourceRevision;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
@@ -104,7 +120,7 @@ const PadBody = (props: {
     return props.revision === undefined ? copy.draftIdentity(copy.currentDraft, status) : status;
   };
 
-  const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
+  const changed = recovered && (base !== opened.text || sourceRevision !== opened.revision);
   const cycle = createSave(restoredSave(Boolean(changed), Boolean(retained)));
   const deleted = () => cycle.save().kind === "deleted";
   // A recovered draft awaits Resume even beside a conflict.
@@ -118,7 +134,7 @@ const PadBody = (props: {
   const [origin, setOrigin] = createSignal(base);
   const [editing, setEditing] = createSignal(Boolean(recovered));
 
-  createEffect(() => { if (editing()) onCleanup(connected.drafts.editor(destination)); });
+  createEffect(editing, (active) => active ? connected.drafts.editor(destination) : undefined);
 
   const conflictLabel = createMemo(() => conflictText(conflictActor(), connected.rail.nameOf));
 
@@ -142,20 +158,16 @@ const PadBody = (props: {
   const [saved, setSaved] = createSignal(false);
   const saveAfterPause = debounce(() => flush(), 500);
 
-  const capture = () => {
+  /** `typing`: the user is editing, which a change handler knows before `editing` shows it. */
+  const capture = (typing = editing()) => {
     if (closed || invalid() || (recovered && !editor)) return;
     const text = currentDraft();
-    // Markdown can normalize live spaces and empty paragraphs; retain the exact native draft until acknowledgement.
-    const snapshot = editor && (text === null || !editor.unchanged()) ? editor.snapshot() : null;
+    const snapshot = nativeSnapshot(editor, text);
 
     if (text === null) actionFailure.show(copy.padSourceMappingFailed, "source-mapping");
 
-    if ((text === null && !snapshot) || (!editing() && text === origin())) return;
-    const selection = editor?.selection() ?? recovered?.selection ?? null;
-    const source = text ?? snapshot!.text;
-    const value = { originalName: name, source, base: originalBase, baseRevision: originalRevision };
-    const complete = snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
-    field.keep(complete, selection);
+    if ((text === null && !snapshot) || (!typing && text === origin())) return;
+    field.keep(draftOf({ name, base: originalBase, revision: originalRevision }, text ?? snapshot!.text, snapshot), caretOf(editor, recovered));
   };
 
   /** Moves the source and its dirty/clean baseline together so a resolved change cannot remain a conflict. */
@@ -195,47 +207,43 @@ const PadBody = (props: {
   );
 
   createEffect(
-    on(
-      props.pads,
-      (listed) => {
-        const current = listed.find((entry) => entry.name === name);
+    () => props.pads(),
+    (listed) => untrack(() => {
+      const current = listed.find((entry) => entry.name === name);
 
-        const actor = pendingActor;
-        pendingActor = null;
+      const actor = pendingActor;
+      pendingActor = null;
 
-        if (!current || current.incarnation !== destination.object) {
-          saveAfterPause.clear();
-          cycle.send({ kind: "gone", byMe: false });
-          setSaved(false);
-          actionFailure.clear();
-          props.onFailureCleared?.();
-
-          return;
-        }
-
-        cycle.send({ kind: "back" });
-
-        if (sameContent(current, pad())) return;
-
-        setPad({ ...current });
-
-        // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
-        const sending = cycle.save();
-
-        if (sending.kind === "sending" && actor?.kind === "user" && current.text === sending.text) return;
-
-        if (currentDraft() === origin()) {
-          settle(current);
-
-          return;
-        }
-
+      if (!current || current.incarnation !== destination.object) {
         saveAfterPause.clear();
+        cycle.send({ kind: "gone", byMe: false });
         setSaved(false);
-        cycle.send({ kind: "external", actor: actor ?? conflictActor() ?? "unknown", version: cycle.next() });
-      },
-      { defer: true },
-    ),
+        actionFailure.clear();
+        props.onFailureCleared?.();
+
+        return;
+      }
+
+      // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
+      const sending = cycle.send({ kind: "back" });
+
+      if (sameContent(current, pad())) return;
+
+      setPad({ ...current });
+
+      if (sending.kind === "sending" && actor?.kind === "user" && current.text === sending.text) return;
+
+      if (currentDraft() === origin()) {
+        settle(current);
+
+        return;
+      }
+
+      saveAfterPause.clear();
+      setSaved(false);
+      cycle.send({ kind: "external", actor: actor ?? conflictActor() ?? "unknown", version: cycle.next() });
+    }),
+    { defer: true },
   );
 
   onCleanup(() => {
@@ -274,10 +282,9 @@ const PadBody = (props: {
     if (failure) throw new Error(failure);
   };
 
-  /** `mine`: the user chose Keep mine, so the write replaces whatever the Pad now holds. */
-  const write = (mine = false) =>
+  /** `mine`: the user chose Keep mine, so the write replaces whatever the Pad now holds. `save`: the cycle the caller just moved, which `cycle.save` shows only once that settles. */
+  const write = (mine = false, save = cycle.save()) =>
     act(async () => {
-      const save = cycle.save();
       const resolveConflict = mine || (save.kind === "dirty" && save.due === "keep-mine");
 
       if (save.kind === "dirty" ? save.due === null : !(save.kind === "conflict" && mine)) return;
@@ -303,9 +310,8 @@ const PadBody = (props: {
       }
 
       capture();
-      cycle.send({ kind: "send", text, version, mine: resolveConflict });
 
-      if (cycle.save().kind !== "sending") return;
+      if (cycle.send({ kind: "send", text, version, mine: resolveConflict }).kind !== "sending") return;
       setSaved(false);
       const sent = await field.send(() => applying(() => connected.app.rpc("pad.write", { name, text, expectedRevision, expectedIncarnation: destination.object })));
 
@@ -338,6 +344,8 @@ const PadBody = (props: {
         setOrigin(next.text);
       }
 
+      // The cycle, the origin and the shown text the reply just moved are read below, by this and by the next `write`.
+      commitWrites();
       setSaved(!closed && cycle.save().kind === "clean");
       props.onAcknowledged?.(destination.object);
 
@@ -347,8 +355,7 @@ const PadBody = (props: {
 
   const flush = () => {
     saveAfterPause.clear();
-    cycle.send({ kind: "due", due: "autosave" });
-    void write();
+    void write(false, cycle.send({ kind: "due", due: "autosave" }));
   };
 
   const exportToFile = () =>
@@ -381,18 +388,18 @@ const PadBody = (props: {
   const onChange = () => {
     setSaved(false);
     setEditing(true);
-    cycle.send({ kind: "edited" });
+    const edited = cycle.send({ kind: "edited" });
 
-    if (cycle.save().kind !== "sending" && editor?.unchanged()) {
-      capture();
+    if (edited.kind !== "sending" && editor?.unchanged()) {
+      capture(true);
       settle(pad());
 
       return;
     }
 
-    capture();
+    capture(true);
 
-    if (["dirty", "sending"].includes(cycle.save().kind)) saveAfterPause();
+    if (["dirty", "sending"].includes(edited.kind)) saveAfterPause();
   };
 
   const onText = (text: string) => {
@@ -415,8 +422,7 @@ const PadBody = (props: {
 
     field.save();
     saveAfterPause.clear();
-    cycle.send({ kind: "due", due: "keep-mine" });
-    void write(true);
+    void write(true, cycle.send({ kind: "due", due: "keep-mine" }));
   };
 
   const resume = () => act(async () => {
@@ -489,7 +495,7 @@ const PadBody = (props: {
           <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>
         </Show>
       </>} />
-      <Suspense>
+      <Loading>
         <PadRichEditor
           toolbar={<Show when={maximised()}><SegmentGroup label={copy.padWidth} segments={copy.padWidths} value={width()} onValueChange={setWidth} /></Show>}
           initialFocus={props.initialFocus}
@@ -514,7 +520,7 @@ const PadBody = (props: {
             if (recovered?.selection) ready.restoreSelection(recovered.selection);
           }}
         />
-      </Suspense>
+      </Loading>
 
     </div>
   );
@@ -537,13 +543,13 @@ export const PadDrawer = (props: {
   const connected = useConnectedProject();
   const initialFocus = captureFocus();
 
-  if (props.recovery !== undefined) {
-    const recovery = props.recovery;
+  const recovery = untrack(() => props.recovery);
 
+  if (recovery !== undefined) {
     if (recovery.project !== connected.project.path) return null;
 
-    const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
-    const original = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
+    const retained = untrack(() => connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null));
+    const original = untrack(() => recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined);
 
     return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }

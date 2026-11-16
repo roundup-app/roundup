@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type * as Solid from "solid-js";
 import type { LinkContent } from "@contracts/link/LinkContent";
 import { linkCopy } from "./copy";
@@ -16,8 +16,8 @@ export type OpenRequest = Extract<NativeOpen, { kind: "project" }> | { kind: "li
 const INVALID_PARAMS = -32602;
 
 /** Native open requests stay out of the startup entry; App loads this once mounted, under its own owner, and routes each request to the returned handler. */
-export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup }, app, projects, connectionOf, item, fail }: {
-  solid: Pick<typeof Solid, "createEffect" | "createSignal" | "onCleanup">;
+export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item, fail }: {
+  solid: Pick<typeof Solid, "createEffect" | "createSignal" | "onCleanup" | "untrack">;
   app: App;
   projects: ProjectsState;
   connectionOf: (path: string) => ConnectedProject | undefined;
@@ -29,8 +29,9 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
   const [linked, setLinked] = createSignal<{ path: string; content: LinkContent; focus: ReturnType<typeof captureFocus> } | null>(null);
   createEffect(() => {
     const target = linked();
-    const open = target && connectionOf(target.path);
 
+    return { target, open: target && connectionOf(target.path) };
+  }, ({ target, open }) => untrack(() => {
     if (!target || !open) return;
     const content = target.content;
 
@@ -61,7 +62,7 @@ export const watchNativeOpen = ({ solid: { createEffect, createSignal, onCleanup
     }
 
     setLinked(null);
-  });
+  }));
 
   let stopped = false;
   let pending = Promise.resolve();

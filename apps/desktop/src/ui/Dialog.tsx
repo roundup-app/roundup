@@ -1,27 +1,73 @@
 import "./Field.css";
 import { captureFocus } from "../keys/focus";
-import { Portal } from "solid-js/web";
-import { createSlideLifetime } from "./slideLifetime";
-import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
-import { isFocusVisible, trackFocusVisible } from "@zag-js/focus-visible";
-import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/solid/dialog";
-import { createComputed, createContext, createEffect, createSignal, Show, on, untrack, useContext, onCleanup, onMount, type Accessor } from "solid-js";
+import { sourceOf } from "@ui-sdk/core";
+import {
+  createContext,
+  createEffect,
+  createMemo,
+  createSignal,
+  untrack,
+  useContext,
+  type Accessor,
+} from "solid-js";
+import type { JSX } from "@solidjs/web";
+import {
+  createReducedMotion,
+  ReducedMotionContext,
+} from "../app/reducedMotion";
+import {
+  AlertDialog as UiAlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@ui-sdk/solid/alert-dialog";
+import {
+  Dialog as UiDialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+  type DialogFinalFocus,
+  type DialogInitialFocus,
+} from "@ui-sdk/solid/dialog";
 import { modalOutside, registerKeys } from "../keys/registry";
 import "./Dialog.css";
 
-const Ownership = createContext<{ open: Accessor<boolean>; present: Accessor<boolean>; exiting: Accessor<boolean>; animated: Accessor<boolean>; element: Accessor<HTMLElement | undefined>; setElement: (element: HTMLElement) => void }>();
+type Owner = {
+  open: Accessor<boolean>;
+  animated: Accessor<boolean>;
+  element: Accessor<HTMLElement | undefined>;
+  setElement: (element: HTMLElement) => void;
+  initialFocus: Accessor<DialogInitialFocus>;
+  finalFocus: () => HTMLElement | null | undefined;
+};
 
-/** Whether this Solid owner belongs to a Dialog, including through Portals. */
-export const dialogOwned = (): boolean => useContext(Ownership) !== undefined;
+const Ownership = createContext<Owner | null>(null);
 
 /** Modal dismissal uses the Solid owner, so portalled choice lists still belong to their Dialog.
  * Suppression stays latched until an explicit opening; removing a modal never reopens a background control. */
-export const floatingControl = (props: { open?: boolean | undefined; defaultOpen?: boolean | undefined; onOpenChange?: ((details: { open: boolean }) => void) | undefined }, element: Accessor<HTMLElement | undefined> = () => undefined) => {
+export const createFloatingControl = (
+  props: {
+    open?: boolean | undefined;
+    defaultOpen?: boolean | undefined;
+    onOpenChange?: ((details: { open: boolean }) => void) | undefined;
+  },
+  element: Accessor<HTMLElement | undefined> = () => undefined,
+) => {
   const owner = useContext(Ownership);
-  const [local, setLocal] = createSignal(props.defaultOpen ?? false);
+  const [local, setLocal] = createSignal(() => props.defaultOpen ?? false);
   const [dismissed, setDismissed] = createSignal(false);
   const requested = () => props.open ?? local();
-  const blocked = () => owner ? owner.element() !== undefined && modalOutside(owner.element()) : modalOutside(element());
+
+  const blocked = () =>
+    owner
+      ? owner.element() !== undefined && modalOutside(owner.element())
+      : modalOutside(element());
 
   const change = (details: { open: boolean }) => {
     if (details.open && blocked()) return;
@@ -30,92 +76,167 @@ export const floatingControl = (props: { open?: boolean | undefined; defaultOpen
     props.onOpenChange?.(details);
   };
 
-  createEffect(() => {
-    if (!requested()) setDismissed(false);
-    else if (blocked() && !dismissed()) {
-      setDismissed(true);
-      setLocal(false);
-      props.onOpenChange?.({ open: false });
-    }
-  });
+  createEffect(
+    () => [requested(), blocked(), dismissed()] as const,
+    ([wanted, outside, kept]) => {
+      if (!wanted) setDismissed(false);
+      else if (outside && !kept) {
+        setDismissed(true);
+        setLocal(false);
+        props.onOpenChange?.({ open: false });
+      }
+    },
+  );
 
-  return { open: () => requested() && !blocked() && !dismissed(), blocked, change };
+  // A memo: Popover, Tooltip and Menu apply on each recompute, so an unchanged opening must not re-run them.
+  const open = createMemo(() => requested() && !blocked() && !dismissed());
+
+  return { open, blocked, change };
 };
 
-export const Dialog = {
-  ...ArkDialog,
-  Root: (props: ArkDialog.RootProps & { instant?: boolean }) => {
-    const parent = useContext(Ownership);
-    const [element, setElement] = createSignal<HTMLElement>();
-    const [local, setLocal] = createSignal(props.defaultOpen ?? false);
-    const requested = () => props.open ?? local();
-    let opener: HTMLElement | null = null;
-    let finalFocus = captureFocus();
-    createComputed(on(requested, (open, previous) => {
-      if (open && !previous) opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      else if (!open && previous) finalFocus = captureFocus();
-    }));
-    const [backdrop, setBackdrop] = createSignal<HTMLElement>();
-    const lifetime = createSlideLifetime(() => [element(), backdrop()]);
-    // U3512d: a key-open or key-close is instant, so the last input modality decides whether a modal fades.
-    onMount(() => onCleanup(trackFocusVisible()));
-    const [present, setPresent] = createSignal(requested());
-    const reduced = useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true);
-    let wasOpen = false;
+type RootProps = {
+  open?: boolean | undefined;
+  defaultOpen?: boolean | undefined;
+  instant?: boolean | undefined;
+  modal?: boolean | undefined;
+  closeOnInteractOutside?: boolean | undefined;
+  initialFocusEl?: (() => HTMLElement | null | undefined) | undefined;
+  finalFocusEl?: (() => HTMLElement | null | undefined) | undefined;
+  onOpenChange?: ((details: { open: boolean }) => void) | undefined;
+  children?: JSX.Element;
+};
 
-    createEffect(on(() => [requested(), reduced()] as const, ([open, reduce]) => {
-      if (!open && !wasOpen) {
-        lifetime.settle();
-        setPresent(false);
+type ContentProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, "style"> & {
+  style?: JSX.CSSProperties | string;
+};
 
-        return;
-      }
+const createOwnership = (props: RootProps) => {
+  const [element, setElement] = createSignal<HTMLElement>();
+  const [local, setLocal] = createSignal(() => props.defaultOpen ?? false);
+  const requested = () => props.open ?? local();
 
-      wasOpen = open;
-      lifetime.retarget(open, !props.instant && !reduce && !isFocusVisible());
-      setPresent(open || lifetime.exiting());
-    }));
-    // A close request must not unmount the panel before the lifetime effect retains its exit.
-    createEffect(on(lifetime.exiting, exiting => { if (!exiting && !untrack(requested)) setPresent(false); }));
-    const animated = lifetime.sliding;
+  const reduced =
+    useContext(ReducedMotionContext) ??
+    (window.matchMedia
+      ? createReducedMotion((query) => window.matchMedia(query))
+      : () => true);
 
-    return <Ownership.Provider value={{ open: requested, present, element, setElement, exiting: lifetime.exiting, animated }}>
-      <ArkDialog.Root lazyMount {...props} finalFocusEl={() => finalFocus.target(() => props.finalFocusEl?.() ?? (opener?.isConnected ? opener : null))} unmountOnExit={false} onRequestDismiss={event => {
-        props.onRequestDismiss?.(event);
+  // U3512d: a key-open or key-close is instant, so the last input modality decides whether a modal fades.
+  const animated = createMemo(() => {
+    requested();
 
-        // A disappearing background picker is not this Dialog’s parent, even if Ark registered it earlier.
-        if (!parent || event.detail.targetLayer !== parent.element()) event.preventDefault();
-      }} open={requested()} onOpenChange={details => { setLocal(details.open); props.onOpenChange?.(details); }}>
-        <Show when={present()}><Portal><ArkDialog.Backdrop class="app-dialog-backdrop" hidden={!requested() && !lifetime.exiting()} data-open={requested()} data-motion={animated() ? "fade" : undefined} ref={setBackdrop} /></Portal></Show>
-        {props.children}
-      </ArkDialog.Root>
-    </Ownership.Provider>;
-  },
-  Positioner: (props: ArkDialog.PositionerProps) => {
-    const dialog = useDialogContext();
+    return !props.instant && !reduced() && sourceOf() !== "keyboard";
+  });
+
+  const owner: Owner = {
+    open: requested,
+    animated,
+    element,
+    setElement,
+    initialFocus: () => props.initialFocusEl ?? "auto",
+    // ui-sdk reads this as it closes, before any effect of ours could run: the permission is taken here, so a focus move that came earlier in the turn still wins.
+    finalFocus: () => captureFocus().target(() => untrack(() => props.finalFocusEl?.())),
+  };
+
+  const change = (open: boolean) => {
+    setLocal(open);
+    props.onOpenChange?.({ open });
+  };
+
+  return { owner, change };
+};
+
+const content =
+  (
+    Content: (
+      props: ContentProps & {
+        initialFocus?: DialogInitialFocus;
+        finalFocus?: DialogFinalFocus;
+      },
+    ) => JSX.Element,
+  ) =>
+  (props: ContentProps) => {
     const owner = useContext(Ownership);
 
-    return <Show when={owner ? owner.present() && (dialog().open || owner.exiting()) : dialog().open}><Portal><ArkDialog.Positioner {...props} hidden={!dialog().open && !owner?.exiting()} class={`app-dialog-positioner ${props.class ?? ""}`} /></Portal></Show>;
-  },
-  Content: (props: ArkDialog.ContentProps) => {
-    const dialog = useDialogContext();
-    const owner = useContext(Ownership);
-    let content: HTMLElement | undefined;
+    if (!owner) throw new Error("A Dialog's content renders inside its Root.");
 
     // U3767: the registry's modal layer is what `modalOpen` reads, so what floats under a Dialog can close.
-    registerKeys({ kind: "layer", element: () => content, active: () => owner?.open() ?? dialog().open, modal: true }, []);
+    registerKeys(
+      {
+        kind: "layer",
+        element: owner.element,
+        active: owner.open,
+        modal: true,
+      },
+      [],
+    );
 
-    return <Show when={owner ? owner.present() && (dialog().open || owner.exiting()) : dialog().open}><ArkDialog.Content {...props} hidden={!dialog().open && !owner?.exiting()} inert={!(owner?.open() ?? dialog().open)} data-open={owner?.open() ?? dialog().open} data-motion={owner?.animated() ? "fade" : undefined}
-      ref={(element: HTMLDivElement) => {
-      content = element;
-      owner?.setElement(element);
-      // SAFETY: every caller passes a callback ref; Ark types the prop as the union Solid allows.
-      (props.ref as ((element: HTMLDivElement) => void) | undefined)?.(element);
-    }} class={`app-dialog ${props.class ?? ""}`} /></Show>;
+    return (
+      <Content
+        {...props}
+        class={["app-dialog", props.class]}
+        inert={!owner.open()}
+        data-motion={owner.animated() ? "fade" : undefined}
+        initialFocus={owner.initialFocus()}
+        finalFocus={owner.finalFocus}
+        ref={(element: HTMLElement) => {
+          owner.setElement(element);
+          // SAFETY: every caller passes a callback ref; the prop is typed as the union Solid allows.
+          (props.ref as ((element: HTMLElement) => void) | undefined)?.(
+            element,
+          );
+        }}
+      />
+    );
+  };
+
+export const Dialog = {
+  Root: (props: RootProps) => {
+    const { owner, change } = createOwnership(props);
+
+    return (
+      <Ownership value={owner}>
+        <UiDialog
+          open={owner.open()}
+          modal={props.modal ?? true}
+          closeOnOutsidePress={props.closeOnInteractOutside ?? true}
+          onOpenChange={change}
+        >
+          <DialogBackdrop
+            class="app-dialog-backdrop"
+            data-motion={owner.animated() ? "fade" : undefined}
+          />
+          {props.children}
+        </UiDialog>
+      </Ownership>
+    );
   },
+  Content: content(DialogContent),
+  Title: DialogTitle,
+  Description: DialogDescription,
+  CloseTrigger: DialogClose,
+  Trigger: DialogTrigger,
 };
 
 export const AlertDialog = {
-  ...Dialog,
-  Root: (props: ArkDialog.RootProps) => <Dialog.Root {...props} role="alertdialog" closeOnInteractOutside />,
+  Root: (props: RootProps) => {
+    const { owner, change } = createOwnership(props);
+
+    return (
+      <Ownership value={owner}>
+        <UiAlertDialog open={owner.open()} onOpenChange={change}>
+          <AlertDialogBackdrop
+            class="app-dialog-backdrop"
+            data-motion={owner.animated() ? "fade" : undefined}
+          />
+          {props.children}
+        </UiAlertDialog>
+      </Ownership>
+    );
+  },
+  Content: content(AlertDialogContent),
+  Title: AlertDialogTitle,
+  Description: AlertDialogDescription,
+  CloseTrigger: AlertDialogClose,
+  Trigger: AlertDialogTrigger,
 };

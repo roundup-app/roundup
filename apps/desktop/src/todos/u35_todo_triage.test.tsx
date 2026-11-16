@@ -115,7 +115,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_blocked_rows_depth_changes_only_once_todo_unblocked_refetches_the_list", async () => {
     const { app, store } = await mountTodos([todo(5, { title: "session store", blocked: true, blockers: [4] }), todo(4, { title: "migrate" })]);
-    await screen.findByRole("tree");
+    await screen.findByRole("tree", { name: "Todos" });
 
     fireEvent.contextMenu(rowOf(4));
     await app.pickMenu("Complete");

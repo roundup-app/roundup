@@ -1,5 +1,4 @@
-import { createSignal } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createSignal, type Accessor } from "solid-js";
 import { applying } from "./pending";
 
 /** What a command shows: nothing, a call in flight, or why the last call failed. */
@@ -22,7 +21,8 @@ export type CommandOptions = {
 
 /** A command the UI shows as pending or failed, declared once: it owns the catch around the Daemon call. A non-Error rethrows, an `AbortError` stays silent, and a failure is classified by `applying` (U5172a, U3791b). */
 export const command = <A extends unknown[], T>(run: (...args: A) => Promise<T>, { fail, rethrow = false }: CommandOptions = {}): Command<A, T> => {
-  const [state, setState] = createSignal<CommandState>({ kind: "idle" });
+  // A command may start inside a component body (`void reload()`), and its first write runs before the first await.
+  const [state, setState] = createSignal<CommandState>({ kind: "idle" }, { ownedWrite: true });
   let inflight = 0;
 
   const call = async (...args: A): Promise<Ran<T>> => {

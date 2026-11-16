@@ -1,27 +1,22 @@
 import "./Field.css";
 import { makeEventListener } from "@solid-primitives/event-listener";
+import { Command, CommandEmpty, CommandGroup, CommandGroupLabel, CommandInput, CommandItem, CommandList } from "@ui-sdk/solid/command";
+import { useFieldControl } from "@ui-sdk/solid/field";
 import { Field } from "./Field";
 import { createRowCollection } from "./RowCollection";
-import { focusActions } from "./focusActions";
-import * as combobox from "@zag-js/combobox";
-import { normalizeProps, useMachine } from "@zag-js/solid";
-import { useLocaleContext } from "@ark-ui/solid/locale";
-import { useEnvironmentContext } from "@ark-ui/solid/environment";
-import { useFieldContext } from "@ark-ui/solid/field";
 import { captureFocus } from "../keys/focus";
 import "./Combobox.css";
 import "./Select.css";
-import { Portal } from "solid-js/web";
+import { createMemo, createSignal, createUniqueId, For, onCleanup, onSettled, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { Popover } from "./Popover";
-import Check from "lucide-solid/icons/check";
-import ChevronDown from "lucide-solid/icons/chevron-down";
+import Check from "@lucide/solid/icons/check";
+import ChevronDown from "@lucide/solid/icons/chevron-down";
 import { copy } from "./copy";
-import { Combobox as ArkCombobox, createListCollection } from "@ark-ui/solid/combobox";
-import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } from "solid-js";
 
 type ComboboxItem = { value: string; label: string };
 
-/** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓`; form choices wrap, and the pointer preserves the keyboard position. `onSelect` hears the highlighted value on `⏎`. */
+/** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; ui-sdk's Command owns the highlight and `↑` `↓`; form choices wrap, `Home` `End` jump to the first and last, a pick returns focus to the field, and the pointer preserves the keyboard position. `onSelect` hears the highlighted value on `⏎`. */
 const Root = (props: {
   items: readonly ComboboxItem[];
   /** Opt in only owned content rows; commands and form choices keep single activation. */
@@ -47,59 +42,92 @@ const Root = (props: {
   row: (item: ComboboxItem) => JSX.Element;
 }) => {
   const dismiss = props.onDismiss ?? Popover.dismiss();
-  const contains = (target: EventTarget | null, input: HTMLElement) => target instanceof Node && (props.focusScope?.() ?? input.closest(".app-combobox"))?.contains(target) === true;
-  const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
+  const contains = (target: EventTarget | null, input: HTMLElement) => target instanceof Node && untrack(() => props.focusScope?.() ?? input.closest(".app-combobox"))?.contains(target) === true;
 
-  const groups = createMemo(() => collection().group());
+  const groups = createMemo(() => {
+    const groupOf = props.group;
 
-  // Typing and arrows own the highlight; a resting pointer must not move the selection wash.
-  let pointerEvent = false;
-
-  const notePointer = (): void => {
-    pointerEvent = true;
-    setTimeout(() => { pointerEvent = false; });
-  };
+    return [...Map.groupBy(props.items, item => groupOf?.(item) ?? "")];
+  });
 
   const initialFocus = props.initialFocus ?? Popover.initialFocus() ?? captureFocus();
   let input: HTMLInputElement | undefined;
-  const id = createUniqueId();
-  const locale = useLocaleContext();
-  const environment = useEnvironmentContext();
-  const field = useFieldContext();
 
-  // Zag 1.45's open entry schedules focus regardless of autoFocus. Ark's useCombobox fixes
-  // that machine, so retain it through RootProvider and guard only its focus actions.
-  // https://github.com/chakra-ui/zag/blob/%40zag-js/combobox%401.45.0/packages/machines/combobox/src/combobox.machine.ts
-  const machine = focusActions(combobox.machine, {
-    setInitialFocus: () => {
-      if (props.autoFocus === false) return;
-      requestAnimationFrame(() => initialFocus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
-    },
-    setFinalFocus: () => {
-      if (props.autoFocus === false) return;
-      const focus = captureFocus();
-      requestAnimationFrame(() => focus(() => { if (input?.isConnected) input.focus({ preventScroll: true }); }));
-    },
+  // Content rows start without a highlight; form choices always hold one.
+  const highlighted = () => props.contentRow ? props.highlightedValue : (props.items.find(item => item.value === props.highlightedValue) ?? props.items[0])?.value ?? null;
+
+  // A pick returns focus to the field, unless a newer focus choice comes first; content rows keep the focus they took.
+  const pick = (value: string) => {
+    const focus = captureFocus();
+
+    props.onSelect(value);
+
+    if (props.autoFocus === false || props.contentRow) return;
+    // A closed popup keeps its field mounted, hidden: only a live field takes the focus back.
+    requestAnimationFrame(() => focus(() => { if (input?.isConnected && !input.closest("[hidden], [inert]")) input.focus({ preventScroll: true }); }));
+  };
+
+  // Home/End edit the query for content rows, whose navigation starts only after focus leaves it; form choices move the highlight.
+  const jumpToEdge = (event: KeyboardEvent) => {
+    if (props.contentRow) {
+      event.stopPropagation();
+
+      return;
+    }
+
+    if (event.ctrlKey || event.isComposing) return;
+    const ordered = groups().flatMap(([, items]) => items);
+    const edge = event.key === "Home" ? ordered[0] : ordered.at(-1);
+
+    event.preventDefault();
+
+    if (edge) props.onHighlightChange(edge.value);
+  };
+
+  // Tab picks a form's highlighted choice; content rows keep it as focus travel.
+  const pickHighlighted = (event: KeyboardEvent) => {
+    const value = highlighted();
+
+    if (props.contentRow || event.shiftKey || event.isComposing || value === null) return;
+
+    event.preventDefault();
+    pick(value);
+  };
+
+  /** The keys the field handles itself, by `KeyboardEvent.key`; ui-sdk's Command owns the rest. */
+  const keys = new Map<string, (event: KeyboardEvent) => void>([
+    ["Escape", event => { event.preventDefault(); event.stopPropagation(); dismiss?.(); }],
+    ["Home", jumpToEdge],
+    ["End", jumpToEdge],
+    ["Tab", pickHighlighted],
+  ]);
+
+  // ui-sdk 0.1.0-beta.5 recurses without end when a Command unmounts in the turn it mounted while its value names a row, so the value names one only once settled.
+  const [settled, setSettled] = createSignal(false);
+
+  onSettled(() => {
+    setSettled(true);
+    const element = input;
+
+    if (!element) return;
+    const signal = initialFocus.signal(target => contains(target, element));
+    const cancel = () => dismiss?.();
+    // listener-owner: onSettled refuses onCleanup, so the cleanup it returns removes this.
+    signal.addEventListener("abort", cancel, { once: true });
+
+    if (signal.aborted) queueMicrotask(() => { if (element.isConnected) cancel(); });
+    const frame = props.autoFocus === false ? undefined : requestAnimationFrame(() => initialFocus(() => { if (element.isConnected) element.focus({ preventScroll: true }); }));
+
+    return () => {
+      signal.removeEventListener("abort", cancel);
+
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
   });
 
-  const service = useMachine(machine, () => ({
-    id, ids: { label: field?.().ids.label, input: field?.().ids.control },
-    disabled: field?.().disabled, readOnly: field?.().readOnly, required: field?.().required, invalid: field?.().invalid,
-    dir: locale().dir, getRootNode: environment().getRootNode,
-    collection: collection(), multiple: props.items.some(item => props.contentRow?.(item)), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: !props.contentRow, autoFocus: false,
-    onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
-    inputValue: props.inputValue, value: [], highlightedValue: props.contentRow ? props.highlightedValue ?? undefined : props.items.find(item => item.value === props.highlightedValue)?.value ?? props.items[0]?.value,
-    onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
-    onInputValueChange: details => props.onInput(details.inputValue),
-    onOpenChange: details => { if (!details.open && details.reason === "escape-key") dismiss?.(); },
-    onValueChange: details => { const [value] = details.value;
+  makeEventListener(document, "focusin", event => { if (input && !contains(event.target, input)) dismiss?.(); });
 
-      if (value !== undefined) props.onSelect(value); },
-  }));
-
-  const api = createMemo(() => combobox.connect(service, normalizeProps));
-
-  // Keep content selection independent of Zag's always-empty activation value and native query.
+  // Keep content selection independent of the highlight and the native query.
   const rows = new Map<string, HTMLDivElement>();
 
   const content = createRowCollection(() => props.items.filter(item => {
@@ -112,68 +140,60 @@ const Root = (props: {
   const tabStop = () => props.items.find(item => props.contentRow?.(item) && item.value === props.highlightedValue)?.value
     ?? props.items.find(item => props.contentRow?.(item))?.value;
 
-  const itemRow = (item: ComboboxItem) => <ArkCombobox.Item item={item} asChild={itemProps => <div {...itemProps({})} class="app-combobox-item"
-    ref={element => {
-      if (!props.contentRow?.(item)) return;
-      rows.set(item.value, element);
-      content.register(element, item.value);
-      onCleanup(() => rows.delete(item.value));
-    }} tabIndex={props.contentRow?.(item) && tabStop() === item.value ? 0 : -1}
-    onFocus={() => { if (props.contentRow?.(item)) props.onHighlightChange(item.value); }} aria-selected={props.contentRow?.(item) ? content.selection.isSelected(item.value) : undefined}
-    data-row-selected={props.contentRow?.(item) && content.selection.isSelected(item.value) ? "true" : undefined}>
-    {props.row(item)}
-  </div>} />;
+  const itemRow = (item: ComboboxItem) => {
+    let row: HTMLDivElement | undefined;
+    onCleanup(() => { if (row && rows.get(item.value) === row) rows.delete(item.value); });
 
+    return <CommandItem value={item.value} data-value={item.value} label={item.label} class="app-combobox-item"
+      ref={element => {
+        if (!props.contentRow?.(item)) return;
+        row = element;
+        rows.set(item.value, element);
+        content.register(element, item.value);
+      }} tabindex={props.contentRow?.(item) && tabStop() === item.value ? 0 : -1}
+      onFocus={() => { if (props.contentRow?.(item)) props.onHighlightChange(item.value); }}
+      data-row-selected={props.contentRow?.(item) && content.selection.isSelected(item.value) ? "true" : undefined}
+      render={attributes => <div {...attributes} aria-selected={props.contentRow?.(item) ? String(content.selection.isSelected(item.value)) : attributes["aria-selected"]} />}>
+      {props.row(item)}
+    </CommandItem>;
+  };
 
-  return <ArkCombobox.RootProvider value={api} class="app-combobox" lazyMount={false}>
-    <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
-    <ArkCombobox.Control><ArkCombobox.Input spellcheck={false} autocorrect="off" autocapitalize="off" on:keydown={{ capture: true, handleEvent: (event: KeyboardEvent) => {
-      // Home/End edit the query; content-row navigation starts only after focus leaves it.
-      if (props.contentRow && (event.key === "Home" || event.key === "End")) event.stopPropagation();
-
-      if (!props.contentRow && event.key === "Tab" && !event.shiftKey && !event.isComposing && api().highlightedValue) {
-        event.preventDefault();
-        api().selectValue(api().highlightedValue!);
-      }
-    } }} ref={element => {
-      const focus = initialFocus;
-      input = element;
-      const signal = focus.signal(target => contains(target, element));
-      const cancel = () => dismiss?.();
-      // listener-owner: the focus signal outlives this input; the cleanup below removes it.
-      signal.addEventListener("abort", cancel, { once: true });
-      onCleanup(() => signal.removeEventListener("abort", cancel));
-
-      if (signal.aborted) queueMicrotask(() => { if (element.isConnected) cancel(); });
-      makeEventListener(element, "input", event => props.inputEvents?.input?.(event));
-      makeEventListener(element, "select", event => props.inputEvents?.select?.(event));
-      makeEventListener(element, "focus", event => props.inputEvents?.focus?.(event));
-      makeEventListener(element, "keydown", event => props.inputEvents?.keydown?.(event));
-      makeEventListener(element, "keyup", event => props.inputEvents?.keyup?.(event));
-      makeEventListener(element, "pointerup", event => props.inputEvents?.pointerup?.(event));
-      makeEventListener(element, "blur", event => props.inputEvents?.blur?.(event));
-      props.inputRef?.(element);
-    }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
-    <ArkCombobox.Content class="app-combobox-list" on:click={{ handleEvent: content.click, capture: true }} on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
-      <For each={groups().map(([group]) => group)} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
+  return <Command class="app-combobox" value={settled() ? highlighted() : null} loop={!props.contentRow} filter={false} query={props.inputValue} onAction={pick}
+    onValueChange={(value, details) => { if (details.reason === "item-hover") details.cancel(); else props.onHighlightChange(value); }}
+    onQueryChange={(query, details) => { if (details.reason === "escape-key") details.cancel(); else props.onInput(query); }}>
+    <CommandInput class="app-combobox-input" aria-label={props.label} placeholder={props.placeholder} spellcheck="false" autocorrect="off" autocapitalize="off"
+      onKeyDown={event => keys.get(event.key)?.(event)} ref={element => {
+        input = element;
+        makeEventListener(element, "input", event => props.inputEvents?.input?.(event));
+        makeEventListener(element, "select", event => props.inputEvents?.select?.(event));
+        makeEventListener(element, "focus", event => props.inputEvents?.focus?.(event));
+        makeEventListener(element, "keydown", event => props.inputEvents?.keydown?.(event));
+        makeEventListener(element, "keyup", event => props.inputEvents?.keyup?.(event));
+        makeEventListener(element, "pointerup", event => props.inputEvents?.pointerup?.(event));
+        makeEventListener(element, "blur", event => props.inputEvents?.blur?.(event));
+        props.inputRef?.(element);
+      }} />
+    <CommandEmpty class="app-combobox-empty">{props.empty}</CommandEmpty>
+    <CommandList class="app-combobox-list" aria-multiselectable={props.items.some(item => props.contentRow?.(item)) ? "true" : undefined} ref={element => { makeEventListener(element, "click", content.click, { capture: true }); }}>
+      <For each={groups().map(([group]) => group)}>
         {(group) => {
           // Key the owner by its group name: replacing a tuple remounts every option on each edit (Z3788d).
           const items = () => groups().find(([name]) => name === group)?.[1] ?? [];
 
-          return group ? <ArkCombobox.ItemGroup>
-            <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
+          return group ? <CommandGroup>
+            <CommandGroupLabel class="app-combobox-group-label">{group}</CommandGroupLabel>
             <For each={items()}>{(item) => itemRow(item)}</For>
-          </ArkCombobox.ItemGroup> : <For each={items()}>{(item) => itemRow(item)}</For>;
+          </CommandGroup> : <For each={items()}>{(item) => itemRow(item)}</For>;
         }}
       </For>
-    </ArkCombobox.Content>
-  </ArkCombobox.RootProvider>;
+    </CommandList>
+  </Command>;
 };
 
-
-/** A filtered choice anchored to its trigger. Ark owns opening, dismissal and focus return. */
+/** A filtered choice anchored to its trigger. ui-sdk's Popover owns opening, dismissal and focus return. */
 const Picker = (props: { label: string; value: string; savedLabel?: string; items: readonly ComboboxItem[]; onSelect: (value: string) => void }) => {
-  const field = useFieldContext();
+  const field = useFieldControl();
+  const control = field?.props({});
   const caption = createUniqueId();
   const valueId = createUniqueId();
   const [open, setOpen] = createSignal(false);
@@ -183,16 +203,16 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
   let content: HTMLDivElement | undefined;
   const items = () => props.items.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
 
-  return <div class="app-select"><span id={caption} class="app-combobox-label">{props.label}</span><Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} autoFocus={false} closeOnInteractOutside initialFocusEl={() => input ?? null} positioning={{ placement: "bottom-start", strategy: "fixed", sameWidth: true }}>
-    <Popover.Trigger id={field?.().ids.control} disabled={field?.().disabled} aria-invalid={field?.().invalid ? "true" : undefined} aria-describedby={field?.().ariaDescribedby} data-invalid={field?.().invalid ? "" : undefined} class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
+  return <div class="app-select"><span id={caption} class="app-combobox-label">{props.label}</span><Popover.Root open={open()} onOpenChange={({ open }) => { setOpen(open); setQuery(""); setHighlight(null); }} initialFocusEl={() => input}>
+    <Popover.Trigger {...control} disabled={field?.disabled() ?? false} class="app-select-trigger" aria-labelledby={`${caption} ${valueId}`}>
       <span id={valueId}>{props.items.find(item => item.value === props.value)?.label ?? props.savedLabel ?? props.label}</span>
       <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
     </Popover.Trigger>
-    <Portal><Popover.Positioner><Popover.Content ref={element => { content = element; }} class="choice-picker" aria-label={props.label} onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
-      {/* A separate Field keeps the query label from naming the trigger with the same control ID. */}
+    <Popover.Content ref={element => { content = element; }} class="choice-picker" aria-label={props.label} side="bottom" align="start">
+      {/* A separate Field keeps the query input out of the trigger's field wiring. */}
       <Field.Root><Root focusScope={() => content} onDismiss={() => setOpen(false)} items={items()} highlightedValue={highlight()} onHighlightChange={setHighlight} inputValue={query()} inputRef={element => { input = element; }} onInput={setQuery}
         onSelect={value => { props.onSelect(value); setOpen(false); }} label={props.label} placeholder={props.label} empty={copy.noMatch} row={item => <>{item.label}{item.value === props.value && <Check class="app-choice-check" aria-hidden="true" size={16} />}</>} /></Field.Root>
-    </Popover.Content></Popover.Positioner></Portal>
+    </Popover.Content>
   </Popover.Root></div>;
 };
 

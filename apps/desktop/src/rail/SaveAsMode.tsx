@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { queueFocus } from "../keys/focus";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
@@ -13,6 +14,15 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
 
+  // The Rail unmounts this Dialog at once, which ends ui-sdk's own return of focus: the row takes it back here, as the opening prompt's Dialog does.
+  const close = () => {
+    const row = props.finalFocus;
+
+    setOpen(false);
+    props.onClose();
+    queueFocus(() => row()?.focus({ preventScroll: true }));
+  };
+
   const submit = async () => {
     if (busy() || !name().trim()) return;
     setBusy(true);
@@ -21,22 +31,21 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
       await app.rpc("agent.saveAsMode", { id: props.id, name: name().trim() });
       await rail.refresh();
       rail.setSectionOpen("modes", true);
-      setOpen(false);
-      props.onClose();
+      close();
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setFailure(error.message);
     } finally { setBusy(false); }
   };
 
-  return <Dialog.Root open={open()} finalFocusEl={props.finalFocus} onOpenChange={({ open }) => { if (!open) { setOpen(false); props.onClose(); } }}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form">
+  return <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }}>
+    <Dialog.Content class="app-dialog-form">
       <Dialog.Title>{copy.saveAsModeTitle}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={name()} onInput={event => setName(event.currentTarget.value)} /></Field.Root>
         <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
-        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !name().trim()}>{copy.saveMode}</button></div>
+        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !name().trim() ? "true" : "false"}>{copy.saveMode}</button></div>
       </form>
-    </Dialog.Content></Dialog.Positioner>
+    </Dialog.Content>
   </Dialog.Root>;
 };

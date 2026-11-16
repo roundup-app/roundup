@@ -1,5 +1,5 @@
 import { cleanup } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import type { DaemonExit } from "../app/seam";
 import { pasteEvent } from "../testing/clipboard";
@@ -18,6 +18,7 @@ afterEach(cleanup);
 it("u101_command_c_copies_only_selected_text_and_control_c_still_types", async () => {
   const { app, connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
   connected.rail.select("a");
+  flush();
   const emulator = emulators.get("t-a")!;
   const target = container.querySelector("[data-terminal]")!;
   const emulatedKey = vi.fn();
@@ -38,6 +39,7 @@ it("u101_command_c_copies_only_selected_text_and_control_c_still_types", async (
 it("u101_empty_clipboard_and_modified_chords_do_nothing", async () => {
   const { app, connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
   connected.rail.select("a");
+  flush();
   const target = container.querySelector("[data-terminal]")!;
   emulators.get("t-a")!.selectedText = "text";
   pasteEvent(target);
@@ -55,6 +57,7 @@ it("u101_empty_clipboard_and_modified_chords_do_nothing", async () => {
 it("u101_chords_leave_other_fields_to_the_browser", async () => {
   const { app, connected, container } = await mountPane([terminal("a")], [info("t-a")]);
   connected.rail.select("a");
+  flush();
   const field = document.createElement("textarea");
   container.querySelector(".pane-screen")!.append(field);
   field.focus();
@@ -69,10 +72,12 @@ it("u101_exited_terminal_and_daemon_exited_copy_but_never_paste", async () => {
   const [exit, setExit] = createSignal<DaemonExit | null>(null);
   const { app, connected, emulators, container } = await mountPane([terminal("a"), terminal("b")], [info("t-a", { running: false, exit_code: 0 }), info("t-b")], 0, exit);
   connected.rail.select("a");
+  flush();
   emulators.get("t-a")!.selectedText = "exited copy";
   key(container.querySelector("[data-terminal='t-a']")!, "c", { metaKey: true });
   pasteEvent(container.querySelector("[data-terminal='t-a']")!, "paste");
   connected.rail.select("b");
+  flush();
   setExit({ code: 1 });
   emulators.get("t-b")!.selectedText = "daemon copy";
   key(container.querySelector("[data-terminal='t-b']")!, "c", { metaKey: true });
@@ -86,6 +91,7 @@ it("u101_exited_terminal_and_daemon_exited_copy_but_never_paste", async () => {
 it("u3787b_edit_menu_copy_event_copies_the_terminal_selection_once", async () => {
   const { app, connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
   connected.rail.select("a");
+  flush();
   const target = container.querySelector("[data-terminal]")!;
   const field = document.createElement("textarea");
   container.querySelector(".pane-screen")!.append(field);

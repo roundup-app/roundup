@@ -25,12 +25,12 @@ export const shelfRowKeys = <Id,>(props: {
   move?: (id: Id, event: KeyboardEvent) => void;
 }) => {
   registerKeys({ kind: "app" }, [
-    { chords: chordsOf(CHORDS["todo.delete"]), when: event => canShelfKey(event) && strandedFocus(event, ".shelf") && props.clicked?.() !== undefined, run: () => {
+    { chords: untrack(() => chordsOf(CHORDS["todo.delete"])), when: event => canShelfKey(event) && strandedFocus(event, ".shelf") && props.clicked?.() !== undefined, run: () => {
       const id = props.clicked?.();
 
       if (id !== undefined) props.remove(id);
     } },
-    { chords: chordsOf(CHORDS["todo.export"]), when: event => canShelfKey(event) && strandedFocus(event, ".shelf") && props.clicked?.() !== undefined && props.exportPad !== undefined, run: () => {
+    { chords: untrack(() => chordsOf(CHORDS["todo.export"])), when: event => canShelfKey(event) && strandedFocus(event, ".shelf") && props.clicked?.() !== undefined && props.exportPad !== undefined, run: () => {
       const id = props.clicked?.();
 
       if (id !== undefined) props.exportPad?.(id);

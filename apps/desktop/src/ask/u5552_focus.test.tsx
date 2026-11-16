@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountApp, select, rpcCalls } from "../testing/appFixture";
 import { info } from "../testing/nodes";
@@ -15,12 +16,15 @@ it("u5552f_ask_has_no_direct_terminal_write", async () => {
   select("alpha");
   select("beta");
   fireEvent.keyDown(document.activeElement!, { key: "/", code: "Slash", metaKey: true });
+  flush();
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
   field.focus();
   pasteEvent(field, "pasted 界");
   fireEvent.input(field, { target: { value: "pasted 界 and typed" } });
+  flush();
   expect(rpcCalls(app, "terminal.write")).toEqual([]);
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  flush();
   await waitFor(() => expect(rpcCalls(app, "ask.send")).toHaveLength(1));
   expect(rpcCalls(app, "ask.send")).toMatchObject([{ text: "pasted 界 and typed" }]);
   expect(rpcCalls(app, "ask.send")[0]).not.toHaveProperty("workstream");

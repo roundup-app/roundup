@@ -23,14 +23,14 @@ const setup = async () => {
   await page.scheme("dark");
   // selection keeps tree-40's Todos with only four Rail nodes.
   await page.load("/harness.html?view=workstreams&items=1&seed=selection", 1512, 950);
-  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
+  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('.rail-row[data-branch][aria-expanded]')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
   }`);
-  await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
+  await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control'))`);
   await page.call(`() => {
-    document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
+    document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control')?.click();
   }`);
   await page.until(`() => document.querySelectorAll(".shelf .todo-list .todo-row-button").length > 2`);
   // The drop's calls must be the only ones: the seed's own are not counted.

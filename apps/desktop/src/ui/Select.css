@@ -22,7 +22,7 @@
   cursor: pointer;
 }
 
-.app-select-trigger [data-part="value-text"] {
+.app-select-trigger [data-slot="select-value"] {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -40,15 +40,13 @@
 }
 
 .app-select-trigger[data-pressed="true"],
-.app-select-trigger[data-state="open"] {
+.app-select-trigger[data-open] {
   color: var(--text);
   transition-duration: var(--duration-instant);
 }
 
-/* The list is as wide as its longest label, never narrower than its trigger, never wider than the room Zag measures. */
+/* The list is as wide as its longest label, never wider than the room ui-sdk measures; ui-sdk keeps it no narrower than its trigger. */
 .app-select-list {
-  z-index: var(--layer-menu);
-  min-width: var(--reference-width);
   max-width: var(--available-width);
   max-height: calc(var(--space-5) * 8);
   overflow-y: auto;
@@ -68,7 +66,7 @@
   cursor: pointer;
 }
 
-.app-select-item [data-part="item-text"] {
+.app-select-item [data-slot="select-item-text"] {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -80,15 +78,11 @@
   color: var(--text);
 }
 
-.app-select-item[data-state="checked"] {
+.app-select-item[data-selected] {
   background-color: var(--selected);
 }
 
-.app-select-item[data-state="checked"][data-highlighted] {
-  background-color: var(--selected);
-}
-
-.app-choice-check:not([hidden]) { margin-inline-start: auto; display: flex; color: var(--accent); }
+.app-choice-check { margin-inline-start: auto; display: flex; color: var(--accent); }
 
 .app-select-trigger:active:not(:disabled) {
   opacity: var(--press-opacity);

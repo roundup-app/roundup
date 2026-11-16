@@ -1,7 +1,6 @@
 import { applied } from "../app/pending";
 import { createSignal } from "solid-js";
 import { captureFocus, returnFocus } from "../keys/focus";
-import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
@@ -59,7 +58,7 @@ export const TodoHeader = (props: {
         <IconButton data-todo-navigation ref={button => { if (props.navigation === copy.previousTodo) returnFocus(button); }} aria-label={copy.previousTodo} disabled={at() <= 0} onClick={() => go(-1)}><Icon name="left" /></IconButton>
         <IconButton data-todo-navigation ref={button => { if (props.navigation === copy.nextTodo) returnFocus(button); }} aria-label={copy.nextTodo} disabled={at() < 0 || at() >= props.order.length - 1} onClick={() => go(1)}><Icon name="right" /></IconButton>
         <CopyButton class="word mono" app={connected.app} text={`#${props.todo.id}`} aria-label={copy.copyTodoId} onFailure={error => props.fail(error.message)}>#{props.todo.id}</CopyButton>
-        <Menu.Root open={actions()} onOpenChange={({ open }) => setActions(open)} onSelect={({ value }) => {
+        <Menu.Root open={actions()} onOpenChange={({ open }) => setActions(open)} onAction={value => {
           if (value === "delete") props.remove();
 
           if (value === "owner" && trigger) assign(trigger);
@@ -68,14 +67,14 @@ export const TodoHeader = (props: {
 
           if (value === "home" && trigger) setMoving({ id: props.todo.id, anchor: trigger });
         }}>
-          <Menu.Trigger asChild={attributes => <IconButton {...attributes({ ref: (element: HTMLButtonElement) => { trigger = element; } })} aria-label={copy.todoMoreActions}><Icon name="more" /></IconButton>} />
-          <Portal><Menu.Positioner><Menu.Content aria-label={copy.todoActions}>
+          <Menu.Trigger ref={(element: HTMLButtonElement) => { trigger = element; }} render={attributes => <IconButton {...attributes} aria-label={copy.todoMoreActions}><Icon name="more" /></IconButton>} />
+          <Menu.Content aria-label={copy.todoActions}>
             <Menu.Item value="owner" disabled={props.todo.done}>{copy.assign}</Menu.Item>
             <Menu.Item value="hand" disabled={props.todo.done || !ownersOnRail(connected).some(owner => owner.actor?.kind === "agent" && !sameOwner(owner.actor, props.todo.owner))}>{copy.handToAgent}</Menu.Item>
             <Menu.Item value="home">{copy.todoHome(homeNameOf(connected.rail.nodes, props.todo.home))}</Menu.Item>
-            <Menu.ItemGroup><Menu.ItemGroupLabel>{copy.createdBy(props.todo.creator.kind === "user" ? copy.me : connected.rail.nameOf(props.todo.creator))}</Menu.ItemGroupLabel></Menu.ItemGroup>
+            <Menu.Group><Menu.GroupLabel>{copy.createdBy(props.todo.creator.kind === "user" ? copy.me : connected.rail.nameOf(props.todo.creator))}</Menu.GroupLabel></Menu.Group>
             <Menu.Item value="delete" disabled={props.deleting}>{copy.deleteTodo}</Menu.Item>
-          </Menu.Content></Menu.Positioner></Portal>
+          </Menu.Content>
         </Menu.Root>
       </div>
     </header>

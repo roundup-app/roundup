@@ -48,14 +48,14 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
     showShelfTab("Pads");
 
     const group = await waitFor(() => {
-      const branch = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+      const branch = document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control');
 
       expect(branch).not.toBeNull();
 
       return branch!;
     });
 
-    if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") fireEvent.click(group.closest('[data-part="branch-control"]')!);
+    if (group.getAttribute("aria-expanded") === "false") fireEvent.click(group);
     const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
     row.focus();
     fireEvent.keyDown(row, { key: "Enter", code: "Enter" });

@@ -12,6 +12,8 @@ import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 
 import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
+import { flush } from "solid-js";
+import { notices } from "../testing/notices";
 
 // ESM exports are non-configurable: spy mode records the scenario's library calls while executing the real implementation.
 // eslint-disable-next-line anti-slop/no-module-mocking
@@ -29,7 +31,12 @@ it("u5646b_annotation_updates_keep_content", async () => {
   await waitFor(() => expect(processFile).toHaveBeenCalledTimes(1));
   const click = vi.mocked(VirtualizedFileDiff).mock.calls[0]![0]!.onLineNumberClick!;
 
-  for (const lineNumber of [1, 2]) click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey: lineNumber === 2 }) });
+  for (const lineNumber of [1, 2]) {
+    click({ type: "diff-line", lineType: "change-deletion", lineElement: document.createElement("div"), numberElement: document.createElement("span"), numberColumn: true, lineNumber, annotationSide: "deletions", event: new PointerEvent("click", { shiftKey: lineNumber === 2 }) });
+    // A gutter click is its own event; the test calls the callback twice in one turn, so it settles each write.
+    flush();
+  }
+
   await saveNote("first exact 🐝");
   await waitFor(() => expect(annotations()).toMatchObject([{ side: "deletions", lineNumber: 2, metadata: { text: "first exact 🐝", side: "old", start: 1, end: 2 } }]));
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
@@ -103,6 +110,8 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "b")).toBe(true));
   connected.rail.select("b");
+  // The selection is a user's own event; the test queries in the same turn, so it settles the write first.
+  flush();
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   expect(screen.queryByRole("list")).toBeNull();
   await openFile();
@@ -112,6 +121,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished b e\u0301\n  " } });
   connected.rail.select("a");
+  flush();
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   const batch = await screen.findByRole("list", { name: "Notes" });
   expect(batch.textContent).toContain(firstText);
@@ -203,7 +213,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: memory } });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(before);
   fireEvent.click(screen.getByRole("button", { name: "Review recovery options" }));
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Worktree" })) throw new Error("Previous dialog remains mounted"); });
@@ -230,7 +240,8 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "temporary" } });
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: memory } });
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
-  await screen.findByRole("alert");
+  // ui-sdk unmounts the closed panel at once, and the failure's alert went with it; the retention problem is what the failed write sets.
+  await waitFor(() => expect(notesFor(reopened.app, "/p", reopened.connected.drafts).problem()).not.toBeNull());
   blockedWrite.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
   const recovered = await screen.findByRole("dialog", { name: "Recover notes" });
@@ -255,7 +266,7 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   if (original) localStorage.setItem("roundup:drafts:/p", original);
   const read = cause === "unreadable" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
   await openDiff();
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "retain exact newer" } });
   read?.mockRestore();
@@ -348,7 +359,7 @@ it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "first editor work" } });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   blockedWrite.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
@@ -368,7 +379,7 @@ it("u2773e_changes_connection_replacement_keeps_memory", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  original memory e\u0301\n🐝  " } });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   first.view.unmount();
   write.mockRestore();
   const next = await openDiff("/p", first.connected.drafts);

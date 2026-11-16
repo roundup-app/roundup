@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Actor } from "@contracts/Actor";
@@ -10,7 +9,7 @@ import { padHandlers, todoHandlers } from "../../testing/stores";
 import { showShelfTab } from "../../testing/shelfTabs";
 import { path, renderTabs, tab } from "../../header/stripFixture";
 
-afterEach(() => batch(cleanup));
+afterEach(cleanup);
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
@@ -32,6 +31,9 @@ const control = (id: string) => document.querySelector<HTMLElement>(`[role=treei
 
 const group = (id: string) => document.querySelector<HTMLElement>(`[data-shelf-group="${id}"]`);
 
+/** A group's wrapper holds no state; its body is shown while the group is open, and a bare group has no disclosure row to ask. */
+const expanded = (root: HTMLElement | null) => root ? String(!root.querySelector(":scope > .shelf-group-body")!.hasAttribute("hidden")) : undefined;
+
 describe("u4457 the Pads control opens the Shelf", () => {
   it("u4457_a_todo_only_control_reveals_the_todos_it_counts_in_their_owner_groups", async () => {
     await mount([], [
@@ -45,8 +47,8 @@ describe("u4457 the Pads control opens the Shelf", () => {
     fireEvent.click(control("a1")!);
     await waitFor(() => expect(screen.getByRole("tab", { name: /Todos/, selected: true })).toBeTruthy());
     await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ unassigned work/ })).toBe(document.activeElement));
-    expect(group("unassigned")?.getAttribute("aria-expanded")).toBe("true");
-    expect(group("a2")?.getAttribute("aria-expanded")).toBe("true");
+    expect(expanded(group("unassigned"))).toBe("true");
+    expect(expanded(group("a2"))).toBe("true");
     expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ finished work/ })).toBeTruthy();
     expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true");
   });
@@ -57,7 +59,7 @@ describe("u4457 the Pads control opens the Shelf", () => {
     fireEvent.click(control("a1")!);
     await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /Idle #1 work/ })).toBe(document.activeElement));
     fireEvent.click(group("unassigned")!.querySelector(".shelf-group-control")!);
-    await waitFor(() => expect(group("unassigned")?.getAttribute("aria-expanded")).toBe("false"));
+    await waitFor(() => expect(expanded(group("unassigned"))).toBe("false"));
     fireEvent.click(control("a1")!);
     await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /Idle #1 work/ })).toBe(document.activeElement));
   });
@@ -83,7 +85,7 @@ describe("u4457 the Pads control opens the Shelf", () => {
       return el!;
     });
 
-    if (root.getAttribute("aria-expanded") === "false") fireEvent.click(root.querySelector(".shelf-group-control")!);
+    if (expanded(root) === "false") fireEvent.click(root.querySelector(".shelf-group-control")!);
     await screen.findByRole("button", { name: "notes" });
     expect(document.querySelector('.rail-tree')!.querySelectorAll('[role=treeitem][data-pad], [role=treeitem][data-todo]')).toHaveLength(0);
     expect(document.querySelectorAll('.pads-tab [data-pad]')).toHaveLength(2);
@@ -112,7 +114,7 @@ it("u2744a_pads_stay_in_their_project", async () => {
     return el!;
   });
 
-  if (root.getAttribute("aria-expanded") === "false") fireEvent.click(root.querySelector(".shelf-group-control")!);
+  if (expanded(root) === "false") fireEvent.click(root.querySelector(".shelf-group-control")!);
   await waitFor(() => expect(document.querySelector('.pads-tab [data-pad="p-notes"]')).toBeTruthy());
   fireEvent.click(tab("q"));
   await waitFor(() => expect(document.querySelector('[role=tree] [data-id="q1"]')).not.toBeNull());
@@ -125,7 +127,7 @@ it("u2744a_pads_stay_in_their_project", async () => {
     return el!;
   });
 
-  if (otherRoot.getAttribute("aria-expanded") === "false") fireEvent.click(otherRoot.querySelector(".shelf-group-control")!);
+  if (expanded(otherRoot) === "false") fireEvent.click(otherRoot.querySelector(".shelf-group-control")!);
   await waitFor(() => expect([...document.querySelectorAll('.pads-tab [data-pad]')].map(row => row.getAttribute("data-pad"))).toEqual(["q-notes"]));
   fireEvent.click(tab("p"));
   await waitFor(() => expect([...document.querySelectorAll('.pads-tab [data-pad]')].map(row => row.getAttribute("data-pad"))).toEqual(["p-notes"]));

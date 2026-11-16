@@ -13,7 +13,7 @@ it("u6244a_rail_has_no_overview_row", async () => {
   expect(document.querySelector(".rail [data-todo-root]")).toBeNull();
 
   connected().rail.select("a1");
-  await waitFor(() => expect(document.querySelector<HTMLElement>('.rail-row[data-id="a1"]')?.dataset.selected).toBe("true"));
+  await waitFor(() => expect(document.querySelector('.rail-row[data-id="a1"]')?.hasAttribute("data-selected")).toBe(true));
   expect(screen.queryByRole("button", { name: /Overview|waiting/ })).toBeNull();
 });
 

@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { batch, createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { Deferred } from "../ui/Deferred";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -17,19 +17,20 @@ export const ProjectSettingsView = () => {
   onCleanup(app.onProjectPage(({ path, command }) => {
     if (path !== project.path || (command !== "import-work" && command !== "project-settings")) return;
     const selected = rail.selected();
-    batch(() => {
-      settingsView.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body, command, () => rail.select(selected));
+    settingsView.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body, command, () => rail.select(selected));
 
-      if (command === "import-work" && !importing.open()) importing.show();
-    });
+    if (command === "import-work" && !importing.open()) importing.show();
   }));
-  createEffect(on(importing.open, open => {
-    if (open && !settingsView.open()) settingsView.show(document.body, "import-work");
+  createEffect(() => importing.open(), open => {
+    const shown = untrack(settingsView.open);
 
-    if (!open && settingsView.open() && settingsView.page() === "import-work") settingsView.close(false);
-  }));
+    if (open && !shown) settingsView.show(document.body, "import-work");
 
-  const close = () => batch(() => { importing.cancel(); settingsView.close(); });
+    if (!open && shown && untrack(settingsView.page) === "import-work") settingsView.close(false);
+  });
+
+  const close = () => { importing.cancel(); settingsView.close(); };
+
   const closeImport = () => { if (!importing.pending()) close(); };
 
   return <>
@@ -44,14 +45,13 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
   drafts.validate("settings", v.object({ text: v.string() }));
   const destination = { surface: "settings", object: "workstreamCap", recipient: null };
   const draft = () => drafts.list().findLast(entry => entry.destination.surface === "settings" && entry.destination.object === "workstreamCap");
-  const release = drafts.editor(destination);
-  onCleanup(release);
+  onSettled(() => drafts.editor(destination));
   const [saved, setSaved] = createSignal<number | null>(null);
   const [text, setText] = createSignal("1");
   const [failure, setFailure] = createSignal<string | null>(null);
 
   // Each opening reads the current cap.
-  onMount(() => void (async () => {
+  onSettled(() => void (async () => {
     const message = await failureOf(async () => {
       const cap = (await app.rpc("project.get", null)).workstreamCap;
 
@@ -101,7 +101,7 @@ const ProjectSettingsBody = (props: { onClose: () => void }) => {
     <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
       <label class="app-dialog-field">
         <span>{copy.runAtMost}</span>
-        <textarea class="field-frame" rows={1} inputMode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
+        <textarea class="field-frame" rows={1} inputmode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
           onInput={event => {
             const field = event.currentTarget;
             setText(field.value);

@@ -41,5 +41,6 @@ it.each(["agent", "door", "bubble"].flatMap(placement => ["text", "image"].map(p
   expect(callsTo(app, "terminal.write")).toEqual([{ id, data: payload === "text" ? "b25lCumbqiDwn5CICg==" : btoa(expected) }]);
   expect(app.savedImages).toEqual(payload === "image" ? [{ type: "image/png", bytes: Uint8Array.of(137, 80, 78, 71) }] : []);
   expect(forbidden).not.toHaveBeenCalled();
-  expect(screen.queryByRole("alert")).toBeNull();
+  // ui-sdk keeps an empty assertive announcer in the page; a failure alert is any other.
+  expect(screen.queryAllByRole("alert").filter(alert => !alert.matches("[data-ui-sdk-announcer]"))).toEqual([]);
 });

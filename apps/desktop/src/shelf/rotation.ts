@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import type { ActivationSource } from "../keys/registry";
 import type { DrawerState } from "../drawer/drawer";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -44,6 +45,9 @@ export const createBenchRotation = (props: {
 
   const step = (open: DrawerState | undefined) => {
     if (openSelectedRow()) {
+      // The drawer's size is read as the opened row left it.
+      flush();
+
       if (!overlay() && open?.size()?.maximised) open.size()?.toggle("key");
     } else if (overlay()) close();
     else props.frame.toggleMaximise("key");

@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { applied, applying } from "../app/pending";
 import { Age } from "../shelf/Age";
 import { queueFocus } from "../keys/focus";
@@ -18,8 +19,7 @@ import { registerOpener } from "../shelf/openItem";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSelector, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
-import type { Accessor, Setter } from "solid-js";
+import { createEffect, createMemo, createProjection, createSignal, For, onCleanup, Show, untrack, useContext, type Accessor, type Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { OpenButton } from "../ink/OpenButton";
@@ -35,6 +35,29 @@ import { Sortable } from "../ui/sortable";
 import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
 import type { PadList } from "./padList";
+
+/** The failure of one action on one Pad. It shows while that Pad is listed: a late reply for a deleted source never brings its error back. */
+const createPadFailure = (pads: () => readonly Pad[]) => {
+  const [itemFailure, setItemFailure] = createSignal<{ incarnation: string; message: string; action: string } | null>(null);
+
+  const reportItemFailure = (pad: Pad, message: string | null, action: string) => {
+    if (message !== null) {
+      if (pads().some(current => current.incarnation === pad.incarnation)) setItemFailure({ incarnation: pad.incarnation, message, action });
+    } else {
+      if (itemFailure()?.incarnation === pad.incarnation) setItemFailure(null);
+    }
+  };
+
+  createEffect(createMemo(() => {
+    const failed = itemFailure();
+
+    return failed !== null && !pads().some(pad => pad.incarnation === failed.incarnation);
+  }), (orphaned) => {
+    if (orphaned) setItemFailure(null);
+  });
+
+  return { itemFailure, setItemFailure, reportItemFailure };
+};
 
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
 export const Pads = (props: {
@@ -57,9 +80,9 @@ export const Pads = (props: {
   };
 
   const nameLabel = copy.copyField(copy.draftField("name").toLowerCase());
-  const restored = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation" && draft.destination.recipient === null && (props.recovery?.revision === undefined || draft.revision === props.recovery?.revision)).at(-1);
+  const restored = untrack(() => connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation" && draft.destination.recipient === null && (props.recovery?.revision === undefined || draft.revision === props.recovery?.revision)).at(-1));
   const [naming, setNaming] = createSignal(props.recovery?.revision !== undefined && restored !== undefined);
-  createEffect(() => { if (naming()) onCleanup(connected.drafts.editor(creation)); });
+  createEffect(naming, (active) => active ? connected.drafts.editor(creation) : undefined);
   const parsed = restored ? v.safeParse(v.object({ name: v.string(), home: v.nullable(v.string()) }), restored.value) : null;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
   const [name, setName] = createSignal(parsed?.success ? parsed.output.name : "");
@@ -68,10 +91,10 @@ export const Pads = (props: {
   let home = parsed?.success ? parsed.output.home : null;
   const kept = () => draft.value().success;
 
-  const capture = () => {
+  const capture = (text = name()) => {
     if (invalid()) return;
     const caret = input ? { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" } : null;
-    draft.keep({ name: name(), home }, caret);
+    draft.keep({ name: text, home }, caret);
   };
 
   const forget = () => { void draft.discard(); setName(""); };
@@ -79,22 +102,7 @@ export const Pads = (props: {
   let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
   const listNote = dismissable(() => list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null));
-  const [itemFailure, setItemFailure] = createSignal<{ incarnation: string; message: string; action: string } | null>(null);
-
-  const reportItemFailure = (pad: Pad, message: string | null, action: string) => {
-    if (message !== null) {
-      // A late reply for a deleted source must not resurrect its error on the list.
-      if (pads().some(current => current.incarnation === pad.incarnation)) setItemFailure({ incarnation: pad.incarnation, message, action });
-    } else {
-      if (itemFailure()?.incarnation === pad.incarnation) setItemFailure(null);
-    }
-  };
-
-  createEffect(() => {
-    const failed = itemFailure();
-
-    if (failed && !pads().some(pad => pad.incarnation === failed.incarnation)) setItemFailure(null);
-  });
+  const { itemFailure, setItemFailure, reportItemFailure } = createPadFailure(pads);
   const scope = shelfScope(connected);
 
   const create = () =>
@@ -238,10 +246,18 @@ export const Pads = (props: {
       <Show when={naming()}>
         <div class="shelf-list">
           <ShelfRow glyph={<Icon name={PAD_ICON} />} class="entry-row pad-inset">
-            <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(); }}>
-            <Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" class="entry-field shelf-title field-inline" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
+            <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(value); }}>
+            <Editable.Input spellcheck="false" autocorrect="off" autocapitalize="off" type="text" class="entry-field shelf-title field-inline" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
               ref={(element) => {
                 input = element;
+                makeEventListener(element, "keydown", (event) => {
+                  if (event.key === "Enter" && name().trim()) { event.preventDefault(); void create(); }
+                  else if (event.key === "Escape" || (event.key === "Enter" && !name().trim())) {
+                    event.preventDefault();
+                    setNaming(false);
+                    plusButton?.focus();
+                  }
+                });
                 queueFocus(() => {
                   if (!element.isConnected) return;
                   element.focus();
@@ -249,16 +265,8 @@ export const Pads = (props: {
                   if (restored?.selection) element.setSelectionRange(restored.selection.start, restored.selection.end, restored.selection.direction);
                 });
               }}
-              onInput={(event) => { setName(event.currentTarget.value); capture(); }}
+              onInput={(event) => { const { value } = event.currentTarget; setName(value); capture(value); }}
               onSelect={() => { if (kept()) capture(); }}
-              on:keydown={(event) => {
-                if (event.key === "Enter" && name().trim()) { event.preventDefault(); void create(); }
-                else if (event.key === "Escape" || (event.key === "Enter" && !name().trim())) {
-                  event.preventDefault();
-                  setNaming(false);
-                  plusButton?.focus();
-                }
-              }}
               onBlur={() => { if (!name().trim()) setNaming(false); }} />
             </Editable.Root>
           </ShelfRow>
@@ -281,7 +289,8 @@ const PadRows = (props: {
   onLift: (pad: Pad) => void;
   onDrag: Setter<boolean>;
 }) => {
-  const isSelected = createSelector(() => props.selection.selected(), (incarnation: string, chosen) => chosen.includes(incarnation));
+  const picked = createProjection(() => Object.fromEntries(props.selection.selected().map(incarnation => [incarnation, true])));
+  const isSelected = (incarnation: string) => picked[incarnation] === true;
 
   return (
     <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
@@ -305,7 +314,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
   // U5172a: a rename that got no reply shows the asked name, marked busy, until the Daemon's Event or a re-read changes the name.
   const [asked, setAsked] = createSignal<string | null>(null);
 
-  createEffect(on(() => pad.name, () => setAsked(null), { defer: true }));
+  createEffect(() => pad.name, () => { setAsked(null); }, { defer: true });
 
   let row: HTMLButtonElement | undefined;
 
@@ -358,14 +367,14 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
               if (!editing() && event.target instanceof Element && !event.target.closest("button, input")) open("pointer");
             }}
             data-incarnation={pad.incarnation}
-            data-editing={editing()}
+            data-editing={String(editing())}
             data-selected={props.isSelected(pad.incarnation) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
               { id: "open", label: copy.openDraft, run: () => open("pointer") },
               { id: "rename", label: copy.rename, run: rename },
               ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message, copy.link), () => props.onItemFailure(pad, null, copy.link), copied),
-              { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(); } },
+              { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(false, pad.incarnation); } },
             ], x, y))}
             class="pad-inset"
             glyph={<Icon name={PAD_ICON} />}
@@ -384,19 +393,19 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
             <button
               type="button"
               class="pad-name"
-              aria-busy={asked() !== null ? true : undefined}
-              aria-pressed={props.selection.selected().includes(pad.incarnation)}
+              aria-busy={asked() !== null ? "true" : undefined}
+              aria-pressed={props.selection.selected().includes(pad.incarnation) ? "true" : "false"}
               ref={(element) => {
                 row = element;
                 props.selection.register(pad.incarnation, element);
+                makeEventListener(element, "keydown", (event) => {
+                  props.bulk.key(event);
+
+                  if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.incarnation, event);
+                });
 
                 if (element) props.rowButtons.set(pad.name, element);
                 else props.rowButtons.delete(pad.name);
-              }}
-              on:keydown={(event) => {
-                props.bulk.key(event);
-
-                if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.incarnation, event);
               }}
               onDblClick={() => open("pointer")}
               onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}

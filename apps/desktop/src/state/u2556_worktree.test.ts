@@ -1,4 +1,4 @@
-import { createRoot, createSignal, untrack } from "solid-js";
+import { createRoot, createSignal, flush, untrack } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { waitFor } from "@solidjs/testing-library";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
@@ -23,16 +23,20 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   const [now, tick] = createSignal(0);
   const connected = await connectProject(app, { path: "/p", name: "p" }, () => false, now);
   createRoot((dispose) => { disposals.push(dispose); connected.worktrees.watch(() => true); });
+  flush();
   const first = connected.worktrees.refresh("a");
   const second = connected.worktrees.refresh("a");
   tick(4_000);
+  flush();
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(1);
   finish(facts);
   expect(await Promise.all([first, second])).toEqual([{ failure: null, state: facts }, { failure: null, state: facts }]);
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: null, state: facts }));
   tick(15_000);
+  flush();
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(1);
   tick(30_000);
+  flush();
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(2);
 });
 
@@ -58,6 +62,7 @@ it.each(["path", "branch", "base", "remove", "switch", "close", "exit"].flatMap(
   });
 
   disposals.push(stop);
+  flush();
 
   if (request === "refresh") {
     replies[0]!.resolve(facts);
@@ -77,6 +82,7 @@ it.each(["path", "branch", "base", "remove", "switch", "close", "exit"].flatMap(
     await connected.rail.refresh();
   }
 
+  flush();
   const pending = replies[count - 1]!;
 
   if (outcome === "success") pending.resolve(facts);
@@ -88,6 +94,7 @@ it.each(["path", "branch", "base", "remove", "switch", "close", "exit"].flatMap(
 
   if (["close", "exit", "switch", "remove"].includes(change)) {
     tick(30_000);
+    flush();
     expect(replies).toHaveLength(count);
   } else {
     expect(replies).toHaveLength(count + 1);
@@ -111,11 +118,13 @@ it.each(["success", "failure"])("u2556b_reopening_does_not_reuse_the_previous_ow
     return dispose;
   });
 
+  flush();
   const pending = first.refresh("a");
   stop();
   const replacement = await connectProject(app, { path: "/p", name: "p" }, () => false, () => 0);
   const second = createWorktreeState(app, replacement.rail, () => 0, () => null);
   createRoot((dispose) => { disposals.push(dispose); second.watch(() => true); });
+  flush();
 
   if (outcome === "success") replies[0]!.resolve(facts);
   else replies[0]!.reject(new Error("old connection read failed"));
@@ -139,11 +148,13 @@ it("u2556b_failure_is_contained_and_the_next_tick_recovers", async () => {
   const [now, tick] = createSignal(0);
   const connected = await connectProject(app, { path: "/p", name: "p" }, () => false, now);
   createRoot((dispose) => { disposals.push(dispose); connected.worktrees.watch(() => true); });
+  flush();
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: "worktree_missing: /p/a" }));
   expect(connected.worktrees.read("b")).toEqual({ failure: null, state: facts });
   expect(app.calls.filter((call) => call.method === "agent.worktreeState").map((call) => call.params)).toEqual([{ id: "a" }, { id: "b" }, ...Array.from({ length: 4 }, () => ({ id: "a" }))]);
   failed = false;
   tick(30_000);
+  flush();
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: null, state: facts }));
 });
 
@@ -154,11 +165,14 @@ it("u2556b_opening_near_a_tick_does_not_add_a_poll", async () => {
   const [now, tick] = createSignal(0);
   const connected = await connectProject(app, { path: "/p", name: "p" }, () => false, now);
   createRoot((dispose) => { disposals.push(dispose); connected.worktrees.watch(() => true); });
+  flush();
   await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
   await connected.worktrees.refresh("a");
   tick(15_000);
+  flush();
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(2);
   tick(30_000);
+  flush();
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(3);
 });
 
@@ -177,10 +191,12 @@ it.each(["unwatched", "plain", "missing", "hidden", "closed", "exited"])("s3806b
   });
 
   disposals.push(stop);
+  flush();
 
   if (cause === "hidden") show(false);
   else if (cause === "closed") stop();
   else if (cause === "exited") end({ code: 1 });
+  flush();
   const before = app.calls.length;
   const id = cause === "plain" || cause === "missing" ? cause : "a";
   expect(await connected.worktrees.refresh(id)).toEqual({ failure: expect.stringMatching(/\S/) });
@@ -234,6 +250,7 @@ it("u5643c_unchanged_ticks_do_not_reconcile_rail", async () => {
   const state = createWorktreeState(app, rail, now, () => null);
   const before = app.calls.length;
   createRoot(dispose => { disposals.push(dispose); state.watch(() => true); });
+  flush();
   await waitFor(() => expect(state.read("a")).toEqual({ failure: null, state: facts }));
   traversals = 0;
   identityReads = 0;
@@ -241,6 +258,7 @@ it("u5643c_unchanged_ticks_do_not_reconcile_rail", async () => {
 
   for (const time of [30_000, 45_000, 60_000]) {
     tick(time);
+    flush();
     await state.refresh("a");
     state.read("a");
     state.read("plain");
@@ -270,6 +288,7 @@ it.each(["id", "presence", "path", "branch", "base", "name", "status"] as const)
   const state = createWorktreeState(app, rail, () => 0, () => null);
   const before = app.calls.length;
   createRoot(dispose => { disposals.push(dispose); state.watch(() => true); });
+  flush();
   await waitFor(() => expect(state.read("a")).toEqual({ failure: null, state: facts }));
   const previous = state.read("a");
   reconciliations = 0;

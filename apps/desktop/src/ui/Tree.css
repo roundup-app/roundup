@@ -1,40 +1,48 @@
 .app-tree {
+  gap: 0;
+  width: auto;
+  max-width: none;
   padding: var(--space-1);
+  font-size: inherit;
 }
 
-.app-tree [data-part="branch-control"],
-.app-tree [data-part="item"] {
+/* A leaf is told from a branch inside :where(), so the Rail's own display and columns (.rail-tree .rail-row) still win. */
+.app-tree [data-slot="tree-label"],
+.app-tree [data-slot="tree-item"]:where(:not(:has([data-slot="tree-label"], [data-slot="tree-group"]))) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  height: auto;
   min-height: var(--space-6);
   padding-inline: var(--space-2);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.app-tree [data-part="branch-content"] {
-  padding-inline-start: var(--space-4);
-}
-
-.app-tree [data-part="branch"] {
-  cursor: pointer;
-}
-
-.app-tree [data-part="branch-control"]:hover,
-.app-tree [data-part="item"]:hover {
-  color: var(--text);
-}
-
-[data-scope="tree-view"][data-part="label"] {
   margin: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* A row takes its tree's font unless its own class sets one, as the Rail's section heads do. */
+:where([data-slot="tree-label"], [data-slot="tree-item"]) {
   font: inherit;
 }
 
-.app-tree [data-part="branch"]:hover {
+/* D6: a row declares its hover state; text colour is the one it already has. */
+.app-tree [data-slot="tree-label"]:hover,
+.app-tree [data-slot="tree-item"]:where(:not(:has([data-slot="tree-label"], [data-slot="tree-group"]))):hover {
   color: var(--text);
 }
 
+.app-tree [data-slot="tree-group"] {
+  gap: 0;
+  margin-top: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.app-tree [data-slot="tree-indicator"] { rotate: none; }
+
+/* The library rings the label of a focused item; the App draws no control ring (U4382a). */
+.app-tree [data-slot="tree-label"] { outline: none; }
 
 /* U4335a: both trees anchor connections to the same glyph box and Token step. */
 :root {

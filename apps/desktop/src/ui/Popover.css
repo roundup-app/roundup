@@ -1,10 +1,13 @@
+/* ui-sdk's stylesheet gives the popover its own look: these zero-specificity rules hand every property it sets back to the App's buttons and surfaces, and any rule of the App wins over them. */
+:where(.app-popover) {
+  min-width: revert;
+  max-width: revert;
+  gap: revert;
+  font-size: var(--text-body);
+  line-height: revert;
+}
+
 .app-popover {
   color: var(--text);
   padding: var(--space-4);
-  z-index: var(--layer-popover);
-}
-
-/* A portalled picker keeps the Dialog that owns its trigger above the modal surface. */
-.app-popover[data-dialog-owned] {
-  z-index: var(--layer-menu);
 }

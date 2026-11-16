@@ -1,4 +1,4 @@
-import ArrowUpRight from "lucide-solid/icons/arrow-up-right";
+import ArrowUpRight from "@lucide/solid/icons/arrow-up-right";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 

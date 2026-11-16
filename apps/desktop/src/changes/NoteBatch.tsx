@@ -6,7 +6,7 @@ import { CopyButton } from "../ui/CopyButton";
 import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "./copy";
 import { createWritableMemo } from "@solid-primitives/memo";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { modalOutside } from "../keys/registry";
@@ -87,14 +87,14 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
   const [element, setElement] = createSignal<HTMLElement>();
   const [comparisons, setComparisons] = createSignal<ReadonlyMap<string, FileComparison>>(new Map());
 
-  createEffect(on(() => props.open, open => {
+  createEffect(createMemo(() => props.open), open => {
     if (!open) return;
     let active = true;
 
     setComparisons(new Map());
 
-    for (const [id, value] of props.notes.entries()) {
-      if (!props.available(id)) continue;
+    // The files compared are those of the notes kept, and the Agents still available, when the panel opens.
+    for (const [id, value] of untrack(() => props.notes.entries().filter(([id]) => props.available(id)))) {
       const paths = new Set([...value.forms, ...value.notes, ...value.submissions.flatMap(submission => submission.notes), ...value.recovered.flatMap(record => [...record.data.forms, ...record.data.notes])].map(note => note.comparison.newPath));
 
       for (const path of paths) void reply(() => app.rpc("agent.compareFile", { id, path })).then(result => {
@@ -102,8 +102,8 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
       });
     }
 
-    onCleanup(() => { active = false; });
-  }));
+    return () => { active = false; };
+  });
 
   const older = (id: string, comparison: FileComparison) => olderComparison(comparisons().get(`${id}:${comparison.newPath}`), comparison);
 
@@ -131,11 +131,11 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 
   const problemLine = dismissable(() => props.notes.problem());
 
-  createEffect(() => { if (props.open && element() && modalOutside(element())) close(); });
+  createEffect(createMemo(() => props.open && element() && modalOutside(element())), outside => { if (outside) close(); });
 
-  return <Dialog.Root instant modal={false} trapFocus={false} closeOnInteractOutside={false} open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
+  return <Dialog.Root instant modal={false} closeOnInteractOutside={false} open={props.open} onOpenChange={({ open }) => { if (open) props.onOpenChange(true); else close(); }}>
     <Show when={retained() && !props.open}><Dialog.Trigger>{copy.recoverNotes}</Dialog.Trigger></Show>
-    <Dialog.Positioner class="note-recovery-positioner"><Dialog.Content ref={setElement} class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
+    <Dialog.Content ref={setElement} class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" onClick={close}>{copy.close}</button></header>
       <Show when={!retained()}><EmptyState art="clumsy" {...{ title: copy.noNoteDrafts }} line={copy.emptyNotesLine} /></Show>
       <Show when={props.notes.problem()}><ReservedLine message={problemLine.message()} dismiss={problemLine.dismiss} recover={{ run: props.notes.retry }} /></Show>
@@ -160,7 +160,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
         </div>}</For>
       </section>}</For>
       <For each={props.notes.invalid()}>{draft => <div><RecordPreview rows={draft.preview} /><div class="diff-actions"><CopyButton data-button={null} app={app} text={JSON.stringify(draft)} identity={draft.revision} onSuccess={() => clear(draft.revision)} onFailure={error => failures.fail(draft.revision, clipboardFailure("copy", error))}>{copy.copy}</CopyButton><button type="button" onClick={() => props.notes.discardInvalid(draft.revision)}>{copy.discardDraft}</button></div></div>}</For>
-    </Dialog.Content></Dialog.Positioner>
+    </Dialog.Content>
   </Dialog.Root>;
 };
 

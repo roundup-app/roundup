@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DaemonExit, FileDrop } from "../app/seam";
 import { tauriFileDrop } from "../app/tauri";
@@ -27,6 +27,7 @@ const mount = async (daemonExit?: () => DaemonExit | null, terminals = [info("t-
   const mounted = await mountPane([terminal("a"), terminal("b")], [...terminals, info("t-b")], 0, daemonExit);
 
   mounted.connected.rail.select("a");
+  flush();
 
   const body = mounted.container.querySelector<HTMLElement>(".pane-body")!;
 

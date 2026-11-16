@@ -50,3 +50,4 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 - **Issue tracker**: GitHub Issues, as work orders; see `docs/agents/issue-tracker.md`.
 - **Triage labels**: none but `wontfix`, since an open Issue the user files is already queued (L34); see `docs/agents/triage-labels.md`.
 - **Domain docs**: single-context, `GLOSSARY.md` and `docs/adr/`; see `docs/agents/domain.md`.
+- **ui-sdk**: before using ui-sdk, follow the `ui-sdk` skill and read `apps/desktop/node_modules/@ui-sdk/solid/docs/llms.txt`. To build a new component, also search `docs/core.md` there by heading, and read `rendering.md` beside it.

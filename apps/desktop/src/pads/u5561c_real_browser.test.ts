@@ -50,10 +50,10 @@ finally:
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait("!!document.querySelector('#shelf-tab-pads')");
     await browser("click", "#shelf-tab-pads");
-    await wait("!!document.querySelector('.pads-tab [data-part=branch-control]')");
+    await wait("!!document.querySelector('.pads-tab .shelf-group-control')");
 
     const openPad = async () => {
-      if (!await read("!!document.querySelector('.pad-name')")) await browser("click", ".pads-tab [data-part=branch-control]");
+      if (!await read("!!document.querySelector('.pad-name')")) await browser("click", ".pads-tab .shelf-group-control");
       await wait("!!document.querySelector('.pad-name')");
       await browser("focus", ".pad-name");
       await browser("press", "Enter");

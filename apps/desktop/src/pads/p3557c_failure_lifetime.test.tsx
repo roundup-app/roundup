@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { createSignal, onMount } from "solid-js";
-import type { ComponentProps } from "solid-js";
+import { createSignal, flush, onSettled, untrack } from "solid-js";
+import type { ComponentProps } from "@solidjs/web";
 import type { Pad } from "@contracts/pad/Pad";
 import type PadRichEditor from "./PadRichEditor";
 import { PadDrawer } from "./PadDrawer";
@@ -14,21 +14,24 @@ import { deferred, openShelf, padOf, RpcError, waitForReload, writeAdopted } fro
 // Issue #3597 explicitly substitutes the editor binding through its PadEditorHandle contract; capture, submission, RPC and settlement stay real.
 // eslint-disable-next-line anti-slop/no-module-mocking
 vi.mock("./PadRichEditor", () => ({ default: (props: ComponentProps<typeof PadRichEditor>) => {
-  const [text, setText] = createSignal(props.text);
-  let baseline = props.text;
-  onMount(() => props.onReady({
-    getText: () => text() === "unmappable" ? null : text(),
-    setText: value => { baseline = value; setText(value); },
-    unchanged: () => text() === baseline,
-    focus: () => {},
-    snapshot: () => ({ source: baseline, text: text(), document: "{}", trailingCaret: false }),
-    restoreDocument: () => true,
-    selection: () => ({ start: 1, end: 1, direction: "none" }),
-    restoreSelection: () => {},
-    scrollToHeading: () => {},
-  }));
+  let text = untrack(() => props.text);
+  const [shown, setShown] = createSignal(text);
+  let baseline = text;
+  onSettled(() => {
+    props.onReady({
+      getText: () => text === "unmappable" ? null : text,
+      setText: value => { baseline = value; text = value; setShown(value); },
+      unchanged: () => text === baseline,
+      focus: () => {},
+      snapshot: () => ({ source: baseline, text, document: "{}", trailingCaret: false }),
+      restoreDocument: () => true,
+      selection: () => ({ start: 1, end: 1, direction: "none" }),
+      restoreSelection: () => {},
+      scrollToHeading: () => {},
+    });
+  });
 
-  return <textarea aria-label="Pad body" value={text()} onInput={event => { setText(event.currentTarget.value); props.onChange(); props.onText(text()); }} onFocusOut={event => props.onBlur(event.relatedTarget)} />;
+  return <textarea aria-label="Pad body" value={shown()} onInput={event => { text = event.currentTarget.value; setShown(text); props.onChange(); props.onText(text); }} onFocusOut={event => props.onBlur(event.relatedTarget)} />;
 } }));
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -41,15 +44,16 @@ const open = async (recovery = false) => {
   const lateFailure = vi.fn();
   // openShelf's DrawerHost keeps the same App/Project owner through closure.
 
+  const retained = recovery ? setup.connected.drafts.edit({ surface: "pads", object: original.incarnation, recipient: null }, { originalName: "notes", source: "retained", base: "old", baseRevision: 1 }, null, "ordinary", null).draft : null;
+  flush();
+
   const Body = () => {
     const list = usePadList();
-
-    const retained = recovery ? setup.connected.drafts.edit({ surface: "pads", object: original.incarnation, recipient: null }, { originalName: "notes", source: "retained", base: "old", baseRevision: 1 }, null, "ordinary", null).draft : null;
 
     return <PadDrawer name="notes" pads={list.pads} {...(retained ? { recovery: { project: "/p", revision: retained.revision, list } } : {})} onLateFailure={lateFailure} onAcknowledged={acknowledged} />;
   };
 
-  setup.connected.drawer.open(() => <ConnectedProjectContext.Provider value={setup.connected}><Body /></ConnectedProjectContext.Provider>, "key");
+  setup.connected.drawer.open(() => <ConnectedProjectContext value={setup.connected}><Body /></ConnectedProjectContext>, "key");
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Pad body" });
 
   return { ...setup, original, other, acknowledged, lateFailure, field };
@@ -65,9 +69,11 @@ it.each(["open", "closed", "other", "recreated"])("p3557c_failure_lifetime_ackno
   };
 
   fireEvent.input(field, { target: { value: "submitted" } });
+  flush();
   fireEvent.focusOut(field);
   await waitFor(() => { if (app.calls.filter(call => /pad.write/.test(call.method)).length !== 1) throw new Error("Pad request has not arrived"); });
   fireEvent.input(field, { target: { value: "newer\n  exact ☕  " } });
+  flush();
 
   const newer = connected.drafts.list().at(-1)!;
   state.pads = [{ ...original, text: "submitted", revision: 2 }, other];
@@ -76,12 +82,12 @@ it.each(["open", "closed", "other", "recreated"])("p3557c_failure_lifetime_ackno
   await waitForReload(app, before);
   expect(acknowledged).not.toHaveBeenCalled();
 
-  if (mode !== "open") connected.drawer.close("key");
+  if (mode !== "open") { connected.drawer.close("key"); flush(); }
 
   if (mode === "other" || mode === "recreated") {
     const current = mode === "other" ? other : { ...original, incarnation: "replacement-notes" };
     state.pads = [current, ...(mode === "other" ? [original] : [other])];
-    connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={current.name} pads={() => state.pads} onLateFailure={() => {}} onAcknowledged={acknowledged} /></ConnectedProjectContext.Provider>, "key");
+    connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={current.name} pads={() => state.pads} onLateFailure={() => {}} onAcknowledged={acknowledged} /></ConnectedProjectContext>, "key");
     await screen.findByRole("textbox", { name: "Pad body" });
   }
 
@@ -97,14 +103,17 @@ it.each(["failed", "closed-failed", "unknown", "mapping", "discard"])("p3557c_fa
   const reply = deferred<Pad>();
   app.handlers["pad.write"] = () => reply.promise;
   fireEvent.input(field, { target: { value: mode === "mapping" ? "unmappable" : "submitted" } });
+  flush();
   fireEvent.focusOut(field);
 
   if (mode === "mapping") {
+    flush();
     expect(app.calls.filter(call => /pad.write/.test(call.method))).toEqual([]);
   } else {
     await waitFor(() => { if (app.calls.filter(call => /pad.write/.test(call.method)).length !== 1) throw new Error("Pad request has not arrived"); });
 
-    if (mode === "closed-failed") connected.drawer.close("key");
+    if (mode === "closed-failed") { connected.drawer.close("key"); flush(); }
+
     reply.reject(mode !== "unknown" ? new RpcError(mode === "discard" ? -32003 : -32000, "Write refused") : new Error("Reply lost"));
 
     if (mode === "closed-failed") await waitFor(() => expect(lateFailure).toHaveBeenCalledWith("Write refused"));
@@ -119,6 +128,7 @@ it.each(["failed", "closed-failed", "unknown", "mapping", "discard"])("p3557c_fa
 
     if (mode === "discard") {
       fireEvent.click(screen.getByText("Use theirs"));
+      flush();
       expect(connected.drafts.list()).toEqual([]);
     }
   }
@@ -135,7 +145,8 @@ it.each([false, true])("p3557c_failure_lifetime_recovery_acknowledges_only_resum
   fireEvent.click(screen.getByText("Resume"));
   await waitFor(() => { if (app.calls.filter(call => /pad.write/.test(call.method)).length !== 1) throw new Error("Pad request has not arrived"); });
 
-  if (close) connected.drawer.close("key");
+  if (close) { connected.drawer.close("key"); flush(); }
+
   reply.resolve({ ...original, text: "retained", revision: 2 });
   await waitFor(() => expect(acknowledged.mock.calls).toEqual([["fixture-notes"]]));
   expect(connected.drafts.list()).toEqual([]);
@@ -146,6 +157,7 @@ it("u6249d_an_unmappable_edit_offers_copy_my_text", async () => {
   const clipboard = vi.fn(async () => {});
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.input(field, { target: { value: "unmappable" } });
+  flush();
   fireEvent.focusOut(field);
 
   fireEvent.click(await screen.findByRole("button", { name: "Copy my text" }));
@@ -157,11 +169,13 @@ it("u6249d_copy_my_text_follows_the_source_mapping_kind_not_the_message", async 
   app.handlers["pad.write"] = () => { throw new RpcError(-32000, copy.padSourceMappingFailed); };
 
   fireEvent.input(field, { target: { value: "refused" } });
+  flush();
   fireEvent.focusOut(field);
   await screen.findByText(copy.padSourceMappingFailed);
   expect(screen.queryByRole("button", { name: copy.copyMyText })).toBeNull();
 
   fireEvent.input(field, { target: { value: "unmappable" } });
+  flush();
   fireEvent.focusOut(field);
   expect(await screen.findByRole("button", { name: copy.copyMyText })).toBeTruthy();
 });

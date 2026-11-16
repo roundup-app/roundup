@@ -122,7 +122,7 @@ it("u522_edge_scroll_reaches_an_offscreen_row", async () => {
 
 it("u522_keyboard_move", async () => {
   await load();
-  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"] .sortable-handle').focus()`);
+  await read<void>(`document.querySelector('[role="treeitem"][data-id="tokens"] .sortable-handle').focus()`);
   await page.press(" ", "Space");
   await wait(`document.querySelector('[data-dnd-placeholder]')`);
   await page.press("ArrowDown", "ArrowDown");

@@ -1,5 +1,5 @@
-import { render } from "solid-js/web";
-import { createEffect, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, onSettled, Show } from "solid-js";
+import { render } from "@solidjs/web";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Layout } from "../window/Layout";
 import { createWidths } from "../resize/widths";
@@ -19,16 +19,14 @@ function u491Fixture() {
   const side = (value: typeof widths.rail) => ({ ...value, commit: (px: number) => { value.commit(px); setEnds((count) => count + 1); } });
   const [root, setRoot] = createSignal<HTMLElement>();
 
-  onMount(() => {
+  onSettled(() => {
     const element = document.querySelector<HTMLElement>("[data-layout-root]")!;
 
     widths.attach(element);
     setRoot(element);
   });
-  createEffect(() => {
-    const styles = widths.style();
-
-    for (const [name, value] of Object.entries(styles)) root()?.style.setProperty(name, value);
+  createEffect(() => [widths.style(), root()] as const, ([styles, element]) => {
+    for (const [name, value] of Object.entries(styles)) element?.style.setProperty(name, value);
   });
 
   return <Layout header={<>

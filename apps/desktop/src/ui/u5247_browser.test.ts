@@ -63,16 +63,16 @@ it.skipIf(!art)("u5247b_keyed_tooltips_show_a_chip_after_the_label", async () =>
 
       if (how === "hover") await browser("hover", selector);
       else {
-        // Ark opens on keyboard focus only: start on the preceding tab stop and press Tab.
+        // A tooltip opens on keyboard focus only: start on the preceding tab stop and press Tab.
         await browser("eval", `(() => { const button = document.querySelector(${JSON.stringify(selector)}); const stops = [...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(el => el.getClientRects().length && !el.disabled); stops[stops.indexOf(button) - 1].focus(); button.id = "u5247-target"; })()`);
         await browser("press", "Tab");
         await browser("wait", "--fn", `document.activeElement?.id === "u5247-target"`);
       }
 
-      await browser("wait", "--fn", `document.querySelector('[role=tooltip][data-state=open]')`);
+      await browser("wait", "--fn", `document.querySelector('[role=tooltip][data-open]')`);
       // U5247a: the maximise key shows only while the Shelf has focus, so a hover from outside shows the label alone.
 
-      if (name !== "maximise" || how === "focus") expect(await read<number>(`document.querySelectorAll('[role=tooltip][data-state=open] kbd').length`), `${name} ${how}`).toBeGreaterThan(0);
+      if (name !== "maximise" || how === "focus") expect(await read<number>(`document.querySelectorAll('[role=tooltip][data-open] kbd').length`), `${name} ${how}`).toBeGreaterThan(0);
       await browser("screenshot", join(art!, `${name}-${how}.png`));
       writeFileSync(join(art!, `${name}-${how}.checks.json`), JSON.stringify(await read<Checks>("window.__checks()")));
     }

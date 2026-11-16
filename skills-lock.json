@@ -103,6 +103,12 @@
       "skillPath": "skills/engineering/to-spec/SKILL.md",
       "computedHash": "3fa1a0695d4ea242fae9e569e4d22aa1788623197abb33bfadafae7315789bbf"
     },
+    "ui-sdk": {
+      "source": "vercel-labs/ui",
+      "sourceType": "github",
+      "skillPath": "packages/core/skills/ui-sdk/SKILL.md",
+      "computedHash": "c5bfc4b80988d62ae2fa728776802935fc6f1613df0aec86dd424ace4b5dfd6e"
+    },
     "writing-for-agents": {
       "source": "mattpocock/skills",
       "sourceType": "github",

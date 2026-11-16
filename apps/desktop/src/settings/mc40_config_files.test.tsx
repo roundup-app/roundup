@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
@@ -14,6 +15,7 @@ it("mc40_saved_look_applies_without_restart", () => {
   const chosen = appSettings().mode;
 
   setFileLook({ mode: "light", fontSize: "14", "color.accent": "#112233" });
+  flush();
 
   expect(appSettings()).toMatchObject({ mode: "light", fontSize: 14 });
   expect(lookColours()).toEqual({ "--accent": "#112233" });
@@ -26,7 +28,9 @@ it("mc40_deleting_the_file_restores_defaults", () => {
   const before = appSettings();
 
   setFileLook({ mode: "light", interfaceScale: "large" });
+  flush();
   setFileLook({});
+  flush();
 
   expect(appSettings()).toEqual(before);
   expect(lookColours()).toEqual({});
@@ -36,12 +40,14 @@ it("mc41_saved_keys_apply_without_restart", () => {
   const before = [...CHORDS["todo.add"].presses];
 
   setFileKeys({ "todo.add": "meta+shift+KeyT" });
+  flush();
 
   expect(CHORDS["todo.add"].presses).toEqual(["meta+shift+KeyT"]);
   expect(appSettings().shortcuts).toEqual({ "todo.add": "meta+shift+KeyT" });
   expect(storedSettings().shortcuts).toEqual({});
 
   setFileKeys({});
+  flush();
 
   expect(CHORDS["todo.add"].presses).toEqual(before);
 });
@@ -62,6 +68,7 @@ it("mc41_terminal_keys_stay_with_the_terminal", () => {
 
 it("mc40_a_token_the_file_names_shows_read_only_in_app_settings", async () => {
   setFileLook({ mode: "light", interfaceScale: "large", fontFamily: "Menlo", fontSize: "14" });
+  flush();
   render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);
   await screen.findByRole("button", { name: /Choose/ });
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
@@ -75,8 +82,9 @@ it("mc40_a_token_the_file_names_shows_read_only_in_app_settings", async () => {
   fireEvent.click(within(view).getByRole("tab", { name: "Appearance" }));
 
   for (const label of [copy.settingsAppearance, copy.interfaceScale]) {
-    const radios = within(await within(view).findByRole("radiogroup", { name: label }, { timeout: 5000 })).getAllByRole<HTMLInputElement>("radio");
+    const radios = within(await within(view).findByRole("radiogroup", { name: label }, { timeout: 5000 })).getAllByRole("radio");
 
-    for (const radio of radios) expect(radio.disabled).toBe(true);
+    // ui-sdk's segments stay focusable while read-only, so they say so by aria-disabled rather than the disabled property.
+    for (const radio of radios) expect(radio.getAttribute("aria-disabled")).toBe("true");
   }
 });

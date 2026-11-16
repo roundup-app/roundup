@@ -1,5 +1,6 @@
 import { CopyButton } from "../ui/CopyButton";
-import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { ToolCall } from "@contracts/agent/ToolCall";
 import { copy } from "./copy";
 import { Collapsible } from "../ui/Collapsible";
@@ -45,14 +46,14 @@ export const ToolCallLine = (props: { name: string; call: ToolCall }): JSX.Eleme
   document.addEventListener("visibilitychange", onVisibility);
   onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
 
-  createEffect(() => {
-    if (!running() || !visible()) return;
+  createEffect(createMemo(() => running() && visible()), active => {
+    if (!active) return;
 
     setNow(Date.now());
 
     const timer = setInterval(() => setNow(Date.now()), 1000);
 
-    onCleanup(() => clearInterval(timer));
+    return () => clearInterval(timer);
   });
 
   const time = () => elapsed(running() ? now() - props.call.started : props.call.duration_ms ?? 0);

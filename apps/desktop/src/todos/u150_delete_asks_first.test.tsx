@@ -33,7 +33,7 @@ describe("u150 Todo deletion", () => {
 
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
-    await waitFor(() => expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(true));
+    await waitFor(() => expect(screen.getByRole<HTMLElement>("complementary").hasAttribute("inert")).toBe(true));
     expect([callsTo(app, "todo.delete"), screen.queryByText(/was deleted/)]).toEqual([[{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }], null]);
   });
 

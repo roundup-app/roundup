@@ -184,12 +184,14 @@ it.skipIf(!captureDir("U5560b"))("u5560b_expanded_pad_default_screens", { timeou
 
       if (!baseline) await lane.browser("click", '[role=tab][data-value="Pads"]');
 
-      for (const choice of ["narrow", "wide", "full"]) {
-        if (!baseline) await lane.browser("click", `.settings-content input[value="${choice}"]`);
+      for (const { value: choice, label } of copy.padWidths) {
+        const segment = `.settings-content [data-slot=segmented-control-item][aria-label=${label}]`;
 
-        if (!baseline) await lane.until(`document.querySelector('.settings-content input[value="${choice}"]').checked`);
+        if (!baseline) await lane.browser("click", segment);
 
-        if (!baseline) await lane.browser("focus", `.settings-content input[value="${choice}"]`);
+        if (!baseline) await lane.until(`document.querySelector('${segment}').getAttribute('aria-checked') === 'true'`);
+
+        if (!baseline) await lane.browser("focus", segment);
         await capture(`${seed}-${choice}`);
       }
 
@@ -209,7 +211,7 @@ it.skipIf(!captureDir("U5560b"))("u5560b_expanded_pad_default_screens", { timeou
           };
           return true;
         })()`);
-        const choice = baseline ? '.settings-content input[value="small"]' : '.settings-content input[value="narrow"]';
+        const choice = baseline ? '.settings-content input[value="small"]' : `.settings-content [data-slot=segmented-control-item][aria-label=${copy.padWidths[0].label}]`;
         await lane.browser("click", choice);
         await lane.until("document.querySelector('.settings-view').textContent.includes('Cannot save settings')");
         await capture(`${seed}-save-failure`);

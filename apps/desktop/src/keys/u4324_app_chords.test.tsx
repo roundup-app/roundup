@@ -1,4 +1,4 @@
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
@@ -16,11 +16,12 @@ const draft = "  unfinished work 🐈\nexact  ";
 const press = (code: string, options: KeyboardEventInit = {}) => {
   const event = new KeyboardEvent("keydown", { code, key: code === "Slash" ? "/" : code.replace("Key", "").toLowerCase(), bubbles: true, cancelable: true, ...options });
   document.activeElement!.dispatchEvent(event);
+  flush();
 
   return event;
 };
 
-afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); });
+afterEach(() => { cleanup(); endLeader(); localStorage.clear(); });
 
 const chords = ["agent", "prompt", "terminal", "capture", "leader", "ask", "help"] as const;
 
@@ -102,6 +103,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     await openAsk();
     const editor = screen.getByLabelText("Ask", { selector: '[role="textbox"]' });
     fireEvent.input(editor, { target: { value: draft } });
+    flush();
 
     fireEvent.keyDown(editor, { key: "Escape", code: "Escape" });
     await waitFor(() => expect(document.querySelectorAll('[role="textbox"][aria-label="Ask"]')).toHaveLength(0));
@@ -109,6 +111,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     fixture!.store.todos[0]!.home = "home";
 
     fixture!.connected().rail.select("home");
+    flush();
 
     if (place === "agent-terminal" || place === "terminal-screen") {
       fixture!.connected().rail.select("a1");
@@ -120,8 +123,8 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
       target = document.querySelector<HTMLElement>('[data-terminal="existing"]')!;
     } else if (place === "shelf" || place === "triage" || place === "drawer") {
       press("KeyK", { metaKey: true }); press("KeyB");
-      await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')).not.toBeNull());
-      fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
+      await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control')).not.toBeNull());
+      fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control')!);
 
       if (place === "triage") fireEvent.click(await screen.findByRole("button", { name: "Triage" }));
       await waitFor(() => expect(document.querySelector(".todo-row-button")).not.toBeNull());
@@ -157,7 +160,8 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   target.focus();
   expect(document.activeElement).toBe(target);
   const selected = fixture?.connected().rail.selected();
-  const benchState = () => ["data-shelf", "data-shelf-maximised"].map(name => document.querySelector(".window")?.getAttribute(name)).join();
+  // U3721a: `⌘K B` steps the Bench one size; with a row focused the step opens that row's Drawer and leaves the window's own attributes as they were.
+  const benchState = () => [...["data-shelf", "data-shelf-maximised"].map(name => document.querySelector(".window")?.getAttribute(name)), document.querySelector(".drawer[data-open=true]") !== null].join();
   const shelfBefore = benchState();
   const original = fixture?.connected().drafts.list().find(record => record.destination.surface === "ask" && record.value.text === draft);
   const received = vi.fn();

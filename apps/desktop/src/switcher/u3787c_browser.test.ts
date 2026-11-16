@@ -88,7 +88,7 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
     // This observer tests actions in backend, independently of native attention routing.
     await read("window.__fake.setStatus('migrate', 'idle', 'idle')");
     await browser("click", ".rail-row[data-id=backend]");
-    await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=backend]')?.dataset.selected==='true'");
+    await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=backend]')?.hasAttribute('data-selected')");
     await run({ browser, batch, highlighted, read, active, options, open, capture });
   } finally {
     try { await browser("close"); }
@@ -99,7 +99,7 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
 // Normal reads may continue while Name is focused; only effects would violate navigation.
 const effects = "window.__fake.app.calls.filter(c=>/\\.(spawn|create|open|write|remove|delete|send|assign|setAuto)$/.test(c.method))";
 
-const selection = "[...document.querySelectorAll('.rail-row[data-selected=true]')].map(e=>e.dataset.id)";
+const selection = "[...document.querySelectorAll('.rail-row[data-selected]')].map(e=>e.dataset.id)";
 
 it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async () => {
   await observeName(async ({ browser, batch, highlighted, read, options, open, capture }) => {
@@ -116,7 +116,7 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
       ["ArrowUp", [...values.slice(0, -1).reverse(), values[0]!]],
     ] as const) {
       for (const value of order) {
-        const [, , reading] = await batch([["press", key], highlighted(value), ["eval", `({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelector('.switcher').querySelectorAll('[aria-selected=true]').length, effects: ${effects} })`]]);
+        const [, , reading] = await batch([["press", key], highlighted(value), ["eval", `({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelector('.switcher').querySelectorAll('[data-row-selected=true]').length, effects: ${effects} })`]]);
 
         expect(reading!.result.result).toEqual({ focused: true, selected: ["backend"], content: 0, effects: before });
 
@@ -158,7 +158,7 @@ it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_
     await browser("wait", "--fn", "!document.querySelector('.switcher')");
 
     if (choice === "destination") {
-      await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=agent-1]')?.dataset.selected==='true' && !!document.activeElement?.closest('.pane-screen')");
+      await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=agent-1]')?.hasAttribute('data-selected') && !!document.activeElement?.closest('.pane-screen')");
       expect(await read(selection)).toEqual(["agent-1"]);
       expect(await read(effects)).toEqual(before);
     } else {
@@ -189,7 +189,7 @@ it("u4682_pointer_preserves_keyboard_highlight_and_query_caret", async () => {
       expect(await read("document.activeElement?.matches('.switcher input')")).toBe(true);
       expect(await read("[document.activeElement.value,document.activeElement.selectionStart,document.activeElement.selectionEnd]")).toEqual(before);
       expect(await read(selection)).toEqual(["backend"]);
-      expect(await read("document.querySelector('.switcher').querySelectorAll('[aria-selected=true]').length")).toBe(0);
+      expect(await read("document.querySelector('.switcher').querySelectorAll('[data-row-selected=true]').length")).toBe(0);
       expect(await read(effects)).toEqual(calls);
     }
   });

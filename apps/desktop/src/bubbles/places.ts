@@ -1,5 +1,6 @@
 import { isDoor } from "../state/doorNode";
 import * as v from "valibot";
+import { flush } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ancestorsOf } from "../state/railTopology";
@@ -135,6 +136,50 @@ export const placesStorage = (path: string) => {
   };
 };
 
+/** The boxes of `elements` that take room. */
+const boxesOf = (elements: Iterable<Element>): DOMRect[] => [...elements].flatMap(element => {
+  const box = element.getBoundingClientRect();
+
+  return box.width > 0 && box.height > 0 ? [box] : [];
+});
+
+/** What the Bubble layer must stay clear of under `parent`, and every element whose size moves that edge: the bar and the Terminal tabs when they hold controls, else the hint line, resource strip and thread composer. */
+export const clearances = (parent: Element | null | undefined) => {
+  const below = [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
+  const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []].filter(element => element.querySelector("button, input, [role=tab]"));
+  const boxes = boxesOf(controls);
+
+  return { boxes: boxes.length ? boxes : boxesOf(below), watched: [...controls, ...below] };
+};
+
+/**
+ * `prior` with the shown Terminals reconciled: one with no place gets a fresh one, and only the latest stays open,
+ * unless the selection folds every bubble to its chip. `selecting` minimises a fresh place even for the latest.
+ */
+export const reconciledPlaces = (
+  prior: Record<string, Place>,
+  shown: readonly TerminalInfo[],
+  options: { folds: boolean; selecting: boolean; fresh: () => Place },
+) => {
+  const missing = shown.filter(terminal => prior[terminal.id] === undefined);
+
+  const visible = shown.flatMap(terminal => {
+    const place = prior[terminal.id];
+
+    return place && !place.min ? [{ id: terminal.id, place }] : [];
+  });
+
+  const next = { ...prior };
+  // Folding leaves no latest, so every shown place ends minimised.
+  const latest = options.folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
+
+  for (const terminal of missing) next[terminal.id] = { ...options.fresh(), min: options.selecting || terminal.id !== latest };
+
+  for (const { id, place } of visible) next[id] = { ...place, min: id !== latest };
+
+  return next;
+};
+
 /** The Terminals the selection shows (engineering call 3): its own, and those of every Workstream above it. */
 export const shownFor = (terminals: readonly TerminalInfo[], nodes: readonly RailNode[], selected: string | null): TerminalInfo[] => {
   if (selected === null) return [];
@@ -155,6 +200,8 @@ export const REVEAL_BUBBLE = "roundup:reveal-bubble";
 export const revealTerminal = (rail: { select(id: string | null): void; dismiss(terminal: TerminalInfo): void }, project: string, terminal: TerminalInfo): void => {
   rail.dismiss(terminal);
   rail.select(terminal.owner === project ? null : terminal.owner);
+  // The Bubble is listed once the selection settles; the reveal reads that list.
+  flush();
   window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: terminal.id }));
 };
 

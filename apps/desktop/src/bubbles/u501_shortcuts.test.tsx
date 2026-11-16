@@ -1,5 +1,5 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { registerKeys } from "../keys/registry";
 import { bubbleCalls, bubbleChord, mountBubbles } from "./bubblesFixture";

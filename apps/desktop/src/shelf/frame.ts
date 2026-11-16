@@ -1,6 +1,5 @@
 import type { ActivationSource } from "../keys/registry";
-import { batch, createComputed, createEffect, createSignal, on } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, untrack, type Accessor } from "solid-js";
 import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
 import { createSlideLifetime } from "../ui/slideLifetime";
@@ -17,6 +16,14 @@ export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
 /** U6224: closed, peeking in from the trailing edge without being used, or open. */
 type ShelfPhase = "closed" | "peeking" | "open";
+
+type Kept = { open: boolean; tab: ShelfTab; maximised: boolean };
+
+/** A call reads what every call before it in the same turn wrote. */
+const createSettled = <Args extends unknown[]>(run: (...args: Args) => void) => (...args: Args): void => {
+  flush();
+  run(...args);
+};
 
 export type ShelfFrame = {
   /** Whether the user has the Shelf open; a peek is not open. */
@@ -59,74 +66,72 @@ export type ShelfFrame = {
 
 /** U370, U373: the Shelf's open state and open tab, one record for every Project, so a Project switch changes none of them. */
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: (() => void) | undefined, initialOpen = true, surface: Accessor<string> = () => "shelf", maximisedByDefault: (surface: string) => boolean = () => false): ShelfFrame => {
-  const [maximised, setMaximised] = createSignal(false);
+  // What a Project and surface restore to; every signal below starts over from it when either changes.
+  const restored = createMemo(() => {
+    const at = path();
+    const side = surface();
+    const kept = at === null ? null : untrack(viewer);
+    const stored = kept === null ? null : side === "shelf" ? kept.frame : kept.surfaces[side] === undefined ? null : { maximised: kept.surfaces[side], open: undefined, tab: undefined };
+    const opened = stored === null || stored === undefined ? initialOpen : stored.open ?? true;
+    const phase: ShelfPhase = opened ? "open" : "closed";
+
+    return { maximised: stored?.maximised ?? untrack(() => maximisedByDefault(side)), animated: false, phase, covered: false, shown: opened, tab: stored?.tab ?? "todos" };
+  });
+
+  const [maximised, setMaximised] = createSignal(() => restored().maximised);
   const [overlaid, setOverlaid] = createSignal(false);
-  const [phase, setPhase] = createSignal<ShelfPhase>(initialOpen ? "open" : "closed");
+  const [phase, setPhase] = createSignal<ShelfPhase>(() => restored().phase);
   // A peek keeps covering the centre while it slides back, so the layout does not reserve width for a Shelf that never opened.
-  const [covered, setCovered] = createSignal(false);
+  const [covered, setCovered] = createSignal(() => restored().covered);
   const open = () => phase() === "open";
   const peeking = () => phase() === "peeking";
   const [element, setElement] = createSignal<HTMLElement>();
   const lifetime = createSlideLifetime(() => [element()]);
-  const [shown, setShown] = createSignal(initialOpen);
-  const [animated, setAnimated] = createSignal(false);
+  const [shown, setShown] = createSignal(() => restored().shown);
+  const [animated, setAnimated] = createSignal(() => restored().animated);
   const [keyed, setKeyed] = createSignal(false);
-  const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
+  const [tab, setTabSignal] = createSignal(() => restored().tab);
 
-  const save = () => {
+  // Reads lag writes within one turn, so a caller that has just written passes what it wrote.
+  const save = (changed: Partial<Kept> = {}) => untrack(() => {
     if (path() === null) return;
+    const kept: Kept = { open: open(), tab: tab(), maximised: maximised(), ...changed };
 
-    if (surface() === "shelf") saveViewer({ frame: { open: open(), tab: tab(), maximised: maximised() } });
-    else saveViewer({ surfaces: { ...viewer().surfaces, [surface()]: maximised() } });
-  };
+    if (surface() === "shelf") saveViewer({ frame: kept });
+    else saveViewer({ surfaces: { ...viewer().surfaces, [surface()]: kept.maximised } });
+  });
 
-  createComputed(
-    on(() => [path(), surface()] as const, ([at, side]) => {
-      const kept = at === null ? null : viewer();
-      const stored = kept === null ? null : side === "shelf" ? kept.frame : kept.surfaces[side] === undefined ? null : { maximised: kept.surfaces[side], open: undefined, tab: undefined };
-      const restored = stored === null || stored === undefined ? initialOpen : stored.open ?? true;
-
-      setMaximised(stored?.maximised ?? maximisedByDefault(side));
-      setAnimated(false);
-      lifetime.settle();
-      setPhase(restored ? "open" : "closed");
-      setCovered(false);
-      setShown(restored);
-      setTabSignal(stored?.tab ?? "todos");
-    }),
-  );
+  createEffect(restored, () => lifetime.settle(), { defer: true });
 
   // U3010b: reduced motion switched on mid-slide settles the latest destination now and replays nothing.
-  createEffect(on(reducedMotion, (reduced) => {
+  createEffect(reducedMotion, (reduced) => {
     if (!reduced) return;
 
     setAnimated(false);
     lifetime.settle();
-  }, { defer: true }));
+  }, { defer: true });
 
   const rendered = () => phase() !== "closed" || lifetime.exiting();
 
   let restoreAfterExit = false;
 
-  createEffect(on(lifetime.exiting, (exiting) => {
+  createEffect(lifetime.exiting, (exiting) => {
     if (exiting || !restoreAfterExit) return;
 
     restoreAfterExit = false;
     setMaximised(false);
-    save();
-  }, { defer: true }));
+    save({ maximised: false });
+  }, { defer: true });
 
   const move = (to: ShelfPhase, slides: boolean, remember: boolean, source: ActivationSource = "pointer") => {
     // One update: `rendered` must never read false between the phase and the exit retention changing.
-    batch(() => {
-      setAnimated(slides);
-      setKeyed(source === "key");
-      setCovered(to === "peeking" || (to === "closed" && covered()));
-      setPhase(to);
-      lifetime.retarget(to !== "closed", slides);
-    });
+    setAnimated(slides);
+    setKeyed(source === "key");
+    setCovered(to === "peeking" || (to === "closed" && covered()));
+    setPhase(to);
+    lifetime.retarget(to !== "closed", slides);
 
-    if (remember) save();
+    if (remember) save({ open: to === "open" });
 
     if (to === "closed") {
       setShown(false);
@@ -134,7 +139,10 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       return;
     }
 
-    if (slides) reflow?.();
+    if (slides) {
+      flush();
+      reflow?.();
+    }
 
     setShown(true);
   };
@@ -153,13 +161,11 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const promote = () => {
     if (!peeking()) return;
 
-    batch(() => {
-      lifetime.settle();
-      setAnimated(false);
-      setCovered(false);
-      setPhase("open");
-    });
-    save();
+    lifetime.settle();
+    setAnimated(false);
+    setCovered(false);
+    setPhase("open");
+    save({ open: true });
   };
 
   const peek = () => {
@@ -174,45 +180,51 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     move("closed", !reducedMotion(), false);
   };
 
+  const toggleMaximise = (source: ActivationSource = "pointer") => {
+    const next = !maximised();
+
+    setAnimated(!reducedMotion());
+    setKeyed(source === "key");
+    setMaximised(next);
+    save({ maximised: next });
+  };
+
+  const unmaximise = () => {
+    if (!maximised()) return;
+
+    // A closing slide carries the full-width Shelf out whole; the width drops once it has left.
+    if (lifetime.exiting()) {
+      restoreAfterExit = true;
+
+      return;
+    }
+
+    setMaximised(false);
+    save({ maximised: false });
+  };
+
+  const setTab = (next: ShelfTab) => {
+    setTabSignal(next);
+    save({ tab: next });
+  };
+
   return {
     open,
     peeking,
     covering: () => covered() && rendered(),
-    peek,
-    unpeek,
-    promote,
+    peek: createSettled(peek),
+    unpeek: createSettled(unpeek),
+    promote: createSettled(promote),
     maximised,
-    toggleMaximise: (source = "pointer") => {
-      batch(() => {
-        setAnimated(!reducedMotion());
-        setKeyed(source === "key");
-        setMaximised(value => !value);
-      });
-      save();
-    },
-    unmaximise: () => {
-      if (!maximised()) return;
-
-      // A closing slide carries the full-width Shelf out whole; the width drops once it has left.
-      if (lifetime.exiting()) {
-        restoreAfterExit = true;
-
-        return;
-      }
-
-      setMaximised(false);
-      save();
-    },
+    toggleMaximise: createSettled(toggleMaximise),
+    unmaximise: createSettled(unmaximise),
     rendered,
     shown,
     animated,
     keyed,
     tab,
-    setTab: (next) => {
-      setTabSignal(next);
-      save();
-    },
-    toggle,
+    setTab: createSettled(setTab),
+    toggle: createSettled(toggle),
     attach: setElement,
     sliding: lifetime.sliding,
     settle: lifetime.settle,

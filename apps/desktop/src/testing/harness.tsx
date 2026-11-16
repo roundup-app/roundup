@@ -3,8 +3,8 @@ import type { MenuItem } from "../app/seam";
 import { StorageRecovery } from "../window/StorageRecovery";
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
-import { createEffect, createRoot, createSignal, For, Show } from "solid-js";
-import { render } from "solid-js/web";
+import { createRoot, createSignal, flush, For, Show } from "solid-js";
+import { render } from "@solidjs/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
 import { captureActions } from "../keys/registry";
 import { App } from "../App";
@@ -37,6 +37,8 @@ declare global {
     __firstRun?: { cancelNextChoice: () => void };
     __checks: () => Checks;
     __axe: () => Promise<AxeResult>;
+    /** Solid's `flush`: a lane that holds the page's microtasks runs the update a write queued, as a synchronous one would. */
+    __flush: () => void;
   }
 }
 
@@ -114,10 +116,9 @@ const mount = (app: AppSeam) => {
   window.__terminals = new Map();
   const requested = new Set<string>();
 
+  // The query is read once: prepareIdle runs in an effect, which owns no computation.
   const inspection = (open: import("../state/connectedProject").ConnectedProject) => {
-    createEffect(() => {
-      if (query.get("tabs") === "1") open.showView("terminal-tabs");
-    });
+    if (query.get("tabs") === "1") open.showView("terminal-tabs");
   };
 
   const content = () => <><App app={app} reducedMotion={reducedMotion} clock={() => Date.now()} prepareIdle={open => {
@@ -146,11 +147,10 @@ const mount = (app: AppSeam) => {
 
     return emulator;
   }} />
-    <Show when={nativeMenu()} keyed>{current => <Menu.Root open onSelect={details => choose(details.value)} onOpenChange={details => { if (!details.open) choose(null); }}
-      positioning={{ getAnchorRect: () => ({ x: current.x, y: current.y, width: 0, height: 0 }) }}>
-      <Menu.Positioner><Menu.Content>
+    <Show when={nativeMenu()} keyed>{current => <Menu.Root open onAction={choose} onOpenChange={details => { if (!details.open) choose(null); }}>
+      <Menu.Content anchor={{ x: current.x, y: current.y }}>
         <For each={current.items}>{item => <Menu.Item value={item.id} disabled={!item.enabled || item.children !== undefined}>{item.label}</Menu.Item>}</For>
-      </Menu.Content></Menu.Positioner>
+      </Menu.Content>
     </Menu.Root>}</Show>
   </>;
 
@@ -160,6 +160,8 @@ const mount = (app: AppSeam) => {
 window.__checks = () => runChecks();
 
 window.__axe = () => runAxe();
+
+window.__flush = flush;
 
 if (query.get("daemon") === "1") {
   // `just harness-real` (U144): the same App on a running `rupd`, so there is no `window.__fake`.

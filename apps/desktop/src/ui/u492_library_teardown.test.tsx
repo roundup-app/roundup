@@ -1,14 +1,42 @@
-import * as sourceToast from "@ark-ui/solid/toast";
-import * as compiledToast from "../../node_modules/@ark-ui/solid/dist/components/toast/index.js";
+import * as sourceToast from "@ui-sdk/solid/toast";
+import * as compiledToast from "../../node_modules/@ui-sdk/solid/dist/toast.js";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { u492Fixture } from "./u492Fixture";
 
 const duration = 5000;
 
-const removeDelay = 150;
+// A leaving card keeps one fallback timer until its exit settles.
+const exitWindow = 1000;
 
-const toastSelector = '[data-scope="toast"]';
+const toastSelector = '[data-slot="toast"]';
+
+const announcer = '[data-ui-sdk-announcer=""]';
+
+// The region is a manual popover jsdom never opens, so role queries skip it.
+const region = () => document.querySelector<HTMLElement>('[data-slot="toast-region"]')!;
+
+// The library clears a card's first-frame style a timer after the next animation frame.
+const frame = async () => {
+  await vi.advanceTimersToNextFrame();
+  await vi.advanceTimersByTimeAsync(1);
+};
+
+// jsdom lacks the animation and top-layer APIs the library calls; a leaving card runs one transition that never ends by itself.
+beforeAll(() => {
+  const exit = { finished: new Promise(() => undefined) };
+
+  Object.defineProperty(Element.prototype, "getAnimations", { configurable: true, value(this: Element) { return this.hasAttribute("data-ending-style") ? [exit] : []; } });
+  Object.defineProperty(HTMLElement.prototype, "showPopover", { configurable: true, value: () => undefined });
+  Object.defineProperty(HTMLElement.prototype, "hidePopover", { configurable: true, value: () => undefined });
+});
+
+afterAll(() => {
+  Reflect.deleteProperty(Element.prototype, "getAnimations");
+  Reflect.deleteProperty(HTMLElement.prototype, "showPopover");
+  Reflect.deleteProperty(HTMLElement.prototype, "hidePopover");
+});
 
 afterEach(() => {
   cleanup();
@@ -19,28 +47,28 @@ afterEach(() => {
 describe.each([["Solid", sourceToast], ["JS", compiledToast]] as const)("u492_%s_published_entry", (_name, library) => {
   function mount() {
     vi.useFakeTimers();
-    const status = vi.fn();
+    const dismissed = vi.fn();
     // Call through to the real observer; detect installation after disposal.
     const observe = vi.spyOn(MutationObserver.prototype, "observe");
     const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
-    const toaster = library.createToaster({ placement: "top-end", removeDelay });
+    const toaster = library.createToaster<string>({ duration });
 
     const mounted = render(() => u492Fixture(toaster, library));
 
-    const create = () => toaster.create({ title: "Saved", duration, onStatusChange: status });
+    const create = () => toaster({ title: "Saved", duration, onDismiss: (details) => dismissed(details.reason) });
 
-    return { ...mounted, toaster, create, status, observe, disconnect };
+    return { ...mounted, toaster, create, dismissed, observe, disconnect };
   }
 
   async function expectIdle(probe: ReturnType<typeof mount>) {
-    const calls = probe.status.mock.calls.length;
+    const calls = probe.dismissed.mock.calls.length;
     const observations = probe.observe.mock.calls.length;
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(exitWindow);
     expect(document.querySelector(toastSelector)).toBeNull();
     expect(vi.getTimerCount()).toBe(0);
     // Observation window: disposed/empty actors must never publish or observe later.
     await vi.advanceTimersByTimeAsync(duration * 2);
-    expect(probe.status).toHaveBeenCalledTimes(calls);
+    expect(probe.dismissed).toHaveBeenCalledTimes(calls);
     expect(probe.observe).toHaveBeenCalledTimes(observations);
     expect(document.querySelector(toastSelector)).toBeNull();
     expect(vi.getTimerCount()).toBe(0);
@@ -51,34 +79,34 @@ describe.each([["Solid", sourceToast], ["JS", compiledToast]] as const)("u492_%s
     async (state) => {
       const probe = mount();
       const id = probe.create();
-      const card = screen.getByRole("status");
+      flush();
+      const card = document.querySelector<HTMLElement>(toastSelector)!;
 
       if (state.includes("settled")) {
-        // Zag's mount/height effects each schedule one RAF; let both run.
-        await vi.advanceTimersToNextFrame();
-        expect(card.hasAttribute("data-mounted")).toBe(true);
+        await frame();
+        expect(card.hasAttribute("data-starting-style")).toBe(false);
         expect(screen.getByText("Saved")).toBeDefined();
         expect(probe.observe).toHaveBeenCalled();
       }
 
-      if (state.includes("hovered")) fireEvent.mouseMove(screen.getByRole("region"));
+      if (state.includes("hovered")) fireEvent.pointerEnter(region());
 
       if (state.includes("focused")) card.focus();
 
       if (state.includes("hovered") || state.includes("focused")) {
         await vi.advanceTimersByTimeAsync(0);
-        expect(card.hasAttribute("data-paused")).toBe(true);
+        expect(region().hasAttribute("data-expanded")).toBe(true);
       }
 
       if (state === "exiting") {
         probe.toaster.dismiss(id);
         await vi.advanceTimersByTimeAsync(0);
-        expect(card.dataset.state).toBe("closed");
+        expect(card.hasAttribute("data-ending-style")).toBe(true);
       }
 
       probe.unmount();
-      expect(vi.getTimerCount()).toBe(0);
-      expect(document.querySelector('[data-scope="toast"]')).toBeNull();
+      expect(vi.getTimerCount()).toBe(state === "exiting" ? 1 : 0);
+      expect(document.querySelector(toastSelector)).toBeNull();
 
       if (state.includes("settled")) expect(probe.disconnect).toHaveBeenCalled();
       await expectIdle(probe);
@@ -95,64 +123,57 @@ describe.each([["Solid", sourceToast], ["JS", compiledToast]] as const)("u492_%s
   it("u492_five_second_expiry_keeps_exit_then_leaves_no_work", async () => {
     const probe = mount();
     probe.create();
-    const card = screen.getByRole("status");
+    flush();
+    const card = document.querySelector<HTMLElement>(toastSelector)!;
     await vi.advanceTimersByTimeAsync(duration - 1);
-    expect(card.dataset.state).toBe("open");
+    expect(card.hasAttribute("data-ending-style")).toBe(false);
+    expect(probe.dismissed).not.toHaveBeenCalled();
     // Expiry must dispatch at the deadline, before the next animation frame.
     await vi.advanceTimersByTimeAsync(1);
-    expect(card.dataset.state).toBe("closed");
-    expect(probe.status).toHaveBeenLastCalledWith({ status: "dismissing", src: "timer" });
-    await vi.advanceTimersByTimeAsync(removeDelay - 1);
-    expect(screen.getByText("Saved")).toBeDefined();
-    await vi.advanceTimersToNextFrame();
-    expect(probe.status).toHaveBeenLastCalledWith({ status: "unmounted" });
+    expect(probe.dismissed).toHaveBeenLastCalledWith("timeout");
+    expect(probe.toaster.toasts()).toHaveLength(0);
+    await frame();
     await expectIdle(probe);
   });
 
   it("u492_public_update_supports_caller_full_duration_restart", async () => {
     const probe = mount();
     const id = probe.create();
-    const card = screen.getByRole("status");
     await vi.advanceTimersByTimeAsync(2000);
     probe.toaster.update(id, { duration: Infinity });
     await vi.advanceTimersByTimeAsync(0);
-    expect(card.hasAttribute("data-paused")).toBe(true);
     await vi.advanceTimersByTimeAsync(duration * 2);
-    expect(card.dataset.state).toBe("open");
+    expect(probe.toaster.toasts()).toHaveLength(1);
+    expect(probe.dismissed).not.toHaveBeenCalled();
     // Restart policy belongs to #2003. The existing API can reset the full duration.
     probe.toaster.update(id, { duration });
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersToNextFrame(); // visible:updating's waitForNextTick.
-    expect(card.hasAttribute("data-paused")).toBe(false);
     await vi.advanceTimersByTimeAsync(duration - 1);
-    expect(card.dataset.state).toBe("open");
+    expect(probe.toaster.toasts()).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(1);
-    expect(card.dataset.state).toBe("closed");
-    expect(probe.status).toHaveBeenLastCalledWith({ status: "dismissing", src: "timer" });
-    await vi.advanceTimersByTimeAsync(removeDelay);
-    await vi.advanceTimersToNextFrame();
+    expect(probe.dismissed).toHaveBeenLastCalledWith("timeout");
+    expect(probe.toaster.toasts()).toHaveLength(0);
+    await frame();
     await expectIdle(probe);
   });
-
 
   it("u492_subsequent_cards_restore_announcements_then_return_to_idle", async () => {
     const probe = mount();
 
     for (const title of ["First result saved", "Second result saved"]) {
-      const id = probe.toaster.create({ title, duration: Infinity, onStatusChange: probe.status });
-      const region = screen.getByRole("region");
-      expect(region.textContent).toBe("");
-      await vi.advanceTimersToNextFrame();
-      const card = screen.getByRole("status");
-      expect(region.getAttribute("aria-live")).toBe("polite");
-      expect(region.contains(card)).toBe(true);
+      const id = probe.toaster({ title, duration: Infinity, onDismiss: (details) => probe.dismissed(details.reason) });
+      flush();
+      await frame();
+      const card = document.querySelector<HTMLElement>(toastSelector)!;
+      expect(region().contains(card)).toBe(true);
       expect(document.getElementById(card.getAttribute("aria-labelledby")!)?.textContent).toBe(title);
+      // The shared live region speaks each card once, without making the visible stack live.
+      await vi.advanceTimersByTimeAsync(duration);
+      expect(region().getAttribute("aria-live")).toBeNull();
+      expect(document.querySelector(announcer)?.textContent).toContain(title);
       probe.toaster.dismiss(id);
-      await vi.advanceTimersByTimeAsync(removeDelay - 1);
-      expect(screen.getByText(title)).toBeDefined();
-      await vi.advanceTimersToNextFrame();
+      await frame();
       await expectIdle(probe);
     }
   });
-
 });

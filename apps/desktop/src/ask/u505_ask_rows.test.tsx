@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { copy } from "./copy";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -93,7 +93,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
           await browser("press", activation);
         }
 
-        await browser("wait", "--fn", `document.querySelector('.rail-row[data-id="payments"]')?.dataset.selected === "true"
+        await browser("wait", "--fn", `document.querySelector('.rail-row[data-id="payments"]')?.hasAttribute('data-selected')
           && !!document.querySelector('.pane-screen') && document.querySelector('.pane-screen').contains(document.activeElement) && !document.querySelector('.ask-input')`);
 
         const observed = await browser("eval", `({
@@ -133,7 +133,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
       }
 
       await browser("press", "Enter");
-      await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
+      await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.hasAttribute('data-selected') && !document.querySelector('.ask-input')");
       expect((await browser("eval", "document.querySelector('.pane-screen').contains(document.activeElement)")).result).toBe(true);
     });
   }, 60_000);

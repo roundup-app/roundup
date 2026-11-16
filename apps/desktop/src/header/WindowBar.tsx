@@ -1,5 +1,5 @@
-import { createEffect, createMemo, onCleanup } from "solid-js";
-import type { JSX } from "solid-js";
+import { createEffect, createMemo, onCleanup, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../state/railTopology";
@@ -37,8 +37,8 @@ export const WindowBar = (props: {
     if (writing || disposed) return;
     writing = true;
 
-    while (!disposed && written !== title()) {
-      const next = title();
+    while (!disposed && written !== untrack(title)) {
+      const next = untrack(title);
       written = next;
 
       try {
@@ -55,7 +55,7 @@ export const WindowBar = (props: {
     writing = false;
   };
 
-  createEffect(() => { title(); void write(); });
+  createEffect(title, () => { void write(); });
 
   const empty = (target: EventTarget | null) => target instanceof Element && !target.closest('button, input, [role="tab"], [role="tablist"], [role="dialog"], [role="alertdialog"], [role="menu"], .traffic-lights');
 

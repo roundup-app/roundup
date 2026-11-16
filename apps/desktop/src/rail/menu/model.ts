@@ -3,7 +3,7 @@ import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { failureOf } from "../../app/failureOf";
 import { applying } from "../../app/pending";
@@ -75,13 +75,10 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     ...((isDoor(node) && node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
   ]);
 
-  const close = () => {
-    setState(null);
-  };
+  const close = () => setState(null);
 
   /** U2694g: pointer menus address their row without activating it. */
-  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) =>
-    contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
+  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) => contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
 
   /** One stop path: the menu's item, the Rail's icon and the confirm's answer all end here. */
   const stopNow = (node: RailNode) => {
@@ -151,6 +148,8 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
   const judge = async (current: Removing) => {
     setState(current);
+    // An Agent has no read to await: the check below must see the confirm just opened.
+    flush();
 
     const tree = rail.nodes;
     const lists = known();

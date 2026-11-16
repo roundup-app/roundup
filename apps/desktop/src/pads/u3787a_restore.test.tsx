@@ -7,7 +7,7 @@ import { Pads } from "./Pads";
 import type { ConnectedProject } from "../state/connectedProject";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import type { AppSeam } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -25,7 +25,7 @@ beforeAll(async () => { real = await startRealDaemon({}); }, 120_000);
 
 afterAll(async () => { await real?.stop(); });
 
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting_recovered_input_%s", async (kind) => {
   const fake = createFakeApp();
@@ -43,14 +43,14 @@ it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting
     const receipt = await app.rpc("pad.getDeletion", { operation: request.operation });
     const restored = await app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation });
     expect(restored.pad).toEqual(pad);
-    render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
+    render(() => <ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
     await openPad(pad.name, { connected, pads: [restored.pad], revision: draft.revision });
     expect(connected.drafts.list().find(item => item.revision === draft.revision)).toMatchObject({ destination, value: { source: text, originalName: "notes" } });
     expect(await app.rpc("pad.read", { name: "notes" })).toEqual(pad);
     fireEvent.click(screen.getByText("Resume", { selector: "button" }));
     await waitFor(async () => expect((await app.rpc("pad.read", { name: "notes" })).text).toBe(text));
   } finally {
-    batch(cleanup);
+    cleanup();
     connected.stopTerminalScheme();
   }
 }, 120_000);
@@ -366,6 +366,7 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
     if (kind === "todos") await undo.remove([todo.id], region);
     else await undo.removePads([pad], region);
     undo.handoff(region, "shelf");
+    flush();
     await undo.undo("shelf");
     await undo.remove([next.id], "shelf");
     expect(undo.redoAvailable("shelf")).toBe(false);
@@ -413,7 +414,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
     connected!.rail.select(null);
     connected!.drawer.open(() => isPad ? <Pads /> : <Todos />, "key");
     await waitFor(() => {
-      const controls = document.querySelectorAll<HTMLElement>('.drawer [data-shelf-group] [data-part="branch-control"]');
+      const controls = document.querySelectorAll<HTMLElement>('.drawer [data-shelf-group] .shelf-group-control');
       expect(controls.length).toBeGreaterThan(0);
 
       for (const control of controls) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
@@ -428,6 +429,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
 
   if (kind.startsWith("drawer-")) {
     fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+    flush();
     const panel = screen.getByLabelText("Drawer", { selector: "aside" });
     const button = await within(panel).findByLabelText(isPad ? "Delete" : "More actions", { selector: "button" });
     button.focus(); fireEvent.click(button);
@@ -464,9 +466,9 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
 
   if (kind.startsWith("drawer-")) {
     if (isPad) {
-      await waitFor(() => expect(document.querySelector('.shelf [data-shelf-group] [data-part="branch-control"]')).not.toBeNull());
+      await waitFor(() => expect(document.querySelector('.shelf [data-shelf-group] .shelf-group-control')).not.toBeNull());
 
-      for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) {
+      for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] .shelf-group-control')) {
         if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
       }
     }
@@ -492,7 +494,7 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
   let connected: ConnectedProject | undefined;
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
   const label = await screen.findByText("round-trip-rail", { selector: ".name" });
-  const row = label.closest<HTMLElement>('[data-part="branch-control"]')!;
+  const row = label.closest<HTMLElement>('[role="treeitem"]')!;
   fireEvent.click(row);
   await connected!.rail.settled();
   await waitFor(() => expect(connected!.rail.selected()).toBe(item.id));

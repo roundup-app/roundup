@@ -46,7 +46,7 @@ const openDocument = async (width: number, height: number, recording = false) =>
     return true;
   })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", '[data-todo="1"] .todo-row-button');
   await browser("focus", '[data-todo="1"] .todo-row-button');
   await browser("press", "Enter");
@@ -82,7 +82,7 @@ it.each([[1512, 950, "menus"], [1280, 820, "menus"], [1512, 950, "document"], [1
 
     if (stage === "menus") {
       await browser("click", '.drawer [aria-label="More actions"]');
-      await browser("wait", '[role="menu"][data-state="open"]');
+      await browser("wait", '[role="menu"][data-open]');
 
       if (output) {
       
@@ -107,10 +107,10 @@ it.each([[1512, 950, "menus"], [1280, 820, "menus"], [1512, 950, "document"], [1
 
       for (const action of ["owner", "hand", "home"]) {
           await browser("click", '.drawer [aria-label="More actions"]');
-          await browser("wait", '[role="menu"][data-state="open"]');
+          await browser("wait", '[role="menu"][data-open]');
           await browser("click", `[role="menuitem"][data-value="${action}"]`);
           await settle();
-          await browser("wait", '.owner-picker[data-state="open"]');
+          await browser("wait", '.owner-picker[data-open]');
           await settle();
 
           if (output) {
@@ -237,7 +237,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
   await browser("wait", '.todo-detail-title p');
 
   await browser("click", '.todo-meta [aria-label="Priority"]');
-  await browser("wait", '[role="menu"][data-state="open"]');
+  await browser("wait", '[role="menu"][data-open]');
   await capture("priority-menu");
   await evaluate("window.__fake.failNext(-32003, 'Priority could not be saved. Choose a priority to retry.', 'todo.update'); true");
   await browser("click", '[role="menuitem"][data-value="urgent"]');
@@ -255,7 +255,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
   await browser("click", '.todo-delete-feedback [data-dismiss-failure]');
 
   await browser("click", '.drawer [aria-label="More actions"]');
-  await browser("wait", '[role="menu"][data-state="open"]');
+  await browser("wait", '[role="menu"][data-open]');
   await evaluate("window.__fake.failNext(-32003, 'Todo could not be deleted. Keep your work and retry deletion.', 'todo.delete'); true");
   await browser("click", '[role="menuitem"][data-value="delete"]');
   await capture("delete-refusal", "Todo could not be deleted");
@@ -291,7 +291,7 @@ it.skipIf(!captureDir("U5127a") && !captureDir("U5127b"))("u5127a_u5127b_failed_
           return true;
         })()`);
         await lane.browser("click", '.drawer [aria-label="More actions"]');
-        await lane.browser("wait", '[role="menu"][data-state="open"]');
+        await lane.browser("wait", '[role="menu"][data-open]');
         await lane.browser("click", '[role="menuitem"][data-value="delete"]');
         await lane.until("!document.querySelector('.drawer[data-open=true]') && document.body.textContent.includes('Todo list unavailable')");
         expect(await lane.evaluate("window.__fake.app.calls.filter(call => call.method === 'todo.delete').map(call => call.params.ids)")).toEqual([[chosen]]);

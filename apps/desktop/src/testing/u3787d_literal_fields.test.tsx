@@ -1,5 +1,5 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { path, tab } from "../header/stripFixture";
 import { agent, workstream, mode, info, USER } from "./nodes";
@@ -19,7 +19,7 @@ import { copy } from "./copy";
 // Actual App openings, rather than a fixture containing representative fields.
 const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Ask prompt", "Spawn prompt", "Mode prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;
 
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => {
   const app = createFakeApp();
@@ -102,7 +102,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
  return found!; });
 
-      if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
+      if (group.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
 
       const row = await waitFor(() => { const found = document.querySelector<HTMLElement>('.shelf [data-todo="1"] .todo-row-button'); expect(found).not.toBeNull();
 
@@ -112,6 +112,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
       if (opening === "Owner query") {
         fireEvent.click(row);
+        flush();
         leaderKey("KeyA");
         field = await screen.findByRole("combobox", { name: "Assign" });
       } else if (opening === "New Workstream" || opening === "Wait-for query") {
@@ -164,7 +165,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
       return found!;
     });
 
-    if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
+    if (group.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
 
     const row = await waitFor(() => { const found = document.querySelector<HTMLElement>(selector); expect(found).not.toBeNull();
       expect(found!.closest("[hidden], [inert]")).toBeNull();
@@ -194,6 +195,8 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   expect(field.getAttribute("autocapitalize")).toBe("off");
   const text = "  e\u0301 🧭 日本語 /a_b --x='yes';  ";
   field.focus();
+  // Focus lands its effects as a browser's microtask does, before the keystroke.
+  flush();
   fireEvent.input(field, { target: { value: text } });
   await settled();
   field.setSelectionRange(2, 7, "backward");
@@ -218,8 +221,9 @@ it("u3787d_each_field_keeps_literal_input native CapturePanel request", async ()
     configure: async () => {}, show: async () => {}, dismiss: async () => {}, publish: async () => {},
     act: async action => { actions.push(action); },
     onRequested: () => () => {}, onAction: () => () => {},
+    // The native port delivers over an event the panel has already subscribed to, never inside its construction.
     onState: listener => {
-      listener({ session: "original", sequence: 0, text: "", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" });
+      queueMicrotask(() => listener({ session: "original", sequence: 0, text: "", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" }));
 
       return () => {};
     },
@@ -232,9 +236,11 @@ it("u3787d_each_field_keeps_literal_input native CapturePanel request", async ()
   fireEvent.input(field, { target: { value: text } });
   field.setSelectionRange(2, 7, "backward");
   fireEvent.blur(field);
+  flush();
   expect([field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([text, 2, 7, "backward"]);
   fireEvent.keyDown(field, { key: "Enter" });
   await waitFor(() => expect(actions).toContainEqual({ kind: "file", session: "original", sequence: 2, text, keepOpen: false }));
   fireEvent.keyDown(field, { key: "Escape" });
+  flush();
   expect(actions.at(-1)).toEqual({ kind: "dismiss", session: "original" });
 });

@@ -59,7 +59,7 @@ it.each(["initial open", "reopen"])("r3800_shell_needs_at_most_one_rpc_reply: %s
     holding = true;
     completed = 0;
     app.exitDaemon({ code: 1 });
-    reopen = screen.getByRole("button", { name: "Reopen" });
+    reopen = await screen.findByRole("button", { name: "Reopen" });
     fireEvent.click(reopen);
   }
 

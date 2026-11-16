@@ -26,7 +26,6 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
         if (!open) session.close();
       }}
     >
-      <Dialog.Positioner>
         <Dialog.Content class="app-dialog-form feedback-form">
           <form
             ref={(element) => {
@@ -99,7 +98,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
                       {...trigger()}
                       type="submit"
                       data-button="primary"
-                      aria-disabled={!session.canSend()}
+                      aria-disabled={session.canSend() ? "false" : "true"}
                     >
                       {session.sending()
                         ? copy.sending
@@ -113,7 +112,6 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
             </div>
           </form>
         </Dialog.Content>
-      </Dialog.Positioner>
     </Dialog.Root>
   );
 };

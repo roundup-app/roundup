@@ -11,7 +11,7 @@ it("z3742h_a_cover_prevents_a_drop_into_the_row_behind_it", async () => {
   await wait(`document.querySelectorAll('.rail-row[data-id]').length > 0`);
 
   const selection = `({
-    selected: document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id') ?? null,
+    selected: document.querySelector('.rail-row[data-selected]')?.getAttribute('data-id') ?? null,
     writes: window.__fake.app.calls.filter(call => call.method === 'terminal.write').length,
   })`;
 

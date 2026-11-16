@@ -86,6 +86,6 @@ const unknown: Updates = { facts: () => null, running: () => false, failure: () 
 
 const UpdatesContext = createContext<Updates>(unknown);
 
-export const UpdatesProvider = UpdatesContext.Provider;
+export const UpdatesProvider = UpdatesContext;
 
 export const useUpdates = (): Updates => useContext(UpdatesContext);

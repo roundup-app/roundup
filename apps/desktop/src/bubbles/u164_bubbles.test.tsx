@@ -1,4 +1,5 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
+import { flush } from "solid-js";
 import { nameOf } from "./places";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -6,6 +7,7 @@ import { RpcError } from "../app/seam";
 import { agent, event, info, workstream } from "../testing/nodes";
 import { bubbleNames, bubbleCalls, mountBubbles, TERMINALS } from "./bubblesFixture";
 import { clamped, MIN_HEIGHT, MIN_WIDTH } from "./places";
+import { notices } from "../testing/notices";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -58,25 +60,35 @@ describe("u164 a bubble floats over the centre pane", () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     const header = bubble("1").querySelector(".bubble-header")!;
     const x = parseFloat(bubble("1").style.left);
 
     fireEvent.pointerDown(header, { button: 0, clientX: 100, clientY: 100 });
+    flush();
     fireEvent(window, new MouseEvent("pointermove", { clientX: 140, clientY: 100 }));
+    flush();
     fireEvent(window, new MouseEvent("pointerup"));
+    flush();
     expect(parseFloat(bubble("1").style.left)).toBe(x + 40);
 
     fireEvent.pointerDown(header, { button: 0, clientX: 100, clientY: 100 });
+    flush();
     fireEvent(window, new MouseEvent("pointermove", { clientX: 100000, clientY: 100 }));
+    flush();
     fireEvent(window, new MouseEvent("pointerup"));
+    flush();
     expect(parseFloat(bubble("1").style.left) + parseFloat(bubble("1").style.width)).toBeLessThanOrEqual(800);
 
     const corner = document.querySelector('.bubble-zone[data-zone="se"][data-zone-of="1"]')!;
 
     fireEvent.pointerDown(corner, { button: 0, clientX: 0, clientY: 0 });
+    flush();
     fireEvent(window, new MouseEvent("pointermove", { clientX: -100000, clientY: -100000 }));
+    flush();
     await new Promise((resolve) => requestAnimationFrame(resolve));
     fireEvent(window, new MouseEvent("pointerup"));
+    flush();
     expect(parseFloat(bubble("1").style.width)).toBe(MIN_WIDTH);
     expect(parseFloat(bubble("1").style.height)).toBe(MIN_HEIGHT);
     expect(clamped({ x: -5, y: -5, w: 10000, h: 10000, min: false }, { width: 800, height: 600 })).toEqual({ x: 0, y: 0, w: 800, h: 600, min: false });
@@ -86,14 +98,17 @@ describe("u164 a bubble floats over the centre pane", () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     const header = bubble("1").querySelector<HTMLElement>(".bubble-header")!;
     const { left, width } = bubble("1").style;
 
     expect(header.tabIndex).toBe(0);
     header.focus();
     fireEvent.keyDown(header, { key: "ArrowRight" });
+    flush();
     expect(parseFloat(bubble("1").style.left)).toBe(parseFloat(left) + 16);
     fireEvent.keyDown(header, { key: "ArrowRight", shiftKey: true });
+    flush();
     expect(parseFloat(bubble("1").style.width)).toBe(parseFloat(width) + 16);
   });
 
@@ -110,15 +125,18 @@ describe("u164 a bubble floats over the centre pane", () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     const style = bubble("1").getAttribute("style");
 
     fireEvent.click(bubble("1").querySelector('button[aria-label="Minimise"]')!);
+    flush();
     expect(bubble("1").hidden).toBe(true);
 
     const chip = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!;
 
     expect(chip.textContent).toContain("cargo test");
     fireEvent.click(chip);
+    flush();
     expect(bubble("1").hidden).toBe(false);
     expect(bubble("1").getAttribute("style")).toBe(style);
   });
@@ -150,6 +168,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: 3 } }));
     await waitFor(() => expect(bubble("1")).not.toBeNull());
 
@@ -160,6 +179,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
 
     expect(bubble("1").querySelector('.bubble-header [role="img"]')).toBeNull();
     expect(document.querySelectorAll('.terminal-tab [role="img"]')).toHaveLength(0);
@@ -178,6 +198,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     expect(tab("2").querySelector("[data-state]")).toBeNull();
 
     fireEvent.click(tab("1"));
+    flush();
     await waitFor(() => expect(tab("1").querySelector("[data-state]")).toBeNull());
 
     mounted.app.emitOutput("1", "seen");
@@ -190,6 +211,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     await waitFor(() => expect(mounted.app.outputSubscriptions.some((subscription) => subscription.id === "1")).toBe(true));
     mounted.app.emitOutput("1", "building");
     mounted.connected.rail.select("a");
+    flush();
     await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="1"] [data-state]')).not.toBeNull());
   });
 
@@ -197,21 +219,27 @@ describe("u164 a bubble floats over the centre pane", () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     const close = bubble("1").querySelector('button[aria-label="Close"]')!;
 
     fireEvent.click(close);
+    flush();
     await answerQuestion(true);
     await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
     expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "1" }]);
 
+    const failure = new Error("cannot close");
+
     mounted.app.handlers["terminal.close"] = () => {
-      throw new Error("cannot close");
+      throw failure;
     };
 
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="2"]')!);
+    flush();
     fireEvent.click(bubble("2").querySelector('button[aria-label="Close"]')!);
+    flush();
     await answerQuestion(true);
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot close"));
+    await waitFor(() => expect(notices("alert")[0]!.textContent).toContain(failure.message));
     expect(bubble("2")).not.toBeNull();
   });
 
@@ -220,8 +248,10 @@ describe("u164 a bubble floats over the centre pane", () => {
     await waitFor(() => expect(bubbleNames()).toEqual(["cargo test", "zsh"]));
 
     mounted.connected.rail.select("b");
+    flush();
     await waitFor(() => expect(bubbleNames()).toEqual(["zsh", "other run"]));
     mounted.connected.rail.select("other");
+    flush();
     await waitFor(() => expect(bubbleNames()).toEqual([]));
   });
 
@@ -229,12 +259,16 @@ describe("u164 a bubble floats over the centre pane", () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     fireEvent.keyDown(bubble("1").querySelector(".bubble-header")!, { key: "ArrowDown" });
+    flush();
     const style = bubble("1").getAttribute("style");
 
     mounted.connected.rail.select("b");
+    flush();
     await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
     mounted.connected.rail.select("a");
+    flush();
     await waitFor(() => expect(bubble("1").getAttribute("style")).toBe(style));
   });
 
@@ -248,8 +282,10 @@ describe("u164 a bubble floats over the centre pane", () => {
     const style = bubble("1").getAttribute("style");
 
     mounted.connected.rail.select("b");
+    flush();
     await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
     mounted.connected.rail.select("a");
+    flush();
     await waitFor(() => expect(bubble("1").getAttribute("style")).toBe(style));
   });
 
@@ -257,7 +293,9 @@ describe("u164 a bubble floats over the centre pane", () => {
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     fireEvent.keyDown(bubble("1").querySelector(".bubble-header")!, { key: "ArrowDown" });
+    flush();
     const style = bubble("1").getAttribute("style");
 
     cleanup();
@@ -270,6 +308,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.keyDown(bubble("1").querySelector(".bubble-header")!, { key: "ArrowDown" });
+    flush();
     expect(window.sessionStorage.getItem("roundup:bubble-places:/p")).not.toBeNull();
 
     mounted.setExit({ code: 1 });
@@ -283,9 +322,11 @@ describe("u164 a bubble floats over the centre pane", () => {
     const mounted = await mountBubbles("a", TERMINALS, TOP_LEVEL, true, app => { app.handlers["terminal.snapshot"] = () => { throw new RpcError(-32603, "connection closed"); }; });
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+    flush();
     await waitFor(() => expect(bubble("1").querySelector("[data-dismiss-failure]")).not.toBeNull());
     mounted.app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
     fireEvent.click(bubble("1").querySelector(".reserved-actions button")!);
+    flush();
     await waitFor(() => expect(bubble("1").querySelector("[data-dismiss-failure]")).toBeNull());
   });
 });

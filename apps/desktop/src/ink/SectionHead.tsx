@@ -1,33 +1,32 @@
-import { Show, type ComponentProps, type JSX } from "solid-js";
-import { TreeView } from "../ui/TreeView";
+import { Show } from "solid-js";
+import type { ComponentProps } from "@solidjs/web";
+import { TreeItem, TreeItemIndicator } from "@ui-sdk/solid/tree";
+import { tabStop } from "../ui/TreeView";
 import { Icon } from "./Icon";
 
-/** Shared inert heading, or the control of its caller's Ark tree branch. */
+/** Shared inert heading, or the tree item of its caller's tree whose rows it opens and closes. */
 export const SectionHead = (props: {
   icon: ComponentProps<typeof Icon>["name"];
   label: string;
-  disclosure?: { open: boolean; setOpen(open: boolean): void };
-  /** A control after the heading, beside it, never inside its button. */
-  trailing?: JSX.Element;
+  disclosure?: { value: string; open: boolean; setOpen(open: boolean): void };
 }) => (
   <Show when={props.disclosure} fallback={<div class="section-head"><Icon name={props.icon} /><span>{props.label}</span></div>}>
-    {(disclosure) => <div class="section-head-row"><TreeView.BranchControl asChild={control => <button {...control()} type="button" class="section-head" data-button="quiet" aria-expanded={disclosure().open} tabIndex={0} onClick={event => {
-      event.stopPropagation();
-      disclosure().setOpen(!disclosure().open);
+    {(disclosure) => <div class="section-head-row"><TreeItem value={disclosure().value} aria-label={props.label} class="section-head" data-button="quiet" render={tabStop(() => true)} onClick={event => {
+      if (!event.defaultPrevented) disclosure().setOpen(!disclosure().open);
     }} onKeyDown={event => {
       if (event.key === "Enter" || event.key === " ") {
-        event.stopPropagation();
+        event.preventDefault();
+        disclosure().setOpen(!disclosure().open);
 
         return;
       }
 
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-      event.stopPropagation();
       event.preventDefault();
       disclosure().setOpen(event.key === "ArrowRight");
     }}>
       <Icon name={props.icon} /><span>{props.label}</span>
-      <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
-    </button>} />{props.trailing}</div>}
+      <TreeItemIndicator><Icon name="right" /></TreeItemIndicator>
+    </TreeItem></div>}
   </Show>
 );

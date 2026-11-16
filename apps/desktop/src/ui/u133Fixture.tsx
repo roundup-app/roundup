@@ -1,6 +1,6 @@
 import { pressFeedback } from "./pressFeedback";
-import { createSignal, onMount, onCleanup } from "solid-js";
-import { render } from "solid-js/web";
+import { createSignal, For } from "solid-js";
+import { render } from "@solidjs/web";
 import { runChecks } from "../testing/checks";
 import { Menu } from "./Menu";
 import { Select } from "./Select";
@@ -8,7 +8,6 @@ import { Disclosure } from "./Disclosure";
 import { Checkbox } from "./Checkbox";
 import { Switch } from "./Switch";
 import { Tabs } from "./Tabs";
-import { For } from "solid-js";
 import { RadioGroup } from "./RadioGroup";
 import { SegmentGroup } from "./SegmentGroup";
 import "../tokens.css";
@@ -16,7 +15,7 @@ import "../styles.css";
 import "../buttons.css";
 
 function ChoiceControls() {
-  onMount(() => onCleanup(pressFeedback(document)));
+  pressFeedback(document);
   const [select, setSelect] = createSignal("first");
   const [calls, setCalls] = createSignal(0);
   const [radio, setRadio] = createSignal("first");
@@ -50,9 +49,9 @@ function ChoiceControls() {
       <button type="button" data-button="primary" onClick={() => setCalls(count => count + 1)}>Save</button>
       <button type="button" data-button="quiet" onClick={() => setCalls(count => count + 1)}>Cancel</button>
     </section>
-    <Menu.Root onSelect={() => setCalls(count => count + 1)}>
+    <Menu.Root onAction={() => setCalls(calls() + 1)}>
       <Menu.Trigger data-button="quiet">Actions</Menu.Trigger>
-      <Menu.Positioner><Menu.Content><Menu.Item value="one">Run action</Menu.Item></Menu.Content></Menu.Positioner>
+      <Menu.Content><Menu.Item value="one">Run action</Menu.Item></Menu.Content>
     </Menu.Root>
     <Select label="Select choice" value={select()} onValueChange={setSelect} choices={choices} />
     <Disclosure label="Details">Expanded content</Disclosure>

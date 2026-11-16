@@ -422,7 +422,7 @@ it.skipIf(!groundOutput)("u4456c_shelf_drawers_and_visual_content", async () => 
     await groundLoad("tree-40", base, "system");
     await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click()");
     await wait("!!document.querySelector('.shelf')");
-    await read("for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
+    await read("for (const control of document.querySelectorAll('[data-shelf-group] .shelf-group-control')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
     await groundCapture(base, "tree-40", "system", "shelf");
     await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
@@ -446,7 +446,7 @@ it.skipIf(!groundOutput)("u4456c_shelf_drawers_and_visual_content", async () => 
 it.skipIf(!groundOutput)("u4456c_floating_menu_picker_dialog", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     await groundLoad("tree-40", base, "system");
-    await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
+    await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); for (const control of document.querySelectorAll('[data-shelf-group] .shelf-group-control')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
     await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
     await read("window.__fake.app.rpc('todo.list', null).then(todos => { const row = [...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility() && todos.some(todo => !todo.done && todo.id === Number(row.closest('[data-todo]')?.dataset.todo))); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', {key:'o',code:'KeyO',bubbles:true,cancelable:true})); })");
@@ -628,8 +628,8 @@ it("u4590_preparing_an_agent_keeps_the_selected_terminal_usable", async () => {
     window.__fake.app.calls.length = 0;
   })()`);
   await browser("click", '.rail-actions [aria-label="Create"]');
-  await wait("!!document.querySelector('[role=menuitem][data-value=agent]')");
-  await browser("click", '[role=menuitem][data-value=agent]');
+  await wait("!!document.querySelector('[role=menu] [role=menuitem]')");
+  await browser("find", "role", "menuitem", "click", "--name", "Agent");
   await wait("document.querySelectorAll('.pane .xterm-screen').length === 2");
   expect(await read("window.__previousInput.isConnected")).toBe(true);
   await read("window.__previousInput.focus()");
@@ -667,7 +667,7 @@ it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s"
   await wait("!document.querySelector('.bubble:not([hidden])')");
   await read("window.__releaseFonts()");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.open')")).toEqual([]);
-  expect(await read("!!document.querySelector('[role=alert]')")).toBe(false);
+  expect(await read("!!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')")).toBe(false);
 }, 60_000);
 
 // U4590's opt-in policy observer; the single startup guard above remains the CI guard.
@@ -761,7 +761,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await select("agent-3", "t-agent-3");
         await capture("restore-after-switch");
         await browser("click", '.rail-actions [aria-label="Create"]');
-        await browser("click", '[role=menuitem][data-value=agent]');
+        await browser("find", "role", "menuitem", "click", "--name", "Agent");
         await wait("window.__fake.app.calls.some(c=>c.method==='agent.spawn') && !!document.querySelector('.pane .xterm-screen')");
         id = await read<string>("[...window.__terminals.keys()].at(-1)");
         await read("window.__observedEmulator=null");

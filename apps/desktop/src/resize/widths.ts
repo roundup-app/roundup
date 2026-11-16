@@ -1,7 +1,6 @@
 import { copy } from "./copy";
-import { createComputed, createSignal, on } from "solid-js";
-import type { Accessor } from "solid-js";
-import { saveViewer, viewer } from "./viewer";
+import { createSignal, untrack, type Accessor } from "solid-js";
+import { saveViewer, viewer, type Viewer } from "./viewer";
 
 type Limits = { min: number; max: number; fallback: number };
 
@@ -58,34 +57,28 @@ export type Widths = {
 
 /** U389, U390: the Rail's and Shelf's widths, one record for every Project, so a Project switch changes none of them. */
 export const createWidths = (path: Accessor<string | null>): Widths => {
-  const [rail, setRail] = createSignal(RAIL.fallback);
+  // Read on each Project switch only: a saved change does not reset the widths the user is dragging.
+  const stored = (): Viewer | null => path() === null ? null : untrack(viewer);
 
-  const [shelf, setShelf] = createSignal(SHELF.fallback);
+  const [rail, setRail] = createSignal(() => stored()?.rail ?? RAIL.fallback);
 
-  const [collapsed, setCollapsedSignal] = createSignal(false);
+  const [shelf, setShelf] = createSignal(() => stored()?.shelf ?? SHELF.fallback);
 
-  const [laidOut, setLaidOut] = createSignal(false);
+  const [collapsed, setCollapsedSignal] = createSignal(() => stored()?.collapsed ?? false);
+
+  const [laidOut, setLaidOut] = createSignal(() => stored()?.collapsed ?? false);
 
   const setBoth = (next: boolean) => { setCollapsedSignal(next); setLaidOut(next); };
 
   let element: HTMLElement | undefined;
 
-  createComputed(
-    on(path, (at) => {
-      const stored = at === null ? null : viewer();
-
-      setRail(stored?.rail ?? RAIL.fallback);
-      setShelf(stored?.shelf ?? SHELF.fallback);
-      setBoth(stored?.collapsed ?? false);
-    }),
-  );
-
   const railNow = () => laidOut() ? STRIP_WIDTH : railEffective(rail());
 
   const shelfNow = () => shelfEffective(shelf());
 
-  const save = () => {
-    if (path() !== null) saveViewer({ rail: rail(), shelf: shelf(), collapsed: collapsed() });
+  /** `patch` holds what the caller just wrote; its signal reads the old value until the update lands. */
+  const save = (patch: Partial<Viewer> = {}) => {
+    if (path() !== null) saveViewer({ rail: rail(), shelf: shelf(), collapsed: collapsed(), ...patch });
   };
 
   const write = (railPx: number, shelfPx: number) => {
@@ -100,9 +93,9 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       if (slide) setCollapsedSignal(next);
       else setBoth(next);
 
-      save();
+      save({ collapsed: next });
     },
-    settleLayout: () => setLaidOut(collapsed()),
+    settleLayout: () => setLaidOut(untrack(collapsed)),
     rail: {
       label: copy.resizeRail,
       direction: 1,
@@ -113,13 +106,16 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       collapsedAt: STRIP_WIDTH,
       preview: (px) => write(px <= STRIP_WIDTH ? STRIP_WIDTH : railEffective(px), shelfEffective(shelf())),
       commit: (px) => {
-        if (px <= STRIP_WIDTH) setBoth(true);
-        else {
-          setBoth(false);
-          setRail(limited(px, RAIL));
-        }
+        if (px <= STRIP_WIDTH) {
+          setBoth(true);
+          save({ collapsed: true });
+        } else {
+          const width = limited(px, RAIL);
 
-        save();
+          setBoth(false);
+          setRail(width);
+          save({ collapsed: false, rail: width });
+        }
       },
     },
     shelf: {
@@ -131,8 +127,10 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       room: () => SHELF.max,
       preview: (px) => write(railNow(), shelfEffective(px)),
       commit: (px) => {
-        setShelf(limited(px, SHELF));
-        save();
+        const width = limited(px, SHELF);
+
+        setShelf(width);
+        save({ shelf: width });
       },
     },
     style: () => ({ "--rail-width": `${railNow()}px`, "--rail-peek-width": `${railEffective(rail())}px`, "--shelf-span": `${shelfNow()}px` }),

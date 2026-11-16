@@ -1,6 +1,5 @@
 import { applied } from "../app/pending";
 import { createMemo, createSignal, For } from "solid-js";
-import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
@@ -32,7 +31,7 @@ export const TodoMeta = (props: {
 
   return <div class="todo-meta" aria-label={copy.todoDetails}>
     <span class="todo-meta-state"><TickBox todo={props.todo} onToggle={props.toggle} /></span>
-    <Menu.Root onSelect={({ value }) => {
+    <Menu.Root onAction={value => {
       const choice = priorities.find(priority => (priority.value ?? "unset") === value);
 
       if (!choice || choice.value === props.todo.priority) return;
@@ -40,7 +39,7 @@ export const TodoMeta = (props: {
         .then(() => props.fail(null), error => { if (!(error instanceof Error)) throw error; props.fail(error.message); });
     }}>
       <Menu.Trigger data-button="quiet" class="word todo-meta-chip" aria-label={copy.todoPriority}><Icon name="diamond" />{priorities.find(priority => priority.value === props.todo.priority)?.label}</Menu.Trigger>
-      <Portal><Menu.Positioner><Menu.Content aria-label={copy.todoPriority}><For each={priorities}>{priority => <Menu.Item value={priority.value ?? "unset"}>{priority.label}</Menu.Item>}</For></Menu.Content></Menu.Positioner></Portal>
+      <Menu.Content aria-label={copy.todoPriority}><For each={priorities}>{priority => <Menu.Item value={priority.value ?? "unset"}>{priority.label}</Menu.Item>}</For></Menu.Content>
     </Menu.Root>
     <BlockerMenu open={offering()} onOpenChange={setOffering}
       label={copy.blockedByCount(choices().blockers.filter(todo => !todo.done).length)} icon={<Icon name="branch" />}

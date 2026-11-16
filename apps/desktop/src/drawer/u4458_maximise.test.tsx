@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import { createShelfFrame } from "../shelf/frame";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -12,6 +13,7 @@ it("u4458_maximise_button_and_m_toggle_a_pad_and_a_todo_drawer", () => {
 
   for (const kind of ["pad", "todo"]) {
     drawer.open(() => <input aria-label="body" />, "key", { kind, project: "/one" });
+    flush();
     expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
@@ -23,6 +25,7 @@ it("u4458_maximise_button_and_m_toggle_a_pad_and_a_todo_drawer", () => {
     const types = fireEvent.keyDown(screen.getByLabelText("body"), { key: "m", code: "KeyM" });
     expect([screen.getByLabelText("Drawer").dataset.maximised, types]).toEqual(["false", true]);
     drawer.close("key");
+    flush();
   }
 });
 
@@ -32,9 +35,11 @@ it("u4458_every_drawer_kind_gets_the_control", () => {
 
   for (const kind of ["work-order", "future-kind"]) {
     drawer.open(() => <p>detail</p>, "key", { kind, project: "/one" });
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
     expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
     drawer.close("key");
+    flush();
   }
 });
 
@@ -43,15 +48,21 @@ it("u4458_the_state_is_kept_per_kind", async () => {
   const mount = () => render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
   const first = mount();
   drawer.open(() => <p>first Pad</p>, "key", { kind: "pad", project: "/one" });
+  flush();
   fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   drawer.close("key");
+  flush();
   drawer.open(() => <p>Todo</p>, "key", { kind: "todo", project: "/one" });
+  flush();
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
   drawer.open(() => <p>other Project</p>, "key", { kind: "pad", project: "/two" });
+  flush();
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
   drawer.open(() => <p>another Pad</p>, "key", { kind: "pad", project: "/one" });
+  flush();
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
   drawer.open(() => <p>work order</p>, "key", { kind: "work-order", project: "/one" });
+  flush();
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
   // A new host restores from the same stored frame, rather than its previous in-memory state.
   await waitFor(() => expect(localStorage.getItem("roundup:viewer")).not.toBeNull());
@@ -69,9 +80,12 @@ it("u4458_drawer_maximise_keeps_the_shelf_state", () => {
     return <DrawerHost drawer={drawer} reducedMotion={() => true} />;
   });
   shelf.toggleMaximise("key");
+  flush();
   drawer.open(() => <p>Pad</p>, "key", { kind: "pad", project: "/one" });
+  flush();
   fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   drawer.close("key");
+  flush();
   expect(shelf.maximised()).toBe(true);
 });
 
@@ -87,6 +101,7 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
 
         return <input aria-label="draft" />;
       }, "key", { kind, project: "/one" });
+      flush();
       // SAFETY: the draft field rendered above is an <input>.
       const field = screen.getByLabelText("draft") as HTMLInputElement;
       fireEvent.input(field, { target: { value: "unsent" } });
@@ -108,6 +123,7 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
       expect(document.querySelectorAll("[role=dialog]").length).toBe(dialogs);
       expect(reads).toBe(1);
       drawer.close("key");
+      flush();
       localStorage.clear();
     }
   }
@@ -120,8 +136,10 @@ it("u4698a_choice_survives_reopen_and_is_per_kind", () => {
 
   const maximisedOf = (kind: string, project: string) => {
     drawer.open(() => <p>{kind}</p>, "key", { kind, project });
+    flush();
     const value = screen.getByLabelText("Drawer").dataset.maximised;
     drawer.close("key");
+    flush();
 
     return value;
   };
@@ -142,12 +160,15 @@ it("u4698a_filled_drawer_preserves_other_surfaces", () => {
     return <DrawerHost drawer={drawer} reducedMotion={() => true} />;
   });
   shelf.toggleMaximise("key");
+  flush();
 
   for (const kind of ["todo", "pad"]) {
     drawer.open(() => <p>{kind}</p>, "key", { kind, project: "/one" });
+    flush();
     expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
     expect(shelf.maximised()).toBe(true);
     drawer.close("key");
+    flush();
     expect(shelf.maximised()).toBe(true);
   }
 });

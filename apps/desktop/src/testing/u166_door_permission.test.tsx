@@ -32,7 +32,7 @@ it("u166_selecting_a_requesting_door_keeps_the_other_workstream_idle_after_reope
   });
 
   fireEvent.click(row.querySelector(".name")!);
-  await waitFor(() => expect(rail.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id")).toBe(requesting.id));
+  await waitFor(() => expect(rail.querySelector(".rail-row[data-selected]")?.getAttribute("data-id")).toBe(requesting.id));
   expect(row.getAttribute("data-kind")).toBe("needs-you");
   expect(rail.querySelector(`.rail-row[data-id="${other.id}"]`)?.getAttribute("data-kind")).toBe("idle");
   expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();

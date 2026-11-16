@@ -1,6 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { createComputed, createEffect, createSignal, on, onCleanup } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Sortable } from "../ui/sortable";
 import type { SortedRow } from "./OpenRow";
@@ -15,6 +14,19 @@ export type HomeTarget = { element: HTMLElement; home: string | null };
 
 /** U3718: an owner's group a Shelf row can be dropped on; `owner` is null for Unassigned. */
 export type OwnerTarget = { element: HTMLElement; attribute: string; owner: Actor | null };
+
+/** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
+const positionOf = (el: HTMLElement) => {
+  const row = el.getBoundingClientRect();
+  const box = row.width > 0 && row.height > 0 ? row : el.closest("[data-shelf-group]")?.querySelector(".shelf-group-head")?.getBoundingClientRect();
+
+  return box && box.width > 0 && box.height > 0 ? { top: box.top, left: box.left } : undefined;
+};
+
+const restoreScroll = (saved: { element: HTMLElement; top: number; left: number }) => {
+  saved.element.scrollTop = saved.top;
+  saved.element.scrollLeft = saved.left;
+};
 
 /** U490a, U155, U156, U362: the rows of one list of open Todos ordered through `ui/Sortable`: one `todo.reorder` per move, focus kept on the moved row, and the rows that change place slide by U156. */
 export const createSortedList = (source: {
@@ -53,14 +65,6 @@ export const createSortedList = (source: {
   let instantOrder: symbol | null = null;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
 
-  /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
-  const positionOf = (el: HTMLElement) => {
-    const row = el.getBoundingClientRect();
-    const box = row.width > 0 && row.height > 0 ? row : el.closest("[data-shelf-group]")?.querySelector(".shelf-group-head")?.getBoundingClientRect();
-
-    return box && box.width > 0 && box.height > 0 ? { top: box.top, left: box.left } : undefined;
-  };
-
   const measure = () => {
     savedPermission = captureFocus();
     savedFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
@@ -81,8 +85,7 @@ export const createSortedList = (source: {
     instantOrder = null;
 
     if (scroll) {
-      scroll.element.scrollTop = scroll.top;
-      scroll.element.scrollLeft = scroll.left;
+      restoreScroll(scroll);
       scroll = null;
     }
 
@@ -141,18 +144,27 @@ export const createSortedList = (source: {
     return `${id}:${todo?.owner?.kind ?? ""}:${todo?.owner?.id ?? ""}`;
   }).join();
 
-  createComputed(on(placement, measure, { defer: true }));
-  createEffect(on(placement, () => queueMicrotask(settle), { defer: true }));
+  const placed = createMemo(placement);
+
+  createEffect((previous?: string) => {
+    const next = placed();
+
+    if (previous !== undefined) measure();
+
+    return next;
+  }, () => { queueMicrotask(settle); }, { defer: true });
   // U3010c: reduced motion switched on mid-slide settles every row now, with no replay.
-  createEffect(on(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true }));
+  createEffect(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true });
   createEffect(() => {
-    const all = source.all();
-    const ids = source.ids();
     const request = movedFocus();
+    const moved = source.all().find((todo) => todo.id === request?.id);
+    const ids = source.ids();
 
-    const moved = all.find((todo) => todo.id === request?.id);
+    return request && moved && request.arrived(moved) ? { request, ids } : null;
+  }, (arrival) => {
+    if (!arrival) return;
+    const { request, ids } = arrival;
 
-    if (!request || !moved || !request.arrived(moved)) return;
     setMovedFocus(null);
     queueMicrotask(() => {
       if (document.activeElement === document.body || document.activeElement === null) {
@@ -162,7 +174,7 @@ export const createSortedList = (source: {
           row?.focus();
 
           // A folded owner group keeps its moved row hidden; its disclosure keeps focus reachable.
-          if (document.activeElement === document.body) request.element.querySelector<HTMLElement>('[data-part="branch-control"]')?.focus();
+          if (document.activeElement === document.body) request.element.querySelector<HTMLElement>(".shelf-group-control")?.focus();
         });
       }
     });

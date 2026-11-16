@@ -1,3 +1,4 @@
+import { createRoot, flush } from "solid-js";
 import { describe, expect, it } from "vitest";
 import type { Ask } from "@contracts/ask/Ask";
 import { RpcError } from "../app/seam";
@@ -16,7 +17,8 @@ const ask = (id: string, submission = id): Ask => ({
 const open = async () => {
   const app = createFakeApp();
   app.handlers["ask.list"] = () => [ask("a1"), ask("a2")];
-  const asks = createAsks(app, await connectEvents(app));
+  const events = await connectEvents(app);
+  const asks = createRoot(() => createAsks(app, events));
 
   return { app, asks };
 };
@@ -44,6 +46,7 @@ describe("p3557c_failure_lifetime_ask_state", () => {
     // A retry in flight keeps the failure; a failed Drop replaces it with a new identity.
     app.handlers["ask.pick"] = () => retry.promise;
     const pending = asks.pick("a1", 0, { kind: "new" });
+    flush();
     expect(asks.partFailure("a1", 0)).toBe(first);
     expect(asks.picking("a1", 0)).toBe(true);
     retry.release(ask("a1"));
@@ -59,6 +62,7 @@ describe("p3557c_failure_lifetime_ask_state", () => {
 
     // A stale dismissal with equal text does not clear the later failure; an unrelated part's success does not either.
     asks.dismiss(first);
+    flush();
     expect(asks.partFailure("a1", 0)).toBe(second);
     app.handlers["ask.pick"] = () => ask("a2");
 
@@ -71,6 +75,7 @@ describe("p3557c_failure_lifetime_ask_state", () => {
 
     const calls = app.calls.length;
     asks.dismiss(second);
+    flush();
     expect(asks.partFailure("a1", 0)).toBeUndefined();
     expect(app.calls.length).toBe(calls);
   });
@@ -97,6 +102,7 @@ describe("p3557c_failure_lifetime_ask_state", () => {
     expect(asks.listFailure()).toBe(failure);
     expect(asks.intakeFailure()).toMatchObject({ kind: "refused", submission: "s2", destination: "ops", message: "bad" });
     asks.dismiss(failure);
+    flush();
     expect(asks.listFailure()).toBeNull();
     expect(asks.intakeFailure()?.submission).toBe("s2");
 

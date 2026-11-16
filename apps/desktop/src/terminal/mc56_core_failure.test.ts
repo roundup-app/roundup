@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { flush } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { createFailures } from "./failures";
 import { coreFailureCodes, coreFailureLabel, coreFailureText } from "./coreFailure";
@@ -43,6 +44,7 @@ describe("MC56", () => {
     await failures.attempt("t", Promise.reject(new Error("m1: core_closed: connection to herdr-core closed")));
     expect(failures.shown("t")?.entry.message).toBe(coreFailureLabel("core_closed"));
     failures.set("t", "live", "disk full");
+    flush();
     expect(failures.shown("t")?.entry.message).toBe("disk full");
     expect(coreFailureText("core_io: io: broken pipe")).toBe(coreFailureLabel("core_io"));
     expect(coreFailureText("unsupported_generation: herdr-core refused")).toBe(coreFailureLabel("unsupported_generation"));

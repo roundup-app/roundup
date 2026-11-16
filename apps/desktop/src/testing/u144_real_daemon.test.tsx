@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { MockInstance } from "vitest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { useContext } from "solid-js";
+import { flush } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -15,7 +15,7 @@ import { doorOf, workstream } from "./nodes";
 import { startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "../state/connectedProject";
+import { createProjectDrafts, connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { WorktreeControl } from "../changes/WorktreeControl";
@@ -42,7 +42,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   const mount = () => render(() => {
     connected.worktrees.watch(() => true);
 
-    return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
+    return <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>;
   });
 
   beforeAll(async () => {
@@ -76,6 +76,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
     for (const node of [first, second]) {
       connected.rail.select(node.id);
+      flush();
       fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
@@ -371,13 +372,8 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
       await holder.discard(incompatible.revision);
     }
 
-    let headerFactory: typeof drafts | undefined;
-    const setWindowTitle = app.setWindowTitle;
-
-    app.setWindowTitle = async (title) => {
-      headerFactory ??= useContext(ProjectDraftsContext);
-      await setWindowTitle(title);
-    };
+    // The Project tab is the owner outside the connected context; only it registers the "header" surface, from the authority it reads.
+    const headerRegistered = vi.spyOn(holder, "registerRecovery");
 
     const write = Storage.prototype.setItem;
 
@@ -402,8 +398,8 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     await openRecovery();
     await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
     expect(holder.problem()?.operation).toBe(kind === "surface" ? "restore" : "retain");
-    expect(headerFactory).toBe(drafts);
-    const header = headerFactory!(first.dir);
+    expect(headerRegistered).toHaveBeenCalledWith("header", expect.any(Function));
+    const header = drafts(first.dir);
     expect(header).toBe(holder);
     const headerSaved = header.edit({ surface: "header", object: first.dir, recipient: null }, { name: "  original e\u0301 🪁  " }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
     fireEvent.click(screen.getByRole("button", { name: "Open Project" }));

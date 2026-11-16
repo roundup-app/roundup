@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 
+// ui-sdk keeps one empty `role=alert` live region for announcements; only the App's own failure surfaces count here.
 it("u3791c_enter_intervene_review_failure_journey", async () => {
   const page = await openLane(1512, "dark", "u3791c");
   const { browser, evaluate, until, capture } = page;
@@ -32,7 +33,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
       return true;
     })()`);
     await until("window.readCount === 2");
-    expect(await evaluate("document.querySelectorAll('[role=alert]').length")).toBe(0);
+    expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(0);
     await evaluate(`(() => {
       window.readCount = 0;
       window.__fake.app.handlers['rail.tree'] = () => { window.readCount++; throw new Error('Cannot read work. Retry to read again.'); };
@@ -40,7 +41,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
       return true;
     })()`);
     // U6249b: 5 attempts; the lane's `p-retry` alias (`appServer`) retries without waiting.
-    await until("window.readCount === 5 && document.querySelector('[role=alert]')");
+    await until("window.readCount === 5 && document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     await capture("U3791a", "read-exhausted");
     await capture("U3791c", "read-exhausted");
     await evaluate(`(() => {
@@ -48,12 +49,12 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
       window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
       return true;
     })()`);
-    await until("document.querySelector('[role=alert]')?.getAttribute('aria-label').startsWith('Work is still')");
-    expect(await evaluate("document.querySelectorAll('[role=alert]').length")).toBe(1);
+    await until("document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')?.getAttribute('aria-label').startsWith('Work is still')");
+    expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(1);
     await capture("U3791c", "read-replaced");
     await evaluate("window.__fake.app.handlers['rail.tree'] = window.savedTree; true");
     await browser("click", ".pane-failure button");
-    await until("!document.querySelector('[role=alert]')");
+    await until("!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     await evaluate(`(() => {
       window.savedWrite = Storage.prototype.setItem;
       window.writeCount = 0;
@@ -65,28 +66,28 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     })()`);
     await page.openAsk();
     await browser("fill", ".ask-input", "  failed save keeps this 🌿  ");
-    await until("window.writeCount >= 2 && document.querySelector('[role=alert]')");
+    await until("window.writeCount >= 2 && document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     await capture("U3791a", "write-exhausted");
     await capture("U3791c", "write-exhausted");
     await evaluate("Storage.prototype.setItem = window.savedWrite; true");
     await browser("find", "role", "button", "click", "--name", "Retry storage only");
-    await until("!document.querySelector('[role=alert]')");
+    await until("!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     await page.openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe("  failed save keeps this 🌿  ");
     await evaluate("window.__fake.app.exitDaemon({code:1,recovery:'waiting'}); true");
-    expect(await evaluate("document.querySelectorAll('[role=alert]').length")).toBe(0);
+    expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(0);
     await evaluate("window.__fake.app.exitDaemon({code:1,recovery:'waiting',cause:'Cannot start Daemon'}); true");
-    expect(await evaluate("document.querySelectorAll('[role=alert]').length")).toBe(0);
+    expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(0);
     await evaluate("window.__fake.app.exitDaemon({code:1,cause:'Cannot start Daemon. Reopen the Project.'}); true");
-    await until("!!document.querySelector('[role=alert]')");
+    await until("!!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     await capture("U3791a", "daemon-exhausted");
     await capture("U3791c", "daemon-exhausted");
     await browser("find", "role", "button", "click", "--name", "Reopen", "--exact");
-    await until("!document.querySelector('[role=alert]')");
+    await until("!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     await page.openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe("  failed save keeps this 🌿  ");
     await browser("click", "#shelf-tab-pads");
-    await evaluate("document.querySelector('.pads-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')?.click(); true");
+    await evaluate("document.querySelector('.pads-tab [data-shelf-group] .shelf-group-control[aria-expanded=false]')?.click(); true");
     await until("!!document.querySelector('.pad-name')");
     await browser("click", ".pad-name");
     await until("document.activeElement?.matches('.pad-name')");

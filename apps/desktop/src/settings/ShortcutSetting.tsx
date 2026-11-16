@@ -99,8 +99,8 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   return <>
     <div class="settings-field">
       <div class="settings-shortcut">
-        <button data-button="quiet" type="button" aria-pressed={mode()?.kind === "find"} onClick={begin({ kind: "find" })}>{mode()?.kind === "find" ? copy.recordShortcut : copy.findKey}</button>
-        <button data-button="quiet" type="button" aria-disabled={!Object.keys(overrides()).length} onClick={() => { if (Object.keys(overrides()).length) void save(); }}>{copy.saveToFile}</button>
+        <button data-button="quiet" type="button" aria-pressed={mode()?.kind === "find" ? "true" : "false"} onClick={begin({ kind: "find" })}>{mode()?.kind === "find" ? copy.recordShortcut : copy.findKey}</button>
+        <button data-button="quiet" type="button" aria-disabled={Object.keys(overrides()).length ? "false" : "true"} onClick={() => { if (Object.keys(overrides()).length) void save(); }}>{copy.saveToFile}</button>
       </div>
     </div>
     <ReservedLine status={found()} />
@@ -121,7 +121,7 @@ const ActionShortcut = (props: { label: string; keys: KeyText; recording: boolea
     <div class="settings-caption"><span id={caption} class="settings-field-caption">{props.label}</span></div>
     <div class="settings-shortcut">
       <Show when={props.onRecord} fallback={<span id={value}>{props.keys ? <KeyChip keys={props.keys} /> : <span>{copy.none}</span>}</span>}>
-        <button data-button="quiet" type="button" aria-pressed={props.recording} aria-labelledby={`${caption} ${value}`} onClick={props.onRecord}>
+        <button data-button="quiet" type="button" aria-pressed={props.recording ? "true" : "false"} aria-labelledby={`${caption} ${value}`} onClick={event => props.onRecord?.(event)}>
           <span id={value}><Show when={props.recording} fallback={<KeyChip keys={props.keys} />}><span class="settings-recording-mark" aria-hidden="true">{copy.recordingMark}</span> {copy.recordShortcut}</Show></span>
         </button>
       </Show>
@@ -168,7 +168,7 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
     <div class="settings-field">
       <div class="settings-caption"><span id={caption} class="settings-field-caption">{row.label}</span></div>
       <div class="settings-shortcut">
-      <button ref={button} aria-describedby={hint} aria-pressed={recording()} aria-invalid={!!failure()} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
+      <button ref={button} aria-describedby={hint} aria-pressed={recording() ? "true" : "false"} aria-invalid={failure() ? "true" : "false"} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
         <span id={value}><Show when={recording()} fallback={press() ? <KeyChip keys={shortcutLabel(press(), appSettings()[key()])} /> : <span>{copy.none}</span>}><span class="settings-recording-mark" aria-hidden="true">{copy.recordingMark}</span> {copy.recordShortcut}</Show></span>
       </button>
       <Show when={press() !== fallbackOf(props.field)}><button data-button="quiet" type="button" onClick={() => save(fallbackOf(props.field))}>{copy.reset}</button></Show>

@@ -1,7 +1,6 @@
-import { createEffect, createMemo, createSelector, on, onCleanup, untrack, useContext } from "solid-js";
+import { createEffect, createMemo, createProjection, onCleanup, untrack, useContext, type Accessor } from "solid-js";
 import { ShelfActions } from "./BulkDelete";
 import { createRowCollection } from "../ui/RowCollection";
-import type { Accessor } from "solid-js";
 
 /** U458: identities, rather than positions, survive a list refetch. */
 export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Accessor<string>, find?: (id: Id) => HTMLButtonElement | null | undefined) => {
@@ -15,7 +14,8 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   });
 
   // Each row tracks only its own answer, so a pick re-renders the rows it changes, not every row.
-  const isSelected = createSelector(createMemo(() => new Set(selected())), (id: Id, chosen) => chosen.has(id));
+  const picked = createProjection(() => Object.fromEntries(selected().map(id => [String(id), true])));
+  const isSelected = (id: Id) => picked[String(id)] === true;
 
   const setSelected = (values: readonly Id[]) => untrack(() => list.selection.setSelectedValues(values.map(String)));
   let anchor: Id | undefined;
@@ -28,9 +28,8 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
     list.reset();
   };
 
-  createEffect(on(() => `${context()}:${host?.open()}`, clear, { defer: true }));
-  createEffect(() => {
-    const visible = ids();
+  createEffect(createMemo(() => `${context()}:${host?.open()}`), clear, { defer: true });
+  createEffect(ids, visible => {
     setSelected(untrack(selected).filter(id => visible.includes(id)));
 
     for (const id of rows.keys()) if (!visible.includes(id)) rows.delete(id);
@@ -47,7 +46,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   const visibleOrder = () => ids().filter(id => {
     const row = rowOf(id);
 
-    return row && !row.disabled && !row.closest("[hidden], [inert], [aria-disabled=true], [data-state=closed]");
+    return row && !row.disabled && !row.closest("[hidden], [inert], [aria-disabled=true], [data-closed]");
   }).sort((a, b) => rowOf(a)!.compareDocumentPosition(rowOf(b)!) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
 
   const range = (id: Id) => {

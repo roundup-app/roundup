@@ -1,6 +1,7 @@
 import "./ProjectOpening.css";
-import { createComputed, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Dialog } from "../ui/Dialog";
+import { queueFocus } from "../keys/focus";
 import type { ProjectsState } from "../state/projects";
 import { RpcError, type ActionRequest, type ActionReply, type AppSeam } from "../app/seam";
 import { withAppSettings } from "../settings/preferences";
@@ -126,14 +127,15 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
 
 export const ProjectOpening = (props: { opening: ReturnType<typeof createProjectOpening> }) => {
   let returnFocus: HTMLElement | null = null;
+  let footer: HTMLElement | undefined;
 
-  createComputed(() => {
+  createEffect(() => {
     const pending = props.opening.pending();
     const focused = document.activeElement;
 
     // A failed open replaces consent before Ark can return focus; keep its connected background target.
-    if (pending && focused instanceof HTMLElement && focused !== document.body && !focused.closest('[role="dialog"]')) returnFocus = focused;
-  });
+    return pending && focused instanceof HTMLElement && focused !== document.body && !focused.closest('[role="dialog"]') ? focused : null;
+  }, focused => { if (focused) returnFocus = focused; });
 
   return <Dialog.Root finalFocusEl={() => returnFocus?.isConnected && returnFocus.checkVisibility() ? returnFocus : document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} open={props.opening.pending() !== undefined} instant onOpenChange={details => {
     const pending = props.opening.pending();
@@ -152,21 +154,27 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
 
  return current.kind === "failure" ? current : undefined; };
 
-      return <Dialog.Positioner><Dialog.Content class="app-dialog-form project-opening">
+      return <Dialog.Content class="app-dialog-form project-opening">
         <Dialog.Title>{pending().kind === "failure" ? copy.openProjectFailed : copy.openProjectTitle}</Dialog.Title>
         <Dialog.Description>
           <Show when={confirmation()} fallback={<Show when={failure()}>{failure => <>{failure().message} {copy.openProjectRetry}</>}</Show>}>
-            {confirmation => copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName)}
+            {confirmation => untrack(() => copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName))}
           </Show>
           <span class="project-opening-path">{pending().request.params.path}</span>
         </Dialog.Description>
-        <footer class="app-dialog-actions">
-          <Show when={confirmation()} keyed fallback={<Show when={failure()}><button type="button" data-button="quiet" onClick={() => failure()?.dismiss()}>{copy.close}</button></Show>}>{confirmation => <>
-            <button type="button" data-button="quiet" onClick={() => confirmation.choose(false)}>{copy.refuseProject}</button>
-            <button type="button" data-button="primary" onClick={() => confirmation.choose(true)}>{copy.openProjectChoice}</button>
-          </>}</Show>
+        <footer class="app-dialog-actions" ref={element => { footer = element; }}>
+          <Show when={confirmation()} keyed fallback={<Show when={failure()}><button type="button" data-button="quiet" onClick={() => failure()?.dismiss()}>{copy.close}</button></Show>}>{confirmation => {
+            // Each request gets its own buttons, so a press cannot decide the next one. The keyboard keeps its place: focus on a choice moves to the same choice of the next request.
+            const focused = footer && document.activeElement instanceof HTMLElement ? Array.prototype.indexOf.call(footer.children, document.activeElement) : -1;
+            const keep = (index: number) => (button: HTMLButtonElement) => { if (focused === index) queueFocus(() => button.focus()); };
+
+            return <>
+              <button type="button" data-button="quiet" ref={keep(0)} onClick={() => confirmation.choose(false)}>{copy.refuseProject}</button>
+              <button type="button" data-button="primary" ref={keep(1)} onClick={() => confirmation.choose(true)}>{copy.openProjectChoice}</button>
+            </>;
+          }}</Show>
         </footer>
-      </Dialog.Content></Dialog.Positioner>;
+      </Dialog.Content>;
     }}</Show>
   </Dialog.Root>;
 };

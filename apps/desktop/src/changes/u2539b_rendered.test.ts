@@ -68,7 +68,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         await until("!!document.querySelector('.pane-screen')");
         await capture(lane, "agents-10-selected-agent");
         await evaluate("window.__select(null)");
-        await until("!document.querySelector('.rail-row[data-selected=true]')");
+        await until("!document.querySelector('.rail-row[data-selected]')");
       }
 
       if (lane === "head" && seed === "tree-40") {
@@ -80,7 +80,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         await browser("press", "Meta+k");
         await browser("press", "b");
         await until("!!document.querySelector('[data-shelf-group=unassigned]')");
-        await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
+        await browser("click", '[data-shelf-group="unassigned"] .shelf-group-control');
         await browser("click", '[data-todo="5"] .todo-row-button');
         await browser("press", "Enter");
         await until("!!document.querySelector('.drawer[data-open=true]')");

@@ -1,5 +1,6 @@
 import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { flush } from "solid-js";
 import { openTabs, tab } from "./stripFixture";
 
 afterEach(cleanup);
@@ -26,6 +27,7 @@ it("u451_controls_do_not_drag_or_zoom", async () => {
   }
 
   fireEvent.dblClick(tab("api").querySelector('.tab-name')!);
+  flush();
   const input = document.querySelector('.tab-rename')!;
   fireEvent.mouseDown(input, { button: 0, detail: 1 });
   fireEvent.mouseDown(input, { button: 0, detail: 2 });

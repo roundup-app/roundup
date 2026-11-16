@@ -5,6 +5,7 @@ import { openProjectPage } from "../testing/menuProbe";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -30,7 +31,7 @@ const mount = async () => {
     outcomes: params.selections.map((entry) => ({ source: entry.source, workstream: `w-${entry.source}`, agent: `a-${entry.source}`, error: null })),
   });
 
-  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
 
   return { app, connected };
 };
@@ -40,7 +41,14 @@ const calls = (app: Awaited<ReturnType<typeof mount>>["app"], method: string) =>
 const isChecked = (name: RegExp): boolean => {
   const box = screen.getByRole("checkbox", { name });
 
-  return box instanceof HTMLInputElement && box.checked;
+  return box.getAttribute("aria-checked") === "true";
+};
+
+/** The confirm button once the listing it confirms is verified: it stays disabled while a refresh is under way. */
+const readyButton = async (name: string) => {
+  await waitFor(() => expect(screen.getByRole("button", { name })).toHaveProperty("disabled", false));
+
+  return screen.getByRole("button", { name });
 };
 
 const open = async () => {
@@ -83,11 +91,11 @@ it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("
   fireEvent.click(screen.getByRole("button", { name: "Last month" }));
   await waitFor(() => expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy());
   fireEvent.click(screen.getByText("first"));
-  fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
+  fireEvent.click(await readyButton("Import 1"));
   await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
   expect(connected.drafts.list().find((draft) => draft.destination.surface === "import")?.status).toBe(failure instanceof RpcError ? "failed" : "unknown");
   cleanup();
-  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
   await open();
   expect(calls(app, "project.importCommit")).toHaveLength(1);
   expect(isChecked(/first/)).toBe(true);
@@ -134,7 +142,7 @@ it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   cleanup();
-  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
   await open();
   expect(isChecked(/first/)).toBe(!empty);
   expect(isChecked(/second/)).toBe(!empty);
@@ -227,11 +235,12 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
     other.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
 
     const connected = await connectProject(other, { name: "q", path: "/q" }, () => false, () => 0, () => null);
-    render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
+    render(() => <ConnectedProjectContext value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext>);
     openProjectPage("import-work", "/q");
     await vi.advanceTimersByTimeAsync(0);
   }
 
+  flush();
   complete({ candidates, excluded: [] });
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.queryByRole("checkbox", { name: /first/ })).toBeNull();
@@ -402,7 +411,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
 
       if (phase === "retention") {
       await lane.browser("click", '.rail-row[data-id="backend"]');
-      await lane.until("document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
+      await lane.until("document.querySelector('.rail-row[data-id=backend]')?.hasAttribute('data-selected') && !document.querySelector('.ask-input')");
       await lane.evaluate("window.__select(null)");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.evaluate(`(() => {
@@ -447,7 +456,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       await lane.until("!!document.querySelector('.pads-tab [role=alert]')");
       await capture("U3299c", side!, "retained-pad-name");
       await lane.browser("press", "Escape");
-      await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) group.click(); return true; })()`);
+      await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.shelf [data-shelf-group] .shelf-group-control[aria-expanded="false"]')) group.click(); return true; })()`);
       await lane.until("!!document.querySelector('.pad-name')");
       await lane.browser("find", "role", "button", "click", "--name", "retained-notes");
       await lane.until("document.activeElement?.matches('.pad-name')");
@@ -483,7 +492,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
         const removed = {kind:'agent',id:'removed-original-owner',parent:null};
         window.__fake.app.handlers['todo.getHistory'] = () => ({unread:null,changes:[{seq:1,actor:owner,changed_at:null,before:values,after:{...values,owner}}, {seq:2,actor:removed,changed_at:null,before:{...values,owner},after:{...values,owner:removed},handed:removed}]});
         window.__fake.app.handlers['todo.readHistory'] = () => null;
-        for (const group of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) group.click();
+        for (const group of document.querySelectorAll('.shelf [data-shelf-group] .shelf-group-control[aria-expanded="false"]')) group.click();
         return true;
       })()`);
       await lane.until("!!document.querySelector('.todo-row-button')");

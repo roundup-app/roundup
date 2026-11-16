@@ -1,6 +1,5 @@
-import type { JSX } from "solid-js";
 import { createMemo, createSignal, Show } from "solid-js";
-import { Portal } from "solid-js/web";
+import type { JSX } from "@solidjs/web";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
 import { registerKeys } from "../keys/registry";
@@ -47,13 +46,13 @@ export const BlockerMenu = (props: {
     run: () => { close(); button?.focus(); },
   }]);
 
-  return <Popover.Root closeOnInteractOutside={false} open={props.open && (props.label !== undefined || props.others.length > 0)} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
+  return <Popover.Root closeOnInteractOutside={false} open={props.open && (props.label !== undefined || props.others.length > 0)} onOpenChange={({ open }) => { if (!open) close(); }}>
     {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U171 requires a focusable disabled button to expose its reason as title. */}
-    <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" aria-label={props.label} aria-disabled={!props.label && props.others.length === 0 || undefined} title={!props.label && props.others.length === 0 ? copy.noOtherBlockers : undefined} class="word todo-blocker-trigger"
+    <Popover.Trigger render={(attributes) => <button {...attributes} data-button="add" type="button" aria-label={props.label} aria-disabled={!props.label && props.others.length === 0 ? "true" : undefined} title={!props.label && props.others.length === 0 ? copy.noOtherBlockers : undefined} class="word todo-blocker-trigger"
       ref={(element) => { button = element; props.buttonRef(element); }}
       onClick={() => { if (props.open) close(); else if (props.label || props.others.length > 0) props.onOpenChange(true); }}>
       {props.icon ?? <Icon name="plus" />}{props.label ?? copy.blockerWord}</button>} />
-    <Portal><Popover.Positioner><Popover.Content class="todo-blocker-menu">
+    <Popover.Content side="bottom" align="start" class="todo-blocker-menu">
       <div ref={(element) => { menu = element; }}>
       <Combobox.Root items={shown()} inputValue={query()} onInput={setQuery} highlightedValue={highlighted()} onHighlightChange={setHighlight}
         onSelect={(value) => { close();
@@ -62,6 +61,6 @@ export const BlockerMenu = (props: {
         label={props.label ?? copy.blockerWord.trim()} placeholder={copy.blockerPlaceholder} empty={copy.noMatch}
         row={(item) => <><Show when={[...(props.related ?? []), ...props.others].find(todo => todo.id === Number(item.value))}>{todo => <KindGlyph kind={kindOf(todo())} />}</Show><Show when={props.related?.some(todo => todo.id === Number(item.value))}><Icon name="check" /></Show><span class="todo-blocker-title">{item.label}</span><span class="mono light">#{item.value}</span></>} />
       </div>
-    </Popover.Content></Popover.Positioner></Portal>
+    </Popover.Content>
   </Popover.Root>;
 };

@@ -1,4 +1,4 @@
-import { createResource, createSignal, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
 import { Switch } from "../ui/Switch";
@@ -41,7 +41,7 @@ export const SkillSetting = (props: { app: App }) => {
   const [busy, setBusy] = createSignal(false);
   const read = async () => (await calls.rpc("skill.status", null)).items;
 
-  const [items, { mutate }] = createResource(async () => {
+  const [items, setItems] = createSignal<Item[] | null>(async () => {
     try { return await read(); }
     catch (cause) {
       if (!(cause instanceof Error)) throw cause;
@@ -49,7 +49,7 @@ export const SkillSetting = (props: { app: App }) => {
 
       return none;
     }
-  });
+  }, { loadingValue: null });
 
   const run = async (method: Exclude<Method, "skill.status">) => {
     if (busy()) return;
@@ -63,7 +63,7 @@ export const SkillSetting = (props: { app: App }) => {
       setError(cause.message);
     }
 
-    try { mutate(await read()); }
+    try { setItems(await read()); }
     catch (cause) { if (!(cause instanceof Error)) throw cause; setError(current => current ?? cause.message); }
     finally { setBusy(false); }
   };

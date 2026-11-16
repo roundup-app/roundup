@@ -1,111 +1,63 @@
-import { focusActions } from "./focusActions";
-import { makeEventListener } from "@solid-primitives/event-listener";
 import { captureFocus } from "../keys/focus";
-import * as menu from "@zag-js/menu";
-import { normalizeProps, useMachine } from "@zag-js/solid";
-import { getInitialFocus } from "@zag-js/dom-query";
-import { useLocaleContext } from "@ark-ui/solid/locale";
-import { useEnvironmentContext } from "@ark-ui/solid/environment";
-import { Menu as ArkMenu, useMenuContext } from "@ark-ui/solid/menu";
-import { createComputed, createContext, createMemo, createSignal, createUniqueId, on, splitProps, useContext } from "solid-js";
-import { floatingControl } from "./Dialog";
+import type { ComponentProps } from "@solidjs/web";
+import { Menu as UiMenu, MenuContent, MenuGroup, MenuGroupLabel, MenuItem, MenuItemIndicator, MenuRadioGroup, MenuRadioItem, MenuTrigger, type MenuOpenChangeReason, type MenuProps } from "@ui-sdk/solid/menu";
+import { createContext, createEffect, createSignal, omit, untrack, useContext } from "solid-js";
+import { createFloatingControl } from "./Dialog";
 import { trackSurface } from "./openSurfaces";
+import "./Trigger.css";
 import "./Menu.css";
 
-const Owner = createContext<{ setElement: (element: HTMLElement) => void; setContent: (element: HTMLElement) => void; request: () => void; returning: () => void }>();
+const Owner = createContext<{ setTrigger: (element: HTMLElement) => void; opened: (content: HTMLElement) => void; returnFocus: () => HTMLElement }>();
 
-const trackOpening = (element: HTMLElement, request: () => void) => {
-  const key = (event: KeyboardEvent) => { if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) request(); };
-
-  makeEventListener(element, "click", request, true);
-  makeEventListener(element, "contextmenu", request, true);
-  makeEventListener(element, "keydown", key, true);
+type RootProps = Omit<MenuProps, "open" | "defaultOpen" | "onOpenChange"> & {
+  open?: boolean | undefined;
+  defaultOpen?: boolean | undefined;
+  onOpenChange?: ((details: { open: boolean }) => void) | undefined;
+  initialFocus?: ReturnType<typeof captureFocus> | undefined;
+  /** Where focus goes when the menu closes for `reason`; no element returns it to the trigger. */
+  finalFocusEl?: ((reason: MenuOpenChangeReason | undefined) => HTMLElement | null | undefined) | undefined;
 };
 
-export const Menu = {
-  ...ArkMenu,
-  Root: (props: ArkMenu.RootProps & { initialFocus?: ReturnType<typeof captureFocus> | undefined }) => {
-    const [local, render, options] = splitProps(props, ["children", "initialFocus"], ["present", "onExitComplete", "onEnterComplete", "immediate", "lazyMount", "unmountOnExit"]);
-    const [element, setElement] = createSignal<HTMLElement>();
-    const control = floatingControl(props, element);
-    trackSurface(control.open);
-    const [content, setContent] = createSignal<HTMLElement>();
-    let initialFocus = captureFocus();
-    let returnFocus = captureFocus();
-    const request = () => { initialFocus = captureFocus(true); returnFocus = captureFocus(); };
+const Root = (props: RootProps) => {
+  const [trigger, setTrigger] = createSignal<HTMLElement>();
+  const control = createFloatingControl(props, trigger);
+  trackSurface(control.open);
+  let permission = captureFocus();
 
-    const returning = () => { returnFocus = captureFocus(); };
+  createEffect(control.open, open => { if (!open) permission = captureFocus(); });
 
-    let opening = false;
-    createComputed(on(control.open, open => {
-      if (open) { initialFocus = local.initialFocus ?? initialFocus; opening = true; }
-    }));
-    const id = createUniqueId();
-    const locale = useLocaleContext();
-    const environment = useEnvironmentContext();
+  // A menu opened by its `open` prop has no trigger press that focuses its content: focus follows only while no other focus choice has been made.
+  // The content mounts before this open's writes are readable, so the permission is read once the frame has flushed them.
+  const opened = (content: HTMLElement) => {
+    requestAnimationFrame(() => (props.initialFocus ?? permission)(() => { if (!content.contains(document.activeElement)) content.focus({ preventScroll: true }); }));
+  };
 
-    // Zag 1.45 focusMenu/focusTrigger: https://github.com/chakra-ui/zag/blob/main/packages/machines/menu/src/menu.machine.ts
-    const machine = focusActions(menu.machine, {
-      focusMenu: ({ scope }) => {
-        const focus = opening ? initialFocus : captureFocus();
-        opening = false;
-        requestAnimationFrame(() => focus(() => {
-          const target = getInitialFocus({
-            root: content() ?? null, enabled: !content()?.contains(scope.getActiveElement()),
-            filter: node => !node.role?.startsWith("menuitem"),
-          });
+  const rest = omit(props, "open", "defaultOpen", "onOpenChange", "initialFocus", "finalFocusEl", "loop");
 
-          if (target) target.focus({ preventScroll: true });
-        }));
-      },
-      focusTrigger: ({ context, event }) => {
-        if (context.get("isSubmenu") || context.get("anchorPoint") || event.restoreFocus === false) return;
-        const focus = returnFocus;
-        queueMicrotask(() => focus(() => { if (element()?.isConnected) element()?.focus({ preventScroll: true }); }));
-      },
-    });
+  let closedBy: MenuOpenChangeReason | undefined;
 
-    const service = useMachine(machine, () => ({ id, dir: locale().dir, getRootNode: environment().getRootNode, ...options, loopFocus: props.loopFocus ?? false, closeOnSelect: props.closeOnSelect ?? true, composite: props.composite ?? true, typeahead: props.typeahead ?? true, positioning: props.positioning ?? {}, open: control.open(), onOpenChange: control.change }));
-    const api = createMemo(() => menu.connect(service, normalizeProps));
+  // After an item runs, the library returns focus to the trigger, or where `finalFocusEl` names. That move is the library's own: a permission its action captured before it, such as the focus a new row asks for, still holds.
+  const returnFocus = () => captureFocus().target(() => untrack(() => props.finalFocusEl?.(closedBy) ?? trigger()));
 
-    return <Owner.Provider value={{ setElement, setContent, request, returning }}><ArkMenu.RootProvider lazyMount unmountOnExit {...render} value={{ api, service }}>
-      {local.children}
-    </ArkMenu.RootProvider></Owner.Provider>;
-  },
-  Trigger: (props: ArkMenu.TriggerProps) => {
-    const owner = useContext(Owner);
-    const menu = useMenuContext();
-
-    // Ark 5.39.3 replaces the mounted trigger relationship with false; retain Zag’s live association.
-    return <ArkMenu.Trigger {...props} aria-controls={menu().getTriggerProps(props)["aria-controls"]} ref={(element: HTMLButtonElement) => {
-      owner?.setElement(element);
-      trackOpening(element, () => owner?.request());
-
-      // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
-      (props.ref as ((element: HTMLButtonElement) => void) | undefined)?.(element);
-    }} />;
-  },
-  ContextTrigger: (props: ArkMenu.ContextTriggerProps) => {
-    const owner = useContext(Owner);
-
-    return <ArkMenu.ContextTrigger {...props} ref={(element: HTMLButtonElement) => {
-      owner?.setElement(element);
-      trackOpening(element, () => owner?.request());
-
-      // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
-      (props.ref as ((element: HTMLButtonElement) => void) | undefined)?.(element);
-    }} />;
-  },
-  Content: (props: ArkMenu.ContentProps) => {
-    const owner = useContext(Owner);
-
-    return <ArkMenu.Content {...props} ref={(element: HTMLDivElement) => {
-      owner?.setContent(element);
-      const returning = () => owner?.returning();
-      makeEventListener(element, "keydown", returning, true);
-      makeEventListener(element, "click", returning, true);
-      // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
-      (props.ref as ((element: HTMLDivElement) => void) | undefined)?.(element);
-    }} class={`app-menu ${props.class ?? ""}`} />;
-  },
+  return <Owner value={{ setTrigger, opened, returnFocus }}>
+    <UiMenu {...rest} loop={props.loop ?? false} open={control.open()} onOpenChange={(open, details) => { closedBy = details.reason; control.change({ open }); }} />
+  </Owner>;
 };
+
+const Trigger = (props: ComponentProps<typeof MenuTrigger>) => {
+  const owner = useContext(Owner);
+
+  return <MenuTrigger {...props} ref={[props.ref, owner.setTrigger]} />;
+};
+
+const Content = (props: Omit<ComponentProps<typeof MenuContent>, "class"> & { class?: string | undefined }) => {
+  const owner = useContext(Owner);
+  const rest = omit(props, "class", "ref");
+
+  return <MenuContent finalFocus={owner.returnFocus} {...rest} ref={[props.ref, owner.opened]} class={["app-menu", props.class]} />;
+};
+
+/** ui-sdk gives an item a generated id and keeps its value off the DOM; the App names each item by its value. */
+const Item = (props: ComponentProps<typeof MenuItem>) => <MenuItem data-value={props.value} {...props} />;
+
+export const Menu = { Root, Trigger, Content, Item, Group: MenuGroup, GroupLabel: MenuGroupLabel, RadioGroup: MenuRadioGroup, RadioItem: MenuRadioItem, ItemIndicator: MenuItemIndicator };

@@ -1,6 +1,6 @@
-import Hourglass from "lucide-solid/icons/hourglass";
+import Hourglass from "@lucide/solid/icons/hourglass";
 import { Show } from "solid-js";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { Bubbles } from "../bubbles/Bubbles";
 import { copy } from "./copy";
 import { InProject } from "./InProject";

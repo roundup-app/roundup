@@ -1,4 +1,4 @@
-import { batch, createComputed, createMemo, createSignal, on, untrack, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, untrack, type Accessor } from "solid-js";
 import { rowTopology, type NestedRow } from "./todoView";
 
 /** Range aggregates replace #5644's 1,999,000 retained descendant references. */
@@ -61,10 +61,9 @@ export const createDependencyGroups = (input: {
   const [moving, setMoving] = createSignal(false);
   const [pending, setPending] = createSignal<{ close: number[]; open: number[]; blocked: ReadonlyMap<number, boolean> }>({ close: [], open: [], blocked: new Map<number, boolean>() });
 
-  createComputed(() => {
-    if (!input.loaded()) return;
-    const keys = input.keys();
-    const ids = input.ids();
+  createEffect(() => input.loaded() ? [input.keys(), input.ids()] as const : null, known => {
+    if (!known) return;
+    const [keys, ids] = known;
 
     for (const [key, scope] of cache) {
       if (!keys.has(key)) cache.delete(key);
@@ -74,7 +73,7 @@ export const createDependencyGroups = (input: {
 
   const topology = createMemo(() => rowTopology(input.rows()));
   const groups = createMemo(() => groupFacts(topology()));
-  const [listedGroups, setListedGroups] = createSignal<ReturnType<typeof groupFacts>>(new Map());
+  const [listedGroups, setListedGroups] = createSignal<ReturnType<typeof groupFacts>>(untrack(groups));
 
   const complete = (id: number) => {
     const facts = groups().get(id);
@@ -109,10 +108,12 @@ export const createDependencyGroups = (input: {
 
   const visible = (id: number) => visibility()[topology().index.get(id) ?? -1] ?? true;
 
-  createComputed(() => {
-    const visibleBars = [...bars()].filter(id => input.shown(id) && visible(id));
+  createEffect(() => {
+    const current = bars();
 
-    if (visibleBars.length !== bars().size) setBars(new Set(visibleBars));
+    return [current, [...current].filter(id => input.shown(id) && visible(id))] as const;
+  }, ([current, visibleBars]) => {
+    if (visibleBars.length !== current.size) setBars(new Set(visibleBars));
   });
 
   let before: { key: string; done: Map<number, boolean>; blocked: Map<number, boolean> } | null = null;
@@ -123,7 +124,7 @@ export const createDependencyGroups = (input: {
     return { rows, done: new Map(rows.map(row => [row.todo.id, row.todo.done])), blocked: new Map(rows.map(row => [row.todo.id, row.todo.blocked])) };
   });
 
-  createComputed(on([input.loaded, input.key, accepted], ([loaded, key, facts]) => batch(() => {
+  createEffect(() => [input.loaded(), input.key(), accepted()] as const, ([loaded, key, facts]) => untrack(() => {
     const { rows, done, blocked } = facts;
     const was = before;
     before = loaded ? { key, done, blocked } : null;
@@ -223,15 +224,12 @@ export const createDependencyGroups = (input: {
 
     setPending({ close: [...new Set([...pending().close.filter(id => groups().has(id)), ...shown.map(([id]) => id)])], open: successors, blocked: baseline });
     setListedGroups(groups());
-  })));
+  }));
 
-  createComputed(() => batch(() => {
-    if (input.reduced() && bars().size) setBars(new Set<number>());
+  createEffect(() => input.reduced() && bars().size > 0, clear => { if (clear) setBars(new Set<number>()); });
 
-    if (input.playing() || bars().size > 0) return;
-    const request = pending();
-
-    if (!request.close.length) return;
+  createEffect(() => input.playing() || bars().size > 0 ? null : pending(), request => untrack(() => {
+    if (!request?.close.length) return;
     const closing = request.close.filter(complete);
     const hidden = new Set<number>();
     // Union the closing ranges in preorder, so nested completions visit each row once.
@@ -257,8 +255,10 @@ export const createDependencyGroups = (input: {
     setPending({ close: [], open: [], blocked: new Map<number, boolean>() });
   }));
 
-  createComputed(() => input.observe?.({ topology: topology(), groups: groups(), listed: listedGroups(), visibility: visibility(), before,
-    accepted: accepted(), choices: cache, pending: pending(), bars: bars(), strikes: strikes() }));
+  const { observe } = input;
+
+  if (observe) createEffect(() => ({ topology: topology(), groups: groups(), listed: listedGroups(), visibility: visibility(),
+    accepted: accepted(), choices: cache, pending: pending(), bars: bars(), strikes: strikes() }), retained => { observe({ ...retained, before }); });
 
   return { groups: listedGroups, complete, expanded, visible, setExpanded, moving,
     bar: (id: number) => bars().has(id),

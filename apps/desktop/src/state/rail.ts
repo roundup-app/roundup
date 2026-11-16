@@ -7,11 +7,11 @@ import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
 import { applying } from "../app/pending";
 import PQueue from "p-queue";
-import { batch, createComputed, createMemo, createRoot, createSignal, onCleanup, untrack } from "solid-js";
-import { createStore, reconcile } from "solid-js/store";
+import { createEffect, createMemo, createRoot, createSignal, flush, latest, onCleanup, createStore, reconcile, snapshot, untrack } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { StatusEvent } from "@contracts/agent/StatusEvent";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { attemptAfter, doorAttempt, doorTerminalId, isDoor, type DoorNode } from "./doorNode";
 import { defaultWorkstreamName } from "./defaultName";
@@ -232,6 +232,64 @@ const shownOver = (tree: readonly RailNode[], pending: readonly Pending[]): read
   return starting.size === 0 ? drawn : drawn.map(node => starting.has(node.id) && isDoor(node) ? { ...node, status: startingStatus(node.status?.since) } : node);
 };
 
+type Resumed = Parameters<ResumptionStorage["write"]>[0];
+
+/** U5483c: when each Door's current Attempt last started working, from `stored` and kept up to date. */
+const createResumed = (stored: Resumed) => {
+  const [resumed, setResumed] = createStore<Resumed>(stored);
+
+  /** Notes the node's working start; false when the node is no working Door or that start is already noted. */
+  const record = (node: RailNode): boolean => {
+    if (!isDoor(node) || node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
+    const noted = { attempt: node.attempt, since: node.status.since };
+
+    setResumed(draft => { draft[node.id] = noted; });
+
+    return true;
+  };
+
+  /** Forgets each Door the tree no longer holds at its noted Attempt, and notes every working start; true when any note changed. */
+  const sync = (tree: readonly RailNode[]): boolean => {
+    const gone = Object.keys(resumed).filter(id => !tree.some(node => node.id === id && isDoor(node) && node.attempt === resumed[id]?.attempt));
+
+    for (const id of gone) setResumed(draft => { delete draft[id]; });
+
+    return tree.filter(record).length > 0 || gone.length > 0;
+  };
+
+  return { resumed, record, sync };
+};
+
+/** `tree` with each unconfirmed rename's asked name and each unconfirmed move drawn on it. */
+const withAsked = (tree: readonly RailNode[], asked: Readonly<Record<string, PendingChange>>): RailNode[] => {
+  const renamed = tree.map(node => {
+    const change = asked[node.id];
+
+    return change?.kind === "rename" ? { ...node, name: change.asked } : node;
+  });
+
+  return Object.entries(asked).reduce((shown, [id, change]) => change.kind === "move" ? movedTo(shown, id, change.asked) : shown, renamed);
+};
+
+/** Writes a Door's reported status onto its row, unless the row already holds a newer one. */
+const applyStatus = (tree: RailNode[], reported: StatusEvent) => {
+  for (const row of tree) {
+    if (isDoor(row) && row.id === reported.id && row.attempt === reported.attempt && row.status_revision !== null && BigInt(reported.status_revision) > BigInt(row.status_revision)) {
+      row.status = reported.status;
+      row.status_revision = reported.status_revision;
+    }
+  }
+};
+
+/** `listed` with Terminal `id` showing `status`, or none when `status` is empty. */
+const withTerminalStatus = (listed: readonly TerminalInfo[], id: string, status: TerminalInfo["status"] | null): TerminalInfo[] => listed.map(terminal => {
+  if (terminal.id !== id) return terminal;
+
+  const { status: _previous, ...rest } = terminal;
+
+  return status ? { ...rest, status } : rest;
+});
+
 /** U5172a: how a read of the tree settles one unconfirmed change: null leaves it marked, else the failure to show (null for none). */
 const settledChange = (tree: readonly RailNode[], id: string, change: PendingChange): { failure: string | null } | null => {
   const node = tree.find(each => each.id === id);
@@ -263,19 +321,6 @@ const settleAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<str
   }
 };
 
-/** The Daemon's tree with each unconfirmed rename and move shown as asked. */
-const withAsked = (tree: readonly RailNode[], unconfirmed: Readonly<Record<string, PendingChange>>): RailNode[] => {
-  let shown = tree.map((node) => {
-    const change = unconfirmed[node.id];
-
-    return change?.kind === "rename" ? { ...node, name: change.asked } : node;
-  });
-
-  for (const [id, change] of Object.entries(unconfirmed)) if (change.kind === "move") shown = movedTo(shown, id, change.asked);
-
-  return shown;
-};
-
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
@@ -302,21 +347,15 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const topology = createMemo(() => railTopology(view()));
 
-  const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
-
-  const recordResumption = (node: RailNode): boolean => {
-    if (!isDoor(node) || node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
-    setResumed(node.id, { attempt: node.attempt, since: node.status.since });
-
-    return true;
-  };
+  const { resumed, record: recordResumption, sync: syncResumptions } = createResumed(resumptions?.read() ?? {});
 
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
   const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id), terminals);
   const [dismissedKeys, setDismissedKeys] = createSignal<ReadonlySet<string>>(new Set(dismissals?.read() ?? []));
   const [selected, setSelected] = createSignal<string | null>(null);
-  const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
+  const openingFocus = captureFocus();
+  const [terminalFocus, setTerminalFocus] = createSignal(() => openingFocus);
   const [selectionIntent, setSelectionIntent] = createSignal<"select" | "open">("select");
   const [failure, setFailure] = createSignal<string | null>(null);
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
@@ -337,49 +376,78 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [unsaved, setUnsaved] = createSignal<{ key: string; name: string }[]>([]);
   let firstTree = true;
 
-  const save = async () => {
-    const layout: Parameters<RailStorage["write"]>[0] = { selected: selected(), collapsed: [...collapsed()] };
-
+  const save = async (layout: Parameters<RailStorage["write"]>[0]) => {
     setStorageFailure(await storage?.write(layout) ?? null);
   };
 
   const saveResumptions = async () => {
-    setStorageFailure(await resumptions?.write({ ...resumed }) ?? null);
+    setStorageFailure(await resumptions?.write({ ...snapshot(resumed) }) ?? null);
   };
 
-  const reveal = (id: string | null) => {
-    if (id === null) return;
+  /** Opens the Workstreams above `id`, and returns the set the Rail now holds collapsed. */
+  const reveal = (id: string | null): ReadonlySet<string> => {
+    const above = new Set(id === null ? [] : untrack(() => ancestorsOf(topology(), id)));
 
-    const above = new Set(ancestorsOf(topology(), id));
-
-    setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
+    return setCollapsed((closed) => id === null ? closed : new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
 
   const [unconfirmed, setAsked] = createStore<Record<string, PendingChange>>({});
 
-  const reconcileAsked = (tree: readonly RailNode[]) => settleAsked(tree, unconfirmed, id => setAsked(id, undefined!), commandFailure);
+  const reconcileAsked = (tree: readonly RailNode[]) => settleAsked(tree, unconfirmed, id => setAsked(draft => { delete draft[id]; }), commandFailure);
 
   /** Fetches run one after another, and Events that arrive meanwhile wait behind them: the answer may predate them. */
   const queue = new PQueue({ concurrency: 1 });
-  const [fetchingNow, setFetchingNow] = createSignal(false);
+  // The queue starts an idle job in its caller's turn, and the first fetch is asked from the owned setup.
+  const [fetchingNow, setFetchingNow] = createSignal(false, { ownedWrite: true });
 
   queue.on("active", () => setFetchingNow(true));
   queue.on("idle", () => setFetchingNow(false));
 
   const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
-    seenAtSelect = new Set(model.tree.map(node => node.id));
-    batch(() => {
-      setTerminalFocus(() => focus);
-      setSelectionIntent(intent ?? "select");
-      setRestored(false);
-      setSelected(id !== null && model.tree.some((node) => node.id === id) ? id : null);
-      reveal(selected());
-      save();
-    });
+    seenAtSelect = new Set(untrack(() => latest(() => model.tree.map(node => node.id))));
+    // A refresh may have written the tree while async work still holds the write back: `latest` sees the row `refresh` just fetched.
+    const next = id !== null && untrack(() => latest(() => model.tree.some((node) => node.id === id))) ? id : null;
+
+    setTerminalFocus(() => focus);
+    setSelectionIntent(intent ?? "select");
+    setRestored(false);
+    setSelected(next);
+    save({ selected: next, collapsed: [...reveal(next)] });
   };
 
   const hasLiveTerminal = (node: RailNode) => isDoor(node) && node.terminal_id !== null && !(node.terminal_id in model.exited);
+
+  const fetchTree = async () => {
+    const tree = await app.rpc("rail.tree", null);
+    const before = model.tree.map(({ id, kind, parent }) => ({ id, kind, parent }));
+
+    reconcileAsked(tree);
+    // The asked changes as reconcileAsked left them.
+    setModel(draft => { reconcile(withAsked(tree, snapshot(unconfirmed)), "id")(draft.tree); });
+    const resumptionChanged = syncResumptions(tree);
+
+    settleDoors(tree);
+    settleSelection(tree, before);
+
+    if (resumptionChanged) await saveResumptions();
+
+    flush(); // TEMP-WAVE2B
+    openWanted(tree);
+  };
+
+  /** A Door showing a live Terminal has started: its pending start was observed live, and a failure it had is over. */
+  const settleDoors = (tree: readonly RailNode[]) => {
+    for (const node of tree) {
+      if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(draft => { draft[node.id]!.observedLive = true; });
+      const failed = doors[node.id]?.failure;
+
+      if (failed && (hasLiveTerminal(node) || attemptAfter(node, failed.attempt))) {
+        setDoors(draft => { draft[node.id]!.failure = null; });
+        commandFailure.acknowledge(node.id);
+      }
+    }
+  };
 
   /** The selected row left the Rail: H7200d's taker takes the selection, else nothing is selected. */
   const reselect = (tree: readonly RailNode[], before: readonly Pick<RailNode, "id" | "kind" | "parent">[]) => {
@@ -392,57 +460,32 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     if (taker !== null) select(taker, terminalFocus(), selectionIntent() === "open" ? "open" : undefined);
     else {
       setSelected(null);
-      save();
+      save({ selected: null, collapsed: [...collapsed()] });
     }
   };
 
-  const fetchTree = async () => {
-    const tree = await app.rpc("rail.tree", null);
-    const before = model.tree.map(({ id, kind, parent }) => ({ id, kind, parent }));
-    let resumptionChanged = false;
+  /** The first tree restores the saved selection and folds; a later one hands a selection whose row is gone to its taker, or clears it. */
+  const settleSelection = (tree: readonly RailNode[], before: readonly Pick<RailNode, "id" | "kind" | "parent">[]) => {
+    if (firstTree) {
+      firstTree = false;
+      const saved = storage?.read();
 
-    batch(() => {
-      reconcileAsked(tree);
+      if (saved) {
+        const chosen = tree.some((node) => node.id === saved.selected) ? saved.selected : null;
 
-      setModel("tree", reconcile(withAsked(tree, unconfirmed), { key: "id" }));
-
-      for (const id of Object.keys(resumed)) {
-        if (tree.some(node => node.id === id && isDoor(node) && node.attempt === resumed[id]?.attempt)) continue;
-        setResumed(id, undefined!);
-        resumptionChanged = true;
+        // Revealing reads the topology of the tree just written, before the selection is.
+        flush();
+        setSelected(chosen);
+        seenAtSelect = new Set(tree.map(node => node.id));
+        setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
+        setRestored(chosen !== null);
+        save({ selected: chosen, collapsed: [...reveal(chosen)] });
       }
+    } else reselect(tree, before);
+  };
 
-      for (const node of tree) {
-        if (recordResumption(node)) resumptionChanged = true;
-
-        if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(node.id, "observedLive", true);
-        const failed = doors[node.id]?.failure;
-
-        if (failed && (hasLiveTerminal(node) || attemptAfter(node, failed.attempt))) {
-          setDoors(node.id, "failure", null);
-          commandFailure.acknowledge(node.id);
-        }
-      }
-
-      if (firstTree) {
-        firstTree = false;
-        const saved = storage?.read();
-
-        if (saved) {
-          setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
-          seenAtSelect = new Set(tree.map(node => node.id));
-          setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
-          reveal(selected());
-          setRestored(selected() !== null);
-          save();
-        }
-      } else {
-        reselect(tree, before);
-      }
-    });
-
-    if (resumptionChanged) await saveResumptions();
-
+  /** Once the tree holds the Workstream just created, select it and start its Door. */
+  const openWanted = (tree: readonly RailNode[]) => {
     const wanted = wantedWorkstream;
 
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
@@ -450,6 +493,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       if (selectionRevision === workstreamSelection) select(wanted, workstreamFocus);
 
+      // The Door's start reads the selection just written to decide whether to prepare the shown Terminal's size.
+      flush();
       setWorkstreamCreating(false);
       void startDoor(wanted, false);
     }
@@ -460,9 +505,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     setTerminals(listed);
 
-    for (const terminal of listed) {
-      if (!terminal.running) setModel("exited", terminal.id, terminal.exit_code);
-    }
+    setModel(draft => {
+      for (const terminal of listed) {
+        if (!terminal.running) draft.exited[terminal.id] = terminal.exit_code;
+      }
+    });
   };
 
   /** U3703: select the Agent that owns Terminal `id` (its own, or the Bubble's owner); an unknown id or an owner with no row changes nothing. */
@@ -489,25 +536,28 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const row = model.tree.find(node => node.id === data.id);
 
       if (row !== undefined) reconcileAsked([{ ...row, name: data.name }]);
-      setModel("tree", node => node.id === data.id, "name", data.name);
+      setModel(draft => { for (const node of draft.tree) if (node.id === data.id) node.name = data.name; });
     },
     "agent.status": ({ data }) => {
-      setModel("tree", (node) => isDoor(node) && node.id === data.id && node.attempt === data.attempt && node.status_revision !== null && BigInt(data.status_revision) > BigInt(node.status_revision), { status: data.status, status_revision: data.status_revision });
-      const node = model.tree.find(node => node.id === data.id);
+      // SAFETY: the updater below assigns it; flow analysis does not follow an assignment made inside a callback.
+      let node = undefined as RailNode | undefined;
+
+      setModel(draft => {
+        applyStatus(draft.tree, data);
+
+        // The write has not landed in `model` yet; the resumption check reads the Row as this write leaves it.
+        const written = draft.tree.find(row => row.id === data.id);
+
+        node = written && snapshot(written);
+      });
 
       if (node && recordResumption(node)) void saveResumptions();
     },
-    "agent.toolCall": ({ data }) => setModel("tree", (node) => node.id === data.id && isDoor(node), { tool_call: data.call }),
+    "agent.toolCall": ({ data }) => setModel(draft => { for (const node of draft.tree) if (node.id === data.id && isDoor(node)) node.tool_call = data.call; }),
     "terminal.changed": () => void fetching(fetchTerminals),
     "terminal.shown": ({ data }) => showTerminal(data.id),
-    "terminal.status": ({ data: { id, status } }) => setTerminals((listed) => listed.map((terminal) => {
-      if (terminal.id !== id) return terminal;
-
-      const { status: _previous, ...rest } = terminal;
-
-      return status ? { ...rest, status } : rest;
-    })),
-    "terminal.exited": ({ data }) => setModel("exited", data.id, data.code),
+    "terminal.status": ({ data: { id, status } }) => setTerminals(listed => withTerminalStatus(listed, id, status)),
+    "terminal.exited": ({ data }) => setModel(draft => { draft.exited[data.id] = data.code; }),
   };
 
   /** A24: the call's answer, or a rejection once `DOOR_START_BOUND_MS` passes without one. */
@@ -521,11 +571,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const startDoor = async (id: string, focus = true): Promise<void> => {
     if (doors[id]?.pending) return;
 
-    if (focus && selected() === id) batch(() => {
+    if (focus && selected() === id) {
       setTerminalFocus(() => captureFocus(true));
       setRestored(false);
-    });
-    setDoors(id, { pending: true, observedLive: false, failure: null });
+    }
+
+    setDoors(draft => { draft[id] = { pending: true, observedLive: false, failure: null }; });
     const release = state.launch(id);
 
     let prepared: TerminalPreparation | undefined;
@@ -543,12 +594,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const node = model.tree.find((each) => each.id === id);
 
       if (node && !hasLiveTerminal(node) && !doors[id]?.observedLive) {
-        setDoors(id, "failure", { message: error.message, attempt: doorAttempt(node) });
+        setDoors(draft => { draft[id]!.failure = { message: error.message, attempt: doorAttempt(node) }; });
         commandFailure.show(error.message, id, "pane");
       }
     } finally {
       prepared?.dispose();
-      setDoors(id, "pending", false);
+      setDoors(draft => { draft[id]!.pending = false; });
       release();
     }
   };
@@ -603,8 +654,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   }));
   const fetchAll = async (): Promise<void> => { await Promise.all([fetchTree(), fetchTerminals()]); };
 
-  // The first fetch reads the Rail once, outside any tracked scope.
-  untrack(() => void fetching(fetchAll));
+  void untrack(() => fetching(fetchAll));
 
   const state: RailState = {
     resumedAt: id => resumed[id]?.since,
@@ -672,7 +722,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       return () => setExitsDrawn(marks => marks.get(id) !== mark ? marks : new Map([...marks].filter(([key]) => key !== id)));
     },
-    keepApplied: (id, place) => setModel("tree", reconcile(movedTo(model.tree, id, place), { key: "id" })),
+    keepApplied: (id, place) => setModel(draft => { reconcile(movedTo(snapshot(model.tree), id, place), "id")(draft.tree); }),
     exitOf: (node) => {
       const drawnExit = exitsDrawn().get(node.id);
 
@@ -706,10 +756,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       if (result.kind === "refused") throw result.error;
     },
     keepAsked: (id, change) => {
-      setAsked(id, change);
+      setAsked(draft => { draft[id] = change; });
 
-      if (change.kind === "rename") setModel("tree", node => node.id === id, "name", change.asked);
-      else if (change.kind === "move") setModel("tree", reconcile(movedTo(model.tree, id, change.asked), { key: "id" }));
+      if (change.kind === "rename") setModel(draft => { for (const node of draft.tree) if (node.id === id) node.name = change.asked; });
+      else if (change.kind === "move") setModel(draft => { reconcile(movedTo(snapshot(model.tree), id, change.asked), "id")(draft.tree); });
     },
     failure,
     dismissed: (item) => {
@@ -721,9 +771,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const key = failureKey(item);
 
       if (key === null) return;
-      const next = new Set(dismissedKeys()).add(key);
+      let next!: ReadonlySet<string>;
 
-      setDismissedKeys(next);
+      setDismissedKeys(keys => next = new Set(keys).add(key));
       void dismissals?.write([...next]).then(problem => { if (problem !== null) setUnsaved(lines => [...lines.filter(line => line.key !== key), { key, name: isTerminal(item) ? item.program : item.name }]); else setUnsaved([]); });
     },
     unsavedDismissal: () => unsaved()[0]?.name ?? null,
@@ -744,8 +794,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     storageFailure,
     clearStorageFailure: () => setStorageFailure(null),
     toggleCollapsed: (id) => {
-      setCollapsed((closed) => new Set(closed.has(id) ? [...closed].filter((each) => each !== id) : [...closed, id]));
-      save();
+      let next!: ReadonlySet<string>;
+
+      setCollapsed((closed) => next = new Set(closed.has(id) ? [...closed].filter((each) => each !== id) : [...closed, id]));
+      save({ selected: selected(), collapsed: [...next] });
     },
     select: (id, intent, focus = captureFocus(true)) => select(id, focus, intent),
     shouldAcknowledgeAlerts: () => !restored() && (selectionIntent() === "open" || model.tree.some(node => node.id === selected() && node.kind === "agent")),
@@ -757,8 +809,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
           : actor.id,
     settled: async () => {
       await queue.onIdle();
-      await new Promise<void>(resolve => createRoot(done => createComputed(() => {
-        if (fetchingNow() || pending().length > 0) return;
+      await new Promise<void>(resolve => createRoot(done => createEffect(() => fetchingNow() || pending().length > 0, busy => {
+        if (busy) return;
         queueMicrotask(done);
         resolve();
       })));

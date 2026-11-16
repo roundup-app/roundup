@@ -1,7 +1,9 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { untrack } from "solid-js";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { CHORDS, CHORD_ROWS } from "../keys/chords";
 import { copy } from "./copy";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import "./rowButton.styles.css";
 
 /** A clickable row of the Shelf or a Drawer: plain text, no button chrome; a long title wraps under its `#`, not under the glyph; `hang={false}` is the Shelf's (U359), whose Glyph is its own column. */
@@ -9,7 +11,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
   let button: HTMLButtonElement | undefined;
 
   // One layer holds row commands and navigation: only the first eligible layer of a press is consulted.
-  if (props.onKeyDown || props.nest || props.onOpen || props.onRename) registerKeys({ kind: "layer", element: () => button, active: () => document.activeElement === button && !modalOpen(), modal: false }, [{
+  if (untrack(() => props.onKeyDown || props.nest || props.onOpen || props.onRename)) registerKeys({ kind: "layer", element: () => button, active: () => document.activeElement === button && !modalOpen(), modal: false }, [{
     chords: ["Meta+Enter", "ArrowUp", "ArrowDown", "Shift+ArrowUp", "Shift+ArrowDown", "Alt+ArrowUp", "Alt+ArrowDown", "Backspace", "Escape"],
     when: (event) => !props.keysSuspended && props.onKeyDown !== undefined && event.target === button
       && (event.altKey ? props.reorderable === true : props.pressed !== undefined)
@@ -47,12 +49,15 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
   return (
     <button type="button" class="todo-row-button"
       onDblClick={() => props.onOpen?.()}
-      on:keydown={(event) => {
-        if (event.target === event.currentTarget && !event.defaultPrevented && !props.keysSuspended) props.onKeyDown?.(event);
-      }}
       onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
-      aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed}
+      aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}
       style={props.hang === false ? undefined : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" }}
-      ref={(element) => { button = element; props.ref?.(element); }}>{props.children}</button>
+      ref={(element) => {
+        button = element;
+        makeEventListener(element, "keydown", (event) => {
+          if (event.target === event.currentTarget && !event.defaultPrevented && !props.keysSuspended) props.onKeyDown?.(event);
+        });
+        props.ref?.(element);
+      }}>{props.children}</button>
   );
 };

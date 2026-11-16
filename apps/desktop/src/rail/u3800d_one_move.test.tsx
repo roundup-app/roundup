@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
-import { createEffect, createMemo, createRoot, createSignal, on } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, flush, untrack } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { createRailTree } from "./railTree";
 import { agent, workstream, NOW } from "../testing/nodes";
-import { mountRail, rowOf, settled } from "./railFixture";
+import { itemValues, mountRail, rowOf, settled } from "./railFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -112,36 +112,35 @@ it("u3800d_a_key_straight_after_a_move_walks_the_new_order", async () => {
   expect(m.rail.selected()).toBe("F7");
 });
 
-it("u3800g_collection_survives_a_redraw_that_leaves_the_tree_as_it_was", async () => {
+it("u3800g_items_survive_a_redraw_that_leaves_the_tree_as_it_was", async () => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree40();
   const [now, setClock] = createSignal(NOW);
   const clock = createRoot(() => createMemo(now));
   const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, clock);
 
-  createRoot(dispose => {
-    const tree = createRailTree(connected, () => new Set(), () => undefined);
-    const collection = tree.collection();
-    const expanded = tree.expanded();
-    setClock(NOW + 1000);
-    expect(tree.collection()).toBe(collection);
-    expect(tree.expanded()).toBe(expanded);
-    dispose();
-  });
+  const { tree, dispose } = createRoot(dispose => ({ tree: createRailTree(connected, () => new Set(), () => undefined), dispose }));
+  const items = tree.items();
+  const expanded = tree.expanded();
+  setClock(NOW + 1000);
+  flush();
+  expect(tree.items()).toBe(items);
+  expect(tree.expanded()).toBe(expanded);
+  dispose();
 });
 
-it("u3800d_a_redraw_that_shows_a_row_fewer_rebuilds_the_collection_at_once", async () => {
+it("u3800d_a_redraw_that_shows_a_row_fewer_rebuilds_the_items_at_once", async () => {
   const nodes = tree40();
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => structuredClone(nodes);
   const clock = createRoot(() => createMemo(() => NOW));
   const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, clock);
-  const holds: boolean[] = [];
+  const kept: boolean[] = [];
 
   const dispose = createRoot(dispose => {
     const tree = createRailTree(connected, () => new Set(), () => undefined);
-    // Each redraw records, in its own update, whether the collection still holds F7.
-    createEffect(on(tree.rows, () => holds.push(tree.collection().findNode("F7") !== undefined)));
+    // Each redraw records, in its own update, whether the items still hold F7.
+    createEffect(() => tree.rows(), () => { kept.push(itemValues(untrack(tree.items)).includes("F7")); });
 
     return dispose;
   });
@@ -151,6 +150,6 @@ it("u3800d_a_redraw_that_shows_a_row_fewer_rebuilds_the_collection_at_once", asy
   await connected.rail.settled();
   await settled();
 
-  expect(holds).toEqual([true, false]);
+  expect(kept).toEqual([true, false]);
   dispose();
 });

@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Machine } from "@contracts/machine/Machine";
 import { queueFocus } from "../keys/focus";
 import { answerOf, type App } from "../app/seam";
@@ -29,9 +29,19 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     }
   };
 
-  const [listed, { mutate }] = createResource(calls, read);
+  // Rereads whenever the Project changes; an add, remove or update writes the list the Daemon answers with.
+  const [listed, setListed] = createSignal<Page | undefined>(async () => {
+    const project = calls();
 
-  const [hosts] = createResource(calls, async project => await project.rpc("machine.sshHosts", null).catch((): string[] => []));
+    return project === null ? undefined : await read(project);
+  }, { loadingValue: undefined });
+
+  const hosts = createMemo<string[]>(async () => {
+    const project = calls();
+
+    return project === null ? [] : await project.rpc("machine.sshHosts", null).catch((): string[] => []);
+  }, { loadingValue: [] });
+
   const [adding, setAdding] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
 
@@ -42,7 +52,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
 
   const machines = () => listed()?.machines ?? [];
 
-  const setMachines = (next: Machine[]) => mutate(page => ({ machines: next, version: page?.version ?? "", failure: null }));
+  const setMachines = (next: Machine[]) => setListed(page => ({ machines: next, version: page?.version ?? "", failure: null }));
 
   /** The sentence for a failure to add, or null once the Machine is on the page. */
   const add = async (name: string): Promise<string | null> => {
@@ -99,7 +109,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   };
 
   const failure = () => listed()?.failure ?? null;
-  const unadded = () => (hosts() ?? []).filter(host => !machines().some(machine => machine.name === host));
+  const unadded = () => hosts().filter(host => !machines().some(machine => machine.name === host));
 
   return <div class="settings-machines-page">
     <p class="settings-hint settings-machines-note">{copy.machinesIntro}</p>
@@ -119,9 +129,9 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
           {machine.reachable === false ? copy.machineOffline : copy.machineOnline}
         </span>
         <Show when={machine.outdated === true}>
-          <button class="settings-machine-update" data-button="quiet" type="button" aria-label={copy.machineUpdateLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void update(machine.name)}>{updating().has(machine.name) ? copy.machineUpdating : copy.update}</button>
+          <button class="settings-machine-update" data-button="quiet" type="button" aria-label={copy.machineUpdateLabel(machine.name)} aria-disabled={updating().has(machine.name) ? "true" : "false"} onClick={() => void update(machine.name)}>{updating().has(machine.name) ? copy.machineUpdating : copy.update}</button>
         </Show>
-        <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
+        <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} aria-disabled={updating().has(machine.name) ? "true" : "false"} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
         <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{row => <ReservedLine message={row().sentence} dismiss={() => setRowFailure(null)} />}</Show>
       </li>}</For>
     </ul>

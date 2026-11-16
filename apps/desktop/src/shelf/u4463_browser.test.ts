@@ -78,7 +78,8 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
   await browser("wait", ".shelf-bar [role=alert]");
   await capture(`${seed}-${width}-refused`);
   await browser("hover", ".shelf-bar [role=alert]");
-  await browser("wait", "[role=tooltip]");
+  // ui-sdk keeps every closed Tooltip in the page, hidden: the open one is the one that names `data-open`.
+  await browser("wait", "[role=tooltip][data-open]");
   await capture(`${seed}-${width}-refused-detail`);
 
   await browser("click", "#shelf-tab-pads");
@@ -95,7 +96,7 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
     await browser("wait", ".todos-tab [role=alert]");
     await capture(`tree-40-${width}-todo-refused`);
     await browser("hover", ".todos-tab [role=alert]");
-    await browser("wait", "[role=tooltip]");
+    await browser("wait", "[role=tooltip][data-open]");
     await capture(`tree-40-${width}-todo-refused-detail`);
     await browser("click", ".todos-tab .entry-field");
     await browser("press", "Escape");

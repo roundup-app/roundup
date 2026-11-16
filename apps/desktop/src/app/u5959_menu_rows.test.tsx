@@ -82,6 +82,6 @@ it("u5959c_dock_rows_share_the_menu_bar_rows", async () => {
   vi.setSystemTime(HOUR / 2);
   finishAt(app, "api", "a-b", HOUR / 2, 2);
 
-  await waitFor(() => expect(app.menuBar?.dock).toEqual(app.menuBar?.entries));
-  expect(app.menuBar?.dock[1]).toMatchObject({ label: "A b", subtitle: "settled", state: "ready", since: HOUR / 2 });
+  await waitFor(() => expect(app.menuBar?.dock[1]).toMatchObject({ label: "A b", subtitle: "settled", state: "ready", since: HOUR / 2 }));
+  expect(app.menuBar?.dock).toEqual(app.menuBar?.entries);
 });

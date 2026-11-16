@@ -36,7 +36,7 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
   await browser("wait", "--fn", "innerWidth === 1512 && innerHeight === 950 && matchMedia('(prefers-color-scheme: dark)').matches");
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: title, text: source })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate(`(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === ${JSON.stringify(title)}).focus(); return true; })()`);
   await browser("press", "Enter");
@@ -52,15 +52,14 @@ it("u5808b_colour_palette_capture", { retry: 0, timeout: 180000 }, async () => {
     if (input === "pointer") await browser("click", triggerSelector);
     else { await browser("focus", triggerSelector); await browser("press", input); }
 
-    await browser("wait", "--fn", `(() => { const menu = document.querySelector('.pad-colour-menu'); return menu?.dataset.state === 'open' && menu.dataset.placement && getComputedStyle(menu.closest('[data-part=positioner]')).getPropertyValue('--x') && getComputedStyle(menu.closest('[data-part=positioner]')).getPropertyValue('--y') && getComputedStyle(menu).opacity === '1' && !menu.getAnimations().some(a => a.playState === 'running'); })()`);
+    await browser("wait", "--fn", `(() => { const menu = document.querySelector('.pad-colour-menu'); return menu?.hasAttribute('data-open') && menu.dataset.side && getComputedStyle(menu).getPropertyValue('--transform-origin') && getComputedStyle(menu).opacity === '1' && !menu.getAnimations().some(a => a.playState === 'running'); })()`);
 
     const reading = await evaluate<{ checks: Checks }>(`(() => {
       const trigger = document.querySelector('${triggerSelector}');
       const menu = document.querySelector('.pad-colour-menu');
-      const positioner = menu.closest('[data-part=positioner]');
-      const style = getComputedStyle(positioner);
+      const style = getComputedStyle(menu);
       const body = document.querySelector('.drawer .pad-editor');
-      return { checks: window.__checks(), triggerId: trigger.id, labelledby: menu.getAttribute('aria-labelledby'), controls: trigger.getAttribute('aria-controls'), menuId: menu.id, sameTrigger: trigger === window.__colourTrigger, trigger: trigger.getBoundingClientRect().toJSON(), menu: menu.getBoundingClientRect().toJSON(), placement: menu.dataset.placement, effectiveOffset: 8, offsetSource: "@zag-js/popper 1.45.0 get-placement default gutter; no arrow or override", transformOrigin: style.getPropertyValue('--transform-origin'), transform: style.transform, positionerStyle: positioner.getAttribute('style'), scroll: { top: body.scrollTop, height: body.clientHeight, total: body.scrollHeight }, recovery: document.querySelector('.pad-body [role=alert]')?.textContent ?? null };
+      return { checks: window.__checks(), triggerId: trigger.id, labelledby: menu.getAttribute('aria-labelledby'), controls: trigger.getAttribute('aria-controls'), menuId: menu.id, sameTrigger: trigger === window.__colourTrigger, trigger: trigger.getBoundingClientRect().toJSON(), menu: menu.getBoundingClientRect().toJSON(), placement: menu.dataset.side + '-' + menu.dataset.align, effectiveOffset: menu.getBoundingClientRect().top - trigger.getBoundingClientRect().bottom, offsetSource: "measured: the menu's top edge minus the trigger's bottom edge", transformOrigin: style.getPropertyValue('--transform-origin'), transform: style.transform, menuStyle: menu.getAttribute('style'), scroll: { top: body.scrollTop, height: body.clientHeight, total: body.scrollHeight }, recovery: document.querySelector('.pad-body [role=alert]')?.textContent ?? null };
     })()`);
 
     for (const dir of directories) {

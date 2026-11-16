@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Check } from "@contracts/feedback/Check";
 import type { Filed } from "@contracts/feedback/Filed";
@@ -24,6 +25,7 @@ import type { Candidate } from "../toasts/queue";
 import { copy } from "./copy";
 import { versionsText } from "./facts";
 import { Feedback } from "./Feedback";
+import { notices } from "../testing/notices";
 
 const ISSUE = "https://github.com/roundup-app/roundup/issues/7300";
 
@@ -72,9 +74,9 @@ const mount = async (
   );
 
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Feedback notify={(candidate) => toasts.push(candidate)} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
   await connected.rail.settled();
 
@@ -115,7 +117,7 @@ const form = () => document.querySelector(".feedback-form");
 const versions = () =>
   document.querySelector(".feedback-versions")?.textContent;
 
-const note = () => screen.queryByRole("status")?.textContent;
+const note = () => notices("status")[0]?.textContent;
 
 /** Send refuses with `aria-disabled`, never the `disabled` attribute, so it stays focusable. */
 const refused = () => submit().getAttribute("aria-disabled") === "true";
@@ -138,7 +140,10 @@ const open = async () => {
   await waitFor(() => expect(document.activeElement).toBe(field()));
 };
 
-const type = (value: string) => fireEvent.input(field(), { target: { value } });
+const type = (value: string) => {
+  fireEvent.input(field(), { target: { value } });
+  flush();
+};
 
 const press = async (text = "the Rail jumps") => {
   type(text);
@@ -153,9 +158,9 @@ it("u7210a_the_command_list_offers_send_feedback", async () => {
   connected.app.feedbackCapture = capture;
   app.handlers["feedback.check"] = () => ready;
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Feedback notify={() => {}} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
   openSwitcher();
   await waitFor(() => expect(filter()).not.toBeNull());
@@ -221,10 +226,11 @@ it("u7210b_the_dialog_shows_the_field_the_checkbox_the_versions_and_two_buttons"
   await mount();
   await open();
   expect(screen.getByRole("textbox", { name: copy.line })).toBe(field());
-  expect(screen.getByRole("checkbox", { name: copy.attach })).toHaveProperty(
-    "checked",
-    true,
-  );
+  expect(
+    screen
+      .getByRole("checkbox", { name: copy.attach })
+      .getAttribute("aria-checked"),
+  ).toBe("true");
   await waitFor(() =>
     expect(versions()).toBe(versionsText(report().facts, ready.herdrCore)),
   );
@@ -305,7 +311,9 @@ it("u7210c_a_failed_send_keeps_the_dialog_with_the_error_and_the_text", async ()
     expect(screen.getByRole("alert").textContent).toBe(failure.message),
   );
   expect(field().value).toBe("the Rail jumps");
-  expect(screen.getByRole("checkbox")).toHaveProperty("checked", false);
+  expect(screen.getByRole("checkbox").getAttribute("aria-checked")).toBe(
+    "false",
+  );
   expect(refused()).toBe(false);
   expect(toasts).toHaveLength(0);
   expect(sends).toHaveLength(1);

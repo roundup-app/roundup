@@ -114,7 +114,7 @@ it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", a
   const other = { kind: "agent" as const, id: "b", parent: null };
   const m = await mountTodos([todo(1, { owner }), todo(2, { owner: other }), todo(3), todo(4)], true, [agent("a", "idle", "", { name: "Writer" }), agent("b", "idle", "", { name: "Reviewer", order: 1 })]);
 
-  for (const id of ["a", "b"]) fireEvent.click(document.querySelector(`[data-shelf-group="${id}"] [data-part="branch-control"]`)!);
+  for (const id of ["a", "b"]) fireEvent.click(document.querySelector(`[data-shelf-group="${id}"] .shelf-group-control`)!);
   fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
@@ -124,8 +124,8 @@ it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", a
   m.app.emit({ ...todoEvent("todo.updated", m.store.todos[2]!), actor: owner });
   await waitFor(() => expect(document.querySelector('[data-shelf-group="a"] [data-todo="3"]')).toBeTruthy());
   await waitFor(() => expect(document.querySelector('[data-shelf-group="b"] [data-todo="4"]')).toBeTruthy());
-  expect(document.querySelector('[data-shelf-group="a"] [data-part="branch-content"]')?.hasAttribute("hidden")).toBe(false);
-  expect(document.querySelector('[data-shelf-group="b"] [data-part="branch-content"]')?.hasAttribute("hidden")).toBe(false);
+  expect(document.querySelector('[data-shelf-group="a"] .shelf-group-body')?.hasAttribute("hidden")).toBe(false);
+  expect(document.querySelector('[data-shelf-group="b"] .shelf-group-body')?.hasAttribute("hidden")).toBe(false);
   expect(document.activeElement).toBe(input);
   expect(input.value).toBe("keep writing");
 });

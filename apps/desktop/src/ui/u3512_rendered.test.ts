@@ -4,7 +4,7 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { captureDir } from "../testing/captures";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 
-// Browser inputs wait for Ark acknowledgements and the real renderer.
+// Browser inputs wait for the library's acknowledgements and the real renderer.
 vi.setConfig({ testTimeout: 60_000 });
 
 let lane: LaneBrowser;
@@ -34,7 +34,7 @@ it("u3512b_shared_dialog_keeps_focus_and_drafts", async () => {
   await openForm();
   const field = '.new-workstream textarea';
   await lane.browser("fill", field, "  exact 雪 é  ");
-  await lane.evaluate("document.querySelector('.new-workstream [data-part=close-trigger]').focus()");
+  await lane.evaluate("document.querySelector('.new-workstream [data-slot=dialog-close]').focus()");
   await key("Shift+Tab");
   await lane.until("document.querySelector('.new-workstream').contains(document.activeElement)");
   expect(await lane.evaluate<string>(`document.querySelector('${field}').value`)).toBe("  exact 雪 é  ");
@@ -108,7 +108,7 @@ it("u3512d_instant_paths_release_focus_next_frame", async () => {
     };
     sample();
     const original = document.querySelector('.new-workstream');
-    const cancel = original.querySelector('[data-part=close-trigger]');
+    const cancel = original.querySelector('[data-slot=dialog-close]');
     cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerType: 'mouse', width: 4, height: 4, pressure: 0.5}));
     cancel.dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
     await new Promise(resolve => requestAnimationFrame(resolve));

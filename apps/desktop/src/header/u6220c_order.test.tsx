@@ -1,5 +1,5 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { createProjectsState } from "../state/projects";
 import { openTabs, path } from "./stripFixture";
@@ -23,13 +23,16 @@ describe("u6220c Project tabs keep the order the user left", () => {
     expect(names(state)).toEqual(["api", "web", "db"]);
 
     state.reorder([path("web"), path("db"), path("api")]);
+    flush();
     expect(names(state)).toEqual(["web", "db", "api"]);
 
     await state.reload();
+    flush();
     expect(names(state)).toEqual(["web", "db", "api"]);
 
     const restarted = createRoot(() => createProjectsState(app));
     await waitFor(() => expect(restarted.loaded()).toBe(true));
+    flush();
     expect(names(restarted)).toEqual(["web", "db", "api"]);
   });
 
@@ -37,9 +40,11 @@ describe("u6220c Project tabs keep the order the user left", () => {
     const { app, state } = await opened();
 
     state.reorder([path("db"), path("api")]);
+    flush();
 
     const restarted = createRoot(() => createProjectsState(app));
     await waitFor(() => expect(restarted.loaded()).toBe(true));
+    flush();
     expect(names(restarted)).toEqual(["db", "api", "web"]);
   });
 });

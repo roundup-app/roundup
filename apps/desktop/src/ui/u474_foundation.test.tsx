@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { parse } from "@babel/parser";
 import { traverseFast, isJSXElement } from "@babel/types";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
 import { CHORDS, ariaChord, type ChordName } from "../keys/chords";
@@ -86,7 +87,7 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
     : <Tip text={copy.openFolder}>{(trigger) => <button {...trigger()} aria-label={copy.openFolder}>folder</button>}</Tip>);
   const button = screen.getByRole("button", { name: wrapper === "icon" ? copy.minimise : copy.openFolder });
 
-  if (input === "hover") fireEvent.pointerMove(button, { pointerType: "mouse" });
+  if (input === "hover") fireEvent.pointerEnter(button, { pointerType: "mouse" });
   else { fireEvent.keyDown(document, { key: "Tab" }); button.focus(); }
 
   const tip = await screen.findByRole("tooltip");
@@ -95,11 +96,13 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
   expect(tip.querySelector("kbd")).toBeNull();
   expect(button.getAttribute("aria-describedby")).toBe(tip.id);
 
-  if (input === "hover") fireEvent.pointerLeave(button, { pointerType: "mouse" });
+  // ui-sdk keeps a tooltip open while the pointer is inside the area spanning trigger and tooltip: leave far outside it.
+  if (input === "hover") fireEvent.pointerLeave(button, { pointerType: "mouse", clientX: 900, clientY: 900 });
   else button.blur();
 
   await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
-  expect(button.getAttribute("aria-describedby")).toBeNull();
+  // The closed tooltip stays mounted hidden, and its trigger keeps naming it.
+  expect(button.getAttribute("aria-describedby")).toBe(tip.id);
 });
 
 it("u5247_icon_button_reads_its_key_by_name", async () => {
@@ -165,7 +168,9 @@ const openDrawerButton = async () => {
     return group!;
   });
 
-  if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+  const folded = group.querySelector<HTMLElement>('.shelf-group-control[aria-expanded="false"]');
+
+  if (folded) fireEvent.click(folded);
   const pad = await within(group).findByRole("button", { name: "notes" });
   pad.focus();
   fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
@@ -233,12 +238,14 @@ it("u477_icon_button_preserves_button_props", () => {
   expect(button.dataset.fixture).toBe("ordinary");
   expect(button.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(button);
+  flush();
   expect(Number(screen.getByLabelText("Actions taken").textContent)).toBe(1);
 });
 
 it("u477_icon_button_preserves_bound_click_handler", () => {
   render(u474Fixture);
   fireEvent.click(screen.getByRole("button", { name: "Bound action" }));
+  flush();
   expect(Number(screen.getByLabelText("Actions taken").textContent)).toBe(2);
 });
 
@@ -246,7 +253,7 @@ it.each(["hover", "focus"])("u477_disabled_icon_button_shows_its_name_%s", async
   render(u474Fixture);
   const button = screen.getByRole("button", { name: "Unavailable action" });
 
-  if (input === "hover") fireEvent.pointerMove(button, { pointerType: "mouse" });
+  if (input === "hover") fireEvent.pointerEnter(button, { pointerType: "mouse" });
   else { fireEvent.keyDown(document, { key: "Tab" }); button.focus(); }
 
   const tip = await screen.findByRole("tooltip");

@@ -91,9 +91,9 @@ it.each(["pointer", "Return"].flatMap(input => [false, true].map(present => ({ i
   await browser("click", ".drawer .close");
   await wait("!document.querySelector('.drawer .ProseMirror')");
   await browser("click", "#shelf-tab-todos");
-  await wait("!!document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]')");
+  await wait("!!document.querySelector('[data-shelf-group=unassigned] .shelf-group-control')");
 
-  if (await read("document.querySelector('.todos-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+  if (await read("document.querySelector('.todos-tab [data-shelf-group=unassigned] .shelf-group-control').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group=unassigned] .shelf-group-control');
   await wait("!!document.querySelector('.todo-row-button')");
   await browser("focus", ".todo-row-button");
   await browser("press", "Enter");

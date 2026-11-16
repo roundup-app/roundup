@@ -137,7 +137,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       const source = await (await fetch('/src/todos/TodoDrawer.tsx')).text();
       const paths = source.split('"').filter(path => path.includes('/deps/'));
       const { createComponent } = await import(paths.find(path => path.includes('/solid-js.js')));
-      const { render } = await import(paths.find(path => path.includes('/solid-js_web.js')));
+      const { render } = await import(paths.find(path => path.includes('/@solidjs_web.js')));
       const { connectProject, ConnectedProjectContext } = await import('/src/state/connectedProject.ts');
       const { TodoDrawer } = await import('/src/todos/TodoDrawer.tsx');
       const richSource = await (await fetch('/src/pads/PadRichEditor.tsx')).text();
@@ -172,9 +172,9 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       const root = document.createElement('div');
       root.id = 'u3021c-drawer';
       document.querySelector('.window .overlay').append(root);
-      render(() => createComponent(ConnectedProjectContext.Provider, { value: connected, get children() { list = useTodoList(); return createComponent(DrawerHost, { drawer: connected.drawer, reducedMotion: () => true }); } }), root);
+      render(() => createComponent(ConnectedProjectContext, { value: connected, get children() { list = useTodoList(); return createComponent(DrawerHost, { drawer: connected.drawer, reducedMotion: () => true }); } }), root);
       await list.reload();
-      const show = revision => connected.drawer.open(() => createComponent(ConnectedProjectContext.Provider, { value: connected, get children() { return createComponent(TodoDrawer, { id: original.id, todos: list, recovery: { project: connected.project.path, revision } }); } }), 'key');
+      const show = revision => connected.drawer.open(() => createComponent(ConnectedProjectContext, { value: connected, get children() { return createComponent(TodoDrawer, { id: original.id, todos: list, recovery: { project: connected.project.path, revision } }); } }), 'key');
       window.__selectedTodo = { connected, app, a, b, list, show, calls: [...app.calls], retained: connected.drafts.list() };
       show(a.revision);
     })()`);
@@ -205,7 +205,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       p.connected.drafts.edit(destination, { title: 'newer creation B', home: null }, null, 'ordinary');
       p.retained = p.connected.drafts.list();
       p.calls = [...p.app.calls];
-      p.connected.drawer.open(() => createComponent(ConnectedProjectContext.Provider, { value: p.connected, get children() { return createComponent(Todos, { recovery: { project: p.connected.project.path, revision: a.revision, list: p.list } }); } }), 'key');
+      p.connected.drawer.open(() => createComponent(ConnectedProjectContext, { value: p.connected, get children() { return createComponent(Todos, { recovery: { project: p.connected.project.path, revision: a.revision, list: p.list } }); } }), 'key');
     })()`);
     await browser("wait", ".entry-field");
     expect(await evaluate(`(() => { const f = document.querySelector('.entry-field'); return [f.value, f.selectionStart, f.selectionEnd, f.selectionDirection]; })()`)).toEqual(["  creation é 🧪  ", 2, 7, "backward"]); // taste-skill-ignore: exact Unicode draft fixture, not UI ornament.
@@ -231,7 +231,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       p.connected.drafts.edit(destination, { ...form, blockers: [] }, null, 'ordinary');
       p.retained = p.connected.drafts.list();
       p.calls = [...p.app.calls];
-      p.connected.drawer.open(() => createComponent(ConnectedProjectContext.Provider, { value: p.connected, get children() { return createComponent(TodoDrawer, { id: original.id, todos: p.list, recovery: { project: p.connected.project.path, revision: a.revision } }); } }), 'key');
+      p.connected.drawer.open(() => createComponent(ConnectedProjectContext, { value: p.connected, get children() { return createComponent(TodoDrawer, { id: original.id, todos: p.list, recovery: { project: p.connected.project.path, revision: a.revision } }); } }), 'key');
       const write = Storage.prototype.setItem;
       Storage.prototype.setItem = () => { throw new Error('disk full'); };
       try { p.connected.drafts.setSelection(a.revision, null); } finally { Storage.prototype.setItem = write; }
@@ -300,7 +300,7 @@ describe("u3789a connected browser rows", () => {
       await browser("focus", `.rail-row[data-id="${home.id}"]`);
       await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
       await browser("press", "Enter");
-      await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
+      await until(`!!document.querySelector('.rail-row[data-id="${home.id}"][data-selected]')`);
       await evaluate("(() => {const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
 
       for (const kind of ["todo", "pad"]) {
@@ -309,7 +309,7 @@ describe("u3789a connected browser rows", () => {
           await browser("click", "#shelf-tab-pads");
         }
 
-        await evaluate("document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+        await evaluate("document.querySelector('.shelf [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click()");
         const row = kind === "todo" ? `.todos-tab [data-todo="${todo.id}"] .todo-row-button` : '.pads-tab [data-pad="row pad"] .pad-name';
         await until(`document.querySelector('${row}')`);
         await evaluate("window.__rowCalls.length = 0");

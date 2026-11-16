@@ -1,15 +1,17 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { batch } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
+import { notices } from "../testing/notices";
 import { agent, door } from "../testing/nodes";
 import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext, type ConnectedProject } from "../state/connectedProject";
 import { RpcError, type NativeOpen } from "../app/seam";
 import { keyOfPath } from "./linkRoute";
+// The App loads this module on mount and a link click does nothing until it has; loaded here, the click never waits on its first transform.
+import "./nativeOpen";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
 
 const KEY = "project-0000000000000000";
 
@@ -30,7 +32,7 @@ const mountSurface = async (text: string, kind: "agent" | "workstream" = "agent"
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open; }} />);
   await waitFor(() => expect(connected).toBeDefined());
   await waitFor(() => expect(receive).toBeDefined());
-  render(() => <ConnectedProjectContext.Provider value={connected}><TargetText objectLinks text={text} base="/project" /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><TargetText objectLinks text={text} base="/project" /></ConnectedProjectContext>);
 
   return { app, connected, receive: receive!, link: text.includes("://") ? await screen.findByRole("link") : null! };
 };
@@ -40,7 +42,7 @@ it.each(["agent", "workstream"] as const)("u6249c_projectless_link_opens_in_surf
   fireEvent.click(m.link);
   await waitFor(() => expect(m.connected.rail.selected()).toBe("chosen"));
   expect(m.app.calls.filter(call => call.method === "link.read").map(call => call.params)).toEqual([{ url: `roundup://${kind}/chosen?project=${KEY}` }]);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 it("u6249c_named_project_is_kept", async () => {
@@ -62,7 +64,7 @@ it("u6249c_os_link_without_project_stays_malformed", async () => {
   await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
   expect(String(warn.mock.calls[0]?.[0])).toContain("the `project` parameter is missing");
   expect(m.app.calls.filter(call => call.method === "link.read").map(call => call.params)).toEqual([{ url: "roundup://agent/4" }]);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 it("u6249c_deliverable_link_opens_made", async () => {
@@ -72,7 +74,7 @@ it("u6249c_deliverable_link_opens_made", async () => {
   m.receive({ kind: "link", url: "roundup://deliverable/d1?project=project-0000000000000000" });
   await waitFor(() => expect(m.connected.hasView("made")).toBe(true));
   expect(m.connected.madeSelected()).toBe("d1");
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 it("u6249c_link_failure_has_one_surface", async () => {
@@ -81,7 +83,7 @@ it("u6249c_link_failure_has_one_surface", async () => {
 
   fireEvent.click(m.link);
   await screen.findByText("not found: agent chosen");
-  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(notices("alert")).toHaveLength(1);
 });
 
 it("u6249c_project_key_matches_the_daemons", async () => {

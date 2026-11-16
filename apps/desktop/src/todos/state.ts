@@ -1,6 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
-import type { Accessor } from "solid-js";
-import { answered, keyedStore } from "../app/keyedStore";
+import { createEffect, createMemo, createSignal, createStore, onCleanup, reconcile, untrack, type Accessor } from "solid-js";
 import { blockerGraph } from "./todoView";
 import { copy } from "./copy";
 import type { Handed } from "@contracts/todo/Handed";
@@ -68,20 +66,76 @@ export type TodosState = {
   onContradicted: (show: (id: number, message: string) => void) => () => void;
 };
 
+/** One Daemon read: the failure of the newest read, whether it is still out, and `answered` for when it has. A reply that a newer read superseded is dropped, and a read asked in the same microtask as one it started is dropped too. */
+const createRead = <Reply>(read: () => Promise<Reply>, land: (reply: Reply) => void) => {
+  const [loading, setLoading] = createSignal(true);
+  const [error, setError] = createSignal<Error | undefined>(undefined);
+  let newest: Promise<Reply> | undefined;
+  let answer: Promise<void> = Promise.resolve();
+  let scheduled = false;
+
+  const start = () => {
+    scheduled = true;
+    queueMicrotask(() => { scheduled = false; });
+    const call = read();
+    newest = call;
+    answer = call.then(reply => {
+      if (newest !== call) return;
+      land(reply);
+      setError(undefined);
+      setLoading(false);
+    }, thrown => {
+      if (newest !== call) return;
+
+      if (!(thrown instanceof Error)) throw thrown;
+      setError(thrown);
+      setLoading(false);
+    });
+  };
+
+  start();
+
+  return {
+    loading,
+    error,
+    refetch: () => {
+      if (scheduled) return;
+      setLoading(true);
+      start();
+    },
+    answered: async () => {
+      let seen: Promise<void>;
+
+      do {
+        seen = answer;
+        await seen;
+      } while (seen !== answer);
+    },
+  };
+};
+
 const REFETCH_ON = new Set(["todo.restored", "todo.created", "todo.updated", "todo.unblocked", "todo.deleted"]);
 
 /** Subscribes before its first fetch, so no Event between the two is lost. */
 export const createTodosState = (app: AppSeam, events: Events, project: string): TodosState => {
-  const { storage, rows } = keyedStore<Todo>("id");
-  const [list, { refetch }] = createResource(() => app.rpc("todo.list", null), { storage });
-  const [facts, { refetch: refetchFacts }] = createResource(() => app.rpc("todo.listHanded", null));
+  // A reconcile keeps the array, so the signal, not the store, tells an observer of the whole list that a reply landed.
+  const [store, setStore] = createStore<{ rows: Todo[] }>({ rows: [] });
+  const [rows, setRows] = createSignal<Todo[] | undefined>(undefined, { equals: false });
+  const [facts, setFacts] = createSignal<readonly Handed[] | undefined>(undefined);
+
+  const list = createRead(() => app.rpc("todo.list", null), reply => {
+    setStore(draft => { reconcile(reply, "id")(draft.rows); });
+    setRows(() => store.rows);
+  });
+
+  const handedRead = createRead(() => app.rpc("todo.listHanded", null), reply => { setFacts(() => reply); });
   const [waiting, setWaiting] = createSignal(false);
   const shelf = () => rows() ?? [];
   const isLoaded = () => rows() !== undefined;
-  const failure = () => list.error?.message ?? null;
+  const failure = () => list.error()?.message ?? null;
   // Unknown Hand-offs never hold the ordinary list behind an additional read.
-  const handed = () => waiting() || list.loading || list.error || facts.loading || facts.error ? null : facts.latest ?? null;
-  const handedFailure = () => facts.error?.message ?? null;
+  const handed = () => waiting() || list.loading() || list.error() || handedRead.loading() || handedRead.error() ? null : facts() ?? null;
+  const handedFailure = () => handedRead.error()?.message ?? null;
 
   const [asked, setAsked] = createSignal<Readonly<Record<number, TodoChange>>>({});
 
@@ -98,6 +152,7 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
   // A read that moved a Todo off its base settles the change, so the entry goes once it is judged and a later read cannot revive it.
   createEffect(() => {
     const settledIds: number[] = [];
+    const contradictedIds: number[] = [];
 
     for (const [key, change] of Object.entries(asked())) {
       const value = valueOf(shelf(), Number(key), change);
@@ -105,20 +160,24 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
       if (value === undefined || same(value, change.base)) continue;
       settledIds.push(Number(key));
 
-      if (!same(value, change.asked)) contradicted.forEach(show => show(Number(key), copy.changeDidNotApply));
+      if (!same(value, change.asked)) contradictedIds.push(Number(key));
     }
+
+    return { settledIds, contradictedIds };
+  }, ({ settledIds, contradictedIds }) => {
+    for (const id of contradictedIds) untrack(() => contradicted.forEach(show => show(id, copy.changeDidNotApply)));
 
     if (settledIds.length) setAsked(each => Object.fromEntries(Object.entries(each).filter(([key]) => !settledIds.includes(Number(key)))));
   });
 
-  const settled = () => Promise.all([answered(list), answered(facts)]).then(() => undefined);
+  const settled = () => Promise.all([list.answered(), handedRead.answered()]).then(() => undefined);
 
-  // `createResource` drops a refetch asked in the same microtask as one it started, so a burst waits one microtask and shares one read that starts after the last of them.
+  // `createRead` drops a refetch asked in the same microtask as one it started, so a burst waits one microtask and shares one read that starts after the last of them.
   const reload = async () => {
     setWaiting(true);
     await Promise.resolve();
-    void refetch();
-    void refetchFacts();
+    list.refetch();
+    handedRead.refetch();
     setWaiting(false);
     await settled();
   };
@@ -148,7 +207,7 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
 
   const show = (todo: Todo) => {
     setRevealed((count) => count + 1);
-    const row = { todo, known: new Set(shelf().map(each => each.id)) };
+    const row = { todo, known: new Set(untrack(shelf).map(each => each.id)) };
 
     setShown((rows) => [...rows, row]);
 

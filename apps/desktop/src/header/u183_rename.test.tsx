@@ -4,7 +4,7 @@ import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { batch, createRoot, createSignal } from "solid-js";
+import { createRoot, createSignal, flush } from "solid-js";
 import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { Tabs } from "../ui/Tabs";
@@ -13,7 +13,7 @@ import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
 import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
 
-afterEach(() => { batch(cleanup); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const field = () => screen.getByLabelText<HTMLInputElement>("Project name", { selector: "input" });
 
@@ -25,7 +25,10 @@ const edit = async (name = "api") => {
   return await screen.findByLabelText<HTMLInputElement>("Project name", { selector: "input" });
 };
 
-const press = (key: string) => fireEvent.keyDown(field(), { key });
+const press = (key: string) => {
+  fireEvent.keyDown(field(), { key });
+  flush();
+};
 
 describe("u183 rename in place", () => {
   it("u183_double_click_opens_a_field_with_the_current_name_selected", async () => {
@@ -120,6 +123,7 @@ it.each<[boolean, RpcError]>([
   const b = rename(path("api"), "B");
 
   if (switchProject) state.select(path("web"));
+  flush();
   expect(state.active()).toBe(path(switchProject ? "web" : "api"));
   calls[1]!.accept({ path: path("api"), name: "B" });
   const acknowledged = await b;
@@ -200,9 +204,10 @@ it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => 
   replies[1]!.accept({ path: path("api"), name: "B" });
   await waitFor(() => expect(tab("B")).toBeDefined());
   replies[0]!.reject(new RpcError(-32602, "older rename rejected"));
-  await screen.findByText("older rename rejected");
+  await screen.findByRole("alert", { name: "older rename rejected" });
   expect(tab("B")).toBeDefined();
   fireEvent.click(tab("B"));
+  flush();
   expect(replies).toHaveLength(2);
 });
 
@@ -229,8 +234,10 @@ it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restore
   await waitFor(() => expect(document.activeElement).toBe(input));
   const exact = "  e\u0301 🪁 雪\t  ";
   fireEvent.input(input, { target: { value: exact } });
+  flush();
   input.setSelectionRange(2, 6, "backward");
   fireEvent.select(input);
+  flush();
   const underlying = vi.fn();
   document.addEventListener("keydown", underlying);
 
@@ -252,6 +259,7 @@ it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restore
   const restored = await edit();
   expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
   fireEvent.blur(restored);
+  flush();
   expect(records()).toEqual([retained]);
   expect(sends).not.toHaveBeenCalled();
   view.unmount();
@@ -272,9 +280,10 @@ it("u2773c_header_external_change_keeps_original", async () => {
 
   await app.renameProject(original, "B");
   fireEvent.input(input, { target: { value: " exact 雪 " } });
+  flush();
   press("Enter");
 
-  await screen.findByText("Project name changed");
+  await screen.findByRole("alert", { name: "Project name changed" });
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
   await waitFor(() => expect(tab("B")).toBeDefined());
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^B`) }));
@@ -294,12 +303,14 @@ it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", asyn
   fireEvent.keyDown(tab("api"), { key: "F2" });
   const older = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: "input" });
   fireEvent.input(older, { target: { value: "A 雪" } });
+  flush();
   press("Enter");
   await waitFor(() => expect(calls).toHaveLength(1));
   calls[0]!.reject(new RpcError(-32003, "Project name changed"));
   await waitFor(() => expect(finishRead).toBeDefined());
   const newer = await edit("api");
   fireEvent.input(newer, { target: { value: "B" } });
+  flush();
   press("Enter");
   await waitFor(() => expect(calls).toHaveLength(2));
   calls[1]!.accept({ path: original, name: "B" });
@@ -325,9 +336,11 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   const nextText = "  B 雪  ";
   const a = await edit();
   fireEvent.input(a, { target: { value: firstText } });
+  flush();
   press("Enter");
   const b = await edit("A");
   fireEvent.input(b, { target: { value: nextText } });
+  flush();
   press("Escape");
   fireEvent.click(tab("web"));
 
@@ -338,6 +351,7 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   view.unmount();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   fireEvent.click(await within(await screen.findByRole("tablist", { name: "Projects" })).findByRole("tab", { name: "api" }));
+  await settled();
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(dialog).getByText(nextText, { exact: true, normalizer: text => text })).toBeDefined();
@@ -346,8 +360,10 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   if (outcome === "acknowledged") expect(older).toBeNull();
   else {
     fireEvent.click(older!);
+    flush();
     expect(within(dialog).getByText(firstText, { exact: true, normalizer: text => text })).toBeDefined();
     fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
+    flush();
     expect(within(dialog).getByText(nextText, { exact: true, normalizer: text => text })).toBeDefined();
   }
 
@@ -361,6 +377,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   const input = await edit();
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
+  flush();
   press("Escape");
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
@@ -392,12 +409,14 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
   fireEvent.click(tab("api"));
   const input = await edit();
   fireEvent.input(input, { target: { value: "  memory 雪  " } });
+  flush();
   press("Escape");
   expect(window.localStorage.getItem(key)).toBe(original);
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   within(dialog).getByText("  memory 雪  ", { exact: true, normalizer: text => text });
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
+  flush();
   expect(window.localStorage.getItem(key)).toBe(original);
   within(dialog).getByRole("alert");
 });
@@ -430,11 +449,16 @@ const selectedHeader = async (outcome: "failed" | "unknown" = "failed") => {
   const a = drafts.edit(destination, { name: "  A e\u0301 🪁 雪  ", base: "same name" },
     { start: 2, end: 7, direction: "backward" }, "ordinary").draft;
 
+  flush();
   drafts.submit(a.revision);
+  flush();
   drafts.settle(a.revision, outcome);
+  flush();
 
   const b = drafts.edit(destination, { name: "  B 雪  ", base: "same name" },
     { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+
+  flush();
 
   const [recovery, recover] = createSignal<{ project: string; revision: string }>();
   let projects!: ReturnType<typeof createProjectsState>;
@@ -442,11 +466,11 @@ const selectedHeader = async (outcome: "failed" | "unknown" = "failed") => {
   const view = render(() => {
     projects = createProjectsState(app);
 
-    return <ProjectDraftsContext.Provider value={authority}><Tabs.Root value={path("api")}><Tabs.List aria-label="Projects">
+    return <ProjectDraftsContext value={authority}><Tabs.Root value={path("api")}><Tabs.List aria-label="Projects">
       <ProjectTab tab={{ path: path("api"), name: "same name", base: "same name", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
         selected app={app} alerts="all" onAlerts={() => {}} recovery={recovery()} onMark={() => {}} onClose={() => {}}
         onRename={(name, base) => projects.rename(path("api"), name, base)} />
-    </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>;
+    </Tabs.List></Tabs.Root></ProjectDraftsContext>;
   });
 
   await waitFor(() => expect(projects.loaded()).toBe(true));
@@ -470,6 +494,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
     .toEqual([a.value.name, 2, 7, "backward"]);
   input.focus();
   fireEvent.blur(input);
+  flush();
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(drafts.list()).toEqual(before);
   open(b.revision);
@@ -487,9 +512,12 @@ it.each(["failed", "unknown"] as const)("u3021c_header_editing_selected_revision
   open(a.revision);
   const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: "input" });
   fireEvent.input(input, { target: { value: "  edited A 🧭  " } });
+  flush();
   input.setSelectionRange(1, 6, "backward");
   fireEvent.select(input);
+  flush();
   fireEvent.blur(input);
+  flush();
   const edited = drafts.list().find(draft => draft.value.name === "  edited A 🧭  ")!;
   expect(edited.selection).toEqual({ start: 1, end: 6, direction: "backward" });
   expect(drafts.list()).toContainEqual(b);
@@ -503,6 +531,7 @@ it.each(["failed", "unknown"] as const)("u3021c_header_editing_selected_revision
   press("Escape");
   const resumed = await edit("same name");
   fireEvent.input(resumed, { target: { value: "  edited A again 🧭  " } });
+  flush();
   press("Escape");
   expect(drafts.list()).toContainEqual(b);
   expect(calls()).toEqual(beforeCalls);
@@ -518,6 +547,7 @@ it.each(["acknowledged", "failed", "unknown"] as const)("u3021c_header_confirmat
   open(a.revision);
   const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: "input" });
   fireEvent.input(input, { target: { value: "edited A" } });
+  flush();
   const submitted = drafts.list().find(draft => draft.value.name === "edited A")!;
   press("Enter");
   await waitFor(() => expect(drafts.list().find(draft => draft.revision === submitted.revision)?.status)
@@ -534,6 +564,7 @@ it("u3021c_header_selected_edit_preserves_captured_base_conflict_refusal", async
   open(a.revision);
   const input = await screen.findByLabelText<HTMLInputElement>("Project name", { selector: "input" });
   fireEvent.input(input, { target: { value: "my edit" } });
+  flush();
   press("Enter");
   await waitFor(() => expect(drafts.list().find(draft => draft.value.name === "my edit")?.status).toBe("failed"));
   expect(sends).toHaveBeenLastCalledWith(path("api"), "my edit", "same name");
@@ -558,10 +589,12 @@ it.each(["project", "object", "recipient", "missing-base", "missing-revision"] a
     recipient: mismatch === "recipient" ? "someone else" : null },
     mismatch === "missing-base" ? { name: "same name" } : { name: "same name", base: "same name" }, null, "ordinary", null).draft;
 
+  flush();
   const before = drafts.list();
   const beforeCalls = calls();
   open(mismatch === "project" ? a.revision : mismatch === "missing-revision" ? "absent" : wrong.revision,
     mismatch === "project" ? path("web") : path("api"));
+  flush();
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(drafts.list()).toEqual(before);
   expect(calls()).toEqual(beforeCalls);
@@ -574,11 +607,13 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^same name`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
+  flush();
   const copied: string[] = [];
   vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual([a.value.name]));
   fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
+  flush();
   expect(drafts.list()).toEqual([b]);
   await waitFor(() => expect(createProjectDrafts()(path("api")).list()).toEqual([b]));
   view.unmount();
@@ -618,6 +653,7 @@ it.each([
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   let dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
+  flush();
   const blocked = vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
@@ -625,7 +661,11 @@ it.each([
 
   if (action === "dismiss") fireEvent.click(within(dialog).getAllByRole("button", { name: "Dismiss" })[0]!);
   else if (action.startsWith("discard")) {
-    if (action === "discard other revision") fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`^${recoveryCopy.currentDraft} ·`) }));
+    if (action === "discard other revision") {
+      fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`^${recoveryCopy.currentDraft} ·`) }));
+      flush();
+    }
+
     fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   } else {
     fireEvent.click(within(dialog).getByRole("button", { name: /^Close$/ }));
@@ -653,6 +693,7 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   fireEvent.click(tab("web"));
   const other = await edit("web");
   fireEvent.input(other, { target: { value: "  other Project 雪  " } });
+  flush();
   press("Escape");
   await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("web")}`)!).drafts.at(-1).value.name).toBe("  other Project 雪  "));
   const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
@@ -661,6 +702,7 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   const memory = "  memory e\u0301 🧭  ";
   fireEvent.input(input, { target: { value: memory } });
+  flush();
   press("Escape");
   await recoverFrom(app, screen.getByRole("tab", { name: new RegExp(`^api`) }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });

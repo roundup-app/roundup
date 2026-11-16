@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup, untrack, type Accessor, type Setter } from "solid-js";
+import { createEffect, createMemo, createSignal, untrack, type Accessor, type Setter } from "solid-js";
 import * as v from "valibot";
 import type { Actor } from "@contracts/Actor";
 import { applied, applying } from "../app/pending";
@@ -40,14 +40,16 @@ export const createTodoCreation = (inputs: {
   const draft = createMemo(() => createDraftField(connected.drafts, creationTarget(), creationSchema, untrack(creationHome) === recoveredHome ? retained : undefined));
   const creation = () => draft().draft();
 
-  createEffect(() => {
-    if (typing()) onCleanup(connected.drafts.editor(creationTarget()));
-  });
+  createEffect(
+    () => typing() ? creationTarget() : null,
+    target => target === null ? undefined : connected.drafts.editor(target),
+  );
 
   // The recovered revision discarded from another control closes its editor.
-  createEffect(() => {
-    if (typing() && retained && draft().recovered() && !connected.drafts.list().some(each => each.revision === retained.revision)) setTyping(false);
-  });
+  createEffect(
+    () => typing() && retained && draft().recovered() && !connected.drafts.list().some(each => each.revision === retained.revision),
+    discarded => { if (discarded) setTyping(false); },
+  );
 
   let creationRow: HTMLDivElement | undefined;
 
@@ -138,7 +140,7 @@ export const createTodoCreation = (inputs: {
     <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>
 
       <EntryRow
-        glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
+        glyph={<input type="checkbox" class="todo-tick" disabled tabindex={-1} aria-hidden="true" />}
         class="todo-inset"
         label={copy.newTodoTitle}
         placeholder={copy.newTodoPlaceholder}

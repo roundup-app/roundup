@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { FitAddon } from "@xterm/addon-fit";
 import * as xtermModule from "@xterm/xterm";
 import { info, terminal } from "../testing/nodes";
@@ -19,6 +19,7 @@ it("u3517d_settings_and_every_terminal_share_the_size", async () => {
   await saveAppSettings({ fontSize: 17 });
   await waitFor(() => expect(first.fontSize).toBe(17));
   connected.rail.select("b");
+  flush();
   expect(emulators.get("t-b")!.fontSize).toBe(17);
   expect(first.disposed).toBe(false);
 });

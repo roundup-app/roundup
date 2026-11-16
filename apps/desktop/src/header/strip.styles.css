@@ -201,7 +201,7 @@
   gap: var(--space-1);
 }
 
-.header-recovery.draft-recovery [data-part="title"] {
+.header-recovery.draft-recovery [data-slot$="dialog-title"] {
   font-size: var(--text-title);
   font-weight: 600;
 }

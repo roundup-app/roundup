@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { createSignal, Show } from "solid-js";
+import { createSignal, flush, Show } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { Tip } from "./Tip";
 import { agent, event } from "../testing/nodes";
 import { mountTodos, todo } from "../todos/testHarness";
 
-afterEach(() => { Reflect.deleteProperty(HTMLElement.prototype, "checkVisibility"); cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
+afterEach(() => { Reflect.deleteProperty(HTMLElement.prototype, "checkVisibility"); Reflect.deleteProperty(HTMLElement.prototype, "getClientRects"); cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 /** A browser gives a live node its box and a detached node zero. */
 const browserBoxes = () => {
@@ -13,6 +13,8 @@ const browserBoxes = () => {
 
   // jsdom has no layout; a browser reports a connected element with a box as visible.
   Object.defineProperty(HTMLElement.prototype, "checkVisibility", { configurable: true, value() { return this.isConnected; } });
+  // ui-sdk positions only an anchor that has client rects, as a browser gives a connected node.
+  Object.defineProperty(HTMLElement.prototype, "getClientRects", { configurable: true, value(this: HTMLElement) { return this.isConnected ? [new DOMRect(100, 100, 40, 40)] : []; } });
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
     read.push(this);
@@ -24,18 +26,20 @@ const browserBoxes = () => {
 };
 
 it("u6236a_replaced_trigger_keeps_the_tooltip_on_its_trigger", async () => {
-  vi.useFakeTimers({ toFake: ["queueMicrotask", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"] });
+  // Solid 2 schedules its flush on queueMicrotask: a faked one dropped at useRealTimers strands every later render.
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"] });
   const read = browserBoxes();
   const [generation, setGeneration] = createSignal<number | null>(1);
 
   render(() => <Tip text="Explain">{trigger => <Show when={generation()} keyed>{each => <button data-generation={each} {...trigger()}>Owner</button>}</Show>}</Tip>);
   const first = screen.getByRole("button");
 
-  fireEvent.pointerMove(first, { pointerType: "mouse", clientX: 110, clientY: 110 });
+  fireEvent.pointerEnter(first, { pointerType: "mouse", clientX: 110, clientY: 110 });
   await vi.advanceTimersByTimeAsync(1000);
   expect(await screen.findByRole("tooltip")).toBeTruthy();
 
   setGeneration(2);
+  flush();
   await vi.advanceTimersByTimeAsync(100);
   const replacement = screen.getByRole("button");
 
@@ -47,6 +51,7 @@ it("u6236a_replaced_trigger_keeps_the_tooltip_on_its_trigger", async () => {
   expect(screen.queryByRole("tooltip")).toBeTruthy();
 
   setGeneration(null);
+  flush();
   await vi.advanceTimersByTimeAsync(100);
   expect(screen.queryByRole("tooltip")).toBeNull();
 });

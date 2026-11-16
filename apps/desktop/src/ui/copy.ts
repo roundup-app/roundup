@@ -18,6 +18,7 @@ export const copy = {
   name: sharedCopy.name,
   openFolder: sharedCopy.openFolder,
   resizeUnavailable: "Resizing is unavailable in this view.",
+  pixelWidth: (px: number) => `${px} pixels`,
   noMatch: sharedCopy.noMatch,
   sendToAgentMenu: sharedCopy.sendToAgentMenu,
   linkUrl: sharedCopy.linkUrl,

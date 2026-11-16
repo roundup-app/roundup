@@ -1,9 +1,7 @@
 import { anchorBox } from "../ui/anchorBox";
-import { animate } from "motion";
-import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
-import Highlighter from "lucide-solid/icons/highlighter";
-import Check from "lucide-solid/icons/check";
-import { isFocusVisible, trackFocusVisible } from "@zag-js/focus-visible";
+import Highlighter from "@lucide/solid/icons/highlighter";
+import Check from "@lucide/solid/icons/check";
+import { isFocusFromKeyboard } from "@ui-sdk/core";
 import { Tip } from "../ui/Tip";
 import { Menu } from "../ui/Menu";
 import { DrawerExpandContext } from "../drawer/DrawerHost";
@@ -13,8 +11,8 @@ import { clearTextInCurrentBlockCommand, toggleStrongCommand, toggleEmphasisComm
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onMount, splitProps, useContext } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createEffect, createMemo, createSignal, For, Show, createUniqueId, onCleanup, onSettled, untrack, useContext } from "solid-js";
+import { Portal } from "@solidjs/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
 import type { BlockEditFeatureConfig } from "@milkdown/crepe/feature/block-edit";
@@ -99,7 +97,7 @@ type EditorProps = {
   onText: (text: string) => void;
   onBlur: (next: EventTarget | null) => void;
   onReady: (editor: PadEditorHandle) => void;
-  toolbar?: import("solid-js").JSX.Element;
+  toolbar?: import("@solidjs/web").JSX.Element;
   onSelection?: () => void;
 };
 
@@ -121,63 +119,21 @@ function addDrawingItem(builder: Parameters<NonNullable<BlockEditFeatureConfig["
   });
 }
 
+/** Focuses the editor's view with its selection and returns the view's element: a pick in the colour palette leaves focus there, not on the trigger. */
+const focusedView = (crepe: CrepeBuilder | undefined) => crepe?.editor.action((ctx) => {
+  const view = ctx.get(editorViewCtx);
+
+  view.focus();
+
+  return view.dom;
+});
+
 function MountedEditor(props: EditorProps & { remount: (() => void) | undefined }) {
   const mountExpand = useContext(DrawerExpandContext);
   const [toolbarHost, setToolbarHost] = createSignal<HTMLElement>();
   const menuId = createUniqueId();
-  const colourTriggerId = createUniqueId();
   const [paletteMotion, setPaletteMotion] = createSignal(false);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
-  const [palettePresent, setPalettePresent] = createSignal(false);
-  const [paletteContent, setPaletteContent] = createSignal<HTMLElement>();
-  const [palettePositioned, setPalettePositioned] = createSignal(false);
-  const reduced = useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true);
-  let paletteAnimation: ReturnType<typeof animate> | undefined;
-  let previousPalette: HTMLElement | undefined;
-
-  createEffect(() => {
-    const open = paletteOpen();
-    const element = paletteContent();
-    const animated = paletteMotion();
-    const reduce = reduced();
-    const positioned = palettePositioned();
-    paletteAnimation?.stop();
-    paletteAnimation = undefined;
-
-    if (!element?.isConnected) return;
-
-    if (animated && open && !positioned) {
-      if (element !== previousPalette) element.style.opacity = "0";
-
-      return;
-    }
-
-    const entering = element !== previousPalette;
-    previousPalette = element;
-
-    if (!animated) {
-      element.style.opacity = open ? "1" : "0";
-      element.style.transform = "none";
-
-      if (!open) setPalettePresent(false);
-
-      return;
-    }
-
-    const tokens = getComputedStyle(element);
-    const scale = tokens.getPropertyValue("--scale-menu").trim();
-    const duration = tokens.getPropertyValue(reduce ? "--duration-reduced" : open ? "--duration-menu-in" : "--duration-menu-out");
-    const curve = tokens.getPropertyValue("--easing-out").match(/[\d.]+/g) ?? [];
-    const ease: [number, number, number, number] = [Number(curve[0]), Number(curve[1]), Number(curve[2]), Number(curve[3])];
-    const opacity = [entering ? 0 : Number(tokens.opacity), open ? 1 : 0];
-
-    if (reduce) element.style.transform = "none";
-    const frames = reduce ? { opacity } : { opacity, transform: [entering ? `scale(${scale})` : tokens.transform, open ? "scale(1)" : `scale(${scale})`] };
-    const animation = animate(element, frames, { duration: parseFloat(duration) / 1000, ease });
-    paletteAnimation = animation;
-    void animation.then(() => { if (paletteAnimation === animation && !paletteOpen()) setPalettePresent(false); });
-  });
-  onCleanup(() => paletteAnimation?.stop());
   let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
   let menuHost: HTMLDivElement | undefined;
@@ -206,6 +162,9 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
     }) : false;
   });
 
+  // ProseMirror's own focus writes its selection to the DOM first, so Chromium has no caret of its own to adopt.
+  const focusEditor = () => crepe?.editor.action((ctx) => ctx.get(editorViewCtx).focus());
+
   const currentColour = createMemo(() => {
     const state = commandState();
 
@@ -225,8 +184,31 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
 
   const [failure, setFailure] = createSignal<string | null>(null);
 
-  onMount(() => {
-    onCleanup(trackFocusVisible());
+  registerKeys({ kind: "region", element: () => host }, toolbarCommands.map(({ action, label, command }) => ({
+    action,
+    chords: untrack(() => chordsOf(action, action.keys.includes("⌥") ? "code" : "key")),
+    capture: focus => {
+      commandState();
+
+      if (!ready || closed || !crepe) return { available: () => false, invoke: () => {}, label };
+
+      return crepe.editor.action(ctx => {
+        const view = ctx.get(editorViewCtx);
+        const { doc, selection } = view.state;
+        const run = ctx.get(commandsCtx).get(command.key)();
+
+        return {
+          label,
+          available: () => !closed && !props.readonly && !!focus && host?.contains(focus) === true
+            && document.activeElement === focus && view.state.doc.eq(doc) && view.state.selection.eq(selection)
+            && run(view.state),
+          invoke: () => { run(view.state, view.dispatch, view); },
+        };
+      });
+    },
+  })));
+
+  onSettled(() => {
     const focus = props.initialFocus ?? captureFocus();
 
     if (!host || !menuHost) throw new Error(copy.padEditorHostIsMissing);
@@ -301,7 +283,8 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
 
     crepe = new CrepeBuilder({
       root: host,
-      defaultValue: props.text,
+      // The text this mount began with: reading a ternary prop here would make a memo after setup, which Solid 2 refuses.
+      defaultValue: original,
     })
       .setReadonly(props.readonly)
       .addFeature(blockEdit, blockConfig)
@@ -397,30 +380,6 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
       });
     });
 
-    registerKeys({ kind: "region", element: () => host }, toolbarCommands.map(({ action, label, command }) => ({
-      action,
-      chords: chordsOf(action, action.keys.includes("⌥") ? "code" : "key"),
-      capture: focus => {
-        commandState();
-
-        if (!ready || closed || !crepe) return { available: () => false, invoke: () => {}, label };
-
-        return crepe.editor.action(ctx => {
-          const view = ctx.get(editorViewCtx);
-          const { doc, selection } = view.state;
-          const run = ctx.get(commandsCtx).get(command.key)();
-
-          return {
-            label,
-            available: () => !closed && !props.readonly && !!focus && host?.contains(focus) === true
-              && document.activeElement === focus && view.state.doc.eq(doc) && view.state.selection.eq(selection)
-              && run(view.state),
-            invoke: () => { run(view.state, view.dispatch, view); },
-          };
-        });
-      },
-    })));
-
     created = crepe.create();
     void created.then(() => {
       if (closed || !host || !crepe) return;
@@ -511,9 +470,6 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
 
       ready = true;
       crepe.setReadonly(props.readonly);
-
-      // ProseMirror's own focus writes its selection to the DOM first, so Chromium has no caret of its own to adopt.
-      const focusEditor = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).focus());
 
       if (!props.readonly && props.autofocus !== false) focus(focusEditor);
 
@@ -636,10 +592,8 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
     });
   });
 
-  createEffect(() => {
-    const readonly = props.readonly;
-
-    if (ready) crepe?.setReadonly(readonly);
+  createEffect(createMemo(() => props.readonly), (readonly) => {
+    if (ready) untrack(() => crepe?.setReadonly(readonly));
   });
 
   onCleanup(() => {
@@ -659,13 +613,10 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
     <>
       <Show when={!props.label && toolbarHost()}>{mount => <Portal mount={mount()}>
         <div class="pad-rich-editor pad-format-controls">
-          <Menu.Root ids={{ trigger: colourTriggerId }} positioning={{ updatePosition: async ({ updatePosition }) => { await updatePosition(); setPalettePositioned(true); } }} open={paletteOpen()} present={palettePresent()} onOpenChange={({ open }) => {
-            setPaletteMotion(!isFocusVisible());
-
-            if (open) { setPalettePositioned(false); setPalettePresent(true); }
-
+          <Menu.Root open={paletteOpen()} finalFocusEl={reason => reason === "item-press" ? focusedView(crepe) : undefined} onOpenChange={({ open }) => {
+            setPaletteMotion(!isFocusFromKeyboard());
             setPaletteOpen(open);
-          }} onSelect={({ value }) => crepe?.editor.action(ctx => {
+          }} onValueChange={value => crepe?.editor.action(ctx => {
             const view = ctx.get(editorViewCtx);
             const { from, to } = view.state.selection;
             const type = padColour.type(ctx);
@@ -674,23 +625,17 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
 
             if (colour) tr.addMark(from, to, type.create({ colour }));
             view.dispatch(tr);
-            view.focus();
           })}>
-            <Tip text={copy.textColour} ids={{ trigger: colourTriggerId }}>{trigger => {
-              // Both primitives resolve the same button; Menu retains its own identity and value.
-              const [, attributes] = splitProps(trigger(), ["value", "id"]);
-
-              return <Menu.Trigger {...attributes} class="top-bar-heading-button" aria-label={copy.textColour}>{copy.textColour}</Menu.Trigger>;
-            }}</Tip>
-            <Portal><Menu.Positioner class="pad-rich-editor"><Menu.Content ref={setPaletteContent} class="pad-colour-menu" inert={!paletteOpen()} onKeyDown={() => setPaletteMotion(false)}>
-              <Menu.RadioItemGroup value={currentColour() ?? ""}><For each={["default" as const, ...padColours]}>{colour => <Menu.RadioItem value={colour}><Menu.ItemText>{copy.colours[colour]}</Menu.ItemText><Menu.ItemIndicator><Check class="icon" aria-hidden="true" /></Menu.ItemIndicator></Menu.RadioItem>}</For></Menu.RadioItemGroup>
-            </Menu.Content></Menu.Positioner></Portal>
+            <Tip text={copy.textColour}>{trigger => <Menu.Trigger class="top-bar-heading-button" aria-label={copy.textColour} render={menu => <button {...trigger(menu)} type="button">{copy.textColour}</button>} />}</Tip>
+            <Menu.Content class="pad-colour-menu" data-pointer={paletteMotion() ? "true" : undefined} inert={!paletteOpen()} onKeyDown={() => setPaletteMotion(false)}>
+              <Menu.RadioGroup value={currentColour() ?? ""}><For each={["default" as const, ...padColours]}>{colour => <Menu.RadioItem value={colour} closeOnSelect>{copy.colours[colour]}<Menu.ItemIndicator><Check class="icon" aria-hidden="true" /></Menu.ItemIndicator></Menu.RadioItem>}</For></Menu.RadioGroup>
+            </Menu.Content>
           </Menu.Root>
-          <Tip text={copy.highlight}>{trigger => <button {...trigger()} type="button" class="top-bar-item" aria-label={copy.highlight} aria-pressed={highlighted()} classList={{ active: highlighted() }} onPointerDown={event => event.preventDefault()} onClick={() => crepe?.editor.action(ctx => {
+          <Tip text={copy.highlight}>{trigger => <button {...trigger({ onPointerDown: event => event.preventDefault(), onClick: () => crepe?.editor.action(ctx => {
             const view = ctx.get(editorViewCtx);
             toggleMark(padHighlight.type(ctx))(view.state, view.dispatch);
             view.focus();
-          })}><Highlighter class="icon" aria-hidden="true" /></button>}</Tip>
+          }) })} type="button" aria-label={copy.highlight} aria-pressed={highlighted() ? "true" : "false"} class={["top-bar-item", { active: highlighted() }]}><Highlighter class="icon" aria-hidden="true" /></button>}</Tip>
         </div>
       </Portal>}</Show>
       <Show when={toolbarHost()}>{target => <Portal mount={target()}><div class="pad-width-control">{props.toolbar}</div></Portal>}</Show>
@@ -700,8 +645,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
         </div>
       </Portal>
       <div
-        class="pad-editor pad-rich-editor reading"
-        classList={{ "pad-readonly": props.readonly }}
+        class={["pad-editor pad-rich-editor reading", { "pad-readonly": props.readonly }]}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
         <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
         <div class="pad-editor-host" ref={(element) => (host = element)} />

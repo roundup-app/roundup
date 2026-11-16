@@ -21,14 +21,14 @@ type Checks = Record<string, {status: string; value: unknown}>;
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
   await page.load(`${origin}/harness.html?view=workstreams&items=1&seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
-  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
+  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('.rail-row[data-branch][aria-expanded]')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
   }`);
-  await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'))`);
-  await page.until(`() => !document.querySelector('.rail-row[data-selected="true"]')`);
-  await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click()`);
+  await page.until(`() => Boolean(document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control'))`);
+  await page.until(`() => !document.querySelector('.rail-row[data-selected]')`);
+  await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control')?.click()`);
   await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
 };
 
@@ -86,9 +86,9 @@ run('u362 rendered Todo drag', () => {
       await page.scheme(scheme);
       await setup();
       const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
-      const home = await page.call<string>(`() => document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
+      const home = await page.call<string>(`() => document.querySelector('.rail-row[data-branch][aria-expanded]').dataset.id`);
       const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
-      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
+      const to = await point('.rail-row[data-branch][aria-expanded]');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call<string>(`() => document.querySelector('[data-todo-drop]')?.dataset.id`)).toBe(home);
@@ -109,7 +109,7 @@ run('u362 rendered Todo drag that moves nothing', () => {
     await setup();
     const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
     const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
-    const home = await point('[data-part="branch"][aria-expanded] > .rail-row');
+    const home = await point('.rail-row[data-branch][aria-expanded]');
     const elsewhere = await point('.shelf-head');
     const calls = () => page.call<string[]>(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move' || c.method === 'todo.reorder').map(c => c.method)`);
 
@@ -127,7 +127,7 @@ run('u362 rendered Todo drag that moves nothing', () => {
     expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
     await page.pointer('up', elsewhere.x + 10, elsewhere.y);
     // An Agent row is no Home.
-    const agent = await point('.rail-row[data-part="item"]');
+    const agent = await point('.rail-row:not([data-branch])');
     await page.pointer('down', from.x, from.y);
     await page.pointer('move', agent.x, agent.y);
     expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
@@ -150,7 +150,7 @@ run('u362 rendered move failure', () => {
       await page.press('k', 'KeyK', 4);
       await page.press('b', 'KeyB');
       await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
-      await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
+      await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control[aria-expanded="false"]')?.click()`);
       await page.until(`() => document.querySelector('.shelf .todo-row-button').getBoundingClientRect().width > 0`);
       await page.call(`() => { document.querySelector('.shelf').style.width = '163px'; }`);
       await page.call(`async () => {
@@ -159,7 +159,7 @@ run('u362 rendered move failure', () => {
       }`);
       const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
       const from = await point('.shelf .todo-row-button');
-      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
+      const to = await point('.rail-row[data-branch][aria-expanded]');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);

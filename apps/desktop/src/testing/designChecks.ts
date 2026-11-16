@@ -29,18 +29,14 @@ export function pressCheck(doc: Document, rules: CSSStyleRule[]) {
   const feedback = rules.filter(rule => rule.selectorText.includes('[data-pressed="true"]') || rule.selectorText.includes("input:active"));
 
   for (const el of controls) {
-    const owner = el.matches("input") ? el.closest(".app-checkbox, .app-radio, .app-switch, .app-segment") ?? el : el;
-
     const covered = feedback.some(rule => {
       if (rule.style.opacity !== "var(--press-opacity)") return false;
-
-      if (owner !== el && !rule.selectorText.includes(":has(input")) return false;
       const selector = rule.selectorText.replaceAll('[data-pressed="true"]', ":where(*)").replaceAll(":active", ":where(*)");
 
-      try { return owner.matches(selector) && (scaleOnly(rule.style.cssText.match(/(?:^|;)\s*transition:\s*([^;]+)/)?.[1] ?? "") || instantBesidesScale(view.getComputedStyle(owner))); } catch { return false; }
+      try { return el.matches(selector) && (scaleOnly(rule.style.cssText.match(/(?:^|;)\s*transition:\s*([^;]+)/)?.[1] ?? "") || instantBesidesScale(view.getComputedStyle(el))); } catch { return false; }
     });
 
-    if (!covered) return result({ pressFeedback: "missing" }, nameOf(owner), false);
+    if (!covered) return result({ pressFeedback: "missing" }, nameOf(el), false);
   }
 
   return result({ controls: controls.length, feedback: "instant Token recipe; frame readings in paired observer" });

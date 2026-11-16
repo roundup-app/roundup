@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { openTabs, path, tab } from "../header/stripFixture";
 import { agent, door, event, workstream } from "../testing/nodes";
 import type { FakeApp } from "../testing/fakeApp";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
@@ -87,7 +88,7 @@ it("u5503_only_an_agent_action_opens_and_acknowledges", async () => {
   const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
   app.menuBarAction({ kind: "failure", message: "Dock section could not be refreshed" });
   expect(log).toHaveBeenCalledWith("Dock section could not be refreshed");
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   log.mockRestore();
   expect(show).not.toHaveBeenCalled();
 
@@ -117,6 +118,8 @@ it.each([false, true])("u5503_menu_changes_leave_badge_behavior_unchanged (badge
     await waitFor(() => expect(app.badges.at(-1)).toBe(0));
     const badges = [...app.badges];
     cleanup();
+    // The acknowledgement this run saved lands through the storage queue; clearing before it does would hand it to the next run.
+    await new Promise(resolve => setTimeout(resolve));
     localStorage.clear();
 
     return badges;
@@ -132,7 +135,7 @@ it("u5503_an_unavailable_dock_menu_logs_its_cause", async () => {
   const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
   finish(app, "api", "a");
   await waitFor(() => expect(log).toHaveBeenCalledWith("Error: Dock callback installation refused"));
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   expect(install).toHaveBeenCalled();
   expect(log).toHaveBeenCalledOnce();
   log.mockRestore();

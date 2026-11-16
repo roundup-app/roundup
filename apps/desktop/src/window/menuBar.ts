@@ -155,23 +155,17 @@ export const watchMenuBar = (options: {
     };
 
     return { mark: rows.some(row => row.waiting) ? "waiting" : rows.length ? "ready" : "empty", entries: entries(7), dock: entries(5) };
-  }, undefined, { equals: samePresentation });
+  }, { equals: samePresentation });
 
   // The line the user sees follows the publication read, whether or not the list changed.
   const failure = createMemo(() => options.tabs().map(tab => options.connection(tab.project.path)?.unseen.publicationFailure()).find(Boolean) ?? null);
 
-  createEffect(() => {
-    const menu = presentation();
-
+  createEffect(presentation, menu => {
     void options.app.setMenuBar(menu).then(() => options.fail(failure()), error => options.hide(String(error)));
   });
 
-  createEffect((previous: string | null | undefined) => {
-    const line = failure();
-
+  createEffect(failure, (line, previous) => {
     if (previous !== undefined || line !== null) options.fail(line);
-
-    return line;
   });
 
   const stop = options.app.onMenuBarAction(action => {

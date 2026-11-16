@@ -1,5 +1,6 @@
 import * as imageModule from "@xterm/addon-image";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { createRoot } from "solid-js";
 import { renderMarkdown } from "../plain/renderMarkdown";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -30,7 +31,7 @@ const drawsThroughScreens = async (id: string) => {
   const addons = vi.spyOn(imageModule, "ImageAddon");
   const [{ connectFakeProject }, { terminal, info }, { createScreens }, { lazyXtermEmulators }] = modules;
   const { connected } = await connectFakeProject([terminal("a")], [info("t-a")]);
-  const emulator = createScreens(connected, lazyXtermEmulators()).emulatorFor(id);
+  const emulator = createRoot(() => createScreens(connected, lazyXtermEmulators())).emulatorFor(id);
 
   await emulator.ready;
   await new Promise<void>(resolve => emulator.write(new TextEncoder().encode(`${ESC}_Gi=7,a=T,f=100;${PNG}${ESC}\\`), resolve));

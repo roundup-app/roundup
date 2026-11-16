@@ -21,7 +21,7 @@ for (const scheme of ["dark", "light"] as const) {
         return true;
       })()`);
       await until("window.readCount === 4");
-      expect(await evaluate("document.querySelectorAll('[role=alert]').length")).toBe(0);
+      expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(0);
 
       await evaluate(`(() => {
         window.readCount = 0;
@@ -29,12 +29,12 @@ for (const scheme of ["dark", "light"] as const) {
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
         return true;
       })()`);
-      await until("window.readCount === 5 && document.querySelector('[role=alert]')");
-      expect(await evaluate("document.querySelectorAll('[role=alert]').length")).toBe(1);
+      await until("window.readCount === 5 && document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
+      expect(await evaluate("document.querySelectorAll('[role=alert]:not([data-ui-sdk-announcer])').length")).toBe(1);
       await capture("U6249a", `rail-read-failed-${scheme}`);
       await evaluate("window.__fake.app.handlers['rail.tree'] = window.savedTree; true");
       await browser("click", ".pane-failure button");
-      await until("!document.querySelector('[role=alert]')");
+      await until("!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
     } finally {
       await page.close();
     }
@@ -54,8 +54,8 @@ for (const scheme of ["dark", "light"] as const) {
         document.querySelector('.rail-row[data-id]').click();
         return true;
       })()`);
-      await until("document.querySelector('.pane-failure [role=alert]')");
-      expect(await evaluate("document.querySelectorAll('.pane-failure [role=alert]').length")).toBe(1);
+      await until("document.querySelector('.pane-failure [role=alert]:not([data-ui-sdk-announcer])')");
+      expect(await evaluate("document.querySelectorAll('.pane-failure [role=alert]:not([data-ui-sdk-announcer])').length")).toBe(1);
       await capture("U6249a", `terminal-failed-${scheme}`);
     } finally {
       await page.close();

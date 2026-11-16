@@ -1,6 +1,7 @@
 import { copy as recoveryCopy } from "../sharedCopy";
 import { DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -15,8 +16,9 @@ import { Todos } from "../todos/Todos";
 import { todo, todoCallsTo as callsTo } from "../todos/testHarness";
 import { Help } from "./Help";
 import { leaderKey } from "./leaderFixture";
-import { Leader } from "./Leader";
+import { createLeader } from "./Leader";
 import { leaderArmed } from "./registry";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -30,18 +32,21 @@ const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () 
   const connected = await connectProject(app, { name: "p", path }, () => true, () => 0);
 
   await showEverything(connected);
-  render(() => (
-    <DisplayClockContext.Provider value={() => () => 0}>
-      <ConnectedProjectContext.Provider value={connected}>
-        <button data-testid="before">before</button>
-        <Todos />
-        <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-        <Leader />
-        <Capture onFile={onFile} />
-        <Help />
-      </ConnectedProjectContext.Provider>
-    </DisplayClockContext.Provider>
-  ));
+  render(() => {
+    createLeader(connected);
+
+    return (
+      <DisplayClockContext value={() => () => 0}>
+        <ConnectedProjectContext value={connected}>
+          <button data-testid="before">before</button>
+          <Todos />
+          <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
+          <Capture onFile={onFile} />
+          <Help />
+        </ConnectedProjectContext>
+      </DisplayClockContext>
+    );
+  });
 
   const before = screen.getByTestId("before");
 
@@ -62,9 +67,15 @@ const openField = async () => {
   });
 };
 
-const type = (input: HTMLElement, value: string) => fireEvent.input(input, { target: { value } });
+const type = (input: HTMLElement, value: string) => {
+  fireEvent.input(input, { target: { value } });
+  flush();
+};
 
-const press = (input: HTMLElement, init: KeyboardEventInit = {}) => fireEvent.keyDown(input, { key: "Enter", code: "Enter", ...init });
+const press = (input: HTMLElement, init: KeyboardEventInit = {}) => {
+  fireEvent.keyDown(input, { key: "Enter", code: "Enter", ...init });
+  flush();
+};
 
 // Rule 10: u3713_leader_t_opens_a_focused_empty_field_without_changing_selection proves opening; the design critic owns help copy.
 // u3714_pending_capture_is_visible_under_selection proves the removed duplicate pending-row observer.
@@ -73,6 +84,7 @@ describe("u3713 the leader opens the capture field", () => {
     const { connected } = await mount();
 
     connected.rail.select(connected.rail.nodes[0]!.id);
+    flush();
     const selected = connected.rail.selected();
     const input = await openField();
 
@@ -134,7 +146,7 @@ describe("u3715 a failed create keeps the text and says why", () => {
     press(input);
 
     await waitFor(() => expect(field()?.value).toBe("  keep me  "));
-    expect(await screen.findByRole("alert")).toBeTruthy();
+    await waitFor(() => expect(notices("alert")).toHaveLength(1));
     expect(screen.queryByRole("listitem")).toBeNull();
   });
 
@@ -190,6 +202,7 @@ it("u2773a_capture_restores_exact_work_after_project_remount", async () => {
   type(input, "  unfinished é\n😀  ");
   input.setSelectionRange(3, 9, "backward");
   fireEvent.select(input);
+  flush();
   cleanup();
   const other = await mount();
   expect((await openField()).value).toBe("");
@@ -206,6 +219,7 @@ it("u2773a_capture_restores_exact_work_after_project_remount", async () => {
 it.each(["w", "a"])("u3714_pending_capture_is_visible_under_selection_%s", async (selection) => {
   const { connected, app } = await mount();
   connected.rail.select(selection);
+  flush();
   let answer!: () => void;
   app.handlers["todo.create"] = () => new Promise(resolve => { answer = () => resolve(todo(9)); });
   const input = await openField();
@@ -224,7 +238,7 @@ it("u3714_a_filed_capture_opens_the_shelf_and_stays_visible_once_acknowledged", 
   press(input);
   await waitFor(() => expect(filed).toBe(1));
   await waitFor(() => expect(store.todos.map(item => item.title)).toContain("kept in view"));
-  await waitFor(() => expect(document.querySelector("[data-shelf-group=unassigned] [data-state=open]")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector("[data-shelf-group=unassigned] .shelf-group-control[aria-expanded=true]")).not.toBeNull());
 });
 
 it("u3787f_global_capture_uses_the_existing_owner_once_per_press", async () => {
@@ -251,12 +265,17 @@ it("u3787f_global_capture_uses_the_existing_owner_once_per_press", async () => {
 
   const { app, connected } = await mount(undefined, undefined, capture);
   connected.rail.select("w");
+  flush();
   requested();
+  flush();
   requested();
+  flush();
   action({ kind: "ready" });
+  flush();
   await waitFor(() => expect(snapshots.length).toBeGreaterThan(0));
   const state = snapshots.at(-1)!;
   action({ kind: "file", session: state.session, sequence: 1, text: "native draft 雪", keepOpen: false });
+  flush();
   await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
   expect(capture.show).toHaveBeenCalledTimes(1);
   expect(callsTo(app, "todo.create")[0]!.params).toMatchObject({ title: "native draft 雪" });
@@ -290,16 +309,21 @@ it("u3787f_native_dismiss_retains_exact_work_and_refuses_the_previous_session", 
 
   const { app, connected } = await mount(undefined, undefined, capture);
   connected.rail.select("w");
+  flush();
   requested();
   await waitFor(() => expect(snapshots.length).toBeGreaterThan(0));
   const first = snapshots.at(-1)!;
   action({ kind: "edit", session: first.session, sequence: 1, text: "  exact 雪\nwork  " });
+  flush();
   action({ kind: "dismiss", session: first.session });
+  flush();
   connected.rail.select("a");
+  flush();
   requested();
   await waitFor(() => expect(snapshots.at(-1)?.session).not.toBe(first.session));
   expect(snapshots.at(-1)?.text).toBe("  exact 雪\nwork  ");
   action({ kind: "file", session: first.session, sequence: 2, text: "stale", keepOpen: false });
+  flush();
   expect(callsTo(app, "todo.create")).toHaveLength(0);
 });
 
@@ -310,6 +334,7 @@ it("u3787f_shortcut_collision_preserves_the_acknowledged_setting_and_shows_the_c
   const causes: (string | null)[] = [];
   render(() => <ShortcutSettings capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: () => () => {}, onAction: () => () => {}, onState: () => () => {} }} onFailure={cause => causes.push(cause)} />);
   fireEvent.click(screen.getByRole("button", { name: /Quick add from any app/ }));
+  flush();
   fireEvent.keyDown(window, { key: "y", code: "KeyY", metaKey: true, altKey: true });
   await waitFor(() => expect(causes.at(-1)).toContain("already registered"));
   expect(appSettings().quickAddAnywhere).toBe(before);
@@ -350,12 +375,14 @@ it("t4905_opening_a_pending_capture_sends_no_item_rpc", async () => {
 
   expect(open).toBeNull();
   fireEvent.click(row);
+  flush();
   const title = screen.getByText("pending capture");
 
   fireEvent.keyDown(title, { key: "Enter", code: "Enter" });
+  flush();
   expect(app.calls.filter(call => ["todo.refs", "todo.comments", "todo.getHistory"].includes(call.method))).toEqual([]);
   expect(app.calls.filter(call => JSON.stringify(call.params).includes(row.dataset.todo!))).toEqual([]);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   answer();
 });
@@ -381,6 +408,7 @@ it("t4905_a_filed_capture_opens_with_its_returned_id", async () => {
   expect(document.querySelectorAll("[data-todo]")).toHaveLength(1);
   expect(field()!.value).toBe("newer draft");
   fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
+  flush();
   fireEvent.click(screen.getByRole("button", { name: "Open filed capture" }));
   await waitFor(() => expect(callsTo(app, "todo.getHistory").length).toBeGreaterThan(0));
   await waitFor(() => expect(callsTo(app, "todo.comments").length).toBeGreaterThan(0));
@@ -390,7 +418,7 @@ it("t4905_a_filed_capture_opens_with_its_returned_id", async () => {
     for (const call of callsTo(app, method)) expect(call.params).toEqual({ id: 9 });
   }
 
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
 });
 
 it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholder_%s", async (stage) => {
@@ -414,7 +442,7 @@ it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholde
   expect(document.querySelector("[data-pending]")).toBeNull();
   expect(field()!.value).toBe("  newer draft 雪  ");
   expect(screen.getByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).value).toBe("  rejected capture  ");
-  expect(screen.getByRole("alert").textContent).toContain(cause.message);
+  expect(notices("alert")[0]!.textContent).toContain(cause.message);
 
   if (stage === "move") {
     connected.rail.select(null);

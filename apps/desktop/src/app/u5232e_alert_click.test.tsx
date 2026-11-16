@@ -4,8 +4,10 @@ import { App } from "../App";
 import { createFakeApp } from "./../testing/fakeApp";
 import { agent } from "../testing/nodes";
 import { openTabs, rowSelected, tab } from "../header/stripFixture";
+import { notices } from "../testing/notices";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+// The Rail saves its selection through a write queue: let it land before the storage is cleared, or the next test opens on this one's selection.
+afterEach(async () => { cleanup(); await new Promise(resolve => setTimeout(resolve)); localStorage.clear(); });
 
 const started = async () => {
   const app = createFakeApp();
@@ -40,7 +42,7 @@ it("u5232e_a_click_for_a_gone_agent_changes_nothing_and_shows_nothing", async ()
   app.clickStateAlert("nobody");
   await new Promise(resolve => setTimeout(resolve));
 
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   expect(selectedIndex()).toBe(before);
 });
 

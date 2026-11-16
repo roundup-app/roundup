@@ -7,7 +7,7 @@ import { createServer } from "vite";
 import { agentBrowserExecutable, chromePath } from "../testing/chromePage";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
-// The real Layout plus installed Ark, served by Vite in an isolated headless session.
+// The real Layout, served by Vite in an isolated headless session.
 
 const profile = mkdtempSync(join(tmpdir(), "u507-profile-"));
 
@@ -40,12 +40,8 @@ beforeAll(async () => {
     server: { port: 0, strictPort: false },
     plugins: [{
       name: "u507-layout-host",
-      // Supply the public Layout props at the App composition site without
-      // replacing Layout, its children, width controls or Terminal implementation.
       enforce: "pre",
       resolveId: (id, importer) => {
-        if (id === "./window/Layout" && importer?.endsWith("/src/App.tsx")) return "\0u507-bound-layout.js";
-
         if (id === "./seeds" && importer?.endsWith("/src/testing/harness.tsx")) return "\0u507-seeds.js";
       },
       load: (id) => id === "\0u507-seeds.js" ? `
@@ -58,16 +54,6 @@ export const seedApp = (...args) => {
   // instead of mounting tree-40's unrelated rows for each App load.
   controls.app.handlers['rail.tree'] = async (params) => (await tree(params)).filter(node => ['payments', 'agent-4'].includes(node.id));
   return controls;
-};` : id === "\0u507-bound-layout.js" ? `
-import { createComponent, mergeProps } from 'solid-js';
-import { useSplitter } from '@ark-ui/solid/splitter';
-import { Layout as RealLayout } from '/src/window/Layout.tsx';
-export const Layout = (props) => {
-  const bound = new URL(location.href).searchParams.has('bound');
-  const api = useSplitter(() => ({ id: 'u507-app', panels: [{id:'rail'}, {id:'centre'}, {id:'shelf'}], defaultSize: [22.5,52.5,25] }));
-  return createComponent(RealLayout, mergeProps(props, { get splitter() {
-    return bound ? {root:api().getRootProps(), rail:api().getPanelProps({id:'rail'}), centre:api().getPanelProps({id:'centre'}), shelf:api().getPanelProps({id:'shelf'})} : undefined;
-  }}));
 };` : undefined,
     }],
   });
@@ -82,24 +68,21 @@ afterAll(async () => {
   }
 });
 
-const openApp = async (bound = true) => {
+const openApp = async () => {
   await browser("set", "viewport", "1280", "800");
-  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&view=workstreams&items=1${bound ? "&bound=1" : ""}`);
+  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&view=workstreams&items=1`);
   await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
   await settle();
-  expect(await evaluate(`document.querySelector('[data-layout-root]').dataset.scope === 'splitter'`)).toBe(bound);
-
-  if (bound) expect(await evaluate(`document.querySelectorAll('[data-part=panel][data-ownedby]').length`)).toBe(3);
 };
 
-it("u507_bindings_preserve_resize_state", async () => {
+it("u507_resizing_preserves_state", async () => {
   await openApp();
   await evaluate("localStorage.clear()");
   await openApp();
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".pane-screen");
   await settle();
-  const read = () => evaluate(`document.querySelector('.rail .rail-row[data-selected=true]').dataset.id`);
+  const read = () => evaluate(`document.querySelector('.rail .rail-row[data-selected]').dataset.id`);
   expect(await read()).toBe("payments");
   await browser("mouse", "move", "288", "400");
   await browser("mouse", "down", "left");
@@ -120,7 +103,7 @@ it("u507_bindings_preserve_resize_state", async () => {
   await browser("mouse", "up", "left");
   await settle();
   expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);
-  expect(await evaluate("document.querySelector('.rail .rail-row[data-selected=true]').dataset.id")).toBe("agent-4");
+  expect(await evaluate("document.querySelector('.rail .rail-row[data-selected]').dataset.id")).toBe("agent-4");
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".pane-screen");
   expect(await read()).toBe("payments");

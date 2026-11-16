@@ -1,5 +1,5 @@
 import { cleanup, screen } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DaemonExit } from "../app/seam";
 import { rowGlyph as glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
@@ -22,6 +22,7 @@ describe("u25 the Daemon is gone", () => {
 
     expect(tree.getAttribute("aria-disabled")).toBeNull();
     setExit({ code: 1 });
+    flush();
 
     expect(tree.getAttribute("aria-disabled")).toBe("true");
     expect(rowNames()).toEqual(["a", "b"]);

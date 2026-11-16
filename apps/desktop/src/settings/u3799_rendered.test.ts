@@ -98,7 +98,7 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
           await command("view:workstreams");
           await lane.browser("focus", `.rail-row[data-id="${agent}"]`);
           await lane.browser("press", "Enter");
-          await lane.until(`document.querySelector('.rail-row[data-id="${agent}"]')?.dataset.selected === 'true'`);
+          await lane.until(`document.querySelector('.rail-row[data-id="${agent}"]')?.hasAttribute('data-selected')`);
           await lane.evaluate(`(async () => {
             const nodes = await window.__fake.app.rpc('rail.tree', null);
             for (const node of nodes) if (node.id === ${JSON.stringify(agent)}) node.status.kind = 'working';

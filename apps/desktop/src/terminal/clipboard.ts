@@ -1,5 +1,5 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { createRoot } from "solid-js";
+import { createRoot, getOwner, runWithOwner } from "solid-js";
 import { captureFocus } from "../keys/focus";
 import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "./copy";
@@ -27,6 +27,8 @@ type Deps = {
 /** U3560b, U162: copy, paste and dropped paths of a Terminal. */
 export const createClipboard = ({ connected, failures, emulatorFor, exited, isFocused }: Deps): Clipboard => {
   const { app, daemonExit } = connected;
+  // A Terminal shows from an effect's apply, which has no owner of its own: its listeners belong to this Clipboard's.
+  const owner = getOwner();
 
   const copy: Clipboard["copy"] = async (id, text) => {
     const selection = text ?? emulatorFor(id).selection();
@@ -117,13 +119,13 @@ export const createClipboard = ({ connected, failures, emulatorFor, exited, isFo
     };
 
     // One root owns the host's listeners.
-    return createRoot(dispose => {
+    return runWithOwner(owner, () => createRoot(dispose => {
       makeEventListener(host, "paste", onPaste, true);
       makeEventListener(host, "copy", onCopy, true);
       makeEventListener(host, "keydown", onKey, true);
 
       return dispose;
-    });
+    }));
   };
 
   return { copy, paste, pastePaths, listen };

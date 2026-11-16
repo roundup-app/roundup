@@ -27,6 +27,11 @@
       "specifier": "eslint-plugin-solid"
     }
   ],
+  "settings": {
+    "solid": {
+      "version": 2
+    }
+  },
   "rules": {
     "anti-slop/no-swallowed-catch": "error",
     "anti-slop/no-new-web-assertions": "error",
@@ -605,6 +610,7 @@
         "apps/desktop/src/ui/RowCollection.ts",
         "apps/desktop/src/ui/Splitter.tsx",
         "apps/desktop/src/ui/Toast.tsx",
+        "apps/desktop/src/ui/fixedSlots.ts",
         "apps/desktop/src/ui/pressFeedback.ts",
         "apps/desktop/src/ui/s3806a_interruption.test.tsx",
         "apps/desktop/src/ui/s3806b_actions.test.tsx",

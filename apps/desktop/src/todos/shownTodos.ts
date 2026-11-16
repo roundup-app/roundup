@@ -1,5 +1,4 @@
-import { createMemo } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createMemo, type Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 
 import type { ConnectedProject } from "../state/connectedProject";

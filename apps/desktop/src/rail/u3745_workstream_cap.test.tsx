@@ -1,7 +1,8 @@
 import { openProjectPage } from "../testing/menuProbe";
+import { isChecked } from "../testing/checked";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { mountRail, railCallsTo } from "./railFixture";
+import { mountRail, railCallsTo, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -20,18 +21,20 @@ it("u3745_a_commit_sets_the_cap_once_and_no_limit_sets_null", async () => {
   const input = await field();
 
   await waitFor(() => expect(input.value).toBe("2"));
-  expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "No limit" }).checked).toBe(false);
+  expect(isChecked(screen.getByRole("checkbox", { name: "No limit" }))).toBe(false);
 
   fireEvent.input(input, { target: { value: "3" } });
   fireEvent.keyDown(input, { key: "Enter" });
   fireEvent.blur(input);
 
   await waitFor(() => expect(railCallsTo(app, "project.setWorkstreamCap")).toEqual([{ cap: 3 }]));
+  // The Project settings ignore a gesture while a save is in flight; the next one comes after its reply.
+  await settled();
 
   fireEvent.click(screen.getByRole("checkbox", { name: "No limit" }));
 
   await waitFor(() => expect(railCallsTo(app, "project.setWorkstreamCap")).toEqual([{ cap: 3 }, { cap: null }]));
-  await waitFor(() => expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "No limit" }).checked).toBe(true));
+  await waitFor(() => expect(isChecked(screen.getByRole("checkbox", { name: "No limit" }))).toBe(true));
 });
 
 it("u3745_a_bad_entry_calls_nothing_and_keeps_the_cap", async () => {
@@ -55,5 +58,5 @@ it("u3745_no_limit_shows_when_the_project_has_no_cap", async () => {
 
   await field();
 
-  await waitFor(() => expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "No limit" }).checked).toBe(true));
+  await waitFor(() => expect(isChecked(screen.getByRole("checkbox", { name: "No limit" }))).toBe(true));
 });

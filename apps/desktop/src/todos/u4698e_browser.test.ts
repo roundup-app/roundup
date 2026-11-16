@@ -38,7 +38,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     return true;
   })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate("(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()");
+  await evaluate("(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()");
   await browser("wait", '[data-todo="1"] .todo-row-button');
   await browser("focus", '[data-todo="1"] .todo-row-button');
   await browser("press", "Enter");

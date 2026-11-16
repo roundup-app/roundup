@@ -32,7 +32,7 @@ const load = async (width: number, height: number) => {
   await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`);
 };
 
-// Real pointer input: Ark's Splitter ignores synthetic events that carry no active pointer. The drag moves the edge by `to - from`.
+// Real pointer input: the Splitter's resizable group ignores synthetic events that carry no active pointer. The drag moves the edge by `to - from`.
 const dragEdge = async (label: string, panel: string, from: number, to: number): Promise<number> => {
   const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('[aria-label="${label}"]').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: 200 }; }`);
 

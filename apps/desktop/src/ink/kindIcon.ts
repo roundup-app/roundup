@@ -1,4 +1,4 @@
-import type { ComponentProps } from "solid-js";
+import type { ComponentProps } from "@solidjs/web";
 import type { Icon } from "./Icon";
 
 type IconName = ComponentProps<typeof Icon>["name"];

@@ -36,7 +36,7 @@ describe("h7200 hand off", () => {
 
     await waitFor(() => expect(rail.selected()).toBe("b"));
     expect(() => rowOf("c")).toThrow();
-    expect(rowOf("b").dataset.selected).toBe("true");
+    expect(rowOf("b").hasAttribute("data-selected")).toBe(true);
   });
 
   it("h7200d_selection_stays_when_the_caller_was_not_selected", async () => {

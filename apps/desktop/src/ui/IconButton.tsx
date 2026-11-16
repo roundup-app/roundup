@@ -1,28 +1,30 @@
-import { mergeProps, Show, splitProps, type JSX } from "solid-js";
+import { merge, omit, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ariaChord, CHORDS, type ChordName } from "../keys/chords";
 import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { Tip, type TriggerProps } from "./Tip";
 
 const triggerProps = (rest: JSX.ButtonHTMLAttributes<HTMLButtonElement>, chord: () => Parameters<typeof ariaChord>[0], click: JSX.EventHandler<HTMLButtonElement, MouseEvent>) => {
-  const merged = mergeProps({ type: "button" as const }, rest, { get "aria-keyshortcuts"() { return ariaChord(chord()); } }, { onClick: click });
+  const merged = merge({ type: "button" as const }, rest, { get "aria-keyshortcuts"() { return ariaChord(chord()); } }, { onClick: click });
 
   // SAFETY: `rest` holds only button attributes; the same props the trigger spreads onto a button, typed for HTMLElement.
   return merged as TriggerProps;
 };
 
 export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string; action?: ChordName | undefined; tooltip?: string | undefined; /** The name shows elsewhere (a peek, a visible label), so no tooltip. */ bare?: true }) => {
-  const [local, rest] = splitProps(props, ["class", "onClick", "action", "tooltip", "bare"]);
+  // The icon is the button's own child, not a spread prop: a spread re-reads every prop when one changes (the chord on focus), and a re-made icon between pointer down and up drops the click.
+  const rest = omit(props, "class", "onClick", "action", "tooltip", "bare", "children");
 
   const click: JSX.EventHandler<HTMLButtonElement, MouseEvent> = (event) => {
-    if (props["aria-disabled"] === true || props["aria-disabled"] === "true") {
+    if (props["aria-disabled"] === "true") {
       event.preventDefault();
       event.stopPropagation();
 
       return;
     }
 
-    const handler = local.onClick;
+    const handler = props.onClick;
 
     if (!handler) return;
 
@@ -30,16 +32,16 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     else handler(event);
   };
 
-  const chord = () => local.action && CHORDS[local.action];
+  const chord = () => props.action && CHORDS[props.action];
 
-  const barePlain = mergeProps({ type: "button" as const }, rest, { onClick: click });
+  const barePlain = merge({ type: "button" as const }, rest, { onClick: click });
 
   // Tip: Escape belongs to the surrounding App surface; blur and pointer leave dismiss the name.
-  return <Show when={!local.bare} fallback={<button {...barePlain} data-button="icon" class={`word ${local.class ?? ""}`} />}><Tip text={local.tooltip ?? props["aria-label"]} chord={chord()}>
+  return <Show when={!props.bare} fallback={<button {...barePlain} data-button="icon" class={`word ${props.class ?? ""}`}>{props.children}</button>}><Tip text={props.tooltip ?? props["aria-label"]} chord={chord()}>
     {(trigger) => {
       const merged = triggerProps(rest, chord, click);
 
-      return <button {...trigger(merged)} data-button="icon" class={`word ${local.class ?? ""}`} />;
+      return <button {...trigger(merged)} data-button="icon" class={`word ${props.class ?? ""}`}>{props.children}</button>;
     }}
   </Tip></Show>;
 };

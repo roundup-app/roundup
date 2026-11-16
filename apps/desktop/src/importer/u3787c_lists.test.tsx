@@ -9,9 +9,9 @@ const inventory = [{ opening: "Project menu → Import Claude Code", open: () =>
 
 const candidates = ["alpha", "same é 🧭", "same é 🧭", "delta", "終 é 🧭", "hidden", "disabled", "folded"].map((title, at) => ({ source: `source-${at}`, revision: `revision-${at}`, title, cwd: "", last_activity_ms: 1n }));
 
-const row = (at: number) => document.querySelectorAll<HTMLInputElement>(".import-check input")[at]!;
+const row = (at: number) => document.querySelectorAll<HTMLButtonElement>('.import-check [role="checkbox"]')[at]!;
 
-const selected = () => [...document.querySelectorAll<HTMLInputElement>(".import-check input")].flatMap((el, at) => el.checked ? [candidates[at]!.source] : []);
+const selected = () => [...document.querySelectorAll<HTMLButtonElement>('.import-check [role="checkbox"]')].flatMap((el, at) => el.getAttribute("aria-checked") === "true" ? [candidates[at]!.source] : []);
 
 const mount = async (open: () => void) => {
   const result = await mountApp(app => {

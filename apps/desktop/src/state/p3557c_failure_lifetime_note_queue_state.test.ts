@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import { expect, it } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { createFakeApp } from "../testing/fakeApp";
@@ -44,6 +45,7 @@ it("p3557c_failure_lifetime_note_queue_state", async () => {
   // dismissal changes nothing else, and a later equal-text failure is a new one
   const calls = app.calls.length;
   notes.dismiss(first);
+  flush();
   expect(app.calls.length).toBe(calls);
   expect(notes.rows("a").map((row) => row.id)).toEqual([1, 2]);
   expect(notes.selected("a")).toMatchObject({ message: 1 });
@@ -56,11 +58,13 @@ it("p3557c_failure_lifetime_note_queue_state", async () => {
   await notes.remove(bee);
   expect(notes.selected("a")).toMatchObject({ message: 2 });
   app.emit(gone(note(9)));
+  flush();
   expect(notes.selected("a")).toMatchObject({ message: 2 });
   app.handlers["message.drop"] = () => ({ ...one, status: "dropped" });
   await notes.remove(one);
   expect(notes.selected("a")).toMatchObject({ message: 2 });
   app.emit(gone(two));
+  flush();
   expect(notes.selected("a")).toBeNull();
   expect(notes.failure("b")).toBeNull();
 
@@ -72,6 +76,7 @@ it("p3557c_failure_lifetime_note_queue_state", async () => {
   other.app.handlers["message.drop"] = () => ({ ...one, status: "dropped" });
   await other.notes.remove(one);
   other.app.emit(gone(two));
+  flush();
   expect(other.notes.failure("a")).toBe("list refused");
   other.healList();
   other.notes.load("a");

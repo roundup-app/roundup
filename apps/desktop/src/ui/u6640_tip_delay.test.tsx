@@ -10,7 +10,7 @@ it("u6640c_a_tooltip_opens_at_200_ms", async () => {
   const target = screen.getByRole("button");
 
   vi.spyOn(target, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 20));
-  fireEvent.pointerMove(target, { pointerType: "mouse", clientX: 10, clientY: 10 });
+  fireEvent.pointerEnter(target, { pointerType: "mouse", clientX: 10, clientY: 10 });
   await vi.advanceTimersByTimeAsync(199);
   expect(screen.queryByRole("tooltip")).toBeNull();
   await vi.advanceTimersByTimeAsync(1);

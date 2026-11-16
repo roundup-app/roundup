@@ -102,7 +102,7 @@ export const action = async (...args: string[]) => {
   const commit = await read<number>(`Number(document.querySelector('[data-fixture=tabs]').dataset.commit)`);
 
   await browser(...args);
-  // The fixture acknowledges document inputs after its render frame; state waits below also await Ark's focus/selection.
+  // The fixture acknowledges document inputs after its render frame; state waits below also await the library's focus/selection.
   await wait(`Number(document.querySelector('[data-fixture=tabs]').dataset.commit) > ${commit}`);
 };
 

@@ -1,5 +1,4 @@
-import { batch, createSignal } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createSignal, type Accessor } from "solid-js";
 import type { Message } from "@contracts/message/Message";
 import { handleEvent, type EventHandlers, type Events } from "../app/events";
 import type { AppSeam, DaemonExit } from "../app/seam";
@@ -69,10 +68,10 @@ export const createNoteQueue = (app: AppSeam, events: Events, daemonExit: Access
 
   const clearMessage = (id: number): void => void setFailures((all) => all.filter((failure) => failure.message !== id));
 
-  const settle = ({ data }: { data: Message }): void => batch(() => {
+  const settle = ({ data }: { data: Message }): void => {
     clearMessage(data.id);
     upsert(data);
-  });
+  };
 
   const handlers: EventHandlers = {
     "message.sent": ({ data }) => upsert(data),
@@ -110,9 +109,8 @@ export const createNoteQueue = (app: AppSeam, events: Events, daemonExit: Access
       void app.rpc("message.list", { to: agent, status: null }).then((all) => {
         // An Event that came while the list was on its way is newer than the list.
         fail(agent, null, null);
-        batch(() => {
-          for (const message of all) if (!observed.has(message.id)) upsert(message);
-        });
+
+        for (const message of all) if (!observed.has(message.id)) upsert(message);
       }).catch((error) => {
         loaded.delete(agent);
 

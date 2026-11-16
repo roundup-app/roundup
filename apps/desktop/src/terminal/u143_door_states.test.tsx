@@ -8,6 +8,7 @@ import { openTabs, path } from "../header/stripFixture";
 import { CHORD_ROWS } from "../keys/chords";
 import { copy } from "./copy";
 import { mountRailAndPane } from "./paneHarness";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -69,9 +70,9 @@ describe("u143 empty Project", () => {
 
     await chooseFooter("Workstream");
 
-    await screen.findByRole("alert");
+    await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
     await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
-    expect([screen.getAllByRole("alert").length, startWorkstream().matches('[aria-disabled="true"]'), connected.rail.selected(), calls(app, "rail.startDoor")]).toEqual([1, false, null, []]);
+    expect([notices("alert").length, startWorkstream().matches('[aria-disabled="true"]'), connected.rail.selected(), calls(app, "rail.startDoor")]).toEqual([1, false, null, []]);
   });
 
   it("u143_a_failed_creation_can_be_tried_again_from_the_same_button", async () => {
@@ -85,7 +86,7 @@ describe("u143 empty Project", () => {
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
 
     await chooseFooter("Workstream");
-    await screen.findAllByRole("alert");
+    await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
     await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
     await chooseFooter("Workstream");
 
@@ -181,8 +182,9 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     await screen.findByText(copy.doorNotStarted);
     fireEvent.click(paneStart());
 
-    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
-    expect([screen.getAllByRole("alert").length, paneStart()]).toEqual([1, within(document.querySelector(".pane-door")!).getByRole("button", { name: copy.retry })]);
+    await waitFor(() => expect(notices("alert")).toHaveLength(1));
+    expect(notices("alert")[0]!.textContent).toContain(failure.message);
+    expect([notices("alert").length, paneStart()]).toEqual([1, within(document.querySelector(".pane-door")!).getByRole("button", { name: copy.retry })]);
   });
 });
 

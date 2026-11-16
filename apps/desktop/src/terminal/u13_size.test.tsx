@@ -1,4 +1,5 @@
 import { cleanup } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ITerminalAddon } from "@xterm/xterm";
 import { attachRenderer, createXtermEmulators } from "./emulator";
@@ -6,7 +7,10 @@ import type { RendererAddon } from "./emulator";
 import { callsTo, mountPane } from "./paneHarness";
 import { event, info, node, terminal } from "../testing/nodes";
 
-const nextFrame = () => vi.advanceTimersToNextFrame();
+const nextFrame = () => {
+  vi.advanceTimersToNextFrame();
+  flush();
+};
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
@@ -22,6 +26,7 @@ describe("u13 size", () => {
     const { app, connected } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
 
     expect(callsTo(app, "terminal.resize")).toEqual([{ id: "t-a", cols: 100, rows: 30 }]);
   });
@@ -30,13 +35,16 @@ describe("u13 size", () => {
     const { app, connected, emulators } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
 
     connected.rail.select("a");
+    flush();
     connected.rail.select("b");
+    flush();
 
     const first = emulators.get("t-a");
 
     if (first) first.size = { cols: 90, rows: 20 };
 
     connected.rail.select("a");
+    flush();
 
     expect(callsTo(app, "terminal.resize").at(-1)).toEqual({ id: "t-a", cols: 90, rows: 20 });
   });
@@ -45,6 +53,7 @@ describe("u13 size", () => {
     const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
 
     const shown = emulators.get("t-a");
 
@@ -73,6 +82,7 @@ describe("u13 size", () => {
       const first = await mountPane([node("a")], [info("t-a")]);
 
       first.connected.rail.select("a");
+      flush();
 
       const changed = () => {
         if (source === "window") window.dispatchEvent(new Event("resize"));
@@ -85,6 +95,7 @@ describe("u13 size", () => {
       const current = await mountPane([node("b")], [info("t-b")]);
 
       current.connected.rail.select("b");
+      flush();
 
       const active = current.emulators.get("t-b")!;
 
@@ -106,6 +117,7 @@ describe("u13 size", () => {
     const { app, connected } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     connected.drawer.open(() => <p>detail</p>);
     nextFrame();
 
@@ -116,6 +128,7 @@ describe("u13 size", () => {
     const { app, connected } = await mountPane([terminal("a")], [info("t-a", { running: false, exit_code: 0 })]);
 
     connected.rail.select("a");
+    flush();
     window.dispatchEvent(new Event("resize"));
     nextFrame();
 
@@ -126,6 +139,7 @@ describe("u13 size", () => {
     const { app, connected } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
     window.dispatchEvent(new Event("resize"));
     nextFrame();

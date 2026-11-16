@@ -7,6 +7,7 @@ import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import { agent } from "../testing/nodes";
 import { WorktreeControl } from "./WorktreeControl";
 import { mountControl, STATE, WORKTREE } from "./harness";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -85,7 +86,7 @@ describe("U2539b", () => {
     render(() => {
       connected.worktrees.watch(() => true);
 
-      return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
+      return <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>;
     });
     await waitFor(() => expect(app.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
     expect(screen.queryByRole("button", { name: /changed files?/ })).toBeNull();
@@ -101,8 +102,8 @@ describe("U2539b", () => {
     await mountControl(() => { throw new RpcError(-32001, cause); });
 
     expect(document.querySelector(".worktree-control")).toBeNull();
-    await screen.findByRole("alert");
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
+    expect(notices("alert")).toHaveLength(1);
   });
 
   it("u2539b_the_tree_is_one_tab_stop", async () => {
@@ -125,16 +126,16 @@ it.each(["retry", "dismiss"])("p3557c_failure_lifetime_worktree_control: %s", as
 
  return { files: [] }; });
 
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
 
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
     failed = false;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toHaveLength(0));
   }
 
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
   expect(app.calls.filter(call => call.method === "agent.changedFiles").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 11 : 10 }, () => ({ id: "a" })));
 });
 
@@ -166,12 +167,12 @@ it("u2539b_failed_refresh_keeps_the_stale_count_until_retry", async () => {
 
   failed = true;
   await connected.worktrees.refresh("a");
-  await screen.findByRole("alert");
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
+    expect(notices("alert")).toHaveLength(1);
   expect(control().getAttribute("data-stale")).toBe("true");
   expect(Number(control().textContent)).toBe(1);
   failed = false;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
   expect(control().hasAttribute("data-stale")).toBe(false);
 });

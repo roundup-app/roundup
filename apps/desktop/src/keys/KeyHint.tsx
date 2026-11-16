@@ -1,7 +1,7 @@
 import type { KeyText } from "./chords";
 import "./styles.css";
-import type { JSX } from "solid-js";
 import { Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { KeyChip } from "./KeyChip";
 
 /** U2541d: the one layout of a key beside its label; the chip never leaves its label's line. */

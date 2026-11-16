@@ -92,12 +92,13 @@ it("z3788c_cut_title_releases_changed_targets_and_disposed_owners", async () => 
     const [watched, setWatched] = createSignal<Element>(extra);
     const title = createCutTitle(() => NAME, { watch: () => watched() });
 
-    title.ref(old);
-
     return { dispose, setWatched, ref: title.ref };
   });
 
   const first = owner();
+
+  // The element reaches the title after its owner's setup, as a rendered ref does.
+  first.ref(old);
 
   // createCutTitle schedules its text/ref measurement in a microtask.
   await Promise.resolve();

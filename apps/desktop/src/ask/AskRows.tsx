@@ -1,8 +1,8 @@
 import { isDoor } from "../state/doorNode";
-import { Dynamic } from "solid-js/web";
+import { createMemo, createSignal, flush, For, Show } from "solid-js";
+import { Dynamic } from "@solidjs/web";
 import { findTargets } from "../terminal/links";
 import { focusPane } from "../bubbles/focus";
-import { createMemo, createSignal, For, Show } from "solid-js";
 import { TargetText } from "../terminal/TargetText";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
@@ -14,7 +14,7 @@ import { FailureLine, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
 import { registerKeys, type KeyScope } from "../keys/registry";
-import { Tip, type TriggerProps } from "../ui/Tip";
+import { Tip, type OwnTriggerProps, type Trigger } from "../ui/Tip";
 import { Select } from "../ui/Select";
 
 /** The Workstream a part went to, once it has one. */
@@ -67,6 +67,8 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const open = (id: string | null): void => {
     if (id !== null) rail.select(id);
     props.onOpened();
+    // The opened workstream's pane takes focus, so it must have mounted by now.
+    flush();
     focusPane();
   };
 
@@ -146,39 +148,43 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
   const linked = () => findTargets(props.part.text, true).length > 0;
 
-  const line = (trigger: TriggerProps) => (
-    <>
-      <span {...(isTextCut() ? trigger : {})} ref={text} class="ask-text"
-        onFocusIn={event => {
-          if (event.target instanceof HTMLAnchorElement) {
-            setIsLinkFocused(true);
-            event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
-          }
-        }}
-        onFocusOut={event => {
-          setIsLinkFocused(false);
+  const line = (trigger: Trigger) => {
+    const own: OwnTriggerProps = {
+      ref: text,
+      onFocusIn: (event: FocusEvent) => {
+        if (event.target instanceof HTMLAnchorElement) {
+          setIsLinkFocused(true);
+          event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+      },
+      onFocusOut: (event: FocusEvent & { currentTarget: HTMLElement }) => {
+        setIsLinkFocused(false);
 
-          if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) event.currentTarget.scrollLeft = 0;
-        }}><TargetText objectLinks text={props.part.text} base={doorNode()?.worktree?.path ?? project.path} /></span>
+        if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) event.currentTarget.scrollLeft = 0;
+      },
+    };
+
+    return (
+    <>
+      <span {...(isTextCut() ? trigger(own) : own)} class="ask-text"><TargetText objectLinks text={props.part.text} base={doorNode()?.worktree?.path ?? project.path} /></span>
       <span class="ask-where">
         <Show when={status()}>{(live) => <Tip text={live().kind === "error" ? live().label : LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={shownKind(live(), dismissed())} /></span>}</Tip>}</Show>
-        <Tip text={props.where} disabled={!isNameCut()}>{(trigger) => <span {...trigger()} ref={name} class="ask-name">{props.where}</span>}</Tip>
+        <Tip text={props.where} disabled={!isNameCut()}>{(trigger) => <span {...trigger({ ref: name })} class="ask-name">{props.where}</span>}</Tip>
       </span>
       <span class="ask-state" data-state={props.part.state}>{STATE_WORDS[props.part.state]}</span>
     </>
-  );
+    );
+  };
 
   return (
     <li data-overview-item={props.entry.key + ":" + props.index} class="ask-row" data-state={props.part.state}>
-      <Tip class="ask-tip" text={tooltip()} disabled={!tooltip() || isLinkFocused()}>{(trigger, focus) => {
-        const tip = trigger();
-
-        return <Dynamic component={node() && !linked() ? "button" : "div"} {...focus} onClick={open}
+      <Tip class="ask-tip" text={tooltip()} disabled={!tooltip() || isLinkFocused()}>{(trigger, focus) => (
+        <Dynamic component={node() && !linked() ? "button" : "div"} {...focus} onClick={open}
           ref={(element: HTMLElement) => { if (element instanceof HTMLButtonElement) button = element; }} class={`ask-line ${node() ? "row-wash" : ""}`} data-linked={linked() ? "true" : undefined} data-feedback="ink">
           <Show when={node() && linked()}><button type="button" class="ask-open" data-feedback="ink" aria-label={`${props.part.text} ${props.where} ${STATE_WORDS[props.part.state]}`} ref={element => { button = element; }} /></Show>
-          {line(tip)}
-        </Dynamic>;
-      }}</Tip>
+          {line(trigger)}
+        </Dynamic>
+      )}</Tip>
       <Show when={!dismissed()}><FailureLine status={status()} dismiss={() => { const each = node();
 
  if (each) rail.dismiss(each); }} /></Show>

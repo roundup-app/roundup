@@ -61,7 +61,7 @@ it("dv5_discover_open_retained_and_current_targets_after_reopen", async () => {
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
   expect(rows).toHaveLength(13);
@@ -112,7 +112,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
   const made = await screen.findByRole("region", { name: "Made" });
   const linkButton = await within(made).findByRole("button", { name: new RegExp(`^Open Failure link$`) });
   // P3557c: a failure belongs to its record, so each row is read on its own.
@@ -182,7 +182,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   await real.restart();
   const reopened = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   reopened.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={reopened}><AskBar /></ConnectedProjectContext>);
   const catalogue = await screen.findByRole("region", { name: "Made" });
   await within(catalogue).findByRole("button", { name: new RegExp(`^Open Failure Pad$`) });
   expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Cached file$") })).toBeNull();
@@ -239,7 +239,7 @@ it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_re
   app.showContextMenu = vi.fn(async () => "copy-link");
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
   const made = await screen.findByRole("region", { name: "Made" });
 
   for (const [index, record] of [published, external, published].entries()) {
@@ -322,7 +322,7 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     const connected = await connectProject(app, { path: delivery.dir, name: "Project" }, () => false, () => 0);
     await connected.rail.settled();
     connected.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
     const made = await screen.findByRole("region", { name: "Made" });
 
     const row = await waitFor(() => {
@@ -402,7 +402,7 @@ it("u5558a_publication_appears_without_input", async () => {
   const maker = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: "Automatic maker" });
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
   const made = await screen.findByRole("region", { name: "Made" });
   const rpc = app.rpc;
   let reads = 0;
@@ -423,7 +423,7 @@ it("u5558a_removal_disappears_without_input", async () => {
   for (const key of ["first-auto", "second-auto"]) records.push(await app.rpc("deliverable.publish", { key, title: "Duplicate automatic title", target: { kind: "external", url: `https://example.com/${key}` } }));
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
   const made = await screen.findByRole("region", { name: "Made" });
   await waitFor(() => expect(within(made).getAllByRole("listitem").map(row => row.getAttribute("data-deliverable"))).toContain(records[0]!.id));
   const rpc = app.rpc;

@@ -1,6 +1,6 @@
 // T4902 retires T29 fixture setup; all existing non-duration proofs remain.
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
@@ -40,8 +40,10 @@ describe("u5 Drawer and last touch", () => {
   it("u5_the_drawer_shows_a_light_close_word_that_closes_it", () => {
     const { drawer } = drawerSetup();
     drawer.open(() => <p>detail</p>);
+    flush();
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    flush();
 
     expect(drawer.content()).toBeNull();
   });
@@ -49,8 +51,10 @@ describe("u5 Drawer and last touch", () => {
   it("u5_opening_another_drawer_replaces_the_open_one", () => {
     const { drawer } = drawerSetup();
     drawer.open(() => <p>first</p>);
+    flush();
 
     drawer.open(() => <p>second</p>);
+    flush();
 
     expect([screen.queryByText("first"), screen.queryByText("second")].map(Boolean)).toEqual([false, true]);
   });
@@ -58,8 +62,10 @@ describe("u5 Drawer and last touch", () => {
   it("u5_a_closed_drawer_unmounts_its_content_at_once_under_reduced_motion", () => {
     const { drawer } = drawerSetup(true);
     drawer.open(() => <p>detail</p>);
+    flush();
 
     drawer.close();
+    flush();
 
     expect(screen.queryByText("detail")).toBeNull();
   });
@@ -85,11 +91,11 @@ describe("u5 Drawer and last touch", () => {
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <ItemDrawer item="todo:3" read={() => connected.app.rpc("todo.get", { id: 3 })}>
           {(todo) => <p>{todo.title}</p>}
         </ItemDrawer>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
     const waiting = app.calls.map((call) => call.method);
     history.resolve([]);
@@ -114,11 +120,11 @@ describe("u5 Drawer and last touch", () => {
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <ItemDrawer item="todo:3" read={() => connected.app.rpc("todo.get", { id: 3 })}>
           {(todo) => <p>{todo.title}</p>}
         </ItemDrawer>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
 
     expect((await screen.findByText(/a wrote/)).textContent).toMatch(/08:07/);
@@ -141,7 +147,7 @@ describe("u5 Drawer and last touch", () => {
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <ItemDrawer
           item="todo:3"
           read={() => connected.app.rpc("todo.get", { id: 3 })}
@@ -149,7 +155,7 @@ describe("u5 Drawer and last touch", () => {
         >
           {(todo) => <p>{todo.title}</p>}
         </ItemDrawer>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
     await screen.findByText(TODO.title);
 
@@ -171,11 +177,11 @@ describe("u5 Drawer and last touch", () => {
     const app = createFakeApp();
     app.handlers["todo.get"] = () => TODO;
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
-    render(() => <ConnectedProjectContext.Provider value={connected}>
+    render(() => <ConnectedProjectContext value={connected}>
       <ItemDrawer item="todo:3" read={() => connected.app.rpc("todo.get", { id: 3 })} touchedBy={event => event.name === "pad.changed"}>
         {todo => <textarea aria-label="Retained input" value={todo.title} />}
       </ItemDrawer>
-    </ConnectedProjectContext.Provider>);
+    </ConnectedProjectContext>);
     const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Retained input" });
     fireEvent.input(field, { target: { value: "  exact draft 😀\n " } });
     field.focus();
@@ -201,12 +207,12 @@ describe("u5 Drawer and last touch", () => {
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <p>window</p>
         <ItemDrawer item="todo:3" read={() => connected.app.rpc("todo.get", { id: 3 })}>
           {(todo) => <p>{todo.title}</p>}
         </ItemDrawer>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
 
     expect([(await screen.findByText("no todo 3")).className, screen.getByText("window").textContent]).toEqual([

@@ -1,6 +1,6 @@
-import { batch } from "solid-js";
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { Layout } from "../window/Layout";
 import { App } from "../App";
@@ -10,7 +10,7 @@ import type { SeedName } from "../testing/seeds";
 
 afterEach(() => {
   if (live) return;
-  batch(cleanup);
+  cleanup();
   localStorage.clear();
 });
 
@@ -23,6 +23,7 @@ const shared = async () => {
   live ??= await mountApp();
 
   if (document.querySelector('.drawer[data-open="true"]')) fireEvent.keyDown(document.body, { key: "Escape" });
+  flush();
 
   if (shelf().hidden) chord();
 
@@ -51,8 +52,10 @@ const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Bench" }
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
-const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
+const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) => {
   leaderKey("KeyB", init, target);
+  flush();
+};
 
 /** U3721a: `B` rotates, so closing an open Bench takes the presses until it is hidden. */
 const closeByChord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) => {
@@ -65,7 +68,7 @@ const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected")
 
 describe("u373 and u370 on one mounted App", () => {
   afterAll(() => {
-    batch(cleanup);
+    cleanup();
     localStorage.clear();
     live = undefined;
   });
@@ -107,9 +110,9 @@ describe("u373 and u370 on one mounted App", () => {
     await shared();
     fireEvent.click(tabNamed("Pads"));
     await waitFor(() => expect(document.querySelector(".pads-tab [data-shelf-group]")).not.toBeNull());
-    const group = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="payments"]')!;
+    const group = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="payments"] .shelf-group-control')!;
 
-    fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+    fireEvent.click(group);
     await waitFor(() => expect(group.getAttribute("aria-expanded")).toBe("false"));
     await waitFor(() => expect(counts()).toEqual([7, 4]));
     fireEvent.click(tabNamed("Pads"));
@@ -147,6 +150,7 @@ describe("u373 and u370 on one mounted App", () => {
     expect(within(shelf()).getAllByRole("tabpanel")).toHaveLength(1);
     expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tabNamed("Pads"));
+    flush();
     expect(shelf().hidden).toBe(false);
     await waitFor(() => expect(shelf().querySelector('section[aria-label="Todos"]')).toBeNull());
     expect(document.getElementById("shelf-tab-pads")?.getAttribute("aria-expanded")).toBe("true");
@@ -185,8 +189,10 @@ describe("u373 and u370 on one mounted App", () => {
   it("u370_esc_closes_only_from_inside", async () => {
     await shared();
     fireEvent.keyDown(document.body, { key: "Escape" });
+    flush();
     expect(shelf().hidden).toBe(false);
     fireEvent.keyDown(tabNamed("Todos"), { key: "Escape" });
+    flush();
     expect(shelf().hidden).toBe(true);
   });
 });
@@ -206,7 +212,7 @@ describe("u373 the Shelf has two tabs", () => {
     fireEvent.click(tabNamed("Pads"));
     await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")?.frame?.tab).toBe("pads"));
 
-    batch(cleanup);
+    cleanup();
     render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByLabelText("Ask", { selector: '[role="region"]' });
     expect(within(within(shelf()).getByRole("tablist", { name: "Bench" })).getByRole("tab", { selected: true }).id).toBe(chosen);
@@ -239,7 +245,7 @@ describe("u370 the Shelf closes and opens", () => {
 
     closeByChord();
     await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:viewer") ?? "null")?.frame?.open).toBe(false));
-    batch(cleanup);
+    cleanup();
     render(() => <App initialShelfOpen prepareIdle={open => open.showView("workstreams")} app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByLabelText("Ask", { selector: '[role="region"]' });
     expect(shelf().hidden).toBe(true);
@@ -263,6 +269,7 @@ describe("u371 the Shelf selects its mode at the centre minimum", () => {
     });
 
     render(() => <Layout header={null} rail={null} centre={null} shelf={null} overlay={null} />);
+    flush();
 
     expect(document.querySelector(".window")?.getAttribute("data-shelf-mode")).toBe(mode);
   });

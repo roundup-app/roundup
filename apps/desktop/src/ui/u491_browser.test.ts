@@ -10,6 +10,13 @@ const load = async () => {
   await wait(`document.querySelectorAll('.app-splitter').length === 2`);
 };
 
+// The separator's `aria-valuetext` holds the width in px; `aria-valuenow` is that width as the percent of the measured root.
+const reports = (px: number) => `(() => {
+  const edge = document.querySelector('[aria-label="Resize Rail"]');
+  const root = document.querySelector('[data-layout-root]').getBoundingClientRect().width;
+  return parseInt(edge.getAttribute('aria-valuetext')) === ${px} && edge.getAttribute('aria-valuenow') === String(Math.round(${px} / root * 100));
+})()`;
+
 const key = async (name: string, key: string) => {
   await browser("focus", `[aria-label="${name}"]`);
   await browser("press", key);
@@ -18,13 +25,14 @@ const key = async (name: string, key: string) => {
 it("u491_controlled_pixels_follow_owner_and_root", async () => {
   await load();
   await read(`window.__providers.widths.rail.commit(352)`);
-  await wait(`document.querySelector('[aria-label="Resize Rail"]').getAttribute('aria-valuenow') === '352'`);
+  await wait(reports(352));
 
   for (const width of [1440, 1280]) {
     await browser("set", "viewport", String(width), "800");
     await wait(`document.querySelector('[data-layout-root]').getBoundingClientRect().width === ${width}`);
     await key("Resize Rail", "ArrowRight");
     await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === ${width === 1440 ? 368 : 384}`);
+    await wait(reports(width === 1440 ? 368 : 384));
   }
 
   expect(await read<string>(`document.querySelector('[aria-label=Draft]').value`)).toBe("Retained draft");
@@ -87,10 +95,10 @@ it("u7059_pointer_in_a_gap_keeps_the_stack_fanned_out", async () => {
   // The fixture lacks the Token the group's top offset reads (the window defines it in the App), which leaves the group unplaced.
   await read(`document.documentElement.style.cssText += '--header-height: 24px;'`);
   const rects = `[...document.querySelectorAll('.app-toast')].map((card) => card.getBoundingClientRect()).sort((a, b) => a.top - b.top)`;
-  const front = await read<{ x: number, y: number }>(`(() => { const rect = [...document.querySelectorAll('.app-toast:not([data-sibling])')][0].getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
+  const front = await read<{ x: number, y: number }>(`(() => { const rect = document.querySelector('.app-toast[data-front]').getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
   await browser("mouse", "move", String(front.x), String(front.y));
-  await wait(`!document.querySelector('.app-toast[data-sibling]').hasAttribute('data-overlap')`);
-  const state = `(() => ({ folded: [...document.querySelectorAll('.app-toast')].map((card) => card.hasAttribute('data-overlap')) }))()`;
+  await wait(`document.querySelector('.app-toast:not([data-front])').hasAttribute('data-expanded')`);
+  const state = `(() => ({ folded: [...document.querySelectorAll('.app-toast')].map((card) => !card.hasAttribute('data-expanded')) }))()`;
   await wait(`${rects}.every((rect, index, all) => index === 0 || rect.top >= all[index - 1].bottom)`);
   const before = await read<unknown>(state);
   const gap = await read<{ x: number, y: number }>(`(() => { const all = ${rects}; return { x: all[0].x + all[0].width / 2, y: (all[0].bottom + all[1].top) / 2 }; })()`);

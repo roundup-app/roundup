@@ -1,4 +1,4 @@
-import { createEffect, untrack } from "solid-js";
+import { createEffect } from "solid-js";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "../state/storage";
 import { PROGRAMS, type Updates } from "../state/updates";
@@ -24,9 +24,7 @@ export const watchUpdates = (
 ): void => {
   let told = saved.read() ?? {};
 
-  createEffect(() => {
-    const facts = updates.facts();
-
+  createEffect(() => updates.facts(), (facts) => {
     if (!facts) return;
 
     const fresh = PROGRAMS.flatMap((program) => {
@@ -46,21 +44,19 @@ export const watchUpdates = (
     for (const { program, ready } of fresh) {
       const item = `updates:${program}:${ready}`;
 
-      untrack(() =>
-        notify({
-          key: item,
-          item,
-          kind: "done",
-          name: copy.updateName(names[program], ready),
-          line: copy.updateReady,
-          selected: false,
-          open: () => {
-            updates.show();
+      notify({
+        key: item,
+        item,
+        kind: "done",
+        name: copy.updateName(names[program], ready),
+        line: copy.updateReady,
+        selected: false,
+        open: () => {
+          updates.show();
 
-            return null;
-          },
-        }),
-      );
+          return null;
+        },
+      });
     }
   });
 };

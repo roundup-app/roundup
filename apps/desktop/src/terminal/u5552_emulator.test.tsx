@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { pasteEvent } from "../testing/clipboard";
 import { Bubble } from "../bubbles/Bubble";
@@ -20,21 +21,26 @@ const mount = async (kind = "shell", lazy = false) => {
   const emulators = new Map<string, ReturnType<typeof real>>();
   let screens!: Screens;
 
-  const { container } = render(() => <ConnectedProjectContext.Provider value={connected}>
+  const { container } = render(() => <ConnectedProjectContext value={connected}>
     <Pane screensRef={value => { screens = value; }} createEmulator={(id, copy) => { const made = factory(id, copy); emulators.set(id, made);
 
  return made; }} />
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext>);
 
   if (lazy) {
     connected.rail.select("a");
+    flush();
     await emulators.get("t-a")!.ready;
     connected.rail.select("b");
+    flush();
     await emulators.get("t-b")!.ready;
     connected.rail.select("a");
+    flush();
   } else {
     connected.rail.select("b");
+    flush();
     connected.rail.select("a");
+    flush();
   }
 
   const input = () => container.querySelector<HTMLTextAreaElement>(".pane-screen textarea")!;
@@ -65,11 +71,18 @@ it.each(["text", "image"].flatMap(kind => ["same", "terminal", "field", "away-an
       await vi.waitFor(() => expect(saveImage).toHaveBeenCalledOnce());
     }
 
-    if (focus === "terminal" || focus === "away-and-back") connected.rail.select("b");
+    if (focus === "terminal" || focus === "away-and-back") {
+      connected.rail.select("b");
+      flush();
+    }
 
     if (focus === "field") field.focus();
 
-    if (focus === "away-and-back") connected.rail.select("a");
+    if (focus === "away-and-back") {
+      connected.rail.select("a");
+      flush();
+    }
+
     const active = document.activeElement;
     save.resolve("/tmp/pasted.png");
 
@@ -80,6 +93,7 @@ it.each(["text", "image"].flatMap(kind => ["same", "terminal", "field", "away-an
       expect(callsTo(app, "terminal.write")).toEqual([]);
       expect(document.activeElement).toBe(active);
       connected.rail.select("a");
+      flush();
       await new Promise<void>(resolve => emulators.get("t-a")!.write(new Uint8Array(), resolve));
       expect(callsTo(app, "terminal.write")).toEqual([]);
     }
@@ -109,6 +123,7 @@ it.each(["key", "composition"])("u5552c_keys_and_composition_follow_focus %s", a
   }
 
   connected.rail.select("b");
+  flush();
 
   if (kind === "composition") fireEvent.compositionEnd(former, { data: "old" });
   enter(input());
@@ -164,6 +179,7 @@ it("u5552d_focus_move_during_image_decoding_prevents_even_the_save", async () =>
   Object.defineProperty(file, "arrayBuffer", { value: () => decode.promise });
   pasteEvent(input(), "", [file]);
   connected.rail.select("b");
+  flush();
   decode.resolve(new ArrayBuffer(4));
   await vi.waitFor(() => expect(screens.failure("t-a")).toContain("focus changed"));
   expect(app.savedImages).toEqual([]);
@@ -175,7 +191,7 @@ const closeNothing = async (): Promise<void> => {};
 it.each(["agent", "door", "bubble"])("u5552d_text_and_image_use_the_focused_emulator %s", async kind => {
   const { app, connected, screens, input } = await mount(kind);
 
-  if (kind === "bubble") render(() => <ConnectedProjectContext.Provider value={connected}><Bubble id="t-a" screens={screens} name="Shell" place={{ x: 0, y: 0, w: 600, h: 400, min: false }} origin={{ left: 0, top: 0 }} extent={() => ({ width: 800, height: 600 })} setPlace={() => {}} readOnly={() => false} close={closeNothing} menu={() => {}} toggleMinimised={() => {}} /></ConnectedProjectContext.Provider>);
+  if (kind === "bubble") render(() => <ConnectedProjectContext value={connected}><Bubble id="t-a" screens={screens} name="Shell" place={{ x: 0, y: 0, w: 600, h: 400, min: false }} placed origin={{ left: 0, top: 0 }} extent={() => ({ width: 800, height: 600 })} setPlace={() => {}} readOnly={() => false} close={closeNothing} menu={() => {}} toggleMinimised={() => {}} /></ConnectedProjectContext>);
   const target = kind === "bubble" ? document.querySelector<HTMLTextAreaElement>(".bubble textarea")! : input();
   target.focus();
   pasteEvent(target, "hello");

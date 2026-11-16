@@ -166,12 +166,12 @@ try:
                             tab_selector = "#shelf-tab-pads" if kind == "Pad" else "#shelf-tab-todos"
                             if kind == "Pad":
                                 evaluate("[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(e=>e.textContent.startsWith('Pads') && e.getAttribute('aria-expanded') !== 'true')?.click()")
-                                evaluate("document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()")
+                                evaluate("document.querySelector('.shelf [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click()")
                                 browser("wait", ".shelf .pad-name")
                                 selector = ".shelf [data-pad] .todo-open"
                             elif kind == "Todo":
                                 evaluate("[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(e=>e.textContent.startsWith('Todos') && e.getAttribute('aria-expanded') !== 'true')?.click()")
-                                evaluate("document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()")
+                                evaluate("document.querySelector('.shelf [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click()")
                                 browser("wait", ".shelf .todo-row-button")
                                 selector = ".shelf [data-todo] .todo-open"
                             frames = observe_slide(selector)

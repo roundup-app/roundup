@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal, flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { copy as windowCopy } from "../window/copy";
 import { openTabs, path, projectTabs, tab } from "../header/stripFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, event } from "../testing/nodes";
-import { connectProject } from "./connectedProject";
+import { createConnections } from "./connections";
+import { connectProject, createProjectDrafts } from "./connectedProject";
+import type { OpenTab } from "./projects";
 
 afterEach(cleanup);
 
@@ -116,4 +118,35 @@ it("u6920c_a_tab_closed_during_setup_disposes_every_child_root", async () => {
   await new Promise(resolve => setTimeout(resolve, 20));
 
   expect(app.calls.map(call => call.method)).toEqual(before);
+});
+
+it("u6920a_a_tab_replaced_with_the_same_generation_connects_once", async () => {
+  const app = createFakeApp();
+  const project = { name: "p", path: "/p" };
+  const [tab, setTab] = createSignal<OpenTab>({ project, exit: null, reopenFailure: null, generation: 1 });
+
+  const { connections, dispose } = createRoot(dispose => ({
+    dispose,
+    connections: createConnections(() => [project.path], {
+      app, tabOf: () => tab(), reducedMotion: () => false, now: () => 0, clock: () => 0, drafts: createProjectDrafts(),
+      onRecovered: () => {}, onRequested: () => {}, onOpen: async () => { throw new Error("no open here"); }, configFailure: () => {},
+      watch: () => () => {}, active: () => false, viewing: () => false, open: () => [], nodes: () => [], openIn: () => {}, openShelf: () => {},
+    }),
+  }));
+
+  const connects = () => app.of(project.path).calls.filter(call => call.method === "rail.tree").length;
+
+  try {
+    await waitFor(() => expect(connections().get(project.path)?.kind).toBe("connected"));
+    expect(connects()).toBe(1);
+
+    setTab(previous => ({ ...previous, reopenFailure: "the reopen was refused" }));
+    flush();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(connects()).toBe(1);
+
+    setTab(previous => ({ ...previous, generation: 2 }));
+    flush();
+    await waitFor(() => expect(connects()).toBe(2));
+  } finally { dispose(); }
 });

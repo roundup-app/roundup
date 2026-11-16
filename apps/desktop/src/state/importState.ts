@@ -1,5 +1,5 @@
 import { outcomeOf } from "../app/seam";
-import { batch, createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { copy } from "./copy";
 import * as v from "valibot";
 import type { ImportFailure } from "@contracts/project/ImportFailure";
@@ -7,6 +7,7 @@ import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import type { ImportCommitParams } from "@contracts/project/ImportCommitParams";
 import type { ImportDiscoverParams } from "@contracts/project/ImportDiscoverParams";
+import type { ImportOutcome } from "@contracts/project/ImportOutcome";
 import type { ImportSelection } from "@contracts/project/ImportSelection";
 import type { AppSeam } from "../app/seam";
 import { storageSchema, storedValue, type draftStorage } from "./storage";
@@ -25,6 +26,30 @@ const savedSchema = storageSchema("roundup:import", v.object({
   period: v.picklist(PERIODS),
   selected: v.array(v.object({ source: v.string(), revision: v.string(), title: v.string() })),
 }));
+
+/** What a commit's outcomes came to: the sources the Daemon refused, the Workstreams it created, and whether a refusal left its state unknown. */
+const tally = (outcomes: readonly ImportOutcome[]) => {
+  const refused = new Map<string, ImportFailure>();
+  const created: { workstream: string; agent: string | null }[] = [];
+
+  for (const outcome of outcomes) {
+    if (outcome.error !== null) refused.set(outcome.source, outcome.error);
+    else if (outcome.workstream !== null) created.push({ workstream: outcome.workstream, agent: outcome.agent });
+  }
+
+  return { refused, created, uncertain: [...refused.values()].some(failure => failure.outcome !== "failed") };
+};
+
+/** The selection left after a commit: a source that was imported leaves it, unless the user chose it again meanwhile. */
+const unimported = <T>(selected: ReadonlyMap<string, T>, submitted: ReadonlyMap<string, T>, outcomes: readonly ImportOutcome[]): Map<string, T> => {
+  const rest = new Map(selected);
+
+  for (const outcome of outcomes) {
+    if (outcome.error === null && outcome.workstream !== null && rest.get(outcome.source) === submitted.get(outcome.source)) rest.delete(outcome.source);
+  }
+
+  return rest;
+};
 
 /** U2875d: the import panel's state for one Project. The period and the unsubmitted selection are kept per Project path and restored unverified: only the user's confirm after a refresh submits. */
 export const createImport = (app: AppSeam, path: string, onOpened: (workstream: string, agent: string | null) => void, drafts?: ReturnType<typeof draftStorage>) => {
@@ -144,6 +169,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   let saving: Promise<void> = Promise.resolve();
 
   const persist = (edit = true) => {
+    // Every caller has just written the signals this reads.
+    flush();
     const retained = edit ? drafts?.edit(destination, value(), null, "ordinary", draftRevision ?? null) : null;
 
     if (retained) draftRevision = retained.draft.revision;
@@ -184,12 +211,10 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
     invalidate();
     draftRevision = revision;
-    batch(() => {
-      setPromptSignal(choice.prompt ?? DEFAULT_PROMPT); setListingAgent(choice.agent);
-      setPeriodSignal(choice.period);
-      setSelected(new Map(choice.sources.map((source, at) => [source, { revision: choice.revisions[at] ?? "", title: choice.titles?.[at] ?? source }])));
-      setOpen(true); setDiscovery(null); setVerified(false); setLoading(false); setStale([]); setFailed(new Map()); setFailure(null);
-    });
+    setPromptSignal(choice.prompt ?? DEFAULT_PROMPT); setListingAgent(choice.agent);
+    setPeriodSignal(choice.period);
+    setSelected(new Map(choice.sources.map((source, at) => [source, { revision: choice.revisions[at] ?? "", title: choice.titles?.[at] ?? source }])));
+    setOpen(true); setDiscovery(null); setVerified(false); setLoading(false); setStale([]); setFailed(new Map()); setFailure(null);
 
     return persist(false).then(() => refresh());
   };
@@ -200,7 +225,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     deadline = setTimeout(() => {
       if (mine !== latest) return;
       invalidate();
-      batch(() => { setLoading(false); setFailure(copy.importTimeout); });
+      setLoading(false); setFailure(copy.importTimeout);
     }, 20_000);
     setVerified(false);
     setLoading(true);
@@ -216,24 +241,22 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       if (mine !== latest) return;
 
-      batch(() => {
-        const keep = new Map<string, { revision: string; title: string }>();
-        const dropped: string[] = [];
+      const keep = new Map<string, { revision: string; title: string }>();
+      const dropped: string[] = [];
 
-        for (const [source, entry] of selected()) {
-          const now = found.candidates.find((candidate) => candidate.source === source);
+      for (const [source, entry] of selected()) {
+        const now = found.candidates.find((candidate) => candidate.source === source);
 
-          if (now?.revision === entry.revision) keep.set(source, entry);
-          else dropped.push(entry.title);
-        }
+        if (now?.revision === entry.revision) keep.set(source, entry);
+        else dropped.push(entry.title);
+      }
 
-        setDiscovery(found);
-        setSelected(keep);
-        setStale(dropped);
-        setVerified(true);
+      setDiscovery(found);
+      setSelected(keep);
+      setStale(dropped);
+      setVerified(true);
 
-        if (!hasConflict()) persist();
-      });
+      if (!hasConflict()) persist();
     } catch (error) {
       if (mine === latest) setFailure(error instanceof Error ? error.message : String(error));
     } finally {
@@ -371,29 +394,16 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         if (agent !== undefined) params.agent = agent;
 
         const { outcomes } = await app.rpc("project.importCommit", params);
-        const refused = new Map<string, ImportFailure>();
-        const created: { workstream: string; agent: string | null }[] = [];
-
-        for (const outcome of outcomes) {
-          if (outcome.error !== null) refused.set(outcome.source, outcome.error);
-          else if (outcome.workstream !== null) created.push({ workstream: outcome.workstream, agent: outcome.agent });
-        }
-
-        const uncertain = [...refused.values()].some(failure => failure.outcome !== "failed");
+        const { refused, created, uncertain } = tally(outcomes);
 
         if (submittedRevision) drafts?.settle(submittedRevision, refused.size === 0 ? "acknowledged" : uncertain ? "unknown" : "failed");
-        batch(() => {
-          const rest = new Map(selected());
+        const rest = unimported(selected(), submitted, outcomes);
 
-          for (const outcome of outcomes) {
-            if (outcome.error === null && outcome.workstream !== null && rest.get(outcome.source) === submitted.get(outcome.source)) rest.delete(outcome.source);
-          }
+        setSelected(rest);
+        setFailed(refused);
 
-          setSelected(rest);
-          setFailed(refused);
+        if (rest.size === 0) { setOpen(false); setDiscovery(null); setVerified(false); }
 
-          if (rest.size === 0) { setOpen(false); setDiscovery(null); setVerified(false); }
-        });
         persist();
 
         if (uncertain) setVerified(false);

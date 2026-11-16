@@ -11,6 +11,7 @@ import { info, node } from "../testing/nodes";
 
 import { fakeEmulators } from "../terminal/paneHarness";
 import { useRealBackoff } from "../testing/immediateRetry";
+import { notice, notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -102,7 +103,7 @@ it("u6249b_reads_retry_with_backoff_before_failing", async () => {
   };
 
   const alerts = vi.fn();
-  const mutation = new MutationObserver(() => { if (document.querySelector('[role="alert"]')) alerts(); });
+  const mutation = new MutationObserver(() => { if (notices("alert").length > 0) alerts(); });
   mutation.observe(document.body, { childList: true, subtree: true });
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await vi.advanceTimersByTimeAsync(BACKOFF);
@@ -117,9 +118,9 @@ it("u6249b_reads_retry_with_backoff_before_failing", async () => {
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await vi.advanceTimersByTimeAsync(250 - 1);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
   await vi.advanceTimersByTimeAsync(BACKOFF);
-  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(notices("alert")).toHaveLength(1);
   expect(calls).toBe(5);
 
   const send = vi.fn(() => { throw new RpcError(-32002, "refused"); });
@@ -143,7 +144,7 @@ it("u3791a_second_failure_is_actionable", async () => {
 
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
   await vi.advanceTimersByTimeAsync(BACKOFF);
-  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(notices("alert")).toHaveLength(1);
   expect(calls).toBe(5);
   screen.getByRole("treeitem", { name: /Last valid work/ });
 
@@ -157,7 +158,7 @@ it("u3791a_second_failure_is_actionable", async () => {
   await vi.advanceTimersByTimeAsync(0);
   screen.getByText("Acknowledged recovery");
   expect(calls).toBe(6);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 it("u3791a_retry_keeps_original_revision", async () => {
@@ -220,7 +221,7 @@ it("u3791a_project_read_exhaustion_keeps_explicit_retry", async () => {
   await vi.advanceTimersByTimeAsync(0);
   screen.getByRole("treeitem", { name: /Recovered Project work/ });
   expect(list).toHaveBeenCalledTimes(11);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 
@@ -236,13 +237,13 @@ it("u6249b_a_refused_scheme_push_adds_no_second_line_beside_the_rail_failure", a
   await vi.advanceTimersByTimeAsync(BACKOFF);
   const connected = await connecting;
 
-  render(() => <ConnectedProjectContext.Provider value={connected}>
+  render(() => <ConnectedProjectContext value={connected}>
     <Pane notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext>);
 
   try {
     await vi.advanceTimersByTimeAsync(0);
-    screen.getByRole("alert");
+    notice("alert");
     expect(app.calls.filter(call => call.method === "terminal.scheme")).toHaveLength(1);
     app.handlers["rail.tree"] = () => [node("kept", { name: "Recovered work" })];
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -251,6 +252,6 @@ it("u6249b_a_refused_scheme_push_adds_no_second_line_beside_the_rail_failure", a
     expect(connected.rail.nodes.map(node => node.id)).toEqual(["kept"]);
     expect(app.calls.filter(call => call.method === "rail.tree")).toHaveLength(6);
     expect(app.calls.filter(call => call.method === "terminal.scheme")).toHaveLength(1);
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   } finally { connected.stopTerminalScheme(); }
 });

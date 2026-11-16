@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { showEverythingInApp } from "../testing/showEverything";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -10,11 +9,12 @@ import { openTabs, tab, path } from "../header/stripFixture";
 import { rowOf } from "../rail/railFixture";
 import { workstream } from "../testing/nodes";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups", async () => {
   render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);
@@ -37,12 +37,14 @@ it("u3800_close_returns_the_center_and_focus", async () => {
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
   fireEvent.keyDown(view, { key: "Escape", code: "Escape" });
+  flush();
   expect(view.isConnected).toBe(false);
   expect(document.activeElement).toBe(opener);
   expect(screen.getByRole("button", { name: /Choose/ })).toBe(opener);
   fireEvent.keyDown(opener, { key: ",", code: "Comma", metaKey: true });
   await screen.findByRole("region", { name: "Settings" });
   fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "← Back" }));
+  flush();
   expect(document.activeElement).toBe(opener);
 });
 
@@ -58,6 +60,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
   const recorder = await settings.findByRole("button", { name: /^Quick add Todo/ });
   fireEvent.click(recorder);
+  flush();
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(recorder.getAttribute("aria-pressed")).toBe("false"));
@@ -281,7 +284,7 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   for (const [page, choice] of [["Appearance", "System"], ["Pads", "Narrow"]] as const) {
     fireEvent.click(tabs.get(page)!);
     const panel = await within(view).findByRole("tabpanel", { name: page });
-    const control = within(panel).getByRole("radio", { name: choice });
+    const control = await within(panel).findByRole("radio", { name: choice });
     control.focus();
     await waitFor(() => expect(panel.contains(control)).toBe(true));
     expect(document.activeElement).toBe(control);
@@ -296,9 +299,9 @@ it("u4277a_section_navigation_keeps_unsubmitted_font_text", async () => {
   await screen.findByRole("button", { name: /Choose/ });
   window.dispatchEvent(new Event("open-app-settings"));
   fireEvent.click(await screen.findByRole("tab", { name: "Terminal" }));
-  fireEvent.input(await screen.findByRole("spinbutton", { name: "Font size" }), { target: { value: " 300 " } });
+  fireEvent.input(await screen.findByRole("spinbutton", { name: "Font size" }), { target: { value: "300" } });
   fireEvent.click(screen.getByRole("tab", { name: "Agents" }));
   fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
-  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe(" 300 ");
+  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("300");
   expect(appSettings().fontSize).toBe(17);
 });

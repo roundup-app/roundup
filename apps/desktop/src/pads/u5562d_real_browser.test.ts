@@ -40,7 +40,7 @@ realBrowserTest("u5562d_colour_round_trip", { timeout: 240000, retry: 0 }, async
     await browser("wait", "#shelf-tab-pads");
     await evaluate(`(() => { const tab = document.querySelector("#shelf-tab-pads"); if (tab.getAttribute("aria-expanded") !== "true") tab.click(); return true; })()`);
     await browser("wait", ".pads-tab [data-shelf-group]");
-    await evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group] [data-part=branch-control]')) if (group.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
+    await evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group] .shelf-group-control')) if (group.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
 
     const open = async () => {
       await browser("wait", '.pads-tab [data-pad="Colour round trip"] .pad-name');

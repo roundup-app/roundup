@@ -1,8 +1,7 @@
 import { throttle } from "@solid-primitives/scheduled";
 import { forgetScrollback, retainScrollback } from "./scrollback";
 import { copy as appCopy } from "./copy";
-import { createSignal } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createSignal, getOwner, runWithOwner, type Accessor } from "solid-js";
 import type { ConnectedProject } from "../state/connectedProject";
 import { createClipboard } from "./clipboard";
 import { createFailures } from "./failures";
@@ -75,9 +74,13 @@ type Holder = {
   resizeSize: Size | null;
 };
 
-/** `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address. */
+/**
+ * `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address.
+ * An emulator is made when a Terminal shows, from an effect's apply, which has no owner of its own: it belongs to whoever created the screens.
+ */
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, openObject?: (url: string, surface: string) => void): Screens => {
   const { app, rail, daemonExit, project } = connected;
+  const emulatorOwner = getOwner();
   const holders = new Map<string, Holder>();
   /** The offset up to which a Terminal's output was shown, kept when its stream is released. */
   const shownTo = new Map<string, number>();
@@ -86,7 +89,15 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const attempt = failures.attempt;
   const open = createOpener(connected, failures, openObject);
   let disposed = false;
-  const watches = createWatches({ connected, exited: (id) => exited(id), streaming: (id) => !!holders.get(id)?.stream, shownTo, disposed: () => disposed });
+
+  const exited = (id: string): boolean => {
+    const node = rail.nodes.find((candidate) => isDoor(candidate) && candidate.terminal_id === id);
+
+    return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
+  };
+
+  // The watches plan from their first run, so `exited` stands before them.
+  const watches = createWatches({ connected, exited, streaming: (id) => !!holders.get(id)?.stream, shownTo, disposed: () => disposed });
 
   const resize = (id: string, size: Size, changedOnly = true): void => {
     const holder = holders.get(id);
@@ -113,7 +124,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     resize(id, holder.emulator.fit());
   };
 
-  const pump = createPump({ connected, failures, watches, viewed, shownTo, exited: (id) => exited(id), acknowledge: (agentId) => connected.held.acknowledge(agentId), reflow });
+  const pump = createPump({ connected, failures, watches, viewed, shownTo, exited, acknowledge: (agentId) => connected.held.acknowledge(agentId), reflow });
 
   const retain = (id: string, holder: Holder, after: number): void => {
     if (!holder.incarnation || !holder.emulator.serialize) return;
@@ -161,21 +172,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
-
-  const exited = (id: string): boolean => {
-    const node = rail.nodes.find((candidate) => isDoor(candidate) && candidate.terminal_id === id);
-
-    return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
-  };
-
   const isFocused = (id: string): boolean => {
     const active = document.activeElement;
     const host = holders.get(id)?.host;
 
     return !disposed && !!host?.isConnected && active instanceof HTMLElement
       && host.contains(active) && active.closest<HTMLElement>("[data-terminal]")?.dataset.terminal === id
-      && !active.closest("[hidden], [inert]")
-      && getComputedStyle(active).visibility !== "hidden";
+      && !active.closest("[hidden], [inert]") && getComputedStyle(active).visibility !== "hidden";
   };
 
   const holderFor = (id: string, prepared?: Emulator): Holder => {
@@ -183,7 +186,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = prepared ?? createEmulator(id, (text) => clipboard.copy(id, text));
+    const emulator = prepared ?? runWithOwner(emulatorOwner, () => createEmulator(id, (text) => clipboard.copy(id, text)));
 
     const [atBottom, setAtBottom] = createSignal(true);
     const [rows, setRows] = createSignal<ViewRows | null>(null);

@@ -1,5 +1,5 @@
 import { cleanup } from "@solidjs/testing-library";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { openTabs } from "../header/stripFixture";
 import { createReducedMotion } from "./reducedMotion";
@@ -38,15 +38,16 @@ describe("u5 reduced motion", () => {
       removeEventListener: (_type, listener) => { listeners.delete(listener); },
     };
 
-    createRoot((dispose) => {
-      const reduced = createReducedMotion(() => query);
-      notify({ matches: true });
-      expect(reduced()).toBe(true);
-      notify({ matches: false });
-      expect(reduced()).toBe(false);
-      dispose();
-      expect(listeners.size).toBe(0);
-    });
+    // The change arrives from the platform, outside any owner; Solid 2 applies it at the flush.
+    const { reduced, dispose } = createRoot((dispose) => ({ reduced: createReducedMotion(() => query), dispose }));
+    notify({ matches: true });
+    flush();
+    expect(reduced()).toBe(true);
+    notify({ matches: false });
+    flush();
+    expect(reduced()).toBe(false);
+    dispose();
+    expect(listeners.size).toBe(0);
   });
 
   it("u3010d_app_dialogs_reuse_the_injected_preference_without_another_subscription", async () => {

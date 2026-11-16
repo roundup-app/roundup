@@ -47,7 +47,7 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     })()`);
     await lane.until("!!document.querySelector('[data-id=\"' + window.__railChosen + '\"]')");
     await lane.capture("U3787a", `rail-${seed}-before`);
-    await lane.evaluate("(() => { const row=document.querySelector('[data-id=\"'+window.__railChosen+'\"] [data-part=branch-control]') ?? document.querySelector('[data-id=\"'+window.__railChosen+'\"]'); row.click(); row.focus(); return true; })()");
+    await lane.evaluate("(() => { const row=document.querySelector('[data-id=\"'+window.__railChosen+'\"]'); row.click(); row.focus(); return true; })()");
     await lane.browser("press", "Meta+Shift+Backspace");
     await lane.until("!document.querySelector('[data-id=\"' + window.__railChosen + '\"]')");
     await lane.capture("U3787a", `rail-${seed}-deleted`);
@@ -79,7 +79,7 @@ it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
       await lane.browser("focus", '.todo-detail button[aria-label="More actions"]');
       await lane.until("document.activeElement?.matches('.todo-detail button[aria-label=\"More actions\"]')");
       await lane.browser("press", "Enter");
-      await lane.browser("wait", '[role="menu"][data-state="open"]');
+      await lane.browser("wait", '[role="menu"][data-open]');
       await lane.until("!!document.querySelector('[role=menuitem][data-value=delete]:not([data-disabled])')");
       await lane.browser("wait", '[role="menuitem"][data-value="delete"]');
       await lane.browser("click", '[role="menuitem"][data-value="delete"]');
@@ -92,7 +92,7 @@ it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
       })()`);
       await lane.until("!![...document.querySelectorAll('.pads-tab .pad-name')].find(row => row.textContent.includes('Chosen Pad'))");
       await lane.evaluate(`(() => {
-        for (const control of document.querySelectorAll('.pads-tab [data-shelf-group] [data-part="branch-control"]')) {
+        for (const control of document.querySelectorAll('.pads-tab [data-shelf-group] .shelf-group-control')) {
           if (control.closest('[role="treeitem"]')?.getAttribute('aria-expanded') === 'false') control.click();
         }
         return true;

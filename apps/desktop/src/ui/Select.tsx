@@ -1,24 +1,16 @@
 import "./Field.css";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { focusActions } from "./focusActions";
-import { captureFocus } from "../keys/focus";
-import * as select from "@zag-js/select";
-import { normalizeProps, useMachine } from "@zag-js/solid";
-import { getInitialFocus } from "@zag-js/dom-query";
-import { useLocaleContext } from "@ark-ui/solid/locale";
-import { useEnvironmentContext } from "@ark-ui/solid/environment";
-import { useFieldContext } from "@ark-ui/solid/field";
 import "./Select.css";
-import { floatingControl } from "./Dialog";
-import { Select as ArkSelect, createListCollection } from "@ark-ui/solid/select";
-import { createMemo, createSignal, createUniqueId, For, type JSX } from "solid-js";
-import Check from "lucide-solid/icons/check";
-import ChevronDown from "lucide-solid/icons/chevron-down";
-import { Portal } from "solid-js/web";
+import { createFloatingControl } from "./Dialog";
+import { createSelectController, Select as SelectRoot, SelectContent, SelectItem, SelectItemIndicator, SelectItemText, SelectLabel, SelectTrigger, SelectValue } from "@ui-sdk/solid/select";
+import { createSignal, createUniqueId, For } from "solid-js";
+import type { JSX } from "@solidjs/web";
+import Check from "@lucide/solid/icons/check";
+import ChevronDown from "@lucide/solid/icons/chevron-down";
 
 export type SelectChoice = { value: string; label: string };
 
-/** A labelled single-choice list over Ark's Select; Escape in an open list closes only that list. */
+/** A labelled single-choice list over ui-sdk's Select; Escape in an open list closes only that list. */
 export const Select = (props: {
   label: string;
   description?: string;
@@ -27,92 +19,36 @@ export const Select = (props: {
   disabled?: boolean;
   onValueChange: (value: string) => void;
 }): JSX.Element => {
-  const collection = createMemo(() => createListCollection({ items: props.choices, itemToValue: (choice) => choice.value, itemToString: (choice) => choice.label }));
   const [root, setRoot] = createSignal<HTMLDivElement>();
-  const [list, setList] = createSignal<HTMLDivElement>();
-  const control = floatingControl({}, root);
-  let trigger: HTMLButtonElement | undefined;
-  let initialFocus = captureFocus();
-  let returnFocus = captureFocus();
-  const requestFocus = () => { initialFocus = captureFocus(true); returnFocus = captureFocus(); };
-
+  const control = createFloatingControl({}, root);
+  const controller = createSelectController<string>();
   const id = createUniqueId();
-  const locale = useLocaleContext();
-  const environment = useEnvironmentContext();
-  const field = useFieldContext();
-
-  // Ark's useSelect fixes the machine and exposes no final-focus hook. Keep Zag's transitions,
-  // guards and effects; only the two scheduled focus actions carry the App's permission.
-  // Zag 1.45 setInitialFocus/focusTriggerEl: https://github.com/chakra-ui/zag/blob/main/packages/machines/select/src/select.machine.ts
-  const machine = focusActions(select.machine, {
-    setInitialFocus: () => {
-      const focus = initialFocus;
-      requestAnimationFrame(() => focus(() => {
-        const target = getInitialFocus({ root: list() ?? null });
-
-        if (target) target.focus({ preventScroll: true });
-      }));
-    },
-    focusTriggerEl: parameters => {
-      if (!select.machine.implementations?.guards?.restoreFocus?.(parameters)) return;
-      const focus = returnFocus;
-      requestAnimationFrame(() => focus(() => { if (trigger?.isConnected) trigger.focus({ preventScroll: true }); }));
-    },
-  });
-
-  const service = useMachine(machine, () => ({
-    id, collection: collection(), value: [props.value],
-    ids: { label: field?.().ids.label, hiddenSelect: field?.().ids.control },
-    disabled: props.disabled ?? field?.().disabled ?? false, readOnly: field?.().readOnly ?? false, invalid: field?.().invalid ?? false, required: field?.().required ?? false,
-    dir: locale().dir, getRootNode: environment().getRootNode,
-    onValueChange: details => props.onValueChange(details.value[0] ?? props.value),
-    open: control.open(), onOpenChange: control.change, positioning: { strategy: "fixed" as const, sameWidth: false },
-  }));
-
-  const api = createMemo(() => select.connect(service, normalizeProps));
 
   // An Escape in the open list closes only it: stopping it at the window's capture phase keeps every enclosing dismiss layer, whichever registered first, from seeing it.
   makeEventListener(window, "keydown", (event) => {
     const target = event.target;
 
-    if (event.key !== "Escape" || !control.open() || !(target instanceof Node) || !(root()?.contains(target) || list()?.contains(target))) return;
+    if (event.key !== "Escape" || !control.open() || !(target instanceof Node) || !root()?.contains(target)) return;
     event.stopPropagation();
-    api().setOpen(false);
+    controller.close();
   }, true);
 
-  return <div class="app-select" ref={setRoot}>
-    <ArkSelect.RootProvider value={api} lazyMount unmountOnExit>
-      <ArkSelect.Label class="app-select-label">{props.label}</ArkSelect.Label>
-      <ArkSelect.Control>
-        <ArkSelect.Trigger ref={element => {
-          trigger = element;
-          const key = (event: KeyboardEvent) => { if (["Enter", " ", "ArrowUp", "ArrowDown"].includes(event.key)) requestFocus(); };
-
-          makeEventListener(element, "click", requestFocus, true);
-          makeEventListener(element, "keydown", key, true);
-        }} class="app-select-trigger" aria-label={props.label} aria-describedby={props.description ? `${id}-hint` : undefined}>
-          <ArkSelect.ValueText />
-          <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
-        </ArkSelect.Trigger>
-      </ArkSelect.Control>
+  return <div class="app-select app-select-labelled" ref={setRoot}>
+    <SelectRoot items={props.choices} value={props.value} {...props.disabled === undefined ? {} : { disabled: props.disabled }} controller={controller}
+      onValueChange={next => props.onValueChange(next ?? props.value)}
+      open={control.open()} onOpenChange={open => control.change({ open })}>
+      <SelectLabel class="app-select-label">{props.label}</SelectLabel>
+      <SelectTrigger class="app-select-trigger" aria-label={props.label} aria-describedby={props.description ? `${id}-hint` : undefined}>
+        <SelectValue />
+        <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
+      </SelectTrigger>
       {props.description && <span id={`${id}-hint`} class="app-select-hint">{props.description}</span>}
-      <Portal>
-        <ArkSelect.Positioner>
-          <ArkSelect.Content class="app-select-list" ref={element => {
-            setList(element);
-            const returning = () => { returnFocus = captureFocus(); };
-
-            makeEventListener(element, "keydown", returning, true);
-            makeEventListener(element, "click", returning, true);
-          }}>
-            <For each={props.choices}>{(choice) => <ArkSelect.Item item={choice} class="app-select-item">
-              <ArkSelect.ItemText>{choice.label}</ArkSelect.ItemText>
-              <ArkSelect.ItemIndicator class="app-choice-check"><Check aria-hidden="true" size={16} /></ArkSelect.ItemIndicator>
-            </ArkSelect.Item>}</For>
-          </ArkSelect.Content>
-        </ArkSelect.Positioner>
-      </Portal>
-      <ArkSelect.HiddenSelect />
-    </ArkSelect.RootProvider>
+      <SelectContent class="app-select-list">
+        <For each={props.choices}>{(choice) => <SelectItem value={choice.value} class="app-select-item">
+          <SelectItemText>{choice.label}</SelectItemText>
+          <SelectItemIndicator class="app-choice-check"><Check aria-hidden="true" size={16} /></SelectItemIndicator>
+        </SelectItem>}</For>
+      </SelectContent>
+    </SelectRoot>
   </div>;
 };

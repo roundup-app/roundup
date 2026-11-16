@@ -7,6 +7,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, mode, workstream } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { CHORDS, LEADER, pressOf, CHORD_ROWS, LEADER_ROWS } from "./chords";
+import { flush } from "solid-js";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
@@ -99,13 +100,14 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
       from.dispatchEvent(press);
       // `⌘K` arms the leader, which would take every later probe.
       endLeader();
+      flush();
 
       // Only dismiss prompts opened by the sweep; Escape beneath Help would close Help itself.
       if (!help()) {
         // `⌘/` opens the Ask bar, which would swallow every later probe.
         document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
-        // Ark acknowledges the controlled opening before the sweep can dismiss its field.
+        // The dialog acknowledges the controlled opening before the sweep can dismiss its field.
         if (press.defaultPrevented && code === "KeyT" && mods.metaKey && mods.shiftKey) {
           await waitFor(() => expect(document.querySelector(".capture-field")).not.toBeNull());
         }

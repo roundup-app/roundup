@@ -1,6 +1,7 @@
 import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import {
   AGENT,
   RpcError,
@@ -16,6 +17,7 @@ import { PadDrawer } from "./PadDrawer";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -27,7 +29,9 @@ const openConflict = async () => {
 
   const field = await openPad("release-checklist");
   fireEvent.focus(field);
+  flush();
   fireEvent.input(field, { target: { value: "mine, edited" } });
+  flush();
   state.pads = [padOf("release-checklist", USER, "mine\nagent line")];
   app.emit({
     actor: AGENT,
@@ -50,7 +54,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const { calls, field, state } = await openConflict();
 
     fireEvent.input(field, { target: { value: "mine, edited more" } });
+    flush();
     fireEvent.focusOut(field);
+    flush();
 
     expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
     expect(calls()).not.toContain("pad.write");
@@ -62,6 +68,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const { app, field, state } = await openConflict();
 
     fireEvent.focusOut(field);
+    flush();
 
     state.pads = [padOf("release-checklist", USER, "mine\nagent line\nmore")];
     app.emit({
@@ -85,6 +92,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const { app, field, state } = await openConflict();
 
     fireEvent.focusOut(field);
+    flush();
     fireEvent.click(screen.getByText("Keep mine"));
 
     await waitFor(() =>
@@ -115,6 +123,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     app.handlers["pad.write"] = () => reply.promise;
 
     fireEvent.click(screen.getByText("Keep mine"));
+    flush();
     expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
     state.pads = [{ ...padOf("release-checklist", USER, "newer external text"), revision: 3 }];
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "release-checklist" } });
@@ -134,6 +143,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(field.value).toBe("newer external text");
     app.handlers["pad.write"] = ({ text }) => ({ ...padOf("release-checklist", USER, text), revision: 4 });
     fireEvent.input(field, { target: { value: "edited after choice" } });
+    flush();
     fireEvent.focusOut(field);
     await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
       name: "release-checklist", text: "edited after choice", expectedRevision: 3, expectedIncarnation: "fixture-release-checklist",
@@ -151,7 +161,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     );
 
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited more" } });
+    flush();
     reply.resolve({ ...padOf("release-checklist", USER, "mine, edited"), revision: 2 });
     await reply.promise;
     await new Promise((done) => setTimeout(done, 0));
@@ -207,8 +219,10 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     const { app, field, state } = await openConflict();
 
     fireEvent.focusOut(field);
+    flush();
     const before = app.calls.length;
     fireEvent.click(screen.getByText("Use theirs"));
+    flush();
 
     expect(field.value).toBe("mine\nagent line");
     expect(app.calls.length).toBe(before);
@@ -222,6 +236,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
 
     fireEvent.input(field, { target: { value: "mine" } });
+    flush();
 
     expect(screen.queryByText(/Changed by/)).toBeNull();
     expect(field.value).toBe("mine\nagent line");
@@ -234,7 +249,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine" } });
+    flush();
     state.pads = [padOf("release-checklist", USER, "mine plus agent")];
 
     app.emit({
@@ -253,9 +270,11 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     app.handlers["pad.write"] = () => reply.promise;
     const field = await openPad("release-checklist");
     fireEvent.input(field, { target: { value: "submitted" } });
+    flush();
     fireEvent.focusOut(field);
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
     fireEvent.input(field, { target: { value: "mine, typing" } });
+    flush();
     state.pads = [{ ...padOf("release-checklist", USER, "submitted"), revision: 2 }];
     app.emit({ actor: USER, name: "pad.changed", data: { name: "release-checklist" } });
     await waitForReload(app);
@@ -273,7 +292,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited" } });
+    flush();
     state.pads = [padOf("release-checklist", USER, "mine\nagent line")];
 
     app.emit({
@@ -308,7 +329,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited" } });
+    flush();
 
     app.emit({
       actor: AGENT,
@@ -328,7 +351,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited" } });
+    flush();
 
     app.emit({
       actor: AGENT,
@@ -374,15 +399,21 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "new" } });
+    flush();
     fireEvent.focusOut(field);
+    flush();
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "newer" } });
+    flush();
     reply.resolve(padOf("release-checklist", USER, "new"));
     await reply.promise;
     await writeAdopted();
 
     fireEvent.input(field, { target: { value: "old" } });
+    flush();
 
     expect(field.value).toBe("old");
     expect(screen.queryByText(/Changed by/)).toBeNull();
@@ -398,16 +429,21 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "new" } });
+    flush();
     fireEvent.focusOut(field);
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "newer" } });
+    flush();
     reply.resolve(padOf("release-checklist", USER, "new"));
     await reply.promise;
     await writeAdopted();
 
     fireEvent.input(field, { target: { value: "new" } });
+    flush();
     state.pads = [padOf("release-checklist", USER, "new plus agent")];
     app.emit({
       actor: AGENT,
@@ -426,7 +462,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited" } });
+    flush();
     state.pads = [padOf("release-checklist", USER, "x")];
     app.emit({
       actor: AGENT,
@@ -443,11 +481,13 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     await waitForReload(app, 2);
 
     fireEvent.click(screen.getByText("Use theirs"));
+    flush();
 
     expect(field.value).toBe("mine");
     expect(screen.queryByText(/Changed by/)).toBeNull();
 
     fireEvent.focusOut(field);
+    flush();
 
     expect(app.calls.some((call) => call.method === "pad.write")).toBe(false);
     expect(state.pads[0]?.text).toBe("mine");
@@ -463,11 +503,15 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited" } });
+    flush();
     fireEvent.focusOut(field);
     await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited" } });
+    flush();
     reply.resolve(padOf("release-checklist", USER, "mine, edited"));
     await reply.promise;
     await writeAdopted();
@@ -483,6 +527,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(field.value).toBe("mine");
 
     fireEvent.focusOut(field);
+    flush();
 
     expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(1);
     expect(state.pads[0]?.text).toBe("mine");
@@ -495,7 +540,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     const field = await openPad("release-checklist");
     fireEvent.focus(field);
+    flush();
     fireEvent.input(field, { target: { value: "mine, edited" } });
+    flush();
     state.pads = [padOf("release-checklist", USER, "mine\nagent line")];
     app.emit({
       actor: AGENT,
@@ -532,11 +579,13 @@ it("p2544d_external_change_pauses_autosave", async () => {
   const { app, state } = await openShelf([{ ...padOf("notes", USER, "mine"), revision: 3 }]);
   const field = await openPad("notes");
   fireEvent.input(field, { target: { value: "draft" } });
+  flush();
   state.pads = [{ ...padOf("notes", USER, "remote"), revision: 4 }];
   app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
   await waitForReload(app);
   await new Promise((done) => setTimeout(done, 550));
   fireEvent.focusOut(field);
+  flush();
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
   fireEvent.click(screen.getByText("Keep mine"));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
@@ -558,6 +607,7 @@ it("p2544d_failed_conflict_reload_surfaces_reload_failure", async () => {
   };
 
   fireEvent.input(field, { target: { value: "draft" } });
+  flush();
   fireEvent.focusOut(field);
   await screen.findByText("Use theirs");
   await waitForReload(app);
@@ -574,7 +624,9 @@ it("u2773a_pads_restores_exact_work", async () => {
   app.handlers["pad.write"] = () => deferred<Pad>().promise;
   const field = await openPad("retained");
   fireEvent.input(field, { target: { value: "unfinished 🌱 é\nsecond" } });
+  flush();
   field.setSelectionRange(2, 9, "backward");
+  flush();
   const record = connected.drafts.list().find(draft => draft.destination.surface === "pads" && draft.destination.object === "fixture-retained");
   expect(record?.value).toMatchObject({ originalName: "retained", source: "  unfinished 🌱 é\nsecond\n\n", base: "  original\n\n" });
   connected.drawer.close("key");
@@ -585,6 +637,7 @@ it("u2773a_pads_restores_exact_work", async () => {
   expect(reopened.value).toBe("unfinished 🌱 é\nsecond");
   expect([reopened.selectionStart, reopened.selectionEnd, reopened.selectionDirection]).toEqual([2, 9, "backward"]);
   fireEvent.focusOut(reopened);
+  flush();
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(before);
   expect(screen.getByRole<HTMLButtonElement>("button", { name: "Resume" }).disabled).toBe(false);
 });
@@ -595,7 +648,9 @@ it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_settlement_preserves
   app.handlers["pad.write"] = () => reply.promise;
   const field = await openPad("settlement");
   fireEvent.input(field, { target: { value: "revision A 🌱" } });
+  flush();
   fireEvent.focusOut(field);
+  flush();
   fireEvent.input(field, { target: { value: "revision B é" } });
 
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
@@ -605,11 +660,13 @@ it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_settlement_preserves
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(field.value).toBe("revision B é");
   field.setSelectionRange(2, 3, "forward");
+  flush();
   expect(connected.drafts.list().at(-1)?.value).toMatchObject({ base: "base", baseRevision: 1 });
   expect(connected.drafts.list().map(draft => [draft.value.source, draft.status])).toEqual(outcome === "acknowledged" ? [["revision B é", "draft"]] : [["revision A 🌱", outcome], ["revision B é", "draft"]]);
   const older = connected.drafts.list().find(draft => draft.status === outcome);
 
   if (older) connected.drafts.discard(older.revision);
+  flush();
   expect(connected.drafts.list().at(-1)?.value.source).toBe("revision B é");
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
 });
@@ -618,10 +675,12 @@ it("u2773c_pads_external_change_keeps_original", async () => {
   const { app, state, connected } = await openShelf([padOf("original", USER, "base")]);
   const field = await openPad("original");
   fireEvent.input(field, { target: { value: "dirty é 🪁" } });
+  flush();
   state.pads = [{ ...padOf("original", USER, "replacement"), incarnation: "replacement" }];
   app.emit({ name: "pad.changed", actor: USER, data: { name: "original" } });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   fireEvent.focusOut(field);
+  flush();
   expect(field.value).toBe("dirty é 🪁");
   expect(connected.drafts.list().at(-1)).toMatchObject({ destination: { object: "fixture-original" }, value: { base: "base", baseRevision: 1, originalName: "original", source: "dirty é 🪁" } });
   expect(app.calls.filter(call => call.method === "pad.write")).toEqual([]);
@@ -639,12 +698,14 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   });
 
   fireEvent.input(field, { target: { value: "recoverable é 🪁" } });
+  flush();
   const body = within(document.querySelector<HTMLElement>(".pad-body")!);
   await body.findByRole("alert");
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(stored);
   const clipboard = vi.fn(async () => {});
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.click(body.getByRole("button", { name: "Copy source" }));
+  flush();
   expect(clipboard).toHaveBeenCalledWith("recoverable é 🪁");
   writes.mockRestore();
   const before = app.calls.filter(call => call.method === "pad.write").length;
@@ -660,7 +721,9 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   });
 
   fireEvent.input(field, { target: { value: "selected" } });
+  flush();
   fireEvent.click(await body.findByRole("button", { name: recoveryCopy.discardRevision }));
+  flush();
   expect(connected.drafts.list()).toEqual([]);
   expect(field.value).toBe("base");
   failedAgain.mockRestore();
@@ -673,13 +736,16 @@ it("u2773b_pads_late_failure_keeps_original_Project", async () => {
   first.app.handlers["pad.write"] = () => reply.promise;
   const field = await openPad("same-name");
   fireEvent.input(field, { target: { value: "A é" } });
+  flush();
   fireEvent.focusOut(field);
+  flush();
   fireEvent.input(field, { target: { value: "B 🪁" } });
   await waitFor(() => expect(first.app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
   cleanup();
   const other = await openShelf([padOf("same-name", USER, "other base")], false, false, "/second");
   const otherField = await openPad("same-name");
   fireEvent.input(otherField, { target: { value: "other current" } });
+  flush();
   reply.reject(new RpcError(-32602, "refused"));
   await waitFor(() => expect(first.connected.drafts.list()[0]?.status).toBe("failed"));
   expect(first.connected.drafts.list().map(draft => [draft.value.source, draft.status])).toEqual([["A é", "failed"], ["B 🪁", "draft"]]);
@@ -688,6 +754,7 @@ it("u2773b_pads_late_failure_keeps_original_Project", async () => {
   expect(first.app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
   expect(other.app.calls.filter(call => call.method === "pad.write")).toHaveLength(0);
   first.connected.drafts.discard(first.connected.drafts.list()[0]!.revision);
+  flush();
   expect(first.connected.drafts.list().at(-1)?.value.source).toBe("B 🪁");
   expect(other.connected.drafts.list().at(-1)?.value.source).toBe("other current");
 });
@@ -701,6 +768,7 @@ it("u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write", async ()
 
   const field = await openPad("unknown");
   fireEvent.input(field, { target: { value: "submitted é" } });
+  flush();
   fireEvent.focusOut(field);
   await waitFor(() => expect(connected.drafts.list()[0]?.status).toBe("unknown"));
   const snapshot = connected.drafts.list()[0]!;
@@ -721,18 +789,23 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const destination = { surface: "pads", object: original.incarnation, recipient: null };
   const value = { originalName: original.name, source: "  A 🌱 é\nsecond\n\n", base: original.text, baseRevision: 1 };
   const a = connected.drafts.edit(destination, value, { start: 2, end: 9, direction: "backward" }, "ordinary").draft;
+  flush();
   connected.drafts.submit(a.revision);
+  flush();
   connected.drafts.edit(destination, { ...value, source: "B 🪁" }, { start: 1, end: 2, direction: "forward" }, "ordinary");
+  flush();
   connected.drafts.settle(a.revision, outcome);
+  flush();
   const retained = structuredClone(connected.drafts.list());
   // Recovery can mount with loaded facts after the ordinary Shelf has gone away.
   cleanup();
-  render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
   const calls = [...app.calls];
   const field = await openPad(original.name, { connected, pads: [original], revision: a.revision });
   expect(field.value).toBe("A 🌱 é\nsecond");
   expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([2, 9, "backward"]);
   fireEvent.focusOut(field);
+  flush();
   connected.drawer.close("key");
   await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
   expect(app.calls).toEqual(calls);
@@ -740,8 +813,10 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const b = retained.at(-1)!;
   const editing = await openPad(original.name, { connected, pads: [original], revision: a.revision });
   editing.setSelectionRange(3, 5, "forward");
+  flush();
   expect(connected.drafts.list()).toContainEqual(b);
   fireEvent.input(editing, { target: { value: "edited A 🌱" } });
+  flush();
   connected.drawer.close("key");
   await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
   const { draftStorage } = await import("../state/storage");
@@ -770,7 +845,8 @@ it.each(["Project", "facts-Project", "incarnation", "removed", "name", "unloaded
   const pads = mismatch === "removed" ? [] : mismatch === "incarnation" ? [{ ...original, incarnation: "replacement" }] : [original];
   const calls = [...target.app.calls];
   const connected = target.connected;
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={mismatch === "name" ? "different" : original.name} recovery={{ project: mismatch === "facts-Project" ? "/other" : connected.project.path, revision: a.revision, list: { pads: () => pads, loaded: () => mismatch !== "unloaded", failure: () => mismatch === "failed-list" ? "disconnected" : null, reload: async () => {}, settled: async () => {} } }} pads={() => pads} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
+  connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={mismatch === "name" ? "different" : original.name} recovery={{ project: mismatch === "facts-Project" ? "/other" : connected.project.path, revision: a.revision, list: { pads: () => pads, loaded: () => mismatch !== "unloaded", failure: () => mismatch === "failed-list" ? "disconnected" : null, reload: async () => {}, settled: async () => {} } }} pads={() => pads} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
+  flush();
   expect(screen.queryAllByRole("textbox")).toHaveLength(0);
   expect(target.app.calls).toEqual(calls);
   expect(first.connected.drafts.list()).toEqual([a]);
@@ -781,15 +857,20 @@ it.each(["failed", "unknown"] as const)("u3021c_resume_selected_pad_keeps_author
   const { app, connected } = await openShelf([original]);
   const destination = { surface: "pads", object: original.incarnation, recipient: null };
   const a = connected.drafts.edit(destination, { originalName: original.name, source: "  A 🌱 é\nsecond\n\n", base: "base", baseRevision: 1 }, null, "ordinary").draft;
+  flush();
   connected.drafts.submit(a.revision);
+  flush();
   const b = connected.drafts.edit(destination, { ...a.value, source: "B 🪁" }, null, "ordinary").draft;
+  flush();
   connected.drafts.settle(a.revision, outcome);
+  flush();
   await openPad(original.name, { connected, pads: [original], revision: a.revision });
   const before = app.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+  flush();
 
   if (outcome === "unknown") {
-    await screen.findByRole("alert");
+    await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
     expect(app.calls.slice(before)).toEqual([{ method: "pad.read", params: { name: original.name } }]);
     expect(connected.drafts.list()[0]?.status).toBe("unknown");
   } else {

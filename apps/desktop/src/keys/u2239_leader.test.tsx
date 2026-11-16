@@ -1,15 +1,16 @@
 import { chooseFooter } from "../rail/railFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { openTabs, projectTabs, rowSelected, tab } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
 import { callsTo } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
-import { Leader } from "./Leader";
+import { createLeader } from "./Leader";
 import { leaderArmed, registerKeys } from "./registry";
-import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
+import { connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
+import { notices } from "../testing/notices";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -20,6 +21,7 @@ const key = (code: string, init: KeyboardEventInit = {}, target: EventTarget = d
   const press = new KeyboardEvent("keydown", { code, key: code.replace(/^Key/, "").toLowerCase(), bubbles: true, cancelable: true, ...init });
 
   target.dispatchEvent(press);
+  flush();
 
   return press;
 };
@@ -116,6 +118,7 @@ describe("u2239 the leader takes the next key", () => {
     await open();
     arm();
     fireEvent.pointerDown(document.body);
+    flush();
     expect(leaderArmed()).toBe(false);
 
     arm();
@@ -130,12 +133,14 @@ describe("u2239 the leader takes the next key", () => {
 
     render(() => {
       registerKeys({ kind: "layer", element: () => undefined, active: modal, modal: true }, []);
+      createLeader(connected);
 
-      return <ConnectedProjectContext.Provider value={connected}><Leader /></ConnectedProjectContext.Provider>;
+      return null;
     });
     arm();
     expect(leaderArmed()).toBe(true);
     setModal(true);
+    flush();
     expect(leaderArmed()).toBe(false);
     arm();
     expect(leaderArmed()).toBe(false);
@@ -148,7 +153,7 @@ describe("u2239 the leader takes the next key", () => {
     app.of("/Users/me/web").handlers["rail.createWorkstream"] = () => { throw failure; };
 
     await chooseFooter("Workstream");
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
+    await waitFor(() => expect(notices("alert")[0]!.textContent).toContain(failure.message));
     const focus = screen.getByRole("button", { name: "Create" });
 
     focus.focus();
@@ -156,11 +161,11 @@ describe("u2239 the leader takes the next key", () => {
     key("KeyK", { metaKey: true }, focus);
     expect(document.querySelector(".hint-line.leader")).not.toBeNull();
     expect(document.activeElement).toBe(focus);
-    expect(screen.getByRole("alert").textContent).toContain(failure.message);
+    expect(notices("alert")[0]!.textContent).toContain(failure.message);
     key("Escape", {}, focus);
     expect(document.querySelector(".hint-line.leader")).toBeNull();
     expect(document.activeElement).toBe(focus);
-    expect(screen.getByRole("alert").textContent).toContain(failure.message);
+    expect(notices("alert")[0]!.textContent).toContain(failure.message);
   });
 
   it("u2240_the_panel_lists_the_table_and_follows_the_wait", async () => {

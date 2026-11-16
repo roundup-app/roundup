@@ -1,12 +1,12 @@
-import { type CreateToasterReturn, Toaster, Toast } from "@ark-ui/solid/toast";
+import { Toast, ToastRegion, ToastTitle, type Toaster } from "@ui-sdk/solid/toast";
 
-export function u492Fixture(toaster: CreateToasterReturn, library = { Toaster, Toast }) {
+export function u492Fixture(toaster: Toaster, library = { ToastRegion, Toast, ToastTitle }) {
   return <>
-    <button onClick={() => toaster.create({ title: "First result saved", duration: Infinity })}>First result</button>
-    <button onClick={() => toaster.create({ title: "Second result saved", duration: Infinity })}>Second result</button>
+    <button onClick={() => toaster({ title: "First result saved", duration: Infinity })}>First result</button>
+    <button onClick={() => toaster({ title: "Second result saved", duration: Infinity })}>Second result</button>
     <button onClick={() => toaster.dismiss()}>Dismiss</button>
-    <library.Toaster toaster={toaster}>
-      {(toast) => <library.Toast.Root><library.Toast.Title>{toast().title}</library.Toast.Title></library.Toast.Root>}
-    </library.Toaster>
+    <library.ToastRegion toaster={toaster} side="top">
+      {(toast) => <library.Toast><library.ToastTitle>{toast.title}</library.ToastTitle></library.Toast>}
+    </library.ToastRegion>
   </>;
 }

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { createSignal, type JSX } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createSignal } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { afterEach, expect, it, vi } from "vitest";
 import { Dialog } from "./Dialog";
 import { Popover } from "./Popover";
@@ -18,7 +18,7 @@ const modal = (children?: () => JSX.Element) => {
   const [open, setOpen] = createSignal(false);
 
   render(() => <Dialog.Root open={open()} onOpenChange={({ open }) => setOpen(open)}>
-    <Portal><Dialog.Positioner><Dialog.Content><Dialog.Title>Import</Dialog.Title><button>Inside</button>{children?.()}</Dialog.Content></Dialog.Positioner></Portal>
+    <Dialog.Content><Dialog.Title>Import</Dialog.Title><button>Inside</button>{children?.()}</Dialog.Content>
   </Dialog.Root>);
 
   return setOpen;
@@ -38,29 +38,30 @@ const mount = (kind: Surface) => {
   const results = () => !dismissed() && text() ? items.filter(item => item.label.toLowerCase().includes(text().slice(1).toLowerCase())) : [];
 
   const ui = () => {
-    if (kind === "menu") return <Menu.Root onSelect={picked}><Menu.Trigger>Open</Menu.Trigger><Portal><Menu.Positioner><Menu.Content><Menu.Item value="alpha">Alpha</Menu.Item></Menu.Content></Menu.Positioner></Portal></Menu.Root>;
+    if (kind === "menu") return <Menu.Root onAction={picked}><Menu.Trigger>Open</Menu.Trigger><Menu.Content><Menu.Item value="alpha">Alpha</Menu.Item></Menu.Content></Menu.Root>;
 
     if (kind === "select") return <Select label="Open" choices={items} value="" onValueChange={picked} />;
 
-    if (kind === "tooltip") return <Tooltip.Root openDelay={0} closeDelay={0}><Tooltip.Trigger>Open</Tooltip.Trigger><Portal><Tooltip.Positioner><Tooltip.Content>Alpha</Tooltip.Content></Tooltip.Positioner></Portal></Tooltip.Root>;
+    if (kind === "tooltip") return <Tooltip.Root delay={0} closeDelay={0}><Tooltip.Trigger>Open</Tooltip.Trigger><Tooltip.Content>Alpha</Tooltip.Content></Tooltip.Root>;
 
     if (kind === "mentions") return <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={results()} highlightedValue={highlight()} onHighlightChange={setHighlight} onSelect={picked}><Mentions.Field aria-label="Mention" value={text()} onInput={event => setText(event.currentTarget.value)} open onKey={() => {}} /><Mentions.List label="Suggestions" items={results()} row={item => item.label} /></Mentions.Root>;
 
     if (kind === "blocker") return <BlockerMenu open={open()} onOpenChange={setOpen} others={[todo(1, { title: "Alpha" })]} buttonRef={() => {}} onPick={picked} />;
 
     return <Popover.Root open={kind === "controlled" ? open() : undefined} onOpenChange={({ open }) => setOpen(open)} closeOnInteractOutside={kind === "outside opt-out" ? false : undefined}>
-      <Popover.Trigger>Open</Popover.Trigger><Portal><Popover.Positioner><Popover.Content><button onClick={() => picked("alpha")}>Alpha</button></Popover.Content></Popover.Positioner></Portal>
+      <Popover.Trigger>Open</Popover.Trigger><Popover.Content><button onClick={() => picked("alpha")}>Alpha</button></Popover.Content>
     </Popover.Root>;
   };
 
   const show = async () => {
     const trigger = kind === "mentions" ? screen.getByRole("textbox", { name: "Mention" }) : screen.getByRole(kind === "select" ? "combobox" : "button", { name: kind === "blocker" ? /Blocker/ : "Open" });
 
-    if (kind === "tooltip") { fireEvent.pointerOver(trigger, { pointerType: "mouse" }); fireEvent.focus(trigger); }
+    if (kind === "tooltip") { fireEvent.pointerEnter(trigger, { pointerType: "mouse" }); fireEvent.focus(trigger); }
     else if (kind === "mentions") { trigger.focus(); fireEvent.input(trigger, { target: { value: "@al" } }); }
     else fireEvent.click(trigger);
 
     if (kind === "select") await screen.findByRole("listbox");
+    else if (kind === "tooltip") await screen.findByRole("tooltip");
     else await screen.findByText("Alpha");
   };
 
@@ -73,10 +74,10 @@ it.each(surfaces)("u3295b_a_dialog_closes_outside_floating_controls: %s", async 
   await control.show();
   const setOpen = modal();
 
-  const floating = () => kind === "tooltip" ? screen.queryByRole("tooltip", { hidden: true })
+  const floating = () => kind === "tooltip" ? screen.queryByRole("tooltip")
     : kind === "menu" ? screen.queryByRole("menu", { hidden: true })
-    : ["select", "mentions", "blocker"].includes(kind) ? screen.queryByRole("listbox", { hidden: true })
-    : screen.queryAllByRole("button").find(button => button.closest('[data-scope="popover"][data-part="content"]')) ?? null;
+    : ["select", "mentions", "blocker"].includes(kind) ? screen.queryByRole("listbox")
+    : screen.queryAllByRole("button").find(button => button.closest('[data-slot="popover-content"]')) ?? null;
 
   setOpen(true);
   await screen.findByRole("dialog", { name: "Import" });
@@ -116,7 +117,7 @@ it("u3295b_background_tooltips_stay_closed", async () => {
 
   setOpen(true);
   await screen.findByRole("dialog");
-  fireEvent.pointerOver(screen.getByRole("button", { name: "Open", hidden: true }), { pointerType: "mouse" });
+  fireEvent.pointerEnter(screen.getByRole("button", { name: "Open", hidden: true }), { pointerType: "mouse" });
   // Observe past the Tooltip's zero-delay scheduled opening without moving focus outside the modal.
   await new Promise(resolve => setTimeout(resolve, 50));
   expect(screen.queryByRole("tooltip")).toBeNull();
@@ -125,12 +126,12 @@ it("u3295b_background_tooltips_stay_closed", async () => {
 it("u3295b_dialog_owned_controls_still_work: nested portalled Dialog", async () => {
   const control = mount("menu");
 
-  render(() => <Dialog.Root open><Portal><Dialog.Positioner><Dialog.Content>
+  render(() => <Dialog.Root open><Dialog.Content>
     <Dialog.Title>Outer</Dialog.Title>
-    <Dialog.Root open><Portal><Dialog.Positioner><Dialog.Content>
+    <Dialog.Root open><Dialog.Content>
       <Dialog.Title>Active</Dialog.Title>{control.ui()}
-    </Dialog.Content></Dialog.Positioner></Portal></Dialog.Root>
-  </Dialog.Content></Dialog.Positioner></Portal></Dialog.Root>);
+    </Dialog.Content></Dialog.Root>
+  </Dialog.Content></Dialog.Root>);
   await screen.findByRole("dialog", { name: "Active" });
   await control.show();
   fireEvent.click(screen.getByText("Alpha"));
@@ -165,4 +166,44 @@ it("u504_form_suggestions_highlight_wrap_and_accept_without_moving_focus", async
   fireEvent.keyDown(field, { key: "Tab" });
   await waitFor(() => expect(picked).toHaveBeenCalledExactlyOnceWith("a"));
   await waitFor(() => expect(document.activeElement).toBe(trigger));
+});
+
+it("u504_form_suggestions_home_and_end_move_the_highlight_to_the_first_and_last", async () => {
+  render(() => <Combobox.Picker label="Destination" value="" items={[{ value: "a", label: "Alpha" }, { value: "b", label: "Beta" }, { value: "c", label: "Gamma" }]} onSelect={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: /Destination/ }));
+  const field = await screen.findByRole("combobox");
+  const options = () => screen.getAllByRole("option");
+  const active = () => document.getElementById(field.getAttribute("aria-activedescendant") ?? "");
+  await waitFor(() => expect(active()).toBe(options()[0]));
+  expect(fireEvent.keyDown(field, { key: "End" })).toBe(false);
+  await waitFor(() => expect(active()).toBe(options()[2]));
+  fireEvent.keyDown(field, { key: "Home" });
+  await waitFor(() => expect(active()).toBe(options()[0]));
+});
+
+it("u504_a_pick_returns_focus_to_the_field_unless_a_newer_choice_moved_it", async () => {
+  const [query, setQuery] = createSignal("");
+  const [highlight, setHighlight] = createSignal<string | null>("a");
+  const picked = vi.fn();
+  render(() => <>
+    <button>Elsewhere</button>
+    <Combobox.Root items={[{ value: "a", label: "Alpha" }, { value: "b", label: "Beta" }]} inputValue={query()} onInput={setQuery} highlightedValue={highlight()} onHighlightChange={setHighlight}
+      onSelect={picked} label="Query" placeholder="" empty="" row={item => item.label} />
+  </>);
+  const field = await screen.findByRole("combobox");
+  const elsewhere = screen.getByRole("button", { name: "Elsewhere" });
+  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  await waitFor(() => expect(document.activeElement).toBe(field));
+
+  elsewhere.focus();
+  fireEvent.click(screen.getAllByRole("option")[1]!);
+  await waitFor(() => expect(picked).toHaveBeenCalledWith("b"));
+  await waitFor(() => expect(document.activeElement).toBe(field));
+
+  fireEvent.click(screen.getAllByRole("option")[0]!);
+  await waitFor(() => expect(picked).toHaveBeenCalledTimes(2));
+  elsewhere.focus();
+  await frame();
+  await frame();
+  expect(document.activeElement).toBe(elsewhere);
 });

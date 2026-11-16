@@ -1,6 +1,5 @@
 import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { batch } from "solid-js";
 import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -8,12 +7,14 @@ import userEvent from "@testing-library/user-event";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info, mode, NOW, workstream, doorOf } from "../testing/nodes";
+import { storageIdle } from "../state/storage";
 import { lazyEmulators } from "../terminal/lazyEmulator";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
+// A save queued as the test ends lands after a clear that does not wait for it, and the next test starts with it.
+afterEach(async () => { cleanup(); await storageIdle(); localStorage.clear(); sessionStorage.clear(); });
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
 
@@ -54,7 +55,7 @@ const mount = async (nodes: RailNode[] = [agent("ann", "idle", "ready"), agent("
 const provesChoice = async (m: Awaited<ReturnType<typeof mount>>, id: string) => {
   await waitFor(() => {
     expect(m.connected.rail.selected()).toBe(id);
-    expect([...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id)).toEqual([id]);
+    expect([...document.querySelectorAll<HTMLElement>('.rail-row[data-selected]')].map(row => row.dataset.id)).toEqual([id]);
     expect(document.activeElement?.closest(".pane-screen")).not.toBeNull();
     expect(document.activeElement?.getAttribute("data-terminal")).toBe(`t-${id}`);
   });
@@ -119,11 +120,11 @@ it("u5742c_overview_choice_focuses_terminal", async () => {
 
 it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   const m = await mount(["ann", "bea", "cee", "dee"].map(id => agent(id, "idle", "ready")));
-  const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id);
+  const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected]')].map(row => row.dataset.id);
 
   const user = userEvent.setup();
 
-  // The press focuses its row, and Ark applies the selection a task later.
+  // The press focuses its row, and ui-sdk applies the selection a task later.
   const click = async (id: string, modifier: "Meta" | "Shift", want: string[]) => {
     await user.keyboard(`{${modifier}>}`);
     await user.click(row(id));
@@ -135,8 +136,9 @@ it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   await click("ann", "Meta", ["ann"]);
   await click("cee", "Meta", ["ann", "cee"]);
   await click("ann", "Meta", ["cee"]);
-  await click("dee", "Shift", ["cee", "dee"]);
-  await click("bea", "Shift", ["bea", "cee"]);
+  // ui-sdk anchors a ⇧-range on the last ⌘-clicked row, here "ann", and keeps the ⌘-clicked "cee".
+  await click("dee", "Shift", ["ann", "bea", "cee", "dee"]);
+  await click("bea", "Shift", ["ann", "bea", "cee"]);
   expect(m.connected.rail.selected()).toBeNull();
   expect(m.app.calls.filter(call => ["agent.spawn", "agent.resume", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
   key("ArrowUp");
@@ -234,9 +236,9 @@ it("u5742d_choice_takes_focus_when_terminal_becomes_ready", async () => {
 it("u5742a_reselect_replaces_modifier_selection_and_focuses_terminal", async () => {
   const m = await mount();
   fireEvent.click(row("ann"), { metaKey: true });
-  await waitFor(() => expect(row("ann").dataset.selected).toBe("true"));
+  await waitFor(() => expect(row("ann").hasAttribute("data-selected")).toBe(true));
   fireEvent.click(row("dee"), { metaKey: true });
-  await waitFor(() => expect(row("dee").dataset.selected).toBe("true"));
+  await waitFor(() => expect(row("dee").hasAttribute("data-selected")).toBe(true));
   fireEvent.click(row("ann"));
   await provesChoice(m, "ann");
   row("ann").focus();
@@ -340,7 +342,7 @@ const mountTextLink = async (kind: "agent" | "workstream") => {
   render(() => <App app={app} createEmulator={emulators.factory} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open;  }} />);
   await waitFor(() => expect(connected).toBeDefined());
   const url = `roundup://${kind}/chosen?project=project-0000000000000000`;
-  render(() => <ConnectedProjectContext.Provider value={connected}><TargetText objectLinks text={`Choose ${url}.`} base="/project" /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><TargetText objectLinks text={`Choose ${url}.`} base="/project" /></ConnectedProjectContext>);
   const link = await screen.findByRole("link", { name: url });
 
   return { app, connected, emulators, link, url };

@@ -1,12 +1,12 @@
 import { applied, applying } from "../app/pending";
 import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
-import { outcomeOf } from "../app/seam";
+import { outcomeOf, type CaptureState } from "../app/seam";
 import { queueFocus, returnFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { createEffect, createSignal, createUniqueId, For, on, onCleanup, onMount, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, flush, For, onCleanup, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -78,9 +78,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     if (current() && input) draft.select(caretOf());
   };
 
-  createEffect(() => {
-    if (open() || nativeOpen()) onCleanup(drafts.editor(destination));
-  });
+  createEffect(createMemo(() => open() || nativeOpen()), editing => editing ? drafts.editor(destination) : undefined);
   /** U3746: a Todo created whose move was refused, kept with the title it was filed under so a retry of the same text moves it instead of creating another. */
   let stranded: { title: string; id: number } | null = null;
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -220,7 +218,9 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     else show();
   };
 
-  const publish = () => port?.publish({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), retention: Boolean(drafts.problem()), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
+  const published = (): CaptureState => ({ session: session(), sequence: sequence(), text: text(), recovered: recovered().map(draft => ({ revision: draft.revision, text: String(draft.value.text), status: draft.status, label: copy.draftStatus[draft.status] })), owner: ownerLine(), home: homeLine(), retention: Boolean(drafts.problem()), failure: failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null), mode: appDark() ? "dark" : "light" });
+
+  const publish = () => port?.publish(published());
 
   const nativeShow = () => {
     if (nativeOpen() || open()) return;
@@ -279,6 +279,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
         if (action.sequence < sequence()) return;
         setSequence(action.sequence);
         setText(action.text);
+        flush();
       }
 
       if (action.kind === "copy" || action.kind === "discard-revision") recoveredAction(action.kind, action.revision);
@@ -288,7 +289,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
       else if (action.kind === "dismiss") close();
       else if (action.kind === "retry") void drafts.retry();
     })));
-    createEffect(() => { if (nativeOpen()) void publish()?.catch(error => setFailure(String(error))); });
+    createEffect(() => nativeOpen() ? published() : null, snapshot => { if (snapshot) void port.publish(snapshot).catch(error => setFailure(String(error))); });
     onCleanup(() => {
       if (untrack(nativeOpen)) { void port.dismiss(); props.onNativeOpen?.(false); }
     });
@@ -299,23 +300,24 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
   }]);
   // A request can predate the mounted dialog (a Project chosen while Capture was absent), so the effect starts after mount.
-  onMount(() => createEffect(on(() => props.open, wanted => { if (wanted) (port ? nativeShow : show)(); })));
+  // Its first value is read as the dialog mounts, before the previous owner's cleanup closes the request, so apply reads the request again.
+  createEffect(createMemo(() => props.open), () => { if (untrack(() => props.open)) untrack(port ? nativeShow : show); });
   onCleanup(() => { if (untrack(() => open() || nativeOpen())) props.onOpenChange?.(false); });
-  createEffect(() => { if (props.open === undefined) registerKeys({ kind: "app" }, [{
+
+  if (untrack(() => props.open) === undefined) registerKeys({ kind: "app" }, [{
     action: CHORDS["todo.capture"],
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
-  }]); });
+  }]);
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [{ chords: ["Escape"], run: discard }]);
 
   return (
       <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }}
         initialFocusEl={() => input ?? null}
-        finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
-        onEscapeKeyDown={(event) => { event.stopImmediatePropagation(); discard(); }}>
-        <Dialog.Positioner><Dialog.Content class="capture" aria-label={copy.captureLabel} ref={(element) => {
+        finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}>
+        <Dialog.Content class="capture" aria-label={copy.captureLabel} ref={(element) => {
           panel = element;
         }}>
-          <textarea spellcheck={false} autocorrect="off" autocapitalize="off"
+          <textarea spellcheck="false" autocorrect="off" autocapitalize="off"
             class="capture-field field-frame"
             rows={1}
             wrap="off"
@@ -351,7 +353,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
           <ReservedLine message={failure() ?? problem.message()} dismiss={() => failure() ? setFailure(null) : problem.dismiss()} recover={drafts.problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} />
           <For each={recovered()}>{each => <div class="capture-recovery">
             <span class="ink" data-state={each.status}>{copy.draftStatus[each.status]}</span>
-            <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(each.value.text)} />
+            <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readonly value={String(each.value.text)} />
             <div class="capture-actions">
             <CopyButton app={connected.app} identity={each.revision} text={String(each.value.text)} onSuccess={() => setFailure(null)} onFailure={error => setFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(each.revision)}>{copy.discardRevision}</button>
@@ -359,7 +361,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
           </div>}</For>
 
           <div class="capture-actions"><Dialog.CloseTrigger data-button="quiet" onClick={discard}>{copy.close}</Dialog.CloseTrigger><button type="button" data-button="primary" disabled={text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
-        </Dialog.Content></Dialog.Positioner>
+        </Dialog.Content>
       </Dialog.Root>
   );
 };

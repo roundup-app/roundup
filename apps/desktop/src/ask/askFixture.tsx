@@ -1,5 +1,5 @@
 // fallow-ignore-file duplicate-export -- press supplies Ask slash-key codes; switcherFixture supplies letter-key codes. Tests import each directly.
-import { createSignal, Show } from "solid-js";
+import { createSignal, flush, Show } from "solid-js";
 import { expect } from "vitest";
 import { render, waitFor } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
@@ -9,6 +9,7 @@ import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import type { AskRouting } from "../state/asks";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
+import { shownText } from "../testing/rowTip";
 import { agent, door, workstream } from "../testing/nodes";
 import { createRailState } from "../state/rail";
 import { Pane } from "../terminal/Pane";
@@ -54,12 +55,12 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
 
   const view = render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <aside class="rail"><RecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
       <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar recovery={recovery()} /></div>
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   await connected.rail.settled();
@@ -74,12 +75,13 @@ export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.ma
 
 export const input = (): HTMLTextAreaElement | null => document.querySelector<HTMLTextAreaElement>(".ask-input");
 
-export const rowTexts = (): string[] => [...document.querySelectorAll(".ask-row")].map((row) => [...row.querySelectorAll(".ask-text, .ask-where, .ask-state")].map((part) => part.textContent?.trim()).join(" | "));
+export const rowTexts = (): string[] => [...document.querySelectorAll(".ask-row")].map((row) => [...row.querySelectorAll(".ask-text, .ask-where, .ask-state")].map((part) => shownText(part).trim()).join(" | "));
 
 export const press = (key: string, init: KeyboardEventInit = {}, target: EventTarget = document.activeElement ?? document.body): KeyboardEvent => {
   const event = new KeyboardEvent("keydown", { key, code: key === "/" ? "Slash" : key, bubbles: true, cancelable: true, ...init });
 
   target.dispatchEvent(event);
+  flush();
 
   return event;
 };

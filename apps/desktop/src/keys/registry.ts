@@ -1,8 +1,7 @@
 import { leaderKeys, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { rowKey } from "../ui/RowCollection";
 import { strayKey } from "./stray";
-import { setInteractionModality } from "@zag-js/focus-visible";
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, flush, onCleanup, untrack } from "solid-js";
 import { CHORDS, LEADER, chordsOf, defaultKeys, TEXT_FIELDS } from "./chords";
 import type { ActionValues, Chord, LeaderKey } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
@@ -30,7 +29,7 @@ type Registration = { scope: KeyScope; actions: ActionBinding[]; bindings: { mat
 const registrations = new Set<Registration>();
 
 /** Bumped as layers register and leave, so `modalOpen` read in an effect reruns. */
-const [layers, setLayers] = createSignal(0);
+const [layers, setLayers] = createSignal(0, { ownedWrite: true });
 
 const rootOf = (scope: KeyScope) => scope.kind === "app" || scope.kind === "leader" ? undefined : scope.element();
 
@@ -150,9 +149,6 @@ const eligibleAt = (focus: Element | null): Registration[] => [...registrations]
   });
 
 const dispatch = (event: KeyboardEvent): void => {
-  // Modifier chords are keyboard actions too; the focus-visible library excludes them by default.
-  setInteractionModality("keyboard");
-
   if (!(event instanceof KeyboardEvent)) return;
 
   if (event.repeat && event.code === kept) {
@@ -212,13 +208,16 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
   const keys = bindings.map((binding): Binding => {
     if (!("action" in binding)) return binding;
 
+    const { action } = binding;
+
     const key: Binding = {
-      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsOf(binding.action, binding.match) : [binding.action.press]),
+      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in action ? untrack(() => chordsOf(action, binding.match)) : [action.press]),
       run: (event) => {
         const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
 
         if ((!event.repeat || binding.repeat) && captured.available()) {
           captured.invoke();
+          flush();
 
           if (armed()) kept = event.code;
         }

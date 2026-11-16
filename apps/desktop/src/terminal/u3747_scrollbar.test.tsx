@@ -1,11 +1,12 @@
 import { cleanup } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { showScrollbars } from "../scrollHover";
 import { callsTo, mountPane } from "./paneHarness";
 import { info, node } from "../testing/nodes";
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "setTimeout", "clearTimeout"] });
+  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "setTimeout", "clearTimeout", "performance"] });
 });
 
 afterEach(() => {
@@ -17,6 +18,7 @@ it("u3747_showing_the_bar_over_a_terminal_sends_no_resize", async () => {
   const { app, connected } = await mountPane([node("a")], [info("t-a")]);
 
   connected.rail.select("a");
+  flush();
 
   const shown = callsTo(app, "terminal.resize").length;
   const host = document.querySelector<HTMLElement>(".xterm") ?? document.body;

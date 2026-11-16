@@ -8,16 +8,17 @@ import { appSettings, saveAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
 import { layoutMoving } from "../resize/motion";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
-import type { JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, For, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Recovery } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
+import type { ConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
-import { captureActions } from "../keys/registry";
+import { captureActions, modalOpen } from "../keys/registry";
 import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory, ViewRows } from "./emulator";
@@ -29,6 +30,37 @@ import "./styles.css";
 import { doorTerminalId } from "../state/doorNode";
 import { centreState } from "./centreState";
 
+
+type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; recovery: Recovery };
+
+/** The one failure the pane shows, with what the user can do about it: each kind states its own dismissal and retry. */
+const paneNotice = ({ given, retry, rail, screens, terminal }: {
+  given: ReturnType<typeof dismissable>;
+  retry: (() => void) | undefined;
+  rail: ConnectedProject["rail"];
+  screens: Screens;
+  terminal: string | null;
+}): PaneNotice | null => {
+  const message = given.message();
+
+  if (message) return { kind: "notice", message, recovery: { dismiss: given.dismiss, recover: retry ? { run: retry } : undefined } };
+
+  const command = rail.commandFailure.surface() === "pane" ? rail.commandFailure.message() : null;
+
+  if (command !== null) {
+    const again = rail.commandFailure.retry();
+
+    return { kind: "command", message: command, recovery: { dismiss: rail.commandFailure.clear, recover: again ? { run: again } : undefined } };
+  }
+
+  const shown = terminal !== null && screens.viewedInBubble(terminal) ? null : screens.failure(terminal);
+
+  if (shown === null) return null;
+
+  const again = screens.retry(terminal);
+
+  return { kind: "terminal", message: shown, recovery: { dismiss: () => screens.dismiss(terminal), recover: again ? { run: again } : undefined } };
+};
 
 /**
  * U7211a: where `over` floats. It covers the top row unless the cursor sits on it or on the row below, where the newest output then is;
@@ -52,10 +84,10 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const connected = useConnectedProject();
   const { rail } = connected;
   let fontSize: number | undefined;
-  const createEmulator = props.createEmulator ?? lazyXtermEmulators();
+  const createEmulator = untrack(() => props.createEmulator) ?? lazyXtermEmulators();
 
   const screens = createScreens(connected, (id, copy) => {
-    fontSize ??= appSettings().fontSize;
+    fontSize ??= untrack(() => appSettings().fontSize);
     const emulator = createEmulator(id, copy);
 
     emulator.setFontSize(fontSize);
@@ -63,15 +95,15 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     return emulator;
   }, props.openObject);
 
-  createEffect(on(() => appSettings().fontSize, size => {
+  createEffect(createMemo(() => appSettings().fontSize), size => {
     fontSize = size;
     screens.setFontSize(size);
     refitNextFrame();
-  }, { defer: true }));
+  }, { defer: true });
 
-  createEffect(on(() => appSettings().fontFamily, () => refitNextFrame(), { defer: true }));
+  createEffect(createMemo(() => appSettings().fontFamily), () => { refitNextFrame(); }, { defer: true });
 
-  props.screensRef?.(screens);
+  onSettled(() => { props.screensRef?.(screens); });
 
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
@@ -84,35 +116,13 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   const terminalId = createMemo(() => doorTerminalId(selected()));
 
-  createEffect(() => props.observeTerminal?.(terminalId()));
+  createEffect(() => [terminalId(), props.observeTerminal] as const, ([id, observe]) => { observe?.(id); });
   onCleanup(() => props.observeTerminal?.(null));
 
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
   const givenNotice = dismissable(() => props.notice);
 
-  /** The one failure the pane shows, with what the user can do about it: each kind states its own dismissal and retry. */
-  const notice = createMemo((): { kind: "notice" | "command" | "terminal"; message: string; recovery: Recovery } | null => {
-    const given = givenNotice.message();
-
-    if (given) return { kind: "notice", message: given, recovery: { dismiss: givenNotice.dismiss, recover: props.retryNotice ? { run: props.retryNotice } : undefined } };
-
-    const command = rail.commandFailure.surface() === "pane" ? rail.commandFailure.message() : null;
-
-    if (command !== null) {
-      const retry = rail.commandFailure.retry();
-
-      return { kind: "command", message: command, recovery: { dismiss: rail.commandFailure.clear, recover: retry ? { run: retry } : undefined } };
-    }
-
-    const id = terminalId();
-    const message = id !== null && screens.viewedInBubble(id) ? null : screens.failure(id);
-
-    if (message === null) return null;
-
-    const retry = screens.retry(id);
-
-    return { kind: "terminal", message, recovery: { dismiss: () => screens.dismiss(id), recover: retry ? { run: retry } : undefined } };
-  });
+  const notice = createMemo(() => paneNotice({ given: givenNotice, retry: props.retryNotice, rail, screens, terminal: terminalId() }));
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   const [preparing, setPreparing] = createSignal(false);
@@ -151,7 +161,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     }
   };
 
-  createEffect(on(rail.selected, () => preparation?.abort(), { defer: true }));
+  createEffect(rail.selected, () => { preparation?.abort(); }, { defer: true });
   onCleanup(() => { preparation?.abort(); rail.prepareTerminal = undefined; });
   let pendingFrame: number | null = null;
 
@@ -170,10 +180,10 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   };
 
   // U389, U430, U371: an edge drag or a Drawer or Shelf slide changes the pane's width every frame; the Terminal is fitted once when it ends.
-  createEffect(on(layoutMoving, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+  createEffect(layoutMoving, (now) => { if (!now) refitNextFrame(); }, { defer: true });
 
   // X14: the Terminal the selection leaves stops receiving output; only its subscription is released.
-  createEffect(on(terminalId, (_id, previous) => { if (previous != null) screens.hide(previous); }, { defer: true }));
+  createEffect(terminalId, (_id, previous) => { if (previous != null) untrack(() => screens.hide(previous)); });
 
   createEffect(() => {
     const host = screen();
@@ -181,7 +191,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     const focusPermission = rail.terminalFocus();
     const doorNotRunning = doorState() !== null;
 
-    if (!host || preparing()) return;
+    return { host, id, focusPermission, doorNotRunning, preparing: host !== undefined && preparing() };
+  }, ({ host, id, focusPermission, doorNotRunning, preparing }) => {
+    if (!host || preparing) return;
 
     if (id === null) {
       host.replaceChildren();
@@ -192,7 +204,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     untrack(() => {
       screens.resize(id, screens.show(id, host, false));
 
-      if (!rail.restored() && !doorNotRunning) {
+      // A modal layer keeps its focus; the Dialog's close returns focus to the pane.
+      if (!rail.restored() && !doorNotRunning && !modalOpen()) {
         // A mounted Drawer may still cover the centre until its dismissal effects settle.
         const focus = () => focusPermission(() => screens.emulatorFor(id).focus());
 
@@ -265,6 +278,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     },
   })));
 
+  provideFocusTarget("pane.terminal", () => untrack(screen)?.querySelector<HTMLElement>("textarea, [tabindex]"));
+
   // U162: the window's native File drop. The ring shows only while a drop would be taken.
   let body: HTMLElement | undefined;
 
@@ -285,11 +300,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       <div class="pane-origin">
 
       <div
-        class="pane-body"
-        classList={{ "drop-over": dropOver() }}
-        ref={(element) => { body = element; }}
+        class={["pane-body", { "drop-over": dropOver() }]}
+        ref={(element) => {
+          body = element;
+        }}
       >
-        <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); provideFocusTarget("pane.terminal", () => element.querySelector<HTMLElement>("textarea, [tabindex]")); resizeObserver?.observe(element); }} />
+        <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <div class="pane-over" style={overStyle(screens.rows(terminalId()))}>{props.over}</div>
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
@@ -305,7 +321,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
         <Show when={doorState()}>
           {(state) => (
-            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.launching(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.launching(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
+            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.launching(selected()!.id) || connected.daemonExit() !== null ? "true" : undefined} onClick={() => { if (!rail.launching(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
               </button>} />

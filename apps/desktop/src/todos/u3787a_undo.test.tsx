@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import { padHandlers } from "../testing/stores";
 import { padOf, AGENT, openPad } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
@@ -6,7 +7,6 @@ import { RpcError } from "../app/seam";
 import type { DeleteParams } from "@contracts/todo/DeleteParams";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { batch } from "solid-js";
 import { showEverythingInApp } from "../testing/showEverything";
 import { App } from "../App";
 import { createFakeApp, type FakeApp } from "../testing/fakeApp";
@@ -18,10 +18,11 @@ import { openProjectPage, projectMenu, questionProbe } from "../testing/menuProb
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { useBrowserStorage } from "../state/storage";
 import { historyRegion } from "../keys/focus";
+import { alerts } from "../toasts/toastFixture";
 
 stubDialogLayout();
 
-afterEach(() => batch(cleanup));
+afterEach(cleanup);
 
 let histories: Map<string, ConnectedProject>;
 
@@ -190,7 +191,9 @@ const pressUndo = () => {
   undoKey();
 };
 
-const undoKey = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
+const undoKey = () => {
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
+};
 
 it("u3787a_undo_stays_with_its_project", async () => {
   const { app, remove, connections } = await mount(false, true);
@@ -312,7 +315,7 @@ it("u3787a_dismissing_a_restore_failure_preserves_undo", async () => {
   pressUndo();
   const dismiss = await screen.findByRole("button", { name: "Dismiss" });
   fireEvent.click(dismiss);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(alerts()).toEqual([]);
   expect(connections.get("/a")!.drafts.undo.available("todo:5")).toBe(true);
 });
 
@@ -388,7 +391,8 @@ const showPads = async (name?: string) => {
 
     if (!groups.length) throw new Error("Pad groups are loading");
 
-    for (const control of document.querySelectorAll<HTMLElement>('.pads-tab [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+    for (const control of document.querySelectorAll<HTMLElement>('.pads-tab [data-shelf-group] .shelf-group-control')) if (control.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+    flush();
 
     if (name) expect([...document.querySelectorAll(".pads-tab .pad-name")].some(row => row.textContent === name)).toBe(true);
   });
@@ -581,7 +585,7 @@ for (const kind of ["todo", "pad"] as const) {
     fireEvent.click(row);
     fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
     await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(alerts()).toHaveLength(1);
     expect(row.getAttribute("aria-pressed")).toBe("true");
   });
 }
@@ -596,9 +600,11 @@ const draftBytes = "  未送信 é 🧭\n keep trailing spaces  ";
 const openSeventh = async (connections: Map<string, ConnectedProject>) => {
   const connected = connections.get("/a")!;
   connected.drawer.open(() => <TodoHost id={7} />, "key");
+  flush();
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
   const button = await within(drawer).findByRole<HTMLButtonElement>("button", { name: "More actions" });
 
+  await waitFor(() => expect(button.disabled).toBe(false));
   const field = await within(drawer).findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
   fireEvent.input(field, { target: { value: draftBytes } });
   button.focus();

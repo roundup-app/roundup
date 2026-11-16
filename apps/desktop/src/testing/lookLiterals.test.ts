@@ -55,7 +55,7 @@ describe("u130 the look-literal scanner", () => {
   });
 
   it("u130_scanner_allows_the_keywords_that_are_not_look_values", () => {
-    expect(literals("color: inherit;\n background: transparent;\n box-shadow: none;\n border-radius: 0;\n transition: none;\n font-size: inherit;\n transition-duration: 0s;\n animation-duration: 0ms;\n animation-timing-function: linear;\n transition-timing-function: steps(8);")).toEqual([]);
+    expect(literals("color: inherit;\n background: transparent;\n box-shadow: none;\n border-radius: 0;\n transition: none;\n font-size: inherit;\n border: revert;\n border-radius: revert;\n font: revert;\n transition-duration: 0s;\n animation-duration: 0ms;\n animation-timing-function: linear;\n transition-timing-function: steps(8);")).toEqual([]);
   });
 
   it("u130_scanner_flags_a_value_only_partly_a_var_read", () => {

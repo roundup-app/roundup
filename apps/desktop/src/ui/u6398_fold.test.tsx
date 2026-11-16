@@ -5,7 +5,8 @@ import { createSignal } from "solid-js";
 const engine = { animateLayout: vi.fn<FoldEngine["animateLayout"]>(), animate: vi.fn<FoldEngine["animate"]>() };
 
 import { Disclosure } from "./Disclosure";
-import { TreeView } from "./TreeView";
+import { AppTree } from "./TreeView";
+import { TreeGroup, TreeItem, TreeItemLabel } from "@ui-sdk/solid/tree";
 import { foldMotion } from "./fold";
 import type { FoldEngine } from "./fold";
 
@@ -23,34 +24,25 @@ afterEach(() => { stop(); cleanup(); });
 const surfaces = () => (
   <>
     <Disclosure label="More"><p>more row</p></Disclosure>
-    <TreeView.Root collection={tree}>
-      <TreeView.Tree>
-        <TreeView.NodeProvider node={tree.at([0])!} indexPath={[0]}><TreeView.Branch>
-          <TreeView.BranchControl>Group</TreeView.BranchControl>
-          <TreeView.BranchContent><TreeView.NodeProvider node={tree.at([0, 0])!} indexPath={[0, 0]}><TreeView.Item>leaf</TreeView.Item></TreeView.NodeProvider></TreeView.BranchContent>
-        </TreeView.Branch></TreeView.NodeProvider>
-      </TreeView.Tree>
-    </TreeView.Root>
+    <AppTree aria-label="Tree" mode="none" items={[{ value: "a", label: "Group", children: [{ value: "b", label: "leaf" }] }]}>
+      <TreeItem value="a"><TreeItemLabel>Group</TreeItemLabel><TreeGroup><TreeItem value="b"><TreeItemLabel>leaf</TreeItemLabel></TreeItem></TreeGroup></TreeItem>
+    </AppTree>
     {(() => {
       const [open, setOpen] = createSignal(false);
 
-      return <button type="button" class="rail-chevron" aria-expanded={open()} onClick={() => setOpen(!open())}>Plain</button>;
+      return <button type="button" class="rail-chevron" aria-expanded={open() ? "true" : "false"} onClick={() => setOpen(!open())}>Plain</button>;
     })()}
     <button type="button" aria-expanded="false">Tab</button>
   </>
 );
 
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
-
-const tree = createTreeCollection({ rootNode: { id: "root", name: "", children: [{ id: "a", name: "a", children: [{ id: "b", name: "b" }] }] } });
-
 it("u6398a_a_pointer_press_on_a_fold_starts_one_projection_through_the_fold_helper", async () => {
   install();
   render(surfaces);
 
-  for (const name of ["More", "Group", "Plain"]) {
+  for (const [role, name] of [["button", "More"], ["treeitem", "Group"], ["button", "Plain"]] as const) {
     engine.animateLayout.mockClear();
-    fireEvent.click(screen.getByRole("button", { name }), { detail: 1 });
+    fireEvent.click(screen.getByRole(role, { name }), { detail: 1 });
     expect(engine.animateLayout, name).toHaveBeenCalledOnce();
   }
 });
@@ -91,7 +83,7 @@ it("u6398a_a_press_that_changes_nothing_leaves_no_projection_behind", async () =
 it("u6398a_a_tree_branch_fades_its_leaving_rows_out_through_opacity", async () => {
   install();
   render(surfaces);
-  const group = screen.getByRole("button", { name: "Group" });
+  const group = screen.getByRole("treeitem", { name: "Group" });
   fireEvent.click(group, { detail: 1 });
   await new Promise(resolve => setTimeout(resolve, 80));
   engine.animate.mockClear();

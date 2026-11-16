@@ -34,13 +34,13 @@ it.skipIf(!captureDir("U4687a"))("u4687a_rendered_controls_and_preview", async (
     await lane.browser("click", "[role=tab][data-value=Appearance]");
 
     for (const id of ids) await lane.capture(id, "head/appearance");
-    await lane.browser("click", "[data-scope=segment-group][data-part=item][aria-label=Large]");
+    await lane.browser("click", "[data-slot=segmented-control-item][aria-label=Large]");
     await lane.until("document.documentElement.dataset.interfaceScale === 'large'");
     await lane.capture("U4687a", "head/scale-large");
-    await lane.browser("click", "[data-scope=segment-group][data-part=item][aria-label=Small]");
+    await lane.browser("click", "[data-slot=segmented-control-item][aria-label=Small]");
     await lane.until("document.documentElement.dataset.interfaceScale === 'small'");
     await lane.capture("U4687a", "head/scale-small");
-    await lane.browser("click", "[data-scope=segment-group][data-part=item][aria-label=Default]");
+    await lane.browser("click", "[data-slot=segmented-control-item][aria-label=Default]");
     await lane.browser("click", "[role=switch]");
     await lane.until("document.documentElement.dataset.focusMarkers === 'true'");
     await lane.capture("U4687d", "head/marker-on");
@@ -70,6 +70,7 @@ it.skipIf(!captureDir("U4687a"))("u4687a_rendered_controls_and_preview", async (
     await lane.browser("press", "Enter");
     await lane.until("document.body.textContent.includes('Choose a font size')");
     await lane.capture("U4687a", "head/refused");
+    expect(await lane.evaluate("({ shown: document.querySelector(\"input[aria-label='Font size']\").value, saved: JSON.parse(localStorage.getItem('roundup:app-settings')).fontSize })")).toEqual({ shown: "", saved: 9 });
     expect((await lane.calls()).slice(calls.length).filter(call => call.method === "terminal.create" || call.method === "terminal.write")).toEqual([]);
   } finally { if (recording) await lane.browser("record", "stop"); }
 }, 60_000);
@@ -126,7 +127,7 @@ it.skipIf(!captureDir("U4687a"))("u4687b_rendered_family_and_weight_choices", as
   await lane.until("!!document.querySelector('.settings-preview .xterm')");
 
   for (const weight of [300, 400, 500, 600]) {
-    await lane.browser("click", "[data-scope=segment-group][data-part=item][aria-label='" + weight + "']");
+    await lane.browser("click", "[data-slot=segmented-control-item][aria-label='" + weight + "']");
     await lane.capture("U4687b", "head/weight-" + weight);
   }
 

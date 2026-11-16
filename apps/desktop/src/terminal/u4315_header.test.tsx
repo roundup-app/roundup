@@ -3,6 +3,7 @@ import { openLane } from "../todos/laneBrowser";
 import { agent, door, workstream } from "../testing/nodes";
 import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 
@@ -72,6 +73,7 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
   daemon.handlers["project.importCommit"] = () => new Promise(resolve => { settle = resolve; });
   const commits = () => daemon.calls.filter(call => call.method === "project.importCommit");
   connected().rail.select("a0");
+  flush();
   openProjectPage("import-work", "/p");
   const region = await screen.findByRole("region", { name: "Import Claude Code" });
   const panel = within(region);
@@ -121,8 +123,8 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
     openProjectPage("import-work", "/p");
     await waitFor(() => expect(connected().importing.loading()).toBe(false));
     const reopened = within(await screen.findByRole("region", { name: "Import Claude Code" }));
-    expect(reopened.getByRole("checkbox", { name: /First work/ })).toHaveProperty("checked", true);
-    expect(reopened.getByRole("checkbox", { name: /Second work/ })).toHaveProperty("checked", true);
+    expect(reopened.getByRole("checkbox", { name: /First work/ }).getAttribute("aria-checked")).toBe("true");
+    expect(reopened.getByRole("checkbox", { name: /Second work/ }).getAttribute("aria-checked")).toBe("true");
     expect(reopened.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
     expect(connected().project.path).toBe("/p");
   }

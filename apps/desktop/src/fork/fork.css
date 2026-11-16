@@ -36,12 +36,12 @@
   flex-basis: 100%;
 }
 
-.fork-swatches .app-radio-mark[data-state="checked"]::after {
+.fork-swatches .app-radio-dot {
   background: var(--ground);
 }
 
 /* The colour word stays as the accessible name; the dot is the visible choice. */
-.fork-swatches [data-part="item-text"] {
+.fork-swatches .app-radio-text {
   position: absolute;
   inline-size: 0;
   block-size: 0;

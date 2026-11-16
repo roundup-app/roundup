@@ -1,5 +1,5 @@
 import "./FirstRun.css";
-import { createResource, For, Show } from "solid-js";
+import { createMemo, For, refresh, Show } from "solid-js";
 import { registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
 import { EmptyState } from "../ink/EmptyState";
@@ -8,8 +8,10 @@ import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 
 export const ChooseProject = (props: { app: App; failure: string | null; onOpen: (path: string) => void; onChoose: () => void; onRetry?: (() => void) | undefined }) => {
-  const [recent, { refetch: refetchRecent }] = createResource(() => props.app.recentProjects().then(paths => ({ paths, failure: null })).catch((error: Error) => ({ paths: [], failure: error.message })));
-  const [binary, { refetch: refetchBinary }] = createResource(() => props.app.claudeBinary().then(value => ({ value, failure: null })).catch((error: Error) => ({ value: null, failure: error.message })));
+  const readRecent = () => props.app.recentProjects().then(paths => ({ paths, failure: null })).catch((error: Error) => ({ paths: [], failure: error.message }));
+  const readBinary = () => props.app.claudeBinary().then(value => ({ value, failure: null })).catch((error: Error) => ({ value: null, failure: error.message }));
+  const recent = createMemo<Awaited<ReturnType<typeof readRecent>> | undefined>(readRecent, { loadingValue: undefined });
+  const binary = createMemo<Awaited<ReturnType<typeof readBinary>> | undefined>(readBinary, { loadingValue: undefined });
 
   const failureLine = dismissable(() => props.failure);
   const recentLine = dismissable(() => recent()?.failure);
@@ -22,13 +24,13 @@ export const ChooseProject = (props: { app: App; failure: string | null; onOpen:
       <ReservedLine message={failureLine.message()} dismiss={failureLine.dismiss} recover={props.onRetry ? { run: props.onRetry } : undefined} />
       <Show when={!props.failure}><EmptyState art="strolling" {...{ title: copy.openAFolderToStart }} actions={[{ label: copy.chooseFolder, chord: CHORDS["project.choose-folder"], run: props.onChoose }]} /></Show>
       <Show when={props.failure}><button data-button="primary" type="button" onClick={() => props.onChoose()}>{copy.chooseFolder}</button></Show>
-      <Show when={recent()?.failure}><ReservedLine message={recentLine.message()} dismiss={recentLine.dismiss} recover={{ run: () => void refetchRecent() }} /></Show>
+      <Show when={recent()?.failure}><ReservedLine message={recentLine.message()} dismiss={recentLine.dismiss} recover={{ run: () => refresh(recent) }} /></Show>
       <Show when={recent()?.paths.length}>
         <ul aria-label={copy.recentFolders}>
           <For each={recent()?.paths.slice(0, 5)}>{path => <li><button data-button="quiet" type="button" onClick={() => props.onOpen(path)}>{path}</button></li>}</For>
         </ul>
       </Show>
-      <Show when={binary()}>{fact => <Show when={fact().value} fallback={<ReservedLine message={binaryLine.message()} dismiss={binaryLine.dismiss} recover={{ run: () => void refetchBinary() }} />}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>}</Show>
+      <Show when={binary()}>{fact => <Show when={fact().value} fallback={<ReservedLine message={binaryLine.message()} dismiss={binaryLine.dismiss} recover={{ run: () => refresh(binary) }} />}>{value => <p>{copy.claudeBinary(value().version, value().path)}</p>}</Show>}</Show>
     </div>
   );
 };

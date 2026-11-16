@@ -12,7 +12,7 @@ export const Line = (props: { label: string; class?: string | undefined }) => {
 
   return (
     <Tip text={props.label} cut={cut}>
-      {trigger => <span {...trigger()} ref={ref} class={`failure-line ${props.class ?? ""}`} data-failure="">{props.label}</span>}
+      {trigger => <span {...trigger({ ref })} class={`failure-line ${props.class ?? ""}`} data-failure="">{props.label}</span>}
     </Tip>
   );
 };

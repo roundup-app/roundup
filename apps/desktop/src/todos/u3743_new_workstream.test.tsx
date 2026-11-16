@@ -8,7 +8,7 @@ afterEach(cleanup);
 
 const pick = async (radio: HTMLElement) => {
   fireEvent.click(radio);
-  await waitFor(() => expect(radio.closest("label")?.getAttribute("data-state")).toBe("checked"));
+  await waitFor(() => expect(radio.getAttribute("aria-checked")).toBe("true"));
 };
 
 const mount = () => mountTodos([todo(1, { title: "Ship the login fix", owner: { kind: "user", id: "you", parent: null } }), todo(2, { title: "Write docs" }), todo(3, { title: "Done thing", done: true })], true, [agent("a", "idle", "A", { name: "alpha" })]);
@@ -44,7 +44,7 @@ it("u3743_create_calls_start_workstream_once_with_the_chosen_start", async () =>
 
   expect(dialog.getByLabelText<HTMLTextAreaElement>("Workstream name").value).toBe("Ship the login fix");
   expect(dialog.getAllByRole("radio").map(radio => radio.closest("label")?.textContent)).toEqual(["Start now", "Start when free", "Start after Todo"]);
-  expect(dialog.getByRole<HTMLInputElement>("radio", { name: "Start when free" }).checked).toBe(true);
+  expect(dialog.getByRole("radio", { name: "Start when free" }).getAttribute("aria-checked")).toBe("true");
   await pick(dialog.getByRole("radio", { name: "Start now" }));
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Login" } });
   fireEvent.click(dialog.getByRole("button", { name: "Create" }));

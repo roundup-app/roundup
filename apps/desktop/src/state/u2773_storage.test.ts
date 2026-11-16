@@ -1,13 +1,13 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createComponent, createComputed, createRoot, useContext } from "solid-js";
+import { createComponent, createEffect, createRoot, flush, useContext } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, terminal } from "../testing/nodes";
-import { ConnectedProjectContext, ProjectDraftsContext, useConnectedProject, createProjectDrafts } from "./connectedProject";
+import { ProjectDraftsContext, useConnectedProject, createProjectDrafts } from "./connectedProject";
 import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
@@ -139,8 +139,8 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", async () => {
   const observations: ReturnType<typeof drafts.problem>[] = [];
 
   const stop = createRoot((dispose) => {
-    for (const [index, consumer] of [drafts, authority("/project/a")].entries()) createComputed(() => {
-      observations[index] = consumer.problem();
+    for (const [index, consumer] of [drafts, authority("/project/a")].entries()) createEffect(() => consumer.problem(), problem => {
+      observations[index] = problem;
     });
 
     return dispose;
@@ -148,6 +148,7 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", async () => {
 
   const failure = { project: "/project/a", destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" };
   expect(drafts.validate("todos", v.object({ title: v.string() }))).toEqual(failure);
+  flush();
   expect(observations).toEqual([failure, failure]);
   const a = (await retained(drafts.edit(incompatible.destination, { title: "submitted" }, null, "ordinary"))).draft;
   expect((await drafts.submit(a.revision))?.problem).toEqual(failure);
@@ -329,14 +330,7 @@ const openDraftProjects = async () => {
   const paths = [join(directory, "a"), join(directory, "b")];
   const app = createFakeApp();
   const seen: ConnectedProject[] = [];
-  let header: { drafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined; connected: ConnectedProject | undefined } | undefined;
-  const setWindowTitle = app.setWindowTitle;
-
-  // WindowBar invokes this existing App seam from outside ConnectedProjectContext.
-  app.setWindowTitle = async (title) => {
-    header ??= { drafts: useContext(ProjectDraftsContext), connected: useContext(ConnectedProjectContext) };
-    await setWindowTitle(title);
-  };
+  let authority: ReturnType<typeof createProjectDrafts> | null | undefined;
 
   const emulators = fakeEmulators();
 
@@ -350,6 +344,8 @@ const openDraftProjects = async () => {
   const view = render(() => createComponent(App, {
     app, reducedMotion: () => false, clock: () => 0,
     createEmulator: (id) => {
+      // A component reads the Project authority at render, where an owner holds the context; the App provides it once, above the header and every Pane.
+      authority ??= useContext(ProjectDraftsContext);
       seen.push(useConnectedProject());
 
       return emulators.factory(id);
@@ -368,7 +364,7 @@ const openDraftProjects = async () => {
     return connection(index)!;
   };
 
-  return { app, paths, select, connection, header: () => header, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
+  return { app, paths, select, connection, authority: () => authority, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
 };
 
 it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s", async (status) => {
@@ -387,6 +383,7 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
     const returned = await opened.select(0);
     expect(returned.drafts.list()).toEqual([{ ...a, status }, b]);
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(opened.connection(0)).not.toBe(first));
     const replaced = await opened.select(0);
@@ -419,18 +416,17 @@ it("u2773h_shared_consumers_observe_capacity", async () => {
 
   try {
     const connected = await opened.select(0);
-    const authority = opened.header();
-    expect(authority?.drafts).toBeDefined();
-    expect(authority?.connected).toBeUndefined();
-    const header = authority!.drafts!(connected.project.path);
+    const authority = opened.authority();
+    expect(authority).toBeTruthy();
+    const header = authority!(connected.project.path);
     expect(header).toBe(connected.drafts);
     const observations: { records: ReturnType<typeof connected.drafts.list>; problem: ReturnType<typeof connected.drafts.problem> }[] = [];
     createRoot((dispose) => {
       stop = dispose;
 
       // Independent readers track the same holder, as two mounted surface owners do.
-      for (const [index, owner] of [header, connected.drafts].entries()) createComputed(() => {
-        observations[index] = { records: owner.list(), problem: owner.problem() };
+      for (const [index, owner] of [header, connected.drafts].entries()) createEffect(() => ({ records: owner.list(), problem: owner.problem() }), observed => {
+        observations[index] = observed;
       });
     });
     const a = (await edit(connected.drafts, "a".repeat(6 * 1024 * 1024)));
@@ -460,6 +456,7 @@ it("u2773e_shared_project_credentials_stay_memory_only_across_replacement", asyn
     const first = await opened.select(0);
     const secret = (await retained(first.drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-shared-2812" }, null, "credential"))).draft;
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(opened.connection(0)).not.toBe(first));
     const replaced = await opened.select(0);

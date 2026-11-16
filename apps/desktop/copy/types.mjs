@@ -9,7 +9,7 @@ export function copyKeyTypes(files, root) {
   const options = {
     target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.Preserve,
-    jsxImportSource: 'solid-js', strict: true, skipLibCheck: true, types: [],
+    jsxImportSource: '@solidjs/web', strict: true, skipLibCheck: true, types: [],
     baseUrl: resolve(root, '..'), paths: { '@contracts/*': ['../../contracts/generated/*'] },
   };
 

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -21,7 +22,7 @@ const TREE = [
 const mountBoth = async (tree = TREE) => {
   const mounted = await mountRail(tree);
 
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><RailStrip /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={mounted.connected}><RailStrip /></ConnectedProjectContext>);
 
   return { ...mounted, strip: document.querySelector<HTMLElement>(".rail-strip")! };
 };
@@ -37,6 +38,7 @@ it("u6228_a_mark_rolls_up_the_state_its_rail_row_shows", async () => {
 
   // A folded Rail row is the one that rolls its Agents up; the strip marks are always folded.
   for (const id of ["ship", "calm"]) rail.toggleCollapsed(id);
+  flush();
 
   for (const id of ["ship", "calm"]) expect(mark(strip, id).dataset.kind, id).toBe(railRow(id).dataset.kind);
 

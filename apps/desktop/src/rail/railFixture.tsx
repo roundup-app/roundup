@@ -1,8 +1,8 @@
 // fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
-import { createSignal, Show } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createSignal, flush, Show, type Accessor } from "solid-js";
+import type { TreeItemData } from "@ui-sdk/solid/tree";
 import type { DaemonExit } from "../app/seam";
 import type { Machine } from "@contracts/machine/Machine";
 import type { Pad } from "@contracts/pad/Pad";
@@ -15,7 +15,7 @@ import { DrawerHost } from "../drawer/DrawerHost";
 import { Pane } from "../terminal/Pane";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { AttentionKey } from "./AttentionKey";
-import { DockBadge } from "./DockBadge";
+import { createDockBadge } from "./DockBadge";
 import { attentionHolders } from "./attention";
 import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
@@ -56,11 +56,11 @@ export const mountRail = async (
   render(() => {
     connected.worktrees.watch(() => true);
     connected.machines.watch(() => true);
+    createDockBadge({ app, rails: () => [{ alerts: "all", nodes: attentionHolders(connected.rail.nodes, connected.rail.terminals(), connected.rail.dismissed) }], onFailure: () => {} });
 
     return (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <AttentionKey />
-        <DockBadge app={app} rails={() => [{ alerts: "all", nodes: attentionHolders(connected.rail.nodes, connected.rail.terminals(), connected.rail.dismissed) }]} onFailure={() => {}} />
         <Rail />
         <Show when={neighbors.pane}>
           <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
@@ -69,11 +69,12 @@ export const mountRail = async (
         <Show when={neighbors.drawer}>
           <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
         </Show>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     );
   });
 
-  return { app, rail: connected.rail, connected, setNow };
+  // The clock reads as soon as it moves, as a Solid 1 write did.
+  return { app, rail: connected.rail, connected, setNow: (value: number) => { setNow(value); flush(); } };
 };
 
 /** The treeitem of the row named `name`: the element that carries `data-id`, `aria-level` and `aria-expanded`. */
@@ -85,12 +86,11 @@ export const itemOf = (name: string): HTMLElement => {
   return row;
 };
 
-/** The row named `name` as the user focuses and clicks it: Ark's item, or the control of a branch. */
-export const rowOf = (name: string): HTMLElement => {
-  const item = itemOf(name);
+/** The row named `name` as the user focuses and clicks it: its treeitem, the same element as `itemOf` (imported by tests outside rail/). */
+export const rowOf = itemOf;
 
-  return item.matches('[data-part="branch"]') ? item.querySelector<HTMLElement>('[data-part="branch-control"]')! : item;
-};
+/** The values of a tree's items at every depth, in walk order. */
+export const itemValues = (items: readonly TreeItemData[]): string[] => items.flatMap(item => [item.value, ...itemValues(item.children ?? [])]);
 
 export const rowGlyph = (name: string): HTMLElement => {
   const glyph = rowOf(name).querySelector<HTMLElement>(".glyph");
@@ -104,7 +104,7 @@ export const rowNames = (): string[] =>
   screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id") && !row.dataset.id?.startsWith("fold:")).map((row) => row.querySelector(".name")?.textContent ?? "");
 
 export const tabbableRows = (): HTMLElement[] =>
-  [...document.querySelectorAll<HTMLElement>('[role="tree"] [data-part="item"], [role="tree"] [data-part="branch-control"]:not(.section-head)')].filter((row) => row.tabIndex === 0);
+  [...document.querySelectorAll<HTMLElement>('[role="tree"] [role="treeitem"]:not(.section-head)')].filter((row) => row.tabIndex === 0);
 
 export const railCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>
   app.calls.filter((call) => call.method === method).map((call) => call.params);
@@ -117,7 +117,7 @@ export const chord = (key: string): void => {
 /** U191: the one add in the pinned line. */
 export const pinnedAdd = (): HTMLElement => screen.getByRole("button", { name: "Create" });
 
-/** Ark's tree reads a key or a click on a microtask: await this before asserting what the press did. */
+/** A key or a click lands on a later task: await this before asserting what the press did. */
 export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
 
 /** Exercises the native action path without selecting or opening its row. */

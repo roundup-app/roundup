@@ -1,4 +1,4 @@
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
 import { createProjectView } from "./projectView";
 
@@ -18,8 +18,10 @@ describe("U4457 a request opens the Shelf where it is made", () => {
     const { view: v } = view();
 
     v.createIn("pad", "w1");
+    flush();
     expect(v.creation()).toEqual({ kind: "pad", home: "w1" });
     v.finishCreation();
+    flush();
     expect(v.creation()).toBeNull();
   });
 
@@ -27,6 +29,7 @@ describe("U4457 a request opens the Shelf where it is made", () => {
     const { openShelf, view: v } = view();
 
     v.createIn("terminal", "w1");
+    flush();
     expect(openShelf).not.toHaveBeenCalled();
     expect(v.creation()?.kind).toBe("terminal");
   });
@@ -35,6 +38,7 @@ describe("U4457 a request opens the Shelf where it is made", () => {
     const { openShelf, view: v } = view();
 
     v.showPadsOf("a1");
+    flush();
     expect(openShelf).toHaveBeenCalledExactlyOnceWith("todos");
     expect(v.padsRequest()).toBe("a1");
     expect(v.padsOwner()).toBe("a1");

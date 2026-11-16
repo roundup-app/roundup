@@ -1,4 +1,4 @@
-import { cleanup, waitFor, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "./owner";
@@ -22,6 +22,8 @@ describe("u431 the Drawer's head", () => {
 
     // The one-row layout itself is measured in the real-browser harness: the observe.sh of U431.
     for (const button of buttons.filter(button => !button.title)) {
+      // The tooltip opens on a keyboard focus, so a key press comes first.
+      fireEvent.keyDown(document, { key: "Tab" });
       button.focus();
       const tooltip = await screen.findByRole("tooltip", { name: button.getAttribute("aria-label")! });
       expect(tooltip.textContent).toBe(button.getAttribute("aria-label"));

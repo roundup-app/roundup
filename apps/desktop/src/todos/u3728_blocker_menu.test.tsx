@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, flush } from "solid-js";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TodoMeta } from "./TodoMeta";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -25,7 +25,8 @@ const rows = () => screen.queryAllByRole("option").map((option) => option.textCo
 
 it("u3728_blocker_menu_filters_picks_and_escapes", async () => {
   const { app, button } = await openMenu();
-  expect(within(panel()).queryByRole("option")).toBeNull();
+  // The menu's rows live only in its floating surface, never as rows of the Drawer itself.
+  expect(within(panel()).queryAllByRole("option").filter(option => option.closest("[popover]") === null)).toEqual([]);
   const input = screen.getByRole("combobox");
   input.focus();
   fireEvent.input(input, { target: { value: "#3" } });
@@ -156,10 +157,12 @@ it("u5644c_both_menus_bound_graph_work across opening filtering selection and re
   const mounted = render(() => {
     const graph = createMemo(() => blockerGraph(all()));
 
-    return <ConnectedProjectContext.Provider value={connected}>
+    return <ConnectedProjectContext value={connected}>
     <TodoMeta todo={selected()} graph={graph()} toggle={async () => null} change={() => {}} owner="Unassigned" assign={() => {}} fail={() => {}} />
-  </ConnectedProjectContext.Provider>;
+  </ConnectedProjectContext>;
   });
+
+  flush();
 
   // One build reads three source blocker lists; one direct-edge set reads the selection.
   expect(sourceReads).toBe(4);
@@ -185,13 +188,16 @@ it("u5644c_both_menus_bound_graph_work across opening filtering selection and re
 
   expect(sourceReads).toBe(4);
   setSelected(original[1]!);
+  flush();
   expect(sourceReads).toBe(5);
   const input = await open("Blocked by");
   expect(rows()).toEqual(["todo 1#1", "todo 3#3"]);
   await close(input);
   const replacement = [counted(1, [2]), counted(2, []), counted(3, [2])];
   setAll(replacement);
+  flush();
   setSelected(replacement[1]!);
+  flush();
   const updated = await open("Blocked by");
   expect(rows()).toEqual([]);
   await close(updated);

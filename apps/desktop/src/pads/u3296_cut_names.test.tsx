@@ -59,7 +59,7 @@ it("u3296a_a_pad_name_opens_no_tooltip", async () => {
   await openShelf([padOf(LONG, USER)]);
   const row = await screen.findByText(LONG);
 
-  fireEvent.pointerMove(row, { pointerType: "mouse" });
+  fireEvent.pointerEnter(row, { pointerType: "mouse" });
   row.closest("button")?.focus();
   await new Promise((done) => setTimeout(done, 600));
   expect(screen.queryByRole("tooltip")).toBeNull();
@@ -69,7 +69,7 @@ it("u3296a_a_drawer_pad_name_opens_no_tooltip", async () => {
   layout(400);
   const name = await drawerName();
 
-  fireEvent.pointerMove(name, { pointerType: "mouse" });
+  fireEvent.pointerEnter(name, { pointerType: "mouse" });
   await new Promise((done) => setTimeout(done, 600));
   expect(screen.queryByRole("tooltip")).toBeNull();
 });

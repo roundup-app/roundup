@@ -2,6 +2,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.app-segments[data-disabled] {
+  opacity: 1;
 }
 
 .app-segments-label {
@@ -18,37 +26,26 @@
 .app-segment {
   position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
+  height: auto;
   min-height: var(--space-5);
   padding: 0 var(--space-2);
   color: var(--grey);
   font-size: var(--text-small);
+  font-weight: inherit;
   cursor: pointer;
 }
 
-.app-segment[data-state="checked"] {
+.app-segment[data-checked] {
   color: var(--text);
   font-weight: 600;
 }
 
-.app-segment:has(input:hover:not(:disabled)),
-.app-segment input:hover:not(:disabled) {
+.app-segment:hover:not([data-disabled]) {
   color: var(--text);
 }
 
-.app-segment input {
-  position: absolute;
-  font-size: inherit;
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.app-segment:has(input[data-pressed="true"]:not(:disabled)),
-.app-segment:has(input:focus-visible:not(:disabled)):has([data-part="item-control"][data-active]) {
-  color: var(--text);
-  opacity: var(--press-opacity);
+.app-segment[data-disabled] {
+  color: var(--disabled);
 }

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { mountTodos, todo } from "./testHarness";
 
 afterEach(cleanup);
@@ -24,7 +24,8 @@ it("u3797_the_triage_tooltip_holds_the_t_chord", async () => {
   await mountTodos([todo(1)], true);
   const button = await screen.findByRole("button", { name: "Triage" });
 
-  fireEvent.pointerOver(button, { pointerType: "mouse" });
+  vi.spyOn(button, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 20));
+  fireEvent.pointerEnter(button, { pointerType: "mouse", clientX: 10, clientY: 10 });
   const tip = await screen.findByRole("tooltip");
   expect(tip.textContent).toContain("Triage");
   expect(tip.textContent).toContain("T");

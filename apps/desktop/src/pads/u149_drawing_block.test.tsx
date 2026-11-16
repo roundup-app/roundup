@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { copy } from "./copy";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
@@ -248,6 +249,7 @@ it.each([
   const [first, ...rest] = current().initialData.elements;
   const moved = [{ ...first!, version: 2, type: "rectangle" }, { ...rest[0]!, type: "text" }, { ...rest[1]!, type: "arrow" }];
   current().onChange(moved);
+  flush();
   expect(loads).toHaveLength(1);
   const retained = connected.drafts.list().at(-1)!;
   expect(retained.value.base).toBe(source);

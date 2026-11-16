@@ -26,5 +26,5 @@ it.each([
   await new Promise(resolve => setTimeout(resolve, 400));
   await lane.browser("press", "Escape");
   await new Promise(resolve => setTimeout(resolve, 600));
-  expect(await lane.evaluate(`({ ask: !!document.querySelector('.ask-input'), list: !!document.querySelector('.app-select-list [role=option]'), focus: document.activeElement?.getAttribute('aria-label') })`)).toEqual({ ask: true, list: false, focus: chip });
+  expect(await lane.evaluate(`({ ask: !!document.querySelector('.ask-input'), list: document.querySelector('.app-select-list [role=option]')?.checkVisibility() ?? false, focus: document.activeElement?.getAttribute('aria-label') })`)).toEqual({ ask: true, list: false, focus: chip });
 }, 120_000);

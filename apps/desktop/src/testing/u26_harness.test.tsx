@@ -10,8 +10,8 @@ import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { doorOf, event } from "./nodes";
-import { batch } from "solid-js";
 import { showEverythingInApp } from "./showEverything";
+import { notice } from "./notices";
 
 const NOW = 1_700_000_000_000;
 
@@ -35,7 +35,7 @@ const rail = () => screen.findByRole("region", { name: copy.rail });
 vi.mock("../pads/PadRichEditor", () => ({ default: () => null }));
 
 // Dispose siblings together so teardown does not rerender the dense Shelf between removals.
-afterEach(() => batch(cleanup));
+afterEach(() => cleanup());
 
 describe("u26 the harness seeds", () => {
   it("u143_the_stopped_door_seed_restarts_from_its_menu", async () => {
@@ -67,7 +67,7 @@ describe("u26 the harness seeds", () => {
   it("u26_daemon_exits_shows_the_exit_in_the_centre", async () => {
     mount("daemon-exits");
 
-    const line = await screen.findByRole("alert");
+    const line = await waitFor(() => notice("alert"));
 
     expect(line.textContent).toBe(appCopy.daemonExit("exited 1"));
   });
@@ -115,7 +115,9 @@ describe("u26 the harness seeds", () => {
     const list = pad.closest<HTMLElement>(".pads-tab")!;
 
     for (const group of list.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
-      if (group.contains(pad) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+      const folded = group.querySelector<HTMLElement>('.shelf-group-control[aria-expanded="false"]');
+
+      if (group.contains(pad) && folded) fireEvent.click(folded);
     }
 
     await waitFor(() => expect(pad.closest("[hidden]")).toBeNull());

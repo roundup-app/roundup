@@ -2,13 +2,12 @@ import { doorStatus } from "../state/doorNode";
 import "../ui/Row.css";
 import { Inbox } from "../inbox/Inbox";
 import { AskRows } from "./AskRows";
-import { useDialog } from "@ark-ui/solid/dialog";
-import { Presence } from "@ark-ui/solid/presence";
+import { Dialog, DialogContent } from "@ui-sdk/solid/dialog";
 import { captureFocus, focusTarget, provideFocusTarget, queueFocus } from "../keys/focus";
-import type { JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, For, Show, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { createItemFailures } from "../ink/itemFailures";
 import { createWritableMemo } from "@solid-primitives/memo";
-import { batch, untrack, createEffect, createMemo, createSignal, For, Index, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "./copy";
@@ -129,9 +128,10 @@ export const AskBar = (props: {
 
   const restoreSelection = (element: HTMLTextAreaElement) => {
     field = element;
-    const caret = current()?.selection;
 
+    // Read once the writes that chose the current draft have settled.
     queueMicrotask(() => {
+      const caret = current()?.selection;
 
       if (element.isConnected && caret) element.setSelectionRange(caret.start, caret.end, caret.direction);
     });
@@ -161,38 +161,30 @@ export const AskBar = (props: {
     else sendLine.dismiss();
   };
 
-  let panel: HTMLElement | undefined;
+  const [panel, setPanel] = createSignal<HTMLElement>();
   let field: HTMLTextAreaElement | undefined;
 
   let openingFocus = captureFocus();
   let selectedPane = false;
 
-  const dialog = useDialog(() => ({
-    open: over(), modal: false, trapFocus: true, preventScroll: false,
-    restoreFocus: true, closeOnInteractOutside: true,
-    "aria-label": copy.askBarLabel,
-    initialFocusEl: () => openingFocus.target(() => {
-      if (field) restoreSelection(field);
+  provideFocusTarget("ask.input", () => field);
 
-      return field;
-    }),
-    finalFocusEl: () => selectedPane
-      ? focusTarget("thread.composer")
-        ?? focusTarget("pane.terminal")
-        ?? selectedRailRow()
-      : null,
-    // Background layers may close while Ask remains the newer focus owner.
-    onRequestDismiss: event => event.preventDefault(),
-    onOpenChange: details => { if (!details.open) close(true); },
-  }));
+  const initialFocus = () => openingFocus.target(() => {
+    if (field) restoreSelection(field);
+
+    return field;
+  });
+
+  const finalFocus = () => selectedPane
+    ? focusTarget("thread.composer")
+      ?? focusTarget("pane.terminal")
+      ?? selectedRailRow()
+    : null;
 
   // Requested lists show with nothing selected; the Made list shows over any selection.
   const listed = () => optionalViews.some(connected.hasView) || rail.selected() === null && (connected.hasView("attention") || connected.hasView("workstreams"));
-  const shown = () => over() || listed();
 
-  createEffect(() => {
-    if (over()) onCleanup(drafts.editor(destination));
-  });
+  createEffect(createMemo(over), open => open ? drafts.editor(destination) : undefined);
 
   asks.load();
   const [treeReady, setTreeReady] = createSignal(false);
@@ -213,14 +205,15 @@ export const AskBar = (props: {
   }, null);
 
   const close = (restore: boolean): void => {
-    if (optionalViews.some(connected.hasView)) optionalViews.forEach(connected.hideView);
+    if (untrack(() => optionalViews.some(connected.hasView))) optionalViews.forEach(connected.hideView);
     selectedPane = !restore;
-    batch(() => { setOpening(null); setSelected(null); });
+    setOpening(null);
+    setSelected(null);
 
     if (field?.isConnected) restoreSelection(field);
   };
 
-  createEffect(() => { if (over() && modalOutside(panel)) close(false); });
+  createEffect(createMemo(() => over() && panel() !== undefined && modalOutside(panel())), outside => { if (outside) close(false); });
 
   const open = (): void => {
     if (modalOpen()) return;
@@ -229,17 +222,15 @@ export const AskBar = (props: {
     setOpening("over");
   };
 
-  createEffect(() => {
-    const recovery = props.recovery;
+  // A retained draft opens once, from the drafts and the Project as they are when the recovery arrives.
+  createEffect(createMemo(() => props.recovery), recovery => untrack(() => {
+    if (!recovery || recovery.project !== connected.project.path) return;
+    const draft = records().find(entry => entry.revision === recovery.revision);
 
-    untrack(() => {
-      if (!recovery || recovery.project !== connected.project.path) return;
-      const draft = records().find(entry => entry.revision === recovery.revision);
-
-      if (!draft || draft.status === "pending" || drafts.availability(draft, connected) !== "available") return;
-      batch(() => { setSelected(draft.revision); open(); });
-    });
-  });
+    if (!draft || draft.status === "pending" || drafts.availability(draft, connected) !== "available") return;
+    setSelected(draft.revision);
+    open();
+  }));
 
   registerKeys({ kind: "app" }, [{
     action: CHORDS["ask.open"],
@@ -247,10 +238,10 @@ export const AskBar = (props: {
     capture: () => ({ available: () => daemonExit() === null && !over(),
     invoke: open }),
   }]);
-  const scope: KeyScope = { kind: "layer", element: () => panel, active: over, modal: true };
+  const scope: KeyScope = { kind: "layer", element: panel, active: over, modal: true };
 
   registerKeys(scope, [
-    { chords: chordsOf(CHORDS["ask.open"]), run: (press) => { if (!press.repeat) close(true); } },
+    { chords: untrack(() => chordsOf(CHORDS["ask.open"])), run: (press) => { if (!press.repeat) close(true); } },
     { chords: ASK_CLOSE, when: event => !(event.target instanceof Element && event.target.closest(".app-select-list, [aria-expanded=true]")), run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
@@ -294,6 +285,8 @@ export const AskBar = (props: {
     const value = `@${node.name} `;
 
     setText(value, id);
+    // The field and the stored selection below read the completed text.
+    flush();
     field?.focus({ preventScroll: true });
     field?.setSelectionRange(value.length, value.length);
     retainSelection();
@@ -318,11 +311,11 @@ export const AskBar = (props: {
   };
 
   return (<>
-    <Show when={shown()}>
-      <section {...(over() ? dialog().getContentProps() : {})} role={over() ? "dialog" : "region"} class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
-        <Show when={over()}><div class="ask-compose">
+    <Dialog open={over()} modal="trap-focus" closeOnOutsidePress onOpenChange={isOpen => { if (!isOpen) close(true); }}>
+      <DialogContent class="ask-bar" data-mode="over" aria-label={copy.askBarLabel} initialFocus={initialFocus} finalFocus={finalFocus} ref={setPanel}>
+        <div class="ask-compose">
         <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
-          <Mentions.Field class="ask-input" ref={element => { provideFocusTarget("ask.input", element); restoreSelection(element); }}
+          <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} row={item => {
@@ -338,15 +331,15 @@ export const AskBar = (props: {
 
             const dismissed = () => node() !== undefined && rail.dismissed(node()!);
 
-            return <><KindGlyph decorative kind={shownKind(doorStatus(node()), dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={cutRef} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(doorStatus(node()), false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
+            return <><KindGlyph decorative kind={shownKind(doorStatus(node()), dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger({ ref: cutRef })} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><Show when={errorCause(doorStatus(node()), false)}>{cause => <ReservedLine status={cause()} />}</Show></Show></>;
           }} /></Show>
         </Mentions.Root>
         <Show when={projectPick.chips().length > 0}><div class="ask-choices ask-chips">
-          <Index each={projectPick.chips()}>{(chip, index) => <span class="ask-chip">
+          <For each={projectPick.chips()} keyed={false}>{(chip, index) => <span class="ask-chip">
             <span class="ask-chip-lead">{projectPick.chips().length > 1 ? chip().text : copy.askProject}</span>
             <Select label={projectPick.chips().length > 1 ? copy.askProjectOf(chip().text) : copy.askProject} value={chip().project}
               choices={asks.projects().map(project => ({ value: project.name, label: project.name }))} onValueChange={value => projectPick.pick(index, value)} />
-          </span>}</Index>
+          </span>}</For>
         </div></Show>
         <ReservedLine overlay class="ask-send-status" message={sendLine.message()} status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null} dismiss={dismissSendLine} recover={problem() ? { run: () => drafts.retry(), label: copy.storageRetry } : undefined} action={<>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
@@ -370,13 +363,22 @@ export const AskBar = (props: {
         }}</For>
         </>} />
         </div>
-        <AskRows keys={scope} onOpened={() => close(false)} /></Show>
-        <Show when={!over()}>
-          <RequestedViews ready={treeReady()} deliverables={deliverables} />
-        </Show>
+        <AskRows keys={scope} onOpened={() => close(false)} />
+      </DialogContent>
+    </Dialog>
+    <Show when={!over() && listed()}>
+      <section class="ask-bar" data-mode="home" role="region" aria-label={copy.askBarLabel}>
+        <RequestedViews ready={treeReady()} deliverables={deliverables} />
       </section>
     </Show>
   </>);
+};
+
+/** A requested list keeps its selection while another is up: it mounts on the first request and then only hides. */
+const OnDemand = (props: { present: boolean; children: JSX.Element }) => {
+  const requested = createMemo<boolean>(was => was === true || props.present);
+
+  return <Show when={requested()}><div hidden={!props.present}>{props.children}</div></Show>;
 };
 
 /** On-demand lists: Made, the full attention inspection and the Workstreams view (U504). Each closes back to the Ask input. */
@@ -384,18 +386,17 @@ const RequestedViews = (props: { ready: boolean; deliverables: ReturnType<typeof
   const connected = useConnectedProject();
 
   // A request made from a Terminal brings the Overview forward first, as the Project menu's Made does.
-  createEffect(() => { if (connected.hasView("attention") || connected.hasView("made")) untrack(() => connected.rail.select(null)); });
+  createEffect(createMemo(() => connected.hasView("attention") || connected.hasView("made")), requested => { if (requested) connected.rail.select(null); });
 
-  // A requested list keeps its selection while another is up: Presence mounts it on the first request and then only hides it.
   const wanted = (id: string) => connected.hasView(id) && (id === "made" || !connected.hasView("made"));
 
-  const Requested = (own: { id: "attention" | "made"; label: string; children: JSX.Element }) => <Presence lazyMount present={wanted(own.id)}>
+  const Requested = (own: { id: "attention" | "made"; label: string; children: JSX.Element }) => <OnDemand present={wanted(own.id)}>
     <div class="made-heading"><h2 class="overview-heading">{own.label}</h2><button type="button" data-button="quiet" onClick={() => { connected.hideView(own.id); queueFocus(() => focusTarget("ask.input")?.focus()); }}>{copy.closeView(own.label)}</button></div>
     {own.children}
-  </Presence>;
+  </OnDemand>;
 
   return <>
-    <Presence lazyMount present={props.ready && wanted("workstreams")}><ProjectOverview /></Presence>
+    <OnDemand present={props.ready && wanted("workstreams")}><ProjectOverview /></OnDemand>
     <Requested id="attention" label={copy.needsYou}><Inbox /></Requested>
     <Requested id="made" label={copy.deliverables}><Deliverables state={props.deliverables} /></Requested>
   </>;

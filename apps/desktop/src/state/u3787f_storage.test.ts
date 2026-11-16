@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { storageCopy } from "./copy";
 import * as v from "valibot";
 import { initializeStorage, storedValue, draftStorage, storageProblems, useBrowserStorage } from "./storage";
@@ -88,11 +89,13 @@ it("u3787f_store_acknowledgement_waits_for_commit_and_retry_keeps_newer_memory",
   await saving;
   expect(acknowledged).toBe(false);
   const newer = drafts.edit(destination, { text: " newer e\u0301 😀\n " }, null, "ordinary");
+  flush();
   expect(drafts.list()).toEqual([newer.draft]);
   release();
   expect(await older.retained).toMatchObject({ operation: "retain", cause: "write" });
   expect(await newer.retained).toBeNull();
   expect(await drafts.retry()).toBeNull();
+  flush();
   expect(draftStorage("/original").list()).toEqual([newer.draft]);
   expect(storageProblems()).toEqual([]);
   expect(localStorage.length).toBe(0);

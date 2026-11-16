@@ -67,7 +67,7 @@ const capture = async (step: string) => {
     tabs: [...document.querySelectorAll('.terminal-tab')].map(tab => tab.dataset.bubble),
     focused: document.activeElement?.outerHTML,
     shown: [...document.querySelectorAll('.bubble:not([hidden])')].map(bubble => bubble.dataset.bubble),
-    root: String(!document.querySelector('.rail-row[data-selected=true]')),
+    root: String(!document.querySelector('.rail-row[data-selected]')),
     calls: window.__fake.app.calls.filter(call => ['terminal.open','terminal.close'].includes(call.method)),
     failure: document.querySelector('.bubbles [role="alert"]')?.textContent
   })`);
@@ -123,9 +123,9 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
 
   await capture("listed");
   await read("document.querySelector('[data-id=first-workstream] .name').click()");
-  await until("!!document.querySelector('.rail-row[data-selected=true]')");
+  await until("!!document.querySelector('.rail-row[data-selected]')");
   await read("window.__select(null)");
-  await until("!document.querySelector('.rail-row[data-selected=true]')");
+  await until("!document.querySelector('.rail-row[data-selected]')");
   await capture("returned");
 
   if (baseline) {
@@ -143,7 +143,7 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
     await read("window.__question.answer(true)");
     await until("!document.querySelector('.terminal-tab[data-bubble=root-new]') && !document.querySelector('.bubble[data-bubble=root-new]')");
     await read("window.__select(null)");
-    await until("!document.querySelector('.rail-row[data-selected=true]')");
+    await until("!document.querySelector('.rail-row[data-selected]')");
     await capture("closed");
   }
 

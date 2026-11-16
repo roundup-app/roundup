@@ -16,6 +16,7 @@ export const createCutTitle = (text: () => string, options: { track?: () => void
     text();
     options.track?.();
     box();
+  }, () => {
     queueMicrotask(measure);
   });
 

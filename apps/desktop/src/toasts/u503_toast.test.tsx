@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { agent, USER } from "../testing/nodes";
-import { TOAST_AGENT as AGENT, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
+import { TOAST_AGENT as AGENT, alerts, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
 
 beforeEach(() => vi.useFakeTimers());
 
@@ -25,10 +25,10 @@ it("u503_shared_toast_preserves_lifecycle", async () => {
 
   // Hover and focus hold the time; leaving resumes from what was left, not from five seconds.
   await vi.advanceTimersByTimeAsync(3000);
-  fireEvent.mouseEnter(screen.getByRole("region"));
+  fireEvent.pointerEnter(screen.getByRole("region"));
   card.focus();
   await vi.advanceTimersByTimeAsync(8000);
-  fireEvent.mouseLeave(screen.getByRole("region"));
+  fireEvent.pointerLeave(screen.getByRole("region"));
   await vi.advanceTimersByTimeAsync(8000);
   expect(toasts()).toHaveLength(1);
   card.blur();
@@ -52,7 +52,8 @@ it("u503_shared_toast_preserves_lifecycle", async () => {
   await settle();
   fireEvent.click(screen.getByRole("button", { name: 'scout: Changed Todo "ship it"' }));
   await settle();
-  expect(screen.getByRole("alert").textContent).not.toBe("");
+  expect(alerts()).toHaveLength(1);
+  expect(alerts()[0]!.textContent).not.toBe("");
 
   // Escape dismisses without activating; one chime served each distinct burst.
   app.emit(status("a", "error"));

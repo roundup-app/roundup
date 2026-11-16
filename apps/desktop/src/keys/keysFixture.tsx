@@ -1,9 +1,8 @@
-import { Portal } from "solid-js/web";
+import { createSignal, Show } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import { Menu } from "../ui/Menu";
 import { registerKeys } from "./registry";
 import { render } from "@solidjs/testing-library";
-import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Rail } from "../rail/Rail";
@@ -25,7 +24,7 @@ export const mountKeys = async (tree: RailNode[], neighbors: KeysNeighbors = {})
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, now, () => null);
 
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Rail />
       <Show when={neighbors.pane}>
         <Pane createEmulator={neighbors.pane} />
@@ -33,7 +32,7 @@ export const mountKeys = async (tree: RailNode[], neighbors: KeysNeighbors = {})
       <Show when={neighbors.drawer}>
         <DrawerHost drawer={connected.drawer} reducedMotion={() => false} />
       </Show>
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   await connected.rail.settled();
@@ -42,7 +41,7 @@ export const mountKeys = async (tree: RailNode[], neighbors: KeysNeighbors = {})
 };
 
 
-/** Isolated registry consumer: Ark retains dismissal and focus return; the Drawer binds only its own Escape. */
+/** Isolated registry consumer: the menu retains dismissal and focus return; the Drawer binds only its own Escape. */
 export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors = false) => {
   const [drawerOpen, setDrawerOpen] = createSignal(true);
   const [dialogOpen, setDialogOpen] = createSignal(false);
@@ -51,6 +50,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
   let dialog: HTMLDivElement | undefined;
   let menu: HTMLDivElement | undefined;
   let origin: HTMLButtonElement | undefined;
+  const [layers, setLayers] = createSignal<HTMLDivElement>();
 
   const close = () => {
     const restore = drawer?.contains(document.activeElement);
@@ -64,18 +64,18 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
   const Drawer = () => {
     registerKeys({ kind: "layer", element: () => drawer, active: drawerOpen, modal: false }, [{ chords: ["Escape"], when: guarded, run: close }]);
 
-    return <Show when={drawerOpen()}><aside ref={drawer} class="drawer" data-registry-drawer tabIndex={-1} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "0", bottom: "0", width: "var(--shelf-width)", "z-index": "var(--layer-drawer)" }}>
+    return <Show when={drawerOpen()}><aside ref={drawer} class="drawer" data-registry-drawer tabindex={-1} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "0", bottom: "0", width: "var(--shelf-width)", "z-index": "var(--layer-drawer)" }}>
       <button data-registry-modal-trigger data-button="quiet" onClick={() => setDialogOpen(true)}>Open modal</button>
-      <Menu.Root open={menuOpen()} onOpenChange={(details) => setMenuOpen(details.open)}>
+      <Menu.Root open={menuOpen()} onOpenChange={(details) => setMenuOpen(details.open)} container={layers() ?? document.body}>
         <Menu.Trigger data-registry-menu-trigger data-button="quiet">Project menu</Menu.Trigger>
-        <Portal><Menu.Positioner><Menu.Content ref={menu} style={{ "z-index": "var(--layer-menu)" }}>
+        <Menu.Content ref={menu}>
           <Menu.Item value="project">Project action</Menu.Item>
-        </Menu.Content></Menu.Positioner></Portal>
+        </Menu.Content>
       </Menu.Root>
       <Show when={editors}><input aria-label="Drawer input" />
       <textarea aria-label="Drawer text" />
-      <div contentEditable tabIndex={0}>Editable content</div>
-      <div class="xterm" tabIndex={0}>Terminal</div></Show>
+      <div contenteditable="true" tabindex={0}>Editable content</div>
+      <div class="xterm" tabindex={0}>Terminal</div></Show>
       <p>Unchanged Drawer content</p>
     </aside></Show>;
   };
@@ -84,11 +84,11 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
     registerKeys({ kind: "layer", element: () => dialog, active: dialogOpen, modal: true }, []);
     registerKeys({ kind: "layer", element: () => menu, active: menuOpen, modal: false }, []);
 
-    return <Dialog.Root open={dialogOpen()} onOpenChange={(details) => setDialogOpen(details.open)} restoreFocus>
-      <Portal><Dialog.Backdrop /><Dialog.Positioner><Dialog.Content ref={dialog} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "var(--space-4)", width: "var(--shelf-width)", "z-index": "var(--layer-dialog)" }}>
+    return <Dialog.Root open={dialogOpen()} onOpenChange={(details) => setDialogOpen(details.open)}>
+      <Dialog.Content ref={dialog} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "var(--space-4)", width: "var(--shelf-width)", "z-index": "var(--layer-dialog)" }}>
         <Dialog.Title>Registry modal</Dialog.Title><Dialog.Description>Top layer owns Escape</Dialog.Description>
         <Dialog.CloseTrigger data-button="quiet">Close modal</Dialog.CloseTrigger>
-      </Dialog.Content></Dialog.Positioner></Portal>
+      </Dialog.Content>
     </Dialog.Root>;
   };
 
@@ -97,5 +97,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
     {reverse && <Top />}
     {nested ? <main><section aria-label="Drawer region"><Drawer /></section></main> : <section aria-label="Drawer region"><Drawer /></section>}
     {!reverse && <Top />}
+    {/* ui-sdk renders a popup beside its trigger unless it is given a container: the menu mounts here so the top layer is no DOM descendant of the Drawer below it. */}
+    <div ref={setLayers} data-registry-layers />
   </div>, { container: document.body });
 };

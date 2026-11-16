@@ -9,7 +9,7 @@ afterEach(cleanup);
 
 const nodes = () => ["a", "b", "c", "d", "e"].map((id, order) => agent(id, "done", "", { terminal_id: null, order }));
 
-const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected=true]')].map(row => row.dataset.id);
+const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected]')].map(row => row.dataset.id);
 
 // A press focuses the row before its click, and Ark applies the toggle a task later.
 const select = async (...ids: string[]) => {
@@ -38,7 +38,7 @@ it("u358_select_all_selects_data_rows_only", async () => {
   rowOf("a").focus();
   fireEvent.keyDown(rowOf("a"), { key: "a", code: "KeyA", metaKey: true });
   await waitFor(() => expect(selected()).toEqual(["a", "b", "c", "d", "e"]));
-  expect(document.querySelectorAll('.rail-section[data-selected=true], .rail-fold[data-selected=true]')).toHaveLength(0);
+  expect(document.querySelectorAll('.rail-section[data-selected], .rail-fold[data-selected]')).toHaveLength(0);
 });
 
 it("u358_ctrl_click_opens_the_menu_and_never_toggles", async () => {

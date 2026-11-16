@@ -1,4 +1,5 @@
-import { lazy, createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { eventListener } from "@solid-primitives/event-listener";
+import { lazy, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from "solid-js";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -7,6 +8,7 @@ import { queueFocus } from "../keys/focus";
 import { LEADER } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
+import { createReply } from "../state/read";
 import { createItemFailures } from "../ink/itemFailures";
 import { failureOf } from "../app/failureOf";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
@@ -26,17 +28,13 @@ const STALE = new Set(["todo.restored", "todo.commented", "todo.commentsRead", "
 export const createInbox = () => {
   const { app, events, rail } = useConnectedProject();
 
-  const [read, { refetch }] = createResource(async (_key, { value }): Promise<{ rows: readonly UnreadComment[]; failure: string | null }> => {
-    let rows: readonly UnreadComment[] = value?.rows ?? [];
-    const failure = await failureOf(async () => { rows = await app.rpc("todo.unread", null); });
+  const unread = createReply(() => true, () => app.rpc("todo.unread", null));
 
-    return { rows, failure };
-  });
-
-  const rows = () => read()?.rows ?? [];
-  const failure = () => read()?.failure ?? null;
-  const loaded = () => read() !== undefined;
-  const refresh = () => { void refetch(); };
+  // The Inbox shows its Agents until the first answer, and keeps the last rows through a failed read.
+  const rows = (): readonly UnreadComment[] => unread.reply() ?? [];
+  const failure = () => unread.error()?.message ?? null;
+  const loaded = () => unread.reply() !== undefined || unread.error() !== undefined;
+  const refresh = unread.refetch;
 
   onCleanup(events.subscribe(event => { if (STALE.has(event.name)) refresh(); }));
 
@@ -54,7 +52,7 @@ export const createInbox = () => {
 /** U3770: grouped attention in Overview; opening a comment retains the Todo's read action. */
 export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   const { app, drawer, rail, reducedMotion, project } = useConnectedProject();
-  const state = props.state ?? createInbox();
+  const state = untrack(() => props.state) ?? createInbox();
   const { loaded, rows, failure, refresh, groups } = state;
   const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [openKey, setOpenKey] = createSignal<string | null>(null);
@@ -66,7 +64,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   let live = false;
   let seen = new Set<string>();
   let root: HTMLElement | undefined;
-  onMount(() => { live = true; });
+  onSettled(() => { live = true; });
   onCleanup(() => { alive = false; });
 
   const model = createMemo((): AgentRow[] => {
@@ -123,7 +121,6 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   const head = (key: string, element: HTMLElement) => {
     heads.set(key, element);
     content.register(element, key);
-    onCleanup(() => heads.delete(key));
   };
 
   const flag = (key: string, on: boolean) => setBusy((current) => {
@@ -190,19 +187,27 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
     },
   }]);
 
-  const agentRow = (id: string) => <Show when={byKey().get("a:" + id)}>{(row) =>
-    <InboxRow row={row()} open={openKey() === row().key} toggle={() => toggle(row().key)} actions={actions} selected={content.selection.isSelected(row().key)} head={(element) => head(row().key, element)} />}</Show>;
+  const agentRow = (id: string) => <Show when={byKey().get("a:" + id)}>{(row) => {
+    const key = untrack(row).key;
+    onCleanup(() => heads.delete(key));
 
-  const commentRow = (row: UnreadComment) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id} data-overview-item={`c:${row.comment.id}`}
-    ref={element => head(`c:${row.comment.id}`, element)} data-selected={content.selection.isSelected(`c:${row.comment.id}`)}
-    onClick={event => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event), { kind: "todo", project: project.path })}>
-    <KindGlyph kind="needs-you" /><span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
-    <span class="inbox-row-line">{row.comment.body}</span>
-  </button></li>;
+    return <InboxRow row={row()} open={openKey() === row().key} toggle={() => toggle(row().key)} actions={actions} selected={content.selection.isSelected(row().key)} head={(element) => head(key, element)} />;
+  }}</Show>;
+
+  const commentRow = (row: UnreadComment) => {
+    onCleanup(() => heads.delete(`c:${row.comment.id}`));
+
+    return <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id} data-overview-item={`c:${row.comment.id}`}
+      ref={element => head(`c:${row.comment.id}`, element)} data-selected={String(content.selection.isSelected(`c:${row.comment.id}`))}
+      onClick={event => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event), { kind: "todo", project: project.path })}>
+      <KindGlyph kind="needs-you" /><span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
+      <span class="inbox-row-line">{row.comment.body}</span>
+    </button></li>;
+  };
 
   const loadFailure = dismissable(failure);
 
-  return <section class="inbox" aria-label={copy.needsYou} ref={root} tabindex={-1} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
+  return <section class="inbox" aria-label={copy.needsYou} ref={[element => { root = element; }, eventListener(["click", content.click, { capture: true }]), eventListener(["keydown", rowKey, { capture: true }])]} tabindex={-1}>
     <Show when={selectedText() !== ""}><div class="inbox-title"><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></div></Show>
     <ReservedLine overlay message={copyFailure() ?? loadFailure.message()} dismiss={copyFailure() ? () => setCopyFailure(null) : loadFailure.dismiss} recover={!copyFailure() && loadFailure.message() ? { run: () => void refresh(), label: copy.inboxRetry } : undefined} />
     <p class="inbox-count" aria-live="polite" aria-atomic="true">{needsCount() > 0 ? copy.needYou(needsCount()) : ""}</p>

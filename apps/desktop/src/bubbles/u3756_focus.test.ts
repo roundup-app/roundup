@@ -37,7 +37,7 @@ const load = async (seed = "empty-project", recording?: string) => {
     await browser("click", "[role=menuitem][data-value=workstream]");
   }
 
-  await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected=true]')`);
+  await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected]')`);
 };
 
 it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer_bubble_and_input_%s", async seed => {
@@ -52,7 +52,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
 
   await browser("press", "Meta+t");
   await wait(`!!document.activeElement?.closest('.bubble') && !!window.__terminals.get('101')`);
-  await read(`window.selectedWorkstream = document.querySelector('.rail-row[data-selected=true]').dataset.id`);
+  await read(`window.selectedWorkstream = document.querySelector('.rail-row[data-selected]').dataset.id`);
   await browser("keyboard", "type", "before");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write')`);
   await read(`window.__fake.writeOutput('101', 'DRAWING BEFORE ARRIVAL' + String.fromCharCode(13, 10))`);
@@ -62,7 +62,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
   await capture("U3756a", `${seed}-arrived`);
   expect(await read(`document.activeElement === window.bubbleFocus`)).toBe(true);
-  expect(await read(`document.querySelector('.rail-row[data-selected=true]').dataset.id === window.selectedWorkstream`)).toBe(true);
+  expect(await read(`document.querySelector('.rail-row[data-selected]').dataset.id === window.selectedWorkstream`)).toBe(true);
   expect(await read(`window.__fake.app.outputSubscriptions.some(s => s.id === '101' && !s.released)`)).toBe(true);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.close')`)).toEqual([]);
   expect(await read(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed')`)).toBe("true");
@@ -115,7 +115,7 @@ const newer = async (choice: string) => {
     await read(`document.querySelector('.drawer textarea').focus()`);
     await browser('keyboard', 'type', ' exact newer drawer é 😀 '); // taste-skill-ignore: Unicode draft probe, not interface decoration.
   } else {
-    await read(`document.querySelector('.rail-row:not([data-selected=true])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
+    await read(`document.querySelector('.rail-row:not([data-selected])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
     expect(await read(`!!document.activeElement?.closest('.rail') && document.activeElement.matches('[tabindex]')`)).toBe(true);
   }
 
@@ -174,7 +174,7 @@ it("u3756d_initial_and_explicit_terminal_focus_still_work", async () => {
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('')`)).toBe("initial");
   await capture("U3756d", "initial");
   await newer("bubble");
-  await read(`window.originalRow = document.querySelector('.rail-row[data-selected=true]')`);
+  await read(`window.originalRow = document.querySelector('.rail-row[data-selected]')`);
   await browser("focus", `.rail-row[data-id="${await read<string>("window.originalRow.dataset.id")}"]`);
   await browser("press", "Enter");
   await wait(`!!document.activeElement?.closest('.pane-screen')`);
@@ -193,8 +193,8 @@ for (const intervene of [false, true]) {
       const tab = document.querySelector('#shelf-tab-pads[role=tab]'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait(`!!document.querySelector('.pad-name')`);
-    await read(`document.querySelector('[data-pad="pad-3"] .pad-name').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
-    await wait(`!document.querySelector('[data-pad="pad-3"] .pad-name').closest('[data-shelf-group][data-state=closed]')`);
+    await read(`document.querySelector('[data-pad="pad-3"] .pad-name').closest('.shelf-group-body[data-closed]')?.closest('[data-shelf-group]').querySelector('.shelf-group-control').click()`);
+    await wait(`!document.querySelector('[data-pad="pad-3"] .pad-name').closest('.shelf-group-body[data-closed]')`);
     await browser("click", '[data-pad="pad-3"] .pad-name');
     await wait(`document.activeElement === document.querySelector('[data-pad="pad-3"] .pad-name')`);
     await browser("press", "Enter");
@@ -225,8 +225,8 @@ for (const path of ["ask", "switcher", "rail-name", "todo-title"]) {
     else if (path === "switcher") {
       await browser("press", "Meta+k");
       await browser("press", "k");
-    } else if (path === "rail-name") await read(`document.querySelector('.rail-row .name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
-    else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+    } else if (path === "rail-name") await read(`document.querySelector('.rail-row .name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true})); window.__flush()`);
+    else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true})); window.__flush()`);
     expect(await read(`window.queuedFocus.length`)).toBeGreaterThan(0);
     await read(`window.newerFocus = document.querySelector('.rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]'); window.newerFocus.focus(); window.queueMicrotask = window.realMicrotask; window.queuedFocus.splice(0).forEach(fn => fn())`);
 
@@ -241,7 +241,7 @@ it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_
   await fresh("resources");
   // A reload restores selection; leave it before installing handlers and mounting the tested Worktree panel.
   await browser("click", '[data-id="bare-agent"] .name');
-  await wait(`document.querySelector('.rail-row[data-id="bare-agent"]')?.dataset.selected === 'true'`);
+  await wait(`document.querySelector('.rail-row[data-id="bare-agent"]')?.hasAttribute('data-selected')`);
   await read(`(() => {
     window.__fake.app.handlers['agent.worktreeState'] = () => ({ahead:1,behind:0,dirty:true});
     window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/file.ts',status:'modified',line:1}]});
@@ -287,7 +287,7 @@ const loadDense = async () => {
   await wait(`!!document.querySelector('[role=menuitem][data-value=workstream]')`);
   await browser("click", "[role=menuitem][data-value=workstream]");
   await wait(`!!window.arrive`);
-  await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);
+  await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected]').dataset.id })`);
   await wait(`!!document.querySelector('.todo-row-button')`);
 };
 
@@ -308,27 +308,27 @@ const holdFrames = async () => read(`(() => {
   });
 })()`);
 
-it.each(["initial", "return"])("u3756b_a_select_focus_frame_yields_to_the_newer_rail_choice_%s", async phase => {
+// U3756b reworded (accepted change 25): a Select is no appearance path; its list takes focus on opening and gives it back to the trigger as ui-sdk's Select does.
+it.each(["initial", "return"])("u3756b_a_select_list_takes_and_returns_focus_%s", async phase => {
   await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
   await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
   await browser("press", "Meta+Comma");
-  await wait(`!!document.querySelector('.settings-view .app-select-trigger')`);
+  await wait(`!!document.querySelector('.settings-view [role=combobox]')`);
+  await read(`window.selectTrigger = document.querySelector('.settings-view [role=combobox]'); window.selectTrigger.focus()`);
+  await browser("press", "Enter");
+  await wait(`!!document.activeElement?.closest('.app-select-list')`);
 
   if (phase === "return") {
-    await read(`document.querySelector('.settings-view [role=combobox]').click()`);
-    await wait(`!!document.activeElement?.closest('.app-select-list')`);
+    await browser("press", "Escape");
+    await wait(`window.selectTrigger.getAttribute('aria-expanded') === 'false'`);
+    expect(await read(`document.activeElement === window.selectTrigger`)).toBe(true);
   }
-
-  await holdFrames();
-  await read(`${phase === "initial" ? "document.querySelector('.settings-view .app-select-trigger').click()" : "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))"}; document.querySelector('.rail-row').focus(); window.newFocus = document.activeElement;`);
-  expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
-  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
 }, 90_000);
 
 it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => {
   await loadDense();
-  await read(`document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
-  await wait(`!document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')`);
+  await read(`document.querySelector('.todo-row-button').closest('.shelf-group-body[data-closed]')?.closest('[data-shelf-group]').querySelector('.shelf-group-control').click()`);
+  await wait(`!document.querySelector('.todo-row-button').closest('.shelf-group-body[data-closed]')`);
   await wait(`document.querySelector('.todo-row-button').getBoundingClientRect().height > 0`);
   await browser("focus", ".todo-row-button");
   await wait(`document.activeElement?.matches('.todo-row-button')`);
@@ -359,6 +359,7 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
     window.queueMicrotask = task => queued.push(task);
     document.querySelector('.drawer .todo-detail-title p[tabindex]').focus();
     document.querySelector('.drawer .todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}));
+    window.__flush();
     window.queueMicrotask = queue;
     window.editorMounted = document.querySelector('.drawer textarea');
     window.restoreEditor = () => queued.forEach(task => queue(task));
@@ -380,10 +381,10 @@ it("u3756b_the_queued_agent_editor_yields_to_the_newer_rail_choice", async () =>
     const queued = [], queue = window.queueMicrotask;
     window.queueMicrotask = task => queued.push(task);
     try {
-      document.querySelector('.rail-row[data-selected=true]').dispatchEvent(new KeyboardEvent('keydown', {key:'N',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
+      document.querySelector('.rail-row[data-selected]').dispatchEvent(new KeyboardEvent('keydown', {key:'N',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
     } finally { window.queueMicrotask = queue; }
     window.queuedCount = queued.length;
-    window.newFocus = document.querySelector('.rail-row[data-selected=true]');
+    window.newFocus = document.querySelector('.rail-row[data-selected]');
     window.newFocus.focus();
     queued.forEach(task => queue(task));
   })()`);
@@ -401,7 +402,9 @@ it.each(["Engine", "Model"])("u3756d_settings_picker_escape_returns_focus_%s", a
   await browser("press", "Meta+Comma");
   await wait("!!document.querySelector('.settings-view')");
   await read(`window.pickerTrigger = [...document.querySelectorAll('.app-select-trigger')].find(button => button.getAttribute('aria-labelledby')?.split(' ').map(id => document.getElementById(id)?.textContent ?? '').join(' ').startsWith('${label}'))`);
-  await read("window.pickerTrigger.click()");
+  // A person opens the picker with the key on its focused trigger; ui-sdk returns a programmatic opening to whatever had focus before it.
+  await read("window.pickerTrigger.focus()");
+  await browser("press", "Enter");
   await wait("document.activeElement?.matches('.app-combobox-input')");
   await browser("fill", ".app-combobox-input", "One");
   await capture("U3756d", `${label.toLowerCase()}-open`);

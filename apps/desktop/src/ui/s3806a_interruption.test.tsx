@@ -3,9 +3,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { bubbleCalls, mountBubbles, TERMINALS } from "../bubbles/bubblesFixture";
 import { resizeDragging, setResizeDragging } from "../resize/dragging";
 import { Splitter } from "./Splitter";
+import { windowRects } from "./splitterRects";
 import type { Sortable as LibrarySortable } from "@dnd-kit/dom/sortable";
 import { Sortable } from "./sortable";
-import { For } from "solid-js";
+import { flush, For } from "solid-js";
 import { openOnRelease } from "./contextMenu";
 import { info } from "../testing/nodes";
 import { placesStorage, ZONES } from "../bubbles/places";
@@ -25,6 +26,7 @@ const pointer = (type: string, target: EventTarget = window, button = 0, x = 440
     clientX: x, clientY: y, bubbles: true, cancelable: true });
 
   target.dispatchEvent(event);
+  flush();
 };
 
 const interrupt = (trigger: string, target: HTMLElement) => {
@@ -32,6 +34,7 @@ const interrupt = (trigger: string, target: HTMLElement) => {
   else if (trigger === "element-blur") target.dispatchEvent(new FocusEvent("blur"));
   else if (trigger === "focus-transfer") document.querySelector<HTMLElement>(".s3806-focus")!.focus();
   else pointer("pointercancel");
+  flush();
 };
 
 const owners = ["move", ...ZONES.map(zone => zone.name), "pull"];
@@ -80,13 +83,14 @@ const shared = async (owner: string, trigger: string, phase: string) => {
   Object.defineProperty(HTMLElement.prototype, "getAnimations", { configurable: true, value: () => [] });
   Object.defineProperty(HTMLElement.prototype, "animate", { configurable: true, value: () => ({ finished: Promise.resolve(), cancel() {}, finish() {}, addEventListener() {}, removeEventListener() {} }) });
 
-  // Zag sends use microtasks. dnd-kit schedules pointer movement on rAF, then its Solid renderer completes in the next task.
+  // The resizable group lays out on a microtask and applies pointer movement on rAF. dnd-kit schedules pointer movement on rAF, then its Solid renderer completes in the next task.
   const settle = async () => {
-    if (owner.startsWith("split-")) await vi.advanceTimersByTimeAsync(0);
+    if (owner.startsWith("split-")) await vi.advanceTimersByTimeAsync(16);
     else { await frame(); await frame(); }
   };
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    if (this.matches('[data-slot="resizable-panel"]')) return windowRects.call(this);
     const y = this.getAttribute("data-id") === "B" ? 50 : 0;
     const row = this.hasAttribute("data-id") || this.matches("[data-dnd-dragging]");
 
@@ -114,10 +118,13 @@ const shared = async (owner: string, trigger: string, phase: string) => {
 
     target.focus();
     await settle();
-    const fitted = terminals!.emulators.made.get("1")!;
+    // The Pane's own Terminal (Agent a's Door): `Pane::refitNextFrame` fits it once the hold falls. A bubble's Terminal also fits when its snapshot lands, so it cannot prove the refit.
+    const fitted = terminals!.emulators.made.get("t-a")!;
     const fits = fitted.fits;
     pointer("pointerdown", target, 0, 400, 100);
-    expect(resizeDragging()).toBe(true);
+
+    // The group takes pointer capture inside the press, so a blur raised there has already ended the hold.
+    if (trigger !== "capture-blur") expect(resizeDragging()).toBe(true);
 
     if (phase === "moved") { await settle(); pointer("pointermove", document, 0, 400 + direction * 64, 100); await settle(); expect(preview).toHaveBeenLastCalledWith(352); }
 
@@ -292,6 +299,7 @@ const pendingPull = async (trigger: string) => {
 
   if (trigger === "unmount") return;
   mounted.connected.rail.select("w");
+  flush();
   pointer("pointerdown", target, 2, 400, 300);
   pointer("pointermove", window, 2, 460, 360);
   pointer("pointerup", window, 2);

@@ -1,7 +1,9 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
+import { shownText } from "../testing/rowTip";
 import { bubbleNames, bubbleCalls, bubbleChord, mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => {
@@ -13,6 +15,7 @@ afterEach(cleanup);
 
 const focusBubble = (id: string): void => {
   fireEvent.click(document.querySelector(`.terminal-tab[data-bubble="${id}"]`)!);
+  flush();
   bubble(id).querySelector<HTMLElement>("button")?.focus();
 };
 
@@ -68,7 +71,8 @@ describe("u165 the keys for bubbles", () => {
 
     await mountRail(TREE);
     expect([...document.querySelectorAll("button")].map((button) => button.textContent?.trim())).not.toContain("+ terminal");
-    expect(document.body.textContent).not.toContain("terminal");
+    // A closed Tooltip keeps its words in the page, hidden; only the shown words count.
+    expect(shownText(document.body)).not.toContain("terminal");
   });
 
   it("u165_leader_m_minimises_and_restores_the_focused_bubble", async () => {
@@ -115,10 +119,15 @@ describe("u165 the keys for bubbles", () => {
     await mountBubbles("a");
     await waitFor(() => expect(bubble("1")).not.toBeNull());
     const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    let preventedAtTarget: boolean | undefined;
 
+    // ui-sdk's layer stack prevents Escape at the document, after the terminal has had the key; the terminal's turn is the target phase.
+    // listener-owner: the Bubble is removed with the mounted App at the end of the test.
+    bubble("1").addEventListener("keydown", (event) => { preventedAtTarget = event.defaultPrevented; });
     bubble("1").dispatchEvent(escape);
-    expect(escape.defaultPrevented).toBe(false);
+    expect(preventedAtTarget).toBe(false);
     expect(CHORD_ROWS.slice(0, 5).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T"]);
     fireEvent.keyDown(document.body, { key: "x" });
+    flush();
   });
 });

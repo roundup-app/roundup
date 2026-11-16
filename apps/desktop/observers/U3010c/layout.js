@@ -1,7 +1,7 @@
 export { default as observeUnchangedKey } from "./unchanged-key.js";
 
-import { createSignal, For, createComponent, batch } from "solid-js";
-import { render, insert } from "solid-js/web";
+import { createSignal, For, createComponent, flush } from "solid-js";
+import { render, insert } from "@solidjs/web";
 import { animateLayout } from "motion";
 import { captureFocus } from "/src/keys/focus.ts";
 
@@ -70,8 +70,8 @@ export default async function () {
   for (const [name, update] of [
     ['insert', () => setRows([initial[0], { id: 'd' }, initial[1], initial[2]])],
     ['remove', () => setRows(initial)],
-    ['nest', () => batch(() => { setRows([initial[0], initial[2]]); setChildren([initial[1]]); })],
-    ['unnest', () => batch(() => { setChildren([]); setRows(initial); })],
+    ['nest', () => { setRows([initial[0], initial[2]]); setChildren([initial[1]]); }],
+    ['unnest', () => { setChildren([]); setRows(initial); }],
     ['reorder', () => setRows([initial[2], initial[0], initial[1]])],
   ]) {
     const before = read(name + '-before');
@@ -79,6 +79,7 @@ export default async function () {
     const permit = captureFocus();
     animateLayout(host, () => {
       update();
+      flush();
 
       if (focus && !host.contains(document.activeElement)) permit(() => host.querySelector(`[data-probe-focus="${focus}"]`)?.focus({ preventScroll: true }));
     }, options);
@@ -90,7 +91,7 @@ export default async function () {
 
       if (name === 'reorder' && Math.abs(current.rows.find(row => row.id === 'c').top - origin) >= 24) {
         read('interrupt-before');
-        animateLayout(host, () => setRows(initial), options);
+        animateLayout(host, () => { setRows(initial); flush(); }, options);
         read('interrupt-after');
         break;
       }

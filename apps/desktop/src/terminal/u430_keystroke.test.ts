@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import * as xterm from "@xterm/xterm";
 import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { FitAddon } from "@xterm/addon-fit";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { createXtermEmulators } from "./emulator";
 import { createScreens } from "./screens";
 import { connectFakeProject, callsTo, subscribed } from "./paneHarness";
@@ -48,6 +48,8 @@ it("u430_a_keystroke_during_a_slide_sends_no_resize", async () => {
 
   for (const set of [setResizeDragging, setDrawerSliding, setShelfSliding]) {
     set(true);
+    // The slide began before the key: the Terminal reads it as moving.
+    flush();
     cols += 5;
     real.input("x", true);
 
@@ -57,6 +59,7 @@ it("u430_a_keystroke_during_a_slide_sends_no_resize", async () => {
     await new Promise(resolve => setTimeout(resolve, 20));
     expect(callsTo(app, "terminal.resize")).toHaveLength(before);
     set(false);
+    flush();
   }
 
   screens.dispose();

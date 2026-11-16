@@ -1,5 +1,4 @@
-import { createEffect, createSignal, on } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createSignal, type Accessor } from "solid-js";
 import { createSlideLifetime } from "../ui/slideLifetime";
 import type { Widths } from "../resize/widths";
 import { railSliding, setRailSliding } from "./sliding";
@@ -18,12 +17,12 @@ export const createRailSlide = (widths: Widths, reducedMotion: Accessor<boolean>
   const lifetime = createSlideLifetime(() => [document.querySelector<HTMLElement>(".rail-body") ?? undefined]);
   const [motion, setMotion] = createSignal<"click" | "key" | "fade">();
 
-  createEffect(() => setRailSliding(lifetime.sliding()));
-  createEffect(on(lifetime.sliding, (sliding) => {
+  createEffect(lifetime.sliding, sliding => { setRailSliding(sliding); });
+  createEffect(lifetime.sliding, sliding => {
     if (sliding) return;
     widths.settleLayout();
     setMotion(undefined);
-  }));
+  });
 
   return {
     motion,

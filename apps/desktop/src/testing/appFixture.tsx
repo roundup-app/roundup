@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect } from "vitest";
-import { batch } from "solid-js";
 import { createProjectDrafts } from "../state/connectedProject";
 import { RequestedApp as App } from "./requestedApp";
 import { createFakeApp } from "./fakeApp";
@@ -8,7 +7,7 @@ import type { FakeApp } from "./fakeApp";
 import { agent, door } from "./nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 
-afterEach(() => batch(cleanup));
+afterEach(() => cleanup());
 
 beforeEach(() => localStorage.clear());
 

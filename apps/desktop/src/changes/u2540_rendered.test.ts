@@ -153,6 +153,10 @@ it("u5646a_b_c_d_dense_refresh_retains_reader", async () => {
     const root = window.__retainedDiff.shadowRoot;
     const lines = [...root.querySelectorAll('[data-line-type="change-deletion"][data-column-number]')];
     lines[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+  })()`);
+  // The second click is its own event: Solid 2 shows the first click's selection once the page has run its microtasks, as between a person's clicks.
+  await browser("eval", `(() => {
+    const lines = [...window.__retainedDiff.shadowRoot.querySelectorAll('[data-line-type="change-deletion"][data-column-number]')];
     lines[1].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, shiftKey: true }));
     [...document.querySelectorAll('button')].find(button => button.textContent === 'Add note').focus();
   })()`);

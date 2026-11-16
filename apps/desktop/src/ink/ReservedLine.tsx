@@ -1,4 +1,5 @@
-import { createSignal, Show, splitProps, type JSX } from "solid-js";
+import { createSignal, omit, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ErrorLine } from "./ErrorLine";
 import { copy } from "./copy";
 import "./styles.css";
@@ -57,7 +58,8 @@ export const dismissable = (message: () => string | null | false | undefined) =>
 /** U3807: callers keep this place mounted and change only its message and actions. */
 export const ReservedLine = (props: Props) => {
   // SAFETY: both forms are assignable to Shared & Loose; Loose only widens the form-specific keys to optional.
-  const [local, rest] = splitProps(props as Shared & Loose, ["message", "status", "content", "overlay", "children", "action", "dismiss", "recover", "dismissIn", "blocked", "class"]);
+  const local = props as Shared & Loose;
+  const rest = omit(local, "message", "status", "content", "overlay", "children", "action", "dismiss", "recover", "dismissIn", "blocked", "class");
 
   // U3807 explicitly requires the whole message as a title on its reserved place.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass

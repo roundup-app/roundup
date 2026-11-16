@@ -1,4 +1,4 @@
-import { createStore } from "solid-js/store";
+import { createStore } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { hasConversation } from "../../state/doorNode";
 import { railCommand } from "../railCommands";
@@ -10,8 +10,10 @@ export const createModeRestart = (app: AppSeam, rail: RailState, resume: (node: 
   const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
 
   const restartMode = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
-    if (restarts[id]?.pending) return { kind: "pending" };
-    setRestarts(id, { request, pending: true });
+    let claimed = false;
+    setRestarts(entries => { if (!entries[id]?.pending) { entries[id] = { request, pending: true }; claimed = true; } });
+
+    if (!claimed) return { kind: "pending" };
 
     try {
       const outcome = await railCommand(rail, {
@@ -23,14 +25,14 @@ export const createModeRestart = (app: AppSeam, rail: RailState, resume: (node: 
       });
 
       if (outcome.kind === "applied") {
-        setRestarts(id, undefined);
+        setRestarts(entries => { delete entries[id]; });
 
         return { kind: "acknowledged" };
       }
 
       return { kind: outcome.kind === "refused" ? "failed" : "unknown", message: outcome.error.message };
     } finally {
-      if (restarts[id]) setRestarts(id, { request, pending: false });
+      setRestarts(entries => { if (entries[id]) entries[id] = { request, pending: false }; });
     }
   };
 

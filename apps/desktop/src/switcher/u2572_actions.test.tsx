@@ -2,7 +2,7 @@ import { chooseFooter } from "../rail/railFixture";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { batch, createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import fuzzysort from "fuzzysort";
 import { CHORDS, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
 import { leaderKey } from "../keys/leaderFixture";
@@ -10,7 +10,7 @@ import { openTabs, tab } from "../header/stripFixture";
 import { agent, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey as press } from "./switcherFixture";
 
-afterEach(() => { vi.restoreAllMocks(); batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { vi.restoreAllMocks(); cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 it.each(["new", " NeW ", "nsh", "Agent with prompt", "zzzz-no-match", "", "   "])(
   "z3788b_queries_rank_both_groups_and_keep_blank_order: %s", async (query) => {
@@ -71,7 +71,9 @@ const chooseAction = async (label: string, how: "enter" | "pointer") => {
 
   if (how === "pointer") {
     fireEvent.pointerDown(option, { button: 0, pointerType: "mouse" });
+    flush();
     fireEvent.pointerUp(option, { button: 0, pointerType: "mouse" });
+    flush();
     fireEvent.click(option);
   } else press("Enter", {}, field()!);
   await waitFor(() => expect(field()).toBeNull());
@@ -123,6 +125,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
   await waitFor(() => expect(document.activeElement?.matches(".spawn-prompt-field")).toBe(true));
   const prompt = document.querySelector<HTMLTextAreaElement>(".spawn-prompt-field")!;
   fireEvent.input(prompt, { target: { value: "make this work" } });
+  flush();
   press("Enter", {}, prompt);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
     { cwd: "/p", prompt: "make this work", parent: null, model: null, effort: null, cols: 100, rows: 30 },
@@ -166,6 +169,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: a
 
   if (byAction) { await show(); await chooseAction("Next needs you", "enter"); }
   else leaderKey("KeyJ");
+  flush();
   expect(connected.rail.selected()).toBe("cy");
 });
 
@@ -187,7 +191,7 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
       await waitFor(() => expect(document.querySelector('.bubble[data-bubble="7"]')).toBeNull());
     } else await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(true));
     results.push(app.calls.filter((call) => call.method === "terminal.close" || call.method === "terminal.write"));
-    batch(cleanup);
+    cleanup();
     sessionStorage.clear();
   }
 
@@ -206,7 +210,7 @@ it.each(["B", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
     // U3721a: `B` steps the Bench from closed to the list, and from the open list to full.
     if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset[beforeShelf === "open" ? "shelfMaximised" : "shelf"]).toBe(beforeShelf === "open" ? "true" : "open"));
     else await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-    batch(cleanup);
+    cleanup();
   }
 });
 
@@ -260,6 +264,7 @@ it.each(["daemon", "removed", "selection"])("u2572c_actions_follow_opening_conte
   const afterChange = app.calls.length;
   fireEvent.pointerDown(stale, { button: 0 });
   fireEvent.click(stale);
+  flush();
   expect(field()).not.toBeNull();
   expect(app.calls.length).toBe(afterChange);
 
@@ -273,6 +278,7 @@ it("u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back", asyn
   expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌥⌘N", "action:chord:⇧⌘M", "action:chord:⌘T", "action:chord:⌘/"]);
   press("Escape", {}, field()!);
   connected.rail.select("ws");
+  flush();
   document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
   await show();
   expect(actionRows().map(row => row.dataset.value)).toContain("action:leader:W");
@@ -304,6 +310,7 @@ it("u2572_actions_are_captured_at_open", async () => {
   fireEvent.click(tab("api"));
   await waitFor(() => expect(field()).toBeNull());
   fireEvent.click(stale);
+  flush();
   expect(document.querySelector('[data-id="a"][aria-selected="true"]')).toBeNull();
   expect(app.of("/Users/me/web").calls.filter((call) => call.method === "agent.spawn")).toEqual([]);
   expect(app.of("/Users/me/api").calls.filter((call) => call.method === "agent.spawn")).toEqual([]);
@@ -325,6 +332,7 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
   press("N", { metaKey: true, shiftKey: true, code: "KeyN" });
   const prompt = document.querySelector<HTMLTextAreaElement>(".spawn-prompt-field")!;
   fireEvent.input(prompt, { target: { value: "keep my draft" } });
+  flush();
   app.handlers["rail.createWorkstream"] = () => new Promise(() => {});
   await chooseFooter("Workstream");
   await show();
@@ -370,6 +378,7 @@ it("u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream", asy
   await connected.rail.refresh();
   await waitFor(() => expect(actionNames()).not.toContain("New Terminal"));
   fireEvent.click(stale);
+  flush();
   expect(field()).not.toBeNull();
   expect(app.calls.filter((call) => call.method === "terminal.open")).toEqual([]);
   expect(connected.rail.selected()).toBeNull();

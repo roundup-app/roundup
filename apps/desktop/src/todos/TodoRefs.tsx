@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
-import { lazy, createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { lazy, createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
 import { copy } from "./copy";
 import { activationSource } from "../keys/registry";
@@ -17,7 +17,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
   const [refs, setRefs] = createSignal<readonly Ref[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [actionFailure, setActionFailure] = createSignal<string | null>(null);
-  createEffect(on(props.saved ?? (() => 0), () => setActionFailure(null), { defer: true }));
+  createEffect(() => props.saved?.() ?? 0, () => { setActionFailure(null); }, { defer: true });
   let latest = 0;
   let alive = true;
 
@@ -35,7 +35,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setRefs([]); setFailure(null); setActionFailure(null); void refresh(); }));
+  createEffect(createMemo(() => props.id), () => { setRefs([]); setFailure(null); setActionFailure(null); void untrack(refresh); });
 
   // A Pad that changes or goes away moves a ref between `ok` and `missing`.
   onCleanup(events.subscribe((event) => {

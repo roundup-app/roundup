@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { KindGlyph } from "./KindGlyph";
@@ -16,14 +17,14 @@ it.each(["error", "needs-you", "blocked", "working", "idle", "done"] as const)(
 );
 
 it("u86_error_text_has_one_decorative_vector", () => {
-  const { container } = render(() => <ErrorLine message="could not open" />);
+  render(() => <ErrorLine message="could not open" />);
+  // getByText matches the line's whole text, so the vector adds none; its tooltip's hidden copy sits beside the line.
   expect(screen.getByText("could not open").querySelector('svg[aria-hidden="true"]')).not.toBeNull();
-  expect(container.textContent).toBe("could not open");
 });
 
 it("u86_kind_marks_do_not_depend_on_hue", () => {
   const kinds = ["error", "needs-you", "blocked", "working", "idle", "done"] as const;
-  const { container } = render(() => <>{kinds.map((kind) => <KindGlyph kind={kind} />)}</>);
+  const { container } = render(() => <><For each={kinds}>{(kind) => <KindGlyph kind={kind} />}</For></>);
   const marks = [...container.querySelectorAll("svg")].map((svg) => [svg.innerHTML, svg.getAttribute("fill")].join(":"));
   expect(new Set(marks).size).toBe(kinds.length);
 });

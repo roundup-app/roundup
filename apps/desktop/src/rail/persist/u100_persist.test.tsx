@@ -20,11 +20,8 @@ const read = (path = "/u100") => JSON.parse(localStorage.getItem(key(path)) ?? "
 
 const row = (id: string) => document.querySelector<HTMLElement>(`[role=treeitem][data-id="${id}"]`);
 
-/** The focusable element of the row: a branch's control, which the user clicks, or the leaf itself. */
-const target = (id: string) => row(id)!.querySelector<HTMLElement>('[data-part="branch-control"]') ?? row(id)!;
-
 const click = async (id: string) => {
-  fireEvent.click(target(id));
+  fireEvent.click(row(id)!);
   await settled();
 };
 

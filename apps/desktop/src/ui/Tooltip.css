@@ -1,21 +1,17 @@
+/* ui-sdk's stylesheet gives the tooltip its own look: this zero-specificity rule hands every property it sets back to the App's controls, and any rule of the App wins over it. */
+:where(.app-tooltip) {
+  font-size: var(--text-body);
+  line-height: revert;
+}
+
+/* U2749e: a name takes no press; the control beneath gets it. */
 .app-tooltip {
   max-width: var(--measure);
   overflow-wrap: anywhere;
   color: var(--text);
   background-color: var(--sunken);
   border-radius: var(--radius-drawer);
-  padding: var(--space-4);
-}
-
-/* Ark copies the content stack level to its portalled positioner; the Tooltip layer sits above the Dialog, so a label on a Drawer or Dialog control shows (U3767). */
-.app-tooltip {
-  z-index: var(--layer-tooltip);
   /* U6640c: a box shorter than a 32 px Rail row opens right-start from its target without meeting the row below. */
   padding: var(--space-1) var(--space-2);
-}
-
-/* U2749e: a name takes no press; the control beneath gets it. Ark's positioner box is the part that catches it. */
-[data-scope="tooltip"][data-part="positioner"],
-.app-tooltip {
   pointer-events: none;
 }

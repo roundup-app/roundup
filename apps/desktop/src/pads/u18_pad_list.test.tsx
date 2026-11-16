@@ -133,12 +133,12 @@ it("u3736_pads_group_by_home_once_each", async () => {
     expect(membership()).toEqual(expected);
   }
 
-  const group = document.querySelector('[data-shelf-group="w1"]')!;
-  fireEvent.click(group.querySelector(".shelf-group-control")!);
-  await waitFor(() => expect(group.getAttribute("aria-expanded")).toBe("false"));
+  const control = document.querySelector('[data-shelf-group="w1"] .shelf-group-control')!;
+  fireEvent.click(control);
+  await waitFor(() => expect(control.getAttribute("aria-expanded")).toBe("false"));
   app.emit({ actor: USER, name: "pad.changed", data: { name: "alpha" } });
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.list")).toHaveLength(3));
-  expect(group.getAttribute("aria-expanded")).toBe("false");
+  expect(control.getAttribute("aria-expanded")).toBe("false");
 });
 
 it("u3736_pad_home_events_refresh_groups", async () => {

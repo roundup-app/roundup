@@ -142,6 +142,9 @@ describe("u7158 a stray key goes to the centre", () => {
     await userEvent.keyboard("{ArrowDown}");
     expect(document.activeElement).toBe(row("b"));
 
+    // The focused row's Tooltip is open and takes the first Escape: Escape closes only the newest layer. The next reaches the row.
+    fireEvent.keyDown(row("b"), { key: "Escape", code: "Escape" });
+
     for (const key of ["Escape", "Tab"]) expect(fireEvent.keyDown(row("b"), { key, code: key })).toBe(true);
 
     expect(document.activeElement).toBe(row("b"));
@@ -162,7 +165,7 @@ describe("u7158 a stray key goes to the centre", () => {
 
     row("b").focus();
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(row("b").getAttribute("data-selected")).toBe("true"));
+    await waitFor(() => expect(row("b").hasAttribute("data-selected")).toBe(true));
   });
 
   it("u7158c_keys_pressed_with_a_command_modifier_stay_where_they_are", async () => {
@@ -196,7 +199,7 @@ describe("u7158 a stray key goes to the centre", () => {
     const { app } = await mount();
 
     fireEvent.click(row("w"));
-    await waitFor(() => expect(row("w").getAttribute("data-selected")).toBe("true"));
+    await waitFor(() => expect(row("w").hasAttribute("data-selected")).toBe(true));
     row("b").focus();
 
     // "a" would find the row "alpha" were a letter still type-to-find.

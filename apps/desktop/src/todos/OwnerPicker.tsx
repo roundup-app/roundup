@@ -1,4 +1,3 @@
-import { anchorBox } from "../ui/anchorBox";
 import { Combobox } from "../ui/Combobox";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -7,12 +6,11 @@ import type { TodosState } from "./state";
 import type { ConnectedProject } from "../state/connectedProject";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { captureFocus } from "../keys/focus";
-import { createSignal, For, Show } from "solid-js";
-import type { Accessor } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createSignal, flush, For, Show, untrack, type Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import { Menu } from "../ui/Menu";
 import { copy } from "./copy";
+import { pickerAnchor } from "./pickerAnchor";
 import type { Owner } from "../shelf/scope";
 
 const NEW_WORKSTREAM = "new-workstream";
@@ -37,41 +35,37 @@ export const OwnerPicker = <Id extends number | string>(props: {
   // U3743b: the hand-over belongs to the target it was chosen for; a gone or newer target ends it, so an exit that never completes cannot keep the picker shut.
   const [leaving, setLeaving] = createSignal<ReturnType<typeof props.target>>(null);
   const handingOver = () => leaving() !== null && leaving() === props.target();
+  const anchor = pickerAnchor(props);
 
   return (
   <Menu.Root initialFocus={props.target()?.focus}
-    lazyMount
-    unmountOnExit
     open={props.target() !== null && !handingOver() && (props.offers().length > 0 || !!props.newWorkstream)}
-    onExitComplete={() => {
+    onOpenChangeComplete={open => {
+      if (open) return;
       const chosen = leaving();
 
       if (chosen === null) return;
       setLeaving(null);
 
-      if (chosen === props.target()) props.newWorkstream?.(chosen.id);
+      if (chosen === untrack(props.target)) props.newWorkstream?.(chosen.id);
     }}
-    positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, props.replacement) }}
-    onOpenChange={({ open }) => { if (!open && !handingOver()) props.close(); }}
-    onSelect={({ value }) => {
+    onOpenChange={({ open }) => { if (!open && !untrack(handingOver)) props.close(); }}
+    onAction={value => {
       const target = props.target();
       const offer = props.offers().find(each => each.id === value);
 
-      if (target && value === NEW_WORKSTREAM) setLeaving(target);
+      // The press closes the menu as this returns, and that close reads who is handing over: the write must be visible by then.
+      if (target && value === NEW_WORKSTREAM) { setLeaving(target); flush(); }
       else if (target && offer) props.choose(target.id, offer.actor);
     }}
   >
-    <Portal>
-      <Menu.Positioner>
-        <Menu.Content class="owner-picker" aria-label={props.label(props.target()?.id)}>
-          <For each={props.offers()}>{offer => <>
-            <Show when={props.newWorkstream && offer.id === "unassigned"}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
-            <Menu.Item value={offer.id}>{offer.name}</Menu.Item>
-          </>}</For>
-          <Show when={props.newWorkstream && !props.offers().some(offer => offer.id === "unassigned")}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
-        </Menu.Content>
-      </Menu.Positioner>
-    </Portal>
+    <Menu.Content side="bottom" align="start" anchor={anchor} class="owner-picker" aria-label={props.label(props.target()?.id)}>
+      <For each={props.offers()}>{offer => <>
+        <Show when={props.newWorkstream && offer.id === "unassigned"}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
+        <Menu.Item value={offer.id}>{offer.name}</Menu.Item>
+      </>}</For>
+      <Show when={props.newWorkstream && !props.offers().some(offer => offer.id === "unassigned")}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
+    </Menu.Content>
   </Menu.Root>
   );
 };

@@ -1,5 +1,5 @@
 import type { RailNode } from "@contracts/agent/RailNode";
-import { createMemo, createSignal, createEffect, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, createEffect, Show } from "solid-js";
 import * as v from "valibot";
 import { applying } from "../app/pending";
 import { copy } from "./copy";
@@ -27,9 +27,8 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
   const field = createDraftField(drafts, destination(), schema);
   const draft = field.draft;
   const text = () => String(draft()?.value.text ?? current()?.mode_prompt ?? "");
-  createEffect(() => {
-    if (current()) onCleanup(drafts.editor(destination()));
-  });
+  const exists = createMemo(() => current() !== undefined);
+  createEffect(exists, kept => { if (kept) return drafts.editor(destination()); });
 
   const persist = async () => {
     const id = props.id;
@@ -82,10 +81,10 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
   };
 
   return <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) { props.onClose(); queueFocus(() => props.finalFocus()?.focus({ preventScroll: true })); } }} finalFocusEl={props.finalFocus}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form mode-prompt-dialog">
+    <Dialog.Content class="app-dialog-form mode-prompt-dialog">
       <Dialog.Title>{copy.modePromptFor(current()?.name ?? "")}</Dialog.Title>
       <Field.Root class="mode-prompt-field">
-        <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
+        <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck="false" autocorrect="off" autocapitalize="off" onInput={event => {
           field.keep({ text: event.currentTarget.value, base: String(draft()?.value.base ?? current()?.mode_prompt ?? "") }, null);
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.modePromptHint}</Field.HelperText>
@@ -96,5 +95,5 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
         <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restart}</button>
         <Dialog.CloseTrigger data-button="quiet" class="word">{copy.close}</Dialog.CloseTrigger>
       </div>
-  </Dialog.Content></Dialog.Positioner></Dialog.Root>;
+  </Dialog.Content></Dialog.Root>;
 };

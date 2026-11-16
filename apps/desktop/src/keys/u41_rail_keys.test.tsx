@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream, door, MINUTE, NOW } from "../testing/nodes";
 import { itemOf, rowOf, settled } from "../rail/railFixture";
@@ -417,6 +418,7 @@ describe("u41 rail by keyboard, the rest", () => {
 
     rowOf("g").focus();
     connected.drawer.open(() => <input aria-label="field" />);
+    flush();
     screen.getByLabelText("field").focus();
 
     const notPrevented = press(key);

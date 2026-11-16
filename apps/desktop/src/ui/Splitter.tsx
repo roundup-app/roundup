@@ -1,234 +1,278 @@
 import { copy } from "./copy";
+import { resizable } from "@ui-sdk/core/resizable";
+import { usePart, usePrimitive } from "@ui-sdk/solid/primitive";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { useSplitter } from "@ark-ui/solid/splitter";
 import { createWritableMemo } from "@solid-primitives/memo";
-import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, type JSX } from "solid-js";
+import { createSignal, createUniqueId, flush, onSettled } from "solid-js";
 import type { Side } from "../resize/widths";
+import { withOptions } from "./primitiveOptions";
 import "./Splitter.css";
 
-/** Z3742b capability exception (Issues #3742/#4094): Ark 5.39.3 with patched
- * Zag 1.45 forces Shift to 10%, returns percent sizes and supplies flex styles.
- * Keep the pixel/grid host adapter; Ark owns resizing, bounds and cancellation. */
-export function Splitter(props: { side: Side; class?: string; disabled?: boolean; hidden?: boolean; onDragging?: (dragging: boolean) => void }) {
+const group = withOptions(resizable);
+
+/** The group ends a drag it still holds when its handle is torn down or disabled, with no pointer event: nobody released that drag, so nothing reaches the side. */
+const unreleased = (details: { reason: string; event?: unknown }) =>
+  details.reason === "drag" && !details.event;
+
+/** The width a key jumps `side` to, or undefined for a key that does not jump. */
+const edgeJump = (side: Side, key: string, maximum: number): number | undefined => {
+  switch (key) {
+    case "Enter": return side.fallback;
+    case "Home": return side.collapsedAt ?? side.min;
+    case "End": return maximum;
+    default: return undefined;
+  }
+};
+
+/** Z3742b: an arrow moves the edge 16 px, with Shift 64 px. */
+const STEP = 16;
+
+const LARGE_STEP = 64;
+
+/** U6228: only a jump, a double-click or a drag collapses an open side, so an arrow that would end under the minimum stops at it. */
+const stopAtMinimum = (side: Side, event: KeyboardEvent, now: number): number | undefined => {
+  const shrinking = side.direction === 1 ? "ArrowLeft" : "ArrowRight";
+
+  if (side.collapsedAt === undefined || event.key !== shrinking || now <= side.collapsedAt) return undefined;
+
+  return Math.max(side.min, now - (event.shiftKey ? LARGE_STEP : STEP));
+};
+
+/** U6228: a side that collapses reads any width under its minimum as its collapsed width. */
+const boundsOf = (side: Side, maximum: number, percent: (px: number) => number) => {
+  const minSize = percent(side.min);
+  const maxSize = percent(maximum);
+  const { collapsedAt } = side;
+
+  return collapsedAt === undefined ? { minSize, maxSize } : { minSize, maxSize, collapsible: true, collapsedSize: percent(collapsedAt) };
+};
+
+/** Reports the layout root's width and the width of the panel the edge does not belong to, now and whenever either resizes. Returns what stops it. */
+const observeLayout = (root: HTMLElement, opposite: () => "shelf" | "rail", onMeasure: (width: number, opposite: number) => void) => {
+  const measure = () => {
+    const panel = root.querySelector<HTMLElement>(`[data-layout-panel="${opposite()}"]`);
+
+    onMeasure(root.getBoundingClientRect().width || 1, panel && !panel.hidden ? panel.getBoundingClientRect().width : 0);
+  };
+
+  measure();
+  const observer = new ResizeObserver(measure);
+
+  observer.observe(root);
+
+  for (const panel of root.querySelectorAll<HTMLElement>("[data-layout-panel]")) observer.observe(panel);
+
+  return () => observer.disconnect();
+};
+
+/** Until the press ends: `end` on release, `cancel` on a cancelled pointer, a blurred window or Escape. Returns what removes every listener. */
+const listenToPress = (end: () => void, cancel: () => void) => {
+  const removers = [
+    makeEventListener(window, "pointerup", end, true),
+    makeEventListener(window, "pointercancel", cancel, true),
+    makeEventListener(window, "blur", cancel),
+    makeEventListener(window, "keydown", (key) => {
+      if (key.key !== "Escape") return;
+
+      key.preventDefault();
+      key.stopPropagation();
+      cancel();
+    }, true),
+  ];
+
+  return () => {
+    for (const remove of removers) remove();
+  };
+};
+
+/** Z3742b: a pixel and grid adapter over ui-sdk's resizable. The group sees two hidden panels that stand for the region and the rest of the window, with the edge between them as its handle; the group owns drags, arrow steps and bounds, in percent of the window's width. This adapter owns the pixel units, the host measurement, reset, Home and End, and cancellation. */
+export function Splitter(props: {
+  side: Side;
+  class?: string;
+  disabled?: boolean;
+  hidden?: boolean;
+  onDragging?: (dragging: boolean) => void;
+}) {
   let edge!: HTMLDivElement;
-  let pointerResize = false;
-  let previewed = false;
-  let releaseHold: (() => void) | undefined;
+  let endHold: (() => void) | undefined;
   const id = createUniqueId();
-  const [host, setHost] = createSignal<HTMLElement>();
   const [extent, setExtent] = createSignal(1);
   const [other, setOther] = createSignal(0);
   const [pixels, setPixels] = createWritableMemo(() => props.side.now());
-  const [step, setStep] = createSignal(16);
-  const index = () => props.side.direction === 1 ? 0 : 2;
-  const rootId = () => host()?.id ?? id;
-  const maximum = () => Math.max(props.side.min, Math.min(props.side.room(), extent() - other()));
-  // U6228: a side that collapses reads any width under its minimum as its collapsed width.
-  const clamp = (px: number) => props.side.collapsedAt !== undefined && px < props.side.min ? props.side.collapsedAt : Math.max(props.side.min, Math.min(maximum(), px));
-  const percent = (px: number) => px / (host()?.getBoundingClientRect().width || extent()) * 100;
+  const [aborting, setAborting] = createSignal(false);
+  const first = () => props.side.direction === 1;
 
-  const sizes = () => {
-    const rail = index() === 0 ? pixels() : other();
-    const shelf = index() === 2 ? pixels() : other();
+  const maximum = () =>
+    Math.max(props.side.min, Math.min(props.side.room(), extent() - other()));
 
-    return [`${rail}px`, `${Math.max(0, extent() - rail - shelf)}px`, `${shelf}px`];
+  const percent = (px: number) => (px / extent()) * 100;
+
+  const pixelsOf = (layout: number[]) =>
+    Math.round((layout[first() ? 0 : 1]! * extent()) / 100);
+
+  const layout = () => {
+    const side = percent(pixels());
+
+    return first() ? [side, 100 - side] : [100 - side, side];
   };
 
-  const publish = (size: number[], end = false) => {
-    const px = clamp(Math.round(size[index()]! * (host()?.getBoundingClientRect().width || extent()) / 100));
+  const primitive = usePrimitive(group, () => ({
+    layout: layout(),
+    step: percent(STEP),
+    largeStep: percent(LARGE_STEP),
+    disabled: props.disabled === true || props.hidden === true || aborting(),
+    onLayoutChange: (next, details) => {
+      // The group refits its bounds when the window's width changes; the owner's width already follows it.
+      if (details.reason === "resize") {
+        details.cancel();
 
-    setPixels(px);
+        return;
+      }
 
-    if (end) props.side.commit(px);
-    else props.side.preview(px);
-  };
+      if (unreleased(details)) return;
+      const px = pixelsOf(next);
 
-  const api = useSplitter({
-    id,
-    get ids() { return { root: rootId(), panel: (panel: string | number) => `${rootId()}-${panel}` }; },
-    get panels() {
-      return ["rail", "centre", "shelf"].map((panel, at) => ({
-        id: panel,
-        resizeBehavior: at === 1 ? "preserve-relative-size" as const : "preserve-pixel-size" as const,
-        minSize: at === index() ? `${props.side.min}px` : at === 1 ? 0 : `${other()}px`,
-        collapsible: at === index() && props.side.collapsedAt !== undefined,
-        collapsedSize: at === index() && props.side.collapsedAt !== undefined ? `${props.side.collapsedAt}px` : undefined,
-        maxSize: at === index() ? `${maximum()}px` : at === 1 ? 100 : `${other()}px`,
-      }));
+      setPixels(px);
+      props.side.preview(px);
     },
-    get size() { return sizes(); },
-    get keyboardResizeBy() { return percent(step()); },
-    onResize: ({ size }) => { previewed = true; publish(size); },
-    onResizeEnd: ({ size }) => {
-      // Ark ends pointer clicks too; committing those would triple a double-click reset.
-      if (!pointerResize || previewed) publish(size, true);
+    onLayoutCommit: (next, details) => {
+      if (!unreleased(details)) props.side.commit(pixelsOf(next));
+    },
+  }));
+
+  const bounds = () => boundsOf(props.side, maximum(), percent);
+
+  const resize = (px: number) => {
+    if (props.disabled || props.hidden || endHold) return;
+
+    primitive.api.resize(`${id}-side`, percent(px));
+  };
+
+  // The group's own Home and End move the panel before the handle and Enter and a double-click collapse it; the edge's jump is the side's own width.
+  const keyDown = (event: KeyboardEvent) => {
+    const jump = edgeJump(props.side, event.key, maximum()) ?? stopAtMinimum(props.side, event, pixels());
+
+    if (jump === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
+
+    event.preventDefault();
+    resize(jump);
+  };
+
+  const reset = (event: MouseEvent) => {
+    event.preventDefault();
+    resize(props.side.fallback);
+  };
+
+  // The group ends a drag on pointercancel by committing it and has no way to abandon one: the width goes back first, so ending commits nothing, and a disabled group ends its drag.
+  const abandon = (origin: number, pointerId: number) => {
+    setPixels(origin);
+    props.side.preview(origin);
+    flush();
+    setAborting(true);
+    flush();
+    setAborting(false);
+
+    if (edge.hasPointerCapture?.(pointerId))
+      edge.releasePointerCapture(pointerId);
+  };
+
+  // The Terminal refits once the hold ends, so the hold is the pointer's, not the group's moment-to-moment state.
+  const press = (event: PointerEvent) => {
+    if (event.button !== 0 || props.disabled || props.hidden) return;
+
+    // A press takes the edge's focus, as a press on any focusable control does: Escape then reaches the edge's cancel before an App key bound to wherever focus was.
+    edge.focus({ preventScroll: true });
+    endHold?.();
+
+    const origin = pixels();
+
+    const end = () => {
+      stopListening();
+      endHold = undefined;
       props.onDragging?.(false);
-    },
-  });
+    };
 
-  const triggerId = () => props.side.direction === 1 ? "rail:centre" as const : "centre:shelf" as const;
-  const trigger = () => api().getResizeTriggerProps({ id: triggerId(), disabled: props.disabled || props.hidden });
+    const cancel = () => {
+      abandon(origin, event.pointerId);
+      end();
+    };
 
-  // Ark's handlers arrive as a function or a [function, data] tuple.
-  const invoke = <E extends Event>(handler: JSX.EventHandlerUnion<HTMLDivElement, E> | undefined, event: E & { currentTarget: HTMLDivElement; target: Element }) => {
-    if (!handler) return;
-
-    if (0 in handler) handler[0](handler[1], event);
-    else handler(event);
+    endHold = end;
+    props.onDragging?.(true);
+    const stopListening = listenToPress(end, cancel);
   };
 
-  onMount(() => {
+  onSettled(() => {
     const root = edge.closest<HTMLElement>("[data-layout-root]");
 
     if (!root) throw new Error(copy.resizeUnavailable);
 
-    if (!root.id) root.id = id;
-    setHost(root);
+    const stopObserving = observeLayout(
+      root,
+      () => (first() ? "shelf" : "rail"),
+      (width, opposite) => {
+        setExtent(width);
+        setOther(opposite);
+      },
+    );
 
-    // Both edges share stable host/panel identity. Never forward Ark's flex sizing.
-    for (const [name, value] of Object.entries(api().getRootProps())) {
-      if (name === "id" || name.startsWith("data-")) root.setAttribute(name, String(value));
-    }
+    // Capture on the edge itself, so the hold is in place before the group's own press handling at the document.
+    // listener-owner: onSettled refuses onCleanup, so the cleanup it returns removes this.
+    edge.addEventListener("pointerdown", press, true);
 
-    for (const panel of root.querySelectorAll<HTMLElement>("[data-layout-panel]")) {
-      const name = panel.dataset.layoutPanel!;
-
-      for (const [key, value] of Object.entries(api().getPanelProps({ id: name }))) {
-        if (key === "id" || key.startsWith("data-")) panel.setAttribute(key, String(value));
-      }
-    }
-
-    const measure = () => {
-      setExtent(root.getBoundingClientRect().width || 1);
-      const opposite = root.querySelector<HTMLElement>(`[data-layout-panel="${index() === 0 ? "shelf" : "rail"}"]`);
-
-      setOther(opposite && !opposite.hidden ? opposite.getBoundingClientRect().width : 0);
+    return () => {
+      endHold?.();
+      stopObserving();
+      edge.removeEventListener("pointerdown", press, true);
     };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-
-    observer.observe(root);
-
-    for (const panel of root.querySelectorAll<HTMLElement>("[data-layout-panel]")) observer.observe(panel);
-    onCleanup(() => observer.disconnect());
   });
-  onCleanup(() => { releaseHold?.(); props.onDragging?.(false); });
 
-  const reset = () => {
-    if (props.disabled || props.hidden || api().dragging) return;
-    const px = clamp(props.side.fallback);
-    const next = api().getSizes();
+  // The group takes the panels' combined width as the span the edge moves across, so each is half the window wide.
+  const panel = (name: "side" | "rest") =>
+    usePart(
+      primitive,
+      "panel",
+      () => name === "side" ? { id: `${id}-${name}`, ...bounds() } : { id: `${id}-${name}` },
+      {
+        class: "app-splitter-shim",
+        style: () => ({ "inline-size": `${extent() / 2}px` }),
+      },
+      "div",
+    );
 
-    next[index()] = percent(px);
-    next[1] = 100 - next[0]! - next[2]!;
-    api().setSizes(next);
-    setPixels(px);
-    props.side.preview(px);
-    props.side.commit(px);
-  };
+  const edgeElement = usePart(
+    primitive,
+    "handle",
+    () => ({ id: `${id}-edge` }),
+    {
+      ref: (element: HTMLDivElement) => {
+        edge = element;
+      },
+      get class() {
+        return ["resize-edge", "app-splitter", props.class];
+      },
+      get hidden() {
+        return props.hidden;
+      },
+      get "aria-label"() {
+        return props.side.label;
+      },
+      get "aria-valuetext"() {
+        return copy.pixelWidth(pixels());
+      },
+      onKeyDown: keyDown,
+      onDblClick: reset,
+    },
+    "div",
+  );
 
-  const pointerDown: JSX.EventHandler<HTMLDivElement, PointerEvent> = (event) => {
-    if (!api().dragging) { pointerResize = true; previewed = false; }
+  const order = () => first() ? ["side", "rest"] as const : ["rest", "side"] as const;
 
-    // The Terminal refits once the hold ends, so the hold is the pointer's, not the machine's moment-to-moment state.
-    if (event.button === 0 && !props.disabled && !props.hidden) {
-      releaseHold?.();
-
-      const removers: Array<() => void> = [];
-
-      const cancel = (event: Event) => {
-        // Zag maps pointercancel to POINTER_UP. Keep that commit path out of cancellation.
-        if (event.type === "pointercancel") event.stopPropagation();
-
-        const cancelResize = () => {
-          // Ark exposes Escape cancellation only through its key handler. Call it directly:
-          // no DOM event is dispatched, and Zag restores size and releases its own capture.
-          const handler = trigger().onKeyDown;
-          const key = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
-          Object.defineProperty(key, "currentTarget", { value: edge });
-          Object.defineProperty(key, "target", { value: edge });
-          // SAFETY: the targets are the mounted resize edge assigned above.
-          const normalized = key as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
-
-          invoke(handler, normalized);
-        };
-
-        // POINTER_DOWN enters Zag on a microtask; cancel after that entry if blur came first.
-        if (api().dragging) cancelResize();
-        else queueMicrotask(cancelResize);
-        release();
-      };
-
-      const release = () => {
-        for (const remove of removers) remove();
-        releaseHold = undefined;
-        props.onDragging?.(false);
-      };
-
-      releaseHold = release;
-      props.onDragging?.(true);
-      removers.push(
-        makeEventListener(window, "pointerup", release, true),
-        makeEventListener(window, "pointercancel", cancel, true),
-        makeEventListener(window, "blur", cancel),
-      );
-    }
-
-    const handler = trigger().onPointerDown;
-
-    invoke(handler, event);
-  };
-
-  const boundaryKeys = Object.keys({ Home: true, End: true });
-
-  const keyDown: JSX.EventHandler<HTMLDivElement, KeyboardEvent> = (event) => {
-    if (event.defaultPrevented) return;
-
-    if (!api().dragging) pointerResize = false;
-
-    if (event.key === "Enter") { event.preventDefault(); reset();
-
- return; }
-
-    const shiftArrow = event.shiftKey && /^Arrow(?:Left|Right|Up|Down)$/.test(event.key);
-    const reverseBoundary = props.side.direction === -1 && boundaryKeys.includes(event.key);
-
-    setStep(shiftArrow ? 64 : 16);
-
-    const handler = trigger().onKeyDown;
-
-    // Ordinary keys go straight to Ark; only its unsupported modifier/boundary
-    // cases need an adapted event (capability record on #3742 and #4094).
-    if (!shiftArrow && !reverseBoundary) {
-      invoke(handler, event);
-
-      return;
-    }
-
-    // Ark's Shift delta is hard-coded to 10%; normalize the modifier while its
-    // own key map, limits, direction and keyboard state still perform the action.
-    const key = reverseBoundary
-      ? boundaryKeys.find((value) => value !== event.key) ?? event.key
-      : event.key;
-
-    const adapted = new KeyboardEvent("keydown", {
-      key,
-      shiftKey: /^Arrow(?:Left|Right|Up|Down)$/.test(event.key) ? false : event.shiftKey,
-      ctrlKey: event.ctrlKey, altKey: event.altKey, metaKey: event.metaKey, cancelable: true,
-    });
-
-    Object.defineProperties(adapted, { target: { value: event.target }, currentTarget: { value: event.currentTarget } });
-    // SAFETY: the normalized event retains the original element targets above.
-    const normalized = adapted as KeyboardEvent & { currentTarget: HTMLDivElement; target: Element };
-
-    invoke(handler, normalized);
-
-    if (adapted.defaultPrevented) event.preventDefault();
-  };
-
-  return <div {...trigger()} ref={(element) => { edge = element; }} class={`resize-edge app-splitter ${props.class ?? ""}`} hidden={props.hidden}
-    tabIndex={props.disabled || props.hidden ? -1 : 0}
-    aria-label={props.side.label} aria-orientation="vertical" aria-valuenow={pixels()} aria-valuemin={props.side.collapsedAt !== undefined && pixels() <= props.side.collapsedAt ? props.side.collapsedAt : props.side.min} aria-valuemax={maximum()}
-    onPointerDown={pointerDown} onKeyDown={keyDown} onDblClick={reset} />;
+  return (
+    <>
+      {panel(order()[0])}
+      {edgeElement}
+      {panel(order()[1])}
+    </>
+  );
 }

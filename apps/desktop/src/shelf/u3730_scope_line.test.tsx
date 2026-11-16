@@ -22,7 +22,7 @@ const open = async () => {
 const line = () => document.querySelector<HTMLElement>("[data-shelf-scope]")!;
 
 const select = async (name: string) => {
-  fireEvent.click([...document.querySelectorAll<HTMLElement>(".rail-row")].find(row => row.textContent!.trim().startsWith(name))!);
+  fireEvent.click([...document.querySelectorAll<HTMLElement>(".rail-row")].find(row => row.querySelector(".name")?.textContent?.trim().startsWith(name))!);
   await waitFor(() => expect(within(line()).getByRole("button", { name: `Add Todo: ${name}` })).toBeTruthy());
 };
 

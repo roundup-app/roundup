@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountApp } from "../testing/appFixture";
+import { notices } from "../testing/notices";
 import { openRecovery } from "../testing/recovery";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -18,6 +19,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
   const store = drafts("/p");
   const original = store.edit({ surface: "terminal_selection", object: "original", recipient: "a" }, { note: "  original é\n雪  ", excerpt: "exact excerpt", source: "gone" }, null, "ordinary").draft;
   const other = store.edit({ surface: "terminal_selection", object: "other", recipient: "b" }, { note: "  unrelated 🪁\n  ", source: "gone-too" }, null, "ordinary").draft;
+  flush();
   const retained = store.list();
   const clipboard = vi.fn().mockRejectedValue(new Error("clipboard refused"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
@@ -31,6 +33,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
     if (action === "retention") {
       vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
       await store.retry();
+      flush();
       expect(within(panel).getAllByRole("alert")).toHaveLength(2);
     }
 
@@ -52,6 +55,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
     await waitFor(() => expect(clipboard).toHaveBeenCalledTimes(2));
   }
 
+  flush();
   expect(Boolean(screen.queryByText(/clipboard refused/))).toBe(["other-copy", "other-discard", "other-save", "failed"].includes(action));
   expect(store.list().find(draft => draft.revision === other.revision)).toEqual(action === "other-discard" || action === "other-save" ? undefined : other);
 
@@ -77,7 +81,7 @@ it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   const draft = connected.drafts.edit({ surface: "orders", object: "other", recipient: "b" }, { ask: "  unfinished é\n雪  " }, null, "ordinary").draft;
   const [item, setItem] = createSignal("original");
-  render(() => <ConnectedProjectContext.Provider value={connected}>
+  render(() => <ConnectedProjectContext value={connected}>
     <ItemDrawer item={item()} read={async () => {
       if (item() === "original" && failure === "read" && !fixed) throw new Error("opening refused");
 
@@ -89,7 +93,7 @@ it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map
         return <p>{value}</p>;
       }}
     </ItemDrawer>
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext>);
   await screen.findByText("opening refused");
 
   if (action === "retry") {
@@ -97,12 +101,12 @@ it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map
     app.handlers["provenance.history"] = () => [];
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByText("original");
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   } else {
     app.handlers["provenance.history"] = () => [];
     setItem("next item");
     await screen.findByText("next item");
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   }
 
   expect(connected.drafts.list()).toEqual([draft]);

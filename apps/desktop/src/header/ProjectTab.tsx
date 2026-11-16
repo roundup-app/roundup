@@ -2,8 +2,8 @@ import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
-import { ProjectDraftsContext } from "../state/connectedProject";
-import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, useContext } from "solid-js";
+import { ProjectDraftsContext, type createProjectDrafts } from "../state/connectedProject";
+import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, Show, untrack, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
@@ -12,12 +12,52 @@ import { Tabs } from "../ui/Tabs";
 import { NameDraftRecovery } from "../drawer/NameDraftRecovery";
 import type { SortableParts } from "../ui/sortable";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
+import type { MenuEntry } from "../ui/contextMenu";
 import type { App } from "../app/seam";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { CHORDS, TAB_CLOSE, ariaChord } from "../keys/chords";
 import { MARKS, markOf, nameParts } from "./tab";
 import { PROJECT_ALERTS, type ProjectAlerts } from "../state/projectAlerts";
+import { createDraftField } from "../state/draftField";
+import type { Applied } from "../app/pending";
 import type { StripTab } from "./tab";
+
+const schema = v.strictObject({ name: v.string(), base: v.exactOptional(v.string()) });
+
+/** A Project's draft owner, checking its header drafts and recovering only those that name this Project. */
+const headerDrafts = (drafts: ReturnType<ReturnType<typeof createProjectDrafts>> | undefined, path: string) => {
+  drafts?.validate("header", schema);
+  drafts?.registerRecovery("header", draft => draft.destination.object === path ? "available" : "unavailable");
+
+  return drafts;
+};
+
+type Field = ReturnType<typeof createDraftField<v.InferOutput<typeof schema>>>;
+
+type Renamed = Awaited<ReturnType<ProjectsState["rename"]>>;
+
+/** A rename's reply as the draft field reads a change: acknowledged is applied, failed is refused, unknown stays unsettled. */
+const asApplied = (renamed: Renamed): Applied<Renamed> => {
+  if (renamed.status === "acknowledged") return { kind: "applied", value: renamed };
+  const error = new Error(renamed.error);
+
+  return { kind: renamed.status === "failed" ? "refused" : "pending", error, thrown: error };
+};
+
+/** Enter or a click elsewhere sends the new name through the draft owner's own send, so a recovered name goes too; with no owner it is sent directly. */
+const sendRename = async (draft: Field | undefined, rename: () => ReturnType<ProjectsState["rename"]>, acknowledged: (renamed: Renamed) => void, skipped: () => void) => {
+  if (!draft) {
+    void rename().then(acknowledged);
+
+    return;
+  }
+
+  draft.save();
+  const sent = await draft.send(() => rename().then(asApplied));
+
+  if (sent.kind === "skipped") skipped();
+  else if (sent.kind === "applied") acknowledged(sent.result);
+};
 
 /** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
 const RenameField = (props: { name: string; restored: "none" | "current" | "selected"; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
@@ -39,14 +79,14 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
     { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
     { chords: ["Escape"], when: (press) => !press.isComposing, run: () => finish(null, true) },
   ]);
-  onMount(() => {
+  onSettled(() => {
     field?.focus();
 
     if (props.selection) field?.setSelectionRange(props.selection.start, props.selection.end, props.selection.direction);
     else field?.select();
   });
 
-  return <input spellcheck={false} autocorrect="off" autocapitalize="off" class="tab-rename field-inline" aria-label={copy.projectName} value={props.name} ref={field}
+  return <input spellcheck="false" autocorrect="off" autocapitalize="off" class="tab-rename field-inline" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
     onSelect={event => { if (!finished && document.activeElement === event.currentTarget) props.onEdit(event.currentTarget); }}
     onBlur={event => {
@@ -77,6 +117,19 @@ const closeOnKey = (close: () => void) => (press: KeyboardEvent) => {
   }
 };
 
+/** A selected revision reopens in its own Project once it is no longer pending. Older shared recovery records had no captured base: they stay copy/discard-only. */
+const reopensSelected = (ownProject: boolean, retained: { status: string } | undefined, value: { base?: string | undefined } | null): boolean =>
+  ownProject && retained !== undefined && retained.status !== "pending" && value !== null && value.base !== undefined;
+
+/** U2694a: the Project tab's system menu; Recover drafts shows only when there is work to recover. */
+const tabMenu = (tab: { edit: () => void; recoverable: boolean; recover: () => void; alerts: ProjectAlerts; onAlerts: (level: ProjectAlerts) => void; close: () => void; closing: BulkCloses | undefined }): MenuEntry[] => [
+  { id: "rename", label: copy.rename, shortcut: "F2", run: tab.edit },
+  ...(tab.recoverable ? [{ id: "recover", label: copy.recoverDrafts, run: tab.recover }] : []),
+  { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: tab.alerts === level, run: () => tab.onAlerts(level) })) },
+  { id: "close", label: copy.close, run: tab.close },
+  ...bulkCloseItems(tab.closing),
+];
+
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
@@ -101,27 +154,27 @@ export const ProjectTab = (props: {
   ref?: (element: HTMLElement) => void;
 }) => {
   const { near, handlers } = createNear();
-  const [editing, setEditing] = createSignal<{ width: number } | null>(null);
+  const [editing, setEditing] = createSignal<{ width: number; from: { revision: string } | undefined } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
   const mark = () => props.suppressed ? null : markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
-  const authority = useContext(ProjectDraftsContext);
-  const drafts = authority?.(props.tab.path);
-  const schema = v.strictObject({ name: v.string(), base: v.optional(v.string()) });
-  drafts?.validate("header", schema);
-  drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
-  const destination = Object.freeze({ surface: "header", object: props.tab.path, recipient: null });
-  createEffect(() => { if (editing() !== null && drafts) onCleanup(drafts.editor(destination)); });
+  const path = untrack(() => props.tab.path);
+  const drafts = headerDrafts(useContext(ProjectDraftsContext)?.(path), path);
+  const destination = Object.freeze({ surface: "header", object: path, recipient: null });
+  createEffect(createMemo(() => editing() !== null), open => open && drafts ? drafts.editor(destination) : undefined);
   const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path && draft.destination.recipient === null) ?? []);
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);
   const [copyFailure, failCopy] = createSignal<{ project: string; revision: string | null; message: string } | null>(null);
-  createEffect(() => {
-    const failure = copyFailure();
+  createEffect(
+    () => {
+      const failure = copyFailure();
 
-    if (failure && (failure.project !== props.tab.path || (failure.revision !== null && !records().some(draft => draft.revision === failure.revision)))) failCopy(null);
-  });
+      return !!failure && (failure.project !== props.tab.path || (failure.revision !== null && !records().some(draft => draft.revision === failure.revision)));
+    },
+    stale => { if (stale) failCopy(null); },
+  );
 
   const problem = createMemo(() => {
     const failure = drafts?.problem();
@@ -140,22 +193,26 @@ export const ProjectTab = (props: {
 
   let base: string | undefined;
   let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
-  let initialName = "", revision: string | undefined;
+  let initialName = "";
   let restored: "none" | "current" | "selected" = "none";
 
-  const capture = (field: HTMLInputElement) => {
-    const previous = records().find(draft => draft.revision === revision);
+  const capture = (draft: Field | undefined, field: HTMLInputElement) => {
     const selection = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
 
-    if (previous?.value.name === field.value && JSON.stringify(previous.selection) === JSON.stringify(selection)) return;
-    const value = base === undefined ? { name: field.value } : { name: field.value, base };
-    revision = drafts?.edit(destination, value, selection, "ordinary", revision ?? null).draft.revision;
+    draft?.keep(base === undefined ? { name: field.value } : { name: field.value, base }, selection);
   };
 
-  createEffect(on(() => props.selected, selected => { if (!selected) setEditing(null); }));
+  createEffect(() => props.selected, selected => { if (!selected) setEditing(null); });
 
   // A rename field holds the pointer's drags for its text selection.
-  createEffect(() => { if (props.sort) props.sort.sortable.disabled = editing() !== null; });
+  createEffect(() => ({ sortable: props.sort?.sortable, renaming: editing() !== null }), ({ sortable, renaming }) => { if (sortable) sortable.disabled = renaming; });
+
+  /** The tab's name button is the sortable's handle for as long as it is shown. */
+  const dragHandleRef = () => {
+    onCleanup(() => props.sort?.handleRef(undefined));
+
+    return (element: HTMLButtonElement) => { button = element; props.sort?.handleRef(element); };
+  };
 
   const edit = (selected?: { project: string; revision: string }) => {
     const retained = selected ? records().find(draft => draft.revision === selected.revision)
@@ -164,17 +221,15 @@ export const ProjectTab = (props: {
     const parsed = retained && v.safeParse(schema, retained.value);
     const value = parsed && parsed.success ? parsed.output : null;
 
-    if (selected && (selected.project !== props.tab.path || !retained || retained.status === "pending" || !value || value.base === undefined)) return;
-    // Older shared recovery records had no captured base: keep them copy/discard-only.
+    if (selected && !reopensSelected(selected.project === props.tab.path, retained, value)) return;
     base = value ? value.base : props.tab.base;
     initialName = value?.name ?? props.tab.name;
     restored = selected ? "selected" : value ? "current" : "none";
     restoredSelection = value ? retained!.selection : null;
-    revision = value ? retained!.revision : undefined;
-    setEditing({ width: wrap?.offsetWidth ?? 0 });
+    setEditing({ width: wrap?.offsetWidth ?? 0, from: retained && value ? { revision: retained.revision } : undefined });
   };
 
-  createEffect(on(() => props.recovery, selected => { if (selected) edit(selected); }));
+  createEffect(() => props.recovery, selected => { if (selected) untrack(() => edit(selected)); });
 
   registerKeys({ kind: "region", element: () => wrap }, [
     { action: CHORDS["rail.rename"], when: press => press.target === button,
@@ -185,6 +240,35 @@ export const ProjectTab = (props: {
     },
   ]);
 
+  const finishRename = async (draft: Field | undefined, saved: string | null, refocus: boolean) => {
+    setEditing(null);
+
+    // The tab button the rename field replaced is drawn again by the flush; focus lands on that one.
+    if (refocus) {
+      flush();
+      button?.focus();
+    }
+
+    if (saved !== null && base === undefined) {
+      recover(true);
+
+      return;
+    }
+
+    if (saved !== null) {
+      const failure = copyFailure();
+      const expected = base;
+      const onRename = props.onRename;
+      const rename = () => onRename(saved, expected);
+
+      const acknowledged = (renamed: Renamed) => {
+        if (renamed.status === "acknowledged" && copyFailure() === failure) failCopy(null);
+      };
+
+      await sendRename(draft, rename, acknowledged, () => recover(true));
+    }
+  };
+
   return <>
     <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
@@ -194,47 +278,18 @@ export const ProjectTab = (props: {
       onContextMenu={(press: MouseEvent) => {
         const app = props.app;
 
-        if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
-          { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
-          ...(records().length || problem() || copyFailure() ? [{ id: "recover", label: copy.recoverDrafts, run: () => { recover(true); } }] : []),
-          { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: props.alerts === level, run: () => props.onAlerts(level) })) },
-          { id: "close", label: copy.close, run: () => props.onClose() },
-          ...bulkCloseItems(props.closing),
-        ], x, y));
+        // The menu shows the tab as it is when the press is released.
+        if (app) openOnRelease(press, (x, y) => void contextMenu(app, untrack(() => tabMenu({ edit, recoverable: !!(records().length || problem() || copyFailure()), recover: () => recover(true), alerts: props.alerts, onAlerts: props.onAlerts, close: props.onClose, closing: props.closing })), x, y));
       }}>
-      <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={async (saved, refocus) => {
-        setEditing(null);
+      <Show when={editing() === null} fallback={<Show when={editing()} keyed>{session => {
+        const draft = drafts && createDraftField(drafts, destination, schema, session.from);
 
-        if (refocus) button?.focus();
-
-        if (saved !== null && base === undefined) {
-          recover(true);
-
-          return;
-        }
-
-        if (saved !== null) {
-          const submitted = revision;
-          const failure = copyFailure();
-          const expected = base;
-
-          if (submitted && !(await drafts?.submit(submitted))) {
-            recover(true);
-
-            return;
-          }
-
-          void props.onRename(saved, expected).then(outcome => {
-            if (submitted) drafts?.settle(submitted, outcome.status);
-
-            if (outcome.status === "acknowledged" && copyFailure() === failure) failCopy(null);
-          });
-        }
-      }} />}</Show>}>
+        return <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={field => capture(draft, field)} onDone={(saved, refocus) => finishRename(draft, saved, refocus)} />;
+      }}</Show>}>
         <Tabs.Trigger value={props.tab.path} class="tab-name-button"
-          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
+          aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy ? "true" : "false"} aria-keyshortcuts={ariaChord(TAB_CLOSE)}
           onKeyDown={closeOnKey(() => props.onClose())}
-          ref={(element) => { button = element; props.sort?.handleRef(element); onCleanup(() => props.sort?.handleRef(undefined)); }}
+          ref={dragHandleRef()}
           onClick={(click) => {
             if (click.target instanceof Element && click.target.closest('.tab-mark')) {
               click.preventDefault();
@@ -245,7 +300,7 @@ export const ProjectTab = (props: {
           <span class="tab-mark-slot"><Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show></span>
         </Tabs.Trigger>
         <div class="tab-actions">
-        <IconButton class="tab-close" aria-hidden="true" tabIndex={-1} aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.selected || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
+        <IconButton class="tab-close" aria-hidden="true" tabindex={-1} aria-label={copy.closeProject(props.tab.name)} data-visible={String(near() || props.selected || props.closeFocus === true)} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
         </div>
       </Show>
     </FlatTab>

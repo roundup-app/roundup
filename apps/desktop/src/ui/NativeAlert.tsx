@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
 import { questionAsked } from "../keys/registry";
-import { createEffect, createSignal, Show, on, onCleanup, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, Show, onCleanup, untrack } from "solid-js";
 import { answerOf, type App, type NativeAnswer, type NativeQuestion, type RemovalQuestion, type RemovalAnswer } from "../app/seam";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -101,12 +101,15 @@ export const NativeAlert = (props: {
     }
   };
 
-  createEffect(on(() => props.open, open => {
+  // A memo: the same open question must not bump the generation and ask the native dialog again.
+  const asked = createMemo(() => props.open);
+
+  createEffect(asked, open => {
     generation++;
     setFailure(null);
 
     if (open) untrack(() => void request());
-  }));
+  });
 
   const answer = async (value?: RemovalAnswer) => {
     const suppress = ticked() && !removal() ? props.key : undefined;

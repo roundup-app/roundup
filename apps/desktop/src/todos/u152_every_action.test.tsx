@@ -1,11 +1,11 @@
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
-import { leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
+import { historyLoaded, leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
-afterEach(() => { batch(cleanup); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
@@ -57,6 +57,7 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       await within(drawer()).findByRole("region", { name: "Activity" });
+      await historyLoaded(mounted.app);
 
       const title = within(drawer()).getByText("todo 2", { selector: "p" });
 
@@ -142,6 +143,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       const remove = await screen.findByRole("menuitem", { name: "Delete Todo" });
 
       if (by === "keyboard") fireEvent.keyDown(remove.closest('[role="menu"]')!, { key: "End" });
+      flush();
       fireEvent.click(remove);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [2] } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
@@ -230,7 +232,7 @@ it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p
   }
 
   if (action === "delete") {
-    await waitFor(() => expect(drawer().inert).toBe(true));
+    await waitFor(() => expect(drawer().hasAttribute("inert")).toBe(true));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
     await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
     await openDrawerOf(2);
@@ -260,6 +262,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
     const m = await mountTodos([todo(1, { body: "Original body", refs: [url] }), todo(2), todo(3)]);
     await openDrawerOf(1);
     await waitFor(() => expect(callsTo(m.app, "todo.getHistory")).toHaveLength(1));
+    await historyLoaded(m.app);
     const comment = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
     fireEvent.input(comment, { target: { value: exactDraft } });
     const refuse = () => Promise.reject(new RpcError(-32003, "Item unavailable; retry"));
@@ -314,6 +317,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
 
         if (editor && fieldName === "Title") fireEvent.focusIn(dismiss);
         else if (editor) fireEvent.blur(editor, { relatedTarget: dismiss });
+        flush();
         fireEvent.click(dismiss);
       }
 
@@ -338,7 +342,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
     }
 
     if (action === "delete") {
-      await waitFor(() => expect(drawer().inert).toBe(true));
+      await waitFor(() => expect(drawer().hasAttribute("inert")).toBe(true));
       m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
       await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
       await openDrawerOf(2);
@@ -407,6 +411,9 @@ for (const owner of ["todo_comments", "todo_history", "todo_refs"] as const) {
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
     expect(within(drawer()).getByRole("alert", { name: "Read unavailable; retry" })).toBeTruthy();
+    // The events above start a read that fails the same way after its 5 attempts (U6249b); Dismiss answers the failure shown, so that read ends first.
+    await waitFor(() => expect(callsTo(m.app, method).length % 5).toBe(0));
+    await new Promise(resolve => setTimeout(resolve, 0));
     const before = writes(m.app.calls);
 
     if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
@@ -447,7 +454,7 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
   } else {
     fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
-    await waitFor(() => expect(drawer().inert).toBe(true));
+    await waitFor(() => expect(drawer().hasAttribute("inert")).toBe(true));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
   }
 

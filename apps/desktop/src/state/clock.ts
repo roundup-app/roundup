@@ -1,5 +1,4 @@
-import { createComputed, createContext, createMemo, createSignal, on, onCleanup, useContext } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createContext, createEffect, createMemo, createSignal, useContext, type Accessor } from "solid-js";
 
 export type Clock = () => number;
 
@@ -18,22 +17,23 @@ export const useDisplayNow = (active: Accessor<boolean>): Accessor<number> => us
 export const createNow = (clock: Clock, isLive: Accessor<boolean> = () => true, visible: Accessor<boolean> = () => true): Accessor<number> & { subscribe: Subscribe } => {
   const [now, setNow] = createSignal(clock());
   const [demands, setDemands] = createSignal(0);
-  createComputed(on(createMemo(() => visible() && (isLive() || demands() > 0)), (live) => {
+  createEffect(createMemo(() => visible() && (isLive() || demands() > 0)), (live) => {
     if (!live) return;
 
     setNow(clock());
     const timer = setInterval(() => setNow(clock()), NOW_TICK_MS);
 
-    onCleanup(() => clearInterval(timer));
-  }));
+    return () => clearInterval(timer);
+  });
 
   const subscribe: Subscribe = (active) => {
-    createComputed(on(active, (live) => {
+    createEffect(active, (live) => {
       if (!live) return;
 
       setDemands((count) => count + 1);
-      onCleanup(() => setDemands((count) => count - 1));
-    }));
+
+      return () => setDemands((count) => count - 1);
+    });
 
     return now;
   };

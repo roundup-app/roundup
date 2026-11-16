@@ -1,4 +1,4 @@
-import { createComputed, createRoot } from "solid-js";
+import { createEffect, createRoot, flush } from "solid-js";
 import { describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Status } from "@contracts/Status";
@@ -57,6 +57,7 @@ describe("u3 Rail state", () => {
     if (acknowledged.kind === "rail") rail.commandFailure.acknowledge(acknowledged.id);
     else rail.commandFailure.acknowledgeTerminal(acknowledged);
 
+    flush();
     expect(rail.commandFailure.message()).toBe(retained ? "Close failed" : null);
   });
 
@@ -84,6 +85,7 @@ describe("u3 Rail state", () => {
     rail.commandFailure.showTerminal("Close failed", { id: "7", incarnation: "fixture-7" }, "pane", () => {});
     rail.commandFailure.clear();
 
+    flush();
     expect(rail.commandFailure.message()).toBeNull();
     expect(rail.commandFailure.retry()).toBeNull();
   });
@@ -93,6 +95,7 @@ describe("u3 Rail state", () => {
     rail.commandFailure.show("Remove failed", "7");
     rail.commandFailure.acknowledgeTerminal({ id: "7", incarnation: "fixture-7" });
 
+    flush();
     expect(rail.commandFailure.message()).toBe("Remove failed");
   });
 
@@ -149,6 +152,7 @@ describe("u3 Rail state", () => {
 
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "b", status: status("editing") } }));
 
+    flush();
     expect(rail.nodes.map((each) => doorOf(each)?.status?.label)).toEqual(["starting", "editing"]);
   });
 
@@ -157,6 +161,7 @@ describe("u3 Rail state", () => {
 
     app.emit(event({ name: "terminal.exited", data: { id: "t-b", code: 3 } }));
 
+    flush();
     expect([rail.exitOf(node("a")), rail.exitOf(node("b"))]).toEqual([null, { kind: "code", code: 3 }]);
   });
 
@@ -165,6 +170,7 @@ describe("u3 Rail state", () => {
 
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: null } }));
 
+    flush();
     expect(rail.exitOf(node("a"))).toEqual({ kind: "signal" });
   });
 
@@ -186,6 +192,7 @@ describe("u3 Rail state", () => {
 
     app.emit(event({ name: "terminal.exited", data: { id: "t-m", code: 2 } }));
 
+    flush();
     expect(rail.exitOf(workstream)).toEqual({ kind: "code", code: 2 });
   });
 
@@ -239,6 +246,7 @@ describe("u3 Rail state", () => {
     rail.select("a");
     rail.select("b");
 
+    flush();
     expect(rail.selected()).toBe("b");
   });
 
@@ -280,8 +288,10 @@ it("u62_old_status_cannot_overwrite_a_restarted_door", async () => {
   const current = node("workstream", { kind: "workstream", attempt: "2", terminal_id: "new" });
   const { app, rail } = await open([current]);
   app.emit(event({ name: "agent.status", data: { status_revision: "2", id: "workstream", attempt: "1", status: { kind: "done", label: "old exit", since: 1, finished: "0" } } }));
+  flush();
   expect(rail.nodes[0]).toEqual(current);
   app.emit(event({ name: "agent.status", data: { status_revision: "2", id: "workstream", attempt: "2", status: status("new work") } }));
+  flush();
   expect(doorOf(rail.nodes[0])?.status?.label).toBe("new work");
 });
 
@@ -289,8 +299,10 @@ it("a7_delayed_same_attempt_status_cannot_replace_a_later_revision", async () =>
   const current = node("door", { kind: "workstream", attempt: "1", status_revision: "3", status: status("recovered") });
   const { app, rail } = await open([current]);
   app.emit(event({ name: "agent.status", data: { id: "door", attempt: "1", status_revision: "2", status: { kind: "error", label: "old failure", since: 0, finished: "0" } } }));
+  flush();
   expect(doorOf(rail.nodes[0])?.status?.label).toBe("recovered");
   app.emit(event({ name: "agent.status", data: { id: "door", attempt: "1", status_revision: "4", status: status("new work") } }));
+  flush();
   expect(doorOf(rail.nodes[0])?.status?.label).toBe("new work");
 });
 
@@ -415,6 +427,7 @@ describe("U5151c", () => {
 
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: status("working again") } }));
 
+    flush();
     expect(doorOf(rail.nodes[0])?.status?.kind).toBe("working");
     expect(rail.dismissed(rail.nodes[0]!)).toBe(false);
     expect(app.calls.filter(call => !call.method.startsWith("rail.") && !call.method.startsWith("terminal.list"))).toEqual([]);
@@ -426,7 +439,8 @@ describe("U5991 pending changes", () => {
   const framesOf = (rail: { readonly nodes: readonly RailNode[] }): string[][] => {
     const frames: string[][] = [];
 
-    createRoot(() => createComputed(() => frames.push(rail.nodes.map(each => each.id))));
+    createRoot(() => createEffect(() => rail.nodes.map(each => each.id), ids => { frames.push(ids); }));
+    flush();
 
     return frames;
   };
@@ -442,6 +456,7 @@ describe("U5991 pending changes", () => {
     await rail.refresh();
     drawn();
     shown();
+    flush();
 
     const added = (ids: string[]) => ids.filter(id => id !== "kept" && id !== "leaving");
 
@@ -458,6 +473,7 @@ describe("U5991 pending changes", () => {
 
     const refreshed = rail.refresh();
     app.emit(event({ name: "rail.renamed", data: { id: "a", name: "New" } }));
+    flush();
     expect(rail.nodes[0]?.name).toBe("Old");
     // The read was asked before the rename, so it answers with the name the rename replaced.
     answer.resolve([node("a", { name: "Old" })]);
@@ -479,12 +495,14 @@ describe("U5991 pending changes", () => {
 
     first();
     first();
+    flush();
     expect([rail.launching("a"), doorOf(rail.nodes[0])?.status?.label]).toEqual([true, "starting"]);
 
     app.handlers["rail.tree"] = () => [agent("a", "working", "editing")];
     await rail.refresh();
     second();
 
+    flush();
     expect([rail.launching("a"), doorOf(rail.nodes[0])?.status?.label]).toEqual([false, "editing"]);
   });
 
@@ -496,10 +514,12 @@ describe("U5991 pending changes", () => {
     const kept = agent("a", "done", "finished", { name: "Kept" });
     const { rail } = await open([kept]);
     const lift = show(rail);
+    flush();
     expect(rail.nodes).not.toEqual([kept]);
     // A refused call lifts its pending change (railCommand's `finally`).
     lift();
 
+    flush();
     expect(rail.nodes).toEqual([kept]);
     expect(rail.launching("a")).toBe(false);
   });

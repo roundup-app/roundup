@@ -1,11 +1,12 @@
 import { cleanup, screen } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DaemonExit } from "../app/seam";
 import { info, terminal } from "../testing/nodes";
 import { callsTo, mountPane, subscribed } from "./paneHarness";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { saveAppSettings } from "../settings/preferences";
+import { notices } from "../testing/notices";
 
 const savedKey = "roundup:app-settings";
 
@@ -86,10 +87,12 @@ it("u102_size_is_shared_with_existing_and_later_terminals", async () => {
   press(target, "=");
   vi.advanceTimersToNextFrame();
   connected.rail.select("b");
+  flush();
   expect(emulators.get("t-b")!.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
   press(document.querySelector("[data-terminal='t-b']")!, "=");
   vi.advanceTimersToNextFrame();
   connected.rail.select("a");
+  flush();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 2);
 });
 
@@ -145,6 +148,7 @@ it("u102_daemon_exited_prevents_size_changes", async () => {
   const { emulator, target, app } = await mount(exit);
   app.calls.length = 0;
   setExit({ code: 1 });
+  flush();
   expect(press(target, "=").defaultPrevented).toBe(false);
   vi.advanceTimersToNextFrame();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE);
@@ -176,5 +180,5 @@ it("u6249b_storage_failure_keeps_size_and_logs_the_cause_without_showing_it", as
   vi.advanceTimersToNextFrame();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
   await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining(failure.message)));
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
 });

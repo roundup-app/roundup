@@ -17,9 +17,9 @@ it("u5531b_visibility_projects_one_membership_in_rail_order", async () => {
   await waitFor(() => expect(rowNames()).toEqual(["stream", "shown"]));
   const branch = screen.getByRole("treeitem", { name: / internal$/ });
   expect(branch.getAttribute("aria-expanded")).toBe("false");
-  fireEvent.click(branch.querySelector("[data-part=branch-control]")!);
+  fireEvent.click(branch);
   await waitFor(() => expect(rowNames()).toEqual(["stream", "shown", "internal-first", "internal-last"]));
-  fireEvent.click(screen.getByRole("treeitem", { name: /idle/ }).querySelector("[data-part=branch-control]")!);
+  fireEvent.click(screen.getByRole("treeitem", { name: /idle/ }));
   await waitFor(() => expect(rowNames()).toEqual(["stream", "shown", "internal-first", "internal-last", "idle"]));
   app.handlers["rail.tree"] = () => [workstream("stream"), ...children.map(child => ({ ...child, visibility: "shown" as const }))];
   app.emit(event({ name: "rail.changed" }));
@@ -34,7 +34,7 @@ it("u5531b_open_choices_survive_updates_independently", async () => {
   const { app, rail } = await mountRail(structuredClone(nodes));
   const branch = () => document.querySelector('[data-id="fold:internal:stream"]')!;
   await waitFor(() => expect(branch()).not.toBeNull());
-  fireEvent.click(branch().querySelector("[data-part=branch-control]")!);
+  fireEvent.click(branch());
   await waitFor(() => expect(rowNames()).toContain("helper"));
   expect(rowNames()).not.toContain("settled");
   expect(rowNames()).not.toContain("peer");
@@ -50,7 +50,7 @@ it("u5531b_open_choices_survive_updates_independently", async () => {
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(branch()?.getAttribute("aria-expanded")).toBe("true"));
   expect(rowNames()).toContain("helper");
-  fireEvent.click(branch().querySelector("[data-part=branch-control]")!);
+  fireEvent.click(branch());
   await waitFor(() => expect(rowNames()).not.toContain("helper"));
 });
 
@@ -62,7 +62,7 @@ it.each(["internal", "idle"] as const)("u5531b_disappearing_focused_branch_retur
 
   const { app } = await mountRail([workstream("stream"), ...children]);
   const key = group === "internal" ? "fold:internal:stream" : "fold:stream";
-  const branch = () => document.querySelector<HTMLElement>(`[data-id="${key}"] [data-part=branch-control]`);
+  const branch = () => document.querySelector<HTMLElement>(`[data-id="${key}"]`);
   await waitFor(() => expect(branch()).not.toBeNull());
   branch()!.focus();
   await waitFor(() => expect(document.activeElement).toBe(branch()));
@@ -93,7 +93,7 @@ it.each(["absent", "unknown", "present"] as const)("u5940a_settled_internal_chil
   await settled();
   expect(rowNames()).toEqual(["stream"]);
   expect(screen.queryByRole("treeitem", { name: /idle$/ })).toBeNull();
-  fireEvent.click(screen.getByRole("treeitem", { name: / internal$/ }).querySelector("[data-part=branch-control]")!);
+  fireEvent.click(screen.getByRole("treeitem", { name: / internal$/ }));
   await waitFor(() => expect(rowNames()).toEqual(["stream", "done", "idle"]));
 });
 
@@ -104,7 +104,7 @@ it("u5531b_direct_message_terminal_and_draft_keep_the_child_identity", async () 
   const { railCallsTo } = await import("./railFixture");
   const child = agent("helper", "working", "working", { parent: "stream", visibility: "internal" });
   const m = await mountRail([workstream("stream"), child], [info("t-helper")], undefined, undefined, { pane: fakeEmulators().factory });
-  fireEvent.click(screen.getByRole("treeitem", { name: / internal$/ }).querySelector("[data-part=branch-control]")!);
+  fireEvent.click(screen.getByRole("treeitem", { name: / internal$/ }));
   await waitFor(() => expect(rowNames()).toContain("helper"));
   fireEvent.click(rowOf("helper"));
   await waitFor(() => expect(m.rail.selected()).toBe("helper"));

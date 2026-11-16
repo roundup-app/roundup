@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import type { MenuItem, NativeQuestion, RemovalQuestion, RemovalAnswer } from "../app/seam";
 
 /** The last system menu a test seam showed, and how to answer it; every test seam writes it. */
@@ -21,6 +22,8 @@ export const openProjectPage = (command: string, path: string | null = document.
   if (path === null) return;
 
   window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path, command } }));
+  // The host's command lands outside any event the App handles, so its writes settle here, as they would between two host messages.
+  flush();
 };
 
 /** Native questions have no web DOM. The isolated harness observes and answers this boundary. */

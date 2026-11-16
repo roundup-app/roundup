@@ -1,0 +1,19 @@
+/* ui-sdk's stylesheet gives each overlay trigger its own look: this zero-specificity rule hands every property it sets back to the App's controls, and any rule of the App wins over it. */
+:where([data-slot="menu-trigger"], [data-slot="popover-trigger"], [data-slot="tooltip-trigger"]) {
+  display: revert;
+  align-items: revert;
+  justify-content: revert;
+  gap: revert;
+  width: revert;
+  height: revert;
+  padding: revert;
+  border: revert;
+  border-radius: revert;
+  background: revert;
+  color: revert;
+  font: revert;
+  white-space: revert;
+  cursor: revert;
+  opacity: revert;
+  user-select: revert;
+}

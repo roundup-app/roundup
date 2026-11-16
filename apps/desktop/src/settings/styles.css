@@ -171,7 +171,7 @@
   gap: var(--space-5);
 }
 
-.settings-field [data-part="label"] {
+.settings-field [data-slot="field-label"] {
   font-size: var(--text-caption);
   color: var(--grey);
 }
@@ -253,7 +253,7 @@
 }
 
 .settings-content .settings-field,
-.settings-content [data-scope="select"][data-part="root"] {
+.settings-content .app-select-labelled {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: var(--space-4);
@@ -267,14 +267,14 @@
   min-width: 0;
 }
 
-.settings-content :is([data-part="label"], .settings-field-caption),
+.settings-content :is([data-slot="field-label"], .settings-field-caption),
 .settings-content .app-select-label {
   font-size: var(--text-body);
   color: var(--text);
 }
 
 .settings-hint,
-.settings-content [data-part="helper-text"],
+.settings-content [data-slot="field-description"],
 .settings-content .app-select-hint {
   font-size: var(--text-caption);
   color: var(--grey);
@@ -285,7 +285,7 @@
   grid-column: 1;
 }
 
-.settings-content [data-scope="select"][data-part="control"] {
+.settings-content .app-select-trigger {
   grid-column: 2;
   grid-row: 1 / span 2;
 }
@@ -355,7 +355,7 @@
 .settings-appearance-preview[data-scale="small"] { --interface-scale: var(--scale-small); --text-body: calc(var(--text-body-base) * var(--interface-scale)); }
 .settings-appearance-preview[data-scale="large"] { --interface-scale: var(--scale-large); --text-body: calc(var(--text-body-base) * var(--interface-scale)); }
 .settings-history .settings-forward-disabled { color: var(--disabled); }
-.settings-content .app-segment[data-state="checked"] { color: var(--accent); }
+.settings-content .app-segment[data-checked] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
 .settings-scale-small { font-size: var(--text-small); }
@@ -367,11 +367,11 @@
   justify-self: start;
 }
 
-.settings-naming [data-part="helper-text"] {
+.settings-naming [data-slot="field-description"] {
   white-space: normal;
 }
 
-.settings-naming [data-part="error-text"] {
+.settings-naming [data-slot="field-error"] {
   grid-column: 1 / -1;
   overflow-wrap: anywhere;
 }

@@ -1,5 +1,6 @@
 import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { Kind } from "@contracts/Kind";
@@ -18,9 +19,9 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 beforeEach(() => localStorage.clear());
 
-const act = async (run: () => void) => { await run(); await Promise.resolve(); };
+const act = async (run: () => void) => { await run(); await Promise.resolve(); flush(); };
 
-const send = async (m: Awaited<ReturnType<typeof mountInbox>>, ...sent: DaemonEvent[]) => { for (const each of sent) m.app.emit(each); await m.connected.rail.settled(); await Promise.resolve(); };
+const send = async (m: Awaited<ReturnType<typeof mountInbox>>, ...sent: DaemonEvent[]) => { for (const each of sent) m.app.emit(each); await m.connected.rail.settled(); await Promise.resolve(); flush(); };
 
 const panel = () => document.querySelector<HTMLElement>(".inbox")!;
 
@@ -36,7 +37,7 @@ const NODES: DoorNode[] = [
 const mountInbox = async (nodes: RailNode[] = NODES, reducedMotion = true) => {
   const m = await mountTodos([], reducedMotion, structuredClone(nodes));
   m.app.handlers["agent.resume"] = () => ({ ...NODES[2]! });
-  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });
@@ -64,7 +65,7 @@ it("u3770a_sections_hold_their_agents_in_order_with_counts", async () => {
 
 it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
   const m = await mountTodos([], true, [agent("i", "idle", "Idle")]);
-  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByText("Nothing needs you");
@@ -193,7 +194,7 @@ it("u3770e_reduced_motion_makes_every_change_instant", async () => {
 it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   const m = await mountTodos([{ ...todo(1, { title: "Ship" }) }], true, structuredClone(NODES));
   m.store.comments!.set(1, [{ id: 1, author: { kind: "agent", id: "a", parent: null }, body: "which branch?", created_at: 1, read: false }, { id: 2, author: { kind: "agent", id: "c", parent: null }, body: "error details", created_at: 2, read: false }, { id: 3, author: { kind: "agent", id: "a", parent: null }, body: "second question", created_at: 3, read: false }]);
-  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });
@@ -272,6 +273,8 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
 
   await waitFor(() => expect(within(row("alpha")).queryByRole("alert")).toBeNull());
   fireEvent.click(head("alpha"));
+  // ui-sdk draws a closed row's body nowhere and the Inbox opens one row at a time: open beta to read its refusal.
+  fireEvent.click(head("beta"));
   expect((await within(row("beta")).findByRole("alert")).textContent).toBe(refused.get("b")!.message);
   expect(m.connected.drafts.list()).toEqual(drafts);
   expect(within(panel()).getAllByRole("alert")).toHaveLength(2);
@@ -300,7 +303,7 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
   m.store.comments!.set(1, [{ id: 7, author: { kind: "agent", id: "a", parent: null }, body: "review this", created_at: 10, read: false }]);
   m.connected.showView(null);
   m.connected.showView("attention");
-  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
   const row = await screen.findByRole("button", { name: /alpha.*Review/ });
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
   expect(m.connected.hasView("attention")).toBe(true);
@@ -343,10 +346,13 @@ it.each(["rail", "bench", "drawer", "agent-terminal", "shell-terminal", "empty-k
 
     await connected().rail.refresh({ terminals: true });
     connected().rail.select("home");
+    flush();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "t", code: "KeyT", metaKey: true });
   }
 
   if (from.endsWith("terminal")) await waitFor(() => expect(document.activeElement?.hasAttribute("data-terminal")).toBe(true));
+  flush();
+
   const before = daemon.calls.length;
 
   const route = () => {

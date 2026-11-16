@@ -1,10 +1,11 @@
 import { rowTypeahead } from "../ui/RowCollection";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, layerHoldsKeys } from "../keys/focus";
 import type { Todo } from "@contracts/todo/Todo";
-import { createComputed, createEffect, createSignal, on, type Accessor } from "solid-js";
+import { createEffect, createSignal, untrack, type Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { ConnectedProject } from "../state/connectedProject";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
+import type { Advance } from "./choosing";
 import type { TodosState } from "./state";
 import { rowButtonOf } from "./triage";
 import { registerKeys } from "../keys/registry";
@@ -15,7 +16,7 @@ import { shelfKeyScope } from "../shelf/keys";
 export const createOwnerAssignment = (source: {
   connected: ConnectedProject;
   todos: TodosState;
-  advance: () => (() => Promise<void>) | undefined;
+  advance: () => Advance | undefined;
   fail: (id: number, message: string | null) => void;
 }) => {
   const [revealed, setRevealed] = createSignal<string | null>(null);
@@ -25,9 +26,10 @@ export const createOwnerAssignment = (source: {
 
   createEffect(() => {
     const request = regrouped();
-    const arrived = request && source.todos.byId().get(request.id);
 
-    if (!request || !arrived || !sameOwner(arrived.owner, request.owner)) return;
+    return [request, request && source.todos.byId().get(request.id)] as const;
+  }, ([request, arrived]) => {
+    if (!request || !arrived || !untrack(() => sameOwner(arrived.owner, request.owner))) return;
 
     const id = request.id;
 
@@ -46,20 +48,20 @@ export const createOwnerAssignment = (source: {
     });
   });
 
-  createComputed(on(() => source.todos.all().map(todo => ({ id: todo.id, owner: todo.owner ? { ...todo.owner } : null })), (next, previous) => {
+  createEffect(() => source.todos.all().map(todo => ({ id: todo.id, owner: todo.owner ? { ...todo.owner } : null })), (next, previous) => {
     if (!previous) return;
 
-    const groups = next.filter(todo => {
+    const groups = untrack(() => next.filter(todo => {
       const was = previous.find(each => each.id === todo.id);
 
       return was && !sameOwner(was.owner, todo.owner);
-    }).map(todo => ownersOnRail(source.connected).find(owner => sameOwner(owner.actor, todo.owner))?.id ?? "unassigned");
+    }).map(todo => ownersOnRail(source.connected).find(owner => sameOwner(owner.actor, todo.owner))?.id ?? "unassigned"));
 
     if (groups.length) {
       setArriving(groups);
       queueMicrotask(() => setArriving([]));
     }
-  }));
+  });
 
   const assign = async (id: number, owner: Actor | null) => {
     const focus = captureFocus();
@@ -68,7 +70,7 @@ export const createOwnerAssignment = (source: {
 
     source.fail(id, message);
 
-    if (message === null && advance) await advance();
+    if (message === null && advance) await advance(focus);
     else if (message === null) {
       // U3720, U138: the destination unfolds before its row exists, so focus has a button to land on.
       setRevealed(ownersOnRail(source.connected).find(each => sameOwner(each.actor, owner))?.id ?? "unassigned");
@@ -97,7 +99,7 @@ export const createOwnerKeys = (source: {
   };
 
   const can = (event: KeyboardEvent) => source.active() && !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event.target instanceof Element ? event.target : null) !== undefined
-    && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-state=open]');
+    && !layerHoldsKeys();
 
   const action = CHORDS["todo.assign-slot"];
 

@@ -19,7 +19,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   const m = await mountTodos([todo(1, { title: "Ship" }), todo(2)], true, [agent("a", "idle", "Idle", { name: "builder" })]);
   const comment = line(1, "which branch?");
   m.store.comments!.set(1, [comment]);
-  render(() => <ConnectedProjectContext.Provider value={m.connected}><Inbox /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={m.connected}><Inbox /></ConnectedProjectContext>);
   const row = await within(panel()).findByRole("button", { name: /builder.*Ship/ });
   expect(row.textContent).toContain(comment.body);
   // The row is read from `todo.unread`, makes no Message call and sets no Rail Kind.

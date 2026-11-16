@@ -74,7 +74,7 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, priority: null } }], unread: 99 });
   await Promise.resolve();
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
-  expect(panel().inert).toBe(true);
+  expect(panel().hasAttribute("inert")).toBe(true);
 });
 
 
@@ -91,7 +91,7 @@ it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () =
   await Promise.resolve();
 
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
-  expect(panel().inert).toBe(true);
+  expect(panel().hasAttribute("inert")).toBe(true);
 });
 
 

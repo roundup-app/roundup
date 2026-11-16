@@ -70,6 +70,8 @@ describe("u9 actions", () => {
 
     chord("n");
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
+    // The call is sent while the row it drew still shows; the draw lifts when the Daemon answers and the tree is read back.
+    await waitFor(() => expect(rowNames()).toEqual(["g"]));
 
     expect([rowNames(), mounted.rail.selected()]).toEqual([["g"], null]);
   });

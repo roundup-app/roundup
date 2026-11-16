@@ -31,8 +31,11 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
       }
     };
 
+    // listener-owner: the revision outlives whichever component first asked for focus, so no owner removes this.
     document.addEventListener("focusin", invalidate, true);
-    document.addEventListener("pointerdown", invalidate, true);
+    // ui-sdk dismisses an outside press from a window capture listener, which runs before any document one: a close that queues focus captures its permission after the press has invalidated the older ones only if this listener sits there too.
+    // listener-owner: as above, the revision outlives whichever component first asked for focus.
+    window.addEventListener("pointerdown", invalidate, true);
   }
 
   if (choose) {
@@ -93,7 +96,7 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
 };
 
 /** Elements a component hands to others by name; a caller never finds them by CSS class. */
-export type FocusTarget = `bubble.${string}` | "terminal.new" | "pane.terminal" | "thread.composer" | "ask.input" | "shelf.tabs" | "shelf.first";
+export type FocusTarget = `bubble.${string}` | "terminal.new" | "pane.terminal" | "thread.composer" | "ask.input" | "shelf.tabs" | "shelf.first" | "rail.selected";
 
 type Provided = HTMLElement | (() => HTMLElement | null | undefined);
 
@@ -139,6 +142,9 @@ export const isTextEntry = (element: Element | null | undefined): boolean => ele
 const OPEN_LAYER = '.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]';
 
 export const layerOpen = (withDrag = false): boolean => document.querySelector(withDrag ? `${OPEN_LAYER}, [data-dnd-dragging]` : OPEN_LAYER) !== null;
+
+/** A layer that holds the keys now: `layerOpen`, except that a menu counts only while it is open, not while it fades out. */
+export const layerHoldsKeys = (): boolean => document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-open]') !== null;
 
 /** A mount/return callback keeps the permission it had when queued. */
 export const queueFocus = (move: () => void): void => {

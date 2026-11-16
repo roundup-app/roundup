@@ -1,5 +1,4 @@
-import { createMemo, type Accessor } from "solid-js";
-import { createStore, produce } from "solid-js/store";
+import { createMemo, type Accessor, createStore } from "solid-js";
 
 type Entry<Cause> = { cause: Cause; stint: number | undefined };
 
@@ -13,7 +12,7 @@ export const createItemFailures = <K, Cause = string>(present: Accessor<readonly
   const [record, setRecord] = createStore<Record<string, Entry<Cause> | undefined>>({});
 
   // Each stretch a key is present has its own number, so a failure set in an earlier stretch never shows again.
-  const stretches = createMemo<Stints<K>>(previous => {
+  const stretches = createMemo<Stints<K>>((previous = { stints: new Map(), next: 0 }) => {
     const keys = present();
 
     if (keys === "unknown") return previous;
@@ -23,7 +22,7 @@ export const createItemFailures = <K, Cause = string>(present: Accessor<readonly
     for (const key of keys) stints.set(key, previous.stints.get(key) ?? next++);
 
     return { stints, next };
-  }, { stints: new Map(), next: 0 });
+  });
 
   const failure = (key: K): Cause | undefined => {
     const entry = record[String(key)];
@@ -38,11 +37,13 @@ export const createItemFailures = <K, Cause = string>(present: Accessor<readonly
   };
 
   const fail = (key: K, cause: Cause): void => {
-    setRecord(produce(draft => { draft[String(key)] = { cause, stint: stretches().stints.get(key) }; }));
+    const stint = stretches().stints.get(key);
+
+    setRecord(draft => { draft[String(key)] = { cause, stint }; });
   };
 
   const clear = (key: K): void => {
-    setRecord(String(key), undefined);
+    setRecord(draft => { delete draft[String(key)]; });
   };
 
   return { failure, fail, clear };

@@ -31,10 +31,10 @@ run("u6640c_a_tooltip_box_clears_the_row_below_its_target", async () => {
   }`);
 
   await page.hover(target.x, target.y);
-  await page.until(`() => document.querySelector('[data-scope="tooltip"][data-part="content"]')`);
+  await page.until(`() => document.querySelector('[data-slot="tooltip-content"][data-open]')`);
 
   const overlap = await page.call<boolean>(`() => {
-    const t = document.querySelector('[data-scope="tooltip"][data-part="content"]').getBoundingClientRect();
+    const t = document.querySelector('[data-slot="tooltip-content"][data-open]').getBoundingClientRect();
     const b = document.querySelector('[data-u6640c="below"]').getBoundingClientRect();
     return t.left < b.right && t.right > b.left && t.top < b.bottom && t.bottom > b.top;
   }`);

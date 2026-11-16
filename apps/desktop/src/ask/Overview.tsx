@@ -1,3 +1,4 @@
+import { makeEventListener } from "@solid-primitives/event-listener";
 import { createMemo, For, onCleanup, Show } from "solid-js";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { copy } from "./copy";
@@ -36,12 +37,28 @@ export const ProjectOverview = () => {
     return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
   }).map(node => ({ value: node.id, label: node.name })), { onActivate: id => rail.select(id) });
 
-  const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} selected={content.selection.isSelected(node.id)} head={element => {
-    heads.set(node.id, element); content.register(element, node.id);
-    onCleanup(() => { if (heads.get(node.id) === element) heads.delete(node.id); });
-  }} />;
+  const track = (id: string) => {
+    let current: HTMLElement | undefined;
 
-  return <section class="project-overview" aria-label={copy.projectOverview} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
+    onCleanup(() => { if (current && heads.get(id) === current) heads.delete(id); });
+
+    return (element: HTMLElement) => {
+      current = element;
+      heads.set(id, element);
+      content.register(element, id);
+    };
+  };
+
+  const entry = (node: RailNode, waiting = false) => {
+    const head = track(node.id);
+
+    return <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} selected={content.selection.isSelected(node.id)} head={head} />;
+  };
+
+  return <section class="project-overview" aria-label={copy.projectOverview} ref={element => {
+    makeEventListener(element, "click", content.click, true);
+    makeEventListener(element, "keydown", rowKey, true);
+  }}>
     <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
     <Show when={attention().length === 0}><p class="overview-quiet">{emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0)}</p></Show>
     <ul class="overview-list">
@@ -66,9 +83,9 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
   const [cutRef, cut] = createCut();
 
   return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
-    const tip = trigger();
+    const tip = trigger({ ref: cutRef });
 
-    return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry row-wash"
+    return <button {...focus} ref={props.head} data-row-selected={String(props.selected)} onClick={props.select} type="button" class="overview-entry row-wash"
       data-overview-item={props.node.id + ":" + door()?.attempt + ":" + door()?.status_revision} aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet">
       <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
@@ -76,7 +93,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
           <Show when={status()}>{(status) => <KindGlyph kind={status().kind} />}</Show>
         </span>
       }</Tip>
-      <span {...tip} ref={cutRef} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
+      <span {...tip} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
       <Show when={errorCause(status(), false)}>{cause => <ReservedLine status={cause()} />}</Show>
     </button>;
   }}</Tip>;

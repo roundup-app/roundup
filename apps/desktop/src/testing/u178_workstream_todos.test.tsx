@@ -2,6 +2,7 @@ import { copy as recoveryCopy } from "../sharedCopy";
 import { todo } from "../todos/testHarness";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { createFakeApp } from "./fakeApp";
 import { todoHandlers } from "./stores";
 import type { TodoStore } from "./stores";
@@ -34,13 +35,13 @@ const mount = async (original: ReturnType<typeof todo>) => {
   const rendered = render(() => {
     const now = createNow(() => 0, () => false);
 
-    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}>
+    return <DisplayClockContext value={now.subscribe}><ConnectedProjectContext value={connected}>
     <Todos /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-  </ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
+  </ConnectedProjectContext></DisplayClockContext>;
   });
 
-  await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')).not.toBeNull());
-  fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
+  await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control')).not.toBeNull());
+  fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control')!);
 
   return { ...rendered, connected, app, store };
 };
@@ -49,6 +50,7 @@ const openBody = async (id: number, body: string) => {
   const focusedRow = await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) });
   focusedRow.focus();
   fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
+  flush();
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   const activity = await within(drawer).findByRole("region", { name: "Activity" });
@@ -65,6 +67,7 @@ it("u2773c_todos_external_change_keeps_original", async () => {
   const field = await openBody(original.id, "original base");
 
   fireEvent.input(field, { target: { value: "  my edit\n🧪  " } });
+  flush();
   const captured = connected.drafts.list().find(draft => draft.destination.object === String(original.id))!;
 
   const changed = { ...original, body: "another Actor" };
@@ -93,12 +96,14 @@ it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () =>
   const field = await openBody(original.id, "base to remove");
 
   fireEvent.input(field, { target: { value: "  recover after removal 🧪  " } });
+  flush();
   connected.drawer.close("key");
   store.todos = [];
   app.emit(event({ name: "todo.deleted", data: { id: original.id } }));
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(String(original.id)));
   expect(connected.drafts.list().find(draft => draft.destination.object === String(original.id))?.value.text).toBe("  recover after removal 🧪  ");
   fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
+  flush();
   expect(connected.drafts.list()).toEqual([]);
   expect(app.calls.filter(call => ["todo.create", "todo.update", "todo.delete"].includes(call.method))).toEqual([]);
 }, 60_000);

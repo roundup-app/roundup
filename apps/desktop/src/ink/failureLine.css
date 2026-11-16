@@ -61,6 +61,6 @@
   padding-inline-start: var(--space-4);
 }
 
-.app-mentions [data-part="item-text"]:has(.failure-line) {
+.app-mentions [data-slot="command-item-text"]:has(.failure-line) {
   flex-wrap: wrap;
 }

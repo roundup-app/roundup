@@ -125,8 +125,8 @@ it("u4690a_native_button_activation_uses_described_context", async () => {
 
 it("u4690d_numbered_group_and_rejected_assignment_keep_the_Todo", async () => {
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40", origin).href);
-  await wait(`!!window.__fake && !!document.querySelector('.shelf [data-part=branch-control]')`);
-  await read(`document.querySelector('.shelf [data-part=branch-control]').click()`);
+  await wait(`!!window.__fake && !!document.querySelector('.shelf .shelf-group-control')`);
+  await read(`document.querySelector('.shelf .shelf-group-control').click()`);
   await wait(`!!document.querySelector('.shelf .todo-row-button')`);
   await read(`window.__todoSource = document.querySelector('.shelf .todo-row-button'); window.__todoSource.focus()`);
   await wait(`!!document.querySelector('.hint-line [data-hint="Digit9"]:enabled')`);
@@ -158,8 +158,8 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
   for (const width of [1280, 700]) {
     await browser("set", "viewport", String(width), "800");
     await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&renderer=dom&seed=tree-40", origin).href);
-    await wait(`!!document.querySelector('.shelf [data-part=branch-control]')`);
-    await read(`document.querySelector('.shelf [data-part=branch-control]').click()`);
+    await wait(`!!document.querySelector('.shelf .shelf-group-control')`);
+    await read(`document.querySelector('.shelf .shelf-group-control').click()`);
     await wait(`!!document.querySelector('.shelf .todo-row-button')`);
     await read(`document.querySelector('.shelf .todo-row-button').focus()`);
     await wait(`document.querySelector('.hint-line').children.length > 0`);
@@ -184,8 +184,8 @@ it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_sou
 
   if (place.startsWith("pad-")) {
     await read(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()`);
-    await wait(`!!document.querySelector('.pads-tab [data-part=branch-control]')`);
-    await read(`(() => { const group = document.querySelector('.pads-tab [data-part=branch-control]'); if (group.dataset.state === 'closed') group.click(); })()`);
+    await wait(`!!document.querySelector('.pads-tab .shelf-group-control')`);
+    await read(`(() => { const group = document.querySelector('.pads-tab .shelf-group-control'); if (group.getAttribute('aria-expanded') === 'false') group.click(); })()`);
     await wait(`!!document.querySelector('.shelf .pad-name')`);
     await browser("click", ".shelf .pad-name");
     await read(`document.querySelector('.shelf .pad-name').focus()`);

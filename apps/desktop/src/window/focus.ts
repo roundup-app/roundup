@@ -4,10 +4,20 @@ import { createSignal } from "solid-js";
 /** U3566: `menu` is the window opened from its menu; unread results wait there until the user's own click or key. */
 type WindowFocus = "blurred" | "focused" | "menu";
 
+/** Whether the page is shown: false while the window is hidden or minimised. */
+export const createPageVisible = () => {
+  const changed = createEventSignal(document, "visibilitychange");
+
+  return () => {
+    changed();
+
+    return document.visibilityState !== "hidden";
+  };
+};
+
 /** The window's focus and visibility, and the element that last took focus (the Project menu reads it). */
 export const createWindowFocus = () => {
   const [focus, setFocus] = createSignal<WindowFocus>(document.hasFocus() ? "focused" : "blurred");
-  const changed = createEventSignal(document, "visibilitychange");
   const [menuFocus, setMenuFocus] = createSignal<Element | null>(null);
   const interact = () => { if (document.hasFocus()) setFocus("focused"); };
 
@@ -21,10 +31,6 @@ export const createWindowFocus = () => {
     focus,
     setFocus,
     menuFocus,
-    visible: () => {
-      changed();
-
-      return document.visibilityState !== "hidden";
-    },
+    visible: createPageVisible(),
   };
 };

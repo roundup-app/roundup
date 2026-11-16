@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createRoot, flush } from "solid-js";
 import * as xtermModule from "@xterm/xterm";
 import { Terminal } from "@xterm/xterm";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -12,6 +13,7 @@ import { createXtermEmulators } from "./emulator";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 import type { Snapshot } from "@contracts/terminal/Snapshot";
+import { notices } from "../testing/notices";
 
 type Reply = Snapshot | Error;
 
@@ -95,9 +97,9 @@ const mount = async (
   configure?.(app);
 
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Pane createEmulator={factory} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
   connected.rail.select(tree[0]?.id ?? null);
 
@@ -229,7 +231,7 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     expect((await screen.findByRole("alert", { name: /recovery failed/ })).tagName).toBe("P");
     expect(log()).toEqual(["size 100x30", "complete"]);
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    expect(notices("alert")[0]!.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_output_overlapping_the_recovery_cut_writes_only_the_remaining_bytes", async () => {
@@ -267,11 +269,12 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     await exhaust(pending, 0, "boom");
 
-    expect((await screen.findByRole("alert")).tagName).toBe("P");
+    await vi.waitFor(() => expect(notices("alert")).toHaveLength(1));
+    expect(notices("alert")[0]!.tagName).toBe("P");
     expect(log()).toEqual([]);
     app.emitOutput("t-a", "live");
     expect(log()).toEqual(["live"]);
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    expect(notices("alert")[0]!.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_a_late_resize_success_cannot_clear_a_failed_snapshot_line", async () => {
@@ -288,9 +291,9 @@ describe("u103 a reloaded pane shows the screen", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByRole("alert")).toBe(snapshotFailure);
+    expect(notices("alert")[0]!).toBe(snapshotFailure);
     expect(log()).toEqual([]);
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    expect(notices("alert")[0]!.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_a_resolved_newer_resize_failure_reveals_the_older_snapshot_failure", async () => {
@@ -312,9 +315,9 @@ describe("u103 a reloaded pane shows the screen", () => {
     window.dispatchEvent(new Event("resize"));
     await vi.waitFor(() => expect(resizes).toHaveLength(2));
     resizes[1]?.(null);
-    await vi.waitFor(() => expect(screen.getByRole("alert")).toBe(snapshotFailure));
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    await vi.waitFor(() => expect(notices("alert")[0]!).toBe(snapshotFailure));
+    expect(notices("alert")).toHaveLength(1);
+    expect(notices("alert")[0]!.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_output_buffered_during_a_failed_initial_snapshot_continues_as_live_output", async () => {
@@ -344,7 +347,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(READ_ATTEMPTS + 1));
     pending[READ_ATTEMPTS]?.(snapshotOf("B screen", 0));
     await vi.waitFor(() => expect(logOf("t-b")).toContain("B screen"));
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toHaveLength(0);
 
     app.emitGap("t-b", 0, 50);
     await vi.waitFor(() => expect(snapshots()).toHaveLength(READ_ATTEMPTS + 2));
@@ -352,11 +355,12 @@ describe("u103 a reloaded pane shows the screen", () => {
     await screen.findByRole("alert", { name: /B failed/ });
 
     connected.rail.select("a");
-    expect(screen.queryByRole("alert")).toBeNull();
+    flush();
+    expect(notices("alert")).toHaveLength(0);
     connected.rail.select("b");
-    await screen.findByRole("alert");
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    await vi.waitFor(() => expect(notices("alert")).not.toHaveLength(0));
+    expect(notices("alert")).toHaveLength(1);
+    expect(notices("alert")[0]!.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u103_nothing_is_typed_for_a_done_agent_and_its_screen_is_still_restored", async () => {
@@ -391,7 +395,7 @@ it.each(["", "later\r\n"])("z3788a_retained_emulator_catches_up_hidden_output_%j
   if (!terminal) throw new Error("xterm was not created");
   spy.mockRestore();
   // The host has no layout in jsdom; parsing and the stream owner remain real.
-  const screens = createScreens(connected, () => ({ ...emulator, show: () => ({ cols: 80, rows: 24 }) }));
+  const screens = createRoot(() => createScreens(connected, () => ({ ...emulator, show: () => ({ cols: 80, rows: 24 }) })));
   const host = document.createElement("div");
   const parsed = () => new Promise<void>(resolve => emulator.write(new Uint8Array(), resolve));
   screens.show("t-a", host);
@@ -429,7 +433,7 @@ it.each(["gap", "refused", "unavailable"])("z3788a_catch_up_%s_preserves_snapsho
   const { createScreens } = await import("./screens");
   const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
   const { factory, made } = recordingEmulators();
-  const screens = createScreens(connected, factory);
+  const screens = createRoot(() => createScreens(connected, factory));
   const host = document.createElement("div");
   screens.show("t-a", host);
   await vi.waitFor(() => expect(made.get("t-a")?.log).toContain(""));
@@ -484,7 +488,7 @@ it("z3788a_serialized_scrollback_restores_before_live_output", async () => {
   };
 
   const parsed = () => new Promise<void>(resolve => emulators.at(-1)!.write(new Uint8Array(), resolve));
-  let screens = createScreens(connected, factory);
+  let screens = createRoot(() => createScreens(connected, factory));
   const host = document.createElement("div");
   screens.show("t-a", host);
   await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
@@ -501,7 +505,7 @@ it("z3788a_serialized_scrollback_restores_before_live_output", async () => {
   screens.dispose();
   app.handlers["terminal.snapshot"] = () => snapshotOf("new screen without history", after + 6);
   app.handlers["terminal.catchUp"] = () => ({ kind: "contiguous", id: "t-a", incarnation: "fixture-t-a", from: after, after, data: "" });
-  screens = createScreens(connected, factory);
+  screens = createRoot(() => createScreens(connected, factory));
   screens.show("t-a", host);
   await vi.waitFor(() => expect(terminals).toHaveLength(2));
   await vi.waitFor(() => expect(content(terminals[1]!)).toEqual(before));
@@ -522,7 +526,7 @@ it.each(["gap", "refused"])("z3788a_saved_scrollback_%s_uses_the_authoritative_s
   await scrollbackStorage("/p", "fixture-t-a").write({ cols: 80, rows: 24, after: 0, data: "old history" });
   const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
   const { factory, made } = recordingEmulators();
-  const screens = createScreens(connected, id => ({ ...factory(id), serialize: () => ({ cols: 80, rows: 24, data: "" }) }));
+  const screens = createRoot(() => createScreens(connected, id => ({ ...factory(id), serialize: () => ({ cols: 80, rows: 24, data: "" }) })));
   app.handlers["terminal.snapshot"] = () => snapshotOf("current authoritative output", 10);
   app.handlers["terminal.catchUp"] = () => {
     if (result === "refused") throw new Error("original Terminal unavailable");

@@ -1,39 +1,34 @@
-import { render } from "solid-js/web";
 import { createSignal, For, Show } from "solid-js";
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
-import { TreeView } from "./TreeView";
+import { render } from "@solidjs/web";
+import { TreeGroup, TreeItem, TreeItemLabel, type TreeItemData } from "@ui-sdk/solid/tree";
+import { AppTree } from "./TreeView";
 import { IconButton } from "./IconButton";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";
 
-type Node = { id: string; children?: Node[] };
-
-const collection = createTreeCollection<Node>({
-  nodeToValue: (node) => node.id,
-  nodeToString: (node) => node.id,
-  rootNode: { id: "root", children: [{ id: "Alpha", children: [{ id: "Beta", children: [{ id: "Cedar" }] }, { id: "Delta" }] }, { id: "Echo" }] },
-});
+const items: TreeItemData[] = [
+  { value: "Alpha", label: "Alpha", children: [{ value: "Beta", label: "Beta", children: [{ value: "Cedar", label: "Cedar" }] }, { value: "Delta", label: "Delta" }] },
+  { value: "Echo", label: "Echo" },
+];
 
 const u483Fixture = () => {
   const [expanded, expand] = createSignal<string[]>([]);
-  const [selected, select] = createSignal<string[]>([]);
-  const row = (node: Node) => <><span class="glyph" aria-hidden="true">○</span><span id={`label-${node.id}`}>{node.id}</span><IconButton data-reads="text" tabIndex={-1} aria-label={`Inspect ${node.id}`} onClick={(event) => event.stopPropagation()}>+</IconButton></>;
+  const [selected, select] = createSignal<string | null>(null);
 
-  const node = (item: Node, indexPath: number[]) => <TreeView.NodeProvider node={item} indexPath={indexPath}>
-    <Show when={item.children} fallback={<TreeView.Item aria-labelledby={`label-${item.id}`} data-id={item.id}>{row(item)}</TreeView.Item>}>
-      <TreeView.Branch aria-labelledby={`label-${item.id}`} data-id={item.id}>
-        <TreeView.BranchControl>{row(item)}</TreeView.BranchControl>
-        <TreeView.BranchContent><For each={item.children}>{(child, index) => node(child, [...indexPath, index()])}</For></TreeView.BranchContent>
-      </TreeView.Branch>
-    </Show>
-  </TreeView.NodeProvider>;
+  const node = (item: TreeItemData) => <TreeItem value={item.value} data-id={item.value}>
+    <span class="glyph" aria-hidden="true">○</span>
+    <TreeItemLabel>{item.label}</TreeItemLabel>
+    <IconButton data-reads="text" tabindex={-1} aria-label={`Inspect ${item.label}`} onClick={(event) => event.stopPropagation()}>+</IconButton>
+    <Show when={item.children}>{children => <TreeGroup keepMounted><For each={children()}>{node}</For></TreeGroup>}</Show>
+  </TreeItem>;
 
-  return <TreeView.Root collection={collection} expandedValue={expanded()} selectedValue={selected()} onExpandedChange={(details) => expand(details.expandedValue)} onSelectionChange={(details) => select(details.selectedValue)}>
-    <TreeView.Label>Project tree</TreeView.Label>
-    <TreeView.Tree><For each={collection.rootNode.children}>{(item, index) => node(item, [index()])}</For></TreeView.Tree>
-    <button data-button="quiet" onClick={() => { expand(["Alpha", "Beta"]); select(["Cedar"]); }}>Select Cedar</button>
-  </TreeView.Root>;
+  return <>
+    <AppTree aria-label="Project tree" items={items} expanded={expanded()} onExpandedChange={expand} value={selected()} onValueChange={select}>
+      <For each={items}>{node}</For>
+    </AppTree>
+    <button data-button="quiet" onClick={() => { expand(["Alpha", "Beta"]); select("Cedar"); }}>Select Cedar</button>
+  </>;
 };
 
 render(u483Fixture, document.getElementById("root")!);

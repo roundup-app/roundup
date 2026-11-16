@@ -1,11 +1,27 @@
+/* ui-sdk's stylesheet gives the menu its own look: these zero-specificity rules hand every property it sets back to the App's buttons and surfaces, and any rule of the App wins over them. */
+:where(.app-menu) {
+  min-width: revert;
+  font-size: var(--text-body);
+}
+
+:where(.app-menu [data-slot="menu-item-indicator"]) {
+  position: revert;
+  inset-inline-start: revert;
+}
+
+:where(.app-menu [data-slot="menu-group-label"]) {
+  padding: revert;
+  color: revert;
+  font-size: inherit;
+}
+
 .app-menu {
   color: var(--text);
   padding: var(--space-1);
-  z-index: var(--layer-menu);
 }
 
 /* U6870a: rows and highlight match the Select list; the highlight has no transition. */
-.app-menu [data-part="item"] {
+.app-menu :is([data-slot="menu-item"], [data-slot="menu-radio-item"]) {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -16,14 +32,18 @@
   border-radius: var(--radius-control);
   color: var(--grey);
   cursor: pointer;
+  opacity: revert;
 }
 
-.app-menu [data-part="item"][data-highlighted]:not([data-disabled]) {
+.app-menu :is([data-slot="menu-item"], [data-slot="menu-radio-item"])[data-highlighted] {
   background-color: var(--selected);
+}
+
+.app-menu :is([data-slot="menu-item"], [data-slot="menu-radio-item"])[data-highlighted]:not([data-disabled]) {
   color: var(--text);
 }
 
-.app-menu [data-part="item"][data-disabled] {
+.app-menu :is([data-slot="menu-item"], [data-slot="menu-radio-item"])[data-disabled] {
   color: var(--disabled);
   cursor: default;
 }

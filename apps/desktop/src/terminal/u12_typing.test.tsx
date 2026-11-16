@@ -1,4 +1,5 @@
 import { cleanup, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { callsTo, mountPane } from "./paneHarness";
 import { event, info, node, terminal } from "../testing/nodes";
@@ -32,6 +33,7 @@ describe("u12 typing", () => {
     };
 
     connected.rail.select("a");
+    flush();
 
     const emulator = emulators.get("t-a")!;
 
@@ -55,8 +57,10 @@ describe("u12 typing", () => {
     );
 
     connected.rail.select("a");
+    flush();
     emulators.get("t-a")?.type(bytes(65));
     connected.rail.select("b");
+    flush();
     emulators.get("t-b")?.type(bytes(66));
 
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-b", data: "Qg==" }]));
@@ -66,9 +70,11 @@ describe("u12 typing", () => {
     const { app, connected, emulators } = await mountPane([terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
 
     connected.rail.select("a");
+    flush();
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 1 } }));
     emulators.get("t-a")?.type(bytes(65));
     connected.rail.select("b");
+    flush();
     emulators.get("t-b")?.type(bytes(66));
 
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-b", data: "Qg==" }]));
@@ -78,6 +84,7 @@ describe("u12 typing", () => {
     const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     app.handlers["terminal.write"] = () => {
       throw new Error("conflict: write queue full");
     };
@@ -92,6 +99,7 @@ describe("u12 typing", () => {
     let attempts = 0;
 
     connected.rail.select("a");
+    flush();
 
     app.handlers["terminal.write"] = () => {
       attempts += 1;
