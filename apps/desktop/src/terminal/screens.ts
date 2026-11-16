@@ -11,7 +11,7 @@ import { createOpener } from "./open";
 import { createTyping } from "./typing";
 import { createPump, createStream } from "./stream";
 import type { Stream } from "./stream";
-import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
+import type { Emulator, EmulatorFactory, Size, TerminalPreparation, ViewRows } from "./emulator";
 import { isDoor } from "../state/doorNode";
 
 export type Screens = {
@@ -33,6 +33,8 @@ export type Screens = {
    * called first for this to stay reactive.
    */
   isAtBottom(id: string): boolean;
+  /** U7211a: the Terminal's view rows as its emulator last drew them; null for no Terminal or before its first frame. Creates the emulator as `isAtBottom` does. */
+  rows(id: string | null): ViewRows | null;
   /** Returns the Terminal's view to its newest line, as clicking `↓ latest` or typing (U12) does. */
   returnToBottom(id: string): void;
   copy(id: string): Promise<void>;
@@ -64,6 +66,7 @@ type Holder = {
   host: HTMLElement | null;
   stopClipboard: (() => void) | null;
   atBottom: Accessor<boolean>;
+  rows: Accessor<ViewRows | null>;
   returnToBottom: () => void;
   stream: Stream | null;
   complete: boolean;
@@ -186,15 +189,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     const emulator = prepared ?? runWithOwner(emulatorOwner, () => createEmulator(id, (text) => clipboard.copy(id, text)));
 
     const [atBottom, setAtBottom] = createSignal(true);
+    const [rows, setRows] = createSignal<ViewRows | null>(null);
     const type = createTyping(emulator, (data) => attempt(id, app.rpc("terminal.write", { id, data })));
 
-    const returnToBottom = () => {
-      emulator.scrollToBottom();
-      setAtBottom(true);
-    };
+    const returnToBottom = () => { emulator.scrollToBottom(); setAtBottom(true); };
 
     emulator.onLink((printed) => void open(id, printed));
     emulator.onScroll(() => setAtBottom(emulator.isAtBottom()));
+    emulator.onRows?.(next => setRows(next));
     emulator.onInput((bytes, userInput = true) => {
       if ((userInput && !isFocused(id)) || exited(id) || daemonExit() !== null) return;
 
@@ -209,7 +211,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
         if (after != null) retain(id, holder, after);
       }, 2000),
-      host: null, emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
+      host: null, emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, rows, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 
     holders.set(id, holder);
@@ -276,6 +278,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     resize,
     setFontSize: (size) => { for (const holder of holders.values()) holder.emulator.setFontSize(size); },
     isAtBottom: (id) => holderFor(id).atBottom(),
+    rows: (id) => id === null ? null : holderFor(id).rows(),
     returnToBottom: (id) => holderFor(id).returnToBottom(),
     copy: clipboard.copy,
     paste: clipboard.paste,

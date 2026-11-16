@@ -53,6 +53,15 @@ fn runs_on(version: &str) -> bool {
     }
 }
 
+/// Whether `e` says the pipe to the core is gone: it ended before any answer, or a write found it shut.
+fn pipe_gone(e: &Error) -> bool {
+    match e {
+        Error::Closed => true,
+        Error::Io(io) => io.kind() == std::io::ErrorKind::BrokenPipe,
+        _ => false,
+    }
+}
+
 /// The JSON-RPC request for `method`. A test build refuses `params` the pinned schema does not allow
 /// (MC72), as the core would.
 fn request(id: u64, method: &str, params: Value) -> Result<Value> {
@@ -111,13 +120,17 @@ impl Conn {
         let stdin = child.stdin.take().ok_or(Error::Closed)?;
         let stdout = child.stdout.take().ok_or(Error::Closed)?;
         match Self::over(stdout, stdin, timeout).await {
-            Err(Error::Closed) => match child.wait().await {
-                Ok(s) if s.code() == Some(NOT_FOUND_EXIT) => Err(Error::Missing),
-                _ => Err(Error::Closed),
-            },
             Ok(mut conn) => {
                 conn._child = Some(child);
                 Ok(conn)
+            }
+            // A core that exits before hello is written breaks the pipe; one that exits after it
+            // ends the reply. Which comes first is the scheduler's, so both read the exit status.
+            Err(e) if pipe_gone(&e) => {
+                Err(match tokio::time::timeout(timeout, child.wait()).await {
+                    Ok(Ok(s)) if s.code() == Some(NOT_FOUND_EXIT) => Error::Missing,
+                    _ => Error::Closed,
+                })
             }
             Err(e) => Err(e),
         }

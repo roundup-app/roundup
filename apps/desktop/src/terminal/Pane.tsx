@@ -9,6 +9,7 @@ import { copy } from "./copy";
 import { layoutMoving } from "../resize/motion";
 import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, For, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Recovery } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
@@ -20,7 +21,7 @@ import { CHORDS } from "../keys/chords";
 import { captureActions, modalOpen } from "../keys/registry";
 import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
-import type { EmulatorFactory } from "./emulator";
+import type { EmulatorFactory, ViewRows } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "./fontSize";
 import { createFileDrop } from "./fileDrop";
 import { createScreens } from "./screens";
@@ -62,11 +63,24 @@ const paneNotice = ({ given, retry, rail, screens, terminal }: {
 };
 
 /**
+ * U7211a: where `over` floats. It covers the top row unless the cursor sits on it or on the row below, where the newest output then is;
+ * it then covers the empty row just below the cursor, so it never hides the cursor or the newest output (U7192). It is as tall as the
+ * row the emulator measured, so its edges fall on row edges.
+ */
+const overStyle = (rows: ViewRows | null): JSX.CSSProperties => {
+  const cursor = rows?.cursor ?? null;
+  const row = rows === null || cursor === null || cursor > 1 || cursor + 1 >= rows.count ? 0 : cursor + 1;
+
+  return { "--over-row": String(row), "--terminal-row": rows ? `${rows.height}px` : undefined };
+};
+
+/**
  * The selected row's Terminal. Every error line of the centre lives in the pane's one fixed-height slot, so the
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
+ * `over` floats over one whole row of the Terminal, out of the layout flow, so it never resizes the Terminal (U4590).
  */
-export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined; openObject?: ((url: string, surface: string) => void) | undefined }) => {
+export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined; openObject?: ((url: string, surface: string) => void) | undefined; over?: JSX.Element }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   let fontSize: number | undefined;
@@ -292,6 +306,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
+        <div class="pane-over" style={overStyle(screens.rows(terminalId()))}>{props.over}</div>
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>

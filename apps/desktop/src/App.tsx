@@ -430,7 +430,7 @@ export const App = (props: {
 
   const panes = createProjectPanes({
     active: projects.active, connectionOf, createEmulator: () => props.createEmulator ?? lazyXtermEmulators(), observeTerminal: (path, id) => props.observeTerminal?.(path, id),
-    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }), top: active => <ResumeBar notify={toasts.notify} active={active} />,
+    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }), over: active => <ResumeBar notify={toasts.notify} active={active} />,
   });
 
   return (

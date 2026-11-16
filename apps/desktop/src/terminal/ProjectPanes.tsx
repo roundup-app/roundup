@@ -17,8 +17,8 @@ type Options = {
   focusPane: () => void;
   notice: () => string | null;
   openObject: (url: string, surface: string) => void;
-  /** What a Pane holds in its reserved top row; `active` says whether the Pane is the one shown. */
-  top: (active: () => boolean) => JSX.Element;
+  /** What floats over one row of a Pane's Terminal (Pane's `over`); `active` says whether the Pane is the one shown. */
+  over: (active: () => boolean) => JSX.Element;
 };
 
 /**
@@ -98,8 +98,7 @@ export const createProjectPanes = (options: Options) => {
     return (
       <ConnectedProjectContext value={open}>
         <div ref={host} class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
-          <div class="pane-top">{options.top(active)}</div>
-          <Pane observeTerminal={active() ? id => options.observeTerminal(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreen(path, shared)} openObject={options.openObject} />
+          <Pane over={options.over(active)} observeTerminal={active() ? id => options.observeTerminal(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreen(path, shared)} openObject={options.openObject} />
         </div>
       </ConnectedProjectContext>
     );
