@@ -110,7 +110,7 @@ const form = () => document.querySelector(".feedback-form");
 const versions = () =>
   document.querySelector(".feedback-versions")?.textContent;
 
-const note = () => document.querySelector(".feedback-note")?.textContent;
+const note = () => screen.queryByRole("status")?.textContent;
 
 const submitOrNull = () =>
   document.querySelector<HTMLButtonElement>(
@@ -224,7 +224,7 @@ it("u7210b_send_waits_for_text", async () => {
   expect(submit().disabled).toBe(false);
 });
 
-it("u7210b_escape_and_cancel_close_and_restore_focus", async () => {
+it("u7210b_escape_and_close_dismiss_and_restore_focus", async () => {
   for (const close of [
     () => fireEvent.keyDown(field(), { key: "Escape", code: "Escape" }),
     () => fireEvent.click(screen.getByRole("button", { name: copy.close })),

@@ -13,15 +13,6 @@
   box-sizing: border-box;
 }
 
-.feedback-note,
-.feedback-error {
-  margin: 0;
-}
-
-.feedback-error {
-  color: var(--red);
-}
-
 .feedback-versions {
   margin: 0;
   overflow-wrap: anywhere;

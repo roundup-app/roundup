@@ -1,7 +1,9 @@
+import { copy as sharedCopy } from "../sharedCopy";
+
 export const copy = {
   title: "Send feedback",
   line: "What happened?",
-  attach: "Attach a screenshot of this window",
+  attach: "Attach screenshot",
   noShot: (cause: string) => `No screenshot: ${cause}`,
   noCapture:
     "Capture unavailable. Allow Screen Recording for roundup in macOS Privacy settings",
@@ -12,10 +14,10 @@ export const copy = {
   checking: "Checking gh…",
   noCommit: "no commit",
   unknown: "unknown",
-  send: "Send",
+  send: sharedCopy.send,
   sending: "Sending…",
-  copy: "Copy",
-  close: "Cancel",
+  copy: sharedCopy.copy,
+  close: sharedCopy.close,
   /** @prose */
   filed: (number: number) => `Feedback sent as Issue #${number}`,
   /** @prose */
