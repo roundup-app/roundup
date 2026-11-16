@@ -1,5 +1,6 @@
 import { leaderKeys, CHORD_ROWS, LEADER_ROWS } from "./chords";
 import { rowKey } from "../ui/RowCollection";
+import { strayKey } from "./stray";
 import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
 import { CHORDS, LEADER, chordsOf, defaultKeys, TEXT_FIELDS } from "./chords";
@@ -197,6 +198,8 @@ const dispatch = (event: KeyboardEvent): void => {
   }
 
   if (modal && layer?.scope.kind === "layer" && event.target instanceof Node && layer.scope.element()?.contains(event.target) && rowKey(event)) return;
+
+  strayKey(event, modal);
 
   if (modal && event.key !== "Escape" && event.key !== "Tab" && !typesInto(event, eligible)) event.stopImmediatePropagation();
 };

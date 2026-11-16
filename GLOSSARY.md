@@ -28,7 +28,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App registration (`registration`, `action.closed`) | none | — |
 | Project name base (`base`, `ProjectsState.base`) | same | — |
 | Project data | same | — |
-| Fork (`data.fork`, `ForkColour`, `fork.json`) | same | — |
+| Fork (`data.fork`, `ForkColour`, `ForkRefused`: a Project the Fork left out, with its refusal, `fork.json`) | same | — |
 | Fork list (`fork_list`, `ForkListed`, `collides`: the App seam command and its row for each Fork under `$ROUNDUP_HOME/forks`, with the other App it collides with) | Forks | — |
 | Fork rename, Fork recolour (`fork_rename`, `fork_recolour`: App seam commands that rewrite one Fork's `fork.json` and remake its `.app`) | Rename, Recolour | — |
 | Channel identity (`contracts::identity`: `ChannelIdentity`, `CHANNELS`, `TakenFork`, the one comparison `same_name` and the refusal text of `data.fork`) | none | — |
@@ -401,7 +401,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Canonical Project path (`canonicalProjectPath`, `canonical_project_path`, `ProjectsState.opened`) | same | — |
 | Project menu (`MenuHints`, `ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`) | same | — |
 | Exit button (`ExitButton`) | same | — |
-| Native question (`NativeQuestion`, `App.ask`, `NativeAlert`, `RemovalQuestion`, `RemovalAnswer`, `App.askRemoval`, `ask_removal`, `removal_alert`) | same | — |
+| Native question (`NativeQuestion`, `App.ask`, `NativeAlert`, `RemovalQuestion`, `RemovalAnswer`, `NativeAnswer`, `suppressible`, `App.askRemoval`, `ask_removal`, `removal_alert`, `ask_question`, `question_alert`) | same | — |
 | Shared floating surface (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`) | same | — |
 | Import exclusion cause (`ImportExclusionCause`, `ImportExclusion.cause`) | same | — |
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |

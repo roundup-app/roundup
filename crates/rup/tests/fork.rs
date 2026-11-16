@@ -158,3 +158,24 @@ async fn ai7152c_the_cli_prints_the_holder_and_exits_failed_with_nothing_written
     assert!(refused.stdout.is_empty());
     log.recv().await.unwrap();
 }
+
+#[tokio::test]
+async fn fk7159c_each_refused_project_is_printed_after_the_forked_ones() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let result = json!({"path":"/f","projects":[{"key":"a-1","agents":[],"todos":0,"pads":0,"messages":0,"history":0}],"refused":[{"key":"b-2","cause":"database version 9"}]});
+    let _log = daemon(&socket, Ok(result));
+    let output = rup(
+        &socket,
+        &["data", "fork", "/f", "--name", "Try", "--colour", "red"],
+    )
+    .await;
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let text = String::from_utf8(output.stdout).unwrap();
+    let forked = text.find("a-1:").unwrap();
+    let refused = text.find("b-2").unwrap();
+    assert!(
+        forked < refused && text.contains("database version 9"),
+        "{text}"
+    );
+}

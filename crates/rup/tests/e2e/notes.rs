@@ -8,7 +8,7 @@ use contracts::{ActorKind, Kind};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 
-use super::daemon::{Project, h21_poll, needs_you, start};
+use super::daemon::{Project, needs_you, poll_until, start};
 use super::wake::{
     FAIL, STOP, WORK, ask, drive, messages, named, notes, scene, start_again, status_of, still,
     typed,
@@ -82,7 +82,7 @@ async fn b46_thirty_idle_edges_deliver_a_pending_note_once() {
     let id = notes(&s.user, &s.w, "[wake]", 1).await[0]["id"]
         .as_u64()
         .unwrap();
-    h21_poll("the note to be delivered", async || {
+    poll_until("the note to be delivered", async || {
         (status_of(&s.user, id).await == "delivered").then_some(())
     })
     .await;
@@ -103,7 +103,7 @@ async fn b46_a_restart_with_a_note_pending_delivers_it_once() {
     let user0 = project.client().await;
     let door = super::start_door(&user0).await;
     // The Door's own first turn ends before it is made to work.
-    h21_poll("the Door's first prompt", async || {
+    poll_until("the Door's first prompt", async || {
         std::fs::read_to_string(&prompts)
             .ok()
             .filter(|log| !log.is_empty())
@@ -127,7 +127,7 @@ async fn b46_a_restart_with_a_note_pending_delivers_it_once() {
     let user = project.client().await;
     let mut events = project.subscribed().await;
     start_again(&user, &door).await;
-    h21_poll("the note to be delivered", async || {
+    poll_until("the note to be delivered", async || {
         (status_of(&user, id).await == "delivered").then_some(())
     })
     .await;
@@ -163,7 +163,7 @@ async fn b46_a_restart_with_a_note_in_flight_delivers_it_once() {
     let user = project.client().await;
     let mut events = project.subscribed().await;
     start_again(&user, &door).await;
-    h21_poll("the note to be delivered", async || {
+    poll_until("the note to be delivered", async || {
         (status_of(&user, id).await == "delivered").then_some(())
     })
     .await;
@@ -249,7 +249,7 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
         .await;
     }
     let child = named(&project, &user, "alpha", Some(&door)).await;
-    h21_poll("the child's startup to finish", async || {
+    poll_until("the child's startup to finish", async || {
         let tree = super::daemon::rail_tree(&user).await;
         tree.iter()
             .find(|node| node.id == child)?
@@ -284,7 +284,7 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
         .status_revision();
     // A digest read can overtake an older background comparison. Its acknowledgement
     // bounds every setup push before message.list is used to await their delivery.
-    h21_poll("the child's working Digest comparison", async || {
+    poll_until("the child's working Digest comparison", async || {
         std::fs::read_to_string(&comparisons)
             .unwrap()
             // An unterminated row is still being written, not an acknowledgement.
@@ -301,7 +301,7 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
             .then_some(())
     })
     .await;
-    h21_poll("all setup notes to be delivered", async || {
+    poll_until("all setup notes to be delivered", async || {
         let listed = user
             .request("message.list", json!({ "to": door }))
             .await
@@ -350,7 +350,7 @@ async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end() {
         name_of(&s.user, &need).await,
         name_of(&s.user, &end).await,
     );
-    h21_poll("the four notes", async || {
+    poll_until("the four notes", async || {
         // DTC2: the quiet notes ride out in the rollup of the end note.
         let bodies = made(&s.user, &s.door).await;
         let digests = bodies.iter().filter(|b| b.starts_with("[digest] "));
@@ -373,7 +373,7 @@ async fn b47_the_same_agent_and_kind_twice_is_one_note() {
     let head = format!("[digest] {a} is error");
     drive(&s.user, &s.a, WORK).await;
     drive(&s.user, &s.a, FAIL).await;
-    h21_poll("the first note", async || {
+    poll_until("the first note", async || {
         (count(&made(&s.user, &s.door).await, &head) == 1).then_some(())
     })
     .await;
@@ -391,18 +391,18 @@ async fn b47_the_same_kind_after_another_kind_is_a_new_note() {
     let needs = format!("[digest] {a} is needs-you");
     drive(&s.user, &s.a, WORK).await;
     drive(&s.user, &s.a, FAIL).await;
-    h21_poll("the error note", async || {
+    poll_until("the error note", async || {
         (count(&made(&s.user, &s.door).await, &error) == 1).then_some(())
     })
     .await;
     needs_you(&s.user, &s.a).await;
-    h21_poll("the needs-you note", async || {
+    poll_until("the needs-you note", async || {
         (count(&made(&s.user, &s.door).await, &needs) == 1).then_some(())
     })
     .await;
     drive(&s.user, &s.a, WORK).await;
     drive(&s.user, &s.a, FAIL).await;
-    h21_poll("the second error note", async || {
+    poll_until("the second error note", async || {
         (count(&made(&s.user, &s.door).await, &error) == 2).then_some(())
     })
     .await;
@@ -460,7 +460,7 @@ async fn b48_the_message_list_and_the_digest_return_equal_state_after_the_same_e
         .base
         .name;
     let mut polls = 0_u32;
-    let pushed = h21_poll("the push", async || {
+    let pushed = poll_until("the push", async || {
         carry_quiet_notes(&s.user, &s.door, &mut polls).await;
         let listed = s
             .user
@@ -531,7 +531,7 @@ async fn end_note(
         .request("agent.stop", json!({ "id": child }))
         .await
         .unwrap();
-    h21_poll("the end note", async || {
+    poll_until("the end note", async || {
         made(&s.user, &s.door).await.into_iter().find_map(|body| {
             // DTC2: the end note rides with the quiet notes before it, as one rollup.
             let rest = &body[body.find("finder is done")?..];
