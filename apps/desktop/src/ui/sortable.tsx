@@ -574,10 +574,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     props.onDrag?.(false);
 
     const focus = captureFocus();
-    // The pressed row, or the control in it that held focus, takes focus back once the library has settled the drop.
-    const held = source?.element?.contains(document.activeElement) && document.activeElement instanceof HTMLElement ? document.activeElement : source?.element;
+    // The pressed row, or the control in it that had focus, takes focus back once the library has settled the drop.
+    const focusedEl = source?.element?.contains(document.activeElement) && document.activeElement instanceof HTMLElement ? document.activeElement : source?.element;
 
-    if (source && held instanceof HTMLElement) {
+    if (source && focusedEl instanceof HTMLElement) {
       stopRestoringFocus?.();
       stopRestoringFocus = effect(() => {
         if (source.status !== "idle") return;
@@ -585,8 +585,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
         queueMicrotask(() => {
           stopRestoringFocus?.();
 
-          focus(() => { if (held.isConnected) held.focus(); });
-          refocus = held;
+          focus(() => { if (focusedEl.isConnected) focusedEl.focus(); });
+          refocus = focusedEl;
         });
       });
     }

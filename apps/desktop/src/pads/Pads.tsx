@@ -182,12 +182,12 @@ export const Pads = (props: {
     const message = await changeFailureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
 
     // U7276c: a key's move keeps focus on the row, which the redraw may have replaced.
-    const held = rowButtons.get(source.name) === document.activeElement;
+    const focused = rowButtons.get(source.name) === document.activeElement;
 
     reportItemFailure(source, message, copy.moveItem(source.name));
     await list.reload();
 
-    if (held && (document.activeElement === document.body || document.activeElement === null)) rowButtons.get(source.name)?.focus({ preventScroll: true });
+    if (focused && (document.activeElement === document.body || document.activeElement === null)) rowButtons.get(source.name)?.focus({ preventScroll: true });
   };
 
   const [dragging, setDragging] = createSignal(false);

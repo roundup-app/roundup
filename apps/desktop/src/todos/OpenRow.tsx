@@ -37,6 +37,19 @@ export type SortedRow = {
   can: (by: -1 | 1) => boolean;
 };
 
+// U7276c: `⌥→` nests the row under the one above and `⌥←` takes it out, the calls Tab and ⇧Tab make.
+const nestKey = (event: KeyboardEvent, nest: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null } | undefined, report: (message: string | null) => void) => {
+  const out = event.key === "ArrowLeft";
+
+  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (!out && event.key !== "ArrowRight")) return false;
+  event.preventDefault();
+  const run = out ? nest?.out : nest?.in;
+
+  if (run && !event.repeat) void run().then(report);
+
+  return true;
+};
+
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
@@ -152,18 +165,7 @@ export const OpenRow = (props: {
           nest={props.nest ? (out) => (out ? props.nest?.out : props.nest?.in) ?? null : undefined}
           onNest={async (run) => reportMove(await run())}
           onKeyDown={(event) => {
-            // U7276c: `⌥→` nests the row under the one above and `⌥←` takes it out, the calls Tab and ⇧Tab make.
-            const out = event.key === "ArrowLeft";
-
-            if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (out || event.key === "ArrowRight")) {
-              const run = props.nest ? (out ? props.nest.out : props.nest.in) : null;
-
-              event.preventDefault();
-
-              if (run && !event.repeat) void run().then(reportMove);
-
-              return;
-            }
+            if (nestKey(event, props.nest, reportMove)) return;
 
             props.onSelectionKey?.(props.todo, event);
 
