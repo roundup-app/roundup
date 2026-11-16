@@ -641,6 +641,41 @@ fn b5635a_rescan_and_registry_isolation() {
     }
 }
 
+#[test]
+fn b3563c_receipts_of_one_transcript_reach_the_observer_in_the_order_they_were_read() {
+    use std::sync::{Barrier, Mutex};
+    let state = Arc::new(crate::events::InboxState::default());
+    let reports = Arc::new(Mutex::new(Vec::new()));
+    let gate = Arc::new(Barrier::new(2));
+    let (log, stall) = (Arc::clone(&reports), Arc::clone(&gate));
+    state
+        .observer
+        .set(Arc::new(move |_, ids| {
+            // The report of 7 stalls after its read, as a slow `message.delivered` emit does.
+            if ids == [7] {
+                stall.wait();
+                stall.wait();
+            }
+            log.lock().unwrap().push(ids.to_vec());
+        }))
+        .ok()
+        .unwrap();
+    std::thread::scope(|scope| {
+        let state = &state;
+        let scan = |id: u32| {
+            let payload = json!({"transcript_path":"a.jsonl"});
+            scope.spawn(move || state.scan_using("a", &payload, |_, at| (vec![id], at)))
+        };
+        scan(7);
+        gate.wait();
+        scan(8);
+        // The second scan may not read, let alone report, while the first report stalls.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        gate.wait();
+    });
+    assert_eq!(*reports.lock().unwrap(), [[7], [8]]);
+}
+
 #[tokio::test]
 async fn b5635c_unrelated_hooks_do_not_copy_completed_text() {
     use crate::claude_code::toolcall::tests::measured;
