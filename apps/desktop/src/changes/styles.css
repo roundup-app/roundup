@@ -204,6 +204,7 @@
 
 .changes-icon {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: var(--space-1);
   color: var(--grey);
