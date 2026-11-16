@@ -134,10 +134,14 @@ async fn get(url: &str) -> Result<Vec<u8>, String> {
         let _ = child.kill().await;
         return Err("the herdr-core release feed is too long to be one".to_owned());
     }
-    if !child.wait().await.is_ok_and(|status| status.success()) {
-        return Err("the herdr-core release feed did not answer".to_owned());
+    match child.wait().await {
+        Ok(status) if status.success() => Ok(body),
+        // `--fail` makes curl exit 22 when the feed answers an HTTP error.
+        Ok(status) if status.code() == Some(22) => {
+            Err("the herdr-core release feed answered with an error".to_owned())
+        }
+        _ => Err("the herdr-core release feed could not be reached".to_owned()),
     }
-    Ok(body)
 }
 
 #[cfg(test)]
@@ -158,9 +162,14 @@ mod tests {
         config
     }
 
-    /// A feed that answers every request with `body`; its URL. A `TcpListener` stands in for
-    /// herdr's release host, so the real `curl` makes a real GET.
+    /// A feed that answers every request with `body`; its URL.
     fn serve(body: &'static str) -> String {
+        serve_with("200 OK", body)
+    }
+
+    /// A feed that answers every request with `status` and `body`; its URL. A `TcpListener`
+    /// stands in for herdr's release host, so the real `curl` makes a real GET.
+    fn serve_with(status: &'static str, body: &'static str) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/core/latest.json", listener.local_addr().unwrap());
         std::thread::spawn(move || {
@@ -169,7 +178,7 @@ mod tests {
                 let _ = stream.read(&mut [0; 1024]);
                 let _ = write!(
                     stream,
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
                     body.len()
                 );
             }
@@ -240,9 +249,17 @@ mod tests {
         }
         assert!(newest(&serve(r#"{"generation":3}"#)).await.is_err());
         assert!(newest(&serve(r#"{"version":"latest"}"#)).await.is_err());
+        assert_eq!(
+            newest(&serve_with("404 Not Found", "")).await,
+            Err("the herdr-core release feed answered with an error".to_owned()),
+            "an HTTP answer is never read as no answer"
+        );
         let closed = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/core/latest.json", closed.local_addr().unwrap());
         drop(closed);
-        assert!(newest(&url).await.is_err());
+        assert_eq!(
+            newest(&url).await,
+            Err("the herdr-core release feed could not be reached".to_owned())
+        );
     }
 }

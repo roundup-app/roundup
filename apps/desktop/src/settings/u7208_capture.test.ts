@@ -27,11 +27,11 @@ it.skipIf(!captureDir("U7208a"))(
     await lane.capture("U7208a", "ready");
 
     await lane.evaluate(
-      "(() => { window.__fake.app.updateInstallFailure = new Error('The update could not be installed.'); return true; })()",
+      "(() => { window.__fake.app.updateInstallFailure = new Error('replaced: the offered build was replaced and the feed offers no newer one'); return true; })()",
     );
     await lane.browser("click", ".settings-update .settings-update-button");
     await lane.until(
-      "document.body.textContent.includes('The update could not be installed.')",
+      "document.body.textContent.includes('That build was replaced')",
     );
     expect(
       await lane.evaluate(

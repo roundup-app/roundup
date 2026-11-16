@@ -3,6 +3,7 @@ import { BusyButton } from "../ui/BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { Program, Updates } from "../state/updates";
 import { copy } from "./copy";
+import { kindOf } from "./machineFailure";
 
 const shown = {
   roundup: {
@@ -16,6 +17,8 @@ const shown = {
     keeps: copy.updateKeepsTerminals,
   },
 } as const;
+
+const roundupFailures = new Map<string, string>(Object.entries(copy.updateFailures));
 
 /** U7208a: one program's name and version, whether a newer one is ready, and the button that updates it. Its failure shows below, in one line. */
 export const UpdateRow = (props: { program: Program; updates: Updates }) => {
@@ -36,6 +39,15 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
     if (!now) return null;
 
     return now.stage === "installing" ? copy.updateInstalling : copy.updateDownloading(now.downloaded, now.total);
+  };
+
+  /** U7208b: roundup's failure is the catalogue's sentence for the kind the App leads it with; herdr-core's is the line it printed (U7208c). */
+  const failure = () => {
+    const message = props.updates.failure(props.program);
+
+    if (message === null || props.program === "core") return message;
+
+    return roundupFailures.get(kindOf(message)) ?? copy.updateFailed;
   };
 
   const state = () => {
@@ -66,7 +78,7 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
         </BusyButton>
       </Show>
       <ReservedLine
-        message={props.updates.failure(props.program)}
+        message={failure()}
         dismiss={() => props.updates.dismiss(props.program)}
         status={progress()}
       />
