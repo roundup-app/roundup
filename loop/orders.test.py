@@ -9,11 +9,29 @@ import re
 import tempfile
 import time
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-spec = importlib.util.spec_from_file_location('orders', 'loop/orders.py')
+ORDERS = os.path.abspath('loop/orders.py')
+spec = importlib.util.spec_from_file_location('orders', ORDERS)
 orders = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(orders)
+
+# The scenarios `orders` reads from `scenarios/`, as file -> ids; a test that needs another id adds it here.
+SCENARIOS = {'ui.md': ['U83', 'U84'], 'proofs.md': ['V1', 'V4b'], 'lean-child-start.md': [f'LC{n}' for n in range(1, 15)]}
+
+
+def setUpModule():
+    """`orders` reads `scenarios/` from the working directory: run in a fixture one, so retiring a scenario from the repo's
+    never fails a test."""
+    fixture = tempfile.TemporaryDirectory()
+    unittest.addModuleCleanup(fixture.cleanup)
+    unittest.addModuleCleanup(os.chdir, os.getcwd())
+    folder = Path(fixture.name) / 'scenarios'
+    folder.mkdir()
+    for name, ids in SCENARIOS.items():
+        (folder / name).write_text(''.join(f'**{id} fixture scenario.**\n\n' for id in ids))
+    os.chdir(fixture.name)
 
 
 def issue(number=1, key='U83', **changes):
@@ -69,7 +87,7 @@ class Call(unittest.TestCase):
 
 class Orders(unittest.TestCase):
     def check(self, body):
-        return subprocess.run(['python3', 'loop/orders.py', 'check', '-'], input=body, text=True, capture_output=True)
+        return subprocess.run(['python3', ORDERS, 'check', '-'], input=body, text=True, capture_output=True)
 
     def test_l34_an_empty_rest_issue_list_reads_issues_through_graphql(self):
         item = dict(number=7, url='https://github.com/a/b/issues/7', title='Explain missing prior output',
