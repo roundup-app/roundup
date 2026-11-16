@@ -339,7 +339,7 @@
 .settings-machine:not(:first-child) { border-top: var(--hairline-width) solid var(--hairline); }
 .settings-machine-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-machine-state { font-size: var(--text-caption); color: var(--grey); }
-.settings-machine-update { grid-column: 3; justify-self: end; }
+.settings-machine-update { grid-column: 3; justify-self: end; margin-inline-end: var(--space-3); }
 .settings-machine-remove { grid-column: 4; }
 .settings-machine .reserved-line { grid-column: 1 / -1; }
 .settings-machines-note { padding: var(--space-3) var(--space-4); }

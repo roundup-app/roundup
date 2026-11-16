@@ -157,10 +157,28 @@ it("mc75_update_runs_once_and_clears_on_success", async () => {
   fireEvent.click(button);
   fireEvent.click(button);
   await within(list).findByText("Updating…");
-  expect(button.hasAttribute("disabled")).toBe(true);
+  expect(button.getAttribute("aria-disabled")).toBe("true");
   resolve([{ ...old, outdated: false }]);
   await waitFor(() => expect(within(list).queryByRole("button", { name: /^Update / })).toBeNull());
   expect(app.calls.filter(call => call.method === "machine.update")).toHaveLength(1);
+});
+
+it("mc75_updates_track_each_row_on_its_own", async () => {
+  const app = createFakeApp();
+  const first = Promise.withResolvers<Machine[]>();
+  const other: Machine = { ...old, name: "other" };
+  const list = await open(app, [old, other]);
+  app.handlers["machine.update"] = () => first.promise;
+
+  const a = await within(list).findByRole("button", { name: "Update old" });
+  const b = within(list).getByRole("button", { name: "Update other" });
+  fireEvent.click(a);
+  fireEvent.click(b);
+  fireEvent.click(a);
+  expect(a.getAttribute("aria-disabled")).toBe("true");
+  expect(b.getAttribute("aria-disabled")).toBe("true");
+  expect(app.calls.filter(call => call.method === "machine.update")).toHaveLength(2);
+  first.resolve([old, other]);
 });
 
 it("mc75_a_failed_update_shows_the_line_and_offers_it_again", async () => {
