@@ -3,6 +3,12 @@
   padding-inline: var(--space-2);
 }
 
+/* #7271: a surface and one hairline on the lower edge (inside the row's height) read it as chrome, not output. */
+.reserved-line.resume-bar:is(.resume-bar, [data-overlay="true"]) {
+  background: var(--surface);
+  border-block-end: var(--hairline-width) solid var(--hairline);
+}
+
 /* The actions follow the text they act on instead of sitting at the far edge. */
 .reserved-line.resume-bar :is(.ink, .reserved-status) {
   flex: 0 1 auto;
