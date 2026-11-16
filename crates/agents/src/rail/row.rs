@@ -132,6 +132,7 @@ impl NodeRow {
             terminal_id: self.terminal_id,
             worktree: self.worktree,
             can_resume: self.can_resume,
+            has_conversation: self.can_resume,
             yolo: false,
             channel: None,
             work,

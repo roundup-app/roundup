@@ -96,6 +96,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Finish count (`Status.finished`, `finished`) | same | — |
 | Unseen (`unseen`, `UnseenState`) | Unread result | — |
 | Resume (`ResumeParams`, `ResumeMode`) | same | — |
+| Conversation fact (`RailNode.has_conversation`) | same | — |
 | Turn resume (`ResumeWait`, `RailNode.resume`) | `resumes 14:05` | — |
 | YOLO (`yolo`, `Permission::Bypass`) | same | — |
 | Launch facts (`LaunchFacts`, `Permission`; `Request` to the Launcher; `Launch`, `Origin`, `Attach` to a start) | none | — |

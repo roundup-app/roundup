@@ -136,7 +136,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
         { when: moveAgent.available(node.id), id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) },
         { when: node.kind === "agent" && node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
         { when: node.kind === "agent" && node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
-        { when: isMode(node), id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } },
+        { when: isMode(node) && !(isDoor(node) && node.has_conversation), id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } },
         { when: isMode(node), id: "mode-prompt", label: copy.modePromptMenu, run: () => { setDialog({ kind: "opening-prompt", id: node.id }); } },
         { id: "folder", label: copy.openFolder, run: actions.folder },
         { id: "editor", label: copy.openInEditor, run: actions.editor },

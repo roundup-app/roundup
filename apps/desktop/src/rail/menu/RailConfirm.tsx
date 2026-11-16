@@ -13,6 +13,7 @@ const questionOf = (confirming: Confirming | null) => {
   switch (confirming.kind) {
     case "reading-selection": return null;
     case "stop": return { title: copy.stopQuestion(confirming.node.name), message: "", okLabel: copy.stop, cancelLabel: copy.keep };
+    case "restart": return { title: copy.restartQuestion(confirming.node.name), message: "", okLabel: copy.restart, cancelLabel: copy.keep };
     case "remove-selection": return { title: copy.removeSelectionQuestion, message: confirming.summary, okLabel: copy.removeAll, cancelLabel: copy.keep };
     case "remove":
       if (confirming.removal === "reading") return null;
@@ -34,6 +35,7 @@ const rowIdOf = (confirming: Confirming | null) => {
 
   switch (confirming.kind) {
     case "stop":
+    case "restart":
     case "remove": return confirming.node.id;
     case "remove-selection": return confirming.nodes[0].id;
     case "reading-selection": return null;
