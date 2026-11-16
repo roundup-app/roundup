@@ -2,7 +2,7 @@
 
 Repo-wide size, ast-grep, typos and Ruff scans run once in `pre.yml`'s always-reached `lint` job: `lint-rust → lint-repo → scan.py web`. The selected `lint-web` job runs no repo-wide scan. Cargo dependency scanning stays in `lint-rust`; styling, token enforcement, type checking, dead code and cycles stay in `lint-web`. No scanned path or debt ratchet changes.
 
-C4's addition/exposure/removal and mutated-generation freshness observers run through `just contracts-test` in Linux `rust 1`, outside `pre`. `contracts-fresh` still regenerates before comparing in `test-rust`. The existing planner selects Rust for contract declarations/generator, `contracts/`, `justfile` and `check.yml`; `check.yml` also selects Rust for `tools/contracts/` changes, including fixtures.
+C4's addition/exposure/removal and mutated-generation freshness observers run through `just contracts-test` in the Linux `contracts` job of `check.yml`, outside `pre`. `contracts-fresh` still regenerates before comparing in `test-rust`. The existing planner selects Rust for contract declarations/generator, `contracts/`, `justfile` and `check.yml`; `check.yml` also selects Rust for `tools/contracts/` changes, including fixtures.
 
 ## Retained just recipes
 
@@ -19,17 +19,18 @@ Each executable edge below reaches CI or the human instructions below; none depe
 | `clippy` | `justfile`, `lint-rust`; `check.yml`, `mac-clippy` | `just clippy <base>`; `just clippy` |
 | `test-rust` | `justfile`, `test-rust-since` | `just test-rust <selection> <args>` |
 | `test-rust-ids` | This document, Human commands | `just test-rust-ids <test id>…` |
-| `test-rust-since` | `check.yml`, `mac`; `tools/e14/observe.py`, Rust lane | `python3 loop/app-data.py just test-rust-since "$BASE" --profile mac`; `python3 loop/app-data.py just test-rust-since <base> --profile ci<N> --test-threads 4 --config-file <generated-config>` |
+| `test-rust-since` | `justfile`, `check-rust` | `just test-rust-since <base>` |
+| `test-rust-lane` | `check.yml`, `mac` (`test-rust`, R24); `tools/e14/observe.py`, Rust lane | `python3 loop/app-data.py just test-rust-lane mac "$BASE"`; `python3 loop/app-data.py just test-rust-lane mac "$BASE" --features desktop/idle-perf -E 'test(/^idle::tests::r24_/)'`; `python3 loop/app-data.py just test-rust-lane ci<N> <base> --test-threads 4 --config-file <generated-config>` |
 | `lint-web` | `.github/workflows/pre.yml`, `lint-web` | `python3 loop/app-data.py just lint-web` |
 | `test-web-since` | `tools/e14/observe.py`, web lane in `check.yml` | `python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log <log> -- just test-web-since <base> --shard=<N>/<total> --config <generated-config>` on a hosted lane; without the `chromium-faults` wrapper on boxd |
 | `web-durations` | This document, Human commands | `just web-durations <main-check-run-id>` |
 | `contracts` | `tools/contracts/fresh.py`, `main` | `just contracts` |
-| `contracts-test` | `.github/workflows/check.yml`, C4 step in `rust 1` | `just contracts-test` |
+| `contracts-test` | `.github/workflows/check.yml`, C4 step in `contracts` | `just contracts-test` |
 | `contracts-fresh` | `justfile`, `test-rust` | `just contracts-fresh` |
 | `packages` | `justfile`, `lint-web`, `test-web-since`, `capture` | `just packages typecheck`; `just packages test <args>` |
 | `harness` | `.agents/data/harness.md`, Harness | `just harness <seed> <port>` |
 | `harness-real` | `.agents/data/harness.md`, Harness (`harness-real` paragraph) | `just harness-real <project-path> <port>` |
-| `build-debug` | `.github/workflows/check.yml`, A4691 step; `justfile`, `app` | `just build-debug` |
+| `build-debug` | `.github/workflows/check.yml`, `web` on a prepared runner; `justfile`, `app` | `just build-debug` |
 | `app` | This document, Human commands | `just app <project>` |
 | `app-release` | This document, Human commands | `just app-release <project>` |
 | `app-bundle` | `.github/workflows/check.yml`, S1 macOS App bundle | `just app-bundle` |

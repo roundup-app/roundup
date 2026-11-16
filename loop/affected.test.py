@@ -207,5 +207,68 @@ class RustHelpers(Fixture):
         self.assertEqual(out.getvalue(), "skip\n")
 
 
+class RustLane(Fixture):
+    """CI7295f: a CI lane builds only the test binaries its nextest profile names that the diff reaches."""
+
+    def lane(self, expression, changed=None, features=None):
+        config = self.root / ".config/nextest.toml"
+        config.parent.mkdir(exist_ok=True)
+        config.write_text(f"[profile.lane]\ndefault-filter = '''{expression}'''\n")
+        return affected.lane_args("lane", changed, self.meta, self.root, features or {})
+
+    def test_ci7295f_a_lane_builds_the_binaries_its_profile_names_under_the_workspace(self):
+        self.assertEqual(
+            self.lane("binary_id(=plain::quiet) | (binary_id(=gamma::leaf) & test(=leaf_probe))"),
+            "--workspace --test leaf --test quiet",
+        )
+        self.assertEqual(self.lane("package(gamma)"), "--workspace --lib --test leaf")
+
+    def test_ci7295f_a_not_lane_takes_every_binary_but_those_it_names_alone(self):
+        self.assertEqual(
+            self.lane(
+                "not (binary_id(=alpha::solo) | binary_id(=beta::bin/beta)"
+                " | (binary_id(=alpha::one) & test(=one_probe)))"
+            ),
+            "--workspace --lib --test calm --test leaf --test one --test quiet --test spawn --test two",
+        )
+
+    def test_ci7295f_the_diff_narrows_a_lane_and_a_lane_it_misses_builds_nothing(self):
+        named = "binary_id(=alpha::solo) | binary_id(=beta::calm)"
+        self.assertEqual(self.lane(named, ["crates/alpha/tests/solo.rs"]), "--workspace --test solo")
+        self.assertIsNone(self.lane(named, ["crates/plain/src/lib.rs"]))
+        self.assertEqual(self.lane(named, ["justfile"]), "--workspace --test calm --test solo")
+
+    def test_ci7295f_tests_that_start_helpers_build_one_uniquely_named_test_of_each_helper_crate(self):
+        with patch.object(affected, "HELPER_CRATES", ("alpha",)):
+            self.assertEqual(self.lane("binary_id(=beta::spawn)"), "--workspace --test solo --test spawn")
+            self.assertEqual(self.lane("binary_id(=plain::quiet)"), "--workspace --test quiet")
+            self.assertEqual(
+                self.lane("binary_id(=beta::spawn) | binary_id(=alpha::two)"), "--workspace --test spawn --test two"
+            )
+            (self.root / "crates/plain/tests/solo.rs").write_text("")
+            self.meta["packages"][3]["targets"].append(
+                dict(kind=["test"], name="solo", src_path=str(self.root / "crates/plain/tests/solo.rs"))
+            )
+            self.assertEqual(self.lane("binary_id(=beta::spawn)"), "--workspace --test spawn --test two")
+
+    def test_ci7295f_a_target_missing_its_required_features_builds_in_no_lane(self):
+        self.meta["packages"][1]["targets"][0]["required-features"] = ["export"]
+        self.assertIsNone(self.lane("binary_id(=beta::bin/beta)"))
+        self.assertEqual(
+            self.lane("binary_id(=beta::bin/beta)", features={"beta": {"export"}}), "--workspace --bin beta"
+        )
+
+    def test_ci7295f_the_command_prints_nothing_for_a_lane_the_diff_misses(self):
+        self.lane("binary_id(=alpha::solo)")
+        out = io.StringIO()
+        with patch.object(affected, "metadata", return_value=self.meta), patch.object(
+            affected, "ROOT", self.root
+        ), patch.object(affected, "resolved_features", return_value={}), patch.object(
+            affected, "changed_since", return_value=["crates/plain/src/lib.rs"]
+        ), contextlib.redirect_stdout(out):
+            self.assertEqual(affected.main(["affected.py", "rust-lane", "lane", "HEAD^1"]), 0)
+        self.assertEqual(out.getvalue(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

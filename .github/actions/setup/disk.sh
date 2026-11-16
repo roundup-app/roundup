@@ -4,6 +4,9 @@ set -u
 
 case "${1:-}" in
   free)
+    # The 145 GB image starts with about 77 GB free, twice what the largest build (`cache`, every test target) writes;
+    # deleting takes over 3 min, so only a smaller image pays it.
+    if [ "$(df --output=avail -BG / | tail -n 1 | tr -dc 0-9)" -ge 40 ]; then df -h /; exit 0; fi
     # Android, .NET, Haskell, Swift, Java, Julia, PowerShell, the cloud CLIs and the CodeQL bundle are unused by roundup.
     # CI5330e: with only Android, .NET, Haskell, CodeQL and Boost gone, the 72 GB image kept 27 GB, too little for `rust 1`.
     sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \

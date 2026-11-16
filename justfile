@@ -102,6 +102,18 @@ test-rust-since base *args:
         *) exec just test-rust $selection --no-tests pass {{args}} ;;
     esac
 
+# L89: a CI lane's Rust tests: the test binaries its nextest <profile> names that the diff since <base> reaches, or every
+# one when <base> is empty, built under `--workspace` with the helper binaries they start (`loop/affected.py rust-lane`).
+# <args> pass to nextest as given, so a filterset needs no second quoting.
+[positional-arguments]
+test-rust-lane profile base *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shift 2
+    selection=$(python3 loop/affected.py rust-lane {{quote(profile)}} {{quote(base)}})
+    if [ -z "$selection" ]; then echo "no test of {{profile}} reaches the diff since {{base}}"; exit 0; fi
+    exec cargo nextest run $selection --profile {{quote(profile)}} {{ if base == "" { "" } else { "--no-tests pass" } }} "$@"
+
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
 [script('loop/keep-going.sh')]
 check-web base="":
