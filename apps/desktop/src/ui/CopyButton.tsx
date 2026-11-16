@@ -4,6 +4,7 @@ import { debounce } from "@solid-primitives/scheduled";
 import { writeText } from "../app/clipboard";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
+import { BusyButton } from "./BusyButton";
 
 /** Clipboard feedback belongs to one mounted control and the latest acknowledged attempt. */
 export const createCopyFeedback = () => {
@@ -60,7 +61,9 @@ export const createCopyLabels = <T extends string | number>(ids: () => readonly 
 };
 
 /** The existing native button owns activation; the App seam owns the clipboard write. */
-export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
+export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "type" | "disabled"> & {
+  /** The button kind; quiet unless named, `null` for a surface that styles it. */
+  "data-button"?: "primary" | "quiet" | null;
   app: Pick<App, "writeClipboardText">;
   text: string;
   identity?: unknown;
@@ -68,7 +71,7 @@ export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
   onSuccess?: (() => void) | undefined;
   onFailure: (error: Error) => void;
 }) => {
-  const rest = omit(props, "app", "text", "identity", "children", "onSuccess", "onFailure", "failureLabel");
+  const rest = omit(props, "app", "text", "identity", "children", "onSuccess", "onFailure", "failureLabel", "data-button");
   const feedback = createCopyFeedback();
   // A memo: a parent recomputing the same text must not clear the copy feedback early.
   const copying = createMemo(() => [props.text, props.identity, props.app] as const, { equals: (before, after) => before.every((part, index) => part === after[index]) });
@@ -80,8 +83,9 @@ export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     const text = props.text;
     const success = props.onSuccess;
     const failure = props.onFailure;
-    void feedback.run(() => writeText(app, text), () => success?.(), failure);
+
+    return feedback.run(() => writeText(app, text), () => success?.(), failure);
   };
 
-  return <button type="button" data-button="quiet" {...rest} onClick={write}>{feedback.copied() ? copy.copied : feedback.failed() && props.failureLabel ? props.failureLabel : props.children}</button>;
+  return <BusyButton {...rest} kind={props["data-button"] === undefined ? "quiet" : props["data-button"]} busyLabel={copy.copying} onClick={write}>{feedback.copied() ? copy.copied : feedback.failed() && props.failureLabel ? props.failureLabel : props.children}</BusyButton>;
 };

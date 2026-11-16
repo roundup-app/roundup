@@ -147,11 +147,16 @@ it("u7208b_a_pending_install_shows_updating_and_its_progress_and_ignores_a_secon
   fireEvent.click(press);
   fireEvent.click(press);
   await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
-  expect(press.textContent).toContain(copy.machineUpdating);
+  expect(screen.getByRole("button", { name: "Updating…" })).toBe(press);
   expect(app.updateInstalls).toBe(1);
 
-  app.emitUpdateProgress({ downloaded: 12_000_000, total: 40_000_000, stage: "downloading" });
-  expect(await screen.findByText(copy.updateDownloading(12_000_000, 40_000_000))).toBeTruthy();
+  const mb = 1_000_000;
+
+  app.emitUpdateProgress({ downloaded: 12 * mb, total: 40 * mb, stage: "downloading" });
+  // U7208b: the row counts megabytes come and megabytes in all, never a percent.
+  const line = await screen.findByText(copy.updateDownloading(12 * mb, 40 * mb));
+
+  expect(line.textContent?.match(/\d+/g)?.map(Number)).toEqual([12, 40]);
   app.emitUpdateProgress({ downloaded: 40_000_000, total: 40_000_000, stage: "installing" });
   expect(await screen.findByText(copy.updateInstalling)).toBeTruthy();
 
@@ -170,7 +175,7 @@ it("u7208c_a_pending_core_update_shows_updating_and_ignores_a_second_click", asy
   fireEvent.click(press);
   fireEvent.click(press);
   await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
-  expect(press.textContent).toContain(copy.machineUpdating);
+  expect(screen.getByRole("button", { name: "Updating…" })).toBe(press);
   expect(app.coreUpdates).toBe(1);
 
   finish();

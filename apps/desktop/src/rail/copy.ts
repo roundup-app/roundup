@@ -14,6 +14,11 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  opening: sharedCopy.opening,
+  retrying: sharedCopy.retrying,
+  resuming: sharedCopy.resuming,
+  creating: sharedCopy.creating,
+  saving: sharedCopy.saving,
   doorStoppedWaiting: (count: number) => `Door stopped · ${count} waiting`,
   cantReach: (agent: string, cause: string) => `can't reach ${agent}: ${cause}`,
   /** U6248c: the cause and the local clock time the Daemon resumes the Agent at. */

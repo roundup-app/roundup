@@ -10,6 +10,7 @@ import { isDoor } from "../state/doorNode";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { Show, createMemo, onCleanup, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { IconButton } from "../ui/IconButton";
@@ -261,7 +262,8 @@ export const RailRowView = (props: {
 
   const resumeAct = (event: MouseEvent) => {
     event.stopPropagation();
-    void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.resume, failed)); });
+
+    return connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.resume, failed)); });
   };
 
   let glyphFocus: Pick<TriggerProps, "onFocusIn" | "onFocusOut"> | undefined;
@@ -341,8 +343,8 @@ export const RailRowView = (props: {
       <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
       <Show when={attribution()}>{source => <AttributionIcon text={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
       <Show when={!isGroup()}><MachineIcon node={props.row.node} /></Show>
-      <Show when={unreachable()}>{reached => <button type="button" class="rail-unreachable" data-button="quiet" aria-label={`${reachLabel()} ${reached().name}`} onClick={reachAct}>{reachLabel()}</button>}</Show>
-      <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><button type="button" class="rail-resume" data-button="quiet" aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</button></Show>
+      <Show when={unreachable()}>{reached => <BusyButton kind="quiet" class="rail-unreachable" busyLabel={retry() ? copy.retrying : copy.opening} aria-label={`${reachLabel()} ${reached().name}`} onClick={reachAct}>{reachLabel()}</BusyButton>}</Show>
+      <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><BusyButton kind="quiet" class="rail-resume" busyLabel={copy.resuming} aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</BusyButton></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>

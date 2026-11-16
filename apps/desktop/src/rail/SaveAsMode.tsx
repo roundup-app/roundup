@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { queueFocus } from "../keys/focus";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
@@ -44,7 +45,7 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={name()} onInput={event => setName(event.currentTarget.value)} /></Field.Root>
         <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
-        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !name().trim() ? "true" : "false"}>{copy.saveMode}</button></div>
+        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><BusyButton kind="primary" type="submit" busy={busy()} disabled={!name().trim()} busyLabel={copy.saving}>{copy.saveMode}</BusyButton></div>
       </form>
     </Dialog.Content>
   </Dialog.Root>;

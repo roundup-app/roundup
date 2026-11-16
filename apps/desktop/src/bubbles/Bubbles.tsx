@@ -19,6 +19,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { Tab } from "./tab";
 import type { TabContext } from "./tab";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { createBubbleFailure, createCopyFailure } from "./failures";
 import { createRestartable } from "../ink/restartable";
 import { createEffect, createMemo, createSignal, flush, For, onCleanup, onSettled, Show, untrack } from "solid-js";
@@ -46,6 +47,13 @@ const ESCAPE = "Escape".split(" ");
 const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
+/** The Retry of a failed open: it clears the line and opens again, busy while the open runs. */
+const RetryOpen = (props: { clear: () => void; open: () => Promise<void> }) => <BusyButton kind="quiet" class="word" busyLabel={copy.retrying} onClick={() => {
+  props.clear();
+
+  return props.open();
+}}>{copy.retry}</BusyButton>;
+
 export const Bubbles = (props: {
   screens: Screens;
   /** Open only this Project's original, non-pending revision in a shown Terminal tab.
@@ -773,6 +781,6 @@ export const Bubbles = (props: {
         onCopySuccess={draft => copyFailures.clear(draft.revision)}
         onCopyFailure={(draft, error) => copyFailures.fail(draft.revision, copy.copyDraftFailure(error.message))}
         onDiscard={draft => { drafts.discard(draft.revision); setEditing(null); }} />
-      <CloseFailure message={failure()?.message ?? null} onDismiss={() => setFailure(null)} action={<Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show>} />
+      <CloseFailure message={failure()?.message ?? null} onDismiss={() => setFailure(null)} action={<Show when={failure()?.terminal === null}><RetryOpen clear={() => setFailure(null)} open={open} /></Show>} />
     </div>;
 };

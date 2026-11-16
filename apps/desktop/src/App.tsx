@@ -18,6 +18,7 @@ import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { CHORDS, LEADER, chordsOf } from "./keys/chords";
 import { copy } from "./app/copy";
+import { BusyButton } from "./ui/BusyButton";
 import "./buttons.css";
 import { lazy, createEffect, createMemo, createRoot, createSignal, createUniqueId, For, getOwner, isDisposed, Loading, onCleanup, onSettled, runWithOwner, Show, untrack, type Accessor } from "solid-js";
 import { ChooseProject, EmptyShelf } from "./window/FirstRun";
@@ -476,7 +477,7 @@ export const App = (props: {
         railStrip={<InProject open={activeConnection()} failure={activeFailure()}>{() => <RailStrip />}</InProject>}
         rail={
           <>
-            <ReservedLine overlay message={railLine.message()} dismiss={railLine.dismiss} recover={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => void projects.reload() } : undefined} action={<>
+            <ReservedLine overlay message={railLine.message()} dismiss={railLine.dismiss} recover={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit ? { run: () => projects.reload() } : undefined} action={<>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </>} />
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
@@ -498,7 +499,7 @@ export const App = (props: {
 
             const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
 
-            return <ReservedLine class="todo-undo" overlay message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>} />;
+            return <ReservedLine class="todo-undo" overlay message={failure()} dismiss={undo.dismiss} action={<Show when={undo.uncertain()}><BusyButton kind="quiet" busy={undo.pending()} busyLabel={copy.retrying} onClick={() => undo.retryDelete()}>{copy.todoDeleteRetry}</BusyButton></Show>} />;
           }}</For>
           <div class="centre-failures">
             <For each={keys()}>{path => {
@@ -509,7 +510,7 @@ export const App = (props: {
               return <Show when={message()}>{message => <ReservedLine class="centre-notice" message={`${name()}: ${message()}`} dismiss={() => failure()?.clear()} action={<button data-button="quiet" type="button" onClick={() => projects.select(path)}>{copy.openDraft} {name()}</button>} />}</Show>;
             }}</For>
             <Show when={nativeFailure()}>{failure => <ReservedLine class="centre-notice" message={failure().message} dismiss={() => setNativeFailure(null)} recover={failure().action ?? undefined} />}</Show>
-            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageLine.message()} dismiss={storageLine.dismiss} recover={{ run: () => void Promise.all(storageFailures().map(problem => problem.retry())), label: storageCopy.saveRetry }} /></div></Show>
+            <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageLine.message()} dismiss={storageLine.dismiss} recover={{ run: () => Promise.all(storageFailures().map(problem => problem.retry())), label: storageCopy.saveRetry }} /></div></Show>
           </div>
           <div class="centre-frame">
           <div class="settings-center">

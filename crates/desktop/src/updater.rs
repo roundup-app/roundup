@@ -5,15 +5,23 @@
 use crate::Unpoisoned;
 use std::future::Future;
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
+use serde::Serialize;
 use tauri::menu::{MenuItem, MenuItemKind, Submenu};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_updater::{Error, Update, UpdaterExt};
 
 use crate::AppState;
 use crate::updates::Row;
 
 pub(crate) const ITEM: &str = "install-update";
+
+/// Sent while `install` runs, as the updater reports the download and when it starts to install.
+const PROGRESS: &str = "update-progress";
+
+/// The least time between two `downloading` events; a download's first chunk always sends one.
+const EVERY: Duration = Duration::from_millis(250);
 
 /// The newer version the feed offered last; `None` until it offers one. Managed only on an
 /// installed build: a Source build has no feed (U7208a).
@@ -81,6 +89,67 @@ fn application<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     }
 }
 
+/// What `update-progress` carries: the bytes so far, the total when the feed said it, and the stage.
+#[derive(Clone, Copy, Default, Serialize)]
+struct Progress {
+    downloaded: u64,
+    total: Option<u64>,
+    stage: Stage,
+}
+
+#[derive(Clone, Copy, Default, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum Stage {
+    #[default]
+    Downloading,
+    Installing,
+}
+
+/// What a download has reported so far, and when its last `downloading` event went out.
+#[derive(Default)]
+struct Seen {
+    progress: Progress,
+    sent: Option<Instant>,
+}
+
+/// Sends `update-progress` for one install (U7208b): the download's bytes at most once per `EVERY`,
+/// then once when it is whole.
+struct Report<'a, R: Runtime> {
+    app: &'a AppHandle<R>,
+    seen: Mutex<Seen>,
+}
+
+impl<'a, R: Runtime> Report<'a, R> {
+    fn new(app: &'a AppHandle<R>) -> Self {
+        Self {
+            app,
+            seen: Mutex::default(),
+        }
+    }
+
+    fn chunk(&self, len: usize, total: Option<u64>) {
+        let mut seen = self.seen.lock().unpoisoned();
+        seen.progress.downloaded += len as u64;
+        seen.progress.total = total;
+        if seen.sent.is_none_or(|at| at.elapsed() >= EVERY) {
+            seen.sent = Some(Instant::now());
+            self.send(seen.progress);
+        }
+    }
+
+    fn finished(&self) {
+        let mut seen = self.seen.lock().unpoisoned();
+        seen.progress.stage = Stage::Installing;
+        self.send(seen.progress);
+    }
+
+    fn send(&self, progress: Progress) {
+        if let Err(error) = self.app.emit(PROGRESS, progress) {
+            crate::diagnostics::failure("send the update progress", &error);
+        }
+    }
+}
+
 /// `Update roundup`: install the offered update, leave every Daemon so Agents keep running
 /// (S5981a), then relaunch on the new bundle. A failure says why, leaves the Daemons running and
 /// keeps the update offered (U7208b).
@@ -89,9 +158,10 @@ pub(crate) async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String
         .try_state::<Offered>()
         .and_then(|offered| offered.0.lock().unpoisoned().take())
         .ok_or_else(|| "no update is ready".to_owned())?;
+    let report = Report::new(app);
     let install = async {
         update
-            .download_and_install(|_, _| {}, || {})
+            .download_and_install(|len, total| report.chunk(len, total), || report.finished())
             .await
             .map_err(|error| cause(&error).to_owned())
     };

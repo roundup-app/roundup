@@ -5,6 +5,7 @@ import { answerOf, type App } from "../app/seam";
 import { ReservedLine } from "../ink/ReservedLine";
 import { AddMachineDialog } from "./AddMachineDialog";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { machineFailure } from "./machineFailure";
 
 type Page = { machines: Machine[]; version: string; failure: string | null };
@@ -46,6 +47,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   let trigger: HTMLButtonElement | undefined;
 
   const [updating, setUpdating] = createSignal<ReadonlySet<string>>(new Set());
+  const [removing, setRemoving] = createSignal<string | null>(null);
   const [rowFailure, setRowFailure] = createSignal<{ name: string; sentence: string } | null>(null);
 
   const closeAdd = () => { setAdding(false); queueFocus(() => trigger?.focus({ preventScroll: true })); };
@@ -76,6 +78,9 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
 
     if (project === null || updating().has(name) || !answerOf(await props.app.ask(copy.machineRemoveQuestion(name))).accepted) return;
 
+    // U170: busy once the answer is yes, so the button does not read Removing… while the question is open.
+    setRemoving(name);
+
     try {
       setMachines(await project.rpc("machine.remove", { name }));
       setRowFailure(null);
@@ -83,6 +88,8 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
       if (!(error instanceof Error)) throw error;
 
       setRowFailure({ name, sentence: machineFailure(error, "remove", name) });
+    } finally {
+      setRemoving(null);
     }
   };
 
@@ -129,9 +136,9 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
           {machine.reachable === false ? copy.machineOffline : copy.machineOnline}
         </span>
         <Show when={machine.outdated === true}>
-          <button class="settings-machine-update" data-button="quiet" type="button" aria-label={copy.machineUpdateLabel(machine.name)} aria-disabled={updating().has(machine.name) ? "true" : "false"} onClick={() => void update(machine.name)}>{updating().has(machine.name) ? copy.machineUpdating : copy.update}</button>
+          <BusyButton kind="quiet" class="settings-machine-update" busy={updating().has(machine.name)} busyLabel={copy.updating} aria-label={copy.machineUpdateLabel(machine.name)} onClick={() => update(machine.name)}>{copy.update}</BusyButton>
         </Show>
-        <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} aria-disabled={updating().has(machine.name) ? "true" : "false"} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
+        <BusyButton kind="quiet" class="settings-machine-remove" busy={removing() === machine.name} disabled={updating().has(machine.name)} busyLabel={copy.removing} aria-label={copy.machineRemoveLabel(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</BusyButton>
         <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{row => <ReservedLine message={row().sentence} dismiss={() => setRowFailure(null)} />}</Show>
       </li>}</For>
     </ul>

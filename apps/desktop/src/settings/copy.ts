@@ -2,6 +2,11 @@ import type { Kind } from "@contracts/Kind";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  adding: sharedCopy.adding,
+  removing: sharedCopy.removing,
+  discarding: sharedCopy.discarding,
+  resetting: sharedCopy.resetting,
+  updating: sharedCopy.updating,
   settingsMachines: "Machines",
   thisComputer: "This computer",
   machinesIntro: "Reach your other computers over ssh. Their terminals keep running.",
@@ -22,7 +27,6 @@ export const copy = {
   machineRemoveLabel: (name: string) => `Remove ${name}`,
   machineRemoveQuestion: (name: string) => ({ title: sharedCopy.removeQuestion(name), message: "roundup forgets this Machine. Its Agents show offline and nothing of roundup is deleted. Add it again to use it.", okLabel: sharedCopy.remove, cancelLabel: sharedCopy.keep }),
   machineUpdateLabel: (name: string) => `Update ${name}`,
-  machineUpdating: "Updating…",
   sshTargetPlaceholder: "user@host",
   thatMachine: "That machine",
   machineActionFailed: {
@@ -63,7 +67,7 @@ export const copy = {
   skillPartial: "Partly installed",
   skillPartialFix: "Turn the switch on to finish installing.",
   update: "Update",
-  saving: "Saving…",
+  saving: sharedCopy.saving,
   skillForeignCause: "A roundup skill is there that roundup did not install.",
   skillForeignFix: "Remove it, or run rup skill setup --force.",
   skillUnreadableCause: (path: string) => `Cannot read ${path}; roundup leaves it as it is.`,
@@ -100,7 +104,7 @@ export const copy = {
   settingsUpdates: sharedCopy.updates,
   updateRoundup: "Update roundup",
   updateCore: "Update herdr-core",
-  updateDownloading: (downloaded: number, total: number | null) => total === null ? "Downloading…" : `Downloading ${Math.round(downloaded * 100 / total)}%`,
+  updateDownloading: (downloaded: number, total: number | null) => total === null ? "Downloading…" : `Downloading ${Math.round(downloaded / 1e6)} of ${Math.round(total / 1e6)} MB`,
   updateInstalling: "Installing…",
   updateName: sharedCopy.updateName,
   updateNotFound: "Not found",

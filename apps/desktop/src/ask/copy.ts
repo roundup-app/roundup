@@ -1,6 +1,7 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  checking: sharedCopy.checking,
   closeView: sharedCopy.closeView,
   toolCallUnderSecond: "<1s",
   toolCallSeconds: sharedCopy.ageSeconds,

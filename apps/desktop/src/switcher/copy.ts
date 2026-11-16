@@ -1,6 +1,7 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  copying: sharedCopy.copying,
   switcherRetentionFailure: (operation: "restore" | "retain", project: string) => operation === "restore"
     ? `Your saved search in ${project} could not be restored. Try again to recover it.`
     : `Your search in ${project} won't be kept after reload. Keep this Project open to recover your work.`,

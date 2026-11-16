@@ -5,6 +5,7 @@ import { render, waitFor } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { DrawerHost } from "../drawer/DrawerHost";
+import { BusyButton } from "../ui/BusyButton";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import type { AskRouting } from "../state/asks";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -28,7 +29,7 @@ const TREE: RailNode[] = [
 const RecoveryEntry = () => {
   const entries = useRecoveryMenu();
 
-  return <Show when={entries().length > 0}><button type="button" onClick={() => void entries()[0]!.run?.()}>Recover unfinished work</button></Show>;
+  return <Show when={entries().length > 0}><BusyButton kind={null} busyLabel="Recovering…" onClick={() => entries()[0]!.run?.()}>Recover unfinished work</BusyButton></Show>;
 };
 
 export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false, viewing = () => true, routing?: AskRouting) => {

@@ -3,6 +3,7 @@ import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 
 /** MC73: the Add dialog: the ssh config's Hosts, each with Add, and a field for how ssh reaches another one. A failure keeps the dialog and the typed text. */
 export const AddMachineDialog = (props: {
@@ -39,7 +40,7 @@ export const AddMachineDialog = (props: {
           <ul class="settings-rows">
             <For each={props.hosts}>{host => <li class="add-machine-host">
               <span class="settings-machine-name">{host}</span>
-              <button type="button" data-button="quiet" aria-label={copy.addHostLabel(host)} onClick={() => void submit(host)}>{copy.add}</button>
+              <BusyButton kind="quiet" busyLabel={copy.adding} aria-label={copy.addHostLabel(host)} onClick={() => submit(host)}>{copy.add}</BusyButton>
             </li>}</For>
           </ul>
         </section>
@@ -49,7 +50,11 @@ export const AddMachineDialog = (props: {
           <Field.Label>{copy.typeSshTarget}</Field.Label>
           <div class="add-machine-entry">
             <Field.Input value={typed()} placeholder={copy.sshTargetPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.sshTargetLabel} onValueChange={value => setTyped(value)} />
-            <button type="submit" data-button="primary">{copy.add}</button>
+            <BusyButton kind="primary" type="submit" busyLabel={copy.adding} onClick={event => {
+              event.preventDefault();
+
+              return submit(typed());
+            }}>{copy.add}</BusyButton>
           </div>
           <Field.HelperText>{copy.sshTargetHint}</Field.HelperText>
         </Field.Root>

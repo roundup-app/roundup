@@ -209,7 +209,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
 
   return <section class="inbox" aria-label={copy.needsYou} ref={[element => { root = element; }, eventListener(["click", content.click, { capture: true }]), eventListener(["keydown", rowKey, { capture: true }])]} tabindex={-1}>
     <Show when={selectedText() !== ""}><div class="inbox-title"><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></div></Show>
-    <ReservedLine overlay message={copyFailure() ?? loadFailure.message()} dismiss={copyFailure() ? () => setCopyFailure(null) : loadFailure.dismiss} recover={!copyFailure() && loadFailure.message() ? { run: () => void refresh(), label: copy.inboxRetry } : undefined} />
+    <ReservedLine overlay message={copyFailure() ?? loadFailure.message()} dismiss={copyFailure() ? () => setCopyFailure(null) : loadFailure.dismiss} recover={!copyFailure() && loadFailure.message() ? { run: () => refresh(), label: copy.inboxRetry } : undefined} />
     <p class="inbox-count" aria-live="polite" aria-atomic="true">{needsCount() > 0 ? copy.needYou(needsCount()) : ""}</p>
     <Show when={loaded() && needsCount() === 0 && !failure() && !copyFailure()}><p class="overview-quiet">{copy.inboxEmpty}</p></Show>
     <For each={groups().map(group => group.id)}>{id => <div class="inbox-group" data-agent={id}>

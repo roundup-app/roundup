@@ -91,7 +91,7 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
         <Field.HelperText>{copy.modePromptHint}</Field.HelperText>
       </Field.Root>
       <Show when={draft() && draft()?.value.base !== (current()?.mode_prompt ?? "")}><ReservedLine status={copy.modePromptConflict} /></Show>
-      <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => void (restartFailed() ? restart() : save()) }} />
+      <ReservedLine message={failure()} dismiss={() => setFailure(null)} recover={{ run: () => (restartFailed() ? restart() : save()) }} />
       <div class="app-dialog-actions">
         <BusyButton kind="quiet" class="word" busyLabel={copy.restarting} busy={restarting()} onClick={restart}>{copy.restart}</BusyButton>
         <Dialog.CloseTrigger data-button="quiet" class="word">{copy.close}</Dialog.CloseTrigger>

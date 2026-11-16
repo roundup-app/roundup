@@ -46,7 +46,7 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
   const message = () => pending() ? failed() : unchecked.message();
   const visible = () => pending() || !!message();
   const dismiss = () => pending() ? work.dismiss(id()) : unchecked.dismiss();
-  const recover = () => pending() ? { run: () => void work.resume(id()), label: copy.resume } : { run: work.reread };
+  const recover = () => pending() ? { run: () => work.resume(id()), label: copy.resume } : { run: work.reread };
 
   const report = (tally: Tally) => props.notify({ key: `resume:${project.path}`, item: `resume:${project.path}`, project: project.path, selected: false, kind: tally.failed > 0 ? "error" : "done", name: copy.title, line: lineOf(tally), open: () => null });
 

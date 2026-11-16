@@ -2,6 +2,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 /** FS5979: the words of the Fork sheet. */
 export const forkCopy = {
+  making: sharedCopy.making,
   name: sharedCopy.name,
   close: sharedCopy.close,
   title: "Fork for development",

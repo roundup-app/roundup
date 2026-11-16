@@ -1,51 +1,53 @@
 import "./BusyButton.css";
-import { createSignal } from "solid-js";
+import { omit } from "solid-js";
+import type { ComponentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
+import { Button } from "@ui-sdk/solid/button";
 
-type Kind = "primary" | "quiet" | "add";
+/** U170's button kinds; `null` for a button whose surface styles it. */
+type Kind = "primary" | "quiet" | "add" | "row-action" | "icon" | null;
 
-/** U170 Busy: a button of one kind that shows its work while the promise its click returns is pending. `aria-busy="true"`, the busy label beside an indeterminate mark, clicks ignored; it stays focusable and in place. `busy` lets a caller whose work outlives the button (a shared store) hold the state. */
-export const BusyButton = (props: {
+// No caller styles a button inline; Solid's spread `style` admits `undefined`, which ui-sdk's does not.
+type Click = NonNullable<ComponentProps<typeof Button>["onClick"]>;
+
+type Props = Omit<ComponentProps<typeof Button>, "render" | "children" | "type" | "style" | "onClick" | "focusableWhenDisabled" | "pendingAnnouncement"> & {
   kind: Kind;
   /** The label at rest. */
   children: JSX.Element;
   /** The label while the work runs: the verb in `-ing` form and `…`. */
   busyLabel: string;
-  onClick: () => Promise<void> | void;
+  /** A returned promise keeps the button busy until it settles; Solid's bound form `[handler, data]` works too. */
+  onClick?: Click | undefined;
+  /** Work the button does not hold (a store's, a form submit's) keeps it busy as well. */
   busy?: boolean | undefined;
-  disabled?: boolean | undefined;
-  class?: string | undefined;
-}): JSX.Element => {
-  const [pending, setPending] = createSignal(false);
-  const busy = () => pending() || props.busy === true;
+  type?: "button" | "submit" | undefined;
+};
 
-  const click = () => {
-    if (busy()) return;
+/** U170 Busy: ui-sdk's Button is pending while the promise its click returns runs (`aria-busy`, presses refused, focus kept); this shows the busy label and its mark in the idle label's place, so the button keeps its width. A disabled button stays focusable with `aria-disabled` (U171). */
+export const BusyButton = (props: Props): JSX.Element => {
+  const rest = omit(props, "kind", "children", "busyLabel", "busy", "disabled", "type", "onClick");
 
-    const work = props.onClick();
+  return <Button
+    {...rest}
+    type={props.type ?? "button"}
+    data-button={props.kind ?? undefined}
+    disabled={props.disabled === true || props.busy === true}
+    focusableWhenDisabled
+    pendingAnnouncement={props.busyLabel}
+    onClick={(event, details) => {
+      const click = props.onClick;
 
-    if (!work) return;
+      if (!click) return undefined;
 
-    setPending(true);
-    // The caller shows a failure; the button only returns to its idle label.
-    void work.then(() => setPending(false), () => setPending(false));
-  };
+      return "0" in click ? click[0](click[1], event, details) : click(event, details);
+    }}
+    render={(attrs, state) => {
+      const busy = () => state.pending || props.busy === true;
 
-  return (
-    <button
-      type="button"
-      disabled={props.disabled}
-      class={props.class}
-      data-button={props.kind}
-      data-busy-button=""
-      aria-busy={busy() ? "true" : undefined}
-      onClick={click}
-    >
-      <span class="busy-idle" data-shown={busy() ? "false" : "true"} aria-hidden={busy() ? "true" : undefined}>{props.children}</span>
-      <span class="busy-work" data-shown={busy() ? "true" : "false"} aria-hidden={busy() ? undefined : "true"}>
-        <span class="busy-mark" aria-hidden="true" />
-        {props.busyLabel}
-      </span>
-    </button>
-  );
+      return <button {...attrs} data-busy-button="" aria-busy={busy() ? "true" : undefined}>
+        <span class="busy-idle" aria-hidden={busy() ? "true" : undefined}>{props.children}</span>
+        <span class="busy-work" aria-hidden={busy() ? undefined : "true"}><span class="busy-mark" />{props.busyLabel}</span>
+      </button>;
+    }}
+  />;
 };

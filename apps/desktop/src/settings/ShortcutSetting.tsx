@@ -1,6 +1,7 @@
 import type { App, CapturePort } from "../app/seam";
 import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
 import { type KeyText, leaderKeys, ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel, CHORD_ROWS, LEADER_ROWS } from "../keys/chords";
@@ -100,7 +101,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     <div class="settings-field">
       <div class="settings-shortcut">
         <button data-button="quiet" type="button" aria-pressed={mode()?.kind === "find" ? "true" : "false"} onClick={begin({ kind: "find" })}>{mode()?.kind === "find" ? copy.recordShortcut : copy.findKey}</button>
-        <button data-button="quiet" type="button" aria-disabled={Object.keys(overrides()).length ? "false" : "true"} onClick={() => { if (Object.keys(overrides()).length) void save(); }}>{copy.saveToFile}</button>
+        <BusyButton kind="quiet" disabled={Object.keys(overrides()).length === 0} busyLabel={copy.saving} onClick={() => save()}>{copy.saveToFile}</BusyButton>
       </div>
     </div>
     <ReservedLine status={found()} />

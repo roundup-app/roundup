@@ -7,6 +7,7 @@ import { createTodoHistory } from "./TodoHistory";
 import { createReply } from "../state/read";
 import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "./copy";
+import { BusyButton } from "../ui/BusyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -196,7 +197,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   return <section class="todo-comments" aria-label={copy.activity}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     {history.feedback}
-    <ReservedLine message={failure()} dismiss={() => dismiss(loaded())} recover={{ run: () => void refetch(), label: copy.commentRetry }} />
+    <ReservedLine message={failure()} dismiss={() => dismiss(loaded())} recover={{ run: () => refetch(), label: copy.commentRetry }} />
     <Show when={(history.changes()?.length ?? 0) > 0}>
       <Collapsible.Root open={historyExpanded()} onOpenChange={open => setHistoryExpanded(open)}>
         <Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={historyExpanded() ? "down" : "right"} />{copy.historyEntries(history.changes()!.length)}</Collapsible.Trigger>
@@ -218,6 +219,6 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} /></div>
     <ReservedLine message={sendFailure()} dismiss={() => setSendFailure(null)} />
-    <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? "true" : undefined} onClick={() => void send()}>{copy.comment}</button></p>
+    <p class="todo-comments-send"><BusyButton kind="quiet" class="word" busy={sending()} disabled={text().trim() === ""} busyLabel={copy.sending} onClick={() => send()}>{copy.comment}</BusyButton></p>
   </section>;
 };
