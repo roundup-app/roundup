@@ -6,6 +6,8 @@ mod conn;
 mod error;
 mod exec;
 mod file;
+#[cfg(feature = "test-support")]
+mod schema;
 mod stream;
 mod types;
 mod update;

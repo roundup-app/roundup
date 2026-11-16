@@ -15,7 +15,7 @@ pub const NO_TOOL: &[&str] = &[
     "updates",
     "install_update",
     "update_core",
-    // FB2: the user's own window shot and App facts for their report; an Agent has no window to shoot.
+    // U7210d: the user's own window shot and App versions for their report; an Agent has no window to shoot.
     "feedback_capture",
     // FS5979: only the user forks their data; the Fork sheet is the one caller.
     "fork_branch",

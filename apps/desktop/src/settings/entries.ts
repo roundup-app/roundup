@@ -58,13 +58,6 @@ export const settingsEntries = ({
       hiddenHint: true,
     },
     {
-      id: "feedbackIssue",
-      page: copy.settingsAgents,
-      group: copy.groupFeedback,
-      label: copy.feedbackIssue,
-      description: copy.feedbackIssueHint,
-    },
-    {
       id: "skill",
       page: copy.settingsAgents,
       group: copy.groupSkill,

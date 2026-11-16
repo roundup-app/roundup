@@ -18,6 +18,7 @@ Each executable edge below reaches CI or the human instructions below; none depe
 | `lint-rust` | `.github/workflows/pre.yml`, `lint` | `python3 loop/app-data.py just lint-rust` |
 | `clippy` | `justfile`, `lint-rust`; `check.yml`, `mac-clippy` | `just clippy <base>`; `just clippy` |
 | `test-rust` | `justfile`, `test-rust-since` | `just test-rust <selection> <args>` |
+| `test-rust-ids` | This document, Human commands | `just test-rust-ids <test id>…` |
 | `test-rust-since` | `check.yml`, `mac`; `tools/e14/observe.py`, Rust lane | `python3 loop/app-data.py just test-rust-since "$BASE" --profile mac`; `python3 loop/app-data.py just test-rust-since <base> --profile ci<N> --test-threads 4 --config-file <generated-config>` |
 | `lint-web` | `.github/workflows/pre.yml`, `lint-web` | `python3 loop/app-data.py just lint-web` |
 | `test-web-since` | `tools/e14/observe.py`, web lane in `check.yml` | `python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log <log> -- just test-web-since <base> --shard=<N>/<total> --config <generated-config>` on a hosted lane; without the `chromium-faults` wrapper on boxd |
@@ -58,6 +59,8 @@ Each executable edge below reaches CI or the human instructions below; none depe
 ## Human commands
 
 Run `just app <project>` for development or `just app-release <project>` to observe the embedded release webview without a dev server. Both open a native App; use the Mac where that observation is intended.
+
+To run named Rust tests, compiling only the test binaries that hold them, run `just test-rust-ids <test id>…` (T7188a): each id is the start of a test `fn` name, such as `b21_start`.
 
 To refresh the existing web-shard timing data after a representative successful main check run, find its id with `gh run list --branch main --workflow check.yml`, then run `just web-durations <main-check-run-id>`. Review the resulting duration changes before committing.
 

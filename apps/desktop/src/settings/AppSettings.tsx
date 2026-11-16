@@ -9,7 +9,6 @@ import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
 import { Field } from "../ui/Field";
-import { FeedbackSetting } from "./FeedbackSetting";
 import { Deferred } from "../ui/Deferred";
 import { Switch } from "../ui/Switch";
 import { Select } from "../ui/Select";
@@ -263,7 +262,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /><Field.HelperText>{copy.modelHint}</Field.HelperText></Field.Root>
     ),
     naming: () => <Deferred load={() => import("./NamingSettings")} label={copy.automaticRenaming}>{module => <module.NamingSettings app={props.app} />}</Deferred>,
-    feedbackIssue: () => <FeedbackSetting onFailure={setFailure} />,
     skill: () => <Deferred load={() => import("./SkillSetting")} label={copy.skill}>{module => <module.SkillSetting app={props.app} />}</Deferred>,
     codeEditor: () => {
       const saved = appSettings().codeEditor;
@@ -373,7 +371,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Show>
         {controls.naming()}
         {controls.skill()}
-        {controls.feedbackIssue()}
         <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => refresh(offered), label: copy.storageRetry }} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>

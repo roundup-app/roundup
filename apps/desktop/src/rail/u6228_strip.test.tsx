@@ -42,9 +42,9 @@ it("u6228_a_mark_rolls_up_the_state_its_rail_row_shows", async () => {
 
   for (const id of ["ship", "calm"]) expect(mark(strip, id).dataset.kind, id).toBe(railRow(id).dataset.kind);
 
-  // The worst state wins and the count rolls up from the Agents below.
+  // The worst state wins and the count rolls up from the Agents below (U7259: an error is not counted by default).
   expect(mark(strip, "ship").dataset.kind).toBe("error");
-  expect(mark(strip, "ship").getAttribute("aria-label")).toBe(copy.markName("ship", "Error", 3, false));
+  expect(mark(strip, "ship").getAttribute("aria-label")).toBe(copy.markName("ship", "Error", 1, false));
   expect(mark(strip, "calm").getAttribute("aria-label")).toBe(copy.markName("calm", "Working", 0, false));
 });
 

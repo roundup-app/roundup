@@ -31,7 +31,7 @@ export const copy = {
   time: (at: number) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
-  railDraftTaskAction: (send: boolean) => send ? "Send" : "Start Agent",
+  railDraftTaskAction: (send: boolean) => send ? sharedCopy.send : "Start Agent",
   railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Your unfinished work remains; reopening does not retry it. Review the target before creating another request.`,
   railDraftBase: (name: string) => `Original name: ${name}`,
   railDraftDestination: sharedCopy.dotted,

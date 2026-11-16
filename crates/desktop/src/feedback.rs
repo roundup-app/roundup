@@ -1,15 +1,13 @@
-//! FB2, FB3: the shot of the roundup window and the App's debug facts for a Feedback report
-//! (`scenarios/feedback-report.md`). The capture sits behind `Display`; the OS side stays outside the tests.
-
-use std::path::{Path, PathBuf};
+//! U7210b, U7210d (`scenarios/send-feedback.md`): the shot of the roundup window, under 2 MB, and the
+//! App's versions for Send feedback…. The capture sits behind `Display`; the OS side stays outside the tests.
 
 use base64::Engine;
 use rpc::RpcError;
 use serde::Serialize;
-use tauri::{Manager, Runtime, WebviewWindow};
+use tauri::{Runtime, WebviewWindow};
 
-/// Policy: the log lines a report carries.
-const LOG_LINES: usize = 200;
+/// U7210d: a shot of more bytes than this is scaled down until it has fewer.
+const SHOT_LIMIT: usize = 2_000_000;
 
 /// The seam: a PNG of the window as drawn now.
 pub(crate) trait Display {
@@ -19,7 +17,6 @@ pub(crate) trait Display {
 /// What the App reads from the machine. It holds no environment value: a report never carries one.
 pub(crate) trait Host {
     fn macos_version(&self) -> String;
-    fn app_log(&self) -> Option<PathBuf>;
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -27,7 +24,6 @@ pub(crate) struct AppFacts {
     pub version: String,
     pub commit: String,
     pub macos: String,
-    pub log: Vec<String>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -39,72 +35,39 @@ pub(crate) struct Report {
     pub facts: AppFacts,
 }
 
-/// `[redacted]` replaces a whole line holding a GitHub token, a bearer credential or a token variable.
-fn redact(line: &str) -> String {
-    let token = |prefix: &str, rest: &dyn Fn(char) -> bool| {
-        line.match_indices(prefix).any(|(at, _)| {
-            line[at + prefix.len()..]
-                .chars()
-                .take_while(|c| rest(*c))
-                .count()
-                >= 1
-        })
-    };
-    let alnum = |c: char| c.is_ascii_alphanumeric();
-    let secret = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_"]
-        .iter()
-        .any(|p| token(p, &alnum))
-        || token("github_pat_", &|c| alnum(c) || c == '_')
-        || token("Bearer ", &|c| !c.is_whitespace())
-        || ["GH_TOKEN=", "GITHUB_TOKEN="]
-            .iter()
-            .any(|p| line.contains(p));
-    if secret {
-        "[redacted]".into()
-    } else {
-        line.into()
-    }
-}
-
-fn log_tail(path: &Path) -> Vec<String> {
-    let text = std::fs::read(path)
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
-        .unwrap_or_default();
-    let lines: Vec<&str> = text.lines().collect();
-    lines
-        .iter()
-        .skip(lines.len().saturating_sub(LOG_LINES))
-        .map(|line| redact(line))
-        .collect()
-}
-
-/// FB8: the newest `.log` file in `dir` written since `since`, the file this run writes; an
-/// older file is a past run's.
-fn this_runs_log(dir: &Path, since: std::time::SystemTime) -> Option<PathBuf> {
-    std::fs::read_dir(dir)
-        .ok()?
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "log"))
-        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
-        .filter(|(modified, _)| *modified >= since)
-        .max()
-        .map(|(_, path)| path)
-}
-
 pub(crate) fn facts(host: &dyn Host) -> AppFacts {
     AppFacts {
         version: env!("CARGO_PKG_VERSION").into(),
         commit: option_env!("ROUNDUP_COMMIT").unwrap_or_default().into(),
         macos: host.macos_version(),
-        log: host
-            .app_log()
-            .map(|path| log_tail(&path))
-            .unwrap_or_default(),
     }
 }
 
+/// U7210d: `png` as it is when it fits, else scaled down in steps of at least a tenth until it does.
+fn fit(mut png: Vec<u8>) -> Result<Vec<u8>, String> {
+    if png.len() <= SHOT_LIMIT {
+        return Ok(png);
+    }
+    let mut image = image::load_from_memory_with_format(&png, image::ImageFormat::Png)
+        .map_err(|error| error.to_string())?;
+    while png.len() > SHOT_LIMIT {
+        let scale = (SHOT_LIMIT as f64 / png.len() as f64).sqrt() * 0.9;
+        let side = |length: u32| ((f64::from(length) * scale) as u32).max(1);
+        image = image.resize_exact(
+            side(image.width()),
+            side(image.height()),
+            image::imageops::FilterType::Triangle,
+        );
+        png.clear();
+        image
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(png)
+}
+
 pub(crate) fn report(display: &dyn Display, host: &dyn Host) -> Report {
-    let (shot, shot_error) = match display.capture_png() {
+    let (shot, shot_error) = match display.capture_png().and_then(fit) {
         Ok(png) => (
             Some(base64::engine::general_purpose::STANDARD.encode(png)),
             None,
@@ -118,9 +81,7 @@ pub(crate) fn report(display: &dyn Display, host: &dyn Host) -> Report {
     }
 }
 
-struct Machine {
-    log_dir: Option<PathBuf>,
-}
+struct Machine;
 
 impl Host for Machine {
     fn macos_version(&self) -> String {
@@ -132,10 +93,6 @@ impl Host for Machine {
             .and_then(|out| String::from_utf8(out.stdout).ok())
             .map(|text| text.trim().to_owned())
             .unwrap_or_default()
-    }
-
-    fn app_log(&self) -> Option<PathBuf> {
-        this_runs_log(self.log_dir.as_deref()?, *crate::diagnostics::RUN_START)
     }
 }
 
@@ -179,9 +136,8 @@ impl Display for Window {
 
 /// The shot of the main window as drawn now, with the App's facts. Sync, so Tauri runs it on the main thread.
 #[tauri::command]
-pub(crate) fn feedback_capture<R: Runtime>(window: WebviewWindow<R>) -> Result<Report, RpcError> {
-    let log_dir = window.app_handle().path().app_log_dir().ok();
-    Ok(report(&Window, &Machine { log_dir }))
+pub(crate) fn feedback_capture<R: Runtime>(_window: WebviewWindow<R>) -> Result<Report, RpcError> {
+    Ok(report(&Window, &Machine))
 }
 
 #[cfg(test)]
@@ -195,26 +151,54 @@ mod tests {
         }
     }
 
-    struct Host1(Option<PathBuf>);
+    struct Host1;
     impl Host for Host1 {
         fn macos_version(&self) -> String {
             "15.1".into()
-        }
-        fn app_log(&self) -> Option<PathBuf> {
-            self.0.clone()
         }
     }
 
     const PNG: &[u8] = b"\x89PNG\r\n\x1a\nfixed";
 
+    /// A 1000 by 1000 PNG of noise, over 2 MB because noise does not compress.
+    fn noisy_png() -> Vec<u8> {
+        let image = image::RgbImage::from_fn(1000, 1000, |x, y| {
+            let h = (u64::from(x).wrapping_mul(0x9E37_79B9_7F4A_7C15)
+                ^ u64::from(y).wrapping_mul(0xC2B2_AE3D_27D4_EB4F))
+            .wrapping_mul(0x1656_67B1_9E37_79F9);
+            image::Rgb([(h >> 8) as u8, (h >> 24) as u8, (h >> 40) as u8])
+        });
+        let mut png = Vec::new();
+        image
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        png
+    }
+
     #[test]
-    fn fb2_the_capture_seam_returns_a_png_of_the_window() {
-        let ok = report(&Fake(Ok(PNG.to_vec())), &Host1(None));
+    fn u7210d_a_shot_over_2_mb_is_scaled_under_it() {
+        let big = noisy_png();
+        assert!(big.len() > SHOT_LIMIT);
+        let fitted = fit(big).unwrap();
+        assert!(fitted.len() <= SHOT_LIMIT);
+        let image = image::load_from_memory_with_format(&fitted, image::ImageFormat::Png).unwrap();
+        assert!(image.width() < 1000 && image.height() < 1000);
+        assert_eq!(image.width(), image.height(), "the shot keeps its shape");
+    }
+
+    #[test]
+    fn u7210d_a_shot_under_2_mb_is_unchanged() {
+        assert_eq!(fit(PNG.to_vec()).unwrap(), PNG);
+    }
+
+    #[test]
+    fn u7210d_the_capture_seam_returns_a_png_of_the_window() {
+        let ok = report(&Fake(Ok(PNG.to_vec())), &Host1);
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(ok.shot.unwrap())
             .unwrap();
         assert_eq!(bytes, PNG);
-        let failed = report(&Fake(Err("refused".into())), &Host1(None));
+        let failed = report(&Fake(Err("refused".into())), &Host1);
         assert_eq!(
             (failed.shot, failed.shot_error),
             (None, Some("refused".into()))
@@ -222,81 +206,9 @@ mod tests {
     }
 
     #[test]
-    fn fb3_the_facts_name_version_os_daemon_and_selection() {
-        let facts = facts(&Host1(None));
+    fn u7210b_the_facts_name_version_and_os() {
+        let facts = facts(&Host1);
         assert_eq!(facts.version, env!("CARGO_PKG_VERSION"));
         assert_eq!(facts.macos, "15.1");
-    }
-
-    #[test]
-    fn fb3_the_logs_end_at_their_last_200_lines() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("shell.log");
-        let text: String = (0..500).map(|n| format!("line {n}\n")).collect();
-        std::fs::write(&path, text).unwrap();
-        let log = facts(&Host1(Some(path))).log;
-        assert_eq!(
-            (log.len(), log[0].as_str(), log[199].as_str()),
-            (200, "line 300", "line 499")
-        );
-    }
-
-    #[test]
-    fn fb8_the_app_log_ends_with_this_runs_lines() {
-        let dir = tempfile::tempdir().unwrap();
-        let old = dir.path().join("shell_old.log");
-        let current = dir.path().join("shell.log");
-        std::fs::write(&old, "2026-11-04 old line\n").unwrap();
-        let start =
-            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_800_000_000);
-        std::fs::File::options()
-            .write(true)
-            .open(&old)
-            .unwrap()
-            .set_modified(start - std::time::Duration::from_secs(3600))
-            .unwrap();
-        std::fs::write(&current, "this run first\nthis run last\n").unwrap();
-        std::fs::File::options()
-            .write(true)
-            .open(&current)
-            .unwrap()
-            .set_modified(start)
-            .unwrap();
-        let path = this_runs_log(dir.path(), start - std::time::Duration::from_secs(60)).unwrap();
-        assert_eq!(path, current);
-        assert_eq!(log_tail(&path).last().unwrap(), "this run last");
-        assert!(this_runs_log(dir.path(), start + std::time::Duration::from_secs(60)).is_none());
-    }
-
-    #[test]
-    fn fb3_a_token_in_a_log_is_redacted_before_it_is_shown() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("shell.log");
-        std::fs::write(
-            &path,
-            "ok\nuse ghp_abc123 now\ngithub_pat_11AA_bb\nAuthorization: Bearer xyz\nGH_TOKEN=abc\nGITHUB_TOKEN=\nBearer \nghp_\n",
-        )
-        .unwrap();
-        let log = facts(&Host1(Some(path))).log;
-        assert_eq!(
-            log,
-            [
-                "ok",
-                "[redacted]",
-                "[redacted]",
-                "[redacted]",
-                "[redacted]",
-                "[redacted]",
-                "Bearer ",
-                "ghp_"
-            ]
-        );
-    }
-
-    #[test]
-    fn fb3_no_environment_value_or_scrollback_is_collected() {
-        let json = serde_json::to_string(&report(&Fake(Ok(PNG.to_vec())), &Host1(None))).unwrap();
-        let path = std::env::var("PATH").unwrap();
-        assert!(!json.contains(&path));
     }
 }

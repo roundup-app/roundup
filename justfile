@@ -36,6 +36,7 @@ lint-rust base="": lint-repo
     python3 tools/lint/setup.py rust
     python3 tools/lint/scan.py rust
     python3 loop/lint-repo.test.py
+    python3 loop/affected.test.py
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
     tools/nodes-sql/guard.sh
@@ -65,22 +66,40 @@ clippy base="":
     fi
     exec cargo clippy --all-targets -- -D warnings
 
-# The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89).
+# The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89); `-p <crate> --test <binary>` compiles only that binary (T7188).
 [script('loop/keep-going.sh')]
 test-rust *args:
-    cargo build --quiet -p rupd -p rup -p terminal --features terminal/test-support
+    just build-helpers {{args}}
     cargo nextest run {{args}}
     just contracts-fresh
 
-# L89: `test-rust` on the crates whose tests the diff since <base> reaches (`loop/affected.py`); every crate when <base> is empty.
+# T7188c: builds `rupd`, `rup` and the `terminal` test core beside the test binaries when a test the `test-rust` <args> select starts one.
+[private]
+build-helpers *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    decision=$(python3 loop/affected.py rust-helpers {{args}})
+    case $decision in
+        build) exec cargo build --quiet -p rupd -p rup -p terminal --features terminal/test-support ;;
+        skip) echo "no selected test starts a helper binary: build skipped" ;;
+    esac
+
+# T7188a: `test-rust` on the test binaries holding the tests named for <ids> (`loop/affected.py rust-targets`), so cargo compiles only those.
+test-rust-ids +ids:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    selection=$(python3 loop/affected.py rust-targets {{ids}})
+    exec just test-rust $selection {{ids}}
+
+# L89: `test-rust` on the crates whose tests the diff since <base> reaches (`loop/affected.py`), or only on their test binaries for a diff of test files (T7188b); every crate when <base> is empty.
 test-rust-since base *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    crates=$(python3 loop/affected.py rust {{quote(base)}})
-    case $crates in
+    selection=$(python3 loop/affected.py rust {{quote(base)}})
+    case $selection in
         all) exec just test-rust {{args}} ;;
         '') echo "no Rust test reaches the diff since {{base}}" ;;
-        *) exec just test-rust $(printf -- '-p %s ' $crates) --no-tests pass {{args}} ;;
+        *) exec just test-rust $selection --no-tests pass {{args}} ;;
     esac
 
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).

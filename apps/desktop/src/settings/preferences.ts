@@ -16,13 +16,21 @@ export const terminalRanges = {
   letterSpacing: { min: tokenNumber("letter-terminal-min"), max: tokenNumber("letter-terminal-max"), step: tokenNumber("terminal-type-step") },
 } as const;
 
-// U5232a: the Dock badge and the sound are on for needs-you and error, every alert is off; each choice falls back alone.
-const rowDefault = (on: boolean) => ({ alert: false, sound: on, badge: on });
+// U5232a, U7259: needs-you has all three on; error has only its sound; every other choice is off; each choice falls back alone.
+type Row = { alert: boolean; sound: boolean; badge: boolean };
 
-const stateRow = (on: boolean) => v.fallback(
-  v.object({ alert: v.fallback(v.boolean(), false), sound: v.fallback(v.boolean(), on), badge: v.fallback(v.boolean(), on) }),
-  rowDefault(on),
+const rowDefault = (alert: boolean, sound: boolean, badge: boolean): Row => ({ alert, sound, badge });
+
+const stateRow = (initial: Row) => v.fallback(
+  v.object({ alert: v.fallback(v.boolean(), initial.alert), sound: v.fallback(v.boolean(), initial.sound), badge: v.fallback(v.boolean(), initial.badge) }),
+  initial,
 );
+
+const none = rowDefault(false, false, false);
+
+const needsYou = rowDefault(true, true, true);
+
+const error = rowDefault(false, true, false);
 
 /** U7157: every question that can stop being asked, each under its own stable key. */
 export const questionKeys = ["close-terminal", "new-terminal-again", "new-workstream-again", "close-project", "rail-confirm"] as const;
@@ -52,14 +60,12 @@ const schema = storageSchema("roundup:app-settings", v.object({
   quickAddAnywhereKey: v.fallback(v.string(), ""),
   // U5239b: a saved press per action `name`; an entry that is not a press is dropped.
   shortcuts: v.fallback(v.record(v.string(), v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/))), {}),
-  // FB6, U6381a: the Feedback Issue's URL; the live one until the owner saves another or none.
-  feedbackIssue: v.fallback(v.string(), "https://github.com/roundup-app/roundup/issues/6163"),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
   // U7157c: the questions the user chose not to be asked again; an entry that is not a known key is dropped.
   suppressed: v.fallback(v.pipe(v.array(v.unknown()), v.transform(keys => questionKeys.filter(key => keys.includes(key)))), []),
   stateAlerts: v.fallback(
-    v.object({ working: stateRow(false), blocked: stateRow(false), "needs-you": stateRow(true), error: stateRow(true), done: stateRow(false) }),
-    { working: rowDefault(false), blocked: rowDefault(false), "needs-you": rowDefault(true), error: rowDefault(true), done: rowDefault(false) },
+    v.object({ working: stateRow(none), blocked: stateRow(none), "needs-you": stateRow(needsYou), error: stateRow(error), done: stateRow(none) }),
+    { working: none, blocked: none, "needs-you": needsYou, error, done: none },
   ),
 }));
 
