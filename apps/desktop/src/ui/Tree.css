@@ -19,8 +19,12 @@
   border-radius: 0;
   background: none;
   color: var(--text);
-  font: inherit;
   cursor: pointer;
+}
+
+/* A row takes its tree's font unless its own class sets one, as the Rail's section heads do. */
+:where([data-slot="tree-label"], [data-slot="tree-item"]) {
+  font: inherit;
 }
 
 /* D6: a row declares its hover state; text colour is the one it already has. */

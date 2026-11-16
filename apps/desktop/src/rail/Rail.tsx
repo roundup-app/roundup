@@ -88,6 +88,21 @@ const trackFocus = (element: HTMLElement, report: (id: string | null) => void) =
 /** Whether the tree's change came from a plain press of a row, with no modifier key down: the press that replaces the selection. */
 const replacesSelection = (details: { reason: string; event?: Event | undefined }) => details.reason === "item-press" && details.event instanceof MouseEvent && !details.event.ctrlKey && !details.event.metaKey && !details.event.shiftKey;
 
+/** Whether the tree's change is its select-all: ⌘A, or Ctrl+A, with no other modifier. */
+const selectsAll = (details: { reason: string; event?: Event | undefined }) => details.reason === "list-navigation" && details.event instanceof KeyboardEvent && (details.event.metaKey || details.event.ctrlKey) && !details.event.shiftKey && !details.event.altKey && details.event.key.toLowerCase() === "a";
+
+/**
+ * The rows a tree change leaves selected: a plain press replaces them with the row it pressed. The tree's select-all counts
+ * section and fold branches, which no selection holds, so it never finds everything chosen; with every chosen row already
+ * selected, select-all clears instead.
+ */
+const rowsAfterChange = (next: string[], details: { reason: string; event?: Event | undefined }, current: string[], selectable: (id: string) => boolean): string[] => {
+  const pressed = replacesSelection(details) ? next.find(id => !current.includes(id)) ?? current.find(id => !next.includes(id)) : undefined;
+  const chosen = (pressed === undefined ? next : [pressed]).filter(selectable);
+
+  return selectsAll(details) && chosen.every(id => current.includes(id)) ? [] : chosen;
+};
+
 /** macOS Ctrl-click opens the menu: its press and its compatibility click, which may come without ctrlKey, must not focus, toggle or open a row. */
 const ctrlClickGuard = () => {
   let armed = false;
@@ -307,11 +322,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
   const controller = createTreeController();
 
-  const chooseRows = (next: string[], details: { reason: string; event?: Event | undefined }) => {
-    const pressed = replacesSelection(details) ? next.find(id => !selected().includes(id)) ?? selected().find(id => !next.includes(id)) : undefined;
-
-    setSelected((pressed === undefined ? next : [pressed]).filter(selectable));
-  };
+  const chooseRows = (next: string[], details: { reason: string; event?: Event | undefined }) => setSelected(rowsAfterChange(next, details, selected(), selectable));
 
   const applyExpanded = (expandedValue: string[]) => {
     const open = new Set(expandedValue);
@@ -713,6 +724,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
           accepts: () => !pointerOutside(),
         }}
       >
+      {/* U7156a: the Workstreams header's button stands beside the tree, which owns only its items; the stylesheet puts it in that header. */}
+      <Show when={props.toggle && sectionRows().some(each => each.id === "workstreams") ? props.toggle : undefined}>{toggle => <RailToggle collapsed={toggle().collapsed} onToggle={toggle().onToggle} />}</Show>
       <AppTree<"multiple"> aria-label={copy.rail} aria-disabled={daemonExit() !== null ? "true" : undefined}
         items={items()} mode="multiple" expandOnPress={false} controller={controller}
         expanded={expanded()} onExpandedChange={applyExpanded}
@@ -720,7 +733,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
       >
         <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
           <div class="rail-section" role="group" aria-label={section.label}>
-            <SectionHead icon={section.icon} label={section.label} disclosure={{ value: `section:${section.id}`, open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} trailing={section.id === "workstreams" && props.toggle ? <RailToggle collapsed={props.toggle.collapsed} onToggle={props.toggle.onToggle} /> : undefined} />
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ value: `section:${section.id}`, open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} />
         <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
             <Show when={byKey().get(key)}>

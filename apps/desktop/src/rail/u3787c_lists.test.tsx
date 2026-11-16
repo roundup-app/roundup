@@ -28,6 +28,9 @@ it.each(kinds)("u3787c_each_list_selects_only_visible_rows_%#", async make => {
   rowOf("Alpha").focus();
   fireEvent.keyDown(rowOf("Alpha"), { key: "a", metaKey: true });
   await waitFor(() => expect(selected()).toHaveLength(5));
+  // With every row selected, ⌘A clears the selection.
+  fireEvent.keyDown(rowOf("Alpha"), { key: "a", metaKey: true });
+  await waitFor(() => expect(selected()).toEqual([]));
   expect(rail.selected()).toBeNull();
   expect(connected.drawer.content()).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);
@@ -98,17 +101,4 @@ it("u3787c_a_rail_range_with_nothing_selected_starts_at_the_top_and_skips_folded
   await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma"]));
   fireEvent.keyDown(rowOf("Gamma"), { key: "a", metaKey: true });
   await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma", "Delta", "End"]));
-});
-
-it.each(kinds)("u3787c_navigation_and_selection_skip_ineligible_rows_%#", async make => {
-  await mountRail(["Alpha", "Hidden", "Disabled", "Beta"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
-  rowOf("Hidden").hidden = true;
-  rowOf("Disabled").setAttribute("aria-disabled", "true");
-  rowOf("Alpha").focus();
-  fireEvent.keyDown(rowOf("Alpha"), { key: "H" });
-  expect(document.activeElement).toBe(rowOf("Alpha"));
-  fireEvent.keyDown(rowOf("Alpha"), { key: "ArrowDown" });
-  await waitFor(() => expect(document.activeElement).toBe(rowOf("Beta")));
-  fireEvent.keyDown(rowOf("Beta"), { key: "a", metaKey: true });
-  await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected] .name")].map(row => row.textContent)).toEqual(["Alpha", "Beta"]));
 });

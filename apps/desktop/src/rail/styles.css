@@ -75,7 +75,7 @@
   position: relative;
 }
 
-.rail-row[data-branch][data-level="2"]:not(.section-head + .rail-row) {
+.rail-row[data-branch][data-level="2"]:not(.section-head-row + .rail-row) {
   margin-top: var(--space-3);
 }
 
@@ -768,9 +768,16 @@
   padding-inline-end: var(--rail-edge);
   column-gap: var(--space-3);
 }
-/* U7156a: a header that holds the Rail's toggle gives it the trailing column the rows' marks use, and its chevron takes the slot before it; every other header keeps its chevron in that column. */
-.section-head-row:has(.rail-toggle) { padding-inline-end: var(--rail-edge); }
-.section-head-row:has(.rail-toggle) .section-head { padding-inline-end: var(--length-zero); }
+/* U7156a: the Rail's toggle stands beside the tree, which owns only its items, and sits in the trailing column the rows' marks use at the top of the Workstreams header, the first; that header's chevron takes the slot before it. Every other header keeps its chevron in that column. */
+.rail-sortable { position: relative; }
+.rail-sortable .rail-toggle {
+  position: absolute;
+  top: calc((var(--space-6) - var(--space-5)) / 2);
+  inset-inline-end: var(--rail-edge);
+  z-index: 1;
+}
+.rail-sortable:has(.rail-toggle) { --rail-first-head-end: calc(var(--rail-edge) + var(--space-5)); }
+.rail-section:first-child .section-head { padding-inline-end: var(--rail-first-head-end, var(--rail-edge)); }
 .rail-tree [data-slot="tree-indicator"] {
   display: inline-flex;
   align-items: center;
