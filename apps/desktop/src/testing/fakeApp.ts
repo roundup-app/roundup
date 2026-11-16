@@ -3,9 +3,10 @@ import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
-import { RpcError } from "../app/seam";
+import * as v from "valibot";
+import { RpcError, appSettingsPageSchema } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, EditorChoice, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
+import type { ActionRequest, ActionReply, ProjectCalls, AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, EditorChoice, UpdateFacts, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -94,6 +95,14 @@ export type FakeApp = AppSeam & {
   installedEditors: EditorChoice[];
   openedEditors: (string | undefined)[];
   editorFailure: RpcError | null;
+  /** U7208d: what `updates` answers; `emitUpdates` replaces it and tells every `onUpdatesChanged` listener, as a look does. */
+  updateFacts: UpdateFacts;
+  emitUpdates(facts: UpdateFacts): void;
+  /** U7208b, U7208c: the `install_update` and `update_core` calls so far, and what each rejects with while set. A core update that succeeds moves the ready version into `core.version`. */
+  updateInstalls: number;
+  updateInstallFailure: RpcError | null;
+  coreUpdates: number;
+  coreUpdateFailure: RpcError | null;
   /** Every menu `show_context_menu` was called with, in order; `menuChoice` is the id it resolves (`null`: the menu closed with no choice). */
   shownMenus: { items: MenuItem[]; x: number; y: number }[];
   /** `undefined`: the menu stays open until `pickMenu` or `closeMenu`. */
@@ -143,6 +152,7 @@ export const createFakeApp = (): FakeApp => {
   const live = new Map<string, FakeOutputSubscription>();
   const alertClicks = new Set<(agent: string) => void>();
   const exitListeners = new Set<(exit: DaemonExited) => void>();
+  const updateListeners = new Set<(facts: UpdateFacts) => void>();
   const exited = new Set<string>();
   const dropListeners = new Set<(drop: FileDrop) => void>();
   let open: Project[] = [];
@@ -204,6 +214,16 @@ export const createFakeApp = (): FakeApp => {
     installedEditors: [],
     openedEditors: [],
     editorFailure: null,
+    updateFacts: { roundup: null, core: null },
+    updateInstalls: 0,
+    updateInstallFailure: null,
+    coreUpdates: 0,
+    coreUpdateFailure: null,
+    emitUpdates: (facts) => {
+      app.updateFacts = facts;
+
+      for (const listener of updateListeners) listener(facts);
+    },
     clipboardWrites: [],
     clipboardFailure: null,
     writeClipboardText: (text) => app.clipboardWrite(text),
@@ -448,6 +468,28 @@ export const createFakeApp = (): FakeApp => {
       };
     },
     listEditors: async () => app.installedEditors,
+    updates: async () => app.updateFacts,
+    installUpdate: async () => {
+      app.updateInstalls += 1;
+
+      if (app.updateInstallFailure) throw app.updateInstallFailure;
+    },
+    updateCore: async () => {
+      app.coreUpdates += 1;
+
+      if (app.coreUpdateFailure) throw app.coreUpdateFailure;
+
+      const { core } = app.updateFacts;
+
+      if (core?.ready) app.updateFacts = { ...app.updateFacts, core: { version: core.ready, ready: null } };
+
+      return app.updateFacts;
+    },
+    onUpdatesChanged: (listener) => {
+      updateListeners.add(listener);
+
+      return () => updateListeners.delete(listener);
+    },
     openTarget: async (target, editor) => {
       app.attemptedTargets.push(target);
 
@@ -509,9 +551,11 @@ export const createFakeApp = (): FakeApp => {
       return () => window.removeEventListener("open-fork-sheet", listener);
     },
     onAppSettings: (listener) => {
-      window.addEventListener("open-app-settings", listener);
+      const receive = (event: Event) => listener(v.parse(appSettingsPageSchema, event instanceof CustomEvent ? event.detail : undefined) ?? null);
 
-      return () => window.removeEventListener("open-app-settings", listener);
+      window.addEventListener("open-app-settings", receive);
+
+      return () => window.removeEventListener("open-app-settings", receive);
     },
     onDaemonExited: (listener) => {
       exitListeners.add(listener);

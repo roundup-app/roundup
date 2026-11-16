@@ -11,6 +11,10 @@ pub const NO_TOOL: &[&str] = &[
     "close_project",
     // S5981a: only the user quits the App for an update; an Agent cannot end the Daemons.
     "exit_for_update",
+    // U7208: only the user presses Update roundup or Update herdr-core, and the facts are the App's own.
+    "updates",
+    "install_update",
+    "update_core",
     // FB2: the user's own window shot and App facts for their report; an Agent has no window to shoot.
     "feedback_capture",
     // FS5979: only the user forks their data; the Fork sheet is the one caller.

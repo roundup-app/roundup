@@ -3,6 +3,7 @@
 pub mod alert;
 mod channel;
 mod config;
+mod core_update;
 mod daemon;
 mod diagnostics;
 mod error;
@@ -23,6 +24,7 @@ mod projects;
 mod reopen;
 mod store;
 mod updater;
+mod updates;
 mod window;
 
 mod builder;

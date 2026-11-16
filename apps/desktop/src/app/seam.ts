@@ -28,6 +28,18 @@ export const daemonExitedSchema = v.object({ path: v.string(), ...daemonExitSche
 
 export type ListedProject = v.InferOutput<typeof listedProjectSchema>;
 
+const updateRowSchema = v.object({ version: v.string(), ready: v.nullable(v.string()) });
+
+/** U7208d: what `updates` answers and `updates-changed` carries. `roundup` is `null` on a build with no update feed and `core` when no herdr-core runs; `ready` is the newer version, if any. */
+export const updateFactsSchema = v.object({ roundup: v.nullable(updateRowSchema), core: v.nullable(updateRowSchema) });
+
+export type UpdateFacts = v.InferOutput<typeof updateFactsSchema>;
+
+/** U7208f: the page `open-app-settings` names; no payload opens App Settings as it was. */
+export const appSettingsPageSchema = v.nullish(v.literal("updates"));
+
+export type AppSettingsPage = NonNullable<v.InferOutput<typeof appSettingsPageSchema>>;
+
 export type DaemonExited = v.InferOutput<typeof daemonExitedSchema>;
 
 export type Project = v.InferOutput<typeof projectSchema>;
@@ -114,6 +126,9 @@ export const SEAM_COMMANDS = [
   "canonical_project_path",
   "close_project",
   "exit_for_update",
+  "updates",
+  "install_update",
+  "update_core",
   "feedback_capture",
   "fork_branch",
   "fork_colour",
@@ -285,6 +300,14 @@ export type App = {
   openInEditor(path: string, line?: number, editor?: string): Promise<void>;
   /** U6372a: the code editors of Settings' choice that LaunchServices finds installed, in list order. */
   listEditors(): Promise<EditorChoice[]>;
+  /** U7208d: the versions of roundup and herdr-core, and the newer ones ready. */
+  updates(): Promise<UpdateFacts>;
+  /** U7208b: installs the ready roundup version, leaves every Daemon and relaunches. Rejects with the cause, changing nothing, when it cannot. */
+  installUpdate(): Promise<void>;
+  /** U7208c: runs `herdr-core update` and resolves the facts it left. Rejects with the last line the program printed when it fails. */
+  updateCore(): Promise<UpdateFacts>;
+  /** U7208d: the App looked for newer versions again; the facts it left. */
+  onUpdatesChanged(listener: (facts: UpdateFacts) => void): Unsubscribe;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
   savePastedImage(image: PastedImage): Promise<string>;
   /** Pops the macOS system menu at `x`, `y` (window CSS pixels) and resolves the chosen item's id, or `null` when it closes with no choice (U2694a). */
@@ -309,8 +332,8 @@ export type App = {
   forkRecolour(path: string, colour: ForkColour): Promise<void>;
   /** FS5979a: the application menu's `Fork for development…`; no payload. */
   onForkSheet(listener: () => void): Unsubscribe;
-  /** Opens the app-wide center settings view; no payload. */
-  onAppSettings(listener: () => void): Unsubscribe;
+  /** Opens the app-wide center settings view, on the Updates page when the payload is "updates" (U7208f). */
+  onAppSettings(listener: (page: AppSettingsPage | null) => void): Unsubscribe;
   onDaemonExited(listener: (exit: DaemonExited) => void): Unsubscribe;
   /** The calls into that Project's Daemon, with its path filled in. */
   forProject(path: string): AppSeam;

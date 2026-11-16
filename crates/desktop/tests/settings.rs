@@ -7,7 +7,7 @@
 )]
 use desktop::{Config, build, handle_menu_event};
 use std::sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
 };
 use tauri::Listener;
@@ -48,4 +48,30 @@ fn s_u3799_the_app_menu_holds_settings_with_cmd_comma_and_emits_open_app_setting
         },
     );
     assert_eq!(count.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn u7208f_the_update_item_emits_open_app_settings_with_updates() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut config = Config::locate(
+        None,
+        &directory.path().join("roundup"),
+        directory.path(),
+        std::process::id(),
+    )
+    .unwrap();
+    config.data_dir = Some(directory.path().join("data"));
+    let app = build(mock_builder(), config, None, |_, _| {})
+        .build(mock_context(noop_assets()))
+        .unwrap();
+    let payloads = Arc::new(Mutex::new(Vec::new()));
+    let observed = Arc::clone(&payloads);
+    app.listen("open-app-settings", move |event| {
+        observed.lock().unwrap().push(event.payload().to_owned());
+    });
+    for id in ["install-update", "app-settings"] {
+        handle_menu_event(app.handle(), &MenuEvent { id: id.into() });
+    }
+    // Choosing Update available installs nothing and names the page; Settings… names none.
+    assert_eq!(*payloads.lock().unwrap(), ["\"updates\"", "null"]);
 }

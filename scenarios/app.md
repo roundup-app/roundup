@@ -21,6 +21,9 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | `rpc` | `{path, method, params}` | the method's JSON result, unchanged |
 | `subscribe` | `{path, channel, after?}` (a Tauri `Channel`; `after` an Event number) | the Daemon's `head` (D11, I9); then, with `after`, every saved Event numbered above it, then every Event of that Project's Daemon, is sent on the channel, in the Daemon's order |
 | `exit_for_update` | none | `null`, then the App exits as S5981a says: every Daemon ends and every Terminal owner and its Agent keeps running, unlike a quit (S3). Fails `INTERNAL` naming the Project when a Daemon cannot be left safely, and the App stays open. |
+| `updates` | none | `{roundup, core}` (`ui-updates.md` U7208d): `roundup` is `{version, ready}` or `null` on a build with no update feed; `core` is `{version, ready}` (`herdr-core --version`) or `null` when no `herdr-core` runs; `ready` is the newer version's text, or `null`. Reads what the last hourly look found and runs only `herdr-core --version` |
+| `install_update` | none | `null`, then the App relaunches on the new bundle after the Update exit (CH7077e, S5981a). Fails `INTERNAL` `no update is ready` when no roundup version is ready, or with the cause of a failed install, leaving the Daemons running (U7208b) |
+| `update_core` | none | `{roundup, core}` as `updates` answers, after `herdr-core update` exited 0 (U7208c). Fails `INTERNAL` with the last line the program printed on its error output, or its exit status, when it fails |
 | `recent_projects` | none | the absolute paths of recently opened Projects, most recent first (S6) |
 | `fork_branch` | none | the name of the git branch the live App's source checkout is on, or `fork` when it has none (FS5979c) |
 | `fork_list` | none | `{path, name, colour, collides}[]`: each Fork under `$ROUNDUP_HOME/forks`, `collides` the name of the other App it collides with or `null` (AI7152d, AI7152e) |
@@ -40,7 +43,8 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | `menu-bar-action` | `{kind: "agent", path, agent}`, `{kind: "terminal", path, terminal}`, `{kind: "open"}` or `{kind: "failure", message}` | An enabled current menu-bar or Dock row/command requests opening. A Dock refresh failure instead displays its cause without opening or activating anything. The App applies selection and acknowledgement policy before restoring, showing and focusing the window through Tauri’s window API. Agent actions retain their original Project and Agent; a Terminal action (U7189) shows that Terminal's Bubble in its Project and marks its status seen; Open chooses and acknowledges nothing (U5502). |
 | `state-alert-clicked` | `{agent}` | The owner clicked a State alert's banner: the window is in front and the webview opens that Agent (U5232e). |
 | `open-fork-sheet` | none | The application menu's `Fork for development…` (enabled while a Project is open) asks the webview to open the Fork sheet (FS5979a). |
-| `open-app-settings` | none | The webview opens App Settings in the center (U3799); works without an open Project. |
+| `updates-changed` | `{roundup, core}` as `updates` answers | After each hourly look for a newer roundup or herdr-core (U7208d), the facts it left. |
+| `open-app-settings` | none, or `"updates"` | The webview opens App Settings in the center (U3799); works without an open Project. `"updates"` (the application menu's `Update available`, U7208f) shows its Updates page. |
 
 Every command fails with `{code, message}`, using the codes in `rpc::code`; an error from the Daemon passes through unchanged. When the Daemon ends while the App runs, the App emits the Tauri event `daemon-exited` with `{path, code: number | null}`. `scenarios/project-tabs.md` (S8 to S10) holds the several-Project rules this table follows; where S1, S2, S3 and S5 say one Project or one Daemon, they now say it of each.
 

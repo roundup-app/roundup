@@ -9,7 +9,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
-import { actionRequestSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, retryRead, rpcFailureSchema, RpcError } from "./seam";
+import { actionRequestSchema, appSettingsPageSchema, updateFactsSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, retryRead, rpcFailureSchema, RpcError } from "./seam";
 import { copy } from "./copy";
 import type { App, ForkListed, CaptureAction, CaptureState, OutputMessage, Unsubscribe } from "./seam";
 
@@ -176,6 +176,12 @@ export const createTauriApp = (): App => {
       await command("open_target", { target, editor: editor || undefined });
     },
     listEditors: () => parsedCommand(v.array(v.object({ id: v.string(), name: v.string() })), "list_editors", {}),
+    updates: () => parsedCommand(updateFactsSchema, "updates", {}),
+    installUpdate: async () => {
+      await command("install_update", {});
+    },
+    updateCore: () => parsedCommand(updateFactsSchema, "update_core", {}),
+    onUpdatesChanged: (listener) => subscribe(() => listen("updates-changed", event => listener(v.parse(updateFactsSchema, event.payload)))),
     showContextMenu: (items, x, y) => parsedCommand(v.nullable(v.string()), "show_context_menu", { items, x, y }),
     openInEditor: async (path, line, editor) => {
       await command("open_in_editor", { path, line, editor: editor || undefined });
@@ -198,7 +204,7 @@ export const createTauriApp = (): App => {
       await command("fork_recolour", { path, colour });
     },
     onForkSheet: (listener) => subscribe(() => listen("open-fork-sheet", listener)),
-    onAppSettings: (listener) => subscribe(() => listen("open-app-settings", listener)),
+    onAppSettings: (listener) => subscribe(() => listen("open-app-settings", event => listener(v.parse(appSettingsPageSchema, event.payload) ?? null))),
     onDaemonExited: (listener) =>
       subscribe(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
     forProject: (path) => ({
