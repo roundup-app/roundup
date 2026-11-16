@@ -568,7 +568,11 @@ async fn a5556b_automatic_delivery_waits_for_first_user_input() {
         );
         // TS1: the first input is a turn the Agent works until its Stop; the Stop then lets the
         // pending delivery follow, without another event.
-        run.call("agent.signal", json!({"id":id,"attempt":"1","payload":{"hook_event_name":"Stop"}})).await;
+        run.call(
+            "agent.signal",
+            json!({"id":id,"attempt":"1","payload":{"hook_event_name":"Stop"}}),
+        )
+        .await;
         let listener = tokio::net::UnixListener::from_std(listener).unwrap();
         let later = tokio::time::timeout(std::time::Duration::from_secs(2), async {
             use tokio::io::AsyncReadExt;
