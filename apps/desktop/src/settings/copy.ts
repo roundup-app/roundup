@@ -3,7 +3,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   settingsMachines: "Machines",
-  thisMac: sharedCopy.thisMac,
+  thisMac: "This Mac",
   machineOnline: "Online",
   machineOffline: "Offline",
   machineRemove: sharedCopy.remove,

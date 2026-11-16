@@ -121,7 +121,6 @@ export const copy = {
   newAgentWithAPrompt: "Agent with prompt",
   newTerminal: "New Terminal",
   remove: "Remove",
-  thisMac: "This Mac",
   removeQuestion: (name: string) => `Remove ${name}?`,
   pressAKey: "Press a key",
   leaderShortShelf: word.bench,
