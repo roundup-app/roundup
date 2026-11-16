@@ -25,8 +25,7 @@ export const ProjectCentre = (props: {
   <div class="centre-stack">
     <div class="project-center-area">
       <div class="project-center-content" inert={props.open?.settingsView.open()} style={{ visibility: props.open?.settingsView.open() ? "hidden" : "visible" }}>
-        <InProject open={props.open}>{() => <ResumeBar notify={props.notify} />}</InProject>
-        <div class="pane-stack">{props.panes.view()}</div>
+        <div class="pane-stack">{props.panes.view()}<InProject open={props.open}>{() => <ResumeBar notify={props.notify} />}</InProject></div>
         <InProject open={props.open}>{() => props.children}</InProject>
       </div>
       <InProject

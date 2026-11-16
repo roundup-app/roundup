@@ -1,4 +1,11 @@
-.resume-bar {
-  flex: none;
+/* U7211a: the line overlays the Terminal's top edge, so showing or hiding it never moves the Terminal (U3807). */
+.reserved-line.resume-bar[data-overlay="true"] {
+  top: 0;
+  bottom: auto;
   padding-inline: var(--space-2);
+}
+
+/* The actions follow the text they act on instead of sitting at the far edge. */
+.reserved-line.resume-bar :is(.ink, .reserved-status) {
+  flex: 0 1 auto;
 }

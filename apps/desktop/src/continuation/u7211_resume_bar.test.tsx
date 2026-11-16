@@ -34,7 +34,7 @@ type Setup = {
   nodes?: RailNode[];
   work: Record<string, ContinuationAction[]>;
   read?: (id: string) => Reconciliation;
-  resume?: (params: ResumeWorkParams) => ResumeWork;
+  resume?: (params: ResumeWorkParams) => ResumeWork | Promise<ResumeWork>;
 };
 
 const mount = async (setup: Setup) => {
@@ -62,7 +62,8 @@ const mount = async (setup: Setup) => {
   render(() => <ConnectedProjectContext.Provider value={connected}><ResumeBar notify={candidate => toasts.push(candidate)} /></ConnectedProjectContext.Provider>);
   await connected.rail.settled();
 
-  const bar = () => document.querySelector<HTMLElement>(".resume-bar");
+  // The line stays mounted and goes empty; it shows only while it has something to say.
+  const bar = () => document.querySelector<HTMLElement>(".resume-bar:not([data-empty])");
 
   const inBar = () => {
     const found = bar();
@@ -125,6 +126,25 @@ it("u7211b_resume_sends_one_request_and_the_bar_goes_once_it_succeeds", async ()
   expect(sent).toHaveLength(1);
   expect(sent[0]).toMatchObject({ project: "/p", id: "a", action: "x1" });
   expect(sent[0]?.request).toMatch(/\S/);
+});
+
+it("u7211b_while_resuming_the_line_says_so_and_offers_no_second_resume", async () => {
+  const release = Promise.withResolvers<void>();
+
+  const { sent, select, bar, inBar } = await mount({ work: { a: [action("x1")] }, resume: async params => {
+    await release.promise;
+
+    return resumedOf(params.id, [action("x1")]);
+  } });
+
+  select("a");
+  fireEvent.click(await screen.findByRole("button", { name: copy.resume }));
+  await waitFor(() => expect(bar()?.textContent).toContain(copy.resuming));
+  expect(inBar().queryByRole("button", { name: copy.resume })).toBeNull();
+
+  release.resolve();
+  await waitFor(() => expect(bar()).toBeNull());
+  expect(sent).toHaveLength(1);
 });
 
 it("u7211b_a_failed_resume_shows_its_error_and_retries_with_the_same_request", async () => {

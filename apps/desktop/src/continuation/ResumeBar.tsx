@@ -19,8 +19,9 @@ const lineOf = ({ resumed, failed }: Tally): string => {
 };
 
 /**
- * U7211a to U7211c: the one slim line above the selected Agent's Terminal when it has unfinished work the user has not
- * dismissed, with Resume and Dismiss; it shows nothing otherwise and never resumes by itself. `⌘K U` and the command
+ * U7211a to U7211c: the one slim line over the top edge of the selected Agent's Terminal when it has unfinished work the
+ * user has not dismissed, with Resume and Dismiss; it stays mounted and empty otherwise, so showing it moves nothing
+ * (U3807), and it never resumes by itself. `⌘K U` and the command
  * list resume every Agent's, while one has some, and a Toast says how many resumed. When the read of unfinished work
  * fails the line says so instead, with a retry.
  */
@@ -56,21 +57,20 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"] }) => {
   }, { defer: true }));
 
   return (
-    <Show when={visible()}>
-      <div class="resume-bar" onKeyDown={event => {
+    <ReservedLine
+      overlay
+      class="resume-bar"
+      message={message()}
+      status={visible() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
+      dismiss={dismiss}
+      recover={recover()}
+      action={<Show when={pending() && !message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
+      onKeyDown={event => {
         if (event.key !== "Escape") return;
 
         event.stopPropagation();
         dismiss();
-      }}>
-        <ReservedLine
-          message={message()}
-          status={work.busy(id()) ? copy.resuming : copy.stopped}
-          dismiss={dismiss}
-          recover={recover()}
-          action={<Show when={pending() && !message()}><RecoveryButtons dismiss={dismiss} recover={recover()} /></Show>}
-        />
-      </div>
-    </Show>
+      }}
+    />
   );
 };
