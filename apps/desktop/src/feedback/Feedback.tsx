@@ -7,6 +7,7 @@ import { Checkbox } from "../ui/Checkbox";
 import { CopyButton } from "../ui/CopyButton";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
+import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
 import { createFeedbackSession } from "./session";
 import "./styles.css";
@@ -79,6 +80,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
                     }
                   >
                     <CopyButton
+                      data-button="primary"
                       app={app}
                       text={`${session.text().trimEnd()}\n\n${session.versions()}\n`}
                       onFailure={(error) => session.setFailure(error.message)}
@@ -88,21 +90,25 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
                   </Show>
                 }
               >
-                <button
-                  type="submit"
-                  data-button="primary"
-                  disabled={
-                    session.text().trim() === "" ||
-                    session.check() === null ||
-                    session.sending()
-                  }
+                <Tip
+                  text={copy.needsText}
+                  disabled={session.text().trim() !== ""}
                 >
-                  {session.sending()
-                    ? copy.sending
-                    : session.check() === null
-                      ? copy.checking
-                      : copy.send}
-                </button>
+                  {(trigger) => (
+                    <button
+                      {...trigger()}
+                      type="submit"
+                      data-button="primary"
+                      aria-disabled={!session.canSend()}
+                    >
+                      {session.sending()
+                        ? copy.sending
+                        : session.check() === null
+                          ? copy.checking
+                          : copy.send}
+                    </button>
+                  )}
+                </Tip>
               </Show>
             </div>
           </form>

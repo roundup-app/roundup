@@ -3,7 +3,7 @@ import type { Check } from "@contracts/feedback/Check";
 import type { Filed } from "@contracts/feedback/Filed";
 import type { App, FeedbackReport } from "../app/seam";
 import { CHORDS } from "../keys/chords";
-import { modalOpen, registerKeys } from "../keys/registry";
+import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { ToastQueue } from "../toasts/queue";
 import { copy } from "./copy";
@@ -61,7 +61,9 @@ export const createFeedbackSession = (props: {
 
   const shot = () => opened()?.capture?.shot ?? null;
 
-  const attached = () => shot() !== null && check()?.attach === true;
+  /** The screenshot is offered only where Send is, and only to a `gh` that attaches it. */
+  const attached = () =>
+    shot() !== null && check()?.attach === true && blocked() === null;
 
   const noShotLine = () => {
     const cause = opened()?.cause;
@@ -133,24 +135,24 @@ export const createFeedbackSession = (props: {
     {
       action: CHORDS["feedback.open"],
       capture: () => ({
-        available: () => opened() === null && !capturing() && !modalOpen(),
+        available: () => opened() === null && !capturing(),
         invoke: () => void begin(),
       }),
     },
   ]);
   onCleanup(untrack(() => app.onFeedback(begin)));
 
+  const canSend = () =>
+    opened() !== null &&
+    !sending() &&
+    text().trim() !== "" &&
+    check() !== null &&
+    blocked() === null;
+
   const send = async () => {
     const current = opened();
 
-    if (
-      !current ||
-      sending() ||
-      text().trim() === "" ||
-      check() === null ||
-      blocked() !== null
-    )
-      return;
+    if (!current || !canSend()) return;
 
     const params: Parameters<typeof app.rpc<"feedback.send">>[1] = {
       text: text(),
@@ -202,6 +204,7 @@ export const createFeedbackSession = (props: {
     blocked,
     attached,
     noShotLine,
+    canSend,
     send,
   };
 };

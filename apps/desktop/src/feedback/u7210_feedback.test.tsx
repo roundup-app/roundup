@@ -9,11 +9,16 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { Check } from "@contracts/feedback/Check";
 import type { Filed } from "@contracts/feedback/Filed";
 import { RpcError, type FeedbackReport } from "../app/seam";
-import { captureActions } from "../keys/registry";
 import {
   ConnectedProjectContext,
   connectProject,
 } from "../state/connectedProject";
+import {
+  field as filter,
+  mountSwitcher,
+  openSwitcher,
+  switcherKey,
+} from "../switcher/switcherFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import type { Candidate } from "../toasts/queue";
 import { copy } from "./copy";
@@ -112,6 +117,9 @@ const versions = () =>
 
 const note = () => screen.queryByRole("status")?.textContent;
 
+/** Send refuses with `aria-disabled`, never the `disabled` attribute, so it stays focusable. */
+const refused = () => submit().getAttribute("aria-disabled") === "true";
+
 const submitOrNull = () =>
   document.querySelector<HTMLButtonElement>(
     '.feedback-form button[type="submit"]',
@@ -134,21 +142,33 @@ const type = (value: string) => fireEvent.input(field(), { target: { value } });
 
 const press = async (text = "the Rail jumps") => {
   type(text);
-  await waitFor(() => expect(submit().disabled).toBe(false));
+  await waitFor(() => expect(refused()).toBe(false));
   fireEvent.click(submit());
 };
 
 it("u7210a_the_command_list_offers_send_feedback", async () => {
-  const { app } = await mount();
+  const { app, connected } = await mountSwitcher();
+  const capture = vi.fn(async () => report());
 
-  const row = captureActions(document.activeElement).find(
-    (action) => action.name === "feedback.open",
-  );
+  connected.app.feedbackCapture = capture;
+  app.handlers["feedback.check"] = () => ready;
+  render(() => (
+    <ConnectedProjectContext.Provider value={connected}>
+      <Feedback notify={() => {}} />
+    </ConnectedProjectContext.Provider>
+  ));
+  openSwitcher();
+  await waitFor(() => expect(filter()).not.toBeNull());
 
-  expect(row).toMatchObject({ searchable: true });
-  row?.run();
+  const search = filter();
+
+  if (search === null) throw new Error("the command list did not open");
+
+  fireEvent.input(search, { target: { value: "feedback" } });
+  await screen.findByRole("option", { name: /Send feedback/ });
+  switcherKey("Enter", {}, search);
   await waitFor(() => expect(form()).not.toBeNull());
-  expect(app.feedbackCapture).toHaveBeenCalledTimes(1);
+  expect(capture).toHaveBeenCalledTimes(1);
 });
 
 it("u7210a_the_menu_event_opens_the_dialog", async () => {
@@ -214,14 +234,17 @@ it("u7210b_the_dialog_shows_the_field_the_checkbox_the_versions_and_two_buttons"
 });
 
 it("u7210b_send_waits_for_text", async () => {
-  await mount();
+  const { sends } = await mount();
+
   await open();
   await waitFor(() => expect(submit().textContent).toBe(copy.send));
-  expect(submit().disabled).toBe(true);
+  expect(refused()).toBe(true);
   type("  \n ");
-  expect(submit().disabled).toBe(true);
+  fireEvent.click(submit());
+  expect(refused()).toBe(true);
+  expect(sends).toEqual([]);
   type("the Rail jumps");
-  expect(submit().disabled).toBe(false);
+  expect(refused()).toBe(false);
 });
 
 it("u7210b_escape_and_close_dismiss_and_restore_focus", async () => {
@@ -276,7 +299,7 @@ it("u7210c_a_failed_send_keeps_the_dialog_with_the_error_and_the_text", async ()
   );
   expect(field().value).toBe("the Rail jumps");
   expect(screen.getByRole("checkbox")).toHaveProperty("checked", false);
-  expect(submit().disabled).toBe(false);
+  expect(refused()).toBe(false);
   expect(toasts).toHaveLength(0);
   expect(sends).toHaveLength(1);
 });
@@ -293,7 +316,7 @@ it("u7210c_the_app_stays_usable_while_it_files", async () => {
   );
   await open();
   await press();
-  expect(submit().disabled).toBe(true);
+  expect(refused()).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: copy.close }));
   await waitFor(() => expect(form()).toBeNull());
   expect(toasts).toHaveLength(0);
@@ -373,5 +396,6 @@ it("u7210e_signed_out_says_so", async () => {
   await open();
   await waitFor(() => expect(note()).toBe(copy.signedOut));
   expect(submitOrNull()).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
   expect(screen.getByRole("button", { name: copy.copy })).toBeTruthy();
 });
