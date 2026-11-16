@@ -8,8 +8,8 @@
   vertical-align: middle;
   border: 1px solid currentcolor;
   border-top-color: transparent;
-  border-radius: 50%;
-  animation: busy-turn 900ms linear infinite;
+  border-radius: var(--radius-round);
+  animation: busy-turn var(--duration-working) linear infinite;
 }
 
 @keyframes busy-turn { to { transform: rotate(360deg); } }
