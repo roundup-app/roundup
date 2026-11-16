@@ -291,7 +291,8 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"]')`);
     await activate(`.rail-row[data-id="${child.id}"] .name`);
     await browser("eval", "(async () => { window.__importMenu = (await import('/src/testing/menuProbe.ts')).menuProbe; })()");
-    await choose(child.id, "resume");
+    // U7191a: an exited row with a saved conversation lists Restart, its one action that resumes it.
+    await choose(child.id, "restart");
     await idle(child.id);
     const resumed = (await app.rpc("rail.tree", null)).find((node) => node.id === child.id)!;
 
