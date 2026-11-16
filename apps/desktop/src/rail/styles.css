@@ -112,11 +112,11 @@
   line-height: 1.15;
 }
 
-/* U7205c: the age is the row's last item, a fixed slot at the end edge, so its right edge never depends on which chips or icons a row shows. */
+/* U7205c: the age is the row's last item, a fixed slot at the end edge, so its right edge never depends on which chips or icons a row shows; six characters hold four digits and a unit at any interface scale. */
 .rail-row .row-age {
   flex: none;
   box-sizing: border-box;
-  inline-size: var(--space-6);
+  inline-size: 6ch;
   text-align: end;
   white-space: nowrap;
   color: var(--grey);
@@ -639,8 +639,8 @@
   display: inline-flex;
   align-items: center;
   flex: none;
-  position: absolute;
-  inset-inline-end: calc(100% + var(--rail-gap));
+  position: relative;
+  padding-inline-end: var(--rail-gap);
   background-color: var(--sunken);
   background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
   opacity: 0;
@@ -751,9 +751,21 @@
   min-width: var(--rail-slot);
   padding-inline: 0;
 }
+/* U7205c: what hover, focus or selection reveals (quick actions, Pads, the drag grip) overlays the name's end and reserves no room at rest, so a name that fits the visible row is never cut. Only the group chevron, visible at rest, keeps its slot. */
 .rail-row .row-tail {
-  min-width: var(--rail-slot);
-  margin-inline-start: auto;
+  inline-size: 0;
+  min-inline-size: 0;
+  margin-inline-start: calc(-1 * var(--rail-gap));
+  justify-content: flex-end;
+}
+.rail-row .row-tail:has(.rail-group-chevron) {
+  inline-size: var(--rail-slot);
+  min-inline-size: var(--rail-slot);
+  margin-inline-start: 0;
+}
+.rail-row :is(.row-controls, .sortable-handle) {
+  background-color: var(--sunken);
+  background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
 }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 

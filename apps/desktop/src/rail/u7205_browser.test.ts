@@ -18,12 +18,14 @@ afterAll(async () => { await page?.close(); }, 60_000);
 
 type Edges = { scroll: number; client: number; rail: number; ages: { depth: number; right: number }[]; frames: number[]; heights: number[] };
 
+// The age's text, not its slot, must end on the one x: a long age that spills out of its slot moves that edge.
 const read = `() => {
+  const textRight = a => { const range = document.createRange(); range.selectNodeContents(a); return a.firstChild ? range.getBoundingClientRect().right : a.getBoundingClientRect().right; };
   const tree = document.querySelector('.rail-tree');
   const rows = [...tree.querySelectorAll('.rail-row')];
   return {
     scroll: tree.scrollWidth, client: tree.clientWidth, rail: tree.getBoundingClientRect().right,
-    ages: rows.map(r => r.querySelector('.row-age')).map((a, i) => ({ depth: Number(rows[i].style.getPropertyValue('--tree-depth')), right: a.getBoundingClientRect().right })),
+    ages: rows.map(r => r.querySelector('.row-age')).map((a, i) => ({ depth: Number(rows[i].style.getPropertyValue('--tree-depth')), right: textRight(a) })),
     frames: [...tree.querySelectorAll('.rail-root-branch')].map(b => b.getBoundingClientRect().right),
     heights: rows.map(r => r.getBoundingClientRect().height),
   };
