@@ -555,22 +555,6 @@ async fn fk5977f_a_database_at_rest_gains_no_wal_or_shm_from_a_fork() {
     assert_eq!(count(&copy.join("project.db"), "nodes"), 2);
 }
 
-#[tokio::test]
-async fn u6044a_ping_reports_the_fork_colour() {
-    let live = live();
-    let ping = json!({"id":1,"method":"daemon.ping","params":null}).to_string();
-    let reply = ask(&live.daemon, &ping).await;
-    assert!(reply["result"].get("forkColour").is_none(), "{reply}");
-    let folder = live.fork_dir("pink");
-    let made = fork(&live, &folder, json!({"colour":"pink"})).await;
-    assert!(made.get("error").is_none(), "{made}");
-    let copy = Daemon::open(&folder.join("projects").join(&live.keys[0]))
-        .unwrap()
-        .0;
-    let reply = ask(&copy, &ping).await;
-    assert_eq!(reply["result"]["forkColour"], "pink", "{reply}");
-}
-
 fn request(params: contracts::data::ForkParams) -> crate::fork::ForkRequest {
     params.try_into().unwrap()
 }

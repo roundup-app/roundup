@@ -28,6 +28,7 @@ pub(crate) fn invoke_handler<R: Runtime>()
         close_project,
         exit_for_update,
         fork_branch,
+        fork_colour,
         fork_make,
         fork_list,
         fork_rename,
@@ -119,6 +120,12 @@ async fn fork_branch() -> Result<String, RpcError> {
     tokio::task::spawn_blocking(|| fork::branch(&fork::checkout()))
         .await
         .map_err(RpcError::internal)
+}
+
+/// U6044a: the colour of the Fork whose data folder the App runs on, read once at launch.
+#[tauri::command]
+fn fork_colour(identity: State<'_, fork_app::Identity>) -> Option<contracts::data::ForkColour> {
+    identity.colour()
 }
 
 /// AI7152d, AI7152e: the Forks under `$ROUNDUP_HOME/forks` with the App each collides with.

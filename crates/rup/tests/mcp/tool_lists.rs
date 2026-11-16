@@ -13,6 +13,7 @@ pub const NO_TOOL: &[&str] = &[
     "feedback_capture",
     // FS5979: only the user forks their data; the Fork sheet is the one caller.
     "fork_branch",
+    "fork_colour",
     "fork_make",
     "fork_list",
     "fork_rename",

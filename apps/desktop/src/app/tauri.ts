@@ -186,6 +186,7 @@ export const createTauriApp = (): App => {
     selectProjectMenu: (path, items) => command("select_project_menu", { path, items }),
     onProjectPage: (listener) => subscribe(() => listen("open-project-page", event => listener(v.parse(projectPageSchema, event.payload)))),
     forkBranch: () => parsedCommand(v.string(), "fork_branch", {}),
+    forkColour: () => parsedCommand(v.nullable(v.picklist(["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"])), "fork_colour", {}),
     forkMake: async (params) => {
       await command("fork_make", params);
     },
