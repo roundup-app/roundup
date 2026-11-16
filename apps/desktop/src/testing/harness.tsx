@@ -20,8 +20,6 @@ import { createServedApp } from "./realSeam";
 import { isSeedName, SEEDS, seedApp } from "./seeds";
 import type { Controls } from "./seeds";
 import type { AppSeam } from "../app/seam";
-// ui-sdk's sheet loads first, as in main.tsx, so Captures and Checks see the look the App ships.
-import "@ui-sdk/core/web.css";
 import "../tokens.css";
 import "../styles.css";
 import "../scrollbar.css";
