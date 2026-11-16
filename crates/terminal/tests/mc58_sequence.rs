@@ -583,14 +583,21 @@ async fn mc58_random_sequences_keep_four_invariants() {
     );
 }
 
-/// The observer on a Mac: `MC58_HERDR_CORE=$(command -v herdr-core)` runs the generator against the
-/// real core, pinned at the schema file's version. Without it the test prints why and passes.
+/// The herdr-core an observer runs against: `MC58_HERDR_CORE=$(command -v herdr-core)`. Without it
+/// the observer named `test` prints why and passes.
+fn real_core(test: &str) -> Option<PathBuf> {
+    let bin = std::env::var_os("MC58_HERDR_CORE").map(PathBuf::from);
+    if bin.is_none() {
+        eprintln!("{test}: skipped, MC58_HERDR_CORE names no herdr-core");
+    }
+    bin
+}
+
+/// The observer on a Mac: runs the generator against the real core, pinned at the schema file's
+/// version.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn mc58_real_core_sequence_matches_ps() {
-    let Some(bin) = std::env::var_os("MC58_HERDR_CORE").map(PathBuf::from) else {
-        eprintln!(
-            "mc58_real_core_sequence_matches_ps: skipped, MC58_HERDR_CORE names no herdr-core"
-        );
+    let Some(bin) = real_core("mc58_real_core_sequence_matches_ps") else {
         return;
     };
     let pinned: Value = serde_json::from_str(
@@ -629,4 +636,28 @@ async fn mc58_real_core_sequence_matches_ps() {
         "mc58_real_core_sequence_matches_ps: {count} sequences of {STEPS} from MC58_SEED={first}"
     );
     assert!(broken.is_empty(), "{}", broken.join("\n"));
+}
+
+/// MC71, MC73: the real core, under `env -i` in a scratch `HOME`, takes the params `machine_add` and
+/// `machine_rm` send. It may refuse the machine named, never the params.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn mc58_real_core_accepts_the_machine_params_roundup_sends() {
+    let Some(bin) = real_core("mc58_real_core_accepts_the_machine_params_roundup_sends") else {
+        return;
+    };
+    let core = Core::real(&bin, 0);
+    let conn = core.connect().await;
+    for (method, reply) in [
+        (
+            "machine.add",
+            conn.machine_add("mc58-nowhere.invalid").await,
+        ),
+        ("machine.rm", conn.machine_rm("mc58-nobody").await),
+    ] {
+        match reply {
+            Ok(_) => {}
+            Err(herdr::Error::Rpc(e)) => assert_ne!(e.kind, "invalid_params", "{method}: {e:?}"),
+            Err(e) => panic!("{method}: {e}"),
+        }
+    }
 }

@@ -37,6 +37,16 @@
   ],
   "methods": {
     "hello": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "generation": {"type": ["integer", "null"]},
+          "framed": {"type": "boolean"},
+          "features": {"type": "array", "items": {"type": "string"}},
+          "core": {"type": ["object", "null"]},
+          "calls_you": {"type": ["string", "null"]}
+        }
+      },
       "result": {
         "type": "object",
         "required": ["generation", "version", "framed", "methods"],
@@ -49,6 +59,30 @@
       }
     },
     "terminal.run": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "argv": {"type": "array", "items": {"type": "string"}},
+          "line": {"type": ["string", "null"]},
+          "cwd": {"type": ["string", "null"]},
+          "env": {"type": "object"},
+          "size": {"type": ["object", "null"]},
+          "display": {"type": ["object", "null"]},
+          "labels": {"type": "object"},
+          "name": {"type": ["string", "null"]},
+          "keep": {"type": "boolean"},
+          "rm": {"type": "boolean"},
+          "wait": {"type": "boolean"},
+          "timeout": {"type": ["number", "null"]},
+          "on": {"type": ["string", "null"]},
+          "parent": {"type": ["string", "null"]},
+          "caller": {"type": ["string", "null"]},
+          "no_parent": {"type": "boolean"},
+          "no_notify": {"type": "boolean"},
+          "outlive_parent": {"type": "boolean"},
+          "die_with_parent": {"type": "boolean"}
+        }
+      },
       "result": {
         "type": "object",
         "required": ["address", "state", "pid", "cwd", "argv"],
@@ -65,6 +99,7 @@
       }
     },
     "terminal.get": {
+      "params": {"type": "object", "required": ["terminal"], "properties": {"terminal": {"type": "string"}, "caller": {"type": ["string", "null"]}}},
       "result": {
         "type": "object",
         "required": ["address", "state", "pid", "cwd", "argv"],
@@ -81,14 +116,33 @@
       }
     },
     "terminal.attach": {
+      "params": {
+        "type": "object",
+        "required": ["terminal", "cols", "rows"],
+        "properties": {
+          "terminal": {"type": "string"},
+          "cols": {"type": "integer"},
+          "rows": {"type": "integer"},
+          "history": {"type": "integer"},
+          "display": {"type": "object"},
+          "observe": {"type": "boolean"},
+          "resumed": {"type": "boolean"},
+          "resize_notifications": {"type": "boolean"},
+          "caller": {"type": ["string", "null"]}
+        }
+      },
       "result": {
         "type": "object",
         "required": ["channel"],
         "properties": {"channel": {"type": "integer", "minimum": 1}}
       }
     },
-    "terminal.kill": {"result": {"type": "object"}},
+    "terminal.kill": {
+      "params": {"type": "object", "required": ["terminal"], "properties": {"terminal": {"type": "string"}, "caller": {"type": ["string", "null"]}}},
+      "result": {"type": "object"}
+    },
     "terminal.list": {
+      "params": {"type": "object", "properties": {"all": {"type": "boolean"}, "labels": {"type": "object"}}},
       "result": {
         "type": "object",
         "required": ["terminals"],
@@ -112,6 +166,7 @@
       }
     },
     "terminal.rm": {
+      "params": {"type": "object", "required": ["terminal"], "properties": {"terminal": {"type": "string"}, "caller": {"type": ["string", "null"]}}},
       "result": {
         "type": "object",
         "required": ["removed"],
@@ -119,11 +174,28 @@
       }
     },
     "machine.list": {
+      "params": {"type": "object", "properties": {}},
       "result": {
         "type": "object",
         "required": ["machines"],
         "properties": {"machines": {"type": "array", "items": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}, "state": {"type": "string"}}}}}
       }
+    },
+    "machine.add": {
+      "params": {
+        "type": "object",
+        "properties": {
+          "target": {"type": ["string", "null"], "description": "how ssh reaches it: `vps`, `can@10.0.0.7`, a Host of ~/.ssh/config"},
+          "via": {"type": ["string", "null"], "description": "a command that reaches it instead of ssh"},
+          "name": {"type": ["string", "null"], "description": "what to call it here; default: the target's host"},
+          "session": {"type": ["string", "null"]},
+          "temporary": {"type": "boolean"}
+        },
+        "anyOf": [{"required": ["target"]}, {"required": ["via"]}]
+      }
+    },
+    "machine.rm": {
+      "params": {"type": "object", "required": ["machine"], "properties": {"machine": {"type": "string", "description": "the machine's name in machine.list"}}}
     },
     "file.read": {
       "errors": {"invalid_params": -32602, "not_found": -32000, "not_text": -32000, "io": -32000, "machine_unknown": -32000, "unavailable": -32000, "needs_update": -32000},
