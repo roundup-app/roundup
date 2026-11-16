@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L23, L24, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
+"""L23, L24, L79, L81, L82, L124: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
 ended, when a PR gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub could not be read or
 written."""
 import base64
@@ -21,6 +21,7 @@ import event_line  # noqa: E402
 import image_tools  # noqa: E402
 import orders  # noqa: E402
 import push  # noqa: E402
+import scorecard  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 NEEDS_USER = orders.NEEDS_USER
@@ -284,10 +285,7 @@ def worked(path):
     event lines of Claude Code or Codex; a usage limit or a setup failure leaves no tool use."""
     if not path or not Path(path).is_file():
         return False
-    text = Path(path).read_text()
-    if text.lstrip().startswith('['):
-        return any(map(tool_use, json.loads(text)))
-    return any(tool_use(json.loads(line)) for line in text.splitlines() if line.strip())
+    return any(map(tool_use, scorecard.events(Path(path).read_text())))
 
 
 def app_token(rights=RIGHTS):
@@ -399,20 +397,11 @@ def log_cost(label, cost):
                 out.write(f'- {line}\n')
 
 
-def event_of(line):
-    """The event dict in the JSON `line` of a Codex run's events; {} for a line that holds none."""
-    try:
-        event = json.loads(line)
-    except ValueError:
-        return {}
-    return event if isinstance(event, dict) else {}
-
-
 def log_usage(label, lines):
     """One line of the log and the job summary for a Codex call's token use, summed over the `usage` of the
     `turn.completed` events among the JSON `lines` it printed: input, cached input and output tokens, and the cached share
     of the input."""
-    usage = [event.get('usage') or {} for event in map(event_of, lines) if event.get('type') == 'turn.completed']
+    usage = scorecard.turns(scorecard.events('\n'.join(lines)))
     total = {key: sum(turn.get(key, 0) for turn in usage) for key in ('input_tokens', 'cached_input_tokens', 'output_tokens')}
     share = f"{total['cached_input_tokens'] / total['input_tokens']:.0%}" if total['input_tokens'] else 'n/a'
     line = (f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
@@ -895,12 +884,12 @@ def resume(pr, ask, reason, run_url):
     dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
 
-def built(issue, slug, ran, answer, run_url, verdict=None):
+def built(issue, slug, ran, answer, run_url, verdict=None, measured=''):
     """After a build run: hand its PR on, or settle the Issue it left. A run that made no tool call (`ran` false)
     records nothing. With no open PR, an Issue a person closed, one closed after its `build/<slug>` PR merged, or one a
     dependency, PR or label of `orders.WAITS` holds, records nothing; one a bot closed otherwise reopens; an `ask` in the
     run's `answer` (JSON) goes where its screen `verdict` says (`put`); one still ready is struck. An open PR's
-    `Stopped:` question goes where `verdict` says too (`ended`)."""
+    `Stopped:` question goes where `verdict` says too (`ended`). The run's `measured` row goes to the PR's scorecard (L124)."""
     ask = asked(answer)
     if not ran:
         print('the run made no tool call; nothing to record')
@@ -917,6 +906,7 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
     prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json',
                     'number,headRefName,headRefOid,isDraft,body')
     if prs:
+        scorecard.add(prs[0]['number'], measured, 'build', 'draft' if prs[0]['isDraft'] else 'PR open', run_url, summarise)
         ended(link(prs[0], issue), verdict, run_url)
         return
     current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
@@ -1173,14 +1163,16 @@ def exhaust(current, attempts, verdicts, cause):
     call('pr', 'close', str(pr), '--delete-branch')
 
 
-def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
+def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False, measured=''):
     """After a fix run that worked (`ran`): count the attempt on the PR (none for a `plumbing` run, L82, or one that left a
     `Parked:` paragraph on a PR parked under PARKS times), then park the PR or hand it on with its screen `verdict`. A ready
-    head still holding the reject this run answered, with no `pre` or `check` running, gets its review run again (L24)."""
+    head still holding the reject this run answered, with no `pre` or `check` running, gets its review run again (L24).
+    The run's `measured` row goes to the PR's scorecard (L124)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
     current = link(view(pr))
+    scorecard.add(pr, measured, 'fix', f"{cause}: {'draft' if current['isDraft'] else 'ready'}", run_url, summarise)
     held = parked(current)
     if not plumbing and not (held and len(orders.marked(pr, PARK, restarted(pr))) < PARKS):
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
@@ -1283,10 +1275,10 @@ def follow_up(pr, findings):
     return FOLLOWUP.sub(f'Follow-up: {url}', findings, 1)
 
 
-def review_post(pr, head, reviewer, answer, ran, run_url):
+def review_post(pr, head, reviewer, answer, ran, run_url, measured=''):
     """Publish a review run's answer on `head`: a VERDICT comment and the `review` status; a reject on a Builder PR
     starts a fix run. Lines that would forge a verdict field are dropped. A run whose model did no work (`ran` false)
-    leaves `review` pending for pick to rerun. An approve's `FOLLOWUP:` block becomes an Issue. False when a run that worked holds no verdict."""
+    leaves `review` pending for pick to rerun. An approve's `FOLLOWUP:` block becomes an Issue. False when a run that worked holds no verdict. A verdict adds the run's `measured` row to the PR's scorecard (L124)."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
         print(f'PR #{pr} moved past {head}; the newer head gets its own review')
@@ -1305,6 +1297,7 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
     if verdict == 'approve':
         findings = follow_up(pr, findings)
     comment(pr, f'VERDICT: {verdict}\nHead: {head}\n\n{findings}\n\nReviewed-by-Agent: {reviewer}')
+    scorecard.add(pr, measured, 'review', verdict, run_url, summarise)
     status(head, 'success' if verdict == 'approve' else 'failure', f'The review run answered {verdict}', run_url)
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
         dispatch_fix(pr, head, 'review')
@@ -1345,12 +1338,12 @@ def critic_task(pr, head):
     return '\n'.join(lines)
 
 
-def critic_post(pr, head, critic, answer, ran, run_url):
+def critic_post(pr, head, critic, answer, ran, run_url, measured=''):
     """Publish a design critic's answer on `head` (L103): a `CRITIC:` comment and the `critic` status; a reject on a
     Builder PR starts a fix run with cause `critic`. A run whose model did no work (`ran` false) leaves `critic` pending
     for pick to rerun. A reject posts its findings text as written, capped at CRITIC_CAP characters, and starts the fix run
     even when no line has the shape the prompt asks for. False when a run that worked holds no verdict, or a reject with
-    no text."""
+    no text. A verdict adds the run's `measured` row to the PR's scorecard (L124)."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
         print(f'PR #{pr} moved past {head}; the newer head gets its own critic run')
@@ -1372,6 +1365,7 @@ def critic_post(pr, head, critic, answer, ran, run_url):
     if len(text) > CRITIC_CAP:
         text = text[:CRITIC_CAP].rstrip() + '\n[cut: the critic wrote more than ' + str(CRITIC_CAP) + ' characters]'
     comment(pr, f'CRITIC: {verdict}\nHead: {head}\n\n' + text + f'\n\nReviewed-by-Agent: {critic}')
+    scorecard.add(pr, measured, 'critic', verdict, run_url, summarise)
     status(head, 'success' if verdict == 'approve' else 'failure', f'The critic run answered {verdict}', run_url, 'critic')
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
         dispatch_fix(pr, head, 'critic')
@@ -1392,6 +1386,8 @@ def main(args):
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
         case ['worked', path]:
             return 0 if worked(path) else 1
+        case ['measure', events, prompt_file]:
+            scorecard.leave(events, prompt_file, CODEX_MODEL, os.environ['GITHUB_OUTPUT'], summarise)
         case ['engine', *schema] if len(schema) < 2:
             return engine(sys.stdin.read(), schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
         case ['engine-conflict']:
@@ -1411,8 +1407,8 @@ def main(args):
         case ['screen', branch]:
             if ask := question(sys.stdin.read(), branch):
                 print(encode(screen(ask)))
-        case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
-            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict))
+        case ['built', issue, slug, ran, verdict, *measured] if issue.isdigit() and ran in ('true', 'false') and len(measured) < 2:
+            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict), *measured)
         case ['unpark', pr] if pr.isdigit():
             unpark(int(pr))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
@@ -1421,22 +1417,22 @@ def main(args):
                       'repair this PR still needs.', file=sys.stderr)
                 return 3
             return task_or_nothing(fix_task(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID']), os.environ['GITHUB_OUTPUT']))
-        case ['fixed', pr, cause, ran, verdict, plumbing] if pr.isdigit() and ran in ('true', 'false') and \
-                plumbing in ('true', 'false'):
-            fixed(int(pr), cause, ran == 'true', run_url, decode(verdict), plumbing == 'true')
+        case ['fixed', pr, cause, ran, verdict, plumbing, *measured] if pr.isdigit() and ran in ('true', 'false') and \
+                plumbing in ('true', 'false') and len(measured) < 2:
+            fixed(int(pr), cause, ran == 'true', run_url, decode(verdict), plumbing == 'true', *measured)
         case ['review-task', pr, head] if pr.isdigit():
             return task_or_nothing(review_task(int(pr), head))
-        case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
-            return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['review-post', pr, head, reviewer, ran, *measured] if pr.isdigit() and ran in ('true', 'false') and len(measured) < 2:
+            return 0 if review_post(int(pr), head, reviewer, sys.stdin.read(), ran == 'true', run_url, *measured) else 1
         case ['critic-task', pr, head] if pr.isdigit():
             return task_or_nothing(critic_task(int(pr), head))
-        case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
-            return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
+        case ['critic-post', pr, head, critic, ran, *measured] if pr.isdigit() and ran in ('true', 'false') and len(measured) < 2:
+            return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url, *measured) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-conflict | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | unpark <pr> | pick | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | measure <events> <prompt file> | engine [<schema>] | engine-conflict | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | unpark <pr> | pick | screen <branch> | '
                   'built <issue> <slug> <ran> '
-                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
+                  '<verdict> [<row>] | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> [<row>] | review-task <pr> <head> | '
+                  'review-post <pr> <head> <reviewer> <ran> [<row>] | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> [<row>]',
                   file=sys.stderr)
             return 2
     return 0
