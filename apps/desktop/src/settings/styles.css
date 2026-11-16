@@ -435,7 +435,7 @@
 .settings-machines-add { margin: var(--space-3) var(--space-4); }
 .add-machine { width: min(28rem, 100vw - var(--space-6)); }
 .add-machine .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
-.add-machine .reserved-content p.ink[role="alert"] { white-space: normal; overflow: visible; text-overflow: clip; }
+.add-machine p.ink[role="alert"] { white-space: normal; overflow: visible; text-overflow: clip; }
 .add-machine .reserved-content { align-items: flex-start; }
 .add-machine-hosts h3 { margin: 0; font-size: var(--text-small); font-weight: 500; color: var(--grey); }
 .add-machine-hosts ul { margin: 0; padding: 0; list-style: none; }
