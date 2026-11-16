@@ -21,7 +21,9 @@ RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text(
 MEMORY_LIMIT_SECONDS = 40 * 60
 WEB_BUDGET_SECONDS = 720
 
-LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 10)]
+# A full run's lanes: check.yml's rust matrix and its full web matrix, `MAX_SHARDS` in loop/affected.py. A copy, since
+# this file also runs from a copy outside the checkout (README).
+LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 23)]
 
 
 def overlap(rows):
