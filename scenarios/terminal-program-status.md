@@ -75,7 +75,7 @@ Tests (`ps11_`, `apps/desktop/src/`): `ps11_needs_you_lists_needs_you_and_error_
 
 **PS12 the dock badge and the tab count it, with its age.** Narrows U182 and U10. Given Terminals with program status, then in `apps/desktop`:
 
-1. the Project tab's counts (U182's `n` and `m`), its Tab mark (U398) and the Dock badge (U10) count each `needs-you` Terminal with the `needs-you` Agents and each `error` Terminal with the `error` Agents, so one Terminal reporting `state=blocked` makes the badge 1 and the tab's tooltip `1 needs you; 0 have errors.`; a `working`, `idle` or `done` Terminal adds none; a Terminal leaving `needs-you` or `error` leaves the counts in the same frame;
+1. the Project tab's counts (U182's `n` and `m`), its Tab mark (U398) and the Dock badge (U10) count each `needs-you` Terminal with the `needs-you` Agents and, while the `Error` `Dock badge` switch is on (U7259; off by default), each `error` Terminal with the `error` Agents, so one Terminal reporting `state=blocked` makes the badge 1 and the tab's tooltip `1 needs you; 0 have errors.`; a `working`, `idle` or `done` Terminal adds none; a Terminal leaving `needs-you` or `error` leaves the counts in the same frame;
 2. the counts and the entries of Needs you (PS11.1) agree: for any set of Agents and Terminals the badge equals the number of attention entries of `attentionOrder` that are not dismissed (U5151c);
 3. a Terminal's own tab shows the label and its age (D5) on hover, focus or selection, as its Rail row does (PS10.2); with an empty label it shows the Kind's word.
 
