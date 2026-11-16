@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { NativeAlert } from "./NativeAlert";
 import { questionKeys, type QuestionKey } from "../settings/preferences";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -6,7 +7,10 @@ import { useBrowserStorage } from "../state/storage";
 import { askOnce, isSuppressed } from "../settings/warnings";
 
 // Reopening the storage is the restart: the saved record is read again.
-const restart = () => useBrowserStorage(window.localStorage);
+const restart = () => {
+  useBrowserStorage(window.localStorage);
+  flush();
+};
 
 beforeEach(() => { window.localStorage.clear(); restart(); });
 
@@ -68,12 +72,12 @@ it.each(questionKeys)("u7157b_each_question_carries_an_unticked_dont_ask_again_c
   const onCancel = vi.fn();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   render(() => <NativeAlert app={{ ask }} open key={key} question={question} onConfirm={onConfirm} onCancel={onCancel} finalFocus={() => null} />);
-  const choice = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Don't ask again" });
+  const choice = await screen.findByRole("checkbox", { name: "Don't ask again" });
 
   expect(ask).toHaveBeenCalledWith(expect.objectContaining({ suppressible: "Don't ask again" }));
-  expect(choice.checked).toBe(false);
+  expect(choice.getAttribute("aria-checked")).toBe("false");
   fireEvent.click(choice);
-  await waitFor(() => expect(choice.checked).toBe(true));
+  await waitFor(() => expect(choice.getAttribute("aria-checked")).toBe("true"));
   fireEvent.click(screen.getByRole("button", { name: "Keep" }));
   expect(onCancel).toHaveBeenCalledTimes(1);
   expect(onConfirm).not.toHaveBeenCalled();
@@ -85,9 +89,9 @@ it("u7157b_the_choice_ticked_in_the_app_question_and_confirmed_suppresses_it", a
   const onConfirm = vi.fn();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   render(() => <NativeAlert app={{ ask }} open key="close-project" question={question} onConfirm={onConfirm} onCancel={() => undefined} finalFocus={() => null} />);
-  const choice = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Don't ask again" });
+  const choice = await screen.findByRole("checkbox", { name: "Don't ask again" });
   fireEvent.click(choice);
-  await waitFor(() => expect(choice.checked).toBe(true));
+  await waitFor(() => expect(choice.getAttribute("aria-checked")).toBe("true"));
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
   expect(isSuppressed("close-project")).toBe(true);

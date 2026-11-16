@@ -3,6 +3,7 @@ import type { ActivationSource } from "../keys/registry";
 import { createToaster, Toast, ToastDescription, ToastRegion, ToastTitle } from "@ui-sdk/solid/toast";
 import { onCleanup, Show } from "solid-js";
 import type { JSX } from "@solidjs/web";
+import { createPageVisible } from "../window/focus";
 import "./Toast.css";
 
 type Card = { id: string; label?: string; name: JSX.Element; content: JSX.Element; glyph?: JSX.Element; duration?: number; /** Replaces the activation button, for a card nothing opens. */ body?: () => JSX.Element; /** Not counted against the limit. */ extra?: boolean; /** The card's data-type, for the CSS that keys on it. */ type?: "error" | undefined };
@@ -65,6 +66,8 @@ export function createToast(policy: {
 
 export function ToastProvider(props: { toast: ReturnType<typeof createToast>; label: string }) {
   onCleanup(() => props.toast.remove());
+  // ui-sdk pauses the timers while the page is hidden; the bar holds still with them.
+  const visible = createPageVisible();
 
   // U7192: the stack sits at the top right, below the window bar, so no card covers the input at the bottom.
   return <ToastRegion toaster={props.toast.store} side="top" aria-label={props.label} class="app-toasts" maxVisible={Infinity} data-newest-first={props.toast.newestFirst}>
@@ -87,7 +90,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
             <ToastDescription render={(attrs) => <span {...attrs} />}>{card.description}</ToastDescription>
           </button>}>{(body) => <div class="app-toast-body">{body()()}</div>}</Show>
           {/* U3790: the time left, draining while the card runs; it holds still with the timer. */}
-          <span class="app-toast-bar" aria-hidden="true" style={{ "--toast-time": `${meta.duration}ms`, "animation-play-state": state.expanded ? "paused" : "running" }} />
+          <span class="app-toast-bar" aria-hidden="true" style={{ "--toast-time": `${meta.duration}ms`, "animation-play-state": state.expanded || !visible() ? "paused" : "running" }} />
         </div>}
       </Toast>;
     }}

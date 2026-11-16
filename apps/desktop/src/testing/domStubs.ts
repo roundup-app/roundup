@@ -17,8 +17,9 @@ configure({
   asyncUtilTimeout: 10_000,
   // ui-sdk keeps a tooltip's text in the page, `hidden` until it opens, and writes each announcement into an empty live region; text queries read what a surface shows, never either.
   defaultIgnore: "script, style, [role=tooltip], [role=tooltip] *, [data-ui-sdk-announcer], [data-ui-sdk-announcer] *",
-  // Solid 2 batches a write until `flush`; an event's effects land before the test's next synchronous read, as a browser's microtask lands them.
+  // Solid 2 batches a write until `flush`. A browser lands one in a microtask, before the next event arrives and before the next read of its effects, so a test's own write lands before its event and the event's effects land before its next read.
   eventWrapper: dispatch => {
+    flush();
     const result: unknown = dispatch();
 
     flush();
@@ -33,8 +34,14 @@ Element.prototype.scrollIntoView ??= () => undefined;
 // Lists scroll to a highlighted row and watch their size; jsdom has neither.
 Element.prototype.scrollTo ??= () => undefined;
 
-// jsdom paints no boxes, so nothing sits under a point; ui-sdk's resizable handles ask, and a test that wants an answer sets its own.
-Document.prototype.elementFromPoint ??= () => null;
+// jsdom paints no boxes, so it has no element under a point. ui-sdk's resizable handles and the file drop ask; the answer is the last element whose box, as a test gave it, holds the point, and `null` where no test gave one, as a point off the window does in a browser.
+Document.prototype.elementFromPoint ??= function (this: Document, x: number, y: number) {
+  return [...this.querySelectorAll("*")].findLast(element => {
+    const box = element.getBoundingClientRect();
+
+    return x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+  }) ?? null;
+};
 
 globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };
 

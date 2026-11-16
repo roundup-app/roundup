@@ -7,6 +7,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, mode, workstream } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { CHORDS, LEADER, pressOf, CHORD_ROWS, LEADER_ROWS } from "./chords";
+import { flush } from "solid-js";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
@@ -99,6 +100,7 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
       from.dispatchEvent(press);
       // `⌘K` arms the leader, which would take every later probe.
       endLeader();
+      flush();
 
       // Only dismiss prompts opened by the sweep; Escape beneath Help would close Help itself.
       if (!help()) {

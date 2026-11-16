@@ -1,7 +1,7 @@
 import * as xtermModule from "@xterm/xterm";
 import { Terminal } from "@xterm/xterm";
 import { cleanup, screen } from "@solidjs/testing-library";
-import { createMemo, createRoot } from "solid-js";
+import { createMemo, createRoot, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createXtermEmulators } from "./emulator";
 import type { Emulator } from "./emulator";
@@ -108,6 +108,7 @@ describe("u34 isAtBottom creates the emulator on demand", () => {
     const first = atBottom();
 
     made.get("t-a")?.scroll(false);
+    flush();
 
     expect([first, atBottom()]).toEqual([true, false]);
   });
@@ -130,6 +131,7 @@ describe("u34 the latest control", () => {
     const { connected } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
 
     expect(screen.queryByText("↓ Latest")).toBeNull();
   });
@@ -138,7 +140,9 @@ describe("u34 the latest control", () => {
     const { connected, emulators } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     emulators.get("t-a")?.scroll(false);
+    flush();
 
     expect(screen.queryByText("↓ Latest")).not.toBeNull();
   });
@@ -147,6 +151,7 @@ describe("u34 the latest control", () => {
     const { connected, emulators } = await mountPane([workstream("g")]);
 
     connected.rail.select("g");
+    flush();
 
     expect([screen.queryByText("↓ Latest"), emulators.size]).toEqual([null, 0]);
   });
@@ -155,8 +160,11 @@ describe("u34 the latest control", () => {
     const { connected, emulators } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     emulators.get("t-a")?.scroll(false);
+    flush();
     screen.getByText("↓ Latest").click();
+    flush();
 
     expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest")]).toEqual([1, null]);
   });
@@ -165,8 +173,11 @@ describe("u34 the latest control", () => {
     const { connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     emulators.get("t-a")?.scroll(false);
+    flush();
     emulators.get("t-a")?.type(Uint8Array.of(108));
+    flush();
 
     expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest")]).toEqual([1, null]);
   });
@@ -175,8 +186,11 @@ describe("u34 the latest control", () => {
     const { connected, emulators } = await mountPane([terminal("a")], [info("t-a", { running: false, exit_code: 0 })]);
 
     connected.rail.select("a");
+    flush();
     emulators.get("t-a")?.scroll(false);
+    flush();
     emulators.get("t-a")?.type(Uint8Array.of(108));
+    flush();
 
     expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest") !== null]).toEqual([0, true]);
   });
@@ -185,8 +199,11 @@ describe("u34 the latest control", () => {
     const { connected, emulators } = await mountPane([terminal("a")], [info("t-a")], 0, () => ({ code: 0 }));
 
     connected.rail.select("a");
+    flush();
     emulators.get("t-a")?.scroll(false);
+    flush();
     emulators.get("t-a")?.type(Uint8Array.of(108));
+    flush();
 
     expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest") !== null]).toEqual([0, true]);
   });
@@ -195,9 +212,12 @@ describe("u34 the latest control", () => {
     const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     await subscribed(app, "t-a");
     emulators.get("t-a")?.scroll(false);
+    flush();
     app.emitOutput("t-a", "more");
+    flush();
 
     expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest") !== null]).toEqual([0, true]);
   });

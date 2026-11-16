@@ -8,7 +8,7 @@ export const Find = (props: { query: string; setQuery: (query: string) => void; 
   const [missed, setMissed] = createSignal(false);
   let input!: HTMLInputElement;
 
-  const step = (backwards: boolean): void => { setMissed(props.query !== "" && !props.find(props.query, backwards)); };
+  const step = (query: string, backwards: boolean): void => { setMissed(query !== "" && !props.find(query, backwards)); };
 
   onSettled(() => { input.focus(); input.select(); });
 
@@ -20,7 +20,8 @@ export const Find = (props: { query: string; setQuery: (query: string) => void; 
         placeholder={copy.findLabel}
         aria-label={copy.findLabel}
         value={props.query}
-        onInput={(event) => { props.setQuery(event.currentTarget.value); step(false); }}
+        // `props.query` still holds the old text until the write lands, so the new text steps directly.
+        onInput={(event) => { props.setQuery(event.currentTarget.value); step(event.currentTarget.value, false); }}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
@@ -28,7 +29,7 @@ export const Find = (props: { query: string; setQuery: (query: string) => void; 
             props.close();
           } else if (event.key === "Enter") {
             event.preventDefault();
-            step(event.shiftKey);
+            step(props.query, event.shiftKey);
           }
         }}
       />

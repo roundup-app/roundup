@@ -50,7 +50,7 @@ vi.mock("../pads/PadRichEditor", async (original) => {
     });
   });
 
-  return <Show when={!!props.initialFocus} fallback={<p tabindex={0}>{props.text}</p>}><textarea ref={field} aria-label={props.label} spellcheck={false} autocorrect="off" autocapitalize="off" value={text()}
+  return <Show when={!!props.initialFocus} fallback={<p tabindex={0}>{props.text}</p>}><textarea ref={field} aria-label={props.label} spellcheck="false" autocorrect="off" autocapitalize="off" value={text()}
     onInput={event => { const typed = event.currentTarget.value; setText(typed); props.onChange(); props.onText(typed); }}
     onSelect={() => { if (!closed) props.onSelection?.(); }} onBlur={event => props.onBlur(event.relatedTarget)} /></Show>;
 } }; });

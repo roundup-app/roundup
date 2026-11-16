@@ -79,6 +79,13 @@ const inOrder = (tabs: OpenTab[], order: readonly string[]): OpenTab[] => {
   return [...tabs].sort((a, b) => rank(a) - rank(b));
 };
 
+/** The tabs left once `path` closes, and the one to show in its place: its left neighbour, else the first left. */
+const closeTab = (all: OpenTab[], path: string) => {
+  const rest = all.filter((tab) => tab.project.path !== path);
+
+  return { rest, next: rest[Math.max(all.findIndex((tab) => tab.project.path === path) - 1, 0)] };
+};
+
 const folderOf = (path: string): string => path.split("/").filter(Boolean).at(-1) ?? path;
 
 export const createProjectsState = (app: App, saved = openTabStorage(), order = tabOrderStorage()): ProjectsState => {
@@ -269,16 +276,13 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
 
       setFailure(null);
 
-      const all = tabs();
-      const at = all.findIndex((tab) => tab.project.path === path);
-      const rest = all.filter((tab) => tab.project.path !== path);
+      // Several closes answer together (Close Others): each takes the list as the one before it left it, which `tabs()` shows only at the next flush.
+      let closed!: ReturnType<typeof closeTab>;
 
-      setTabs(rest);
+      setTabs((all) => (closed = closeTab(all, path)).rest);
 
       if (active() === path) {
-        const next = rest[Math.max(at - 1, 0)];
-
-        if (next) show(next.project.path);
+        if (closed.next) show(closed.next.project.path);
         else setActive(null);
       }
     },

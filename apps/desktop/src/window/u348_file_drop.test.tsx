@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -7,6 +8,12 @@ import type { FileDrop } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info } from "../testing/nodes";
 import { callsTo, fakeEmulators } from "../terminal/paneHarness";
+
+/** The hold timers write the selection; Solid 2 shows it once flushed. */
+const advance = (ms: number) => {
+  vi.advanceTimersByTime(ms);
+  flush();
+};
 
 const over = (x: number, y: number): FileDrop => ({ phase: "over", paths: [], x, y });
 
@@ -120,10 +127,10 @@ describe("u348 dragging files shows targets, a lingering drag opens one, a drop 
 
     vi.useFakeTimers();
     app.dropFiles(over(100, rowY("w1")));
-    vi.advanceTimersByTime(HOLD_MS - 1);
+    advance(HOLD_MS - 1);
     expect(selected()).not.toBe("w1");
 
-    vi.advanceTimersByTime(1);
+    advance(1);
     expect(selected()).toBe("w1");
 
     app.dropFiles(LEAVE);
@@ -135,7 +142,7 @@ describe("u348 dragging files shows targets, a lingering drag opens one, a drop 
 
     vi.useFakeTimers();
     app.dropFiles(over(tabX(0), 15));
-    vi.advanceTimersByTime(HOLD_MS);
+    advance(HOLD_MS);
 
     expect(screen.getByRole("tab", { name: /^web/ }).getAttribute("aria-selected")).toBe("true");
   });
@@ -145,13 +152,13 @@ describe("u348 dragging files shows targets, a lingering drag opens one, a drop 
 
     vi.useFakeTimers();
     app.dropFiles(over(100, rowY("w1")));
-    vi.advanceTimersByTime(400);
+    advance(400);
     app.dropFiles(over(100, rowY("gone")));
-    vi.advanceTimersByTime(400);
+    advance(400);
     expect(selected()).not.toBe("w1");
     expect(selected()).not.toBe("gone");
 
-    vi.advanceTimersByTime(200);
+    advance(200);
     expect(selected()).toBe("gone");
   });
 
@@ -160,9 +167,9 @@ describe("u348 dragging files shows targets, a lingering drag opens one, a drop 
 
     vi.useFakeTimers();
     app.dropFiles(over(100, rowY("w1")));
-    vi.advanceTimersByTime(300);
+    advance(300);
     app.dropFiles(LEAVE);
-    vi.advanceTimersByTime(1000);
+    advance(1000);
 
     expect(selected()).not.toBe("w1");
   });

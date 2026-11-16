@@ -20,10 +20,11 @@ const pressed = (press: MouseEvent & { currentTarget: HTMLElement }, opening: bo
 /** U7156a: the one control that folds and opens the Rail. It is rendered inside the Rail's header and inside the strip, so it rides the Rail's own slide and has no position of its own. */
 export const RailToggle = (props: { collapsed: boolean; onToggle: () => void }) => {
   const name = () => props.collapsed ? copy.expandRail : copy.collapseRail;
+  const expanded = () => props.collapsed ? "false" : "true";
 
   return (
     <Tip class="" content={<KeyHint chipAfter keys={leaderKeys(LEADER["leader.rail"])}>{name()}</KeyHint>}>
-      {(trigger) => <IconButton bare {...trigger({ "aria-expanded": props.collapsed ? "false" : "true", onClick: (press: MouseEvent & { currentTarget: HTMLElement }) => pressed(press, props.collapsed, props.onToggle) })} aria-label={name()} class="rail-toggle"><Icon name={props.collapsed ? "panel-left-open" : "panel-left-close"} /></IconButton>}
+      {(trigger) => <IconButton bare {...trigger({ "aria-expanded": expanded(), onClick: (press: MouseEvent & { currentTarget: HTMLElement }) => pressed(press, props.collapsed, props.onToggle) })} aria-label={name()} class="rail-toggle"><Icon name={props.collapsed ? "panel-left-open" : "panel-left-close"} /></IconButton>}
     </Tip>
   );
 };

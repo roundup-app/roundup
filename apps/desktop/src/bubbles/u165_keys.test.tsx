@@ -117,9 +117,13 @@ describe("u165 the keys for bubbles", () => {
     await mountBubbles("a");
     await waitFor(() => expect(bubble("1")).not.toBeNull());
     const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    let preventedAtTarget: boolean | undefined;
 
+    // ui-sdk's layer stack prevents Escape at the document, after the terminal has had the key; the terminal's turn is the target phase.
+    // listener-owner: the Bubble is removed with the mounted App at the end of the test.
+    bubble("1").addEventListener("keydown", (event) => { preventedAtTarget = event.defaultPrevented; });
     bubble("1").dispatchEvent(escape);
-    expect(escape.defaultPrevented).toBe(false);
+    expect(preventedAtTarget).toBe(false);
     expect(CHORD_ROWS.slice(0, 5).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T"]);
     fireEvent.keyDown(document.body, { key: "x" });
     flush();

@@ -271,7 +271,7 @@ it.each([null, "a"])("u471_action_labels_describe_the_existing_action_recovery_%
 
   if (parent) {
     fireEvent.click(rowOf("Review"));
-    await waitFor(() => expect(rowOf("Review").dataset.selected).toBe("true"));
+    await waitFor(() => expect(rowOf("Review").hasAttribute("data-selected")).toBe(true));
   }
 
   const original = app.of(path("Orchard"));

@@ -36,7 +36,7 @@ it("u2556c_chips_are_accessible_state", async () => {
   fireEvent.click(ci);
   fireEvent.click(pr);
   await settled();
-  expect(rowOf("a").dataset.selected).toBe("true");
+  expect(rowOf("a").hasAttribute("data-selected")).toBe(true);
   expect(app.openedTargets).toEqual([]);
   expect(app.calls.some((call) => call.method === "terminal.spawn")).toBe(false);
   expect(rowOf("plain").querySelector("[data-state=ahead]")).toBeNull();

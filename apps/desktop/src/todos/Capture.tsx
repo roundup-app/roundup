@@ -316,7 +316,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
         <Dialog.Content class="capture" aria-label={copy.captureLabel} ref={(element) => {
           panel = element;
         }}>
-          <textarea spellcheck={false} autocorrect="off" autocapitalize="off"
+          <textarea spellcheck="false" autocorrect="off" autocapitalize="off"
             class="capture-field field-frame"
             rows={1}
             wrap="off"

@@ -20,6 +20,14 @@ import { useDisplayNow } from "../state/clock";
 import { provideFocusTarget } from "../keys/focus";
 import { copy } from "./copy";
 
+/** Calls `leave` each time the App window loses focus, until the returned function runs. */
+const onWindowBlur = (leave: () => void) => {
+  // listener-owner: the caller runs the returned function to remove it.
+  window.addEventListener("blur", leave);
+
+  return () => window.removeEventListener("blur", leave);
+};
+
 type Field = ReturnType<typeof createDraftField<any>>;
 
 type ListedDraft = ReturnType<ConnectedProject["drafts"]["list"]>[number];
@@ -233,10 +241,8 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
                 // Switching away from the App saves a changed name; an untouched one stays open.
                 const leaveApp = () => { if (submitMode() === "both" && field && field.value !== initial) api().submit(); };
 
-                // listener-owner: onSettled refuses onCleanup, so the cleanup it returns removes this.
-                window.addEventListener("blur", leaveApp);
-
-                return () => window.removeEventListener("blur", leaveApp);
+                // onSettled refuses onCleanup, so the cleanup it returns removes the listener.
+                return onWindowBlur(leaveApp);
               });
 
               const select = createFirstFocusSelection(() => selection);

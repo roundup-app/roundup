@@ -131,7 +131,7 @@ export const actions: Action[] = [
       // Ark applies each toggle a task later.
       for (const id of ["a", "c"]) {
         fireEvent.click(rowOf(id), { metaKey: true });
-        await waitFor(() => expect(rowOf(id).dataset.selected).toBe("true"));
+        await waitFor(() => expect(rowOf(id).hasAttribute("data-selected")).toBe(true));
       }
 
       fireEvent.contextMenu(rowOf("a"));

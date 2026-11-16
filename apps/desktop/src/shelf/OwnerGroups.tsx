@@ -107,14 +107,20 @@ export const OwnerGroups = <T,>(props: {
   });
 
   const branches = (groups: Accessor<readonly OwnerGroup<T>[]>, level: number): JSX.Element => (
-    <For each={groups().map(group => group.id)}>{id => {
-      const group = () => groups().find(each => each.id === id)!;
+    // Keyed by id, a group the list drops keeps its last value until its row goes, so no read between sees it missing.
+    <For each={groups()} keyed={each => each.id}>{group => {
+      const id = untrack(() => group().id);
       const open = () => !closed().includes(id);
 
       return <div data-shelf-group={id} data-level={level} data-drop-target={props.target?.() === id ? "" : undefined}>
         <Show when={props.bare?.() !== id}>
           <div class="shelf-group-head">
-            <TreeItem value={id} class="shelf-group-control row-wash row-wash-inert" data-button="quiet">
+            <TreeItem value={id} class="shelf-group-control row-wash row-wash-inert" data-button="quiet" onKeyDown={event => {
+              // ui-sdk's tree presses an item on Enter; with no selection it leaves Space unhandled, which a disclosure button answers.
+              if (event.key !== " ") return;
+              event.preventDefault();
+              setClosed(kept => open() ? [...kept, id] : kept.filter(each => each !== id));
+            }}>
               <TreeItemIndicator><Icon name={open() ? "down" : "right"} /></TreeItemIndicator>
               <Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip>
               <span class="shelf-group-count" data-state="">{props.count ? props.count(group()) : total(group())}</span>

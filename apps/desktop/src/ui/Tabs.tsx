@@ -86,10 +86,11 @@ export const useTabsContext = (): Accessor<TabsApi> => {
 
 const RootProvider = (props: { value: TabsState } & Mounting & PartProps<"div">) => {
   const rest = omit(props, "value", "lazyMount", "unmountOnExit");
+  const root = () => usePart(untrack(() => props.value.primitive), "root", undefined, rest, "div");
 
   return (
     <PartsContext value={{ tabs: untrack(() => props.value), mounting: props }}>
-      {usePart(untrack(() => props.value.primitive), "root", undefined, rest, "div")}
+      {root()}
     </PartsContext>
   );
 };

@@ -45,7 +45,7 @@ const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onK
     const input = omit(attributes, "type", "role", "aria-expanded", "aria-controls", "onKeyDown", "ref");
 
     return <textarea {...input} {...rest} ref={[attributes.ref, props.ref, mentions.setField]}
-    class={`${props.class ?? ""} field-frame`} role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-controls={props.open ? attributes["aria-controls"] : undefined} spellcheck={false} autocorrect="off" autocapitalize="off"
+    class={`${props.class ?? ""} field-frame`} role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-controls={props.open ? attributes["aria-controls"] : undefined} spellcheck="false" autocorrect="off" autocapitalize="off"
     onKeyDown={(event: KeyboardEvent) => {
       const value = mentions.highlighted();
 

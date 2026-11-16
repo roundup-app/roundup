@@ -18,9 +18,11 @@ it("u3807_the_line_form_is_mounted_without_a_message_and_keeps_its_height", () =
   const nodes = [...surface.children];
   expect(notices("alert")).toHaveLength(0);
   setMessage("Could not save\nTry again");
+  flush();
   expect(notices("alert")[0]!.closest(".reserved-line")?.getAttribute("title")).toBe("Could not save\nTry again");
   expect([...surface.children]).toEqual(nodes);
   setMessage(null);
+  flush();
   expect(notices("alert")).toHaveLength(0);
   expect([...surface.children]).toEqual(nodes);
 });
@@ -31,9 +33,11 @@ it("u3807_the_overlay_form_is_out_of_flow", () => {
   const surface = container.firstElementChild!;
   const nodes = [...surface.children];
   setMessage("Could not send");
+  flush();
   expect(notices("alert")).toHaveLength(1);
   expect([...surface.children]).toEqual(nodes);
   setMessage(null);
+  flush();
   expect([...surface.children]).toEqual(nodes);
 });
 

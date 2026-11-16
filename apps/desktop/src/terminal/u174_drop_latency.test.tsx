@@ -1,4 +1,5 @@
 import { cleanup } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { info, terminal } from "../testing/nodes";
 import { toBase64 } from "./base64";
@@ -13,6 +14,7 @@ describe("u174 a File drop adds no wait of roundup's", () => {
     const { app, emulators, container, connected } = await mountPane([terminal("a"), terminal("b")], [info("t-a"), info("t-b")], 0);
 
     connected.rail.select("a");
+    flush();
     const body = container.querySelector<HTMLElement>(".pane-body")!;
     const paths = Array.from({ length: count }, (_, index) => `/p/image-${index}.png`);
 

@@ -2,8 +2,9 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { appSettings, saveAppSettings } from "../settings/preferences";
 import { ariaChord, CHORDS } from "../keys/chords";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import type { DaemonExit } from "../app/seam";
 import { agent, workstream } from "../testing/nodes";
 import { chooseFooter, mountRail, railCallsTo } from "./railFixture";
@@ -17,7 +18,7 @@ it("u5217_plus_opens_ordered_creation_choices", async () => {
   expect(plus.hasAttribute("aria-keyshortcuts")).toBe(false);
   fireEvent.click(plus);
   const items = await screen.findAllByRole("menuitem");
-  expect(items.map(item => item.id.replace(/^.*-item-/, ""))).toEqual(["agent", "workstream", "mode"]);
+  expect(items.map(item => item.textContent?.replace(item.querySelector(".key-chips")?.textContent ?? "", ""))).toEqual(["Agent", "Workstream", "Mode"]);
 
   for (const [index, name] of (["agent.new", "workstream.new", "mode.new"] as const).entries()) {
     expect(items[index]!.querySelector("kbd")?.textContent).toBe(CHORDS[name].keys);
@@ -82,7 +83,7 @@ it.each(["Enter", " "])("u5555_keyboard_opens_chooses_and_returns_focus_%s", asy
   const m = await mountRail([workstream("g")]);
   const plus = screen.getByRole("button", { name: "Create" });
   plus.focus();
-  fireEvent.keyDown(plus, { key });
+  await userEvent.keyboard(key === " " ? " " : "{Enter}");
   const menu = await screen.findByRole("menu");
   fireEvent.keyDown(menu, { key: "ArrowDown" });
   fireEvent.keyDown(menu, { key: "Escape" });
@@ -97,6 +98,7 @@ it("u5555_unavailable_creation_cannot_run_from_the_menu", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
   await screen.findByRole("menu");
   setExited({ code: 1 });
+  flush();
 
   for (const item of screen.getAllByRole("menuitem")) {
     expect(item.getAttribute("aria-disabled")).toBe("true");
@@ -131,11 +133,11 @@ it.each(["pointer", "Enter", " "])("u5629_open_and_escape_keep_the_failed_start_
   if (opening === "pointer") fireEvent.click(plus);
   else {
     plus.focus();
-    fireEvent.keyDown(plus, { key: opening });
+    await userEvent.keyboard(opening === " " ? " " : "{Enter}");
   }
 
   const menu = await screen.findByRole("menu");
-  await waitFor(() => expect(document.activeElement).toBe(menu));
+  await waitFor(() => expect(document.activeElement).toBe(within(menu).getAllByRole("menuitem")[0]));
   expect(screen.getByRole("alert")).toBe(failure);
   expect(retry.isConnected).toBe(true);
   expect(railCallsTo(m.app, "agent.spawn")).toHaveLength(1);
@@ -165,7 +167,7 @@ it("u5629_retry_after_escape_repeats_only_the_failed_start", async () => {
   await screen.findByRole("alert");
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
   const menu = await screen.findByRole("menu");
-  await waitFor(() => expect(document.activeElement).toBe(menu));
+  await waitFor(() => expect(document.activeElement).toBe(within(menu).getAllByRole("menuitem")[0]));
   fireEvent.keyDown(menu, { key: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Create" })));
   m.app.handlers["agent.spawn"] = () => {
@@ -197,7 +199,7 @@ it("u5629_dismiss_after_escape_clears_only_feedback", async () => {
   await screen.findByRole("alert");
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
   const menu = await screen.findByRole("menu");
-  await waitFor(() => expect(document.activeElement).toBe(menu));
+  await waitFor(() => expect(document.activeElement).toBe(within(menu).getAllByRole("menuitem")[0]));
   fireEvent.keyDown(menu, { key: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Create" })));
   const retry = screen.getByRole("button", { name: "Retry" });

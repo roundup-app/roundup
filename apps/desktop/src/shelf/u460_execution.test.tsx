@@ -70,7 +70,8 @@ it("u460_confirmation_never_expands_or_outlives_its_scope", async () => {
   await askToDelete(2);
   store.todos.push(todo(3));
   app.emit({ actor: USER, name: "todo.created", data: todo(3) });
-  await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #3 / });
+  // The read after the delete lands empty first, so the group remounts folded: the new row is in the list, not on screen.
+  await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #3 /, hidden: true });
   connected.rail.select("scope-row");
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);

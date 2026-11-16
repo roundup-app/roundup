@@ -1,5 +1,5 @@
 import { pressFeedback } from "./pressFeedback";
-import { createSignal, onSettled, For } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { render } from "@solidjs/web";
 import { runChecks } from "../testing/checks";
 import { Menu } from "./Menu";
@@ -15,7 +15,7 @@ import "../styles.css";
 import "../buttons.css";
 
 function ChoiceControls() {
-  onSettled(() => pressFeedback(document));
+  pressFeedback(document);
   const [select, setSelect] = createSignal("first");
   const [calls, setCalls] = createSignal(0);
   const [radio, setRadio] = createSignal("first");

@@ -1,5 +1,5 @@
 import { cleanup } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DaemonExit } from "../app/seam";
 import { callsTo, mountPane } from "./paneHarness";
@@ -12,6 +12,7 @@ const mountGone = async () => {
   const mounted = await mountPane([node("a")], [info("t-a")], 0, exit);
 
   mounted.connected.rail.select("a");
+  flush();
 
   return { ...mounted, setExit };
 };
@@ -21,6 +22,7 @@ describe("u25 the Daemon is gone", () => {
     const { app, emulators, setExit } = await mountGone();
 
     setExit({ code: 1 });
+    flush();
     emulators.get("t-a")?.type(Uint8Array.of(108));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -32,6 +34,7 @@ describe("u25 the Daemon is gone", () => {
     const before = callsTo(app, "terminal.resize").length;
 
     setExit({ code: 1 });
+    flush();
     window.dispatchEvent(new Event("resize"));
     await new Promise((resolve) => requestAnimationFrame(resolve));
 

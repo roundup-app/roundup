@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { info, node } from "../testing/nodes";
@@ -38,6 +39,7 @@ it("u6249b_terminal_output_subscribing_retries_and_shows_nothing_when_a_retry_su
   const calls = refuseOutput(app, 3);
 
   connected.rail.select("a");
+  flush();
   await subscribed(app, "t-a");
   expect(calls()).toBe(4);
   expect(notices("alert")).toHaveLength(0);
@@ -48,6 +50,7 @@ it("u6249b_terminal_output_stops_after_the_last_retry_and_its_retry_button_subsc
   const calls = refuseOutput(app, 5);
 
   connected.rail.select("a");
+  flush();
   await screen.findByRole("alert", { name: /^Terminal output stopped\.\s+channel refused$/ });
 
   expect(calls()).toBe(5);
@@ -67,6 +70,7 @@ it("u6249b_terminal_restore_failure_offers_retry_instead_of_telling_the_user_to_
   };
 
   connected.rail.select("a");
+  flush();
   await screen.findByRole("alert", { name: /^Could not restore Terminal output\.\s+connection closed$/ });
 
   expect(snapshots).toBe(5);
@@ -80,12 +84,15 @@ it("u6249d_a_terminal_failure_is_dismissed_by_its_button_and_by_escape_inside_th
 
   refuseOutput(app, Infinity);
   connected.rail.select("a");
+  flush();
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(notices("alert")).toHaveLength(0));
 
   connected.rail.select(null);
+  flush();
   connected.rail.select("a");
+  flush();
   await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   fireEvent.keyDown(screen.getByRole("button", { name: "Dismiss" }), { key: "Escape" });
   await waitFor(() => expect(notices("alert")).toHaveLength(0));

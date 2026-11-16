@@ -102,7 +102,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
  return found!; });
 
-      if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
+      if (group.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
 
       const row = await waitFor(() => { const found = document.querySelector<HTMLElement>('.shelf [data-todo="1"] .todo-row-button'); expect(found).not.toBeNull();
 
@@ -165,7 +165,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
       return found!;
     });
 
-    if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
+    if (group.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
 
     const row = await waitFor(() => { const found = document.querySelector<HTMLElement>(selector); expect(found).not.toBeNull();
       expect(found!.closest("[hidden], [inert]")).toBeNull();
@@ -195,6 +195,8 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   expect(field.getAttribute("autocapitalize")).toBe("off");
   const text = "  e\u0301 🧭 日本語 /a_b --x='yes';  ";
   field.focus();
+  // Focus lands its effects as a browser's microtask does, before the keystroke.
+  flush();
   fireEvent.input(field, { target: { value: text } });
   await settled();
   field.setSelectionRange(2, 7, "backward");
@@ -219,8 +221,9 @@ it("u3787d_each_field_keeps_literal_input native CapturePanel request", async ()
     configure: async () => {}, show: async () => {}, dismiss: async () => {}, publish: async () => {},
     act: async action => { actions.push(action); },
     onRequested: () => () => {}, onAction: () => () => {},
+    // The native port delivers over an event the panel has already subscribed to, never inside its construction.
     onState: listener => {
-      listener({ session: "original", sequence: 0, text: "", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" });
+      queueMicrotask(() => listener({ session: "original", sequence: 0, text: "", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" }));
 
       return () => {};
     },

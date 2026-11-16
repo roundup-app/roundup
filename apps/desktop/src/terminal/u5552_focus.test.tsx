@@ -1,4 +1,4 @@
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { lazyEmulators } from "./lazyEmulator";
 import { createScreens } from "./screens";
 import { connectFakeProject, fakeEmulators } from "./paneHarness";
@@ -12,21 +12,31 @@ afterEach(cleanup);
 it.each(["other-terminal", "field", "hidden"])("u5552b_unfocused_terminal_cannot_write %s", async (destination) => {
   const { app, connected, emulators, container } = await mountPane([terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
   connected.rail.select("a");
+  flush();
   const former = emulators.get("t-a")!;
   connected.rail.select("b");
+  flush();
   const current = emulators.get("t-b")!;
 
   if (destination === "field") {
     connected.rail.select("a");
+    flush();
     const field = document.createElement("textarea");
     container.append(field);
     field.focus();
-  } else if (destination === "hidden") connected.rail.select("a");
+  } else if (destination === "hidden") {
+    connected.rail.select("a");
+    flush();
+  }
 
   (destination === "hidden" ? current : former).type(new TextEncoder().encode("wrong"));
   expect(callsTo(app, "terminal.write")).toEqual([]);
 
-  if (destination !== "other-terminal") connected.rail.select("b");
+  if (destination !== "other-terminal") {
+    connected.rail.select("b");
+    flush();
+  }
+
   current.focus();
   current.type(new TextEncoder().encode("right"));
   expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-b", data: "cmlnaHQ=" }]);
@@ -62,10 +72,12 @@ it("u5552b_accepted_bytes_keep_the_original_terminal_after_a_switch", async () =
   let count = 0;
   app.handlers["terminal.write"] = () => ++count === 1 ? first.promise : second.promise;
   connected.rail.select("a");
+  flush();
   emulators.get("t-a")!.focus();
   emulators.get("t-a")!.type(Uint8Array.of(65));
   emulators.get("t-a")!.type(Uint8Array.of(66, 67));
   connected.rail.select("b");
+  flush();
   first.resolve(null);
   await first.promise;
   // attempt awaits the RPC before flush releases the queued batch (screens.ts).

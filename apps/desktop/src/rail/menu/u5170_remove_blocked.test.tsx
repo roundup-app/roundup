@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { copy } from "../../state/copy";
 import { agent, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import type { AppSeam } from "../../app/seam";
 import { createFakeApp } from "../../testing/fakeApp";
 import { createTodoUndo } from "../../state/undo";
@@ -80,6 +80,7 @@ it("u5170b_retry_or_dismiss_unblocks_remove", async () => {
   await undo.removeRail("b", "Second", "rail");
   expect(undo.feedbackFailure()).toContain("First");
   undo.dismiss();
+  flush();
   expect(undo.uncertain()).toBe(false);
   expect(undo.feedbackFailure()).toContain("is still unconfirmed");
   const before = removes();

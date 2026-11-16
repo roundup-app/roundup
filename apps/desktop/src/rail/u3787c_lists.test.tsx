@@ -12,7 +12,7 @@ it.each(kinds)("u3787c_each_list_selects_only_visible_rows_%#", async make => {
   const { rail, app, connected } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((id, order) => ({ ...make(`row-${order}`), name: id, order })));
   const selected = () => [...document.querySelectorAll<HTMLElement>(".rail-row[data-selected]")].map(row => row.querySelector(".name")?.textContent);
   const before = app.calls.length;
-  // U3787c's Rail clause: a range starts at the earliest chosen row, and ⌘⇧-click toggles as ⌘-click does.
+  // U3787c's Rail clause: a range starts at the tree's anchor (the last row chosen or ⌘-toggled) and keeps the ⌘-clicked rows, and ⌘⇧-click ranges as ⇧-click does.
   fireEvent.click(rowOf("Alpha"), { metaKey: true });
   await waitFor(() => expect(selected()).toEqual(["Alpha"]));
   fireEvent.click(rowOf("Beta"), { metaKey: true });
@@ -22,7 +22,9 @@ it.each(kinds)("u3787c_each_list_selects_only_visible_rows_%#", async make => {
   fireEvent.click(rowOf("Gamma"), { metaKey: true });
   await waitFor(() => expect(selected()).toEqual(["Alpha", "Beta", "Delta"]));
   fireEvent.click(rowOf("終 e\u0301 😀"), { metaKey: true, shiftKey: true });
-  await waitFor(() => expect(selected()).toEqual(["Alpha", "Beta", "Delta", "終 e\u0301 😀"]));
+  await waitFor(() => expect(selected()).toEqual(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"]));
+  fireEvent.click(rowOf("Beta"), { metaKey: true });
+  await waitFor(() => expect(selected()).toEqual(["Alpha", "Gamma", "Delta", "終 e\u0301 😀"]));
   rowOf("Alpha").focus();
   fireEvent.keyDown(rowOf("Alpha"), { key: "a", metaKey: true });
   await waitFor(() => expect(selected()).toHaveLength(5));

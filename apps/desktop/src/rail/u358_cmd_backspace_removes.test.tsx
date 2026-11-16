@@ -4,6 +4,7 @@ import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { menuProbe, questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { flush } from "solid-js";
 import type { FakeApp } from "../testing/fakeApp";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo, rowNames, rowOf } from "./railFixture";
@@ -156,6 +157,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     const mounted = await mount([agent("a", "idle", "x"), agent("b", "idle", "x"), agent("c", "idle", "x")]);
 
     mounted.rail.select("a");
+    flush();
     rowOf("a").focus();
     menuProbe.count = 0;
     menuProbe.answer = null;

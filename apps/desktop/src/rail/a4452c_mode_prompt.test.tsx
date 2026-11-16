@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { notice, notices } from "../testing/notices";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, mode } from "../testing/nodes";
@@ -32,7 +33,7 @@ it("a4452c_a_refused_mode_prompt_keeps_the_original_mode_draft", async () => {
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" });
   fireEvent.input(field, { target: { value: "  /compose exact words\n" } });
   fireEvent.blur(field);
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   fireEvent.contextMenu(rowOf("other"));
@@ -54,7 +55,7 @@ it("u2773c_a_recovered_draft_never_sends", async () => {
   await m.app.pickMenu("First prompt…");
   fireEvent.input(await screen.findByRole("textbox", { name: "First prompt" }), { target: { value: "kept" } });
   fireEvent.blur(screen.getByRole("textbox", { name: "First prompt" }));
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   m.app.handlers["agent.setModePrompt"] = () => null;
@@ -95,10 +96,10 @@ it("a4452c_retry_saves_the_retained_prompt_without_refocusing_the_field", async 
   const field = await screen.findByRole("textbox", { name: "First prompt" });
   fireEvent.input(field, { target: { value: "Read the plan\nThen run tests" } });
   fireEvent.blur(field);
-  await screen.findByRole("alert");
+  await waitFor(() => notice("alert"));
   m.app.handlers["agent.setModePrompt"] = () => null;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toEqual([]));
   expect(railCallsTo(m.app, "agent.setModePrompt")).toEqual([
     { id: "w", prompt: "Read the plan\nThen run tests" },
     { id: "w", prompt: "Read the plan\nThen run tests" },
@@ -127,14 +128,16 @@ it("a4452c_restart_saves_first_and_retries_the_same_session_identity", async () 
   const field = await screen.findByRole("textbox", { name: "First prompt" });
   fireEvent.input(field, { target: { value: "  My exact opening\n" } });
   fireEvent.blur(field);
-  fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+  const dialog = screen.getByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Restart" }));
   expect(railCallsTo(m.app, "agent.restartMode")).toEqual([]);
   finishSave();
-  await screen.findByRole("alert");
+  // The dialog's own line is the failure the user retries from; the page behind it is out of reach.
+  await waitFor(() => notice("alert", dialog));
   expect(order).toEqual(["save", "restart"]);
   const first = railCallsTo(m.app, "agent.restartMode")[0];
   m.app.handlers["agent.restartMode"] = () => mode("w", "  My exact opening\n");
-  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(railCallsTo(m.app, "agent.restartMode")).toEqual([first, first]));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(rowOf("w")));

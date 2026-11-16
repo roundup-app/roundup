@@ -19,6 +19,9 @@ import { SHELF_TABS } from "./frame";
 import type { ShelfTab, ShelfFrame } from "./frame";
 import "./styles.css";
 
+/** An ARIA state attribute's value: `"true"` or `"false"`. */
+const ariaState = (on: boolean) => on ? "true" : "false";
+
 const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads {...props} />}</Deferred>;
 
 const Todos = lazy(() => import("../todos/Todos").then(module => ({ default: module.Todos })));
@@ -45,7 +48,7 @@ export const ShelfTabs = (props: ShelfTabsProps) => {
   return (
     <Tabs.List class="shelf-tabs" ref={list} data-history-region="shelf" aria-label={copy.shelfLabel}>
       <For each={SHELF_TABS}>{(tab) => {
-        const shown = () => props.frame.open() && props.frame.tab() === tab.value ? "true" : "false";
+        const shown = () => ariaState(props.frame.open() && props.frame.tab() === tab.value);
 
         return (
           <Tabs.Trigger value={tab.value} class="shelf-tab"

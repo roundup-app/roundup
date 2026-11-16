@@ -8,7 +8,7 @@ import { captureFocus, provideFocusTarget, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
-import { createEffect, createMemo, createRoot, createSignal, For, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, flush, For, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -73,6 +73,20 @@ const recoveryOf = (project: ConnectedProject): Recovery => {
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
   new Set(set.has(member) ? [...set].filter((each) => each !== member) : [...set, member]);
+
+// U41: an arrow with a modifier does nothing in the Rail, but ui-sdk's tree takes Alt+←/→ on a row as collapse or expand of everything below it.
+const ignoreAltArrows = (element: HTMLElement) => makeEventListener(element, "keydown", press => {
+  if (press.altKey && (press.key === "ArrowLeft" || press.key === "ArrowRight") && press.target instanceof Element && press.target.matches(ROW)) press.stopPropagation();
+}, { capture: true });
+
+// U5531b, U5991a: reports the row inside `element` that holds focus, so one that leaves hands its focus to the nearest row left. ui-sdk's tree reports only the keyboard's moves, and a press or a `focus()` call moves focus too.
+const trackFocus = (element: HTMLElement, report: (id: string | null) => void) => {
+  makeEventListener(element, "focusin", press => report(press.target instanceof Element ? press.target.closest<HTMLElement>(ROW)?.dataset.id ?? null : null));
+  makeEventListener(element, "focusout", press => { if (press.relatedTarget instanceof Node && !element.contains(press.relatedTarget)) report(null); });
+};
+
+/** Whether the tree's change came from a plain press of a row, with no modifier key down: the press that replaces the selection. */
+const replacesSelection = (details: { reason: string; event?: Event | undefined }) => details.reason === "item-press" && details.event instanceof MouseEvent && !details.event.ctrlKey && !details.event.metaKey && !details.event.shiftKey;
 
 /** macOS Ctrl-click opens the menu: its press and its compatibility click, which may come without ctrlKey, must not focus, toggle or open a row. */
 const ctrlClickGuard = () => {
@@ -294,8 +308,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   const controller = createTreeController();
 
   const chooseRows = (next: string[], details: { reason: string; event?: Event | undefined }) => {
-    const press = details.reason === "item-press" && details.event instanceof MouseEvent && !details.event.ctrlKey && !details.event.metaKey && !details.event.shiftKey;
-    const pressed = press ? next.find(id => !selected().includes(id)) ?? selected().find(id => !next.includes(id)) : undefined;
+    const pressed = replacesSelection(details) ? next.find(id => !selected().includes(id)) ?? selected().find(id => !next.includes(id)) : undefined;
 
     setSelected((pressed === undefined ? next : [pressed]).filter(selectable));
   };
@@ -337,10 +350,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   };
 
   const openSelectionMenu = (node: RailNode, x: number, y: number, extra: MenuEntry[] = []) => {
-    if (!isSelected(node.id)) setSelected([node.id]);
+    const outside = !isSelected(node.id);
+
+    if (outside) setSelected([node.id]);
 
     focusRow(node.id);
-    const chosen = selectedNodes();
+    // A write shows at the next flush, so the row alone stands for the selection it just replaced.
+    const chosen = outside ? [node] : selectedNodes();
 
     if (chosen.length < 2) return menu.open(node, rail.exitOf(node), x, y, undefined, extra);
 
@@ -544,7 +560,9 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
   /** Sends `saved`, or the newest task revision, keeping the field's text first when no revision exists yet. */
   const submitPrompt = async (prompt: string | null, saved?: NonNullable<ReturnType<typeof task>>) => {
-    if (!saved && !task()) keepDraft(draft());
+    // The kept draft shows in the list at the next flush; the send below reads it now.
+    if (!saved && !task()) { keepDraft(draft()); flush(); }
+
     const snapshot = saved ?? task();
 
     if (!snapshot || snapshot.status === "pending" || snapshot.status === "unknown") return;
@@ -662,7 +680,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
         if (entries.length > 0) void contextMenu(app, entries, x, y);
       });
     }}>
-    <div class="rail-tree" data-history-region="rail" tabindex="-1" ref={element => { setContainer(element); guardCtrlClick(element); }}>
+    <div class="rail-tree" data-history-region="rail" tabindex="-1" ref={element => { setContainer(element); guardCtrlClick(element); ignoreAltArrows(element); trackFocus(element, setFocused); }}>
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField

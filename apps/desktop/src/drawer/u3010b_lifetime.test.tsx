@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { createSignal, flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountApp } from "../testing/appFixture";
+import { notices } from "../testing/notices";
 import { openRecovery } from "../testing/recovery";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -18,6 +19,7 @@ it.each(["dismiss", "discard", "acknowledged", "same-copy", "other-copy", "other
   const store = drafts("/p");
   const original = store.edit({ surface: "terminal_selection", object: "original", recipient: "a" }, { note: "  original é\n雪  ", excerpt: "exact excerpt", source: "gone" }, null, "ordinary").draft;
   const other = store.edit({ surface: "terminal_selection", object: "other", recipient: "b" }, { note: "  unrelated 🪁\n  ", source: "gone-too" }, null, "ordinary").draft;
+  flush();
   const retained = store.list();
   const clipboard = vi.fn().mockRejectedValue(new Error("clipboard refused"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
@@ -99,12 +101,12 @@ it.each(["history", "read", "render"].flatMap(failure => ["retry", "switch"].map
     app.handlers["provenance.history"] = () => [];
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByText("original");
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   } else {
     app.handlers["provenance.history"] = () => [];
     setItem("next item");
     await screen.findByText("next item");
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   }
 
   expect(connected.drafts.list()).toEqual([draft]);

@@ -51,7 +51,7 @@ export const Tip = (props: {
     <Tooltip.Trigger render={rendered => {
       const trigger: OwnTriggerProps = omit(rendered, "class", "style", "children");
 
-      return props.children(own => own ? withOwn(trigger, own) : trigger, focusProps(trigger));
+      return props.children(own => own ? withOwn(trigger, own) : trigger, merge(focusProps(trigger), { onFocusIn: Tooltip.useEnclosingFocusIn() }));
     }} />
     <Tooltip.Content side="right" align="start" class={props.class ?? (props.content !== undefined ? "ink-tip" : undefined)} chord={props.chord}>{props.content ?? props.text}</Tooltip.Content>
   </Tooltip.Root>

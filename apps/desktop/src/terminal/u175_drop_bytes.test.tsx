@@ -1,4 +1,5 @@
 import { cleanup, render } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { info, terminal } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -34,6 +35,7 @@ const dropOnRealEmulator = async (bracketed: boolean) => {
   ));
 
   connected.rail.select("a");
+  flush();
   const body = container.querySelector<HTMLElement>(".pane-body")!;
 
   body.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);

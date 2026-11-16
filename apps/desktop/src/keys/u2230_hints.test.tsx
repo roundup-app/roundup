@@ -290,7 +290,12 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
   document.activeElement!.dispatchEvent(event);
   flush();
   expect(event.defaultPrevented).toBe(false);
-  expect(document.querySelector("[data-triage-toggle]")?.getAttribute("aria-pressed")).toBe("false");
+
+  const toggle = document.querySelector("[data-triage-toggle]");
+
+  // The Shelf unmounts a tab it leaves, so a Pads owner leaves no Triage toggle to be on.
+  if (owner === "pads") expect(toggle).toBeNull();
+  else expect(toggle?.getAttribute("aria-pressed")).toBe("false");
   disposeLayer();
 });
 

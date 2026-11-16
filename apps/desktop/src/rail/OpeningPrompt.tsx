@@ -84,7 +84,7 @@ export const ModePrompt = (props: { restart: () => ReturnType<RailMenuModel["res
     <Dialog.Content class="app-dialog-form mode-prompt-dialog">
       <Dialog.Title>{copy.modePromptFor(current()?.name ?? "")}</Dialog.Title>
       <Field.Root class="mode-prompt-field">
-        <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
+        <Field.Textarea aria-label={copy.modePrompt} value={text()} placeholder={copy.modePromptPlaceholder} spellcheck="false" autocorrect="off" autocapitalize="off" onInput={event => {
           field.keep({ text: event.currentTarget.value, base: String(draft()?.value.base ?? current()?.mode_prompt ?? "") }, null);
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.modePromptHint}</Field.HelperText>

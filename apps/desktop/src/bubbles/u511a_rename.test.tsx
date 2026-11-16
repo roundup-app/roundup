@@ -3,6 +3,7 @@ import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createProjectDrafts } from "../state/connectedProject";
+import { storageIdle } from "../state/storage";
 import { event, info } from "../testing/nodes";
 import { bubbleCalls, bubbleChord, mountBubbles, TERMINALS } from "./bubblesFixture";
 
@@ -606,6 +607,8 @@ it.each(["failed", "unknown"] as const)("u3021c_bubbles_editing_selected_revisio
   fireEvent.keyDown(field()!, { key: "Escape" });
   flush();
   expect(app.calls).toEqual(calls);
+  // A restart keeps what the queued saves have written by then.
+  await storageIdle();
   cleanup();
   const reopened = await mountBubbles();
 

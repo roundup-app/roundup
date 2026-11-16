@@ -20,7 +20,8 @@ it("u80_a_failure_announces_one_line_and_keeps_the_whole_message_in_its_tooltip"
   expect(line.hasAttribute("title")).toBe(false);
   fireEvent.pointerEnter(line, { pointerType: "mouse", clientX: 0, clientY: 0 });
   expect((await screen.findByRole("tooltip")).textContent).toBe(message);
-  fireEvent.pointerLeave(line, { pointerType: "mouse" });
+  // ui-sdk keeps a tooltip open while the pointer leaves toward it, so a leave carries where the pointer went: away from it.
+  fireEvent.pointerLeave(line, { pointerType: "mouse", clientX: 400, clientY: 400 });
   await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
   fireEvent.keyDown(document, { key: "Tab" });
   line.focus();

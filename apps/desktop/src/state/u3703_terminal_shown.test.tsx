@@ -1,5 +1,6 @@
 import { cleanup } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { agent, door, event, info } from "../testing/nodes";
 import { mountCentre } from "../testing/centreFixture";
 
@@ -27,6 +28,7 @@ describe("u3703 the App shows a Terminal the Daemon names", () => {
     await vi.waitFor(() => expect(centre()).toBe("t-a"));
 
     connected.rail.select("workstream");
+    flush();
     app.emit(shown("9"));
     await vi.waitFor(() => expect(connected.rail.selected()).toBe("a"));
   });

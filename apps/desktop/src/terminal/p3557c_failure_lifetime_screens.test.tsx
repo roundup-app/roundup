@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { info, node } from "../testing/nodes";
 import { RpcError } from "../app/seam";
@@ -42,10 +43,13 @@ it("u3791c_terminal_replacement_keeps_failure_ownership", async () => {
   expect(screens().failure("t-a")).toBeNull();
   const current = screens().failure("t-b");
   screens().dismiss("t-a");
+  flush();
   expect(screens().failure("t-b")).toBe(current);
   app.clipboardFailure = new Error("clipboard permission refused");
   emulators.get("t-b")!.selectedText = "exact clipboard input";
   await screens().copy("t-b");
+  flush();
   screens().dismiss("t-b");
+  flush();
   expect(screens().failure("t-b")).toBe(current);
 });

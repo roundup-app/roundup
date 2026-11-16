@@ -353,11 +353,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   /** Opens the Workstreams above `id`, and returns the set the Rail now holds collapsed. */
   const reveal = (id: string | null): ReadonlySet<string> => {
     const above = new Set(id === null ? [] : ancestorsOf(topology(), id));
-    let next!: ReadonlySet<string>;
 
-    setCollapsed((closed) => next = id === null ? closed : new Set([...closed].filter((workstream) => !above.has(workstream))));
-
-    return next;
+    return setCollapsed((closed) => id === null ? closed : new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
 
   const [unconfirmed, setAsked] = createStore<Record<string, PendingChange>>({});
@@ -475,6 +472,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
       if (selectionRevision === workstreamSelection) select(wanted, workstreamFocus);
 
+      // The Door's start reads the selection just written to decide whether to prepare the shown Terminal's size.
+      flush();
       setWorkstreamCreating(false);
       void startDoor(wanted, false);
     }

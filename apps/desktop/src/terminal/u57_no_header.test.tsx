@@ -1,4 +1,5 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { event, info, node, terminal } from "../testing/nodes";
 import { callsTo, mountPane, subscribed } from "./paneHarness";
@@ -14,6 +15,7 @@ describe("u57 no pane header", () => {
     const { connected, app } = await mountPane([selected], [info("t-a")], 12 * 60_000);
 
     connected.rail.select("a");
+    flush();
 
     // U4453a replaces O6's goal line; resize remains covered here.
     expect(callsTo(app, "terminal.resize")).toEqual([{ id: "t-a", cols: 100, rows: 30 }]);
@@ -23,6 +25,7 @@ describe("u57 no pane header", () => {
     const { connected, container, app, emulators } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     await subscribed(app, "t-a");
     app.emitOutput("t-a", "last output");
     const shown = emulators.get("t-a");
@@ -38,6 +41,7 @@ describe("u57 no pane header", () => {
     const { connected, app } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: { kind: "needs-you", label: "asks", since: 0, finished: "0" } } }));
 
     expect(callsTo(app, "terminal.resize")).toHaveLength(1);

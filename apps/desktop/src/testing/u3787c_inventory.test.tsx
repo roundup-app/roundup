@@ -10,6 +10,7 @@ import { captureActions } from "../keys/registry";
 import { openProjectPage } from "./menuProbe";
 import { showShelfTab } from "./shelfTabs";
 import { settled } from "../rail/railFixture";
+import { layoutMoving } from "../resize/motion";
 
 // Final App inventory: Todo creator controls and shared Pad Home groups use the Shelf holder.
 const shelf = ["Todos", "Pads"] as const;
@@ -48,7 +49,7 @@ const openShelf = async (tab: typeof shelf[number]) => {
       return found!;
     });
 
-    if (group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector(".shelf-group-control")!);
+    if (group.querySelector(".shelf-group-control")?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector(".shelf-group-control")!);
   }
 
   const rows = await waitFor(() => {
@@ -133,6 +134,9 @@ const openChanges = async (opening: string) => {
 
   await waitFor(() => expect(changedRows()).toHaveLength(5));
   await waitFor(() => expect(shadow()?.activeElement).not.toBeNull());
+  // The Terminal fits in the frame after the Shelf's slide ends; a call it makes then is the opening's, not a key's.
+  await waitFor(() => expect(layoutMoving()).toBe(false));
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
   await settled();
 
   return { app: daemon, rows: changedRows() };
@@ -193,8 +197,8 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "nat
       return found!;
     });
 
-    if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
-    await waitFor(() => expect(group.closest("[data-shelf-group]")?.getAttribute("aria-expanded")).toBe("true"));
+    if (group.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
+    await waitFor(() => expect(group.getAttribute("aria-expanded")).toBe("true"));
     await settled();
   }
 
@@ -216,6 +220,8 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "nat
   else fireEvent.keyDown(row, { key: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
   const text = "  e\u0301 🧭 日本語  ";
+  // The opened field's own effects land before a keystroke, as a browser's microtask lands them.
+  flush();
   fireEvent.input(field, { target: { value: text } });
   flush();
   const underlying = vi.fn();
@@ -271,8 +277,8 @@ it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_l
   const before = daemon.calls.length;
   const selected = () => rows.filter(row => row.hasAttribute("data-selected"));
 
-  // U3787c's Rail clause: a range starts at the earliest chosen row, and ⌘⇧-click toggles as ⌘-click does.
-  for (const [at, metaKey, shiftKey, expected] of [[1, true, false, [1]], [3, false, true, [1, 2, 3]], [2, true, false, [1, 3]], [4, true, true, [1, 3, 4]], [0, false, true, [0, 1]]] as const) {
+  // U3787c's Rail clause: a range starts at the tree's anchor (the last row chosen or ⌘-toggled) and keeps the ⌘-clicked rows, and ⌘⇧-click ranges as ⇧-click does.
+  for (const [at, metaKey, shiftKey, expected] of [[1, true, false, [1]], [3, false, true, [1, 2, 3]], [2, true, false, [1, 3]], [4, true, true, [1, 2, 3, 4]], [0, false, true, [0, 1, 2, 3]]] as const) {
     fireEvent.click(rows[at]!, { metaKey, shiftKey });
     await settled();
     expect(selected()).toEqual(expected.map(index => rows[index]));

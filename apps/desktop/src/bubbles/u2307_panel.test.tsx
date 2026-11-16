@@ -59,9 +59,14 @@ it("u2307a_escape_and_other_keys_still_reach_the_terminal", async () => {
   await shown();
 
   const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+  const target = bubble()!.querySelector<HTMLElement>(".bubble-body [tabindex]")!;
+  let preventedAtTarget: boolean | undefined;
 
-  bubble()!.querySelector<HTMLElement>(".bubble-body [tabindex]")!.dispatchEvent(escape);
-  expect(escape.defaultPrevented).toBe(false);
+  // ui-sdk's layer stack prevents Escape at the document, after the terminal has had the key; the terminal's turn is the target phase.
+  // listener-owner: the terminal field is removed with the mounted App at the end of the test.
+  target.addEventListener("keydown", (event) => { preventedAtTarget = event.defaultPrevented; });
+  target.dispatchEvent(escape);
+  expect(preventedAtTarget).toBe(false);
   expect(bubble()).not.toBeNull();
 });
 

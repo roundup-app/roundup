@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { itemOf, mountRail, rowOf } from "./railFixture";
@@ -25,9 +26,10 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     const { rail } = await mountRail(TREE);
 
     rail.select("a");
+    flush();
 
     expect(rowOf("gate").getAttribute("aria-selected")).toBe("true");
-    expect(rowOf("gate").getAttribute("data-selected")).toBe("true");
+    expect(rowOf("gate").hasAttribute("data-selected")).toBe(true);
   });
 
   it("u404_no_state_moves_a_row", async () => {

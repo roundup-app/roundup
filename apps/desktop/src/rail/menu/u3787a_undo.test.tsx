@@ -5,6 +5,7 @@ import { App } from "../../App";
 import { createFakeApp } from "../../testing/fakeApp";
 import { agent, workstream } from "../../testing/nodes";
 import { rowOf } from "../railFixture";
+import { notices } from "../../testing/notices";
 import { fakeEmulators } from "../../terminal/paneHarness";
 import { useBrowserStorage } from "../../state/storage";
 import { stubDialogLayout, answerQuestion } from "../../shelf/bulkQuestionHarness";
@@ -83,7 +84,7 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
     else fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.restore")).toHaveLength(1));
     await waitFor(() => expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]));
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toEqual([]);
 
     return;
   }

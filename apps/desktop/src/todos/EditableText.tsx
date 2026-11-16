@@ -382,7 +382,7 @@ export const EditableText = (props: {
       <Editable.Area style={{ display: "grid", width: "100%" }}>
         <Editable.Preview asChild={preview => <p {...preview()} class={props.todo[props.name] === "" ? "light" : undefined} />} onDblClick={() => { if (!editing()) startWith(); }} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
           style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", overflow: "visible", "text-overflow": "clip", "min-height": "1.4em" }} />
-        <Editable.Input asChild={field => <textarea {...field()} class="field-inline" rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck={false} autocorrect="off" autocapitalize="off"
+        <Editable.Input asChild={field => <textarea {...field()} class="field-inline" rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck="false" autocorrect="off" autocapitalize="off"
           class="field-inline" aria-label={copy.title}
           onInput={event => {
             const field = event.currentTarget;

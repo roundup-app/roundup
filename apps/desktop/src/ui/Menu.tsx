@@ -1,13 +1,13 @@
 import { captureFocus } from "../keys/focus";
 import type { ComponentProps } from "@solidjs/web";
 import { Menu as UiMenu, MenuContent, MenuGroup, MenuGroupLabel, MenuItem, MenuItemIndicator, MenuRadioGroup, MenuRadioItem, MenuTrigger, type MenuProps } from "@ui-sdk/solid/menu";
-import { createContext, createEffect, createSignal, omit, useContext } from "solid-js";
+import { createContext, createEffect, createSignal, omit, untrack, useContext } from "solid-js";
 import { createFloatingControl } from "./Dialog";
 import { trackSurface } from "./openSurfaces";
 import "./Trigger.css";
 import "./Menu.css";
 
-const Owner = createContext<{ setTrigger: (element: HTMLElement) => void; opened: (content: HTMLElement) => void }>();
+const Owner = createContext<{ setTrigger: (element: HTMLElement) => void; opened: (content: HTMLElement) => void; returnFocus: () => HTMLElement }>();
 
 type RootProps = Omit<MenuProps, "open" | "defaultOpen" | "onOpenChange"> & {
   open?: boolean | undefined;
@@ -25,15 +25,17 @@ const Root = (props: RootProps) => {
   createEffect(control.open, open => { if (!open) permission = captureFocus(); });
 
   // A menu opened by its `open` prop has no trigger press that focuses its content: focus follows only while no other focus choice has been made.
+  // The content mounts before this open's writes are readable, so the permission is read once the frame has flushed them.
   const opened = (content: HTMLElement) => {
-    const focus = props.initialFocus ?? permission;
-
-    requestAnimationFrame(() => focus(() => { if (!content.contains(document.activeElement)) content.focus({ preventScroll: true }); }));
+    requestAnimationFrame(() => (props.initialFocus ?? permission)(() => { if (!content.contains(document.activeElement)) content.focus({ preventScroll: true }); }));
   };
 
   const rest = omit(props, "open", "defaultOpen", "onOpenChange", "initialFocus", "loop");
 
-  return <Owner value={{ setTrigger, opened }}>
+  // After an item runs, the library returns focus to the trigger. That move is the library's own: a permission its action captured before it, such as the focus a new row asks for, still holds.
+  const returnFocus = () => captureFocus().target(() => untrack(trigger));
+
+  return <Owner value={{ setTrigger, opened, returnFocus }}>
     <UiMenu {...rest} loop={props.loop ?? false} open={control.open()} onOpenChange={open => control.change({ open })} />
   </Owner>;
 };
@@ -48,7 +50,7 @@ const Content = (props: Omit<ComponentProps<typeof MenuContent>, "class"> & { cl
   const owner = useContext(Owner);
   const rest = omit(props, "class", "ref");
 
-  return <MenuContent {...rest} ref={[props.ref, owner.opened]} class={["app-menu", props.class]} />;
+  return <MenuContent finalFocus={owner.returnFocus} {...rest} ref={[props.ref, owner.opened]} class={["app-menu", props.class]} />;
 };
 
 export const Menu = { Root, Trigger, Content, Item: MenuItem, Group: MenuGroup, GroupLabel: MenuGroupLabel, RadioGroup: MenuRadioGroup, RadioItem: MenuRadioItem, ItemIndicator: MenuItemIndicator };

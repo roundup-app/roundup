@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { useDisplayNow } from "../state/clock";
 import type { EmulatorFactory } from "../terminal/emulator";
 import type { Kind } from "@contracts/Kind";
@@ -23,11 +23,15 @@ const stopped: (Kind | null)[] = ["idle", "blocked", "needs-you", "error", "done
 const visibility = (value: "hidden" | "visible") => {
   Object.defineProperty(document, "visibilityState", { value, configurable: true });
   document.dispatchEvent(new Event("visibilitychange"));
+  flush();
 };
 
 let revision = 1;
 
-const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: Date.now(), finished: "0" } } }));
+const status = (app: FakeApp, id: string, kind: Kind) => {
+  app.emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: Date.now(), finished: "0" } } }));
+  flush();
+};
 
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
@@ -165,6 +169,9 @@ it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
   fireEvent.click(screen.getByRole("button", { name: /\d+ changed files?/ }));
   await settle();
   expect(reads()).toBe(2);
+  // An open popup keeps a position check of ui-sdk's alive; the Agent's own periodic work is what R17 counts.
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+  flush();
   status(app, "a", "blocked");
   expect(screen.getAllByRole("img", { name: "Blocked" }).length).toBeGreaterThan(0);
   expect(intervals.size).toBe(0);
@@ -240,8 +247,10 @@ it("u3308_idle_display_clock_demand_never_enables_periodic_rpcs", async () => {
   expect(board!()).toBe(NOW + 3_660_000);
   expect(app.calls).toEqual([]);
   activate(false);
+  flush();
   expect(intervals.size).toBe(0);
   activate(true);
+  flush();
   expect(intervals.size).toBe(1);
   view.unmount();
   expect(intervals.size).toBe(0);

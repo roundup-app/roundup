@@ -247,7 +247,7 @@ export const Pads = (props: {
         <div class="shelf-list">
           <ShelfRow glyph={<Icon name={PAD_ICON} />} class="entry-row pad-inset">
             <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(value); }}>
-            <Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" class="entry-field shelf-title field-inline" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
+            <Editable.Input spellcheck="false" autocorrect="off" autocapitalize="off" type="text" class="entry-field shelf-title field-inline" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
               ref={(element) => {
                 input = element;
                 makeEventListener(element, "keydown", (event) => {
@@ -374,7 +374,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
               { id: "open", label: copy.openDraft, run: () => open("pointer") },
               { id: "rename", label: copy.rename, run: rename },
               ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message, copy.link), () => props.onItemFailure(pad, null, copy.link), copied),
-              { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(); } },
+              { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(false, pad.incarnation); } },
             ], x, y))}
             class="pad-inset"
             glyph={<Icon name={PAD_ICON} />}

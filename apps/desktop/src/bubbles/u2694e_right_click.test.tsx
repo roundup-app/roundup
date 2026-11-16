@@ -151,6 +151,7 @@ it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_rig
   const target = document.querySelector<HTMLElement>(selector)!;
   const emulator = emulators.made.get(target.dataset.terminal!)!;
   const controls = () => [...document.querySelectorAll('[role="dialog"], input, textarea, button, [role="menu"]')];
+  flush();
   const before = controls();
   const calls = app.calls.length;
   const menus = app.shownMenus.length;

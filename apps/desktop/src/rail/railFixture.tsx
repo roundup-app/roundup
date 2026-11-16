@@ -1,7 +1,7 @@
 // fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
-import { createSignal, Show, type Accessor } from "solid-js";
+import { createSignal, flush, Show, type Accessor } from "solid-js";
 import type { TreeItemData } from "@ui-sdk/solid/tree";
 import type { DaemonExit } from "../app/seam";
 import type { Machine } from "@contracts/machine/Machine";
@@ -70,7 +70,8 @@ export const mountRail = async (
     );
   });
 
-  return { app, rail: connected.rail, connected, setNow };
+  // The clock reads as soon as it moves, as a Solid 1 write did.
+  return { app, rail: connected.rail, connected, setNow: (value: number) => { setNow(value); flush(); } };
 };
 
 /** The treeitem of the row named `name`: the element that carries `data-id`, `aria-level` and `aria-expanded`. */

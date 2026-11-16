@@ -23,7 +23,8 @@ describe("u520 the Rail's accessibility tree", () => {
     await mountRail(tree());
 
     expect(screen.getAllByRole("tree")).toHaveLength(1);
-    expect(screen.getByRole("tree").getAttribute("aria-labelledby")).not.toBeNull();
+    // ui-sdk names the tree with aria-label; the query throws unless the tree is named "Rail".
+    screen.getByRole("tree", { name: "Rail" });
 
     const levels = Object.fromEntries(["outer", "inner", "leaf", "door", "child"].map((name) => [name, itemOf(name).getAttribute("aria-level")]));
 
@@ -123,5 +124,5 @@ it("u5645c_refresh_preserves_row_identity_selection_and_focus", async () => {
   app.emit(event({ name: "todo.deleted", data: { id: 1 } }));
   await settled();
   expect(document.activeElement).toBe(row);
-  expect(row.getAttribute("data-selected")).toBe("true");
+  expect(row.hasAttribute("data-selected")).toBe(true);
 });

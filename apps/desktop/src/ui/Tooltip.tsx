@@ -1,5 +1,6 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { ComponentProps, JSX } from "@solidjs/web";
+import { isFocusFromKeyboard } from "@ui-sdk/core";
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, type TooltipProps } from "@ui-sdk/solid/tooltip";
 import { createContext, createEffect, createSignal, omit, Show, useContext } from "solid-js";
 import type { Chord } from "../keys/chords";
@@ -9,7 +10,7 @@ import { anchorBox } from "./anchorBox";
 import "./Trigger.css";
 import "./Tooltip.css";
 
-const Owner = createContext<{ track: (element: HTMLElement) => void }>();
+const Owner = createContext<{ track: (element: HTMLElement) => void; show: () => void }>();
 
 type RootProps = Omit<TooltipProps, "open" | "defaultOpen" | "onOpenChange"> & {
   open?: boolean | undefined;
@@ -41,9 +42,15 @@ const Root = (props: RootProps) => {
     return () => watch.disconnect();
   });
 
+  const show = () => {
+    if (props.disabled) return;
+    pointer = undefined;
+    control.change({ open: true });
+  };
+
   const rest = omit(props, "open", "defaultOpen", "onOpenChange", "disabled");
 
-  return <Owner value={{ track }}>
+  return <Owner value={{ track, show }}>
     <UiTooltip {...rest} open={control.open()} disabled={props.disabled || control.blocked()}
       onOpenChange={open => {
         if (open && pointer && (import.meta.env.DEV || import.meta.env.VITEST === "true")) {
@@ -65,6 +72,12 @@ export const Tooltip = {
     const owner = useContext(Owner);
 
     return <TooltipTrigger {...props} ref={[props.ref, owner.track]} />;
+  },
+  /** The `onFocusIn` of a control enclosing the trigger: ui-sdk's focus open needs the trigger to contain the focused element, so the keyboard focus of an enclosing control opens the Tooltip here. */
+  useEnclosingFocusIn: () => {
+    const owner = useContext(Owner);
+
+    return () => { if (isFocusFromKeyboard()) owner.show(); };
   },
   Content: (props: Omit<ComponentProps<typeof TooltipContent>, "class" | "children"> & { class?: string | undefined; chord?: Chord | undefined; children?: JSX.Element }) => {
     const rest = omit(props, "chord", "children", "class");

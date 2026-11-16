@@ -87,7 +87,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
       <Dialog.Title>{copy.newMode}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={value().name} onInput={event => edit({ name: event.currentTarget.value })} /></Field.Root>
-        <Field.Root disabled={busy()} class="mode-prompt-field"><Field.Label>{copy.modePrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck={false} autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.modePromptHint}</Field.HelperText></Field.Root>
+        <Field.Root disabled={busy()} class="mode-prompt-field"><Field.Label>{copy.modePrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck="false" autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.modePromptHint}</Field.HelperText></Field.Root>
         <ReservedLine message={line.message()} dismiss={dismissLine} recover={drafts.problem() ? { run: () => void drafts.retry(), label: copy.railDraftRetry } : undefined} />
         <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !value().name.trim() || !value().text.trim() ? "true" : "false"}>{copy.createMode}</button></div>
       </form>

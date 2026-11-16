@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import css from "../ui/Toast.css?raw";
 import { agent, USER } from "../testing/nodes";
@@ -118,6 +119,7 @@ describe("u3791 the time pauses and resumes", () => {
     const visibility = (value: "hidden" | "visible") => {
       Object.defineProperty(document, "visibilityState", { configurable: true, value });
       document.dispatchEvent(new Event("visibilitychange"));
+      flush();
     };
 
     try {

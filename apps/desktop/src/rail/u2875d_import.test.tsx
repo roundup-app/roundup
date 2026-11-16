@@ -13,6 +13,7 @@ import { agent, workstream } from "../testing/nodes";
 import { openTabs, tab, path } from "../header/stripFixture";
 import { createImport } from "../state/importState";
 import { exitedTerminal, mountRail, rowOf } from "./railFixture";
+import { isChecked } from "../testing/checked";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -54,7 +55,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
     await screen.findByText("daemon refused");
-    expect(panel().getAllByRole("checkbox").filter(box => box instanceof HTMLInputElement && box.checked)).toHaveLength(2);
+    expect(panel().getAllByRole("checkbox").filter(isChecked)).toHaveLength(2);
 
     // Partial failure: the success leaves the selection, the failure stays for retry, and each call names its sources.
     commit = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: { code: -32003, message: "disk full", outcome: "failed" } }] });
@@ -184,7 +185,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(panel().getAllByRole("checkbox").length).toBeGreaterThan(0));
     expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
     expect(calls(app, "project.importDiscover").at(-1)?.params).toEqual({ period: "month" });
-    expect(panel().getAllByRole("checkbox").every((box) => box instanceof HTMLInputElement && !box.checked)).toBe(true);
+    expect(panel().getAllByRole("checkbox").every(box => !isChecked(box))).toBe(true);
   });
 
   it("u3083d_stale_picks_drop_without_a_notice", async () => {
@@ -199,7 +200,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     const checked = (name: RegExp) => {
       const box = panel().getByRole("checkbox", { name });
 
-      return box instanceof HTMLInputElement && box.checked;
+      return isChecked(box);
     };
 
     expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
@@ -258,8 +259,8 @@ const importKey = (project = "/p") => `roundup:import:${project}`;
 
 const clickSource = async (title: string, retained = true, project = "/p") => {
   const box = panel().getByRole("checkbox", { name: new RegExp(title) });
-  const selected = panel().getAllByRole("checkbox").filter(entry => entry instanceof HTMLInputElement && entry.checked).length;
-  const count = selected + (box instanceof HTMLInputElement && box.checked ? -1 : 1);
+  const selected = panel().getAllByRole("checkbox").filter(isChecked).length;
+  const count = selected + (isChecked(box) ? -1 : 1);
 
   fireEvent.click(box);
   await screen.findByRole("button", { name: count ? `Import ${count}` : copy.importAgentName });

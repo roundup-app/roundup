@@ -59,7 +59,8 @@ export const createUnseen = (
   publications?: { app: AppSeam; events: Events; path: string; observedAt: number },
 ): UnseenState => {
   const finishStorage = storedValue(`roundup:finish-times:${publications?.path ?? ""}`, finishTimesSchema);
-  const [finishTimes, setFinishTimes] = createSignal(finishStorage.read() ?? {});
+  // The replay below runs inside this owner and retains finishes at once.
+  const [finishTimes, setFinishTimes] = createSignal(finishStorage.read() ?? {}, { ownedWrite: true });
 
   const retainFinish = (id: string, status: Pick<Status, "kind" | "finished" | "since">) => {
     // A working Status dates the new work, never the earlier finish.

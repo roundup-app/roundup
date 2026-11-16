@@ -250,11 +250,13 @@ export function Splitter(props: {
     "div",
   );
 
+  const order = () => first() ? ["side", "rest"] as const : ["rest", "side"] as const;
+
   return (
     <>
-      {panel(first() ? "side" : "rest")}
+      {panel(order()[0])}
       {edgeElement}
-      {panel(first() ? "rest" : "side")}
+      {panel(order()[1])}
     </>
   );
 }

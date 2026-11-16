@@ -1,4 +1,5 @@
 import { cleanup, render } from "@solidjs/testing-library";
+import { createRoot, flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { Layout } from "../window/Layout";
 import { createWidths } from "./widths";
@@ -14,16 +15,15 @@ it("u4459_the_widths_leave_the_centre_its_minimum", () => {
 
     return computed;
   });
-  let available = 0;
-  render(() => {
-    const widths = createWidths(() => "/p");
-    widths.rail.commit(10000);
-    widths.shelf.commit(10000);
-    available = 1280 - widths.rail.now();
-
-    return <Layout widths={widths} header={null} rail={null} centre={null} shelf={null} overlay={null} />;
-  });
+  // A user writes the widths from outside any owner, as a handler does.
+  const { widths, dispose } = createRoot(dispose => ({ widths: createWidths(() => "/p"), dispose }));
+  widths.rail.commit(10000);
+  widths.shelf.commit(10000);
+  flush();
+  const available = 1280 - widths.rail.now();
+  render(() => <Layout widths={widths} header={null} rail={null} centre={null} shelf={null} overlay={null} />);
   expect(available).toBeGreaterThanOrEqual(388);
   // At the two maxima the Shelf must overlay; reserving both widths leaves only 240 px.
   expect(document.querySelector(".window")?.getAttribute("data-shelf-mode")).toBe("overlay");
+  dispose();
 });

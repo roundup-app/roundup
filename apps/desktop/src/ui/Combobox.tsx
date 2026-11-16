@@ -157,7 +157,7 @@ const Root = (props: {
   return <Command class="app-combobox" value={highlighted()} loop={!props.contentRow} filter={false} query={props.inputValue} onAction={pick}
     onValueChange={(value, details) => { if (details.reason === "item-hover") details.cancel(); else props.onHighlightChange(value); }}
     onQueryChange={(query, details) => { if (details.reason === "escape-key") details.cancel(); else props.onInput(query); }}>
-    <CommandInput class="app-combobox-input" aria-label={props.label} placeholder={props.placeholder} spellcheck={false} autocorrect="off" autocapitalize="off"
+    <CommandInput class="app-combobox-input" aria-label={props.label} placeholder={props.placeholder} spellcheck="false" autocorrect="off" autocapitalize="off"
       onKeyDown={event => keys.get(event.key)?.(event)} ref={element => {
         input = element;
         makeEventListener(element, "input", event => props.inputEvents?.input?.(event));

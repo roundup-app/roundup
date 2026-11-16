@@ -1,5 +1,5 @@
 import { cleanup, screen } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DaemonExit } from "../app/seam";
 import { info, terminal } from "../testing/nodes";
@@ -87,10 +87,12 @@ it("u102_size_is_shared_with_existing_and_later_terminals", async () => {
   press(target, "=");
   vi.advanceTimersToNextFrame();
   connected.rail.select("b");
+  flush();
   expect(emulators.get("t-b")!.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
   press(document.querySelector("[data-terminal='t-b']")!, "=");
   vi.advanceTimersToNextFrame();
   connected.rail.select("a");
+  flush();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 2);
 });
 
@@ -146,6 +148,7 @@ it("u102_daemon_exited_prevents_size_changes", async () => {
   const { emulator, target, app } = await mount(exit);
   app.calls.length = 0;
   setExit({ code: 1 });
+  flush();
   expect(press(target, "=").defaultPrevented).toBe(false);
   vi.advanceTimersToNextFrame();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE);

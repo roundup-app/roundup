@@ -60,6 +60,9 @@ import { doneTodos, nowTodos, offeredAsBlockers, planDrop, rowTopology, treeRows
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS: readonly ChordName[] = ["todo.triage-move", "todo.triage-assign", "todo.triage-done"];
 
+/** The tree role a row takes at `level`. */
+const rowAttributes = (level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level });
+
 export const Todos = (props: {
   /** Open a retained creation form using this Project's already-loaded Todo facts. */
   recovery?: { project: string; revision: string; list: TodosState };
@@ -655,7 +658,7 @@ export const Todos = (props: {
     ], x, y));
   };
 
-  const groupAttributes = (id: number, level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level, "aria-expanded": dependency.expanded(id) ? "true" : "false", "aria-controls": `todo-group-${id}`, "aria-owns": `todo-group-${id}` });
+  const groupAttributes = (id: number, level: number): JSX.HTMLAttributes<HTMLElement> => ({ ...rowAttributes(level), "aria-expanded": dependency.expanded(id) ? "true" : "false", "aria-controls": `todo-group-${id}`, "aria-owns": `todo-group-${id}` });
 
   return (
     <section data-history-region={shelf ? "shelf" : "todos"} aria-label={copy.todos} tabindex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
@@ -759,7 +762,7 @@ export const Todos = (props: {
             };
 
             return (
-            <Show when={total() > 0} fallback={draw(() => ({ role: "treeitem", "aria-level": row.level }))}>
+            <Show when={total() > 0} fallback={draw(() => rowAttributes(row.level))}>
               <div class="todo-dependency" role="presentation" data-level={row.level} data-structural-motion={String(dependency.moving())} data-complete={String(dependency.complete(todo.id))}>
                 {draw(() => groupAttributes(todo.id, row.level))}
                 <div id={`todo-group-${todo.id}`} class="todo-group-body" role="group" hidden={!dependency.expanded(todo.id)} inert={!dependency.expanded(todo.id)} aria-hidden={dependency.expanded(todo.id) ? "false" : "true"}

@@ -58,7 +58,7 @@ const editName = async (nth: number) => {
   const at = await pointOf(".rail-row", { dx: 2, nth });
 
   await browser.click(at.x, at.y);
-  await browser.until(`() => document.querySelectorAll(".rail-row")[${nth}].dataset.selected === "true"`);
+  await browser.until(`() => document.querySelectorAll(".rail-row")[${nth}].hasAttribute("data-selected")`);
   await browser.call(`nth => document.querySelectorAll(".rail-row .name")[nth].closest(".rail-row").focus()`, nth);
   await browser.press("F2", "F2");
   await browser.until(`() => document.activeElement?.matches(".rail-row input") && document.activeElement.selectionEnd > document.activeElement.selectionStart`);

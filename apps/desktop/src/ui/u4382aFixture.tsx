@@ -1,4 +1,4 @@
-import { createSignal, For, onSettled } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { render } from "@solidjs/web";
 import { Field } from "./Field";
 import { Checkbox } from "./Checkbox";
@@ -15,7 +15,7 @@ import "../styles.css";
 import "../buttons.css";
 
 const Fixture = () => {
-  onSettled(() => pressFeedback(document));
+  pressFeedback(document);
   const choices = [{value:"a",label:"First"},{value:"b",label:"Second"}];
   Object.assign(window, { __checks: runChecks });
 

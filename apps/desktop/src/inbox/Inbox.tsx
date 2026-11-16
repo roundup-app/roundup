@@ -188,9 +188,10 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   }]);
 
   const agentRow = (id: string) => <Show when={byKey().get("a:" + id)}>{(row) => {
-    onCleanup(() => heads.delete("a:" + id));
+    const key = untrack(row).key;
+    onCleanup(() => heads.delete(key));
 
-    return <InboxRow row={row()} open={openKey() === row().key} toggle={() => toggle(row().key)} actions={actions} selected={content.selection.isSelected(row().key)} head={(element) => head(untrack(row).key, element)} />;
+    return <InboxRow row={row()} open={openKey() === row().key} toggle={() => toggle(row().key)} actions={actions} selected={content.selection.isSelected(row().key)} head={(element) => head(key, element)} />;
   }}</Show>;
 
   const commentRow = (row: UnreadComment) => {

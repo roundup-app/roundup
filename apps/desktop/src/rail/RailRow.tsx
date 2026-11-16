@@ -77,7 +77,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
   };
 
   return <>
-    <input spellcheck={false} autocorrect="off" autocapitalize="off"
+    <input spellcheck="false" autocorrect="off" autocapitalize="off"
       type="text"
       class="field-inline"
       aria-label={copy.name}
@@ -96,9 +96,12 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") capture(event.currentTarget); }}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(key) => {
+        // ui-sdk's tree item takes every key from inside its row; the field keeps its own.
+        key.stopPropagation();
+
         if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
 
-        if (key.key === "Escape") { key.preventDefault(); key.stopPropagation(); props.onCancel(); }
+        if (key.key === "Escape") { key.preventDefault(); props.onCancel(); }
       }}
       onBlur={() => props.onCancel(false)}
     />

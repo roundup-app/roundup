@@ -5,6 +5,7 @@ import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import { unseenStorage } from "../state/unseen";
 import { chooseAction, settled } from "../rail/railFixture";
 import type { FakeApp } from "../testing/fakeApp";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
@@ -53,7 +54,7 @@ it("u5502_gone_menu_row_shows_nothing_and_a_valid_one_selects", async () => {
 
   app.menuBarAction({ kind: "agent", path: path("api"), agent: "gone" });
   await new Promise(resolve => setTimeout(resolve));
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 
   app.menuBarAction({ kind: "agent", path: path("api"), agent: "a" });
   await waitFor(() => expect(document.querySelector('[role=treeitem][data-id="a"]')?.getAttribute("aria-selected")).toBe("true"));

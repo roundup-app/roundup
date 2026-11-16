@@ -208,6 +208,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   const choose = (entry: Entry): void => {
+    // The chosen row's pane mounts before the Dialog asks `finalFocus` where focus goes.
+    if (entry.kind === "node") {
+      rail.select(entry.node.id);
+      flush();
+    }
+
     close(entry.kind === "todo" || entry.kind === "pad" ? { kind: "item" } : { kind: "pane", terminal: entry.kind === "terminal" ? entry.terminal.id : null });
     props.onFailure(null);
 
@@ -229,13 +235,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       return;
     }
 
-    if (entry.kind === "terminal") {
-      revealTerminal(rail, project.path, entry.terminal);
-
-      return;
-    }
-
-    if (entry.kind === "node") rail.select(entry.node.id);
+    if (entry.kind === "terminal") revealTerminal(rail, project.path, entry.terminal);
   };
 
   const [making, setMaking] = createSignal(false);

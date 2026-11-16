@@ -31,8 +31,11 @@ export const captureFocus = (choose = false): ((move: () => void) => boolean) & 
       }
     };
 
+    // listener-owner: the revision outlives whichever component first asked for focus, so no owner removes this.
     document.addEventListener("focusin", invalidate, true);
-    document.addEventListener("pointerdown", invalidate, true);
+    // ui-sdk dismisses an outside press from a window capture listener, which runs before any document one: a close that queues focus captures its permission after the press has invalidated the older ones only if this listener sits there too.
+    // listener-owner: as above, the revision outlives whichever component first asked for focus.
+    window.addEventListener("pointerdown", invalidate, true);
   }
 
   if (choose) {

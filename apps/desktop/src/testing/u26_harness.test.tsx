@@ -11,6 +11,7 @@ import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { doorOf, event } from "./nodes";
 import { showEverythingInApp } from "./showEverything";
+import { notice } from "./notices";
 
 const NOW = 1_700_000_000_000;
 
@@ -66,7 +67,7 @@ describe("u26 the harness seeds", () => {
   it("u26_daemon_exits_shows_the_exit_in_the_centre", async () => {
     mount("daemon-exits");
 
-    const line = await screen.findByRole("alert");
+    const line = await waitFor(() => notice("alert"));
 
     expect(line.textContent).toBe(appCopy.daemonExit("exited 1"));
   });

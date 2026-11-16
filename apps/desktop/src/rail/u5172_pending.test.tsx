@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
@@ -69,8 +70,10 @@ it("u5172a_refused_rename_restores_and_shows_why", async () => {
 it("u5172a_confirming_event_clears_the_mark", async () => {
   const mounted = await mountRail([agent("a", "idle", "ready", { name: "Old" })]);
   mounted.connected.rail.keepAsked("a", { kind: "rename", asked: "New", base: "Old" });
+  flush();
   expect(mounted.connected.rail.pendingOf("a")).not.toBeNull();
   mounted.app.emit({ name: "rail.renamed", data: { id: "a", name: "New" }, actor });
+  flush();
   expect(mounted.connected.rail.pendingOf("a")).toBeNull();
   expect(mounted.connected.rail.nodes[0]?.name).toBe("New");
 });

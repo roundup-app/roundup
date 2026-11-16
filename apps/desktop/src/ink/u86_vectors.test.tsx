@@ -17,9 +17,9 @@ it.each(["error", "needs-you", "blocked", "working", "idle", "done"] as const)(
 );
 
 it("u86_error_text_has_one_decorative_vector", () => {
-  const { container } = render(() => <ErrorLine message="could not open" />);
+  render(() => <ErrorLine message="could not open" />);
+  // getByText matches the line's whole text, so the vector adds none; its tooltip's hidden copy sits beside the line.
   expect(screen.getByText("could not open").querySelector('svg[aria-hidden="true"]')).not.toBeNull();
-  expect(container.textContent).toBe("could not open");
 });
 
 it("u86_kind_marks_do_not_depend_on_hue", () => {

@@ -37,7 +37,7 @@ export const EntryRow = (props: {
 
   return (
     <ShelfRow data-editing="true" glyph={props.glyph} class={`entry-row ${props.class}`}>
-      <input spellcheck={false} autocorrect="off" autocapitalize="off"
+      <input spellcheck="false" autocorrect="off" autocapitalize="off"
         type="text"
         class="entry-field field-inline"
         aria-label={props.label}

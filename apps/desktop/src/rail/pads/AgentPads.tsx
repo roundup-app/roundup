@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createMemo, Show } from "solid-js";
+import { createMemo, deep, Show } from "solid-js";
 import { Icon } from "../../ink/Icon";
 import { IconButton } from "../../ui/IconButton";
 import { useConnectedProject } from "../../state/connectedProject";
@@ -14,8 +14,8 @@ export const createAgentPads = () => {
     const byCreator = new Map<string, number>();
 
     for (const todo of todos.all()) {
-      // The shared list reconciles records in place: completion is also a Todo revision.
-      Object.keys(todo);
+      // The shared list reconciles records in place: completion is also a Todo revision, and a Solid 2 key read tracks only which keys a record has, so `deep` follows every value.
+      deep(todo);
       const creator = todo.creator;
 
       if (creator.kind === "agent") byCreator.set(creator.id, (byCreator.get(creator.id) ?? 0) + 1);

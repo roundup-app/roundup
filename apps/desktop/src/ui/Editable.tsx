@@ -190,8 +190,11 @@ const EditableContext = createContext<ReturnType<typeof createEditable>>();
 
 const Root = (props: RootProps): JSX.Element => {
   const editable = createEditable(props);
+  const rest = omit(props, ...optionKeys);
 
-  return <EditableContext value={editable}>{usePart(editable.handle, "root", undefined, omit(props, ...optionKeys), "div")}</EditableContext>;
+  const root = () => usePart(editable.handle, "root", undefined, rest, "div");
+
+  return <EditableContext value={editable}>{root()}</EditableContext>;
 };
 
 const Context = (props: { children: (api: Accessor<Api>) => JSX.Element }): JSX.Element => {
@@ -372,7 +375,7 @@ export const NameField = (props: {
 
   // This editor restores its own selection; the editable's deferred select-all would overwrite it.
   return <Editable.Root edit selectOnFocus={false} value={text()} submitMode="none" class="row-name-editor" onValueChange={({ value }) => setText(value)}>
-    <Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" class="shelf-title field-inline" aria-label={copy.name} aria-invalid={conflict() ? "true" : undefined} aria-busy={!ready() || pending() ? "true" : "false"} ref={field => {
+    <Editable.Input spellcheck="false" autocorrect="off" autocapitalize="off" type="text" class="shelf-title field-inline" aria-label={copy.name} aria-invalid={conflict() ? "true" : undefined} aria-busy={!ready() || pending() ? "true" : "false"} ref={field => {
       // A native listener: the stop must also reach document-level key handlers, which a delegated one cannot.
       makeEventListener(field, "keydown", event => {
         event.stopPropagation();

@@ -341,11 +341,12 @@ it("u4687c_a_failed_save_keeps_its_revision_and_a_newer_edit", async () => {
   fireEvent.input(input, { target: { value: "1.25" } });
   fireEvent.keyDown(input, { key: "Enter" });
   await screen.findByText(/Cannot save settings/);
-  fireEvent.input(input, { target: { value: "newer exact edit" } });
+  // A number field refuses letters (accepted behaviour), so the newer edit is a number.
+  fireEvent.input(input, { target: { value: "1.75" } });
   await waitFor(() => {
     const drafts = JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts;
     expect(drafts).toContainEqual(expect.objectContaining({ status: "failed", value: expect.objectContaining({ text: "1.25" }) }));
-    expect(drafts).toContainEqual(expect.objectContaining({ status: "draft", value: expect.objectContaining({ text: "newer exact edit" }) }));
+    expect(drafts).toContainEqual(expect.objectContaining({ status: "draft", value: expect.objectContaining({ text: "1.75" }) }));
   });
   expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
 });

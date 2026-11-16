@@ -1,4 +1,5 @@
 import { cleanup, fireEvent } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { rowGlyph as glyphOf, itemOf, mountRail, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream } from "../testing/nodes";
@@ -33,6 +34,7 @@ describe("u6 rows", () => {
     const { rail } = await mountRail([agent("a", "working", "w"), agent("b", "working", "w", { order: 1 })]);
 
     rail.select("b");
+    flush();
 
     expect([itemOf("a").getAttribute("aria-selected"), itemOf("b").getAttribute("aria-selected")]).toEqual(["false", "true"]);
   });
