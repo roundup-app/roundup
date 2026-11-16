@@ -356,8 +356,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
               }
             }} />
         </Field.Root>
-        <Show when={!searching()}>
-        <Tabs.List aria-label={copy.settings}>
+        <Show when={!searching()}><Tabs.List aria-label={copy.settings}>
           <div class="settings-category" aria-hidden="true">{copy.settingsAgents}</div>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
           <div class="settings-category" aria-hidden="true">{copy.settingsTerminal}</div>
@@ -370,8 +369,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
           <Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger>
           <Tabs.Trigger value="Machines">{copy.settingsMachines}</Tabs.Trigger>
-        </Tabs.List>
-        </Show>
+        </Tabs.List></Show>
         </aside>
       <div class="settings-content">
       <Show when={!searching()} fallback={<SettingsResults results={results()} controls={controls} />}>

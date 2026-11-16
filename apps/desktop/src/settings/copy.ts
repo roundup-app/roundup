@@ -3,15 +3,14 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   settingsMachines: "Machines",
-  thisMac: "This Mac",
+  thisMac: sharedCopy.thisMac,
   machineOnline: "Online",
   machineOffline: "Offline",
-  machineRemove: "Remove",
+  machineRemove: sharedCopy.remove,
   machineRemoveLabel: (name: string) => `Remove ${name}`,
-  machineRemoveQuestion: (name: string) => ({ title: `Remove ${name}?`, message: "roundup forgets this Machine. Its Agents show offline and nothing of roundup is deleted. Add it again to use it.", okLabel: "Remove", cancelLabel: "Keep" }),
+  machineRemoveQuestion: (name: string) => ({ title: sharedCopy.removeQuestion(name), message: "roundup forgets this Machine. Its Agents show offline and nothing of roundup is deleted. Add it again to use it.", okLabel: sharedCopy.remove, cancelLabel: sharedCopy.keep }),
   machineAdd: "Add machine",
   machineAddHint: "An ssh host, as you would type after ssh.",
-  machineAddSubmit: "Add",
   machinesNeedProject: "Open a Project to see its Machines.",
   settingsPads: sharedCopy.pads,
   defaultWidth: "Default width",

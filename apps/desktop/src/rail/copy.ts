@@ -133,7 +133,7 @@ export const copy = {
   worktreePrState: (number: number, stale: boolean) => `PR ${sharedCopy.worktreePrText(number, stale)}`,
   worktreeUnavailableMark: dash,
   worktreeUnavailable: "Worktree state unavailable",
-  thisMac: "This Mac",
+  thisMac: sharedCopy.thisMac,
   startMachine: "Machine",
   startMachineAuto: "Picked for you",
   machineOffline: "offline",
@@ -184,7 +184,7 @@ export const copy = {
   stopAndRemoveQuestion: (name: string) => `Stop and remove ${name}?`,
   group: "Group",
   removeSelectionQuestion: "Remove selected rows?",
-  removeQuestion: (name: string) => `Remove ${name}?`,
+  removeQuestion: sharedCopy.removeQuestion,
   moveTo: sharedCopy.moveTo,
 } as const;
 
