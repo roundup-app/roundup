@@ -6,7 +6,7 @@ import { callsTo, mountPane } from "./paneHarness";
 import { info, node } from "../testing/nodes";
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "setTimeout", "clearTimeout"] });
+  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "setTimeout", "clearTimeout", "performance"] });
 });
 
 afterEach(() => {
