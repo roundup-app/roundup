@@ -4,8 +4,12 @@ import { openTabs, path, tab } from "../header/stripFixture";
 import { agent, event, info, workstream } from "../testing/nodes";
 import type { FakeApp } from "../testing/fakeApp";
 import { nextAttention } from "./attention";
+import { appSettings, saveAppSettings } from "../settings/preferences";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+
+// U7259: an error counts only while its Dock badge switch is on.
+const errorBadgeOn = () => saveAppSettings({ stateAlerts: { ...appSettings().stateAlerts, error: { ...appSettings().stateAlerts.error, badge: true } } });
 
 beforeEach(() => { vi.spyOn(document, "hasFocus").mockReturnValue(true); });
 
@@ -32,6 +36,7 @@ it("u7189a_the_dock_count_equals_the_menu_bars_waiting_rows", async () => {
     ],
     web: [agent("pane", "working", "running", { terminal_id: "t-pane" }), agent("broken", "error", "failed")],
   });
+  await errorBadgeOn();
 
   await listing(app, "api", () => [info("free", { title: "npm run dev --port 5199", status: blocked }), info("ended", { owner: "stopped", running: false, exit_code: 1, status: failed }), info("busy", { status: { ...blocked, kind: "working" } })]);
   await listing(app, "web", () => [info("t-pane", { owner: "pane", status: blocked })]);
@@ -70,6 +75,7 @@ it("u7189b_opening_a_waiting_terminal_clears_it_until_its_status_changes", async
 
 it("u7189c_a_closed_terminal_leaves_the_count_and_the_rows", async () => {
   const { app } = await openTabs({ api: [agent("a", "working", "running")], web: [] });
+  await errorBadgeOn();
 
   await listing(app, "api", () => [info("free", { status: failed })]);
   await waitFor(() => expect(waiting(app)).toHaveLength(1));

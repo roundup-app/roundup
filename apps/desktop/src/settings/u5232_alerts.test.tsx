@@ -29,7 +29,7 @@ it("u5232a_defaults_equal_todays_behaviour", () => {
   const { stateAlerts } = appSettings();
 
   expect(Object.entries(stateAlerts).flatMap(([state, row]) => Object.entries(row).filter(([, on]) => on).map(([choice]) => `${state} ${choice}`)).sort())
-    .toEqual(["error badge", "error sound", "needs-you badge", "needs-you sound"]);
+    .toEqual(["error sound", "needs-you alert", "needs-you badge", "needs-you sound"]);
 });
 
 it("u5232b_the_group_lists_five_states_with_three_switches", async () => {
@@ -39,7 +39,7 @@ it("u5232b_the_group_lists_five_states_with_three_switches", async () => {
   const states = groups.map(group => group.getAttribute("aria-label")).filter(label => label !== null && label !== "Agents" && label !== "Alerts");
 
   expect(states).toEqual(["Working", "Blocked", "Needs you", "Error", "Done"]);
-  expect(within(screen.getByRole("group", { name: "Needs you" })).getAllByRole("switch").map(each => each.getAttribute("aria-checked"))).toEqual(["false", "true", "true"]);
+  expect(within(screen.getByRole("group", { name: "Needs you" })).getAllByRole("switch").map(each => each.getAttribute("aria-checked"))).toEqual(["true", "true", "true"]);
   expect(within(screen.getByRole("group", { name: "Done" })).getAllByRole("switch")).toHaveLength(3);
 });
 
@@ -69,7 +69,7 @@ it("u5232b_an_invalid_field_falls_back_alone", () => {
 
   expect(stateAlerts.done).toEqual({ alert: false, sound: true, badge: false });
   expect(stateAlerts.working).toEqual({ alert: false, sound: false, badge: false });
-  expect(stateAlerts["needs-you"]).toEqual({ alert: false, sound: true, badge: true });
+  expect(stateAlerts["needs-you"]).toEqual({ alert: true, sound: true, badge: true });
 });
 
 it("u5232c_the_badge_recounts_and_clears_at_zero", async () => {
@@ -88,4 +88,38 @@ it("u5232c_the_badge_recounts_and_clears_at_zero", async () => {
   app.emit(toStatus("a", "blocked"));
   await rail.settled();
   expect(app.badges.at(-1)).toBe(0);
+});
+
+it("u7259_a_fresh_app_has_dock_badge_off_for_error_and_alert_on_for_needs_you", async () => {
+  await open();
+
+  const on = (name: string) => screen.getByRole("switch", { name }).getAttribute("aria-checked");
+
+  expect(on("Error Dock badge")).toBe("false");
+  expect(on("Needs you Dock badge")).toBe("true");
+  expect(on("Needs you Alert")).toBe("true");
+  expect(on("Done Alert")).toBe("false");
+});
+
+it("u7259_an_agent_entering_error_leaves_the_badge_and_turning_the_switch_on_counts_it", async () => {
+  const { app, rail } = await mountRail([agent("a", "working", "x")]);
+
+  app.emit(toStatus("a", "error"));
+  await rail.settled();
+  expect(app.badges.at(-1) ?? 0).toBe(0);
+
+  const chosen = appSettings().stateAlerts;
+
+  await saveAppSettings({ stateAlerts: { ...chosen, error: { ...chosen.error, badge: true } } });
+  await waitFor(() => expect(app.badges.at(-1)).toBe(1));
+});
+
+it("u7259_a_saved_choice_stays_as_saved", () => {
+  localStorage.setItem("roundup:app-settings", JSON.stringify({ stateAlerts: { error: { alert: false, sound: true, badge: true }, "needs-you": { alert: false, sound: true, badge: true } } }));
+  useBrowserStorage(localStorage);
+
+  const { stateAlerts } = appSettings();
+
+  expect(stateAlerts.error.badge).toBe(true);
+  expect(stateAlerts["needs-you"].alert).toBe(false);
 });

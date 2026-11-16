@@ -121,7 +121,7 @@ describe("u6119 a Workstream's child shows no dot", () => {
   it.each([
     { name: "a pending question", kind: "needs-you", label: "question", mark: "Needs you", dock: 1, waiting: true },
     { name: "a permission ask", kind: "needs-you", label: "permission", mark: "Needs you", dock: 1, waiting: true },
-    { name: "an error", kind: "error", label: "failure", mark: "Error", dock: 1, waiting: true },
+    { name: "an error", kind: "error", label: "failure", mark: "Error", dock: 0, waiting: true },
   ] as const)("u6119d_no_attention_marker_is_hidden: $name", async ({ kind, label, mark, dock }) => {
     const { app } = await fixture();
 
