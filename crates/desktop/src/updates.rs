@@ -38,6 +38,7 @@ struct CoreNewest(Mutex<Option<Version>>);
 /// roundup feed (`feed` false) reads herdr-core's alone; with no `core_feed` too, nothing is read.
 pub(crate) fn watch<R: Runtime>(app: &AppHandle<R>, feed: bool, core_feed: Option<String>) {
     app.manage(CoreNewest::default());
+    eprintln!("U7208 DIAG watch feed={feed} core_feed={core_feed:?}");
     if feed {
         app.manage(updater::Offered::default());
     }
@@ -49,6 +50,7 @@ pub(crate) fn watch<R: Runtime>(app: &AppHandle<R>, feed: bool, core_feed: Optio
         let mut every = tokio::time::interval(EVERY);
         loop {
             every.tick().await;
+            eprintln!("U7208 DIAG tick");
             tokio::join!(
                 async {
                     if feed {
@@ -69,7 +71,10 @@ pub(crate) fn watch<R: Runtime>(app: &AppHandle<R>, feed: bool, core_feed: Optio
 }
 
 async fn look_core<R: Runtime>(app: &AppHandle<R>, url: &str) {
-    match core_update::newest(url).await {
+    eprintln!("U7208 DIAG look_core {url}");
+    let found = core_update::newest(url).await;
+    eprintln!("U7208 DIAG found {found:?}");
+    match found {
         Ok(version) => *app.state::<CoreNewest>().0.lock().unpoisoned() = Some(version),
         Err(why) => {
             crate::diagnostics::report("read the herdr-core release feed", &why);

@@ -125,7 +125,8 @@ async fn get(url: &str) -> Result<Vec<u8>, String> {
         .stderr(Stdio::null())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|_| "the herdr-core release feed reader could not start".to_owned())?;
+        .map_err(|error| format!("the herdr-core release feed reader could not start: {error}"))?;
+    eprintln!("U7208 DIAG curl spawned {:?}", child.id());
     let mut body = Vec::new();
     if let Some(stdout) = child.stdout.take() {
         let _ = stdout.take(FEED_LIMIT + 1).read_to_end(&mut body).await;
