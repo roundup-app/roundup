@@ -288,6 +288,15 @@ replay (M9), and adds no progress requirement or await (M10). Routes are unchang
 `proofs/messages` therefore needs no model or law change.
 
 
+## Report confidence and caveats (U7287)
+
+A Result report may carry one `confidence` (`medium` or `low`, with its reason) and
+`caveats`, each one limit of the result that changes what the Door or the user does
+next. Both are absent by default; a report stored before them reads unchanged. They
+live only in the report's request: no Message carries them, and no delivery, queue,
+receiver or replay changes, so M1 and M4–M10 keep their laws and `proofs/messages`
+needs no change.
+
 ## External result reconciliation (U3078h)
 
 An unknown external effect remains current across later claims, instruction changes

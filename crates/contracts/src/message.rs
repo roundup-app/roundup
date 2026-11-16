@@ -149,6 +149,23 @@ pub enum ResultState {
     UnknownEffect,
 }
 
+/// How far below its `check` to trust a result; `high` cannot be written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum ConfidenceLevel {
+    Medium,
+    Low,
+}
+
+/// How far to trust a result that rests on something its Agent could not check.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResultConfidence {
+    pub level: ConfidenceLevel,
+    /// What the result rests on that the Agent could not check.
+    pub reason: crate::Text<1024>,
+}
+
 /// Agent and Attempt authorship comes from the authenticated connection and retained delivery.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -163,6 +180,14 @@ pub struct ReportParams {
     pub next: crate::Text<8192, { crate::text::BLANK }>,
     pub state: ResultState,
     pub check: ResultCheck,
+    /// Leave out by default; set it only when the result rests on something you could not check.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub confidence: Option<ResultConfidence>,
+    /// Leave out by default; one entry per limit of the result that changes what your coordinator or the user does next.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[specta(optional)]
+    pub caveats: Vec<crate::Text<256>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
@@ -342,4 +367,87 @@ pub struct ContinuationChoice {
 pub struct ResumeWork {
     pub decision: Option<ContinuationChoice>,
     pub reconciliation: Reconciliation,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+
+    /// A report as stored before U7287, with `extra` fields set on it.
+    fn stored(extra: Value) -> Value {
+        let mut report = json!({
+            "project": "p",
+            "id": "7",
+            "key": "out",
+            "delivery": "d1",
+            "target": {"id": "out", "revision": "v1"},
+            "output": {"project": "p", "id": "o1"},
+            "result": "Done.",
+            "next": "",
+            "state": "reported",
+            "check": {"kind": "unsupported", "source": "manual"},
+        });
+        if let (Some(report), Some(extra)) = (report.as_object_mut(), extra.as_object()) {
+            report.extend(extra.clone());
+        }
+        report
+    }
+
+    fn parse(extra: Value) -> Result<ReportParams, serde_json::Error> {
+        serde_json::from_value(stored(extra))
+    }
+
+    /// U7287a: one confidence, medium or low, and only with a non-blank reason.
+    #[test]
+    fn u7287a_confidence_is_medium_or_low_with_a_reason() {
+        for level in ["medium", "low"] {
+            let report =
+                parse(json!({"confidence": {"level": level, "reason": "no staging access"}}));
+            let wire = serde_json::to_value(report.expect(level)).expect("serializes");
+            assert_eq!(wire["confidence"]["level"], level);
+        }
+        for (confidence, why) in [
+            (
+                json!({"level": "high", "reason": "ran the tests"}),
+                "high cannot be written",
+            ),
+            (
+                json!({"level": "low", "reason": "  "}),
+                "a blank reason is refused",
+            ),
+            (json!({"level": "low"}), "a level needs its reason"),
+        ] {
+            assert!(parse(json!({"confidence": confidence})).is_err(), "{why}");
+        }
+    }
+
+    /// U7287b: a report without a limit carries no caveats, never an empty list.
+    #[test]
+    fn u7287b_a_report_without_a_limit_carries_no_caveats() {
+        for extra in [json!({}), json!({"caveats": []})] {
+            let wire = serde_json::to_value(parse(extra).expect("parses")).expect("serializes");
+            assert_eq!(wire.get("caveats"), None);
+        }
+        let wire =
+            serde_json::to_value(parse(json!({"caveats": ["Untested on Linux"]})).expect("parses"))
+                .expect("serializes");
+        assert_eq!(wire["caveats"], json!(["Untested on Linux"]));
+        assert!(
+            parse(json!({"caveats": [" "]})).is_err(),
+            "a blank caveat is refused"
+        );
+    }
+
+    /// U7287c: a report stored before U7287 reads and writes back its own bytes, so an equal
+    /// retry under its key still reconciles.
+    #[test]
+    fn u7287c_a_report_stored_before_still_reads() {
+        let report = parse(json!({})).expect("an old report reads");
+        assert!(report.confidence.is_none() && report.caveats.is_empty());
+        assert_eq!(
+            serde_json::to_value(report).expect("serializes"),
+            stored(json!({}))
+        );
+    }
 }

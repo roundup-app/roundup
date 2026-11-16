@@ -2,6 +2,7 @@
 
 import type * as deliverable$DeliverableId from "../deliverable/DeliverableId";
 import type * as message$ResultCheck from "./ResultCheck";
+import type * as message$ResultConfidence from "./ResultConfidence";
 import type * as message$ResultState from "./ResultState";
 import type * as message$ResultTarget from "./ResultTarget";
 /**  Agent and Attempt authorship comes from the authenticated connection and retained delivery. */
@@ -16,4 +17,8 @@ export type ReportParams = {
 	next: string,
 	state: message$ResultState.ResultState,
 	check: message$ResultCheck.ResultCheck,
+	/**  Leave out by default; set it only when the result rests on something you could not check. */
+	confidence?: message$ResultConfidence.ResultConfidence | null,
+	/**  Leave out by default; one entry per limit of the result that changes what your coordinator or the user does next. */
+	caveats?: string[],
 };
