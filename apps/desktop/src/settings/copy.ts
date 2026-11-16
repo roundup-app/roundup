@@ -70,7 +70,7 @@ export const copy = {
   reset: "Reset",
   dontAskAgain: sharedCopy.dontAskAgain,
   resetWarnings: "Reset warnings",
-  resetWarningsLabel: "Questions you chose not to be asked again",
+  resetWarningsLabel: "Skipped questions",
   settingsAgents: "Agents",
   settingsTerminal: sharedCopy.terminal,
   settingsEditor: "Editor",
