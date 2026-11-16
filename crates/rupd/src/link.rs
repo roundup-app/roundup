@@ -102,29 +102,41 @@ impl Daemon {
         let (target, key, heading) = parse(&url)?;
         // Publications carry their stored Project identity; their reader checks it rather than
         // the current-content link key, so neither identity can substitute for the other.
-        if key != self.project_key {
-            // LK6: any other caller reads another open Project through the App; the App's own
-            // connection keeps `other-project`, which its native open needs to find the owner.
-            if conn.actor.kind != ActorKind::User || !self.actions.is_app(conn.peer) {
+        let foreign = key != self.project_key;
+        // LK6: any caller but the App's own connection reads another open Project through the
+        // App; the App's own keeps `other-project`, which its native open needs.
+        let relays = conn.actor.kind != ActorKind::User || !self.actions.is_app(conn.peer);
+        if foreign && !matches!(&target, Target::Deliverable(_)) {
+            if relays {
                 let value = self.relay_link_read(&url).await?;
                 return serde_json::from_value(value).map_err(RpcError::internal);
             }
-            if !matches!(&target, Target::Deliverable(_)) {
-                return Err(RpcError::other_project(format!(
-                    "the link belongs to another Project, `{key}`"
-                )));
-            }
+            return Err(RpcError::other_project(format!(
+                "the link belongs to another Project, `{key}`"
+            )));
         }
         let content = match target {
             Target::Deliverable(id) => {
                 let args = json!({ "project": key, "id": id });
-                let record: deliverable::Deliverable = self
-                    .read_as(conn, "deliverable", &id, "deliverable.get", args.clone())
-                    .await?;
-                let resolution: deliverable::Resolution = self
-                    .read_as(conn, "deliverable", &id, "deliverable.resolve", args)
-                    .await?;
-                LinkContent::Deliverable { record, resolution }
+                // A publication's key is its stored identity: this Daemon answers first, and
+                // the relay takes a link it does not hold.
+                let local: Result<LinkContent, RpcError> = async {
+                    let record: deliverable::Deliverable = self
+                        .read_as(conn, "deliverable", &id, "deliverable.get", args.clone())
+                        .await?;
+                    let resolution: deliverable::Resolution = self
+                        .read_as(conn, "deliverable", &id, "deliverable.resolve", args)
+                        .await?;
+                    Ok(LinkContent::Deliverable { record, resolution })
+                }
+                .await;
+                match local {
+                    Err(_) if foreign && relays => {
+                        let value = self.relay_link_read(&url).await?;
+                        return serde_json::from_value(value).map_err(RpcError::internal);
+                    }
+                    other => other?,
+                }
             }
             Target::Pad(id) => {
                 let pad: pad::Pad = self

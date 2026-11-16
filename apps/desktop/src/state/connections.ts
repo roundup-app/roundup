@@ -7,6 +7,7 @@ import { RpcError } from "../app/seam";
 import type { App as AppCalls, ActionReply, ActionRequest, Project } from "../app/seam";
 import { projectKeyOf } from "../projectLink";
 import { applyConfig } from "../settings/configApply";
+import { copy } from "./copy";
 import { connectProject } from "./connectedProject";
 import type { ConnectedProject, createProjectDrafts } from "./connectedProject";
 import type { Clock } from "./clock";
@@ -74,7 +75,7 @@ const answerLinkRead = async (app: AppCalls, { id, params: { url } }: Extract<Ac
       if (await projectKeyOf(app.forProject(project.path)).catch(() => null) === key && app.linkRead) return { jsonrpc: "2.0", id, result: await app.linkRead(project.path, url) };
     }
 
-    return { jsonrpc: "2.0", id, error: { code: -32001, message: `Project ${key ?? ""} is not open` } };
+    return { jsonrpc: "2.0", id, error: { code: -32001, message: copy.projectKeyNotOpen(key ?? "") } };
   } catch (failure) {
     if (!(failure instanceof RpcError)) throw failure;
 
