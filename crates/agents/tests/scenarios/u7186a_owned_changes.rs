@@ -54,6 +54,24 @@ fn repo(default: &str) -> (tempfile::TempDir, PathBuf) {
     (tmp, dir)
 }
 
+/// A git worktree of `dir` on the new branch `branch`, in a temporary directory of its own.
+fn linked(dir: &Path, branch: &str) -> (tempfile::TempDir, PathBuf) {
+    let tmp = tempfile::tempdir().unwrap();
+    let tree = std::fs::canonicalize(tmp.path()).unwrap().join("wt");
+    git(
+        dir,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            branch,
+            &tree.display().to_string(),
+        ],
+    );
+    (tmp, tree)
+}
+
 fn paths(group: &contracts::agent::OwnedGroup) -> Vec<&str> {
     group.files.iter().map(|file| file.path.as_str()).collect()
 }
@@ -95,12 +113,12 @@ fn u7186a_a_file_changed_by_another_hand_is_not_owned() {
 }
 
 #[test]
-fn u7186a_an_own_branch_lists_commits_and_uncommitted_files_against_the_merge_base() {
+fn u7186a_an_own_worktree_lists_commits_and_uncommitted_files_against_the_merge_base() {
     let (_tmp, dir) = repo("main");
-    git(&dir, &["checkout", "-q", "-b", "own/x"]);
-    let written = write(&dir, "a.txt", "a\n");
-    commit_all(&dir, "a");
-    write(&dir, "b.txt", "b\n");
+    let (_trees, tree) = linked(&dir, "own/x");
+    let written = write(&tree, "a.txt", "a\n");
+    commit_all(&tree, "a");
+    write(&tree, "b.txt", "b\n");
     let groups = Git::from_env().owned_groups(&[written]);
     assert_eq!(groups.len(), 1);
     assert_eq!(
@@ -117,6 +135,20 @@ fn u7186a_the_shared_checkout_lists_only_files_the_agent_edited() {
     write(&dir, "other.txt", "x\n");
     let groups = Git::from_env().owned_groups(&[mine]);
     assert_eq!(paths(&groups[0]), ["seed.txt"]);
+}
+
+#[test]
+fn u7186a_a_branch_in_the_shared_checkout_lists_only_files_the_agent_edited() {
+    let (_tmp, dir) = repo("main");
+    git(&dir, &["checkout", "-q", "-b", "feat"]);
+    write(&dir, "theirs.txt", "t\n");
+    commit_all(&dir, "theirs");
+    let mine = write(&dir, "mine.txt", "m\n");
+    write(&dir, "scratch.txt", "s\n");
+    let groups = Git::from_env().owned_groups(&[mine]);
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].branch, "feat");
+    assert_eq!(paths(&groups[0]), ["mine.txt"]);
 }
 
 #[test]
@@ -151,18 +183,7 @@ fn u7186a_several_repos_and_branches_return_one_group_each() {
     let (_t2, two) = repo("main");
     let first = write(&one, "a.txt", "a\n");
     let second = write(&two, "b.txt", "b\n");
-    git(
-        &one,
-        &[
-            "worktree",
-            "add",
-            "-q",
-            "-b",
-            "own/y",
-            &format!("{}-wt", one.display()),
-        ],
-    );
-    let tree = PathBuf::from(format!("{}-wt", one.display()));
+    let (_trees, tree) = linked(&one, "own/y");
     let third = write(&tree, "c.txt", "c\n");
     let groups = Git::from_env().owned_groups(&[second, third, first]);
     let keys: Vec<_> = groups
@@ -178,7 +199,6 @@ fn u7186a_several_repos_and_branches_return_one_group_each() {
             .iter()
             .any(|g| g.branch == "own/y" && g.repo == one.display().to_string())
     );
-    std::fs::remove_dir_all(&tree).unwrap();
 }
 
 #[test]
