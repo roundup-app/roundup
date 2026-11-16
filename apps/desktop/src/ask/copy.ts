@@ -3,7 +3,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 export const copy = {
   closeView: sharedCopy.closeView,
   toolCallUnderSecond: "<1s",
-  toolCallSeconds: (seconds: number) => `${seconds}s`,
+  toolCallSeconds: sharedCopy.ageSeconds,
   toolCallMinutes: (minutes: number, seconds: number) => `${minutes}:${String(seconds).padStart(2, "0")}`,
   deliverablesFilter: "Filter Made",
   deliverables: sharedCopy.deliverables,

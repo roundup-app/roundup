@@ -166,7 +166,7 @@ it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
   await settle();
   expect(reads()).toBe(2);
   status(app, "a", "blocked");
-  expect(screen.getAllByRole("img", { name: "Blocked" }).length).toBeGreaterThan(0);
+  expect(screen.getAllByRole("img", { name: /^Blocked/ }).length).toBeGreaterThan(0);
   expect(intervals.size).toBe(0);
   app.calls.length = 0;
   await vi.advanceTimersByTimeAsync(60_000);

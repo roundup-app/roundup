@@ -162,11 +162,11 @@ it("u6000a_a_starting_door_row_no_longer_reads_door_stopped", async () => {
 
   mounted.app.handlers["rail.startDoor"] = never;
   await settled();
-  expect(rowOf("ws").querySelector(".rail-waiting")).not.toBeNull();
+  expect((rowOf("ws").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).toContain("Door stopped");
   void mounted.rail.startDoor("ws");
 
   await waitFor(() => expect(startingOf(mounted, "ws")).toBe(true));
-  expect(rowOf("ws").querySelector(".rail-waiting")).toBeNull();
+  expect((rowOf("ws").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).not.toContain("Door stopped");
 });
 
 it("u6000a_every_launch_renders_starting_before_its_call_answers_new_workstream", async () => {
