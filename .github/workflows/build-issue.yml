@@ -36,6 +36,7 @@ jobs:
       id-token: write
     outputs:
       ran: ${{ steps.worked.outputs.ran }}
+      row: ${{ steps.worked.outputs.row }}
     env:
       ISSUE: ${{ inputs.issue }}
       SLUG: ${{ inputs.slug }}
@@ -54,7 +55,7 @@ jobs:
           clean: false
           persist-credentials: false
       # The Builder switches this checkout to its branch; the end of the job runs main's copy.
-      - run: cp -R loop "$RUNNER_TEMP/loop" && mkdir "$RUNNER_TEMP/.agents" && cp .agents/screen.md "$RUNNER_TEMP/.agents/"
+      - run: cp -R loop "$RUNNER_TEMP/loop" && mkdir "$RUNNER_TEMP/.agents" && cp .agents/screen.md .agents/builder.md "$RUNNER_TEMP/.agents/"
       - uses: ./.github/actions/setup
         with:
           browser: 'true'
@@ -118,6 +119,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_ATTACH_TOKEN: ${{ secrets.PR_ATTACH_TOKEN }}
         run: python3 "$RUNNER_TEMP/loop/builder.py" attach "build/$SLUG"
+      # L124: `measure` leaves the output `row` (prompt version, model, tokens) for the scorecard `after` writes; it never fails the step.
       - id: worked
         if: always() && steps.task.outputs.due == 'true'
         env:
@@ -126,6 +128,7 @@ jobs:
           ran=false
           if python3 "$RUNNER_TEMP/loop/builder.py" worked "$EXECUTION_FILE"; then ran=true; fi
           echo "ran=$ran" >>"$GITHUB_OUTPUT"
+          python3 "$RUNNER_TEMP/loop/builder.py" measure "$EXECUTION_FILE" "$RUNNER_TEMP/.agents/builder.md"
       # L79, L81: Haiku screens what the run asks the user (`.agents/screen.md`), its open draft's `Stopped:` paragraph
       # or, with no PR, a non-empty `ask`; `after` sends it where the verdict says.
       # The answer and verdict travel as an artifact: a job output holding a model answer is dropped when it matches
@@ -167,6 +170,7 @@ jobs:
       SLUG: ${{ inputs.slug }}
       # A refused, cancelled or timed-out build left no output: no model worked.
       RAN: ${{ needs.build.outputs.ran == 'true' }}
+      ROW: ${{ needs.build.outputs.row }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
@@ -188,7 +192,7 @@ jobs:
           ORDERS_CLOSED_CACHE: ${{ github.workspace }}/.closed-issues.json
         run: |
           verdict=$(cat "$RUNNER_TEMP/answer/verdict.txt" 2>/dev/null || true)
-          { cat "$RUNNER_TEMP/answer/answer.txt" 2>/dev/null || true; } | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$verdict"
+          { cat "$RUNNER_TEMP/answer/answer.txt" 2>/dev/null || true; } | python3 loop/builder.py built "$ISSUE" "$SLUG" "$RAN" "$verdict" "$ROW"
       # A GITHUB_TOKEN dispatch starts a workflow; a job where no model worked (a usage limit) ends the chain.
       - if: always() && env.RAN == 'true'
         run: gh workflow run build.yml --repo "$GITHUB_REPOSITORY" --ref main
