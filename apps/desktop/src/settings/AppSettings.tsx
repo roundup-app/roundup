@@ -1,7 +1,7 @@
 import fuzzysort from "fuzzysort";
-import { createEffect, createSignal, createMemo, For, onCleanup, refresh, Show, untrack } from "solid-js";
-import type { JSX } from "@solidjs/web";
-import type { App } from "../app/seam";
+import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, untrack, type JSX } from "solid-js";
+import type { App, AppSettingsPage } from "../app/seam";
+import { useUpdates } from "../state/updates";
 import { copy, stateLabel } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
@@ -18,6 +18,8 @@ import { createSettingsView, type SettingsViewState } from "../state/settingsVie
 import { setByFile } from "./configFile";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { ResetWarnings } from "./ResetWarnings";
+import { settingsEntries } from "./entries";
+import { UpdateRow } from "./UpdateRow";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 
 /** The segment control loads with the first page that shows one, not with the App. */
@@ -27,6 +29,7 @@ const SegmentGroup = <V extends string>(props: Parameters<typeof import("../ui/S
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; view?: SettingsViewState; navigation?: () => string }) => {
   const view = props.view ?? createSettingsView();
+  const updates = useUpdates();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});
@@ -85,9 +88,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const back = () => { setForward(true); close(); };
 
-  createEffect(() => props.navigation?.(), () => { setForward(false); }, { defer: true });
+  createEffect(on(() => props.navigation?.(), () => setForward(false), { defer: true }));
 
-  const show = () => {
+  /** U7208f: a named page shows whether Settings is closed, open on another page or showing a search. */
+  const show = (page?: AppSettingsPage | null) => {
+    if (page === "updates") { setQuery(""); setSection(copy.settingsUpdates); }
+
     setForward(false);
 
     if (view.open()) return;
@@ -97,6 +103,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   };
 
   onCleanup(untrack(() => props.app.onAppSettings(show)));
+  onCleanup(untrack(() => updates.onShow(show)));
   onCleanup(untrack(() => props.app.onProjectPage(({ path }) => {
     setForward(false);
 
@@ -105,12 +112,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     view.close();
   })));
   registerKeys({ kind: "app" }, [
-    { chords: ["Meta+Comma"], run: show },
+    { chords: ["Meta+Comma"], run: () => show() },
     { chords: ["Meta+BracketLeft"], when: () => view.open(), run: event => { event.preventDefault(); back(); } },
     { chords: ["Meta+BracketRight"], when: () => forward() && !view.open(), run: event => { event.preventDefault(); show(); } },
   ]);
 
-  const listModels = async (path: string) => {
+  const [offered, { refetch: refetchOffered }] = createResource(() => view.open() && props.project(), async path => {
     try {
       return { list: await props.app.forProject(path).rpc("models.list", null), failure: null };
     } catch (error) {
@@ -118,16 +125,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
       return { list: null, failure: error.message };
     }
-  };
+  });
 
-  // Closed, the last answer stays; each opening of the view asks again.
-  const offered = createMemo<Awaited<ReturnType<typeof listModels>> | undefined>(previous => {
-    const path = view.open() && props.project();
-
-    return path ? listModels(path) : previous;
-  }, { loadingValue: undefined });
-
-  const editors = createMemo<Awaited<ReturnType<typeof props.app.listEditors>> | undefined>(previous => view.open() ? props.app.listEditors().catch(() => []) : previous, { loadingValue: undefined });
+  const [editors] = createResource(() => view.open(), async open => open ? await props.app.listEditors().catch(() => []) : []);
 
   const save = async (patch: Parameters<typeof saveAppSettings>[0]) => setFailure(await saveAppSettings(patch));
 
@@ -220,11 +220,18 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
 
   const numericControl = (name: Numeric, label: string, hint: string) => <>
-        <Field.Root class="settings-field" disabled={setByFile(name)} invalid={!!numericFailure()[name]}>
+        <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
           <Field.Label>{label}</Field.Label>
-          <Field.Input type="number" aria-label={label} {...terminalRanges[name]} value={field(name)}
-            onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
-            onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
+          <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root disabled={setByFile(name)} value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
+            const range = terminalRanges[name];
+
+            if (value !== field(name) && value.trim() !== "" && Number.isFinite(valueAsNumber) && valueAsNumber >= range.min && valueAsNumber <= range.max)
+              drafts.edit(destination(name), { text: value, saved: current(name)?.value.saved ?? String(appSettings()[name]) }, null, "ordinary");
+          }}>
+            <module.NumberInput.Input aria-label={label} inputMode="decimal" value={field(name)}
+              onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
+              onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
+          </module.NumberInput.Root>}</Deferred>
           <Show when={setByFile(name) ? copy.setByFile("look.json") : hint}>{text => <Field.HelperText>{text()}</Field.HelperText>}</Show>
           <ReservedLine status={numericFailure()[name]} />
         </Field.Root>
@@ -267,7 +274,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Select label={copy.fontFamily} description={setByFile("fontFamily") ? copy.setByFile("look.json") : copy.fontFamilyHint} disabled={setByFile("fontFamily")} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
           onValueChange={value => chooseType({ fontFamily: value })} />
-        <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck="false" autocorrect="off" autocapitalize="off"
+        <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
           onInput={event => edit("fontFamily", event.currentTarget)}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) void commit("fontFamily", field("fontFamily")); }} /></Field.Root>}</Show>
     </>,
@@ -294,36 +301,15 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     fontSize: fontSizeControl,
     lineHeight: lineHeightControl,
     letterSpacing: letterSpacingControl,
+    updateRoundup: () => <UpdateRow program="roundup" updates={updates} />,
+    updateCore: () => <UpdateRow program="core" updates={updates} />,
     focusMarkers: () => (
         <Switch description={copy.focusMarkersHint} checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
     ),
   };
 
 
-  type Entry = { id: string; page: string; group: string; label: string; description: string; hiddenHint?: boolean; when?: () => boolean };
-
-  const entries = (): Entry[] => {
-    const all: Entry[] = [
-      { id: "permission", page: copy.settingsAgents, group: copy.groupPermissions, label: copy.permissionMode, description: copy.permissionHint },
-      { id: "engine", page: copy.settingsAgents, group: copy.groupEngine, label: copy.engine, description: copy.engineHint, when: () => !!props.project() },
-      { id: "model", page: copy.settingsAgents, group: copy.groupEngine, label: copy.model, description: copy.modelHint, when: () => !!props.project() },
-      { id: "naming", page: copy.settingsAgents, group: copy.groupNaming, label: copy.automaticRenaming, description: copy.automaticRenamingHint, hiddenHint: true },
-      { id: "feedbackIssue", page: copy.settingsAgents, group: copy.groupFeedback, label: copy.feedbackIssue, description: copy.feedbackIssueHint },
-      { id: "skill", page: copy.settingsAgents, group: copy.groupSkill, label: copy.skill, description: copy.skillHint, hiddenHint: true },
-      { id: "fontFamily", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontFamily, description: copy.fontFamilyHint },
-      { id: "fontWeight", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontWeight, description: copy.fontWeightHint },
-      ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
-      { id: "codeEditor", page: copy.settingsEditor, group: copy.settingsEditor, label: copy.codeEditor, description: copy.codeEditorHint },
-      { id: "quickAdd", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddTodo, description: copy.quickAddHint },
-      { id: "quickAddAnywhere", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddAnywhere, description: copy.quickAddAnywhereHint },
-      { id: "padWidth", page: copy.settingsPads, group: copy.settingsPads, label: copy.defaultWidth, description: copy.defaultWidthHint },
-      { id: "mode", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.settingsAppearance, description: copy.modeHint },
-      { id: "interfaceScale", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.interfaceScale, description: copy.interfaceScaleHint },
-      { id: "focusMarkers", page: copy.settingsAppearance, group: copy.groupFocus, label: copy.focusMarkers, description: copy.focusMarkersHint, hiddenHint: true },
-    ];
-
-    return all.filter(entry => entry.when?.() ?? true);
-  };
+  const entries = () => settingsEntries({ project: props.project, updates, numericFields });
 
   // U5243a: `fuzzysort` ranks the live entries by label, description, page and group.
   const [query, setQuery] = createSignal("");
@@ -334,7 +320,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   return <>
     <Show when={view.open()}>
     <SettingsShell heading={copy.settings} hideHeading onClose={back}>
-      <Tabs.Root lazyMount value={section()} onValueChange={({ value }) => setSection(value)} activationMode="automatic" orientation="vertical" class="settings-sections">
+      <Tabs.Root lazyMount value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
         <aside class="settings-navigation">
         <div class="settings-history">
           <button data-button="quiet" class="settings-back word" type="button" onClick={back}>{copy.settingsBack}</button>
@@ -343,7 +329,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <h2 class="settings-title">{copy.settings}</h2>
         <Field.Root class="settings-search">
           <Field.Label class="settings-search-label">{copy.settingsSearch}</Field.Label>
-          <Field.Input ref={searchInput} type="search" placeholder={copy.settingsSearch} value={query()} spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"
+          <Field.Input ref={searchInput} type="search" placeholder={copy.settingsSearch} value={query()} spellcheck={false} autocorrect="off" autocapitalize="off" autocomplete="off"
             onInput={event => setQuery(event.currentTarget.value)}
             onKeyDown={event => {
               if (event.isComposing) return;
@@ -369,6 +355,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
           <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
           <Tabs.Trigger value="Pads">{copy.settingsPads}</Tabs.Trigger>
+          <Tabs.Trigger value="Updates">{copy.settingsUpdates}</Tabs.Trigger>
         </Tabs.List>
         </Show>
         </aside>
@@ -383,7 +370,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.naming()}
         {controls.skill()}
         {controls.feedbackIssue()}
-        <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => refresh(offered), label: copy.storageRetry }} />
+        <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => void refetchOffered(), label: copy.storageRetry }} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
@@ -402,6 +389,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.focusMarkers()}
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Pads"><SettingsGroup name={copy.settingsPads}>{controls.padWidth()}</SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Updates"><SettingsGroup name={copy.settingsUpdates}>
+        <Show when={updates.facts()?.roundup}>{controls.updateRoundup()}</Show>
+        <Show when={updates.facts()}>{controls.updateCore()}</Show>
+      </SettingsGroup>
+        <Show when={updates.facts()?.roundup}><p class="settings-hint settings-footnote">{copy.updatesFootnote}</p></Show>
+      </Tabs.Content>
       <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
         <For each={alertStates}>{state => <div class="settings-alert-row" role="group" aria-label={stateLabel(state)}>
           <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}

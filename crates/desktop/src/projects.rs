@@ -153,6 +153,10 @@ impl AppState {
         self.shared.store.recent_projects()
     }
 
+    pub(crate) fn config(&self) -> &Config {
+        &self.shared.config
+    }
+
     pub async fn claude_binary(&self) -> Option<crate::facts::ClaudeBinary> {
         crate::facts::claude_binary(&self.shared.config).await
     }

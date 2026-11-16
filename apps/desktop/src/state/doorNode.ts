@@ -19,6 +19,9 @@ export const attemptAfter = (node: RailNode, than: string | null | undefined) =>
 /** RO5: whether the Door was started with permission prompts off. */
 export const isYolo = (node: RailNode) => isDoor(node) && node.yolo;
 
+/** U7191b: whether the Daemon holds a saved conversation for the Door, running or exited. */
+export const hasConversation = (node: RailNode) => isDoor(node) && node.has_conversation;
+
 /** RO5: a Door's `status`, or `null` for a Group or an absent node. */
 export const doorStatus = (node: RailNode | null | undefined) => (node && isDoor(node) ? node.status : null);
 

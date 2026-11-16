@@ -9,7 +9,7 @@ use tauri::{AppHandle, Builder, Manager, Runtime};
 use crate::idle;
 use crate::{
     AppState, Channel, Config, alert, commands, diagnostics, fork_app, launch, menu, menu_bar,
-    navigation, updater, window,
+    navigation, updates, window,
 };
 
 /// Build with stderr feedback and an observable fatal exit. The native entry point additionally
@@ -37,6 +37,7 @@ pub(crate) fn build_with_feedback<R: Runtime>(
     let dev_port = config.dev_port.unwrap_or(navigation::DEFAULT_DEV_PORT);
     let channel = config.channel;
     let installed = channel.installed();
+    let core_feed = config.core_feed.clone();
     let refusal = config.refusal.clone();
     let builder = builder.manage(std::sync::Mutex::new(launch::Delivery::default()));
     // CH7077e: only an installed build has a feed to read.
@@ -90,9 +91,7 @@ pub(crate) fn build_with_feedback<R: Runtime>(
                 return Ok(());
             }
             show_fork(app, data_dir.as_deref(), channel);
-            if installed {
-                updater::watch(app.handle());
-            }
+            updates::watch(app.handle(), installed, core_feed);
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();

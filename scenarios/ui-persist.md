@@ -17,6 +17,7 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 |---|---|---|
 | `roundup:viewer` | App | the Rail's width and strip state (U389, U6228), the Shelf's width (U390), open, maximised and tab choices (U370, U373), each Drawer surface's maximised choice (U4698a), the collapsed head-groups (U100, U172) |
 | `roundup:app-settings` | App | Settings, including the one Terminal size `⌘+`, `⌘-` and `⌘0` change (U102, U3517d, U3803) |
+| `roundup:updates-told` | App | the newest roundup and herdr-core version each shown in a Toast, so a version raises one Toast (U7208e) |
 | `roundup:rail:<path>` | Project | the selected row and collapsed Groups (U100) |
 | `roundup:drafts:<path>`, `roundup:unseen:<path>`, `roundup:import:<path>`, `roundup:dismissed:<path>`, `roundup:resumed:<path>` | Project | drafts, finish and unseen marks, imports, dismissals, resumptions |
 

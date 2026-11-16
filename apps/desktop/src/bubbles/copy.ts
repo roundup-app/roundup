@@ -23,7 +23,7 @@ export const copy = {
   rename: sharedCopy.rename,
   terminalName: sharedCopy.draftSurface("bubbles"),
   newTerminal: sharedCopy.newTerminal,
-  terminals: "Terminals",
+  terminals: sharedCopy.terminals,
   closeTerminal: sharedCopy.closeView,
   copied: sharedCopy.copied,
   terminalOutcomeUnknown: sharedCopy.terminalOutcomeUnknown,
