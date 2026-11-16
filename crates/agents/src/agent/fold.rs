@@ -72,6 +72,8 @@ pub(crate) enum Effect {
     Name(Option<String>),
     /// A9: Claude Code's first session title may rename the row Automatic naming named.
     Title,
+    /// A7180b: the model reads the last Stop's text; the answer returns as an Observation.
+    Judge(std::sync::Arc<(String, i64, String)>),
 }
 
 /// Fold `observation` into `run` and say what is left to do, in order. Reads no clock and takes
@@ -149,6 +151,9 @@ pub(crate) fn decide(
         effects.push(Effect::SaveFinished(run.view().finished));
     }
     effects.extend(changed.map(Effect::Publish));
+    if run.view().unclear != was.unclear {
+        effects.extend(run.view().unclear.clone().map(Effect::Judge));
+    }
     let titles = facts.signal && run.title_pending() && first_prompt.is_none();
     effects.extend(first_prompt.map(Effect::Name));
     if titles {
