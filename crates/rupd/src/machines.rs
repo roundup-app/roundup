@@ -285,12 +285,12 @@ mod tests {
                         if req["method"] == "machine.add" {
                             names
                                 .lock()
-                                .push(req["params"]["name"].as_str().unwrap().to_owned());
+                                .push(req["params"]["target"].as_str().unwrap().to_owned());
                         }
                         let refused =
-                            req["method"] == "machine.rm" && req["params"]["name"] == "pinned";
+                            req["method"] == "machine.rm" && req["params"]["machine"] == "pinned";
                         if req["method"] == "machine.rm" && !refused {
-                            let gone = req["params"]["name"].as_str().unwrap().to_owned();
+                            let gone = req["params"]["machine"].as_str().unwrap().to_owned();
                             names.lock().retain(|n| *n != gone);
                         }
                         let machines: Vec<Value> = names
@@ -442,7 +442,7 @@ mod tests {
             .cloned()
             .collect();
         assert_eq!(adds.len(), 1);
-        assert_eq!(adds[0]["params"], json!({"name": "build-box"}));
+        assert_eq!(adds[0]["params"], json!({"target": "build-box"}));
         let names: Vec<&str> = reply["result"]
             .as_array()
             .unwrap()
@@ -470,7 +470,7 @@ mod tests {
             .cloned()
             .collect();
         assert_eq!(rms.len(), 1);
-        assert_eq!(rms[0]["params"], json!({"name": "roundup-ci-control"}));
+        assert_eq!(rms[0]["params"], json!({"machine": "roundup-ci-control"}));
         assert_eq!(reply["result"], json!([]));
     }
 

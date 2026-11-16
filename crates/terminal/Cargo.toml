@@ -32,7 +32,7 @@ terminal = { path = ".", features = ["test-support"] }
 workspace = true
 
 [features]
-test-support = ["dep:portable-pty"]
+test-support = ["dep:portable-pty", "herdr/test-support"]
 
 # The test-support herdr-core: tests start it as `herdr-core-test connect`, as the product starts the real core.
 [[bin]]

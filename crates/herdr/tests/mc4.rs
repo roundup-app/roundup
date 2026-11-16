@@ -64,7 +64,7 @@ fn list_core(req: &Value) -> Option<Vec<Value>> {
             json!({"jsonrpc":"2.0","id":id,"result":{"machines":[{"name":"herdr-spike","status":"up"},{"name":"roundup-ci-control","status":"up"}]}}),
         ]),
         "machine.add" => Some(vec![
-            json!({"jsonrpc":"2.0","id":id,"result":{"name":req["params"]["name"]}}),
+            json!({"jsonrpc":"2.0","id":id,"result":{"name":req["params"]["target"]}}),
         ]),
         _ => Some(vec![
             json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"data":{"hint":"see `hc ls --all`","kind":"not_found"},"message":"no terminal"}}),
@@ -93,7 +93,7 @@ async fn mc4_machine_list_returns_recorded_list_and_typed_errors() {
         conn.machine_add("box.example").await.unwrap(),
         json!({"name":"box.example"})
     );
-    let Err(Error::Rpc(e)) = conn.call("terminal.get", json!({})).await else {
+    let Err(Error::Rpc(e)) = conn.call("terminal.get", json!({"terminal": "t"})).await else {
         panic!("want Rpc")
     };
     assert_eq!(
