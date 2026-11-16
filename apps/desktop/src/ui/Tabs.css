@@ -15,6 +15,7 @@
 }
 
 :where([data-slot="tabs-panel"]) {
+  padding: 0;
   font-size: inherit;
   line-height: inherit;
 }
