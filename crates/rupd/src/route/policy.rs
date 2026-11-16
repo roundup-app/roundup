@@ -223,6 +223,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("pad.setStorage", Policy { serial: Serial::Yes, ..PLAIN }),
     ("pad.write", Policy { serial: Serial::Yes, ..PLAIN }),
     ("project.get", PLAIN),
+    ("project.compareRefs", PLAIN),
     ("project.importCommit", Policy { inputs: Inputs::Agent, ..PLAIN }),
     ("project.importDiscover", Policy { inputs: Inputs::Agent, ..PLAIN }),
     ("project.open", Policy { actor: Actor::Caller, ..PLAIN }),

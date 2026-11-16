@@ -293,11 +293,52 @@ pub struct OwnedChanges {
     pub groups: Vec<OwnedGroup>,
 }
 
-/// Select one relative path in an Agent's Worktree (U2540a).
+/// One side of a comparison (U7186b): a git worktree's current state or a branch's head commit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum CompareEndpoint {
+    Worktree { path: String, branch: String },
+    Head { branch: String },
+}
+
+/// A choosable endpoint with the label the pickers show.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct CompareRef {
+    #[serde(flatten)]
+    pub endpoint: CompareEndpoint,
+    pub label: String,
+}
+
+/// What `project.compareRefs` returns (U7186b): worktrees first, then heads, each sorted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct CompareRefs {
+    pub refs: Vec<CompareRef>,
+}
+
+/// The Agent's changed-file list: its Worktree against its Base, or, with `from` and `to`, any
+/// two endpoints (U7186b).
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ChangedFilesParams {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = CompareEndpoint)]
+    pub from: Option<CompareEndpoint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = CompareEndpoint)]
+    pub to: Option<CompareEndpoint>,
+}
+
+/// Select one relative path in an Agent's Worktree (U2540a), or between `from` and `to` (U7186b).
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CompareFileParams {
     pub id: String,
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = CompareEndpoint)]
+    pub from: Option<CompareEndpoint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = CompareEndpoint)]
+    pub to: Option<CompareEndpoint>,
 }
 
 /// Exact present bytes use SHA-256 revisions; an absent side uses `absent`.

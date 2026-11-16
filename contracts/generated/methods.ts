@@ -4,7 +4,9 @@ import type { RunParams as action_RunParams } from "./action/RunParams";
 import type { RunResult as action_RunResult } from "./action/RunResult";
 import type { Brief as agent_Brief } from "./agent/Brief";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
+import type { ChangedFilesParams as agent_ChangedFilesParams } from "./agent/ChangedFilesParams";
 import type { CompareFileParams as agent_CompareFileParams } from "./agent/CompareFileParams";
+import type { CompareRefs as agent_CompareRefs } from "./agent/CompareRefs";
 import type { Context as agent_Context } from "./agent/Context";
 import type { CreateModeParams as agent_CreateModeParams } from "./agent/CreateModeParams";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
@@ -196,7 +198,7 @@ export type RpcMethods = {
   "agent.prompt": { params: agent_PromptParams; result: null };
   "agent.interrupt": { params: agent_NodeId; result: null };
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
-  "agent.changedFiles": { params: agent_NodeId; result: agent_ChangedFiles };
+  "agent.changedFiles": { params: agent_ChangedFilesParams; result: agent_ChangedFiles };
   "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
@@ -224,6 +226,7 @@ export type RpcMethods = {
   "project.importCommit": { params: project_ImportCommitParams; result: project_ImportResult };
   "project.prepareDirectory": { params: project_PrepareParams; result: null };
   "project.get": { params: null; result: project_ProjectSettings };
+  "project.compareRefs": { params: null; result: agent_CompareRefs };
   "project.setModels": { params: project_ProjectModels; result: null };
   "models.list": { params: null; result: project_ModelList };
   "project.rename": { params: project_RenameParams; result: null };
