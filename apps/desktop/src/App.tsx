@@ -45,6 +45,7 @@ import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
 import { createProjectAlerts } from "./state/projectAlerts";
+import { UpdatesHost } from "./toasts/UpdatesHost";
 import { createStateAlerts } from "./rail/stateAlerts";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
@@ -527,11 +528,11 @@ export const App = (props: {
           </Show>
           </div>
           <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>
-          <AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
+          <UpdatesHost app={props.app} notify={toasts.notify}><AppSettings app={props.app} project={() => projects.active()} view={settingsView} navigation={() => {
             const open = activeConnection();
 
             return `${projects.active()}\n${open?.rail.selected()}`;
-          }} />
+          }} /></UpdatesHost>
           </div>
           </div>
           </div>

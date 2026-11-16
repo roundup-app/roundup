@@ -11,8 +11,8 @@ use tauri::{AppHandle, Runtime, State};
 #[cfg(feature = "idle-perf")]
 use crate::idle;
 use crate::{
-    AppState, Listed, Project, alert, facts, feedback, fork, fork_app, launch, menu, menu_bar,
-    open, paste,
+    AppState, Listed, Project, alert, core_update, facts, feedback, fork, fork_app, launch, menu,
+    menu_bar, open, paste, updater, updates::Updates,
 };
 
 pub(crate) fn invoke_handler<R: Runtime>()
@@ -28,6 +28,9 @@ pub(crate) fn invoke_handler<R: Runtime>()
         canonical_project_path,
         close_project,
         exit_for_update,
+        updates,
+        install_update,
+        update_core,
         fork_branch,
         fork_colour,
         fork_make,
@@ -114,6 +117,32 @@ async fn exit_for_update<R: Runtime>(
         app.exit(0);
     });
     Ok(())
+}
+
+/// U7208d: the versions of roundup and herdr-core and which are ready.
+#[tauri::command]
+async fn updates<R: Runtime>(app: AppHandle<R>) -> Result<Updates, RpcError> {
+    Ok(crate::updates::read(&app).await)
+}
+
+/// U7208b: installs the offered roundup update, leaves every Daemon, then relaunches.
+#[tauri::command]
+async fn install_update<R: Runtime>(app: AppHandle<R>) -> Result<(), RpcError> {
+    updater::install(&app)
+        .await
+        .map_err(|why| RpcError::new(rpc::code::INTERNAL, why))
+}
+
+/// U7208c: runs `herdr-core update`, then answers the facts with the version it left.
+#[tauri::command]
+async fn update_core<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+) -> Result<Updates, RpcError> {
+    core_update::update(state.config())
+        .await
+        .map_err(|why| RpcError::new(rpc::code::INTERNAL, why))?;
+    Ok(crate::updates::read(&app).await)
 }
 
 /// FS5979: the branch the live App's source checkout is on.

@@ -110,12 +110,8 @@ impl<'a> MenuCommand<'a> {
 
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     match MenuCommand::parse(event.id().0.as_str()) {
-        MenuCommand::Update => crate::updater::choose(app),
-        MenuCommand::AppSettings => {
-            if let Err(error) = app.emit("open-app-settings", ()) {
-                crate::diagnostics::failure("open Settings", &error);
-            }
-        }
+        MenuCommand::Update => open_settings(app, Some("updates")),
+        MenuCommand::AppSettings => open_settings(app, None),
         MenuCommand::ForkSheet => {
             if let Err(error) = app.emit("open-fork-sheet", ()) {
                 crate::diagnostics::failure("open the Fork sheet", &error);
@@ -123,6 +119,13 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
         }
         MenuCommand::Project(command) => open_project_page(app, command),
         MenuCommand::Choice => app.state::<Choice>().chosen(event),
+    }
+}
+
+/// U3799, U7208f: asks the webview to show App Settings, on `page` when one is named.
+fn open_settings<R: Runtime>(app: &AppHandle<R>, page: Option<&str>) {
+    if let Err(error) = app.emit("open-app-settings", page) {
+        crate::diagnostics::failure("open Settings", &error);
     }
 }
 
