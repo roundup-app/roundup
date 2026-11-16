@@ -267,10 +267,12 @@
   min-width: 0;
 }
 
-.settings-content :is([data-slot="field-label"], .settings-field-caption),
-.settings-content .app-select-label {
-  font-size: var(--text-body);
-  color: var(--text);
+/* A dialog opened from Settings stays in place under it (ui-sdk's top layer), so a row's paint stops at the dialog. */
+@scope (.settings-content) to (.app-dialog) {
+  :scope :is([data-slot="field-label"], .settings-field-caption, .app-select-label) {
+    font-size: var(--text-body);
+    color: var(--text);
+  }
 }
 
 .settings-hint,
