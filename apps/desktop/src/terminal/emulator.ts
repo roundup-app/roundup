@@ -31,6 +31,9 @@ import "@xterm/xterm/css/xterm.css";
 
 export type Size = { cols: number; rows: number };
 
+/** U7211a: the view's row grid as the emulator last drew it: one row's height in CSS px, the row count, and the cursor's row in the view, or null while the view is scrolled away from it. */
+export type ViewRows = { height: number; count: number; cursor: number | null };
+
 /** An attached, fitted destination owned by one launch until it binds or is disposed. */
 export type TerminalPreparation = {
   size: Size;
@@ -85,6 +88,8 @@ export type Emulator = {
   isAtBottom(): boolean;
   /** Fires whenever the view's scroll position changes. */
   onScroll(listener: () => void): void;
+  /** U7211a: fires after a drawn frame that changed the view's row grid. */
+  onRows?(listener: (rows: ViewRows) => void): void;
   scrollToBottom(): void;
   dispose(): void;
 };
@@ -95,7 +100,7 @@ type InputOrigin = Terminal & { _core: { coreService: {
 } } };
 
 /** xterm's render service: its public `refresh` waits an animation frame, its `sync` flag does not; `_isPaused` is what its IntersectionObserver sets for a Terminal outside the viewport. */
-type RenderRows = Terminal & { _core: { _renderService?: { _isPaused: boolean; refreshRows(start: number, end: number, sync: boolean): void } } };
+type RenderRows = Terminal & { _core: { _renderService?: { _isPaused: boolean; dimensions: { css: { cell: { height: number } } }; refreshRows(start: number, end: number, sync: boolean): void } } };
 
 /** Draws every row now. With `resume`, past xterm's pause for a Terminal outside the viewport (IP7168d): that pause lifts from an observer task, a frame late. */
 const drawNow = (terminal: Terminal, resume = false): void => {
@@ -105,6 +110,25 @@ const drawNow = (terminal: Terminal, resume = false): void => {
   if (resume && service) service._isPaused = false;
 
   service?.refreshRows(0, terminal.rows - 1, true);
+};
+
+/** U7211a: calls `listener` after each drawn frame that changed the view's row grid. */
+const reportRows = (terminal: Terminal, listener: (rows: ViewRows) => void): void => {
+  let last = "";
+
+  terminal.onRender(() => {
+    const buffer = terminal.buffer.active;
+    // SAFETY: pinned xterm 6.1 keeps its measured cell on `_core._renderService.dimensions`; before the first measure the height is 0 and nothing is reported.
+    const height = (terminal as RenderRows)._core._renderService?.dimensions.css.cell.height ?? 0;
+    const cursor = buffer.baseY + buffer.cursorY - buffer.viewportY;
+    const rows: ViewRows = { height, count: terminal.rows, cursor: cursor >= 0 && cursor < terminal.rows ? cursor : null };
+    const key = [rows.height, rows.count, rows.cursor].join("|");
+
+    if (height === 0 || key === last) return;
+
+    last = key;
+    listener(rows);
+  });
 };
 
 export { attachRenderer, arabicRuns } from "./renderer";
@@ -644,9 +668,7 @@ export const createXtermEmulators = (
           listener(Uint8Array.from(text, (char) => char.charCodeAt(0)));
         });
       },
-      onLink: (listener) => {
-        linkListener = listener;
-      },
+      onLink: (listener) => { linkListener = listener; },
       serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: drawnImages.serialized(serializer.serialize({ scrollback: SCROLLBACK_LINES })) }),
       selection: () => terminal.getSelection(),
       find: (query, backwards = false) => query !== "" && (backwards ? searcher.findPrevious(query) : searcher.findNext(query)),
@@ -661,6 +683,7 @@ export const createXtermEmulators = (
       blur: () => terminal.blur(),
       isAtBottom: () => terminal.buffer.active.viewportY === terminal.buffer.active.baseY,
       onScroll: (listener) => terminal.onScroll(() => listener()),
+      onRows: (listener) => reportRows(terminal, listener),
       scrollToBottom: () => {
         fontViewport?.dispose();
         fontViewport = null;

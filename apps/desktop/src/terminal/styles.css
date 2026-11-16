@@ -11,16 +11,35 @@
   padding-inline: var(--space-2);
 }
 
-/* U7211a: every Pane reserves one line above its Terminal, so what the line says moves nothing (U3807), covers no output (U7192) and keeps the first PTY grid the fitted one (U4590). */
-.pane-top {
-  flex: none;
-  min-block-size: var(--line);
-}
-
 .pane-body {
   position: relative;
   flex: 1;
   min-height: 0;
+  /* U7211a: the inset above the Terminal's first row, which the line over a row counts from too. */
+  --terminal-inset: var(--space-2);
+}
+
+/* U7211a: the line floats over one whole Terminal row, out of the layout flow, so showing it resizes nothing (U3807, U4590).
+   Pane sets the row it covers (--over-row) and the emulator's measured row height (--terminal-row), so its edges fall on row edges at any text size. */
+.pane-over {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(var(--terminal-inset) + var(--over-row) * var(--terminal-row, var(--line)));
+  block-size: var(--terminal-row, var(--line));
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* The row's height is the line's; its controls keep their 24 px hit area (D6) past its edges. */
+.pane-over .reserved-line {
+  block-size: 100%;
+  min-block-size: 0;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.pane-over .reserved-line:not([data-empty]) {
+  pointer-events: auto;
 }
 
 .pane-screen {
@@ -32,6 +51,8 @@
   /* U371, U430: keep the old Terminal columns clipped through a reserved slide.
      A transient horizontal scrollbar would cost one row and send a second resize. */
   overflow: clip;
+  /* U7211a: xterm's own layers (z-index up to 11) stay under the line over a row. */
+  isolation: isolate;
 }
 
 .pane .pane-latest {
@@ -80,7 +101,7 @@
 
 /* The top takes the side inset's Token. It sits on the emulator's own element because FitAddon subtracts that element's padding, and not its parent's, from the rows it fits. */
 .pane .xterm {
-  padding-top: var(--space-2);
+  padding-top: var(--terminal-inset);
 }
 
 /* U3517c: the viewport and the surrounding inset share the canvas ground; the repeated class outranks the lazy xterm.css whatever order the sheets load in. */
