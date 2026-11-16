@@ -39,6 +39,5 @@
   background-color: var(--accent);
 }
 
-/* The cursor is the arrow at rest; only a row a drag holds shows the grabbing hand. */
-[data-dnd-dragging],
-[data-dnd-dragging] * { cursor: grabbing; }
+/* The cursor is the arrow at rest; only a row a drag holds shows the grabbing hand, and a control inside it keeps its own cursor (D6). */
+[data-dnd-dragging] { cursor: grabbing; }
