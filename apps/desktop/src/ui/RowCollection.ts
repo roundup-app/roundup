@@ -10,6 +10,9 @@ export const rowKey = (event: KeyboardEvent) => event.target instanceof Element
 /** A modal passes these keys to the focused element's own handler (Ark's tree view) instead of swallowing them. */
 export const claimKeys = (element: Element, claims: (event: KeyboardEvent) => boolean) => { keys.set(element, claims); };
 
+// U7158: type-to-find lives only in an open menu or dialog; every other list leaves a letter to its shortcut or to the centre.
+const FINDING = "[role=menu], [role=dialog], [role=alertdialog]";
+
 // Shortcut guards and the row handler consult the same library search for one press.
 const searches = new WeakMap<Element, (event: KeyboardEvent) => string | null>();
 
@@ -28,6 +31,8 @@ export const createRowCollection = (items: () => { value: string; label: string 
 
   const search = (event: KeyboardEvent) => {
     if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey || event.key.length !== 1 || event.key === " ") return null;
+
+    if (!(event.target instanceof Element && event.target.closest(FINDING))) return null;
 
     if (results.has(event)) return results.get(event)!;
     const row = event.target instanceof HTMLElement ? event.target : null;

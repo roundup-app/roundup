@@ -291,12 +291,14 @@ it("u3512a_terminal_close_waits_for_one_native_answer_and_cancel_keeps_it", asyn
   fireEvent.click(close);
   fireEvent.click(close);
   expect(app.questions).toHaveLength(1);
-  expect(await questionDialog()).toEqual({ title: "Close cargo test?", message: "The Terminal and its output will be removed. Its running program will stop.", okLabel: "Close", cancelLabel: "Keep" });
+  expect(await questionDialog()).toEqual({ title: "Close cargo test?", message: "The Terminal and its output will be removed. Its running program will stop.", okLabel: "Close", cancelLabel: "Keep", suppressible: "Don't ask again" });
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   await answerQuestion(false);
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   expect(close.isConnected).toBe(true);
+  await new Promise(resolve => setTimeout(resolve));
   fireEvent.click(close);
+  await questionDialog();
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "1" }]));
 });

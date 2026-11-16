@@ -1,5 +1,6 @@
 import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
+import { askOnce } from "../settings/warnings";
 import { createItemFailure } from "./itemFailure";
 import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
@@ -22,9 +23,14 @@ import { outcomeOf, type AppSeam } from "../app/seam";
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
-/** U5151c: one failure, bound to its Attempt and Status revision. */
-const failureKey = (node: RailNode): string | null =>
-  isDoor(node) && node.status?.kind === "error" && node.attempt !== null && node.status_revision !== null ? `${node.id}:${node.attempt}:${node.status_revision}` : null;
+const isTerminal = (item: RailNode | TerminalInfo): item is TerminalInfo => "incarnation" in item;
+
+/** U5151c: one failure, bound to its Attempt and Status revision. U7189: a Terminal's status, bound to the Terminal and the time its Kind last changed, so a new status needs the owner again. */
+const failureKey = (item: RailNode | TerminalInfo): string | null => {
+  if (isTerminal(item)) return item.status ? `terminal:${item.incarnation}:${item.status.since}` : null;
+
+  return isDoor(item) && item.status?.kind === "error" && item.attempt !== null && item.status_revision !== null ? `${item.id}:${item.attempt}:${item.status_revision}` : null;
+};
 
 export type DismissalStorage = {
   read(): string[] | null;
@@ -32,10 +38,10 @@ export type DismissalStorage = {
 };
 
 export type RailState = {
-  /** U5151c: whether the owner dismissed this node's current failure. */
-  dismissed(node: RailNode): boolean;
-  /** U5151c: acknowledge this node's current failure; sends nothing to the Agent. */
-  dismiss(node: RailNode): void;
+  /** U5151c: whether the owner dismissed this node's current failure. U7189: whether the owner has seen this Terminal's current status. */
+  dismissed(item: RailNode | TerminalInfo): boolean;
+  /** U5151c: acknowledge this node's current failure; sends nothing to the Agent. U7189: the owner has seen this Terminal's status. */
+  dismiss(item: RailNode | TerminalInfo): void;
   prepareTerminal?: (() => Promise<TerminalPreparation | undefined>) | undefined;
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
@@ -532,7 +538,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const lift = state.drawNew("workstream", params.name, null);
 
       try {
-        if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
+        if (workstreamUnknown !== null && !await askOnce(app, "new-workstream-again", { title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
 
         workstreamFocus = captureFocus(true);
         workstreamSelection = selectionRevision;
@@ -679,19 +685,19 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       else if (change.kind === "move") setModel("tree", reconcile(movedTo(model.tree, id, change.asked), { key: "id" }));
     },
     failure,
-    dismissed: (node) => {
-      const key = failureKey(node);
+    dismissed: (item) => {
+      const key = failureKey(item);
 
       return key !== null && dismissedKeys().has(key);
     },
-    dismiss: (node) => {
-      const key = failureKey(node);
+    dismiss: (item) => {
+      const key = failureKey(item);
 
       if (key === null) return;
       const next = new Set(dismissedKeys()).add(key);
 
       setDismissedKeys(next);
-      void dismissals?.write([...next]).then(problem => { if (problem !== null) setUnsaved(lines => [...lines.filter(line => line.key !== key), { key, name: node.name }]); else setUnsaved([]); });
+      void dismissals?.write([...next]).then(problem => { if (problem !== null) setUnsaved(lines => [...lines.filter(line => line.key !== key), { key, name: isTerminal(item) ? item.program : item.name }]); else setUnsaved([]); });
     },
     unsavedDismissal: () => unsaved()[0]?.name ?? null,
     retryDismissal: () => {

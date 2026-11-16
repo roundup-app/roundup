@@ -26,7 +26,7 @@ import { PAD_ICON } from "../shelf/frame";
 import { openThroughRow } from "../shelf/openItem";
 import { usePadList } from "../pads/padList";
 import { KeyHint } from "../keys/KeyHint";
-import { REVEAL_BUBBLE } from "../bubbles/places";
+import { revealTerminal } from "../bubbles/places";
 import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX, type Entry } from "./entries";
 import type { ToastQueue } from "../toasts/queue";
 import { strandedSwitcherKeys } from "./strandedKeys";
@@ -241,8 +241,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     }
 
     if (entry.kind === "terminal") {
-      rail.select(entry.terminal.owner === project.path ? null : entry.terminal.owner);
-      window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: entry.terminal.id }));
+      revealTerminal(rail, project.path, entry.terminal);
 
       return;
     }
