@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
+import { shownText } from "../testing/rowTip";
 import { railAge } from "../shelf/Age";
 import { itemOf, mountRail } from "./railFixture";
 
@@ -26,7 +27,7 @@ it("u7205a_a_row_holds_no_status_words", async () => {
   for (const kind of KINDS) {
     const row = itemOf(kind);
 
-    expect(row.textContent).not.toContain(`${kind} label`);
+    expect(shownText(row)).not.toContain(`${kind} label`);
     expect(row.querySelector(".row-status, .failure-line, [data-failure]")).toBeNull();
   }
 });
@@ -37,7 +38,7 @@ it("u7205a_the_glyph_tooltip_and_name_carry_the_status", async () => {
   const glyph = find(row, ".row-state [role=img]");
 
   expect(glyph.getAttribute("aria-label")).toContain("Rate limited, retry later");
-  fireEvent.pointerMove(find(row, ".row-state"), { pointerType: "mouse" });
+  fireEvent.pointerEnter(find(row, ".row-state"), { pointerType: "mouse", clientX: 0, clientY: 0 });
   await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(glyph.getAttribute("aria-label")));
 });
 
@@ -63,7 +64,7 @@ it("u7205e_attribution_is_an_icon_with_the_started_by_tooltip", async () => {
   const icon = find(row, ".attribution-icon");
 
   expect(row.querySelector(".reserved-line")).toBeNull();
-  fireEvent.pointerMove(icon, { pointerType: "mouse" });
+  fireEvent.pointerEnter(icon, { pointerType: "mouse", clientX: 0, clientY: 0 });
   await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(icon.getAttribute("aria-label")));
 });
 

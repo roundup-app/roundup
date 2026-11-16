@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import type { Machine } from "@contracts/machine/Machine";
 import { answerOf, type App } from "../app/seam";
 import { Field } from "../ui/Field";
@@ -13,7 +13,13 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     return path === null ? null : props.app.forProject(path);
   };
 
-  const [listed, { mutate }] = createResource(calls, async project => await project.rpc("machine.list", null).catch((): Machine[] => []));
+  // Rereads whenever the Project changes; an add or remove writes the list the Daemon answers with.
+  const [listed, setListed] = createSignal<Machine[] | undefined>(async () => {
+    const project = calls();
+
+    return project === null ? undefined : await project.rpc("machine.list", null).catch((): Machine[] => []);
+  }, { loadingValue: undefined });
+
   const [host, setHost] = createSignal("");
   const [addFailure, setAddFailure] = createSignal<string | null>(null);
   const [rowFailure, setRowFailure] = createSignal<{ name: string; hint: string } | null>(null);
@@ -25,7 +31,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     if (name === "" || project === null) return;
 
     try {
-      mutate(await project.rpc("machine.add", { name }));
+      setListed(await project.rpc("machine.add", { name }));
       setHost("");
       setAddFailure(null);
     } catch (error) {
@@ -39,7 +45,7 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     if (project === null || !answerOf(await props.app.ask(copy.machineRemoveQuestion(name))).accepted) return;
 
     try {
-      mutate(await project.rpc("machine.remove", { name }));
+      setListed(await project.rpc("machine.remove", { name }));
       setRowFailure(null);
     } catch (error) {
       setRowFailure({ name, hint: error instanceof Error ? error.message : String(error) });

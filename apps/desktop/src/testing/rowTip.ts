@@ -13,3 +13,9 @@ export const rowStatusLabel = async (row: HTMLElement): Promise<string> => {
 
   return label;
 };
+
+/** What a row shows: a Tooltip's content sits inside its cell, hidden, so it is no part of what the row reads. */
+export const shownText = (node: Node): string =>
+  node instanceof Element && node.matches("[data-slot=tooltip-content]") ? ""
+    : node.nodeType === Node.TEXT_NODE ? node.textContent ?? ""
+      : [...node.childNodes].map(shownText).join("");

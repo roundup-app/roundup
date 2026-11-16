@@ -9,6 +9,7 @@ import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import type { AskRouting } from "../state/asks";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
+import { shownText } from "../testing/rowTip";
 import { agent, door, workstream } from "../testing/nodes";
 import { createRailState } from "../state/rail";
 import { Pane } from "../terminal/Pane";
@@ -73,12 +74,6 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.map((part) => part.text).join(" ")): Ask => ({ id, text, at: BigInt(at), parts });
 
 export const input = (): HTMLTextAreaElement | null => document.querySelector<HTMLTextAreaElement>(".ask-input");
-
-/** What a row shows: a Tooltip's content sits inside its cell, hidden, so it is no part of what the row reads. */
-const shownText = (node: Node): string =>
-  node instanceof Element && node.matches("[data-slot=tooltip-content]") ? ""
-    : node.nodeType === Node.TEXT_NODE ? node.textContent ?? ""
-      : [...node.childNodes].map(shownText).join("");
 
 export const rowTexts = (): string[] => [...document.querySelectorAll(".ask-row")].map((row) => [...row.querySelectorAll(".ask-text, .ask-where, .ask-state")].map((part) => shownText(part).trim()).join(" | "));
 

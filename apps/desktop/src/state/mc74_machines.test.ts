@@ -1,4 +1,4 @@
-import { createRoot, createSignal } from "solid-js";
+import { createRoot, createSignal, getOwner, runWithOwner } from "solid-js";
 import { expect, it } from "vitest";
 import type { Machine } from "@contracts/machine/Machine";
 import { createFakeApp } from "../testing/fakeApp";
@@ -8,17 +8,20 @@ const read = async (list: Machine[], choose = "") => {
   const app = createFakeApp();
   app.handlers["machine.list"] = () => list;
 
-  return await createRoot(async dispose => {
+  // The user's choice is a write from outside any owner, as a click is.
+  const { machines, owner, dispose } = createRoot(dispose => {
     const [tick] = createSignal(0);
-    const machines = createMachines(app, tick, () => null);
-    machines.nameStart(choose);
-    machines.watch(() => true);
-    await new Promise(resolve => setTimeout(resolve, 20));
-    const seen = { any: machines.any(), names: machines.names(), start: machines.start() };
-    dispose();
 
-    return seen;
+    return { machines: createMachines(app, tick, () => null), owner: getOwner(), dispose };
   });
+
+  machines.nameStart(choose);
+  runWithOwner(owner, () => machines.watch(() => true));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const seen = { any: machines.any(), names: machines.names(), start: machines.start() };
+  dispose();
+
+  return seen;
 };
 
 it("mc74_an_unreachable_only_machine_leaves_no_chip_on_a_local_agent", async () => {
