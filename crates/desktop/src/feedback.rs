@@ -236,8 +236,9 @@ mod tests {
     /// A 1000 by 1000 PNG of noise, over 2 MB because noise does not compress.
     fn noisy_png() -> Vec<u8> {
         let image = image::RgbImage::from_fn(1000, 1000, |x, y| {
-            let h = (u64::from(x) * 0x9E37_79B9_7F4A_7C15 ^ u64::from(y) * 0xC2B2_AE3D_27D4_EB4F)
-                .wrapping_mul(0x1656_67B1_9E37_79F9);
+            let h = (u64::from(x).wrapping_mul(0x9E37_79B9_7F4A_7C15)
+                ^ u64::from(y).wrapping_mul(0xC2B2_AE3D_27D4_EB4F))
+            .wrapping_mul(0x1656_67B1_9E37_79F9);
             image::Rgb([(h >> 8) as u8, (h >> 24) as u8, (h >> 40) as u8])
         });
         let mut png = Vec::new();
