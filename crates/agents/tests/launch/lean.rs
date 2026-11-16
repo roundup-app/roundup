@@ -203,7 +203,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
                 assert!(!has(&argv, flag), "{row:?}: {flag}");
             }
             assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
-            assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
+            assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 4);
             let tools = match row {
                 Role::Door => {
                     Some("Read,Grep,Glob,Bash,Write,Edit,Agent,ToolSearch,Skill,AskUserQuestion")
@@ -264,7 +264,7 @@ async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plai
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert!(!has(&argv, "--setting-sources"));
-    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
+    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 4);
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
     assert!(!text.contains("USER GLOBAL RULE"));
@@ -327,7 +327,11 @@ async fn lc5_every_child_gets_the_plugins_and_no_instruction_copy() {
                 read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone()
             })
             .collect();
-        assert_eq!(json!(names), json!(["hope", "hunch", "hold"]), "{row:?}");
+        assert_eq!(
+            json!(names),
+            json!(["hope", "hunch", "hold", "roundup"]),
+            "{row:?}"
+        );
         let brief =
             std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
                 .unwrap();
@@ -338,19 +342,56 @@ async fn lc5_every_child_gets_the_plugins_and_no_instruction_copy() {
 }
 
 #[tokio::test]
+async fn h7200f_every_launch_carries_the_handoff_command() {
+    for (row, role, pair) in lean_children() {
+        let s = setup();
+        // The user's own plugins stay: roundup's command is added beside them (LC2, LC6).
+        s.user_file(
+            "settings.json",
+            &json!({"enabledPlugins":{"mine@personal":true}}).to_string(),
+        );
+        let launcher = plugin_launcher(&s);
+        let (argv, _, _) = launcher
+            .launch_on(&agents::claude_code::Request {
+                folders: folders(&s.dir),
+                id: "7",
+                attempt: "1",
+                cwd: &s.cwd,
+                resume: None,
+                role,
+                facts: &pair,
+            })
+            .await
+            .unwrap();
+        let own = argv
+            .windows(2)
+            .filter(|pair| pair[0] == "--plugin-dir")
+            .map(|pair| Path::new(&pair[1]).to_owned())
+            .find(|dir| read(&dir.join(".claude-plugin/plugin.json"))["name"] == "roundup")
+            .unwrap_or_else(|| panic!("{row:?}: no roundup plugin in {argv:?}"));
+        let command = std::fs::read_to_string(own.join("commands/handoff.md")).unwrap();
+        for word in ["pad_create", "agent_handoff", "only when the user's words"] {
+            assert!(command.contains(word), "{row:?}: {word}");
+        }
+        let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+        assert!(settings.get("enabledPlugins").is_none(), "{row:?}");
+    }
+}
+
+#[tokio::test]
 async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
     for (enabled, want) in [
         (
             json!({"hope@personal":true,"hunch@personal":true,"hold@personal":true}),
-            json!([]),
+            json!(["roundup"]),
         ),
         (
             json!({"hope@personal":false,"hunch@personal":false,"hold@personal":false}),
-            json!(["hope", "hunch", "hold"]),
+            json!(["hope", "hunch", "hold", "roundup"]),
         ),
         (
             json!({"hope@personal":true,"hunch@personal":false,"hold@personal":true}),
-            json!(["hunch"]),
+            json!(["hunch", "roundup"]),
         ),
     ] {
         for (row, role, pair) in lean_children() {
@@ -448,7 +489,7 @@ async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
         .filter(|pair| pair[0] == "--plugin-dir")
         .map(|pair| read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone())
         .collect();
-    assert_eq!(json!(names), json!(["hunch", "hold"]));
+    assert_eq!(json!(names), json!(["hunch", "hold", "roundup"]));
     let brief =
         std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
             .unwrap();
@@ -499,7 +540,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
     assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
-    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
+    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 4);
 }
 
 /// A Project skill, a user plugin and a user MCP server, for LC7 and LC8.

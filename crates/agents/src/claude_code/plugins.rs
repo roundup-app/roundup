@@ -17,6 +17,17 @@ const PIN: &str = "595eda0e3b477d1af1daad82f395073d4f912c8d";
 const PACKED: &[u8] = include_bytes!("../../assets/plugins/moo.json.gz");
 const CHECKSUM: &str = include_str!("../../assets/plugins/moo.sha256");
 const PROBE: &str = include_str!("../../assets/plugins/runtime.test.ts.in");
+/// H7200f: roundup's own plugin, one command beside the pinned ones; its files are not in `PACKED`.
+const OWN: [(&str, &str); 2] = [
+    (
+        "roundup/.claude-plugin/plugin.json",
+        include_str!("../../assets/plugins/roundup/plugin.json"),
+    ),
+    (
+        "roundup/commands/handoff.md",
+        include_str!("../../assets/plugins/roundup/handoff.md"),
+    ),
+];
 const PLUGINS: [(&str, &str); 3] = [("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")];
 
 #[derive(Debug)]
@@ -78,14 +89,20 @@ struct Manifest {
 /// Every asset is checked before publication; callers cannot receive a partial set.
 pub struct Plugins {
     storage: tempfile::TempDir,
-    directories: [PathBuf; 3],
+    directories: [PathBuf; 4],
     source: Source,
 }
 
 /// Materialize all pinned bytes offline. `data` must be roundup-owned Project data.
 /// Unique staging avoids concurrent delivery races and never overwrites an existing directory.
 pub fn materialize(data: &Path) -> Result<Plugins, Error> {
-    let source = source()?;
+    let mut source = source()?;
+    source.assets.extend(OWN.map(|(path, content)| Asset {
+        path: path.into(),
+        mode: 0o644,
+        sha256: checksum(content.as_bytes()),
+        content: content.into(),
+    }));
     std::fs::create_dir_all(data)?;
     let storage = tempfile::Builder::new()
         .prefix("q11-plugins-")
@@ -98,7 +115,8 @@ pub fn materialize(data: &Path) -> Result<Plugins, Error> {
         std::fs::write(&path, &asset.content)?;
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(asset.mode))?;
     }
-    let directories = PLUGINS.map(|(name, _)| storage.path().join(name));
+    let [hope, hunch, hold] = PLUGINS.map(|(name, _)| storage.path().join(name));
+    let directories = [hope, hunch, hold, storage.path().join("roundup")];
     let bundle = Plugins {
         storage,
         directories,
@@ -109,7 +127,7 @@ pub fn materialize(data: &Path) -> Result<Plugins, Error> {
 }
 
 impl Plugins {
-    pub fn directories(&self) -> &[PathBuf; 3] {
+    pub fn directories(&self) -> &[PathBuf; 4] {
         &self.directories
     }
 

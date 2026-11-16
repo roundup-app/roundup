@@ -1,3 +1,4 @@
+import { handoffTaker } from "./handoff";
 import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { askOnce } from "../settings/warnings";
@@ -280,6 +281,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let workstreamUnknown: string | null = null;
   let workstreamFocus = captureFocus();
   let selectionRevision = 0;
+  /** H7200d: the rows on the Rail when the selection was last made. */
+  let seenAtSelect: ReadonlySet<string> = new Set();
   let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
@@ -346,6 +349,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
+    seenAtSelect = new Set(model.tree.map(node => node.id));
     batch(() => {
       setTerminalFocus(() => focus);
       setSelectionIntent(intent ?? "select");
@@ -360,6 +364,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const fetchTree = async () => {
     const tree = await app.rpc("rail.tree", null);
+    const before = model.tree.map(({ id, kind, parent }) => ({ id, kind, parent }));
     let resumptionChanged = false;
 
     batch(() => {
@@ -399,6 +404,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
         if (saved) {
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
+          seenAtSelect = new Set(tree.map(node => node.id));
           setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && (isWorkstream(node) || node.kind === "group")))));
           reveal(selected());
           setRestored(selected() !== null);
@@ -408,8 +414,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         const id = selected();
 
         if (id !== null && !tree.some((node) => node.id === id)) {
-          setSelected(null);
-          save();
+          const taker = handoffTaker(before, tree, id, seenAtSelect);
+
+          if (taker !== null) select(taker, terminalFocus(), selectionIntent() === "open" ? "open" : undefined);
+          else {
+            setSelected(null);
+            save();
+          }
         }
       }
     });

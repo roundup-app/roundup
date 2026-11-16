@@ -50,7 +50,7 @@ const find = (entries: MenuEntry[], id: string): MenuEntry | undefined => {
 const groups = [
   ["open", "dismiss", "recover"],
   ["start-now", "dequeue", "move-up", "move-down"],
-  ["start", "restart", "yolo", "stop", "resume"],
+  ["start", "restart", "yolo", "hand-off", "stop", "resume"],
   ["complete"],
   ["folder", "editor", "send", "copy-link", "copy"],
   ["rename", "alerts", "clear", "mode-prompt", "assign", "make-yours", "move", "move-up", "move-down", "make-workstream", "save-as-mode"],

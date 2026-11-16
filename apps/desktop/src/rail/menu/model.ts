@@ -342,6 +342,13 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     ];
   };
 
+  /** H7200f: the user's own `/handoff`, typed into the Agent; the Agent then calls `agent.handoff` itself. */
+  const handOff = async (node: RailNode) => { await railCommand(rail, { item: node.id, call: () => app.rpc("agent.prompt", { id: node.id, text: "/handoff" }) }); };
+
+  /** H7200f: an Agent that is idle or needs you may be handed off; a Door never is. */
+  const canHandOff = (node: RailNode, exit: ExitState | null) =>
+    node.kind === "agent" && exit === null && (node.status?.kind === "idle" || node.status?.kind === "needs-you");
+
   const lifecycleEntries = (node: RailNode, exit: ExitState | null): Candidate[] => {
     const running = isRunning(node, exit);
 
@@ -350,6 +357,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
       { when: isYolo(node) && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
+      { when: canHandOff(node, exit), id: "hand-off", label: copy.handOff, run: () => handOff(node) },
       { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
       { when: isResumable(node, exit), id: "resume", label: copy.resume, run: () => {
         rail.select(node.id);

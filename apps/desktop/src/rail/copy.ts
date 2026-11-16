@@ -148,6 +148,7 @@ export const copy = {
   copyLink: sharedCopy.copyLink,
   restart: "Restart",
   startYolo: "Start YOLO",
+  handOff: "Hand off",
   failed: sharedCopy.failed,
   moveItem: sharedCopy.moveItem,
   newMode: sharedCopy.newMode,
