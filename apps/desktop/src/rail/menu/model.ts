@@ -99,11 +99,14 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     return restart(node, isYolo(node) ? "yolo" : "normal");
   };
 
-  /** U7191b: asks when it would interrupt work, by Stop's rule; an idle, done or stopped Agent restarts at once. */
-  const requestRestart = (node: RailNode, exit: ExitState | null) => {
-    if (state() !== null) return;
+  /** U7191b: a Door with a conversation resumes it, asking when that would interrupt work by Stop's rule; any other Mode types its saved prompt. */
+  const requestRestart = (id: string) => {
+    const node = rail.nodes.find(candidate => candidate.id === id);
 
-    if (needsConfirmation(node, exit)) setState({ kind: "restart", node, exit });
+    if (!node || state() !== null) return;
+
+    if (!isDoor(node) || !node.has_conversation) void restartMode(id);
+    else if (needsConfirmation(node, rail.exitOf(node))) setState({ kind: "restart", node, exit: rail.exitOf(node) });
     else void restartNow(node);
   };
 
@@ -340,7 +343,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
     return [
       renameEntry(node),
-      { when: isDoor(node) && node.has_conversation, id: "restart", label: copy.restart, shortcut: "R", run: () => requestRestart(node, exit) },
+      { when: isDoor(node) && node.has_conversation, id: "restart", label: copy.restart, shortcut: "R", run: () => requestRestart(node.id) },
       { when: isYolo(node) && !isMode(node) && running, id: "normal", label: copy.startNormal, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
