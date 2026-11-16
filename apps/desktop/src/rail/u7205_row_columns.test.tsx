@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent } from "../testing/nodes";
+import { agent, door, workstream } from "../testing/nodes";
 import { railAge } from "../shelf/Age";
 import { itemOf, mountRail } from "./railFixture";
 
@@ -77,4 +77,29 @@ it("u7205g_every_row_kind_uses_the_trailing_column", async () => {
     expect(find(row, ".line").lastElementChild?.classList.contains("row-age")).toBe(true);
     expect(find(row, ".row-age").textContent?.endsWith("m")).toBe(true);
   }
+});
+
+it("u7205a_u7205g_every_row_kind_holds_one_line_with_its_reasons_in_the_tooltip", async () => {
+  const stamp = since();
+  await mountRail([
+    door("ws", "error", "Door gone", { name: "work", waiting: 2, status: { kind: "error", label: "Door gone", ...stamp } }),
+    workstream("idle", { name: "stopped", waiting: 3 }),
+    agent("mode", "idle", "", { name: "review mode", mode_prompt: "Review it", status: { kind: "idle", label: "", ...stamp } }),
+    agent("spent", "error", "Claude is overloaded", { name: "spent", resume: { at: null }, status: { kind: "error", label: "Claude is overloaded", ...stamp } }),
+    agent("lost", "idle", "ready", { name: "lost", unreachable: "no receipt after 30 s", status: { kind: "idle", label: "ready", ...stamp } }),
+    agent("child", "idle", "ready", { name: "child", parent: "ws", status: { kind: "idle", label: "ready", ...stamp } }),
+  ]);
+
+  for (const name of ["work", "stopped", "review mode", "spent", "lost", "child"]) {
+    const row = itemOf(name);
+
+    expect(row.querySelectorAll(".line"), name).toHaveLength(1);
+    expect(row.querySelector(".reserved-line, .failure-line, [data-failure], .row-status"), name).toBeNull();
+    expect(find(row, ".line").lastElementChild?.classList.contains("row-age"), name).toBe(true);
+  }
+
+  expect(find(itemOf("stopped"), ".row-state [role=img]").getAttribute("aria-label")).toContain("Door stopped · 3 waiting");
+  expect(find(itemOf("spent"), ".row-state [role=img]").getAttribute("aria-label")).toContain("Claude is overloaded");
+  expect(find(itemOf("lost"), ".row-state [role=img]").getAttribute("aria-label")).toContain("no receipt after 30 s");
+  expect(find(itemOf("lost"), "button.rail-unreachable").getAttribute("aria-label")).toBe("Retry lost");
 });

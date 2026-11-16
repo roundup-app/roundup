@@ -26,7 +26,7 @@ import { railAge } from "../shelf/Age";
 import { useDisplayNow } from "../state/clock";
 import { Tip, type TriggerProps } from "../ui/Tip";
 import { KindGlyph } from "../ink/KindGlyph";
-import { errorCause, Line as FailureCause } from "../ink/FailureLine";
+import { errorCause } from "../ink/FailureLine";
 import { isMode } from "./layout";
 import { descendantsOf, isWorkstream } from "../state/railTopology";
 import { rowKind, rowUnread } from "./rollup";
@@ -212,13 +212,51 @@ export const RailRowView = (props: {
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
+  /** U7205a, U7205b: the reasons that once took a second line (waiting Door, unreachable Agent, resume wait, Door failure) as Tooltip words. */
+  const reasons = (): string[] => {
+    const count = workstream() && !connected.rail.launching(props.row.node.id) ? waiting() : undefined;
+    const reached = unreachable();
+    const resume = !workstream() ? resumeWait() : undefined;
+    const failure = workstream() ? connected.rail.doorFailure(props.row.node.id) : undefined;
+
+    return [
+      count ? copy.doorStoppedWaiting(count) : "",
+      reached ? copy.cantReach(reached.name, reached.unreachable!) : "",
+      resume?.at ? copy.resumesAt(doorStatus()?.label ?? "", resume.at) : "",
+      failure || "",
+    ].filter(Boolean);
+  };
+
   // U7205a: the glyph's Tooltip and accessible name carry the status words, an error's reason included; the row shows none.
   const glyphText = () => {
     const shown = kind() ?? "idle";
     const status = doorStatus();
     const cause = errorCause(status, connected.rail.dismissed(props.row.node));
 
-    return [LABELS[shown], cause ?? (statusLabel().toLowerCase() !== LABELS[shown].toLowerCase() ? statusLabel() : "")].filter(Boolean).join(copy.comma);
+    return [LABELS[shown], cause ?? (statusLabel().toLowerCase() !== LABELS[shown].toLowerCase() ? statusLabel() : ""), ...reasons()].filter(Boolean).join(copy.comma);
+  };
+
+  // DCL1a: only the Agent's transcript can be inspected for an unreadable one; every other cause offers another delivery pass.
+  const retry = () => unreachable()?.unreachable !== "transcript unreadable";
+  const reachLabel = () => retry() ? copy.retryUnreachable() : copy.openUnreachable();
+
+  const reachAct = async (event: MouseEvent) => {
+    const reached = unreachable();
+
+    event.stopPropagation();
+
+    if (!reached) return;
+
+    if (!retry()) return props.onOpen(reached.id);
+
+    const failed = await connected.rail.retryDelivery(reached.id);
+
+    if (failed !== null) props.onFailure(copy.failed(reachLabel(), failed));
+  };
+
+  const resumeAct = (event: MouseEvent) => {
+    event.stopPropagation();
+    void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.resume, failed)); });
   };
 
   let glyphFocus: Pick<TriggerProps, "onFocusIn" | "onFocusOut"> | undefined;
@@ -297,6 +335,8 @@ export const RailRowView = (props: {
       <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
       <Show when={attribution()}>{source => <AttributionIcon text={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
       <Show when={!isGroup()}><MachineIcon node={props.row.node} /></Show>
+      <Show when={unreachable()}>{reached => <button type="button" class="rail-unreachable" data-button="quiet" aria-label={`${reachLabel()} ${reached().name}`} onClick={reachAct}>{reachLabel()}</button>}</Show>
+      <Show when={!workstream() && resumeWait() && !resumeWait()?.at && doorStatus()?.kind === "error"}><button type="button" class="rail-resume" data-button="quiet" aria-label={copy.resumeAgent(props.row.node.name)} onClick={resumeAct}>{copy.resume}</button></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
@@ -305,31 +345,6 @@ export const RailRowView = (props: {
       </span>
       <RowAge since={doorStatus()?.since} />
     </p>
-    <Show when={workstream() && !connected.rail.launching(props.row.node.id) && waiting()}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
-    <Show when={unreachable()}>{reached => {
-      // DCL1a: only the Agent's transcript can be inspected for an unreadable one; every other cause offers another delivery pass.
-      const retry = () => reached().unreachable !== "transcript unreadable";
-      const label = () => retry() ? copy.retryUnreachable() : copy.openUnreachable();
-
-      const act = async (event: MouseEvent) => {
-        event.stopPropagation();
-
-        if (!retry()) return props.onOpen(reached().id);
-
-        const failed = await connected.rail.retryDelivery(reached().id);
-
-        if (failed !== null) props.onFailure(copy.failed(label(), failed));
-      };
-
-      return <ReservedLine class="rail-unreachable" status={copy.cantReach(reached().name, reached().unreachable!)}><button type="button" data-button="quiet" aria-label={`${label()} ${reached().name}`} onClick={act}>{label()}</button></ReservedLine>;
-    }}</Show>
-    <Show when={!workstream() && resumeWait()}>{resume => <Show when={resume().at} fallback={
-      <Show when={doorStatus()?.kind === "error"}>
-        <ReservedLine class="rail-resume rail-resume-spent" status={doorStatus()?.label}><button type="button" data-button="quiet" aria-label={copy.resumeAgent(props.row.node.name)} onClick={event => { event.stopPropagation(); void connected.rail.resumeTurn(props.row.node.id).then(failed => { if (failed !== null) props.onFailure(copy.failed(copy.resume, failed)); }); }}>{copy.resume}</button></ReservedLine>
-      </Show>}>
-      {at => <ReservedLine class="rail-resume" status={copy.resumesAt(doorStatus()?.label ?? "", at())} />}
-    </Show>}</Show>
-    <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
   </div>;
 
   return <>
