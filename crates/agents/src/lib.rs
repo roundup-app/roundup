@@ -120,6 +120,11 @@ pub enum Observation {
     /// DCL3c: the background work a Daemon reopen kept; the first process snapshot decides what
     /// still runs.
     Resumed(claude_code::background::Retained),
+    /// TS1: a Message reached the Agent's inbox as its next prompt: a turn starts, though the
+    /// vendor fires no prompt Signal for it.
+    Delivered,
+    /// TS1: roundup wrote an Interrupt, so the next idle title ends the turn that has no Stop.
+    Interrupted,
     /// A7180b: the model read the Stop of `turn` that began at `started` and found it asks
     /// `question`.
     Judged {

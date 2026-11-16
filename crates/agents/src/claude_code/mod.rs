@@ -132,6 +132,10 @@ pub struct ClaudeCode {
     /// U6909a: a `UserPromptSubmit` or tool Signal opened a turn since the last `Stop`,
     /// `StopFailure` or session start. A `StopFailure` outside one ended no turn of the Agent's work.
     prompted: bool,
+    /// TS1: a Message started the turn, so no prompt Signal opened it and no title tells its end.
+    delivered: bool,
+    /// TS1: between `PreCompact` and `PostCompact` the vendor shows a star with the turn running.
+    compacting: bool,
     /// DCL3: work still running after the foreground turn.
     background: Box<background::Background>,
     /// DCL5: compactions the vendor reported finished, and the last one's payload, so a replay of
@@ -166,6 +170,8 @@ impl ClaudeCode {
             final_text: FinalTextKind::Unknown,
             prompt_id: None,
             prompted: false,
+            delivered: false,
+            compacting: false,
             background: Box::default(),
             compactions: 0,
             last_compaction: None,
@@ -272,11 +278,12 @@ impl ClaudeCode {
                 if kind == Some(Kind::NeedsYou) {
                     return None;
                 }
-                if kind != Some(Kind::Working) || self.spinner_at.is_some() {
+                if !self.sheltered() && (kind != Some(Kind::Working) || self.spinner_at.is_some()) {
                     self.spinner_at = Some((self.clock)());
                 }
                 self.settle(Kind::Working, "working".into())
             }
+            '✳' if kind == Some(Kind::Working) && self.sheltered() => None,
             '✳' if kind == Some(Kind::Working) && self.after_pre_tool_use => {
                 let now = (self.clock)();
                 self.star_parked_since.get_or_insert(now);
@@ -285,6 +292,11 @@ impl ClaudeCode {
             '✳' if kind == Some(Kind::Working) => self.settle(Kind::Idle, "idle".into()),
             _ => None,
         }
+    }
+
+    /// TS1: only a Stop, an Interrupt or a session start ends the turn: a title is no evidence.
+    fn sheltered(&self) -> bool {
+        self.delivered || self.compacting
     }
 
     /// A parked star that no `PermissionRequest` followed was a plain idle, and so is a spinner
@@ -307,7 +319,16 @@ impl ClaudeCode {
         let event = payload["hook_event_name"].as_str();
         // DCL5: only the vendor's completed-compaction event counts; `PreCompact` is a start and
         // usage says nothing.
+        if event == Some("PreCompact")
+            && self
+                .status
+                .as_ref()
+                .is_some_and(|s| s.kind == Kind::Working)
+        {
+            self.compacting = true;
+        }
         if event == Some("PostCompact") {
+            self.compacting = false;
             let seen = payload.to_string();
             if self.last_compaction.as_deref() != Some(seen.as_str()) {
                 self.compactions += 1;
@@ -328,11 +349,12 @@ impl ClaudeCode {
         }
         let mut reading = None;
         if event == Some("Stop") {
-            if let (Some(current), Some(incoming)) =
-                (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
-                && current != incoming
-            {
-                return None;
+            // TS2: a Stop of another turn, or one with no identity while a prompt with one runs,
+            // is not evidence this turn ended.
+            match (self.prompt_id.as_deref(), payload["prompt_id"].as_str()) {
+                (Some(current), Some(incoming)) if current != incoming => return None,
+                (Some(_), None) if self.prompted => return None,
+                _ => {}
             }
             if let (Some(current), Some(incoming)) =
                 (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
@@ -376,6 +398,13 @@ impl ClaudeCode {
             Some("SessionStart" | "Stop") => self.prompted = false,
             Some("StopFailure") if !std::mem::take(&mut self.prompted) => return None,
             _ => {}
+        }
+        if matches!(
+            event,
+            Some("UserPromptSubmit" | "Stop" | "StopFailure" | "SessionStart" | "SessionEnd")
+        ) {
+            self.delivered = false;
+            self.compacting = false;
         }
         let (mut kind, mut label) = hook_status(payload)?;
         if event == Some("Stop") {
@@ -484,6 +513,24 @@ impl ClaudeCode {
         None
     }
 
+    /// TS1: a Message reached the inbox. An idle Agent takes it as its next prompt, so its turn
+    /// starts here; a working one folds it into the turn it runs.
+    fn delivered(&mut self) -> Option<Status> {
+        if self.ending != Ending::Running
+            || self.status.as_ref().is_none_or(|s| s.kind != Kind::Idle)
+        {
+            return None;
+        }
+        self.delivered = true;
+        self.background.stopped = false;
+        self.after_pre_tool_use = false;
+        self.star_parked_since = None;
+        self.spinner_at = None;
+        self.asking = None;
+        self.unclear = None;
+        self.settle(Kind::Working, "working".into())
+    }
+
     /// A7180: a turn ends with nothing holding it: `needs-you` when its last message asked the
     /// user, else `idle`. Every path that ends a turn comes here, so each reads it the same way.
     fn end_turn(&mut self) -> Option<Status> {
@@ -583,6 +630,12 @@ impl ClaudeCode {
                 self.retitle(&title)
             }
             Observation::Program(status) => self.settle(status.kind, status.label),
+            Observation::Delivered => self.delivered(),
+            Observation::Interrupted => {
+                self.delivered = false;
+                self.compacting = false;
+                None
+            }
             Observation::Finished(finished) => {
                 self.set_finished(finished);
                 None

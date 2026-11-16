@@ -18,6 +18,8 @@ impl Observation {
             Self::Failed(_) => "failed",
             Self::Resumed(_) => "resumed",
             Self::Judged { .. } => "stop judged",
+            Self::Delivered => "message delivery",
+            Self::Interrupted => "interrupt",
         }
     }
 }
