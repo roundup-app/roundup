@@ -13,6 +13,10 @@ const EXEMPT = {
   "todo.assign": "acts on the selection through the Owner command, which already reads the sole selected row",
   "todo.assign-slot": "acts on the selection through the Owner command, which already reads the sole selected row",
   "todo.open-draft": "Enter on a focused row button is the button's own activation",
+  "row.move-up": "a Help row with no press of its own: the focused row's list reads the ⌥ arrows (U7276c)",
+  "row.move-down": "a Help row with no press of its own: the focused row's list reads the ⌥ arrows (U7276c)",
+  "row.nest": "a Help row with no press of its own: the focused row's list reads the ⌥ arrows (U7276c)",
+  "row.unnest": "a Help row with no press of its own: the focused row's list reads the ⌥ arrows (U7276c)",
 } satisfies Record<string, string>;
 
 it("u6829d_every_row_bound_key_is_in_the_body_focus_table", () => {

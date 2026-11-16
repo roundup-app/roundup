@@ -77,19 +77,20 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 
 const ROW_KEYS = new Map<string, RowKey>([["ArrowUp", "up"], ["ArrowDown", "down"], ["ArrowRight", "in"], ["ArrowLeft", "out"]]);
 
-// U41, U7276c: `⌥` with an arrow on a focused row moves it one call; ui-sdk's tree would take Alt+←/→ as collapse or expand of everything below it, so no press of these reaches it.
+// U41, U7276c: `⌥` with an arrow on a focused row moves it one call, and a chord with no move leaves the press as it was; ui-sdk's tree would take Alt+←/→ as collapse or expand of everything below it, so no press of these reaches it.
 const rowKeys = (element: HTMLElement, tree: () => DropRules & { rows: readonly TreeRow[] }, commit: (move: SortableMove) => void) => makeEventListener(element, "keydown", press => {
   const key = ROW_KEYS.get(press.key);
 
   if (!key || !press.altKey || press.ctrlKey || press.metaKey || press.shiftKey || !(press.target instanceof HTMLElement) || !press.target.matches(ROW)) return;
   press.stopPropagation();
-  press.preventDefault();
 
   const id = press.target.dataset.id ?? "";
   // A Mode row stays put, as under a pointer; a row the tree lacks has no move.
   const move = press.repeat || press.target.dataset.mode === "true" ? null : keyMove(tree(), id, key);
 
-  if (move) commit({ id, ...move });
+  if (!move) return;
+  press.preventDefault();
+  commit({ id, ...move });
 }, { capture: true });
 
 // U5531b, U5991a: reports the row inside `element` that holds focus, so one that leaves hands its focus to the nearest row left. ui-sdk's tree reports only the keyboard's moves, and a press or a `focus()` call moves focus too.
