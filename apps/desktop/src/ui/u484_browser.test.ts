@@ -67,25 +67,14 @@ const capture = async (id: string, name: string) => {
   writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
 };
 
-const keyboard = async (id: string) => {
-  await browser("focus", `[aria-label="Move ${id}"]`);
-  await browser("press", "Space");
-  await browser("wait", "--fn", `document.querySelector('[data-id="${id}"]').dataset.dragging === 'true'`);
-};
-
-const down = async (expected: string[]) => {
-  await browser("press", "ArrowDown");
-  await browser("wait", "--fn", `document.querySelector('.sortable-fixture').dataset.sortableIndex === '${expected.indexOf(expected.includes("5") ? "5" : "A")}'`);
-};
-
 const drag = async (id: string, target: string) => {
   const point = async (selector: string) => read<{ x: number; y: number }>(`(() => { const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
-  const start = await point(`[aria-label="Move ${id}"]`);
+  const start = await point(`[data-id="${id}"] span`);
   await browser("mouse", "move", String(Math.round(start.x)), String(Math.round(start.y)));
   await browser("mouse", "down");
   await browser("mouse", "move", String(Math.round(start.x + 15)), String(Math.round(start.y)));
   await browser("wait", "--fn", `document.querySelector('[data-id="${id}"]').dataset.dragging === 'true'`);
-  const end = await point(`[aria-label="Move ${target}"]`);
+  const end = await point(`[data-id="${target}"] span`);
 
   await browser("mouse", "move", String(Math.round(end.x)), String(Math.round(end.y)));
 };
@@ -94,7 +83,7 @@ it("u490a_original_place_drop_makes_no_commit", async () => {
   await load();
 
   const origin = await read<{ x: number; y: number }>(`(() => {
-    const box = document.querySelector('[aria-label="Move C"]').getBoundingClientRect();
+    const box = document.querySelector('[data-id="C"] span').getBoundingClientRect();
     return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
   })()`);
 
@@ -107,7 +96,7 @@ it("u490a_original_place_drop_makes_no_commit", async () => {
   await browser("wait", "--fn", `document.querySelector('[data-id=C]').dataset.dragging === 'false' && !document.querySelector('.sortable-slot')`);
   expect(await order()).toEqual(["A", "B", "C"]);
   expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
-  expect(await read<string>(`document.activeElement?.getAttribute('aria-label')`)).toBe("Move C");
+  expect(await read<string>(`document.activeElement?.dataset.id`)).toBe("C");
 }, 30_000);
 
 it("u484_external_drop", async () => {
@@ -128,7 +117,7 @@ it("u484_external_drop", async () => {
   expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
   expect(await read<boolean>(`document.querySelector('[data-outside]').hasAttribute('data-drop')`)).toBe(false);
   expect(await order()).toEqual(["A", "B", "C"]);
-  await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
+  await browser("wait", "--fn", `document.activeElement?.dataset.id === 'A'`);
 
   await load(false, "?external");
   await drag("A", "A");
@@ -147,11 +136,11 @@ it("u484_external_drop", async () => {
   expect(await dropped()).toHaveLength(0);
 }, 90_000);
 
-// U3800a/c: one drop look's behaviour — pointer drag, keyboard lift, Escape and a following click — through the installed shared Sortable.
+// U3800a: one drop look's behaviour — pointer drag, Escape and a following click — through the installed shared Sortable. U7276c's `u7276c_*` prove the moves by key that replaced the keyboard lift.
 it("u3800a_one_drag_fixture", async () => {
   const idle = `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'A,B,C' && document.querySelector('[data-id=A]').dataset.dragging === 'false'`;
   const commits = () => read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`);
-  const focusedA = () => browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
+  const focusedA = () => browser("wait", "--fn", `document.activeElement?.dataset.id === 'A'`);
 
   await load();
   await drag("A", "C");
@@ -173,7 +162,7 @@ it("u3800a_one_drag_fixture", async () => {
   expect(await commits()).toBe(1);
 
   await load();
-  const handle = await read<{x:number; y:number}>(`(() => { const b=document.querySelector('[aria-label="Move A"]').getBoundingClientRect(); return {x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)}; })()`);
+  const handle = await read<{x:number; y:number}>(`(() => { const b=document.querySelector('[data-id="A"] span').getBoundingClientRect(); return {x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)}; })()`);
 
   await browser("mouse", "move", String(handle.x), String(handle.y));
   await browser("mouse", "down");
@@ -192,39 +181,26 @@ it("u3800a_one_drag_fixture", async () => {
   expect(await commits()).toBe(0);
   expect(await read<number>(`document.querySelectorAll('[data-dragging=true]').length`)).toBe(0);
 
-  await keyboard("A");
-  await down(["B", "A", "C"]);
-  await browser("press", "Escape");
-  await browser("wait", "--fn", idle);
-  expect(await commits()).toBe(0);
-  await focusedA();
-
-  await keyboard("A");
-  await down(["B", "A", "C"]);
-  await browser("press", "Space");
-  await committed("B,A,C");
-  await focusedA();
-
-  // Commissioned Shelf Pad consumer: pointer and keyboard use the real holder and RPC.
+  // Commissioned Shelf Pad consumer: a pointer drag from the Pad's row uses the real holder and RPC.
   await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("wait", "--fn", "!!document.querySelector('#shelf-tab-pads')");
   await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected]')");
   await browser("click", "#shelf-tab-pads");
   await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group] .shelf-group-control')");
-  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .sortable-handle').length >= 2");
+  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .pad-name').length >= 2");
   // U2744a: a Pad list is the one a group's own rows form, so Agent subgroups never mix into the order.
   const ownList = "[...document.querySelectorAll('.pads-tab .shelf-list')].find(list => list.querySelectorAll('[data-pad]').length >= 2)";
   const padOrder = `[...${ownList}.querySelectorAll('[data-pad]')].map(row=>row.dataset.pad)`;
   const names = await read<string[]>(padOrder);
   const first = names[0]!;
   const second = names[1]!;
-  const grip = (name: string) => `[aria-label=${JSON.stringify(`Move ${name}`)}]`;
+  const grip = (name: string) => `.pads-tab [data-pad=${JSON.stringify(name)}] .pad-name`;
   const padCalls = "window.__fake.app.calls.filter(c=>c.method==='pad.reorder')";
-  const start = await read<{x:number;y:number}>(`(() => {const el=document.querySelector(${JSON.stringify(grip(first))});el.scrollIntoView({block:"nearest"});const b=el.getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`);
+  const start = await read<{x:number;y:number}>(`(() => {const el=document.querySelector(${JSON.stringify(grip(first))});el.scrollIntoView({block:"nearest"});const b=el.getBoundingClientRect();return {x:Math.round(b.x+8),y:Math.round(b.y+b.height/2)}})()`);
   await browser("batch", "--bail", `mouse move ${start.x} ${start.y}`, "mouse down", `mouse move ${start.x} ${start.y + 12}`);
   await browser("wait", "--fn", "!!document.querySelector('[data-dnd-placeholder]')");
   await capture("U3800a", "pad-lift");
-  const end = await read<{x:number;y:number}>(`(() => {const g=document.querySelector(${JSON.stringify(grip(second))});const b=g.getBoundingClientRect();const lift=parseFloat(getComputedStyle(g.closest('[data-pad]')).translate.split(' ')[1])||0;return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2-lift)}})()`);
+  const end = await read<{x:number;y:number}>(`(() => {const g=document.querySelector(${JSON.stringify(grip(second))});const b=g.getBoundingClientRect();const lift=parseFloat(getComputedStyle(g.closest('[data-pad]')).translate.split(' ')[1])||0;return {x:Math.round(b.x+8),y:Math.round(b.y+b.height/2-lift)}})()`);
   await browser("mouse", "move", String(end.x), String(end.y));
   await browser("wait", "--fn", "document.querySelector('.pads-tab .shelf-list[data-sortable-index]')?.dataset.sortableIndex === '1'");
   await browser("mouse", "up");
@@ -237,15 +213,9 @@ it("u3800a_one_drag_fixture", async () => {
   expect(await read<number>("document.querySelectorAll('[role=dialog],.pad-body').length")).toBe(0);
   await capture("U3800a", "pad-accepted");
   await browser("focus", grip(first));
-  await browser("batch", "--bail", "press Space", `wait --fn ${JSON.stringify("!!document.querySelector('[data-dnd-placeholder]')")}`, "press ArrowUp");
-  await capture("U3800c", "pad-keyboard");
-  await browser("press", "Space");
-  await browser("wait", "--fn", `${padCalls}.length===2 && ${padOrder}[0]===${JSON.stringify(first)}`);
-  expect(await read<string>("document.activeElement?.getAttribute('aria-label')")).toBe(`Move ${first}`);
-  await browser("focus", `.pads-tab [data-pad=${JSON.stringify(first)}] .pad-name`);
   await browser("press", "Enter");
   await browser("wait", "--fn", "!!document.querySelector('.pad-body')");
-  expect(await read<number>(`${padCalls}.length`)).toBe(2);
+  expect(await read<number>(`${padCalls}.length`)).toBe(1);
 
   // The same session exercises native path routing through the real App and fake event seam.
   await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
@@ -308,7 +278,7 @@ it("u484_scroll_and_stop", async () => {
   await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 160`);
   await browser("press", "Escape");
   await browser("mouse", "up");
-  await browser("wait", "--fn", `document.querySelector('[data-id="1"]').dataset.dragging === 'false' && document.activeElement?.getAttribute('aria-label') === 'Move 1'`);
+  await browser("wait", "--fn", `document.querySelector('[data-id="1"]').dataset.dragging === 'false' && document.activeElement?.dataset.id === '1'`);
   expect(await order()).toEqual(initial);
   expect(await read<number>(`Number(document.querySelector('[aria-label=Commits]').textContent)`)).toBe(0);
 
@@ -341,19 +311,145 @@ it("u484_scroll_and_stop", async () => {
   await browser("mouse", "up");
   await committed(preview.join(","));
   expect(await stopped()).toBe(0);
-  await load(true);
-  await keyboard("5");
-
-  for (let index = 0; index < 8; index++) {
-    const next = initial.filter(id => id !== "5");
-    next.splice(4 + index, 0, "5");
-    const from = next.indexOf("5");
-    next.splice(from, 1); next.splice(from + 1, 0, "5");
-    await down(next);
-  }
-
-  await browser("press", "Space");
-  const final = initial.filter(id => id !== "5"); final.splice(12, 0, "5");
-  await committed(final.join(","));
-  expect(await stopped()).toBe(0);
 }, 90_000);
+
+// U7276a–b run in the App harness, whose lists hold real rows, controls and RPC calls.
+const REORDERS = "window.__fake.app.calls.filter(c => ['rail.move', 'todo.reorder', 'todo.setBlockers', 'todo.move', 'pad.reorder', 'pad.setOwner'].includes(c.method)).length";
+
+/** Opens the harness on `seed` and starts counting: `__dragged` turns true once any row is held, `__hits` counts unswallowed clicks on `target`. */
+const harness = async (seed: string, open: (() => Promise<void>) | null, target: string) => {
+  const href = new URL(`harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, origin).href;
+  // A case that folds a row or opens a tab stores it; the next case starts from the seed's own layout.
+  await browser("open", href);
+  await browser("eval", "localStorage.clear()");
+  await browser("open", href);
+  await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-tree .rail-row')");
+  await open?.();
+  await browser("wait", "--fn", `!!document.querySelector(${JSON.stringify(target)})`);
+  await read(`(() => {
+    window.__dragged = false;
+    new MutationObserver(() => { if (document.querySelector('[data-dnd-dragging]')) window.__dragged = true; }).observe(document.body, { subtree: true, childList: true, attributes: true });
+    window.__hits = 0;
+    // A swallowed click stops at the window's capture phase and never reaches the document.
+    document.addEventListener('click', event => { if (event.target instanceof Element && event.target.closest(${JSON.stringify(target)})) window.__hits += 1; }, true);
+    window.__fake.app.calls.length = 0;
+    return true;
+  })()`);
+};
+
+/** Expands `tab` unless a stored layout already shows it expanded. */
+const expand = (tab: string) => browser("eval", `(() => { const tab = document.querySelector(${JSON.stringify(tab)}); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()`);
+
+const pads = async () => {
+  await expand("#shelf-tab-pads");
+  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .pad-name').length >= 2");
+};
+
+const todos = async () => {
+  await browser("eval", `document.querySelector('.rail-row[data-id="tokens"] [data-pads-control]').click()`);
+  await browser("wait", "--fn", 'document.querySelectorAll(".todos-tab .todo-row-button").length > 1');
+};
+
+/** A point `inset` px into `selector`'s box from its start, or its centre when `inset` is null. */
+const pointIn = (selector: string, inset: number | null) => read<{ x: number; y: number }>(`(() => {
+  const el = document.querySelector(${JSON.stringify(selector)});
+  el.scrollIntoView({ block: 'nearest' });
+  const b = el.getBoundingClientRect();
+  return { x: Math.round(${inset === null ? "b.left + b.width / 2" : `b.left + ${inset}`}), y: Math.round(b.top + b.height / 2) };
+})()`);
+
+/** Whether the row being held is the one `selector` names. */
+const holds = (selector: string) => read<boolean>(`(() => {
+  const held = document.querySelector('[data-dnd-dragging]');
+  const pressed = document.querySelector(${JSON.stringify(selector)});
+  return !!held && !!pressed && (held.contains(pressed) || pressed.contains(held));
+})()`);
+
+/** Presses at `at`, moves `by` px down in steps and waits for the held row; Escape and the release then cancel it. */
+const liftAndCancel = async (selector: string, at: { x: number; y: number }, by: number) => {
+  await browser("mouse", "move", String(at.x), String(at.y));
+  await browser("mouse", "down");
+
+  for (const step of [0.25, 0.5, 1]) await browser("mouse", "move", String(at.x), String(Math.round(at.y + by * step)));
+  await browser("wait", "--fn", "!!document.querySelector('[data-dnd-dragging]')");
+  expect(await holds(selector)).toBe(true);
+  await browser("press", "Escape");
+  await browser("mouse", "up");
+  await browser("wait", "--fn", "!document.querySelector('[data-dnd-dragging], [data-dnd-placeholder]')");
+  expect(await read<number>(REORDERS)).toBe(0);
+};
+
+// The Rail row's hover icons cover its name's midpoint, so each press lands near the start of the row's surface.
+const SURFACES = [
+  { list: "rail", seed: "tree-40", open: null, surface: '.rail-row[data-id="tokens"] .name' },
+  { list: "pads", seed: "tree-40", open: pads, surface: ".pads-tab [data-pad] .pad-name" },
+  { list: "todos", seed: "tree-40", open: todos, surface: '.todos-tab [data-todo="1"] .todo-row-button' },
+] as const;
+
+// A Todo row's body is its title button, so U7276b's `u7276b_a_todo_title_button_drags` is this test's Todos row.
+it.each(SURFACES.filter(row => row.list !== "todos"))("u7276a_a_press_on_the_row_body_and_a_move_drags_it ($list)", async ({ seed, open, surface }) => {
+  await harness(seed, open, surface);
+  await liftAndCancel(surface, await pointIn(surface, 4), 12);
+}, 60_000);
+
+it.each(SURFACES)("u7276a_a_press_under_the_threshold_stays_a_click ($list)", async ({ seed, open, surface }) => {
+  await harness(seed, open, surface);
+  const at = await pointIn(surface, 4);
+  await browser("mouse", "move", String(at.x), String(at.y));
+  await browser("mouse", "down");
+  await browser("mouse", "move", String(at.x), String(at.y + 2));
+  await browser("mouse", "up");
+  await browser("wait", "--fn", "window.__hits === 1");
+  expect(await read<boolean>("window.__dragged")).toBe(false);
+  expect(await read<number>(REORDERS)).toBe(0);
+}, 60_000);
+
+const changesIcon = async () => {
+  await read(`(() => {
+    window.__fake.app.handlers['agent.ownedChanges'] = () => ({ groups: [{ repo: '/p', branch: 'main', base: 'main', files: [{ path: 'a.ts', status: 'modified', line: 1 }] }] });
+    window.__fake.setStatus('tokens', 'idle', 'idle');
+    return true;
+  })()`);
+};
+
+/** The worktree facts refresh on the App's coarse tick (15 s), so the chip renders within two waits; it shows while focus is in its row. */
+const chip = async () => {
+  await read("(() => { window.__fake.app.handlers['agent.worktreeState'] = () => ({ ahead: 2, behind: 0, dirty: false }); return true; })()");
+  const rendered = "!!document.querySelector('.rail-row[data-id=\"worktree-agent\"] .worktree-chip')";
+  await browser("wait", "--fn", rendered).catch(() => browser("wait", "--fn", rendered));
+  await browser("eval", `document.querySelector('.rail-row[data-id="worktree-agent"]').focus()`);
+};
+
+const renameField = async () => {
+  await browser("eval", `document.querySelector('.rail-row[data-id="tokens"]').focus()`);
+  await browser("press", "F2");
+};
+
+const CONTROLS = [
+  { control: "hover icon", seed: "tree-40", open: null, target: '.rail-row[data-id="tokens"] .row-icons button' },
+  { control: "changes icon", seed: "tree-40", open: changesIcon, target: '.rail-row[data-id="tokens"] .changes-icon' },
+  { control: "chip", seed: "resources", open: chip, target: '.rail-row[data-id="worktree-agent"] .worktree-chip' },
+  { control: "chevron", seed: "tree-40", open: null, target: ".rail-row .rail-chevron" },
+  { control: "tick box", seed: "tree-40", open: todos, target: '.todos-tab [data-todo="1"] input[type=checkbox]' },
+  { control: "rename field", seed: "tree-40", open: renameField, target: '.rail-row[data-id="tokens"] input' },
+] as const;
+
+// U7276b: the press moves 20 px away and back before the release, so the release lands on the control and its own click can act.
+it.each(CONTROLS)("u7276b_a_press_on_a_control_never_drags ($control)", async ({ seed, open, target }) => {
+  await harness(seed, open, target);
+  const at = await pointIn(target, null);
+  await browser("mouse", "move", String(at.x), String(at.y));
+  await browser("mouse", "down");
+
+  for (const dx of [5, 10, 20, 10, 0]) await browser("mouse", "move", String(at.x + dx), String(at.y));
+  await browser("mouse", "up");
+  await browser("wait", "--fn", "window.__hits === 1");
+  expect(await read<boolean>("window.__dragged")).toBe(false);
+  expect(await read<number>(REORDERS)).toBe(0);
+}, 60_000);
+
+it("u7276b_a_todo_title_button_drags", async () => {
+  const surface = '.todos-tab [data-todo="1"] .todo-row-button';
+  await harness("tree-40", todos, surface);
+  await liftAndCancel(surface, await pointIn(surface, null), 6);
+}, 60_000);

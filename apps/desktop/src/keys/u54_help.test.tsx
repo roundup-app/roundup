@@ -183,6 +183,17 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.activeElement).toBe(rowOf("a")));
   });
 
+  it("u7276c_the_chords_are_in_the_shortcut_list", async () => {
+    await open();
+    rowOf("a").focus();
+    question(rowOf("a"));
+    await waitFor(() => expect(help()).not.toBeNull());
+
+    const shown = [...help()!.querySelectorAll(".key-chips")].map(chip => chip.textContent);
+
+    for (const keys of ["⌥↑", "⌥↓", "⌥→", "⌥←"]) expect(shown).toContain(keys);
+  });
+
   it("u54_question_mark_again_closes_help", async () => {
     await open();
     rowOf("a").focus();

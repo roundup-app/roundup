@@ -22,7 +22,6 @@ const shot = async (id: string, stage: string, step: string): Promise<Checks> =>
         age: row.querySelector('.item-age')?.getBoundingClientRect().toJSON(),
         figures: row.querySelector('.item-age') && getComputedStyle(row.querySelector('.item-age')).fontVariantNumeric,
         open: row.querySelector('.todo-open')?.getBoundingClientRect().toJSON(),
-        grip: row.querySelector('.sortable-handle')?.getBoundingClientRect().toJSON(),
         count: row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()
       })),
     boxes: Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({
@@ -88,23 +87,20 @@ const dense = async () => {
   })()`);
 };
 
-it("u3800a_owned_todo_grip_reorders_once", async () => {
+// U7276c: ⌥↓ on an owned Todo's focused row moves it one slot with one `todo.reorder`; focus stays on the row.
+it("u3800a_owned_todo_row_reorders_once", async () => {
   await load("tree-40");
   await browser("eval", `document.querySelector('.rail-row[data-id="tokens"] [data-pads-control]').click()`);
-  await wait('document.querySelectorAll(".todos-tab .sortable-handle").length > 1');
-  const grip = '.todos-tab [data-todo="1"] .sortable-handle';
+  await wait('document.querySelectorAll(".todos-tab .todo-row-button").length > 1');
+  const row = '.todos-tab [data-todo="1"] .todo-row-button';
   await browser("eval", "window.__fake.app.calls.length = 0");
-  await browser("focus", grip);
-  await browser("press", "Space");
-  await wait('document.querySelector("[data-dnd-placeholder]")');
-  await shot("U3800a", "head", "owned-todo-slot");
-  await browser("press", "ArrowDown");
-  await wait(`document.querySelector('.todos-tab [data-todo="1"]').closest(".todo-list").dataset.sortableIndex === "1"`);
-  await browser("press", "Space");
-  await wait('!document.querySelector("[data-dnd-placeholder]")');
+  await browser("focus", row);
+  await browser("press", "Alt+ArrowDown");
+  await wait("window.__fake.app.calls.some(c => c.method === 'todo.reorder')");
+  await shot("U3800a", "head", "owned-todo-moved");
   expect(await read("window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params)")).toEqual([{id:1,before:3}]);
   expect(await read("window.__fake.app.calls.filter(c => ['todo.getHistory','todo.complete','todo.update','pad.write'].includes(c.method))")).toEqual([]);
-  await wait(`document.activeElement === document.querySelector('${grip}')`);
+  await wait(`document.activeElement === document.querySelector('${row}')`);
 }, 60_000);
 
 it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activation => ({ kind, activation }))))("u4908_open_button_opens_chosen_item_once_$kind/$activation", async ({ kind, activation }) => {

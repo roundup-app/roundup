@@ -488,7 +488,6 @@ export const Strip = (props: {
             <Sortable.Root
               {...list}
               ref={(element) => applyRef(list.ref, element)}
-              plain
               horizontal
               ids={paths()}
               onOrderChange={(ids) => props.onReorder(ids)}

@@ -4,7 +4,7 @@ import type { LaneBrowser } from "./laneBrowser";
 
 type Point = { x: number; y: number };
 
-const ROW = (id: number) => `.shelf [data-id="${id}"] .sortable-handle`;
+const ROW = (id: number) => `.shelf [data-id="${id}"] .todo-row-button`;
 
 const HEAD = `.shelf [data-shelf-group="me"] .shelf-group-head`;
 
@@ -153,9 +153,8 @@ it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", asyn
     const from = await centre(lane, ROW(sibling!));
     const to = await centre(lane, ROW(parent!));
     await move(lane, from.x, from.y);
-    // The previous grip's closing Tooltip stays in the top layer until its exit ends.
-    // Wait until that transient layer no longer takes the next pointer press.
-    await lane.until(`document.elementFromPoint(${from.x}, ${from.y})?.closest('.sortable-handle') === document.querySelector(${JSON.stringify(ROW(sibling!))})`);
+    // A closing Tooltip stays in the top layer until its exit ends; wait until that transient layer no longer takes the next pointer press.
+    await lane.until(`document.querySelector(${JSON.stringify(ROW(sibling!))}).contains(document.elementFromPoint(${from.x}, ${from.y}))`);
     await lane.browser("mouse", "down");
     await move(lane, from.x, from.y - 6);
     await lane.until("!!document.querySelector('[data-dnd-placeholder]')");

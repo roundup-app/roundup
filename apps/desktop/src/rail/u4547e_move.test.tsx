@@ -91,7 +91,7 @@ it("u4547e_a_mode_row_is_never_announced_draggable_or_disabled", async () => {
   await settled();
   const row = rowOf("Review");
 
-  expect(document.querySelectorAll("[aria-roledescription]").length).toBeGreaterThan(0);
-  expect(row.getAttribute("aria-roledescription")).toBeNull();
+  // U7276c: no row is announced draggable, since no row lifts by key.
+  expect(document.querySelectorAll("[aria-roledescription]").length).toBe(0);
   expect(row.getAttribute("aria-disabled")).toBeNull();
 });

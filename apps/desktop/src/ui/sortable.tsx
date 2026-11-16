@@ -53,7 +53,7 @@ type SortableTree = DropRules & {
   /** A string the promise resolves to is the Daemon's refusal; the dragged row then blends back once. */
   onMove: (move: SortableMove) => MoveAnswer;
   /** The drop a release would commit, or null once the drag ends. */
-  onPreview: (drop: SortableDrop | null) => void;
+  onPreview?: (drop: SortableDrop | null) => void;
   /** False when a pointer release would not land `move` as the line shows it (the Rail ignores a release outside it; Todos refuse a nest that makes a cycle): the drop then shows no line and commits nothing. */
   accepts?: (move: SortableMove) => boolean;
 };
@@ -64,8 +64,6 @@ type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElemen
   onOrderChange?: ((ids: string[], moved: string) => MoveAnswer) | undefined;
   tree?: SortableTree | undefined;
   external?: External<T> | undefined;
-  /** The rows are buttons or carry buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
-  plain?: boolean;
   /** The rows run left to right: the landing slot takes the dragged row's width as well as its height, shows as a gap with no outline, and the list does not auto-scroll under the pointer (U6220c). */
   horizontal?: boolean;
   /** The list element, for a caller that also measures or scrolls it. */
@@ -189,7 +187,7 @@ const createSlides = (options: { horizontal: () => boolean | undefined; reduced:
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
-  const rest = omit(props, "ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children");
+  const rest = omit(props, "ids", "onOrderChange", "tree", "external", "horizontal", "ref", "onDrag", "children");
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
   let stopTracking: (() => void) | undefined;
@@ -363,7 +361,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (drop?.parent === previewed?.parent && drop?.index === previewed?.index && drop?.depth === previewed?.depth) return;
 
     previewed = drop;
-    props.tree?.onPreview(drop);
+    props.tree?.onPreview?.(drop);
   };
 
   const legalIndex = legalIndexOf();
@@ -610,7 +608,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       : shown && { rows: withDepth(tree.rows), drop: shown.drop };
 
     previewed = null;
-    tree?.onPreview(null);
+    tree?.onPreview?.(null);
 
     swallowNextClick();
 
@@ -666,10 +664,11 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     hold({ start: slots.startAt(source.initialIndex, index ?? source.initialIndex), run, key: shownOrder(), ...showDrop(source, index ?? source.initialIndex) });
   };
 
+  // Rows drag by pointer only and move by the lists' own ⌥ chords (U7276c), so the library's keyboard instructions, live region and `draggable` role description would misdescribe them.
   const manager = untrack(() => new DragDropManager({
     sensors: defaults => defaults.filter(sensor => sensor !== KeyboardSensor).map(sensor => sensor === PointerSensor ? pointerSensor() : sensor),
     modifiers: props.horizontal ? [RestrictToHorizontalAxis] : [],
-    plugins: (defaults) => defaults.filter((plugin) => plugin !== Cursor && !(props.plain && plugin === Accessibility) && !(props.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle, keyboardTransition: null }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin),
+    plugins: (defaults) => defaults.filter((plugin) => plugin !== Cursor && plugin !== Accessibility && !(props.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin),
   }));
 
   const context = { manager, detect: slots.detect };
@@ -694,7 +693,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   onCleanup(() => { for (const stop of stopMonitoring) stop(); manager.destroy(); clearPreview(); stopPointer?.(); stopRestoringFocus?.(); mark(null); reclip(); cancelAnimationFrame(latch); line.remove(); });
 
-  return <ListContext value={context}><div {...rest} ref={element => { list = element; props.ref?.(element); }} data-plain={props.plain ? "" : undefined} data-horizontal={props.horizontal ? "" : undefined}>{props.children}</div>{props.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</ListContext>;
+  return <ListContext value={context}><div {...rest} ref={element => { list = element; props.ref?.(element); }} data-horizontal={props.horizontal ? "" : undefined}>{props.children}</div>{props.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</ListContext>;
 };
 
 type ItemProps = Pick<SortableInput<Data>, "id" | "index" | "disabled"> & {

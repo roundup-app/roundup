@@ -80,8 +80,8 @@ it("u6550d_escape_after_a_pointer_lift_slides_each_row_once", async () => {
   expect(await read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move')`)).toEqual([]);
 }, 90_000);
 
-// U6550a: a press on the Workstream's body and a move hold it; its children leave the list under a count and come back on Escape.
-it("u6550a_a_dragged_workstream_folds_its_children", async () => {
+// U6550a: a press on the Workstream's body and a move hold it; its children leave the list under a count and come back on Escape or a drop in place; a row with no children carries no count.
+it("u6550a_held_workstream_folds_its_children", async () => {
   await page.scheme("light");
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 800);
   await wait(`document.querySelector('[data-id="backend"]') && window.__fake`);
@@ -97,5 +97,27 @@ it("u6550a_a_dragged_workstream_folds_its_children", async () => {
   expect(Number(await read<string>(`document.querySelector('[data-state="lifted"]').textContent.slice(1)`))).toBeGreaterThan(1);
 
   await page.press("Escape", "Escape");
-  await wait(`document.querySelector('.rail-row[data-id="auth"]') && !document.querySelector('[data-state="lifted"]')`);
+  await mouse("up");
+  await wait(`document.querySelector('.rail-row[data-id="auth"]') && !document.querySelector('[data-state="lifted"]') && !document.querySelector('[data-dnd-placeholder]')`);
+
+  // A drop where the hold began puts the children back under the Door and sends no move.
+  await mouse("move", from.x, from.y);
+  await mouse("down");
+  await mouse("move", from.x + 6, from.y + 6);
+  await wait(`!document.querySelector('.rail-row[data-id="auth"]') && document.querySelector('[data-state="lifted"]')`);
+  await mouse("move", from.x, from.y);
+  await page.until(`() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(true))))`);
+  await mouse("up");
+  await wait(`document.querySelector('.rail-row[data-id="auth"]') && !document.querySelector('[data-state="lifted"]') && !document.querySelector('[data-dnd-placeholder]')`);
+  expect(await read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move')`)).toEqual([]);
+
+  // tokens has no children: its hold shows no count.
+  const leaf = await handle("tokens");
+  await mouse("move", leaf.x, leaf.y);
+  await mouse("down");
+  await mouse("move", leaf.x + 6, leaf.y + 6);
+  await wait(`document.querySelector('[data-dnd-placeholder]')`);
+  expect(await read<boolean>(`!!document.querySelector('[data-state="lifted"]')`)).toBe(false);
+  await page.press("Escape", "Escape");
+  await mouse("up");
 });

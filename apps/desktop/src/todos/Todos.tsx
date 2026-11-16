@@ -774,7 +774,7 @@ export const Todos = (props: {
 
         return <>
         <For each={group().items.filter(todo => pending().includes(todo))}>{todo => <ShelfRow class="todo-row todo-inset" data-todo={todo.id} data-pending="true" glyph={<span><KindGlyph kind="idle" /></span>} head={<div class="row-head"><span class="shelf-title">{todo.title}</span></div>} />}</For>
-        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
+        <Sortable.Root class="todo-list shelf-list" ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tree-step")) || 24; },
           inset: (element) => {
@@ -784,7 +784,6 @@ export const Todos = (props: {
           },
           nests: () => true,
           onMove: (move) => dropOf(tree(), group().items.filter(todo => !pending().includes(todo)), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
-          onPreview: () => undefined,
           // A drop lands as shown only if its plan changes something and the Todo then nests under the parent shown: a nest that makes a cycle, or one under another first blocker, does not.
           accepts: (move) => {
             const id = Number(move.id), parent = move.parent === null ? null : Number(move.parent);

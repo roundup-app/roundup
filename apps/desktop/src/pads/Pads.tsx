@@ -294,7 +294,7 @@ const PadRows = (props: {
   const isSelected = (incarnation: string) => picked[incarnation] === true;
 
   return (
-    <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
+    <Sortable.Root class="shelf-list" ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
           <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} isSelected={isSelected} {...props} />}</Sortable.Item>
@@ -302,6 +302,23 @@ const PadRows = (props: {
       </For>
     </Sortable.Root>
   );
+};
+
+const CHORD_STEPS = new Map([["ArrowUp", -1], ["ArrowDown", 1]]);
+
+/** U7276c: the list `⌥↑` or `⌥↓` makes by moving `name` one slot, null where it would leave the list, or undefined for any other press. */
+const chordOrder = (event: KeyboardEvent, names: readonly string[], name: string): string[] | null | undefined => {
+  const by = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey ? CHORD_STEPS.get(event.key) : undefined;
+
+  if (by === undefined) return undefined;
+
+  const at = names.indexOf(name);
+  const order = names.filter(each => each !== name);
+
+  if (event.repeat || at < 0 || at + by < 0 || at + by >= names.length) return null;
+  order.splice(at + by, 0, name);
+
+  return order;
 };
 
 const selectedPad = (selection: Parameters<typeof PadRows>[0]["selection"], incarnation: string, name: string) => (selection.focused() ?? selection.selected()[0]) === incarnation ? name : undefined;
@@ -401,17 +418,13 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
                 row = element;
                 props.selection.register(pad.incarnation, element);
                 makeEventListener(element, "keydown", (event) => {
-                  // U7276c: `⌥↑` and `⌥↓` move the row one place in its list; one press is one `pad.reorder`.
-                  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-                    event.preventDefault();
-                    const ids = props.shown().map(each => each.name);
-                    const at = ids.indexOf(pad.name);
-                    const to = at + (event.key === "ArrowUp" ? -1 : 1);
+                  // U7276c: one chord press is one `pad.reorder`.
+                  const order = chordOrder(event, props.shown().map(each => each.name), pad.name);
 
-                    if (!event.repeat && at >= 0 && to >= 0 && to < ids.length && !editing() && !props.bulk.pending()) {
-                      ids.splice(to, 0, ...ids.splice(at, 1));
-                      props.onOrderChange(ids, pad.name);
-                    }
+                  if (order !== undefined) {
+                    event.preventDefault();
+
+                    if (order && !editing() && !props.bulk.pending()) props.onOrderChange(order, pad.name);
 
                     return;
                   }
