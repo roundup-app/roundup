@@ -85,10 +85,6 @@ pub struct SpawnParams {
     #[serde(default)]
     #[specta(optional, type = bool)]
     pub scout: Option<bool>,
-    /// LC12: one live reading specialist per Workstream and name; requires `scout: true`.
-    #[serde(default)]
-    #[specta(optional, type = String)]
-    pub specialist: Option<String>,
     /// LC7: names of skills, plugins and MCP servers of the user's setup that this child needs
     /// beyond its Role's start. An unknown name fails the call.
     #[serde(default)]

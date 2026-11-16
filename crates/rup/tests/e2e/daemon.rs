@@ -232,7 +232,6 @@ impl Project {
             model: None,
             effort: None,
             scout: None,
-            specialist: None,
             extras: None,
             machine: None,
         };

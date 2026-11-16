@@ -93,7 +93,6 @@ impl Daemon {
             modules: HashMap::new(),
             todos: Arc::clone(&todos),
             pads: Arc::clone(&pads),
-            specialists: Default::default(),
             touches,
             bus: bus.clone(),
             project: std::path::absolute(project).unwrap_or_else(|_| project.to_path_buf()),

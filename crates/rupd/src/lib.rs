@@ -58,7 +58,6 @@ mod route;
 mod selectors;
 mod settlement;
 pub mod skill;
-mod specialist;
 mod ssh_hosts;
 #[cfg(test)]
 mod storage_tests;
@@ -80,7 +79,6 @@ use observers::{
     terminal_exit_observer, terminal_input_observer,
 };
 pub use open::Watchers;
-use specialist::Specialist;
 pub use ssh_hosts::ssh_hosts;
 use std::collections::HashMap;
 use std::io;
@@ -106,8 +104,6 @@ pub struct Daemon {
     bus: Bus,
     todos: Arc<todos::Todos>,
     pads: Arc<pads::Pads>,
-    /// LC12–LC13: lookup and replacement share one claim, including while a summary is pending.
-    specialists: tokio::sync::Mutex<HashMap<(String, String), Specialist>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     /// LK1: the Project's key, the name of its data folder (`data::project_data`).

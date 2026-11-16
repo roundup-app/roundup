@@ -231,8 +231,6 @@ effort?: string | null,
 
 scout?: boolean, 
 
-specialist?: string, 
-
 extras?: agent_Extras, };
 
 export type agent_StartDoorParams = { 

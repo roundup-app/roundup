@@ -55,8 +55,6 @@ export type SpawnParams = {
 	 *  no skills, plugins or user instructions. Absent is false.
 	 */
 	scout?: boolean,
-	/**  LC12: one live reading specialist per Workstream and name; requires `scout: true`. */
-	specialist?: string,
 	/**
 	 *  LC7: names of skills, plugins and MCP servers of the user's setup that this child needs
 	 *  beyond its Role's start. An unknown name fails the call.

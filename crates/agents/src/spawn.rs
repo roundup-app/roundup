@@ -306,12 +306,6 @@ impl Agents {
         params: &mut SpawnParams,
         by_agent: bool,
     ) -> Result<Option<claude_code::Lean>, RpcError> {
-        if params.specialist.is_some() && (!by_agent || params.scout != Some(true)) {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "specialist requires an Agent's scout: true start",
-            ));
-        }
         if !by_agent && (params.scout == Some(true) || params.extras.is_some()) {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
