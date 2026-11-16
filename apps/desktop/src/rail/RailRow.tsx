@@ -33,6 +33,7 @@ import { Trunks } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
 import type { RailTopology } from "../state/railTopology";
 import { PadsControl } from "./pads/AgentPads";
+import { ChangesIcon } from "../changes/ChangesIcon";
 import { createDraftField } from "../state/draftField";
 
 /** What Ark's item and branch control take for the row's own element. */
@@ -269,6 +270,7 @@ export const RailRowView = (props: {
       <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
+        <Show when={!isContainer()}><ChangesIcon id={props.row.node.id} /></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
         <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>

@@ -120,3 +120,83 @@
 
 .note-recovery-positioner { pointer-events: none; }
 .note-recovery { pointer-events: auto; }
+
+/* U7186c, U7186d: the centre's Changes view over the Pane; tokens only. */
+.changes-view {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  padding: var(--space-3);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  font-family: var(--font-ui);
+  font-size: var(--text-small);
+}
+
+.changes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.changes-head h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-pickers {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.changes-groups,
+.changes-files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changes-file {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: start;
+}
+
+.changes-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-status {
+  color: var(--grey);
+}
+
+.changes-counts [data-sign="added"] { color: var(--text); }
+
+.changes-counts [data-sign="removed"] { color: var(--grey); }
+
+.changes-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--grey);
+  font-size: var(--text-small);
+}

@@ -1,6 +1,12 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  changes: "Changes",
+  versus: "vs",
+  changeGroups: "Repositories and branches",
+  changedFilesList: "Changed files",
+  compareFrom: "From",
+  compareTo: "To",
   changesStale: "Changes are stale",
   changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
   reviewChanges: sharedCopy.reviewChanges,
