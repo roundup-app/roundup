@@ -35,7 +35,7 @@ export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: 
 
         onCleanup(() => { stale = true; });
         untrack(() => {
-          void app.rpc("machine.list", null).then(machines => {
+          void app.rpc("machine.list", null).then(({ machines }) => {
             if (stale) return;
 
             setList(machines);

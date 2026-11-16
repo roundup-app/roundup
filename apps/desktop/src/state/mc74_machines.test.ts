@@ -6,7 +6,7 @@ import { createMachines } from "./machines";
 
 const read = async (list: Machine[], choose = "") => {
   const app = createFakeApp();
-  app.handlers["machine.list"] = () => list;
+  app.handlers["machine.list"] = () => ({ machines: list, version: "0.1.21" });
 
   return await createRoot(async dispose => {
     const [tick] = createSignal(0);
