@@ -17,6 +17,7 @@ impl Observation {
             Self::Finished(_) => "finished",
             Self::Failed(_) => "failed",
             Self::Resumed(_) => "resumed",
+            Self::Judged { .. } => "stop judged",
         }
     }
 }
@@ -29,6 +30,8 @@ pub(super) struct State {
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
     /// B50, B51: what the Claude inbox of each Agent is and what its transcript has recorded.
     pub(super) inbox: Arc<InboxState>,
+    /// A7180b: the one model call that reads a Stop the rules cannot.
+    pub(super) stop_model: Arc<dyn crate::StopModel>,
 }
 
 impl Drop for State {
@@ -497,6 +500,7 @@ impl Shared {
                     self.name_from_title(rail, run, id, actor)?;
                 }
             }
+            Effect::Judge(stop) => self.judge_stop(id, run.attempt(), &stop),
         }
         Ok(())
     }
@@ -701,6 +705,8 @@ fn tick_after(shared: &Shared, tick_at: Option<i64>) -> Option<Instant> {
     })
 }
 
+#[cfg(test)]
+mod a7180_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
