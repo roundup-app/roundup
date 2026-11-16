@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use contracts::data::{
-    ForkAgents, ForkAgentsAll, ForkParams, ForkProject, ForkRecord, ForkResult, Forked,
+    ForkAgents, ForkAgentsAll, ForkParams, ForkProject, ForkRecord, ForkRefused, ForkResult, Forked,
 };
 use rpc::{RpcError, code};
 use rusqlite::{Connection, params};
@@ -240,12 +240,26 @@ fn copy_all(
         snapshot(&prefs, &target.join("preferences.db"))?;
     }
     let mut projects = Vec::new();
+    let mut refused = Vec::new();
     for keep in plan {
-        projects.push(copy_project(
-            &source.join("projects").join(&keep.key),
-            &target.join("projects").join(&keep.key),
-            keep,
-        )?);
+        let to = target.join("projects").join(&keep.key);
+        match copy_project(&source.join("projects").join(&keep.key), &to, keep)? {
+            Copied::Done(forked) => projects.push(forked),
+            Copied::Refused(cause) => {
+                // FK7159b: a Project the caller picked by name is never skipped.
+                if params.projects.is_some() {
+                    return Err(invalid(format!(
+                        "Project {:?} is refused: {cause}",
+                        keep.key
+                    )));
+                }
+                fs::remove_dir_all(&to).map_err(|e| failed(&to, e))?;
+                refused.push(ForkRefused {
+                    key: keep.key.clone(),
+                    cause,
+                });
+            }
+        }
     }
     let record = ForkRecord {
         name: params.name.clone(),
@@ -260,6 +274,7 @@ fn copy_all(
     Ok(ForkResult {
         path: target.to_string_lossy().into_owned(),
         projects,
+        refused,
     })
 }
 
@@ -324,7 +339,13 @@ fn copy_tree(from: &Path, to: &Path) -> Result<(), RpcError> {
     Ok(())
 }
 
-fn copy_project(from: &Path, to: &Path, keep: &Keep) -> Result<Forked, RpcError> {
+/// What copying one Project came to: its rows, or the cause `storage::connect` refused it for.
+enum Copied {
+    Done(Forked),
+    Refused(String),
+}
+
+fn copy_project(from: &Path, to: &Path, keep: &Keep) -> Result<Copied, RpcError> {
     fs::create_dir_all(to).map_err(|e| failed(to, e))?;
     for entry in fs::read_dir(from).map_err(|e| failed(from, e))? {
         let entry = entry.map_err(|e| failed(from, e))?;
@@ -355,27 +376,30 @@ fn copy_project(from: &Path, to: &Path, keep: &Keep) -> Result<Forked, RpcError>
     }
     let db = to.join("project.db");
     if !db.exists() {
-        return Ok(Forked {
+        return Ok(Copied::Done(Forked {
             key: keep.key.clone(),
             agents: Vec::new(),
             todos: 0,
             pads: 0,
             messages: 0,
             history: 0,
-        });
+        }));
     }
-    let conn = storage::connect(to).map_err(|e| failed(&db, e))?;
+    let conn = match storage::connect(to) {
+        Ok(conn) => conn,
+        Err(e) => return Ok(Copied::Refused(e.to_string())),
+    };
     let counts = prune(&conn, keep).map_err(|e| failed(&db, e))?;
     conn.execute_batch("VACUUM; PRAGMA wal_checkpoint(TRUNCATE)")
         .map_err(|e| failed(&db, e))?;
-    Ok(Forked {
+    Ok(Copied::Done(Forked {
         key: keep.key.clone(),
         agents: counts.0,
         todos: counts.1,
         pads: counts.2,
         messages: counts.3,
         history: counts.4,
-    })
+    }))
 }
 
 fn has_table(conn: &Connection, table: &str) -> rusqlite::Result<bool> {

@@ -88,6 +88,16 @@ pub struct Forked {
 pub struct ForkResult {
     pub path: String,
     pub projects: Vec<Forked>,
+    /// FK7159a: each Project this build refuses to open, left out of the Fork, in key order.
+    #[serde(default)]
+    pub refused: Vec<ForkRefused>,
+}
+
+/// FK7159a: a Project left out of the Fork, with the refusal `storage::connect` gave.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ForkRefused {
+    pub key: String,
+    pub cause: String,
 }
 
 /// FK5977d: `<path>/fork.json`.
