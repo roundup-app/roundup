@@ -196,6 +196,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("machine.add", PLAIN),
     ("machine.list", PLAIN),
     ("machine.remove", PLAIN),
+    ("machine.sshHosts", PLAIN),
     ("machine.update", PLAIN),
     ("message.acceptResult", Policy { actor: Actor::Caller, inputs: Inputs::Id, ..PLAIN }),
     ("message.drop", PLAIN),

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use contracts::machine::{AddParams, Machine, RemoveParams, UpdateParams};
+use contracts::machine::{AddParams, Machine, MachineList, RemoveParams, UpdateParams};
 use rpc::RpcError;
 use serde_json::Value;
 
@@ -87,9 +87,9 @@ impl Core {
     }
 }
 
-/// MC4: the core's failure keeps its code in the message.
+/// MC4, MC71: the core's failure leads its message with its kind, which the App maps to a sentence.
 fn failed(err: herdr::Error) -> RpcError {
-    RpcError::internal(format!("{}: {err}", err.code()))
+    RpcError::internal(format!("{}: {err}", err.kind()))
 }
 
 /// MC15: each Machine with whether roundup's ssh to it last answered, when roundup has tried it.
@@ -115,13 +115,38 @@ fn listed(
 }
 
 impl Daemon {
-    pub(super) async fn machine_list(&self, _conn: &mut Conn) -> Result<Vec<Machine>, RpcError> {
+    pub(super) async fn machine_list(&self, _conn: &mut Conn) -> Result<MachineList, RpcError> {
         let core = self.machine_core.open().await.map_err(failed)?;
         let machines = self.listed_now(&core).await?;
         if !machines.is_empty() {
             self.machine_core.arm(&core).await;
         }
-        Ok(machines)
+        Ok(MachineList {
+            machines,
+            version: core.hello.version.clone(),
+        })
+    }
+
+    /// MC73: the concrete Hosts of this Mac's ssh config that are no Machine yet.
+    pub(super) async fn machine_ssh_hosts(
+        &self,
+        _conn: &mut Conn,
+    ) -> Result<Vec<String>, RpcError> {
+        let config = self
+            .observers
+            .home
+            .as_ref()
+            .map(|home| home.join(".ssh").join("config"));
+        let taken = match self.machine_core.open().await {
+            Ok(core) => core
+                .machine_list()
+                .await
+                .map(|machines| machines.into_iter().map(|m| m.name).collect())
+                .unwrap_or_default(),
+            Err(_) => Vec::new(),
+        };
+
+        Ok(config.map_or_else(Vec::new, |path| crate::ssh_hosts(&path, &taken)))
     }
 
     /// The core's list as it stands, with a bridge kept for each Machine on it (MC26).
@@ -350,7 +375,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (core, _, starts, _) = counted_core(&[]);
         let daemon = served(dir.path(), core);
-        assert_eq!(ask(&daemon, LIST).await["result"], json!([]));
+        assert_eq!(ask(&daemon, LIST).await["result"]["machines"], json!([]));
         assert_eq!(starts.load(Ordering::SeqCst), 1);
     }
 
@@ -385,7 +410,7 @@ mod tests {
         ticks(2).await;
         assert!(seen.lock().is_empty(), "no read while unarmed");
         let reply = ask(&daemon, LIST).await;
-        assert_eq!(reply["result"][0]["name"], "outside");
+        assert_eq!(reply["result"]["machines"][0]["name"], "outside");
     }
 
     #[tokio::test(start_paused = true)]
@@ -411,7 +436,7 @@ mod tests {
         .await;
         assert_eq!(
             reply["result"],
-            json!([{"name": "roundup-ci-control", "details": {"state": "ready"}}])
+            json!({"machines": [{"name": "roundup-ci-control", "details": {"state": "ready"}}], "version": "0.1.21"})
         );
         let db = rusqlite::Connection::open(crate::data::naming_path(dir.path())).unwrap();
         let tables: i64 = db
@@ -422,6 +447,40 @@ mod tests {
             )
             .unwrap();
         assert_eq!(tables, 0, "no machine table in the Daemon's data");
+    }
+
+    #[tokio::test]
+    async fn mc74_the_list_reply_carries_the_hello_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _) = fake_core();
+        let mut daemon = daemon_in(dir.path());
+        daemon.machine_core = core;
+
+        assert_eq!(ask(&daemon, LIST).await["result"]["version"], "0.1.21");
+    }
+
+    #[tokio::test]
+    async fn mc71_a_core_error_leads_with_its_data_kind_and_an_unkinded_32602_is_invalid_params() {
+        assert!(
+            failed(herdr::Error::Rpc(herdr::RpcError {
+                code: -32000,
+                message: "m".into(),
+                kind: "name_taken".into(),
+                hint: String::new()
+            }))
+            .message
+            .starts_with("name_taken:")
+        );
+        assert!(
+            failed(herdr::Error::Rpc(herdr::RpcError {
+                code: -32602,
+                message: "missing field".into(),
+                kind: String::new(),
+                hint: String::new()
+            }))
+            .message
+            .starts_with("invalid_params:")
+        );
     }
 
     #[tokio::test]
