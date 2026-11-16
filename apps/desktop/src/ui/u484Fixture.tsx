@@ -30,7 +30,6 @@ const u484Fixture = () => {
         <div ref={parts.ref} data-id={id} class="sortable-row" data-dragging={String(parts.isDragging())}>
           <span>{id}</span>
           <button data-button="quiet" aria-label={`Inspect ${id}`} onClick={() => action(actions() + 1)}>Inspect</button>
-          <Sortable.Handle ref={parts.handleRef} label={`Move ${id}`} />
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>

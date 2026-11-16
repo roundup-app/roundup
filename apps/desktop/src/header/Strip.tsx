@@ -502,7 +502,7 @@ export const Strip = (props: {
                   );
 
                   return (
-                    <Sortable.Item id={path} index={at()} pressable>
+                    <Sortable.Item id={path} index={at()}>
                       {(sort) => (
                         <ProjectTab
                           sort={sort}

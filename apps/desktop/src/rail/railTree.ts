@@ -45,10 +45,9 @@ const cancelTranslates = (row: HTMLElement) => {
   }
 };
 
-/** U6550a, M5: a lift or cancel by key is immediate (M1); a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn (once the sortable has cleared its own shifts) and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
+/** U6550a, M5: a lift or cancel changes the rows in one frame; rows that stay slide from where they were drawn (once the sortable has cleared its own shifts) and rows that return fade in, on the reorder Tokens. Call the returned function just before the lift changes. */
 const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: Accessor<string | null>) => {
   let drawn = new Map<string, number>();
-  let keyed = false;
   const slides = new WeakMap<HTMLElement, Animation>();
   const rows = () => [...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []];
 
@@ -58,7 +57,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
 
     drawn = new Map();
 
-    if (reduced || keyed || before.size === 0) return;
+    if (reduced || before.size === 0) return;
 
     const moving = rows().filter(row => "animate" in row && !row.matches("[data-dnd-dragging], [data-dnd-dropping]"));
 
@@ -79,7 +78,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
   }); }, { defer: true });
 
   // A row inside a collapsed group is inert and not drawn: it returns by fading in, never by sliding from where the hidden group left it.
-  return (keyboard: boolean) => { keyed = keyboard; drawn = new Map(rows().filter(row => !row.closest("[inert], [hidden]")).map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
+  return () => { drawn = new Map(rows().filter(row => !row.closest("[inert], [hidden]")).map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
 };
 
 export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, container: Accessor<HTMLElement | undefined> = () => undefined) => {
@@ -204,7 +203,7 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   const dropRules = {
     nests: (id: string) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
     takes: (id: string, parent: string | null) => placeable(placeNodes(), id, parent),
-    onLift: (id: string | null, keyboard = false) => { keepDrawn(keyboard); setLifted(id); },
+    onLift: (id: string | null) => { keepDrawn(); setLifted(id); },
   };
 
   return { topology, sectionRows, rows, items, settleItems, branches, expanded, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };

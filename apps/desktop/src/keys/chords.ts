@@ -62,6 +62,11 @@ const CHORD_TABLE = {
   "terminal.switch": { name: "terminal.switch", keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
   // U5171: the Rail binds the arrows itself (RAIL_KEYS), so Help names them with no press for the chord probe to compare.
   "rail.collapse-expand": { name: "rail.collapse-expand", keys: "← →", what: copy.collapseExpand, presses: [], inRail: true },
+  // U7276c: a focused row of the Rail, Pads or Todos binds these itself, so Help names them with no press for the chord probe to compare.
+  "row.move-up": { name: "row.move-up", keys: "⌥↑", what: copy.rowMoveUp, presses: [], inRail: true },
+  "row.move-down": { name: "row.move-down", keys: "⌥↓", what: copy.rowMoveDown, presses: [], inRail: true },
+  "row.nest": { name: "row.nest", keys: "⌥→", what: copy.rowNest, presses: [], inRail: true },
+  "row.unnest": { name: "row.unnest", keys: "⌥←", what: copy.rowUnnest, presses: [], inRail: true },
   "rail.move": { name: "rail.move", keys: "M", what: copy.moveTo, presses: ["KeyM"], inRail: true },
   "rail.rename": { name: "rail.rename", keys: copy.renameChord, what: copy.rename, presses: [copy.renameChord], inRail: true },
   // Help follows the logical ? through HELP_KEYS, rather than a physical US-layout chord.

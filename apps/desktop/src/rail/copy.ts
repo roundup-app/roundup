@@ -148,7 +148,6 @@ export const copy = {
   handOff: "Hand off",
   startNormal: "Start normal",
   failed: sharedCopy.failed,
-  moveItem: sharedCopy.moveItem,
   newMode: sharedCopy.newMode,
   makeWorkstream: sharedCopy.makeWorkstream,
   saveAsMode: "Save as Mode…",

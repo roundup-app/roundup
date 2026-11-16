@@ -7,7 +7,7 @@ import type { JSX } from "@solidjs/web";
 import "./rowButton.styles.css";
 
 /** A clickable row of the Shelf or a Drawer: plain text, no button chrome; a long title wraps under its `#`, not under the glyph; `hang={false}` is the Shelf's (U359), whose Glyph is its own column. */
-export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed?: boolean | undefined; selectionActive?: boolean | undefined; children: JSX.Element; ref?: (row: HTMLButtonElement) => void; reorderable?: boolean; keysSuspended?: boolean; hang?: boolean; label?: string; onKeyDown?: (event: KeyboardEvent) => void; onOpen?: () => void; onRename?: () => void; /** U3709: the run for Tab (`false`) or ⇧Tab (`true`), or null where it is not this row's. */ nest?: ((out: boolean) => (() => Promise<string | null>) | null) | undefined; onNest?: ((run: () => Promise<string | null>) => void) | undefined; onPointerDown?: (event: PointerEvent) => void }) => {
+export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed?: boolean | undefined; selectionActive?: boolean | undefined; children: JSX.Element; ref?: (row: HTMLButtonElement) => void; reorderable?: boolean; /** The button is the row's drag surface: a press on it and a move drag the row. */ dragSurface?: boolean; keysSuspended?: boolean; hang?: boolean; label?: string; onKeyDown?: (event: KeyboardEvent) => void; onOpen?: () => void; onRename?: () => void; /** U3709: the run for Tab (`false`) or ⇧Tab (`true`), or null where it is not this row's. */ nest?: ((out: boolean) => (() => Promise<string | null>) | null) | undefined; onNest?: ((run: () => Promise<string | null>) => void) | undefined; onPointerDown?: (event: PointerEvent) => void }) => {
   let button: HTMLButtonElement | undefined;
 
   // One layer holds row commands and navigation: only the first eligible layer of a press is consulted.
@@ -47,7 +47,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
   }))]);
 
   return (
-    <button type="button" class="todo-row-button"
+    <button type="button" class="todo-row-button" data-drag-surface={props.dragSurface ? "" : undefined}
       onDblClick={() => props.onOpen?.()}
       onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
       aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}

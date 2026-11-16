@@ -752,12 +752,7 @@
   width: var(--rail-slot);
   flex: none;
 }
-.rail-row .sortable-handle {
-  width: var(--rail-slot);
-  min-width: var(--rail-slot);
-  padding-inline: 0;
-}
-/* U7205c: what hover, focus or selection reveals (quick actions, Pads, the drag grip) overlays the name's end and reserves no room at rest, so a name that fits the visible row is never cut. Only the group chevron, visible at rest, keeps its slot. */
+/* U7205c: what hover, focus or selection reveals (quick actions, Pads) overlays the name's end and reserves no room at rest, so a name that fits the visible row is never cut. Only the group chevron, visible at rest, keeps its slot. */
 .rail-row .row-tail {
   position: absolute;
   inset-block: 0;
@@ -772,7 +767,7 @@
   inline-size: var(--rail-slot);
   min-inline-size: var(--rail-slot);
 }
-.rail-row :is(.row-controls, .sortable-handle) {
+.rail-row .row-controls {
   background-color: var(--sunken);
   background-image: linear-gradient(var(--row-wash), var(--row-wash)); /* taste-skill-ignore: existing selected-row wash is a flat composite, not a gradient fill. */
 }

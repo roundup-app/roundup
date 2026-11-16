@@ -174,17 +174,20 @@ export const Pads = (props: {
     remove: name => bulk.ask(false, name),
   });
 
-  let lifted: Pad | undefined;
-
-  const reorder = async (ids: string[]) => {
-    const source = lifted;
+  const reorder = async (ids: string[], moved: string) => {
+    const source = pads().find(pad => pad.name === moved);
 
     if (!source || !pads().some(pad => pad.incarnation === source.incarnation && pad.name === source.name)) return;
     const before = ids[ids.indexOf(source.name) + 1] ?? null;
     const message = await changeFailureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
 
+    // U7276c: a key's move keeps focus on the row, which the redraw may have replaced.
+    const held = rowButtons.get(source.name) === document.activeElement;
+
     reportItemFailure(source, message, copy.moveItem(source.name));
     await list.reload();
+
+    if (held && (document.activeElement === document.body || document.activeElement === null)) rowButtons.get(source.name)?.focus({ preventScroll: true });
   };
 
   const [dragging, setDragging] = createSignal(false);
@@ -239,8 +242,7 @@ export const Pads = (props: {
         shown={() => group().items}
         onItemFailure={reportItemFailure}
         rowButtons={rowButtons}
-        onOrderChange={ids => void reorder(ids)}
-        onLift={pad => { lifted = { ...pad }; }}
+        onOrderChange={(ids, moved) => void reorder(ids, moved)}
         onDrag={setDragging}
       />}</OwnerGroups>
       <Show when={naming()}>
@@ -285,8 +287,7 @@ const PadRows = (props: {
   shown: Accessor<readonly Pad[]>;
   onItemFailure: (pad: Pad, message: string | null, action: string) => void;
   rowButtons: Map<string, HTMLButtonElement>;
-  onOrderChange: (ids: string[]) => void;
-  onLift: (pad: Pad) => void;
+  onOrderChange: (ids: string[], moved: string) => void;
   onDrag: Setter<boolean>;
 }) => {
   const picked = createProjection(() => Object.fromEntries(props.selection.selected().map(incarnation => [incarnation, true])));
@@ -393,12 +394,28 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
             <button
               type="button"
               class="pad-name"
+              data-drag-surface=""
               aria-busy={asked() !== null ? "true" : undefined}
               aria-pressed={props.selection.selected().includes(pad.incarnation) ? "true" : "false"}
               ref={(element) => {
                 row = element;
                 props.selection.register(pad.incarnation, element);
                 makeEventListener(element, "keydown", (event) => {
+                  // U7276c: `⌥↑` and `⌥↓` move the row one place in its list; one press is one `pad.reorder`.
+                  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+                    event.preventDefault();
+                    const ids = props.shown().map(each => each.name);
+                    const at = ids.indexOf(pad.name);
+                    const to = at + (event.key === "ArrowUp" ? -1 : 1);
+
+                    if (!event.repeat && at >= 0 && to >= 0 && to < ids.length && !editing() && !props.bulk.pending()) {
+                      ids.splice(to, 0, ...ids.splice(at, 1));
+                      props.onOrderChange(ids, pad.name);
+                    }
+
+                    return;
+                  }
+
                   props.bulk.key(event);
 
                   if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.incarnation, event);
@@ -417,7 +434,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
             <Show when={!editing()}>
               <Age updatedAt={pad.updated_at} />
               <OpenButton name={pad.name} onOpen={() => open("pointer")} />
-              <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} onLift={() => props.onLift(pad)} />
             </Show>
             </div>
           </ShelfRow>

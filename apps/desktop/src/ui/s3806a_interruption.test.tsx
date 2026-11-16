@@ -174,7 +174,7 @@ const shared = async (owner: string, trigger: string, phase: string) => {
   const view = render(() => <><Sortable.Root ids={["A", "B"]} onOrderChange={commits} onDrag={dragging}
     tree={owner === "sort-tree" ? { rows: [{ id: "A", parent: null }, { id: "B", parent: null }], indent: 24, inset: () => 0, nests: () => true, onMove: commits, onPreview: preview } : undefined}
     external={owner === "sort-external" ? { target: () => ({ element: outside }), onDropOutside: commits } : undefined}>
-    <For each={["A", "B"]}>{(id, index) => <Sortable.Item id={id} index={index()} pressable={owner === "sort-external"}>{parts => { if (id === "A") source = parts.sortable;
+    <For each={["A", "B"]}>{(id, index) => <Sortable.Item id={id} index={index()}>{parts => { if (id === "A") source = parts.sortable;
 
  return <div ref={element => { element.dataset.id = id; parts.ref(element); }} data-id={id}><button ref={parts.handleRef}>{id}</button></div>; }}</Sortable.Item>}</For>
     </Sortable.Root><button class="s3806-focus">Other</button></>);

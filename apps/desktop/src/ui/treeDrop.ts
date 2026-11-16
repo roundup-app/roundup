@@ -233,41 +233,37 @@ export const legalIndexOf = () => {
   };
 };
 
-/** The gap and depth a keyboard drag holds. */
-export type KeyStop = { slot: number; depth: number };
-
-/** The stop a keyboard drag of `dragged` starts at: the gap and depth the row stands at. */
-export const keyStart = (tree: readonly TreeRow[], dragged: string): KeyStop => {
-  const rows = withDepth(tree);
-  const remaining = remainingRows(rows, dragged);
-  const own = rows.find((row) => row.id === dragged);
-
-  if (!own) throw new Error(`no row ${dragged}`);
-
-  return { slot: rows.slice(0, rows.indexOf(own)).filter((row) => remaining.includes(row)).length, depth: own.depth };
-};
-
-/** The stop one ArrowLeft (-1) or ArrowRight (1) moves to: the next depth the owner takes for the gap, else where it stands. */
-export const keyTurn = (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, stop: KeyStop, direction: 1 | -1): KeyStop => {
-  const depths = legalDepths(remainingRows(withDepth(tree.rows), dragged), tree, dragged, stop.slot);
-  const wanted = stop.depth + direction;
-  const depth = direction === 1 ? depths.find((each) => each >= wanted) : depths.findLast((each) => each <= wanted);
-
-  return { slot: stop.slot, depth: depth ?? stop.depth };
-};
-
-/** The drop a keyboard stop shows. */
-export const keyDrop = (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, stop: KeyStop): SortableDrop => dropAt(remainingRows(withDepth(tree.rows), dragged), tree.nests, stop.slot, stop.depth);
-
-/**
- * The drop for the gap before index `index` of the dragged row: a keyboard drag at its own depth, else `level` levels from the row's own depth.
- * A gap the owner refuses snaps to the nearest one it takes; a key goes on past it the way it was going, from the gap `from` the last resolve took.
- */
-export const resolveDrop = (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, index: number, level: number, keyboard: KeyStop | null, from: number) => {
+/** The drop for the gap before index `index` of the dragged row, `level` levels from the row's own depth. A gap the owner refuses snaps to the nearest one it takes. */
+export const resolveDrop = (tree: DropRules & { rows: readonly TreeRow[] }, dragged: string, index: number, level: number) => {
   const { rows, remaining, slot, own } = gapAt(tree.rows, dragged, index);
-  const gap = legalSlot(remaining, tree, dragged, slot, keyboard ? Math.sign(slot - from) : 0);
-  const stop = keyboard && keyboard.slot !== gap ? { slot: gap, depth: legalDepths(remaining, tree, dragged, gap)[0]! } : keyboard;
-  const depth = stop ? stop.depth : own.depth + level;
+  const gap = legalSlot(remaining, tree, dragged, slot, 0);
 
-  return { rows, gap, keyboard: stop, drop: dropAt(remaining, tree.nests, gap, nearestDepth(legalDepths(remaining, tree, dragged, gap), depth)) };
+  return { rows, gap, drop: dropAt(remaining, tree.nests, gap, nearestDepth(legalDepths(remaining, tree, dragged, gap), own.depth + level)) };
+};
+
+/** A chord of a focused row: `up` and `down` step among its siblings, `in` makes it the last child of the sibling above, `out` puts it just after its parent. */
+export type RowKey = "up" | "down" | "in" | "out";
+
+/** The `{parent, index}` a row's chord moves it to, counting the parent's other children among the rows shown, or null where the chord does nothing: at either end, or where the owner's rules refuse the parent. */
+export const keyMove = (tree: DropRules & { rows: readonly TreeRow[] }, id: string, key: RowKey): { parent: string | null; index: number } | null => {
+  const own = tree.rows.find((row) => row.id === id);
+
+  if (!own) return null;
+  const siblings = tree.rows.filter((row) => row.parent === own.parent);
+  const at = siblings.indexOf(own);
+  const takes = (parent: string | null) => tree.takes?.(id, parent) ?? true;
+
+  if (key === "up") return at > 0 && takes(own.parent) ? { parent: own.parent, index: at - 1 } : null;
+
+  if (key === "down") return at < siblings.length - 1 && takes(own.parent) ? { parent: own.parent, index: at + 1 } : null;
+
+  if (key === "in") {
+    const above = siblings[at - 1];
+
+    return above && tree.nests(above.id) && takes(above.id) ? { parent: above.id, index: tree.rows.filter((row) => row.parent === above.id).length } : null;
+  }
+
+  const parent = tree.rows.find((row) => row.id === own.parent);
+
+  return parent && takes(parent.parent) ? { parent: parent.parent, index: tree.rows.filter((row) => row.parent === parent.parent).indexOf(parent) + 1 } : null;
 };

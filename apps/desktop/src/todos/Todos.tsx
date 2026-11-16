@@ -278,7 +278,6 @@ export const Todos = (props: {
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
-  let nestGrip = false;
   let nestPermission = captureFocus();
 
   createEffect(() => open().map(todo => todo.blockers.join()), () => {
@@ -289,8 +288,7 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => (nestGrip ? rowButtonOf(id)?.closest(".todo-row")?.querySelector<HTMLElement>(".sortable-handle")
-        : rowButtonOf(id))?.focus({ preventScroll: true }));
+      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => rowButtonOf(id)?.focus({ preventScroll: true }));
     });
   });
 
@@ -301,7 +299,6 @@ export const Todos = (props: {
       const advance = captureAdvance(todo.id);
       nestPermission = captureFocus();
       nestFocus = advance ? null : todo.id;
-      nestGrip = false;
 
       const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
@@ -325,7 +322,6 @@ export const Todos = (props: {
       const blockers = plan.blockers;
       nestPermission = captureFocus();
       nestFocus = id;
-      nestGrip = true;
       const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
       if (message !== null) {
