@@ -137,12 +137,19 @@ const createEditable = (props: RootProps) => {
     if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return;
     let unbind: (() => void) | undefined;
 
-    // The field takes focus as the library's own move: a caller's permission to focus it, captured before this, still holds.
-    captureFocus()(() => { unbind = edit.bindInput(field); });
+    // The field takes focus a microtask after it mounts, as the library's own move: a focus the user chose meanwhile outranks it.
+    const permission = captureFocus();
 
-    if (untrack(() => props.selectOnFocus) === false) field.setSelectionRange(field.value.length, field.value.length);
+    let ended = false;
 
-    return unbind;
+    queueMicrotask(() => permission(() => {
+      if (ended) return;
+      unbind = edit.bindInput(field);
+
+      if (untrack(() => props.selectOnFocus) === false) field.setSelectionRange(field.value.length, field.value.length);
+    }));
+
+    return () => { ended = true; unbind?.(); };
   });
 
   // A caller that sets `edit` starts a read-only field too: the field shows, and only a person's own start is refused.

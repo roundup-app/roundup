@@ -225,8 +225,8 @@ for (const path of ["ask", "switcher", "rail-name", "todo-title"]) {
     else if (path === "switcher") {
       await browser("press", "Meta+k");
       await browser("press", "k");
-    } else if (path === "rail-name") await read(`document.querySelector('.rail-row .name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
-    else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+    } else if (path === "rail-name") await read(`document.querySelector('.rail-row .name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true})); window.__flush()`);
+    else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true})); window.__flush()`);
     expect(await read(`window.queuedFocus.length`)).toBeGreaterThan(0);
     await read(`window.newerFocus = document.querySelector('.rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]'); window.newerFocus.focus(); window.queueMicrotask = window.realMicrotask; window.queuedFocus.splice(0).forEach(fn => fn())`);
 
@@ -308,21 +308,21 @@ const holdFrames = async () => read(`(() => {
   });
 })()`);
 
-it.each(["initial", "return"])("u3756b_a_select_focus_frame_yields_to_the_newer_rail_choice_%s", async phase => {
+// U3756b reworded (accepted change 25): a Select is no appearance path; its list takes focus on opening and gives it back to the trigger as ui-sdk's Select does.
+it.each(["initial", "return"])("u3756b_a_select_list_takes_and_returns_focus_%s", async phase => {
   await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
   await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
   await browser("press", "Meta+Comma");
-  await wait(`!!document.querySelector('.settings-view .app-select-trigger')`);
+  await wait(`!!document.querySelector('.settings-view [role=combobox]')`);
+  await read(`window.selectTrigger = document.querySelector('.settings-view [role=combobox]'); window.selectTrigger.focus()`);
+  await browser("press", "Enter");
+  await wait(`!!document.activeElement?.closest('.app-select-list')`);
 
   if (phase === "return") {
-    await read(`document.querySelector('.settings-view [role=combobox]').click()`);
-    await wait(`!!document.activeElement?.closest('.app-select-list')`);
+    await browser("press", "Escape");
+    await wait(`window.selectTrigger.getAttribute('aria-expanded') === 'false'`);
+    expect(await read(`document.activeElement === window.selectTrigger`)).toBe(true);
   }
-
-  await holdFrames();
-  await read(`${phase === "initial" ? "document.querySelector('.settings-view .app-select-trigger').click()" : "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))"}; document.querySelector('.rail-row').focus(); window.newFocus = document.activeElement;`);
-  expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
-  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
 }, 90_000);
 
 it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => {
@@ -359,6 +359,7 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
     window.queueMicrotask = task => queued.push(task);
     document.querySelector('.drawer .todo-detail-title p[tabindex]').focus();
     document.querySelector('.drawer .todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}));
+    window.__flush();
     window.queueMicrotask = queue;
     window.editorMounted = document.querySelector('.drawer textarea');
     window.restoreEditor = () => queued.forEach(task => queue(task));
@@ -401,7 +402,9 @@ it.each(["Engine", "Model"])("u3756d_settings_picker_escape_returns_focus_%s", a
   await browser("press", "Meta+Comma");
   await wait("!!document.querySelector('.settings-view')");
   await read(`window.pickerTrigger = [...document.querySelectorAll('.app-select-trigger')].find(button => button.getAttribute('aria-labelledby')?.split(' ').map(id => document.getElementById(id)?.textContent ?? '').join(' ').startsWith('${label}'))`);
-  await read("window.pickerTrigger.click()");
+  // A person opens the picker with the key on its focused trigger; ui-sdk returns a programmatic opening to whatever had focus before it.
+  await read("window.pickerTrigger.focus()");
+  await browser("press", "Enter");
   await wait("document.activeElement?.matches('.app-combobox-input')");
   await browser("fill", ".app-combobox-input", "One");
   await capture("U3756d", `${label.toLowerCase()}-open`);

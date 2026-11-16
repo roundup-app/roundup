@@ -31,7 +31,20 @@ export const samePlaces = (a: Record<string, Place>, b: Record<string, Place>): 
 
 /** The bubbles' state: their places and where they persist, the one Terminal opening, the keys it reserves and the bubble that wants focus. */
 export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writable: () => boolean) => {
-  const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
+  // Reads lag writes until the next flush. `latest` is what the last write set, so a handler that writes and reads in one turn (a Pull's frame, then the focus that ends it) builds on it.
+  let latest = store.read();
+  const [shownPlaces, showPlaces] = createSignal<Record<string, Place>>(latest);
+
+  const places = (): Record<string, Place> => {
+    shownPlaces();
+
+    return latest;
+  };
+
+  const setPlaces = (next: Record<string, Place>): void => {
+    latest = next;
+    showPlaces(next);
+  };
 
   /** Writes `next` to session storage unless the Daemon has exited; the failure text, else null. */
   const persist = (next: Record<string, Place>): string | null => writable() ? store.write(next) : null;

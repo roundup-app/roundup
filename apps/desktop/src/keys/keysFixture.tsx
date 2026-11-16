@@ -50,6 +50,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
   let dialog: HTMLDivElement | undefined;
   let menu: HTMLDivElement | undefined;
   let origin: HTMLButtonElement | undefined;
+  const [layers, setLayers] = createSignal<HTMLDivElement>();
 
   const close = () => {
     const restore = drawer?.contains(document.activeElement);
@@ -65,7 +66,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
 
     return <Show when={drawerOpen()}><aside ref={drawer} class="drawer" data-registry-drawer tabindex={-1} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "0", bottom: "0", width: "var(--shelf-width)", "z-index": "var(--layer-drawer)" }}>
       <button data-registry-modal-trigger data-button="quiet" onClick={() => setDialogOpen(true)}>Open modal</button>
-      <Menu.Root open={menuOpen()} onOpenChange={(details) => setMenuOpen(details.open)}>
+      <Menu.Root open={menuOpen()} onOpenChange={(details) => setMenuOpen(details.open)} container={layers() ?? document.body}>
         <Menu.Trigger data-registry-menu-trigger data-button="quiet">Project menu</Menu.Trigger>
         <Menu.Content ref={menu}>
           <Menu.Item value="project">Project action</Menu.Item>
@@ -96,5 +97,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
     {reverse && <Top />}
     {nested ? <main><section aria-label="Drawer region"><Drawer /></section></main> : <section aria-label="Drawer region"><Drawer /></section>}
     {!reverse && <Top />}
+    {/* ui-sdk renders a popup beside its trigger unless it is given a container: the menu mounts here so the top layer is no DOM descendant of the Drawer below it. */}
+    <div ref={setLayers} data-registry-layers />
   </div>, { container: document.body });
 };

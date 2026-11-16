@@ -116,7 +116,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await lane.browser("focus", `.rail-row[data-id="${home.id}"]`);
     await lane.until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
     await lane.browser("press", "Enter");
-    await lane.until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
+    await lane.until(`!!document.querySelector('.rail-row[data-id="${home.id}"][data-selected]')`);
     await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
     await lane.until(`!!document.querySelector('${group("unassigned")}')`);
     await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');const control=g.querySelector('.shelf-group-control');if(control.getAttribute('aria-expanded')==='false')control.click();return true;})()`);
@@ -268,7 +268,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await capture("project-reopened");
     await lane.browser("focus", `.rail-row[data-id="${agents[3]!.id}"]`);
     await lane.browser("press", "Enter");
-    await lane.until(`document.querySelector('.rail-row[data-id="${agents[3]!.id}"]')?.dataset.selected === 'true'`);
+    await lane.until(`!!document.querySelector('.rail-row[data-id="${agents[3]!.id}"][data-selected]')`);
     await capture("empty-agent");
     expect(lostFocus).toEqual([]);
   } catch (error) {
@@ -331,7 +331,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
     const selectHome = async () => {
       await lane.browser("focus", `.rail-row[data-id="${home.id}"]`);
       await lane.browser("press", "Enter");
-      await lane.until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
+      await lane.until(`!!document.querySelector('.rail-row[data-id="${home.id}"][data-selected]')`);
     };
 
     const openTodo = async () => {

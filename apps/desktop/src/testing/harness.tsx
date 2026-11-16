@@ -3,7 +3,7 @@ import type { MenuItem } from "../app/seam";
 import { StorageRecovery } from "../window/StorageRecovery";
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
-import { createRoot, createSignal, For, Show } from "solid-js";
+import { createRoot, createSignal, flush, For, Show } from "solid-js";
 import { render } from "@solidjs/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
 import { captureActions } from "../keys/registry";
@@ -37,6 +37,8 @@ declare global {
     __firstRun?: { cancelNextChoice: () => void };
     __checks: () => Checks;
     __axe: () => Promise<AxeResult>;
+    /** Solid's `flush`: a lane that holds the page's microtasks runs the update a write queued, as a synchronous one would. */
+    __flush: () => void;
   }
 }
 
@@ -158,6 +160,8 @@ const mount = (app: AppSeam) => {
 window.__checks = () => runChecks();
 
 window.__axe = () => runAxe();
+
+window.__flush = flush;
 
 if (query.get("daemon") === "1") {
   // `just harness-real` (U144): the same App on a running `rupd`, so there is no `window.__fake`.

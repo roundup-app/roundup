@@ -118,7 +118,8 @@ const shared = async (owner: string, trigger: string, phase: string) => {
 
     target.focus();
     await settle();
-    const fitted = terminals!.emulators.made.get("1")!;
+    // The Pane's own Terminal (Agent a's Door): `Pane::refitNextFrame` fits it once the hold falls. A bubble's Terminal also fits when its snapshot lands, so it cannot prove the refit.
+    const fitted = terminals!.emulators.made.get("t-a")!;
     const fits = fitted.fits;
     pointer("pointerdown", target, 0, 400, 100);
 

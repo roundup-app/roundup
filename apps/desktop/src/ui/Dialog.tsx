@@ -128,19 +128,14 @@ const createOwnership = (props: RootProps) => {
     return !props.instant && !reduced() && sourceOf() !== "keyboard";
   });
 
-  let restore = captureFocus();
-
-  createEffect(requested, (open, was) => {
-    if (!open && was) restore = captureFocus();
-  });
-
   const owner: Owner = {
     open: requested,
     animated,
     element,
     setElement,
     initialFocus: () => props.initialFocusEl ?? "auto",
-    finalFocus: () => restore.target(() => untrack(() => props.finalFocusEl?.())),
+    // ui-sdk reads this as it closes, before any effect of ours could run: the permission is taken here, so a focus move that came earlier in the turn still wins.
+    finalFocus: () => captureFocus().target(() => untrack(() => props.finalFocusEl?.())),
   };
 
   const change = (open: boolean) => {

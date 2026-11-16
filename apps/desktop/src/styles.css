@@ -51,7 +51,12 @@ p {
   pointer-events: none;
 }
 
-.overlay :is(.drawer, .help, .app-dialog-positioner, .reserved-line) {
+.overlay :is(.drawer, .help, .reserved-line) {
+  pointer-events: auto;
+}
+
+/* A closing Dialog keeps its own `pointer-events: none` (Dialog.css). */
+.overlay .app-dialog:not([data-closed]) {
   pointer-events: auto;
 }
 

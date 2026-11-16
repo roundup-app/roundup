@@ -300,7 +300,7 @@ describe("u3789a connected browser rows", () => {
       await browser("focus", `.rail-row[data-id="${home.id}"]`);
       await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
       await browser("press", "Enter");
-      await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
+      await until(`!!document.querySelector('.rail-row[data-id="${home.id}"][data-selected]')`);
       await evaluate("(() => {const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
 
       for (const kind of ["todo", "pad"]) {

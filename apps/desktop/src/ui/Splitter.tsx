@@ -180,6 +180,8 @@ export function Splitter(props: {
   const press = (event: PointerEvent) => {
     if (event.button !== 0 || props.disabled || props.hidden) return;
 
+    // A press takes the edge's focus, as a press on any focusable control does: Escape then reaches the edge's cancel before an App key bound to wherever focus was.
+    edge.focus({ preventScroll: true });
     endHold?.();
 
     const origin = pixels();

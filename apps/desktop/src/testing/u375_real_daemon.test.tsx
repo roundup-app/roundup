@@ -4,10 +4,11 @@ import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { storageIdle } from "../state/storage";
 import { createFakeApp } from "./fakeApp";
 import { workstream } from "./nodes";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(async () => { cleanup(); await storageIdle(); localStorage.clear(); });
 
 window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false });
 
@@ -50,6 +51,8 @@ it("u2773a_queries_keep_original_project_through_switch_events_and_reopen", asyn
     await waitFor(() => expect(field()?.value).toBe("  first e\u0301 🧭 東京  "));
     await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 8, "backward"]));
     press("Escape", {}, field()!);
+    // The reopened App reads what was saved: it reopens once the saves have landed, as a person's reopening follows them.
+    await storageIdle();
     cleanup();
     mount();
     await chooseProject(second!.path);
