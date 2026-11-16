@@ -6,7 +6,7 @@ import { CopyButton } from "../ui/CopyButton";
 import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "./copy";
 import { createWritableMemo } from "@solid-primitives/memo";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import { modalOutside } from "../keys/registry";
@@ -93,8 +93,8 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
 
     setComparisons(new Map());
 
-    for (const [id, value] of props.notes.entries()) {
-      if (!props.available(id)) continue;
+    // The files compared are those of the notes kept, and the Agents still available, when the panel opens.
+    for (const [id, value] of untrack(() => props.notes.entries().filter(([id]) => props.available(id)))) {
       const paths = new Set([...value.forms, ...value.notes, ...value.submissions.flatMap(submission => submission.notes), ...value.recovered.flatMap(record => [...record.data.forms, ...record.data.notes])].map(note => note.comparison.newPath));
 
       for (const path of paths) void reply(() => app.rpc("agent.compareFile", { id, path })).then(result => {

@@ -1,5 +1,5 @@
 import "./ProjectOpening.css";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import { queueFocus } from "../keys/focus";
 import type { ProjectsState } from "../state/projects";
@@ -158,7 +158,7 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
         <Dialog.Title>{pending().kind === "failure" ? copy.openProjectFailed : copy.openProjectTitle}</Dialog.Title>
         <Dialog.Description>
           <Show when={confirmation()} fallback={<Show when={failure()}>{failure => <>{failure().message} {copy.openProjectRetry}</>}</Show>}>
-            {confirmation => copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName)}
+            {confirmation => untrack(() => copy.openProjectQuestion(confirmation().request.params.agent?.name ?? copy.openUser, confirmation().sourceName))}
           </Show>
           <span class="project-opening-path">{pending().request.params.path}</span>
         </Dialog.Description>

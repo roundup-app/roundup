@@ -109,7 +109,7 @@ export const Layout = (props: {
 
   createEffect(() => [shownNow(), coveringNow()], () => {
     const drawer = windowElement?.querySelector('.drawer[data-open="true"]');
-    setShelfSliding(!drawer && mode() === "reserved" && placement().animated && placement().rendered);
+    setShelfSliding(untrack(() => !drawer && mode() === "reserved" && placement().animated && placement().rendered));
   }, { defer: true });
   createEffect(() => placement().sliding === false, stopped => { if (stopped) setShelfSliding(false); });
   onCleanup(() => placement().onSettle());
@@ -127,8 +127,8 @@ export const Layout = (props: {
     const shelf = shelfElement();
     maximiseSlide.cancel();
 
-    if (!windowElement || !shelf?.animate || mode() !== "reserved" || !placement().animated || !placement().open) return;
-    maximiseSlide.start(widthBefore, placement().keyed === true, () => setShelfSliding(false));
+    if (!windowElement || !shelf?.animate || untrack(() => mode() !== "reserved" || !placement().animated || !placement().open)) return;
+    maximiseSlide.start(widthBefore, untrack(() => placement().keyed === true), () => setShelfSliding(false));
   }, { defer: true });
 
   // U3721b: the centre takes its final width once, when the slide ends, never by interpolating it.

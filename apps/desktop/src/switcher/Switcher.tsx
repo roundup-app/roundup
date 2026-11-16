@@ -308,7 +308,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry) choose(entry);
   };
 
-  createEffect(createMemo(() => open() && !dispatching() && panel() !== undefined && modalOutside(panel())), outside => { if (outside) close({ kind: "pane", terminal: null }); });
+  createEffect(createMemo(() => open() && !dispatching() && panel() !== undefined && modalOutside(panel())), outside => { if (outside) untrack(() => close({ kind: "pane", terminal: null })); });
 
   let openingFocus = captureFocus();
 

@@ -280,8 +280,9 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   // The row that unmounted while it had focus. ui-sdk's tree has moved focus to the row's parent by the time the rows settle, so `focused` no longer names it.
   let unmounted: string | null = null;
 
-  createEffect(rows, current => {
-    const id = unmounted ?? untrack(focused);
+  // Focus is restored from the rows and focus as they are when the rows change, so the apply reads them as a snapshot.
+  createEffect(rows, current => untrack(() => {
+    const id = unmounted ?? focused();
 
     unmounted = null;
 
@@ -306,7 +307,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     setFocused(target);
     // U3800g: the restore runs at the next frame, after the drop's task.
     requestAnimationFrame(() => rowElement(target)?.focus());
-  });
+  }));
 
   const openRow = (id: string) => {
     const node = rail.nodes.find(each => each.id === id);

@@ -1,5 +1,5 @@
 import type { RailNode } from "@contracts/agent/RailNode";
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, untrack } from "solid-js";
 import type { ForkPick } from "../app/seam";
 
 /** FS5979b: one row of the sheet: a Project, a Door or an Agent, in the Rail's order and nesting. */
@@ -38,7 +38,7 @@ const below = (row: ForkRow): ForkRow[] => row.children.flatMap(child => [child,
 /** FS5979b: which rows are kept. Unticking a row unticks what is under it; ticking one ticks what is under it and the rows above it. */
 export const createForkTicks = (rows: () => ForkRow[]) => {
   const all = () => rows().flatMap(row => [row, ...below(row)]);
-  const [kept, setKept] = createSignal<ReadonlySet<string>>(new Set(all().map(row => row.id)));
+  const [kept, setKept] = createSignal<ReadonlySet<string>>(new Set(untrack(() => all().map(row => row.id))));
   const parents = createMemo(() => new Map(rows().flatMap(root => [root, ...below(root)].flatMap(row => row.children.map(child => [child.id, row] as const)))));
   const byId = createMemo(() => new Map(all().map(row => [row.id, row] as const)));
 

@@ -72,7 +72,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   let generation = 0;
 
   const refresh = async () => {
-    if (open() && document.activeElement?.closest(".worktree-tree")) treeFocus = captureFocus();
+    if (untrack(open) && document.activeElement?.closest(".worktree-tree")) treeFocus = captureFocus();
     const request = ++generation;
     let changed: ChangedFiles | undefined;
     const failure = await failureOf(async () => { changed = await app.rpc("agent.changedFiles", { id: props.id }); });
@@ -108,7 +108,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   };
 
   createEffect(() => node()?.status_revision, (next, before) => {
-    const kind = node()?.status?.kind;
+    const kind = untrack(() => node()?.status?.kind);
 
     if (before !== undefined && next !== before && (kind === "done" || kind === "error" || kind === "idle")) void refresh();
   });

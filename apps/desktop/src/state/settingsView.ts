@@ -1,5 +1,5 @@
 import { captureFocus, queueFocus } from "../keys/focus";
-import { createSignal, type Accessor } from "solid-js";
+import { createSignal, untrack, type Accessor } from "solid-js";
 
 /** U3814: the open center page and its original return destination, retained when changing pages. */
 export type SettingsViewState = {
@@ -21,7 +21,7 @@ export const createSettingsView = (): SettingsViewState => {
     show: (from, next = "project-settings", returning) => {
       captureFocus(true);
 
-      if (!open()) { opener = from; restore = returning; }
+      if (!untrack(open)) { opener = from; restore = returning; }
 
       setPage(next); setOpen(true);
     },

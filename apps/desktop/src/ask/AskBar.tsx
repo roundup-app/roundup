@@ -205,7 +205,7 @@ export const AskBar = (props: {
   }, null);
 
   const close = (restore: boolean): void => {
-    if (optionalViews.some(connected.hasView)) optionalViews.forEach(connected.hideView);
+    if (untrack(() => optionalViews.some(connected.hasView))) optionalViews.forEach(connected.hideView);
     selectedPane = !restore;
     setOpening(null);
     setSelected(null);
@@ -222,14 +222,15 @@ export const AskBar = (props: {
     setOpening("over");
   };
 
-  createEffect(createMemo(() => props.recovery), recovery => {
+  // A retained draft opens once, from the drafts and the Project as they are when the recovery arrives.
+  createEffect(createMemo(() => props.recovery), recovery => untrack(() => {
     if (!recovery || recovery.project !== connected.project.path) return;
     const draft = records().find(entry => entry.revision === recovery.revision);
 
     if (!draft || draft.status === "pending" || drafts.availability(draft, connected) !== "available") return;
     setSelected(draft.revision);
     open();
-  });
+  }));
 
   registerKeys({ kind: "app" }, [{
     action: CHORDS["ask.open"],

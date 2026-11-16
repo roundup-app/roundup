@@ -13,6 +13,7 @@ import {
   For,
   onCleanup,
   Show,
+  untrack,
 } from "solid-js";
 import { applyRef } from "@solidjs/web";
 import { LEADER } from "../keys/chords";
@@ -314,7 +315,7 @@ const createOverflow = (props: { tabs: StripTab[]; active: string | null }) => {
     props.tabs.map((tab) => `${tab.path}:${markOf(tab)}`).join(),
   );
 
-  createEffect(layoutKey, () => measure());
+  createEffect(layoutKey, () => untrack(measure));
 
   createEffect(
     () => props.active,

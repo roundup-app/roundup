@@ -229,7 +229,7 @@ export const followAppAppearance = (changed: () => void): (() => void) => {
     // A memo: another setting changing must not repaint the theme.
     const mode = createMemo(() => appSettings().mode);
 
-    createEffect(mode, () => { changed(); }, { defer: true });
+    createEffect(mode, () => { untrack(changed); }, { defer: true });
 
     return dispose;
   });

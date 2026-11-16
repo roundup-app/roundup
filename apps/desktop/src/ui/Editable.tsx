@@ -79,7 +79,7 @@ const createEditable = (props: RootProps) => {
   const setText = (next: string) => {
     if (next === untrack(text)) return;
 
-    if (controlled() === undefined) setStored(next);
+    if (untrack(controlled) === undefined) setStored(next);
     props.onValueChange?.({ value: next });
   };
 
@@ -162,7 +162,7 @@ const createEditable = (props: RootProps) => {
     driven = true;
     forcing = true;
 
-    if (wanted) edit.start(id);
+    if (wanted) untrack(() => edit.start(id));
     else {
       // The caller that ends the session owns focus, so this is the library's end without its return of focus to where the edit began, and it commits nothing.
       ending = true;

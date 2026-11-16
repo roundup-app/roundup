@@ -29,7 +29,7 @@ export const createOwnerAssignment = (source: {
 
     return [request, request && source.todos.byId().get(request.id)] as const;
   }, ([request, arrived]) => {
-    if (!request || !arrived || !sameOwner(arrived.owner, request.owner)) return;
+    if (!request || !arrived || !untrack(() => sameOwner(arrived.owner, request.owner))) return;
 
     const id = request.id;
 

@@ -21,7 +21,7 @@ import type { TabContext } from "./tab";
 import { copy } from "./copy";
 import { createBubbleFailure, createCopyFailure } from "./failures";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, For, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { Portal } from "@solidjs/web";
 import { createBubblesModel, samePlaces } from "./model";
 import type { Arrival } from "./model";
@@ -103,7 +103,7 @@ export const Bubbles = (props: {
   const abortOpening = (reason?: DOMException): void => {
     const current = untrack(model.opening);
 
-    if (current.kind === "opening") current.controller.abort(reason);
+    if (current.kind === "opening") untrack(() => current.controller.abort(reason));
   };
 
   onCleanup(() => abortOpening());
@@ -266,7 +266,7 @@ export const Bubbles = (props: {
       // Do not replace a saved rectangle with fallback geometry before layout exists.
       if (corner.width <= 0 || corner.height <= 0) return;
       const prior = untrack(places);
-      const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
+      const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, untrack(extent))]));
 
       if (!samePlaces(next, prior)) commitPlaces(next);
 
@@ -611,7 +611,8 @@ export const Bubbles = (props: {
       queueMicrotask(() => {
         if (wanted() !== request || bubbleElement(id) === null) return;
 
-        if (!focus(() => { const placed = show(id); focusItem(id, placed[id]); })) setPlace(id, { ...placeOf(id), min: true });
+        // Showing the bubble reaches the DOM at the next flush, and a hidden bubble cannot take focus.
+        if (!focus(() => { const placed = show(id); flush(); focusItem(id, placed[id]); })) setPlace(id, { ...placeOf(id), min: true });
 
         if (wanted() === request) setWanted(null);
       });

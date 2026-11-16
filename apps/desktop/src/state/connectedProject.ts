@@ -1,5 +1,5 @@
 import { isDoor } from "./doorNode";
-import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, runWithOwner, useContext, type Accessor, type Owner } from "solid-js";
+import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, runWithOwner, untrack, useContext, type Accessor, type Owner } from "solid-js";
 import { createHeld } from "./held";
 import { createTodoUndo } from "./undo";
 import type { RpcMethodName } from "@contracts/methods";
@@ -307,6 +307,6 @@ export const useCreation = (kind: "todo" | "pad" | "terminal", consume: (home: s
     if (request?.kind !== kind) return;
 
     connected.finishCreation();
-    consume(request.home);
+    untrack(() => consume(request.home));
   });
 };

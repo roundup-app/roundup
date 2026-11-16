@@ -1,5 +1,5 @@
 import { isDoor } from "./doorNode";
-import { createEffect, createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Worktree } from "@contracts/agent/Worktree";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
@@ -47,7 +47,7 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
 
     load();
 
-    return { identity, read, loading: () => loading, attempted: now() + NOW_TICK_MS, refresh: () => {
+    return { identity, read, loading: () => loading, attempted: untrack(now) + NOW_TICK_MS, refresh: () => {
       // Keep the request outcome available to its caller even after the entry is dropped.
       if (!loading) load();
 
@@ -68,7 +68,7 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
       if (!entry) return Promise.resolve({ failure: copy.worktreeReadUnavailable });
 
       // A view can open just before a coarse tick; skip that tick rather than poll twice within five seconds.
-      if (!entry.loading()) entry.attempted = now() + NOW_TICK_MS;
+      if (!entry.loading()) entry.attempted = untrack(now) + NOW_TICK_MS;
 
       return entry.refresh();
     },

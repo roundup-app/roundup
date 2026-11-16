@@ -329,7 +329,7 @@ export const App = (props: {
     return storageProblems().filter(problem => problem.key !== railKey);
   });
 
-  createEffect(() => props.prepareIdle && activeConnection(), open => { if (open) props.prepareIdle?.(open); });
+  createEffect(() => props.prepareIdle && activeConnection(), open => { if (open) untrack(() => props.prepareIdle?.(open)); });
 
   // U370, U373, U4457: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");

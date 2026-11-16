@@ -150,7 +150,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
     draft.keep(restored === "branch" ? { name: input.value, base, recovery: true } : { name: input.value, base }, caret);
   };
 
-  createEffect(createMemo(() => props.recovery), selected => { if (selected) start(selected); });
+  createEffect(createMemo(() => props.recovery), selected => { if (selected) untrack(() => start(selected)); });
 
   createEffect(createMemo(() => terminal().incarnation !== destination.object || !terminal().running || readOnly()), stale => {
     if (stale) setEditing(prior => prior?.id === id ? null : prior);

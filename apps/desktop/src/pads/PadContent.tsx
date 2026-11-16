@@ -87,8 +87,9 @@ const PadBody = (props: {
   const list = props.list ?? usePadList();
   const maximised = useContext(DrawerMaximisedContext);
   const [width, setWidth] = createSignal(untrack(() => appSettings().padWidth));
-  const name = props.initial.name;
-  const destination = { surface: "pads", object: props.initial.incarnation, recipient: null };
+  // The body opens on the Pad as it is now, read once.
+  const { name, ...opened } = untrack(() => ({ name: props.initial.name, incarnation: props.initial.incarnation, text: props.initial.text, revision: props.initial.revision }));
+  const destination = { surface: "pads", object: opened.incarnation, recipient: null };
   const ownDrafts = () => connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
   // The body reopens the draft it opened with, read once.
   const retained = untrack(() => ownDrafts().filter(draft => props.revision === undefined || draft.revision === props.revision).at(-1));
@@ -98,9 +99,9 @@ const PadBody = (props: {
 
   const draft = parsed?.success ? parsed.output : undefined;
   const recovered = draft && retained;
-  const source = draft ? draft.editorSource ?? draft.source : props.initial.text;
-  const base = draft ? draft.base : props.initial.text;
-  let sourceRevision = draft ? draft.baseRevision : props.initial.revision;
+  const source = draft ? draft.editorSource ?? draft.source : opened.text;
+  const base = draft ? draft.base : opened.text;
+  let sourceRevision = draft ? draft.baseRevision : opened.revision;
   let originalBase = base;
   let originalRevision = sourceRevision;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
@@ -119,7 +120,7 @@ const PadBody = (props: {
     return props.revision === undefined ? copy.draftIdentity(copy.currentDraft, status) : status;
   };
 
-  const changed = recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision);
+  const changed = recovered && (base !== opened.text || sourceRevision !== opened.revision);
   const cycle = createSave(restoredSave(Boolean(changed), Boolean(retained)));
   const deleted = () => cycle.save().kind === "deleted";
   // A recovered draft awaits Resume even beside a conflict.
@@ -542,13 +543,13 @@ export const PadDrawer = (props: {
   const connected = useConnectedProject();
   const initialFocus = captureFocus();
 
-  if (props.recovery !== undefined) {
-    const recovery = props.recovery;
+  const recovery = untrack(() => props.recovery);
 
+  if (recovery !== undefined) {
     if (recovery.project !== connected.project.path) return null;
 
-    const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
-    const original = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
+    const retained = untrack(() => connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null));
+    const original = untrack(() => recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined);
 
     return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }

@@ -386,7 +386,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   /** Opens the Workstreams above `id`, and returns the set the Rail now holds collapsed. */
   const reveal = (id: string | null): ReadonlySet<string> => {
-    const above = new Set(id === null ? [] : ancestorsOf(topology(), id));
+    const above = new Set(id === null ? [] : untrack(() => ancestorsOf(topology(), id)));
 
     return setCollapsed((closed) => id === null ? closed : new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
@@ -405,9 +405,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
-    seenAtSelect = new Set(latest(() => model.tree.map(node => node.id)));
+    seenAtSelect = new Set(untrack(() => latest(() => model.tree.map(node => node.id))));
     // A refresh may have written the tree while async work still holds the write back: `latest` sees the row `refresh` just fetched.
-    const next = id !== null && latest(() => model.tree.some((node) => node.id === id)) ? id : null;
+    const next = id !== null && untrack(() => latest(() => model.tree.some((node) => node.id === id))) ? id : null;
 
     setTerminalFocus(() => focus);
     setSelectionIntent(intent ?? "select");

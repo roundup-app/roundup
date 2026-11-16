@@ -593,7 +593,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
   });
 
   createEffect(createMemo(() => props.readonly), (readonly) => {
-    if (ready) crepe?.setReadonly(readonly);
+    if (ready) untrack(() => crepe?.setReadonly(readonly));
   });
 
   onCleanup(() => {

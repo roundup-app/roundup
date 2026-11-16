@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { Dialog } from "../ui/Dialog";
 import { CopyButton } from "../ui/CopyButton";
@@ -46,7 +46,7 @@ export const NameDraftRecovery = <T extends { revision: string }>(props: {
       <Dialog.Title>{copy.unfinishedWork}</Dialog.Title>
       <Dialog.Description class="draft-identity">{props.identity}</Dialog.Description>
       {props.lines}
-      <Show when={props.records.length > 1} fallback={<Show when={props.solo ? props.records.at(-1) : undefined}>{draft => props.solo!(draft(), isCurrent(draft()))}</Show>}>
+      <Show when={props.records.length > 1} fallback={<Show when={props.solo ? props.records.at(-1) : undefined}>{draft => untrack(() => props.solo!(draft(), isCurrent(draft())))}</Show>}>
         <For each={recoveryOrder(props.records, props.current)}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision ? "true" : "false"} onClick={() => inspect(draft.revision)}>{props.label(draft, index(), isCurrent(draft))}</button>}</For>
       </Show>
       <Show when={shown()}>{draft => <>

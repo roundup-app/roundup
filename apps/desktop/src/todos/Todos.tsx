@@ -84,13 +84,15 @@ export const Todos = (props: {
     return () => { if (copied.get(id) === feedback) copied.delete(id); };
   };
 
-  const retained = props.recovery ? connected.drafts.list().find(draft => draft.revision === props.recovery?.revision
-    && draft.destination.surface === "todos" && draft.destination.object === "new") : undefined;
+  // A retained form opens once from what is stored now, so this guard is a snapshot.
+  const recovery = untrack(() => props.recovery);
+
+  const retained = recovery ? untrack(() => connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "todos" && draft.destination.object === "new")) : undefined;
 
   const form = v.safeParse(creationSchema, retained?.value);
   const homeExists = (home: string | null) => home === null || connected.rail.nodes.some(node => node.id === home && node.kind === "workstream");
 
-  if (props.recovery && (todos.project !== connected.project.path || !todos.isLoaded() || todos.failure() !== null || !retained || !form.success
+  if (recovery && untrack(() => todos.project !== connected.project.path || !todos.isLoaded() || todos.failure() !== null || !retained || !form.success
     || retained.destination.recipient !== form.output.home || !homeExists(form.output.home))) return null;
 
   const [typing, setTyping] = createSignal(retained !== undefined);

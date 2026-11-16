@@ -229,7 +229,7 @@ export const ProjectTab = (props: {
     setEditing({ width: wrap?.offsetWidth ?? 0, from: retained && value ? { revision: retained.revision } : undefined });
   };
 
-  createEffect(() => props.recovery, selected => { if (selected) edit(selected); });
+  createEffect(() => props.recovery, selected => { if (selected) untrack(() => edit(selected)); });
 
   registerKeys({ kind: "region", element: () => wrap }, [
     { action: CHORDS["rail.rename"], when: press => press.target === button,

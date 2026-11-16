@@ -93,13 +93,13 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const [tab, setTabSignal] = createSignal(() => restored().tab);
 
   // Reads lag writes within one turn, so a caller that has just written passes what it wrote.
-  const save = (changed: Partial<Kept> = {}) => {
+  const save = (changed: Partial<Kept> = {}) => untrack(() => {
     if (path() === null) return;
     const kept: Kept = { open: open(), tab: tab(), maximised: maximised(), ...changed };
 
     if (surface() === "shelf") saveViewer({ frame: kept });
     else saveViewer({ surfaces: { ...viewer().surfaces, [surface()]: kept.maximised } });
-  };
+  });
 
   createEffect(restored, () => lifetime.settle(), { defer: true });
 

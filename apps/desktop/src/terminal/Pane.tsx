@@ -70,7 +70,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const connected = useConnectedProject();
   const { rail } = connected;
   let fontSize: number | undefined;
-  const createEmulator = props.createEmulator ?? lazyXtermEmulators();
+  const createEmulator = untrack(() => props.createEmulator) ?? lazyXtermEmulators();
 
   const screens = createScreens(connected, (id, copy) => {
     fontSize ??= untrack(() => appSettings().fontSize);
@@ -169,7 +169,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   createEffect(layoutMoving, (now) => { if (!now) refitNextFrame(); }, { defer: true });
 
   // X14: the Terminal the selection leaves stops receiving output; only its subscription is released.
-  createEffect(terminalId, (_id, previous) => { if (previous != null) screens.hide(previous); });
+  createEffect(terminalId, (_id, previous) => { if (previous != null) untrack(() => screens.hide(previous)); });
 
   createEffect(() => {
     const host = screen();

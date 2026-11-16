@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, untrack } from "solid-js";
 import { captureFocus } from "../keys/focus";
 import type { placesStorage, Place, Rect } from "./places";
 
@@ -47,7 +47,7 @@ export const createBubblesModel = (store: ReturnType<typeof placesStorage>, writ
   };
 
   /** Writes `next` to session storage unless the Daemon has exited; the failure text, else null. */
-  const persist = (next: Record<string, Place>): string | null => writable() ? store.write(next) : null;
+  const persist = (next: Record<string, Place>): string | null => untrack(writable) ? store.write(next) : null;
 
   /** The one writer of places: the view and storage take `next` together. */
   const commitPlaces = (next: Record<string, Place>): void => {
