@@ -1,4 +1,4 @@
-import { createEffect, on, Show, untrack } from "solid-js";
+import { createEffect, Show, untrack } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
@@ -19,10 +19,10 @@ export const ChangesIcon = (props: { id: string }) => {
   const title = () => `${copy.reviewChanges}: `;
 
   // P11: the failed read keeps its cause and Retry in the Rail's own message surface.
-  createEffect(on(() => read(), (next) => {
+  createEffect(read, (next) => {
     if (next?.failure) rail.commandFailure.show(`${title()}${next.failure}`, null, "rail", () => { void owned.refresh(id); });
     else if (next && rail.commandFailure.message()?.startsWith(title())) rail.commandFailure.clear();
-  }));
+  });
 
   return <Show when={count() > 0}>
     <IconButton class="changes-icon" aria-label={copy.changedFiles(count())} onKeyDown={(press) => press.stopPropagation()} onClick={(click) => { click.stopPropagation(); rail.select(id); showView("changes"); }}>

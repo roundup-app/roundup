@@ -1,4 +1,4 @@
-import { createMemo, createResource, createSignal, For, lazy, Show, Suspense } from "solid-js";
+import { createMemo, createSignal, For, lazy, Loading, refresh, Show } from "solid-js";
 import { diffLines } from "diff";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { CompareEndpoint } from "@contracts/agent/CompareEndpoint";
@@ -48,7 +48,7 @@ const countsOf = async (app: AppSeam, id: string, path: string, from: CompareEnd
 
 const FileRow = (props: { id: string; file: ChangedFile; from: CompareEndpoint; to: CompareEndpoint; onChoose: () => void }) => {
   const { app } = useConnectedProject();
-  const [counts] = createResource(() => [props.id, props.file.path, keyOf(props.from), keyOf(props.to)] as const, () => countsOf(app, props.id, props.file.path, props.from, props.to));
+  const [counts] = createSignal(() => countsOf(app, props.id, props.file.path, props.from, props.to), { loadingValue: null });
 
   return <li><button type="button" data-button="quiet" class="changes-file" onClick={() => props.onChoose()}>
     <span class="changes-path">{props.file.path}</span>
@@ -70,17 +70,20 @@ const Surface = (props: { id: string; name: string }) => {
 
   const [active, setActive] = createSignal(0);
   const group = () => groups()[active()] ?? groups()[0];
-  const [refs] = createResource(async () => (await app.rpc("project.compareRefs", null)).refs);
-  const choices = () => refs() ?? [];
+  // Read under ChangesView's Loading: the pickers and the title show once, with every endpoint listed.
+  const choices = createMemo<CompareRef[]>(async () => (await app.rpc("project.compareRefs", null)).refs);
   const [picked, setPicked] = createSignal<{ from: CompareEndpoint; to: CompareEndpoint }>();
   const [path, setPath] = createSignal<string>();
 
-  const [listed, { refetch }] = createResource(picked, async (chosen): Promise<{ failure: string | null; files: ChangedFile[] }> => {
+  const [listed] = createSignal<{ failure: string | null; files: ChangedFile[] } | undefined>(async () => {
+    const chosen = picked();
+
+    if (!chosen) return undefined;
     let files: ChangedFile[] = [];
     const failure = await failureOf(async () => { files = (await app.rpc("agent.changedFiles", { id: props.id, from: chosen.from, to: chosen.to })).files; });
 
     return { failure, files };
-  });
+  }, { loadingValue: undefined });
 
   // The Agent's own preset: its base against its current state, the worktree on the group's branch.
   const preset = createMemo(() => {
@@ -133,19 +136,19 @@ const Surface = (props: { id: string; name: string }) => {
     </header>
     <Show when={groups().length > 1 && !picked()}>
       <ul class="changes-groups" aria-label={copy.changeGroups}>
-        <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
+        <For each={groups()}>{(each, index) => <li><button type="button" data-button="quiet" aria-pressed={group() === each ? "true" : "false"} onClick={() => { setActive(index()); setPath(undefined); }}>{copy.groupLabel(nameOf(each.repo, project.path), each.branch)}</button></li>}</For>
       </ul>
     </Show>
     <Show when={ends()}>{current => <div class="changes-pickers">
       <Select label={copy.compareFrom} choices={withEnd(current().from)} value={keyOf(current().from)} onValueChange={value => choose("from", value)} />
       <Select label={copy.compareTo} choices={withEnd(current().to)} value={keyOf(current().to)} onValueChange={value => choose("to", value)} />
     </div>}</Show>
-    <ReservedLine message={listed()?.failure ?? null} blocked recover={{ run: () => { void refetch(); } }} />
+    <ReservedLine message={listed()?.failure ?? null} blocked recover={{ run: () => refresh(listed) }} />
     <div class="changes-body">
     <Show when={path()} fallback={<ul class="changes-files" aria-label={copy.changedFilesList}>
       <For each={files()}>{file => <FileRow id={props.id} file={file} from={ends()?.from ?? HEAD} to={ends()?.to ?? HEAD} onChoose={() => { void loadReader(); setPath(file.path); }} />}</For>
     </ul>}>
-      {chosen => <Suspense><DiffReader id={props.id} name={props.name} path={chosen()} from={ends()?.from} to={ends()?.to} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Suspense>}
+      {chosen => <Loading><DiffReader id={props.id} name={props.name} path={chosen()} from={ends()?.from} to={ends()?.to} notes={notes} onEdited={() => {}} onBack={() => setPath(undefined)} onClose={() => hideView("changes")} recover={() => showView("notes")} /></Loading>}
     </Show>
     </div>
   </section>;
@@ -159,7 +162,7 @@ export const ChangesView = () => {
     const node = rail.nodes.find(candidate => candidate.id === rail.selected());
 
     return node?.kind === "agent" ? { id: node.id, name: node.name } : null;
-  }, null, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name });
+  }, { equals: (a, b) => a?.id === b?.id && a?.name === b?.name });
 
-  return <Show when={hasView("changes") ? agent() : null} keyed>{each => <Surface id={each.id} name={each.name} />}</Show>;
+  return <Show when={hasView("changes") ? agent() : null} keyed>{each => <Loading><Surface id={each.id} name={each.name} /></Loading>}</Show>;
 };

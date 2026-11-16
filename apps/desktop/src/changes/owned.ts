@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { OwnedGroup } from "@contracts/agent/OwnedGroup";
 import type { AppSeam } from "../app/seam";
@@ -62,7 +62,7 @@ export const createOwnedChanges = (app: AppSeam, events: Events, daemonExit: Acc
     watch: (id: string) => {
       wanted.set(id, (wanted.get(id) ?? 0) + 1);
 
-      if (wanted.get(id) === 1 && cell(id)[0]() === undefined) void refresh(id);
+      if (wanted.get(id) === 1) untrack(() => { if (cell(id)[0]() === undefined) void refresh(id); });
       onCleanup(() => { const left = (wanted.get(id) ?? 1) - 1;
 
  if (left <= 0) wanted.delete(id); else wanted.set(id, left); });
