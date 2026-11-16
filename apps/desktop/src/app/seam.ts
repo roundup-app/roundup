@@ -72,6 +72,7 @@ export type OutputSubscription = { offset: number; release(): Promise<void> };
 export const actionRequestSchema = v.variant("method", [
   v.object({ id: v.number(), method: v.literal("action.list"), params: v.optional(v.nullable(v.object({}))) }),
   v.object({ id: v.number(), method: v.literal("action.run"), params: v.object({ name: v.string(), args: v.array(v.object({ key: v.string(), value: v.string() })) }) }),
+  v.object({ id: v.number(), method: v.literal("link.read"), params: v.object({ url: v.string() }) }),
   v.object({ id: v.number(), method: v.literal("project.open"), params: v.object({ path: v.string(), machine: v.optional(v.string()), source: v.string(), agent: v.nullable(v.object({ id: v.string(), name: v.string() })) }) }),
   v.object({ id: v.number(), method: v.literal("project.start"), params: v.object({ kind: v.picklist(["agent", "workstream", "mode"]), name: v.string(), prompt: v.string(), path: v.string(), source: v.string(), agent: v.object({ id: v.string(), name: v.string() }) }) }),
 ]);
@@ -123,6 +124,7 @@ export const SEAM_COMMANDS = [
   "fork_recolour",
   "rename_project",
   "rpc",
+  "link_read",
   "subscribe",
   "action_serve",
   "action_answer",
@@ -248,6 +250,8 @@ export type App = {
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;
+  /** LK6: `link.read` of `url` on the Project's Daemon as an outside caller, for a read another Project asked of the App. */
+  linkRead?(path: string, url: string): Promise<object>;
   /** Resolves filesystem aliases without opening a Project or changing its saved path. */
   canonicalProjectPath(path: string): Promise<string>;
   /** Ends the Project's Daemon and its Agents and Terminals. */
