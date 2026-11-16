@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -241,5 +241,78 @@ describe("u348 dragging files shows targets, a lingering drag opens one, a drop 
     // The strip shows four tabs; the fifth is scrolled out of view and is no target.
     app.dropFiles(over(450, 15));
     expect(document.querySelector("[data-drop=hover]")).toBeNull();
+  });
+});
+
+describe("u348 a drop after a Project tab switch lands once, in the shown Project", () => {
+  const rowOf = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
+
+  const tab = (at: number) => within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab")[at]!;
+
+  type Mounted = Awaited<ReturnType<typeof mount>>;
+
+  /** The Terminals a drop pasted into, and the writes each Project's Daemon took. */
+  const delivered = ({ app, made }: Mounted) => ({
+    pasted: Object.fromEntries([...made].flatMap(([id, emulator]) => (emulator.pasted.length > 0 ? [[id, emulator.pasted]] : []))),
+    written: { web: callsTo(app.of("/Users/me/web"), "terminal.write").length, api: callsTo(app.of("/Users/me/api"), "terminal.write").length },
+  });
+
+  const lands = async (mounted: Mounted, expected: ReturnType<typeof delivered>) => {
+    await waitFor(() => expect(delivered(mounted)).toEqual(expected));
+    await new Promise((done) => setTimeout(done, 0));
+
+    expect(delivered(mounted)).toEqual(expected);
+  };
+
+  /** `api` shows first and `web` second, each with a live Agent's Terminal; then the tab at `shown` is the one shown and the other Project's Pane stays mounted, hidden (U7155a). */
+  const switched = async (shown: 0 | 1) => {
+    const mounted = await mount({ web: [agent("wa", "idle", "x")], api: [agent("aa", "idle", "x")] }, [info("t-wa"), info("t-aa")]);
+
+    fireEvent.click(rowOf("aa"));
+    await waitFor(() => expect(selected()).toBe("aa"));
+    fireEvent.click(tab(0));
+    await waitFor(() => expect(rowOf("wa")).not.toBeNull());
+    fireEvent.click(rowOf("wa"));
+    await waitFor(() => expect(selected()).toBe("wa"));
+
+    if (shown === 1) {
+      fireEvent.click(tab(1));
+      await waitFor(() => expect(selected()).toBe("aa"));
+    }
+
+    return mounted;
+  };
+
+  it("u348_a_drop_on_the_pane_after_a_tab_switch_pastes_once_in_the_shown_project", async () => {
+    const mounted = await switched(1);
+
+    mounted.app.dropFiles(drop(400, 300, "/p/a.txt"));
+
+    await lands(mounted, { pasted: { "t-aa": ["'/p/a.txt' "] }, written: { web: 0, api: 1 } });
+  });
+
+  it("u348_a_drop_on_a_row_after_a_tab_switch_pastes_once_in_the_shown_project", async () => {
+    const mounted = await switched(1);
+
+    mounted.app.dropFiles(drop(100, rowY("aa"), "/p/a.txt"));
+
+    await lands(mounted, { pasted: { "t-aa": ["'/p/a.txt' "] }, written: { web: 0, api: 1 } });
+  });
+
+  it("u348_a_drop_on_a_tab_after_a_tab_switch_pastes_once_in_the_shown_project", async () => {
+    const mounted = await switched(1);
+
+    mounted.app.dropFiles(drop(tabX(0), 15, "/p/a.txt"));
+
+    await lands(mounted, { pasted: { "t-wa": ["'/p/a.txt' "] }, written: { web: 1, api: 0 } });
+  });
+
+  it("u348_over_after_a_tab_switch_marks_the_shown_projects_pane_only", async () => {
+    const mounted = await switched(0);
+
+    mounted.app.dropFiles(over(400, 300));
+
+    expect(document.querySelectorAll(".pane-host:not([data-inactive]) .pane-body[data-drop]")).toHaveLength(1);
+    expect(document.querySelectorAll(".pane-host[data-inactive] [data-drop]")).toHaveLength(0);
   });
 });
