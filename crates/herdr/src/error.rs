@@ -64,7 +64,8 @@ pub enum Error {
     /// (no exec) stands in for it.
     #[error("herdr-core lists no {0}; update herdr-core")]
     NoMethod(String),
-    /// MC72: `herdr-core machine update` failed; holds the last line it printed.
+    /// MC72: `herdr-core machine update` failed; holds the `kind` of the CLI's JSON error line,
+    /// or `update_failed` when it printed none.
     #[error("{0}")]
     Update(String),
     /// The pipe closed before or during the call.
@@ -97,6 +98,19 @@ impl Error {
             Error::Rpc(_) => "core_error",
             Error::Protocol(_) => "core_protocol",
             Error::Io(_) => "core_io",
+        }
+    }
+}
+
+impl Error {
+    /// MC71: the failure's kind for the App's sentence table: the core's `data.kind`, the CLI's
+    /// `kind`, `invalid_params` for the core's -32602, else [`Error::code`].
+    pub fn kind(&self) -> String {
+        match self {
+            Error::Rpc(e) if !e.kind.is_empty() => e.kind.clone(),
+            Error::Rpc(e) if e.code == -32602 => "invalid_params".to_owned(),
+            Error::Update(kind) => kind.clone(),
+            other => other.code().to_owned(),
         }
     }
 }

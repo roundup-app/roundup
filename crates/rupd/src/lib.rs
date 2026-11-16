@@ -59,6 +59,7 @@ mod selectors;
 mod settlement;
 pub mod skill;
 mod specialist;
+mod ssh_hosts;
 #[cfg(test)]
 mod storage_tests;
 #[cfg(test)]
@@ -80,6 +81,7 @@ use observers::{
 };
 pub use open::Watchers;
 use specialist::Specialist;
+pub use ssh_hosts::ssh_hosts;
 use std::collections::HashMap;
 use std::io;
 use std::path::Path;

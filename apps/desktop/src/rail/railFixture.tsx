@@ -47,7 +47,7 @@ export const mountRail = async (
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => terminals;
   app.handlers["pad.list"] = () => pads;
-  app.handlers["machine.list"] = () => neighbors.machines ?? [];
+  app.handlers["machine.list"] = () => ({ machines: neighbors.machines ?? [], version: "0.1.21" });
   setup?.(app);
 
   const [now, setNow] = createSignal(NOW);

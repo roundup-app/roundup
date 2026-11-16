@@ -25,7 +25,7 @@ fn mc72_remove_uses_a_method_in_the_pinned_schema() {
 }
 
 #[tokio::test]
-async fn mc72_update_runs_the_cli_with_the_machine_name() {
+async fn mc72_the_cli_json_error_line_yields_its_kind_and_update_runs_with_the_machine_name() {
     use std::os::unix::fs::PermissionsExt;
 
     let dir = tempfile::tempdir().unwrap();
@@ -34,7 +34,7 @@ async fn mc72_update_runs_the_cli_with_the_machine_name() {
     std::fs::write(
         &fake,
         format!(
-            "#!/bin/sh\necho \"$@\" >> {}\nif [ \"$3\" = bad ]; then echo starting >&2; echo 'ssh: no route' >&2; exit 1; fi\n",
+            "#!/bin/sh\necho \"$@\" >> {}\nif [ \"$3\" = bad ]; then echo starting >&2; echo '{{\"error\":{{\"kind\":\"machine_unknown\"}}}}' >&2; exit 1; fi\nif [ \"$3\" = junk ]; then echo 'ssh: no route' >&2; exit 1; fi\n",
             log.display()
         ),
     )
@@ -43,12 +43,14 @@ async fn mc72_update_runs_the_cli_with_the_machine_name() {
 
     herdr::update_machine(&fake, "box").await.unwrap();
     let failed = herdr::update_machine(&fake, "bad").await.unwrap_err();
+    let junk = herdr::update_machine(&fake, "junk").await.unwrap_err();
 
     assert_eq!(
         std::fs::read_to_string(&log).unwrap(),
-        "machine update box\nmachine update bad\n"
+        "machine update box\nmachine update bad\nmachine update junk\n"
     );
-    assert_eq!(failed.to_string(), "ssh: no route");
+    assert_eq!(failed.kind(), "machine_unknown");
+    assert_eq!(junk.kind(), "update_failed");
 }
 
 #[test]

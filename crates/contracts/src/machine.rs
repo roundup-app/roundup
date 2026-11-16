@@ -28,6 +28,15 @@ pub struct Machine {
     pub outdated: Option<bool>,
 }
 
+/// MC74: `machine.list`'s reply: the Machines herdr-core lists, and the version of the core the
+/// Daemon is connected to, for the page's **This computer** row.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct MachineList {
+    pub machines: Vec<Machine>,
+    /// The `hello.version` of the Daemon's core connection.
+    pub version: String,
+}
+
 /// `machine.add`: the ssh name of the machine to add.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct AddParams {
