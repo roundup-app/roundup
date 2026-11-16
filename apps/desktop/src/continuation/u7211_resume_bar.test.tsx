@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ContinuationAction } from "@contracts/message/ContinuationAction";
@@ -61,7 +62,7 @@ const mount = async (setup: Setup) => {
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
-  render(() => <ConnectedProjectContext.Provider value={connected}><ResumeBar notify={candidate => toasts.push(candidate)} active={() => setup.shown ?? true} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><ResumeBar notify={candidate => toasts.push(candidate)} active={() => setup.shown ?? true} /></ConnectedProjectContext>);
   await connected.rail.settled();
 
   // The line stays mounted and goes empty; it shows only while it has something to say.
@@ -93,6 +94,7 @@ it("u7211a_the_bar_shows_only_while_the_selected_agent_has_unfinished_work", asy
 
   for (const id of ["b", "c", "e", "f", "g"]) {
     select(id);
+    flush();
     expect(bar(), id).toBeNull();
   }
 
