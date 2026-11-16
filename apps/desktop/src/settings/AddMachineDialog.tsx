@@ -48,7 +48,7 @@ export const AddMachineDialog = (props: {
         <Field.Root invalid={failure() !== null}>
           <Field.Label>{copy.typeSshTarget}</Field.Label>
           <div class="add-machine-entry">
-            <Field.Input value={typed()} placeholder="user@host" spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.sshTargetLabel} onInput={event => setTyped(event.currentTarget.value)} />
+            <Field.Input value={typed()} placeholder={copy.sshTargetPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.sshTargetLabel} onInput={event => setTyped(event.currentTarget.value)} />
             <button type="submit" data-button="primary">{copy.add}</button>
           </div>
           <Field.HelperText>{copy.sshTargetHint}</Field.HelperText>
