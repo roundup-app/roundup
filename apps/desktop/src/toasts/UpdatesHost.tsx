@@ -1,4 +1,5 @@
-import { untrack, type JSX } from "solid-js";
+import { untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { App } from "../app/seam";
 import { createUpdates, UpdatesProvider } from "../state/updates";
 import type { ToastQueue } from "./queue";

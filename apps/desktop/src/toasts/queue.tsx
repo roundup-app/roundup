@@ -1,7 +1,7 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { createEventListener } from "@solid-primitives/event-listener";
-import { createMemo, createSignal, type Accessor } from "solid-js";
+import { createMemo, createSignal, getOwner, runWithOwner, type Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "./copy";
 import { createToast } from "../ui/Toast";
@@ -61,6 +61,8 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
   // `sync` plans from the list straight after a change, before a signal would commit it, so the list lives here and the signal only publishes it.
   let list: readonly Entry[] = [];
   const [published, publish] = createSignal(list);
+  // A card's glyph is a component; a notify from an effect's apply has no owner, so cards render under the queue's.
+  const owner = getOwner();
 
   const change = (update: (all: readonly Entry[]) => readonly Entry[]) => {
     list = update(list);
@@ -133,6 +135,10 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
   /** Shows the newest two Entries and, past three, one summary card standing for the rest. The summary is the oldest card, so it rests last. */
   function sync() {
+    runWithOwner(owner, placeCards);
+  }
+
+  function placeCards() {
     const all = list;
     const hidden = all.length > MOST_SHOWN ? all.length - (MOST_SHOWN - 1) : 0;
     const cards = hidden > 0 ? all.slice(0, MOST_SHOWN - 1) : all;

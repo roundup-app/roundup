@@ -1,5 +1,6 @@
 import fuzzysort from "fuzzysort";
-import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, untrack, type JSX } from "solid-js";
+import { createEffect, createSignal, createMemo, For, onCleanup, refresh, Show, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { App, AppSettingsPage } from "../app/seam";
 import { useUpdates } from "../state/updates";
 import { copy, stateLabel } from "./copy";
@@ -88,7 +89,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const back = () => { setForward(true); close(); };
 
-  createEffect(on(() => props.navigation?.(), () => setForward(false), { defer: true }));
+  createEffect(() => props.navigation?.(), () => { setForward(false); }, { defer: true });
 
   /** U7208f: a named page shows whether Settings is closed, open on another page or showing a search. */
   const show = (page?: AppSettingsPage | null) => {
@@ -117,7 +118,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     { chords: ["Meta+BracketRight"], when: () => forward() && !view.open(), run: event => { event.preventDefault(); show(); } },
   ]);
 
-  const [offered, { refetch: refetchOffered }] = createResource(() => view.open() && props.project(), async path => {
+  const listModels = async (path: string) => {
     try {
       return { list: await props.app.forProject(path).rpc("models.list", null), failure: null };
     } catch (error) {
@@ -125,9 +126,16 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
       return { list: null, failure: error.message };
     }
-  });
+  };
 
-  const [editors] = createResource(() => view.open(), async open => open ? await props.app.listEditors().catch(() => []) : []);
+  // Closed, the last answer stays; each opening of the view asks again.
+  const offered = createMemo<Awaited<ReturnType<typeof listModels>> | undefined>(previous => {
+    const path = view.open() && props.project();
+
+    return path ? listModels(path) : previous;
+  }, { loadingValue: undefined });
+
+  const editors = createMemo<Awaited<ReturnType<typeof props.app.listEditors>> | undefined>(previous => view.open() ? props.app.listEditors().catch(() => []) : previous, { loadingValue: undefined });
 
   const save = async (patch: Parameters<typeof saveAppSettings>[0]) => setFailure(await saveAppSettings(patch));
 
@@ -220,18 +228,11 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
 
   const numericControl = (name: Numeric, label: string, hint: string) => <>
-        <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
+        <Field.Root class="settings-field" disabled={setByFile(name)} invalid={!!numericFailure()[name]}>
           <Field.Label>{label}</Field.Label>
-          <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root disabled={setByFile(name)} value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
-            const range = terminalRanges[name];
-
-            if (value !== field(name) && value.trim() !== "" && Number.isFinite(valueAsNumber) && valueAsNumber >= range.min && valueAsNumber <= range.max)
-              drafts.edit(destination(name), { text: value, saved: current(name)?.value.saved ?? String(appSettings()[name]) }, null, "ordinary");
-          }}>
-            <module.NumberInput.Input aria-label={label} inputMode="decimal" value={field(name)}
-              onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
-              onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
-          </module.NumberInput.Root>}</Deferred>
+          <Field.Input type="number" aria-label={label} {...terminalRanges[name]} value={field(name)}
+            onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
+            onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
           <Show when={setByFile(name) ? copy.setByFile("look.json") : hint}>{text => <Field.HelperText>{text()}</Field.HelperText>}</Show>
           <ReservedLine status={numericFailure()[name]} />
         </Field.Root>
@@ -274,7 +275,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Select label={copy.fontFamily} description={setByFile("fontFamily") ? copy.setByFile("look.json") : copy.fontFamilyHint} disabled={setByFile("fontFamily")} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
           onValueChange={value => chooseType({ fontFamily: value })} />
-        <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
+        <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck="false" autocorrect="off" autocapitalize="off"
           onInput={event => edit("fontFamily", event.currentTarget)}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) void commit("fontFamily", field("fontFamily")); }} /></Field.Root>}</Show>
     </>,
@@ -320,7 +321,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   return <>
     <Show when={view.open()}>
     <SettingsShell heading={copy.settings} hideHeading onClose={back}>
-      <Tabs.Root lazyMount value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
+      <Tabs.Root lazyMount value={section()} onValueChange={({ value }) => setSection(value)} activationMode="automatic" orientation="vertical" class="settings-sections">
         <aside class="settings-navigation">
         <div class="settings-history">
           <button data-button="quiet" class="settings-back word" type="button" onClick={back}>{copy.settingsBack}</button>
@@ -329,7 +330,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <h2 class="settings-title">{copy.settings}</h2>
         <Field.Root class="settings-search">
           <Field.Label class="settings-search-label">{copy.settingsSearch}</Field.Label>
-          <Field.Input ref={searchInput} type="search" placeholder={copy.settingsSearch} value={query()} spellcheck={false} autocorrect="off" autocapitalize="off" autocomplete="off"
+          <Field.Input ref={searchInput} type="search" placeholder={copy.settingsSearch} value={query()} spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"
             onInput={event => setQuery(event.currentTarget.value)}
             onKeyDown={event => {
               if (event.isComposing) return;
@@ -370,7 +371,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.naming()}
         {controls.skill()}
         {controls.feedbackIssue()}
-        <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => void refetchOffered(), label: copy.storageRetry }} />
+        <ReservedLine message={offeredLine.message()} dismiss={offeredLine.dismiss} recover={{ run: () => refresh(offered), label: copy.storageRetry }} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         {controls.fontFamily()}
