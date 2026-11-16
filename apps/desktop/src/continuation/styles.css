@@ -1,4 +1,4 @@
-/* U7211a: the Pane's top row holds the line; it sits in the reserved row like any failure line. */
+/* U7211a: the line floats over the Terminal's top edge, so it has its own ground. */
 .reserved-line.resume-bar {
   padding-inline: var(--space-2);
 }
@@ -6,4 +6,8 @@
 /* The actions follow the text they act on instead of sitting at the far edge. */
 .reserved-line.resume-bar :is(.ink, .reserved-status) {
   flex: 0 1 auto;
+}
+
+.reserved-line.resume-bar:not([data-empty]) {
+  background: var(--ground);
 }

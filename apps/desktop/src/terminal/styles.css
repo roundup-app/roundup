@@ -11,10 +11,17 @@
   padding-inline: var(--space-2);
 }
 
-/* U7211a: every Pane reserves one line above its Terminal, so what the line says moves nothing (U3807), covers no output (U7192) and keeps the first PTY grid the fitted one (U4590). */
+/* U7211a: the line floats over the Terminal's top edge, out of the layout flow, so showing it resizes nothing (U3807, U4590); an empty line takes no clicks. */
 .pane-top {
-  flex: none;
-  min-block-size: var(--line);
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pane-top > * {
+  pointer-events: auto;
 }
 
 .pane-body {

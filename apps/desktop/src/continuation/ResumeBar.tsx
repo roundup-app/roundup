@@ -19,7 +19,7 @@ const lineOf = ({ resumed, failed }: Tally): string => {
 };
 
 /**
- * U7211a to U7211c: the one slim line in the top row every Pane reserves above its Terminal. It says so when the shown Project's
+ * U7211a to U7211c: the one slim line floating over the top edge of the Terminal. It says so when the shown Project's
  * selected Agent has unfinished work the user has not dismissed, with Resume and Dismiss, and stays empty otherwise, so showing it
  * moves nothing (U3807), covers no output (U7192) and keeps the first PTY grid the fitted one (U4590). It never resumes by itself. `⌘K U` and the command
  * list resume every Agent's, while one has some, and a Toast says how many resumed. When the read of unfinished work

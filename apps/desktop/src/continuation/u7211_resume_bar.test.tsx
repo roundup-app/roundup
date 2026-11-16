@@ -100,6 +100,22 @@ it("u7211a_the_bar_shows_only_while_the_selected_agent_has_unfinished_work", asy
   expect(sent).toEqual([]);
 });
 
+it("u7211a_no_pane_reserves_a_row_and_the_line_leaves_the_terminal_size_alone", async () => {
+  const { select, bar } = await mount({ work: { a: [action("x1")], b: [] } });
+  const screenOf = document.createElement("div");
+
+  // The Terminal is the Pane's own child, never inside the line's slot; showing and hiding the line leaves it as it was.
+  document.body.append(screenOf);
+  select("a");
+  await waitFor(() => expect(bar()).not.toBeNull());
+  expect(bar()?.contains(screenOf)).toBe(false);
+  select("b");
+  expect(bar()).toBeNull();
+  expect(screenOf.isConnected).toBe(true);
+  expect(screenOf.childElementCount).toBe(0);
+  screenOf.remove();
+});
+
 it("u7211a_a_failed_read_says_so_and_retries", async () => {
   let failing = true;
 
