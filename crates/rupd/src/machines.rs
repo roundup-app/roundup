@@ -262,7 +262,9 @@ mod tests {
                                 .lock()
                                 .push(req["params"]["name"].as_str().unwrap().to_owned());
                         }
-                        if req["method"] == "machine.rm" {
+                        let refused =
+                            req["method"] == "machine.rm" && req["params"]["name"] == "pinned";
+                        if req["method"] == "machine.rm" && !refused {
                             let gone = req["params"]["name"].as_str().unwrap().to_owned();
                             names.lock().retain(|n| *n != gone);
                         }
@@ -276,7 +278,11 @@ mod tests {
                         } else {
                             json!({"added": true})
                         };
-                        let reply = json!({"jsonrpc":"2.0","id":req["id"],"result":result});
+                        let reply = if refused {
+                            json!({"jsonrpc":"2.0","id":req["id"],"error":{"code":-32000,"message":"machine is pinned","data":{"kind":"pinned","hint":"stop its terminals first"}}})
+                        } else {
+                            json!({"jsonrpc":"2.0","id":req["id"],"result":result})
+                        };
                         core_w.write_all(&frame(&reply)).await.unwrap();
                     }
                 });
@@ -441,6 +447,22 @@ mod tests {
         assert_eq!(rms.len(), 1);
         assert_eq!(rms[0]["params"], json!({"name": "roundup-ci-control"}));
         assert_eq!(reply["result"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn mc71_a_refused_rm_carries_the_cores_hint_and_keeps_the_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _, _, list) = counted_core(&["pinned"]);
+        let mut daemon = daemon_in(dir.path());
+        daemon.machine_core = core;
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":1,"method":"machine.remove","params":{"name":"pinned"}}"#,
+        )
+        .await;
+        let message = reply["error"]["message"].as_str().unwrap();
+        assert!(message.contains("stop its terminals first"), "{message}");
+        assert_eq!(*list.lock(), ["pinned"]);
     }
 
     #[tokio::test]

@@ -327,6 +327,21 @@
 .settings-rows :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview):not(:first-child) {
   border-top: var(--hairline-width) solid var(--hairline);
 }
+/* MC70: a Machine row is its name, its state beside it and Remove at the trailing edge; a long name ends in an ellipsis before the state. */
+.settings-machines { list-style: none; margin: 0; padding: 0; }
+.settings-machine {
+  display: grid;
+  grid-template-columns: minmax(0, auto) auto minmax(var(--space-3), 1fr) auto;
+  column-gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+}
+.settings-machine:not(:first-child) { border-top: var(--hairline-width) solid var(--hairline); }
+.settings-machine-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-machine-state { font-size: var(--text-caption); color: var(--grey); }
+.settings-machine-remove { grid-column: 4; }
+.settings-machine .reserved-line { grid-column: 1 / -1; }
+.settings-machines-note { padding: var(--space-3) var(--space-4); }
 /* A long value (a URL) takes the row's full width, its label above. */
 .settings-content .settings-field.settings-field-stacked { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
 /* A picker inside a field is part of that row, not a row of its own. */

@@ -52,18 +52,18 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
       <For each={listed() ?? []}>{machine => <li class="settings-machine">
         <span class="settings-machine-name">{machine.name}</span>
         <span class="settings-machine-state" data-state={machine.reachable === false ? "offline" : "online"}>{machine.reachable === false ? copy.machineOffline : copy.machineOnline}</span>
-        <button data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
-        <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{failure => <ReservedLine status={failure().hint} />}</Show>
+        <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
+        <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{failure => <ReservedLine message={failure().hint} dismiss={() => setRowFailure(null)} />}</Show>
       </li>}</For>
     </ul>
-    <Show when={props.project() !== null} fallback={<p class="settings-hint">{copy.machinesNeedProject}</p>}>
+    <Show when={props.project() !== null} fallback={<p class="settings-hint settings-machines-note">{copy.machinesNeedProject}</p>}>
       <Field.Root class="settings-field" invalid={addFailure() !== null}>
         <Field.Label>{copy.machineAdd}</Field.Label>
         <Field.Input value={host()} spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.machineAdd}
           onInput={event => setHost(event.currentTarget.value)}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); void add(); } }} />
         <Field.HelperText>{copy.machineAddHint}</Field.HelperText>
-        <ReservedLine status={addFailure()} />
+        <ReservedLine message={addFailure()} dismiss={() => setAddFailure(null)} />
       </Field.Root>
     </Show>
   </>;

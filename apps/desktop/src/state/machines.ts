@@ -7,6 +7,7 @@ import type { AppSeam, DaemonExit } from "../app/seam";
 export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: Accessor<DaemonExit | null>) => {
   const [list, setList] = createSignal<Machine[]>([]);
   const [start, setStart] = createSignal("");
+  const [loaded, setLoaded] = createSignal(false);
   const online = () => list().filter(machine => machine.reachable !== false);
 
   return {
@@ -17,8 +18,12 @@ export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: 
     /** MC34: the Machine the user named for the start; empty leaves the pick to the Door. */
     start,
     nameStart: setStart,
-    /** MC15: false only once roundup's ssh to the named Machine has failed to answer. */
-    offline: (name: string) => list().find(machine => machine.name === name)?.reachable === false,
+    /** MC15, MC71: once the list is read, a named Machine that is unreachable or no longer on it; its Agents stay and show it. */
+    offline: (name: string) => {
+      const entry = list().find(machine => machine.name === name);
+
+      return loaded() && (entry === undefined || entry.reachable === false);
+    },
     /** Called once by the connected Project's rendered owner. */
     watch: (visible: Accessor<boolean>) => {
       createEffect(() => {
@@ -34,6 +39,7 @@ export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: 
             if (stale) return;
 
             setList(machines);
+            setLoaded(true);
 
             // MC76: a name the user chose goes when its Machine is removed or offline.
             if (!machines.some(machine => machine.name === start() && machine.reachable !== false)) setStart("");

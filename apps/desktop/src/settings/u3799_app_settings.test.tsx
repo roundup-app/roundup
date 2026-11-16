@@ -22,7 +22,7 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
-  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads"]);
+  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Editor", "Shortcuts", "Appearance", "Alerts", "Pads", "Machines"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
