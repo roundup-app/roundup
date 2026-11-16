@@ -10,5 +10,5 @@ it("mc71_remove_keeps_agents_and_their_projects", async () => {
   const alpha = agent("a", "working", "go", { name: "alpha", machine: "gone" });
 
   await mountRail([alpha], [], undefined, undefined, { machines: [] });
-  await waitFor(() => expect(within(itemOf("alpha")).queryByRole("img", { name: copy.machineOfflineState("gone") })).not.toBeNull());
+  await waitFor(() => within(itemOf("alpha")).getByRole("img", { name: copy.machineOffline }));
 });

@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Machine } from "@contracts/machine/Machine";
 import { agent } from "../testing/nodes";
@@ -19,27 +19,28 @@ const box = (reachable: boolean): Machine => ({ name: BOX, details: {}, reachabl
 
 const other: Machine = { name: "other", details: {} };
 
-it("mc3_chip_names_the_machine", async () => {
+it("mc3_icon_names_the_machine", async () => {
   await mountRail(nodes, [], undefined, undefined, { machines: [other] });
-  await waitFor(() => expect(within(itemOf("alpha")).queryByRole("img", { name: alpha.machine ?? "" })).not.toBeNull());
+  await waitFor(() => expect(itemOf("alpha").querySelector(".machine-icon")?.getAttribute("aria-label")).toBe(alpha.machine));
 });
 
-it("mc3_no_chip_for_this_mac_when_no_other_machine_exists", async () => {
-  const { app } = await mountRail([gamma]);
-
-  await waitFor(() => expect(app.calls.some(call => call.method === "machine.list")).toBe(true));
-  expect(within(itemOf("gamma")).queryByRole("img", { name: copy.thisMac })).toBeNull();
-});
-
-it("mc3_this_mac_gets_a_chip_once_another_machine_exists", async () => {
+it("u7205d_a_local_agent_shows_no_machine_mark", async () => {
   await mountRail(nodes, [], undefined, undefined, { machines: [other] });
-  await waitFor(() => expect(within(itemOf("gamma")).queryByRole("img", { name: copy.thisMac })).not.toBeNull());
+  await waitFor(() => expect(itemOf("alpha").querySelector(".machine-icon")).not.toBeNull());
+  expect(itemOf("gamma").querySelector(".row-machine")).toBeNull();
+  expect(document.body.innerHTML.includes("This Mac")).toBe(false);
 });
 
-it("mc15_offline_machine_sets_status_on_its_rows_and_no_alert", async () => {
+it("u7205d_a_remote_agent_shows_the_server_icon_with_the_machine_name_or_offline", async () => {
   await mountRail(nodes, [], undefined, undefined, { machines: [box(false), other] });
-  await waitFor(() => expect(within(itemOf("alpha")).queryByRole("img", { name: copy.machineOfflineState(BOX) })).not.toBeNull());
-  expect(within(itemOf("beta")).queryByRole("img", { name: copy.machineOfflineState("other") })).toBeNull();
-  expect(within(itemOf("gamma")).queryByRole("img", { name: copy.machineOfflineState(copy.thisMac) })).toBeNull();
+  await waitFor(() => expect(itemOf("alpha").querySelector(".machine-icon[data-offline] svg")?.parentElement?.getAttribute("aria-label")).toBe(copy.machineOffline));
+  const icon = itemOf("beta").querySelector<HTMLElement>(".machine-icon");
+
+  if (icon === null) throw new Error("missing icon");
+
+
+  expect(icon.hasAttribute("data-offline")).toBe(false);
   expect(screen.queryByRole("alert")).toBeNull();
+  fireEvent.pointerMove(icon, { pointerType: "mouse" });
+  await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe(icon.getAttribute("aria-label")));
 });

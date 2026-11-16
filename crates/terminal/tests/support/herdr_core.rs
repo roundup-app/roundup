@@ -70,7 +70,7 @@ struct Terminal {
     /// MC52: the labels `terminal.run` was given; a terminal without any is the user's own.
     labels: Value,
     live: Mutex<Live>,
-    /// The viewer's `display.cell` (width, height in pixels), as herdr-core 0.1.20 answers `14 t`
+    /// The viewer's `display.cell` (width, height in pixels), as herdr-core 0.1.21 answers `14 t`
     /// and `16 t` from it; without one it answers Ghostty's 10 x 20.
     cell: (u64, u64),
     master: Mutex<Box<dyn MasterPty + Send>>,
@@ -654,7 +654,7 @@ fn serve(core: &Arc<Core>, input: &mut impl BufRead) -> io::Result<()> {
         .and_then(|p| p.get("generation"))
         .and_then(Value::as_u64);
     let reply = if wanted == Some(1) {
-        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.20-test","framed":true,
+        json!({"jsonrpc":"2.0","id":id,"result":{"generation":1,"version":"0.1.21-test","framed":true,
             "methods":["terminal.run","terminal.get","terminal.attach","terminal.kill","terminal.list","terminal.rm","machine.list"]}})
     } else {
         let msg = format!(

@@ -29,7 +29,7 @@ it("dcl1a_write_and_read_failures_offer_retry_and_unreadable_transcript_offers_o
     agent("c", "idle", "ready", { parent: "w", name: "reader", unreachable: "transcript unreadable" }),
   ]);
 
-  const action = (row: string) => rowOf(row).querySelector<HTMLButtonElement>(".rail-unreachable button")!;
+  const action = (row: string) => rowOf(row).querySelector<HTMLButtonElement>("button.rail-unreachable")!;
 
   expect(action("writer").getAttribute("aria-label")).toBe("Retry writer");
   expect(action("reader").getAttribute("aria-label")).toBe("Open reader");
@@ -55,7 +55,7 @@ it("dcl1a_retry_requests_one_reconciliation_and_selects_nothing", async () => {
 
   // The folded Workstream row shows the same action for the same Agent.
   fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
-  await waitFor(() => expect(rowOf("payments").querySelector(".rail-unreachable button")).not.toBeNull());
+  await waitFor(() => expect(rowOf("payments").querySelector("button.rail-unreachable")).not.toBeNull());
   fireEvent.click(rowOf("payments").querySelector("button[data-button=quiet]")!);
   await waitFor(() => expect(railCallsTo(app, "message.retryDelivery")).toHaveLength(2));
 });
@@ -79,7 +79,7 @@ it("dcl2_permission_action_opens_requesting_terminal", async () => {
 it("dcl8_row_start_and_waiting_count_follow_stored_backlog", async () => {
   const { app } = await mountRail([workstream("w", { name: "payments", waiting: 2 })]);
 
-  expect(rowOf("payments").querySelector(".rail-waiting")).not.toBeNull();
+  expect((rowOf("payments").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).toContain("2 waiting");
 
   fireEvent.click(rowOf("payments").querySelector("button[aria-label=Start]")!);
 
@@ -92,12 +92,12 @@ it("u6248c_waiting_row_has_no_button", async () => {
     agent("x", "error", "Claude is overloaded; wait, then send a message to retry.", { name: "spent", resume: { at: null } }),
   ]);
 
-  expect(rowOf("waiting").querySelector(".rail-resume")?.getAttribute("role")).toBe("status");
-  expect(rowOf("waiting").querySelector(".rail-resume button")).toBeNull();
+  expect((rowOf("waiting").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).toContain("overloaded");
+  expect(rowOf("waiting").querySelector(".rail-resume")).toBeNull();
 
-  const resume = rowOf("spent").querySelector<HTMLButtonElement>(".rail-resume button")!;
+  const resume = rowOf("spent").querySelector<HTMLButtonElement>("button.rail-resume")!;
   expect(resume.getAttribute("aria-label")).toBe(copy.resumeAgent("spent"));
-  expect(rowOf("spent").querySelectorAll("[data-failure], .rail-resume .reserved-status")).toHaveLength(1);
+  expect(rowOf("spent").querySelector("[data-failure], .reserved-line")).toBeNull();
   fireEvent.click(resume);
   await waitFor(() => expect(railCallsTo(app, "message.send")).toHaveLength(1));
   expect(railCallsTo(app, "message.send")[0]).toMatchObject({ to: "x", kind: "note" });

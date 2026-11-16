@@ -209,8 +209,8 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(calls(app, "project.importCommit")).toEqual([]);
   });
 
-  it("u2875d_success_opens_the_created_workstream_with_resume_and_start_supervisor", async () => {
-    const { app } = await mountRail([workstream("w1"), agent("a1", "idle", "ready", { parent: "w1", can_resume: true })], [exitedTerminal("a1", 0)]);
+  it("u2875d_success_opens_the_created_workstream_with_restart_and_start_supervisor", async () => {
+    const { app } = await mountRail([workstream("w1"), agent("a1", "idle", "ready", { parent: "w1", can_resume: true, has_conversation: true })], [exitedTerminal("a1", 0)]);
     app.handlers["project.importDiscover"] = () => found();
     app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }] });
 
@@ -220,7 +220,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
 
     await waitFor(() => expect(rowOf("a1").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true"));
     fireEvent.contextMenu(rowOf("a1"));
-    expect(app.menuLabels()).toContain(copy.resume);
+    expect(app.menuLabels()).toContain(copy.restart);
     await app.closeMenu();
     fireEvent.contextMenu(rowOf("w1"));
     expect(app.menuLabels()).toContain(copy.startDoor);

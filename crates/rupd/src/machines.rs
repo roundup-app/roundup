@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use contracts::machine::{AddParams, Machine, RemoveParams};
+use contracts::machine::{AddParams, Machine, RemoveParams, UpdateParams};
 use rpc::RpcError;
 use serde_json::Value;
 
@@ -97,11 +97,16 @@ fn listed(
     machines: Vec<herdr::Machine>,
     reach: &BTreeMap<String, bool>,
     bridges: &Bridges,
+    mine: &str,
 ) -> Vec<Machine> {
     machines
         .into_iter()
         .map(|m| Machine {
             reachable: reach.get(&m.name).copied(),
+            outdated: (reach.get(&m.name) != Some(&false))
+                .then(|| m.rest.get("version").and_then(Value::as_str))
+                .flatten()
+                .map(|theirs| herdr::older(theirs, mine)),
             away: bridges.away(&m.name),
             name: m.name,
             details: Value::Object(m.rest),
@@ -128,6 +133,7 @@ impl Daemon {
             machines,
             &self.terminals.machine_reachability(),
             &self.bridges,
+            &core.hello.version,
         ))
     }
 
@@ -185,6 +191,25 @@ impl Daemon {
         core.machine_rm(&params.name).await.map_err(failed)?;
         self.listed_now(&core).await
     }
+
+    /// MC72: runs the CLI's `machine update <name>` on this Mac, then answers the core's list as
+    /// it stands. The CLI reaches the Machine through the user's own ssh; `connect` has no method.
+    pub(super) async fn machine_update(
+        &self,
+        _conn: &mut Conn,
+        params: UpdateParams,
+    ) -> Result<Vec<Machine>, RpcError> {
+        if params.name.trim().eq_ignore_ascii_case("This Mac") {
+            return Err(RpcError::internal(
+                "this_mac: This Mac is updated with the App".to_owned(),
+            ));
+        }
+        herdr::update_machine("herdr-core", &params.name)
+            .await
+            .map_err(failed)?;
+        let core = self.machine_core.open().await.map_err(failed)?;
+        self.listed_now(&core).await
+    }
 }
 
 #[cfg(test)]
@@ -196,7 +221,7 @@ mod tests {
     use serde_json::json;
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, duplex};
 
-    const HELLO: &str = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","framed":true,"methods":["machine.list","machine.add"]}}"#;
+    const HELLO: &str = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.21","framed":true,"methods":["machine.list","machine.add"]}}"#;
 
     fn frame(payload: &Value) -> Vec<u8> {
         let p = serde_json::to_vec(payload).unwrap();
