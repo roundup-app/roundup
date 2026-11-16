@@ -84,6 +84,25 @@ pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64
     }
 }
 
+/// U7186a: the absolute path a finished file-writing call (`PostToolUse` of Write, Edit,
+/// MultiEdit or NotebookEdit) wrote; `None` for any other payload or a failed call.
+pub fn written_path(payload: &Value) -> Option<String> {
+    if payload["hook_event_name"].as_str() != Some("PostToolUse") {
+        return None;
+    }
+    if !matches!(
+        payload["tool_name"].as_str()?,
+        "Write" | "Edit" | "MultiEdit" | "NotebookEdit"
+    ) {
+        return None;
+    }
+    let input = &payload["tool_input"];
+    let path = input["file_path"]
+        .as_str()
+        .or(input["notebook_path"].as_str())?;
+    path.starts_with('/').then(|| path.to_owned())
+}
+
 fn preview(value: &Value) -> String {
     let mut sink = Cleaned::new(Limit::Preview, false);
     match value {

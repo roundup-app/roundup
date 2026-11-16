@@ -160,6 +160,16 @@ impl Agents {
         }
     }
 
+    async fn agent_owned_changes(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::OwnedChanges, RpcError> {
+        let NodeId { id } = p;
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
+        self.owned_changes(&id).await
+    }
+
     async fn agent_compare_file(
         &self,
         ctx: &Ctx,
