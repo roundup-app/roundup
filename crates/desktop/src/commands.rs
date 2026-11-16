@@ -39,6 +39,7 @@ pub(crate) fn invoke_handler<R: Runtime>()
         fork_recolour,
         rename_project,
         rpc,
+        link_read,
         subscribe,
         action_serve,
         action_answer,
@@ -256,6 +257,16 @@ fn rename_project(
     base: Option<String>,
 ) -> Result<Project, RpcError> {
     state.rename_project(&path, &name, base.as_deref())
+}
+
+/// LK6: another open Project's `link.read`, answered as an outside caller.
+#[tauri::command]
+async fn link_read(
+    state: State<'_, AppState>,
+    path: String,
+    url: String,
+) -> Result<Value, RpcError> {
+    state.link_read(&path, &url).await
 }
 
 #[tauri::command]

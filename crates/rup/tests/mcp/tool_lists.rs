@@ -59,6 +59,8 @@ pub const NO_TOOL: &[&str] = &[
     // U3787f: the operating system hands the App a roundup link; an Agent reads one with link.read.
     "native_open",
     "rpc",
+    // LK6: the App reads another open Project's link for the Daemon; an Agent calls link.read.
+    "link_read",
     "subscribe",
     // NA6: the user's App answers the Daemon's relayed action calls; the Daemon's action methods carry no tool.
     "action_serve",
