@@ -832,7 +832,8 @@ const Handle = (props: { label: string; onLift?: () => void; ref: (element: HTML
   onCleanup(() => props.ref(undefined));
 
   return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} bare ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => {
-    event.stopPropagation();
+    // Solid 2 runs this handler at the app's root, before the body, where the library hears the Escape that cancels a pointer drag.
+    if (event.key !== "Escape") event.stopPropagation();
 
     if (event.key === " " || event.key === "Enter") props.onLift?.();
   }}><GripVertical aria-hidden="true" /></IconButton>;

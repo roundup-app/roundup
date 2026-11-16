@@ -95,10 +95,10 @@ it("u7059_pointer_in_a_gap_keeps_the_stack_fanned_out", async () => {
   // The fixture lacks the Token the group's top offset reads (the window defines it in the App), which leaves the group unplaced.
   await read(`document.documentElement.style.cssText += '--header-height: 24px;'`);
   const rects = `[...document.querySelectorAll('.app-toast')].map((card) => card.getBoundingClientRect()).sort((a, b) => a.top - b.top)`;
-  const front = await read<{ x: number, y: number }>(`(() => { const rect = [...document.querySelectorAll('.app-toast:not([data-sibling])')][0].getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
+  const front = await read<{ x: number, y: number }>(`(() => { const rect = document.querySelector('.app-toast[data-front]').getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
   await browser("mouse", "move", String(front.x), String(front.y));
-  await wait(`!document.querySelector('.app-toast[data-sibling]').hasAttribute('data-overlap')`);
-  const state = `(() => ({ folded: [...document.querySelectorAll('.app-toast')].map((card) => card.hasAttribute('data-overlap')) }))()`;
+  await wait(`document.querySelector('.app-toast:not([data-front])').hasAttribute('data-expanded')`);
+  const state = `(() => ({ folded: [...document.querySelectorAll('.app-toast')].map((card) => !card.hasAttribute('data-expanded')) }))()`;
   await wait(`${rects}.every((rect, index, all) => index === 0 || rect.top >= all[index - 1].bottom)`);
   const before = await read<unknown>(state);
   const gap = await read<{ x: number, y: number }>(`(() => { const all = ${rects}; return { x: all[0].x + all[0].width / 2, y: (all[0].bottom + all[1].top) / 2 }; })()`);

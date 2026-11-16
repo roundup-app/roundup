@@ -180,7 +180,7 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     const moduleSource = await (await fetch('/src/pads/PadContent.tsx')).text();
     const dependencies = moduleSource.split('"').filter(path => path.includes('/deps/'));
     const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
-    const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+    const { render } = await import(dependencies.find(path => path.includes('/@solidjs_web.js')));
     const { connectProject, ConnectedProjectContext } = await import('/src/state/connectedProject.ts');
     const { PadDrawer } = await import('/src/pads/PadDrawer.tsx');
     const { DrawerHost } = await import('/src/drawer/DrawerHost.tsx');
@@ -312,7 +312,7 @@ const captureLists = async () => {
     const source = await (await fetch('/src/pads/PadRichEditor.tsx')).text();
     const dependencies = source.split('"').filter(path => path.includes('/deps/'));
     const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
-    const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+    const { render } = await import(dependencies.find(path => path.includes('/@solidjs_web.js')));
     const { default: PadRichEditor } = await import('/src/pads/PadRichEditor.tsx');
     const original = document.querySelector('.pad-body > .pad-editor');
     original.style.display = 'none';

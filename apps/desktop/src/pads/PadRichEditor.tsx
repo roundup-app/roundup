@@ -119,6 +119,15 @@ function addDrawingItem(builder: Parameters<NonNullable<BlockEditFeatureConfig["
   });
 }
 
+/** Focuses the editor's view with its selection and returns the view's element: a pick in the colour palette leaves focus there, not on the trigger. */
+const focusedView = (crepe: CrepeBuilder | undefined) => crepe?.editor.action((ctx) => {
+  const view = ctx.get(editorViewCtx);
+
+  view.focus();
+
+  return view.dom;
+});
+
 function MountedEditor(props: EditorProps & { remount: (() => void) | undefined }) {
   const mountExpand = useContext(DrawerExpandContext);
   const [toolbarHost, setToolbarHost] = createSignal<HTMLElement>();
@@ -603,7 +612,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
     <>
       <Show when={!props.label && toolbarHost()}>{mount => <Portal mount={mount()}>
         <div class="pad-rich-editor pad-format-controls">
-          <Menu.Root open={paletteOpen()} onOpenChange={({ open }) => {
+          <Menu.Root open={paletteOpen()} finalFocusEl={reason => reason === "item-press" ? focusedView(crepe) : undefined} onOpenChange={({ open }) => {
             setPaletteMotion(!isFocusFromKeyboard());
             setPaletteOpen(open);
           }} onValueChange={value => crepe?.editor.action(ctx => {
@@ -618,8 +627,7 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
           })}>
             <Tip text={copy.textColour}>{trigger => <Menu.Trigger class="top-bar-heading-button" aria-label={copy.textColour} render={menu => <button {...trigger(menu)} type="button">{copy.textColour}</button>} />}</Tip>
             <Menu.Content class="pad-colour-menu" data-pointer={paletteMotion() ? "true" : undefined} inert={!paletteOpen()} onKeyDown={() => setPaletteMotion(false)}>
-              {/* Every pick returns focus to the editor; the group's `onValueChange` does not fire for the colour already chosen. */}
-              <Menu.RadioGroup value={currentColour() ?? ""}><For each={["default" as const, ...padColours]}>{colour => <Menu.RadioItem value={colour} closeOnSelect onClick={focusEditor}>{copy.colours[colour]}<Menu.ItemIndicator><Check class="icon" aria-hidden="true" /></Menu.ItemIndicator></Menu.RadioItem>}</For></Menu.RadioGroup>
+              <Menu.RadioGroup value={currentColour() ?? ""}><For each={["default" as const, ...padColours]}>{colour => <Menu.RadioItem value={colour} closeOnSelect>{copy.colours[colour]}<Menu.ItemIndicator><Check class="icon" aria-hidden="true" /></Menu.ItemIndicator></Menu.RadioItem>}</For></Menu.RadioGroup>
             </Menu.Content>
           </Menu.Root>
           <Tip text={copy.highlight}>{trigger => <button {...trigger({ onPointerDown: event => event.preventDefault(), onClick: () => crepe?.editor.action(ctx => {

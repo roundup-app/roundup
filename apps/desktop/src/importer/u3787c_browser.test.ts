@@ -44,7 +44,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
     await lane.until("document.querySelectorAll('.import-check input').length === 8");
     await lane.capture("U3787c", `import-${seed}-before`);
     await lane.evaluate(`(() => {
-      const boxes = document.querySelectorAll('.import-check input');
+      const boxes = document.querySelectorAll('.import-check [role=checkbox]');
       boxes[5].closest('li').hidden=true; boxes[6].disabled=true; boxes[7].closest('li').setAttribute('inert','');
       ${daemon}.calls.length=0;
       return true;
@@ -59,7 +59,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_Import_production_menu_naviga
     await lane.browser("press", "終");
     expect(await lane.evaluate("document.activeElement.dataset.collectionValue")).toBe("source-0");
     await lane.browser("press", "Meta+a");
-    expect(await lane.evaluate("[...document.querySelectorAll('.import-check input:checked')].map(el=>el.dataset.collectionValue)")).toEqual(["source-0", "source-1", "source-2", "source-3", "source-4"]);
+    expect(await lane.evaluate("[...document.querySelectorAll('.import-check [role=checkbox][aria-checked=true]')].map(el=>el.dataset.collectionValue)")).toEqual(["source-0", "source-1", "source-2", "source-3", "source-4"]);
     expect(await lane.evaluate(`${daemon}.calls`)).toEqual([]);
     expect(await lane.evaluate("document.querySelector('.todo-drawer') === null")).toBe(true);
     await lane.browser("fill", ".import-prompt", "  exact é 🧭 instructions  ");

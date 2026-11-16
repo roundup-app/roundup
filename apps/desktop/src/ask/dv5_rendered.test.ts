@@ -46,7 +46,7 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
       const source = await (await fetch('/src/ask/AskBar.tsx')).text();
       const paths = source.split('"').filter(path => path.includes('/deps/'));
       const { createComponent } = await import(paths.find(path => path.includes('/solid-js.js')));
-      const { render } = await import(paths.find(path => path.includes('/solid-js_web.js')));
+      const { render } = await import(paths.find(path => path.includes('/@solidjs_web.js')));
       const { createServedApp } = await import('/src/testing/realSeam.ts');
       const { App } = await import('/src/App.tsx');
       const app = createServedApp(location.origin);

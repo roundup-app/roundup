@@ -84,6 +84,9 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
 });
 
 
+// Solid 2 reads lag writes until the microtask flush: two clicks in one task would each compute the Tree's next fold set from the same stale set, so the second undoes the first.
+const clickEach = (selector: string) => `(async () => { for (const el of document.querySelectorAll('${selector}')) { el.click(); await Promise.resolve(); } })()`;
+
 const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
   const run = async (...commands: string[]) => {
     const replies: { success: boolean; error?: string }[] = JSON.parse(await lane.browser("--json", "batch", "--bail", ...commands));
@@ -96,8 +99,9 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
 
   // CI5527b: one CLI connection for the two folds, so the first key's focus and start reading follow without a spawn each.
   await run(
-    quote("document.querySelectorAll('.rail .section-head[aria-expanded=true]').forEach(el => el.click())"),
-    quote("document.querySelectorAll('.shelf .shelf-group-control[aria-expanded=true]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }")
+    quote(clickEach(".rail .section-head[aria-expanded=true]")),
+    quote(clickEach(".shelf .shelf-group-control[aria-expanded=true]")),
+    quote("window.__cycle = { nodes: [], regions: [], ends: [] }")
   );
 
   // Milkdown owns Tab inside its editor. Opposite sweeps meet there without editing the Pad.
@@ -206,8 +210,8 @@ it.concurrent.each(cases)(
       await lane.until("!!document.querySelector('.project-tab[data-path=\"/original-failure\"] [aria-selected=true]') && !!document.querySelector('.rail-actions')");
       await lane.evaluate("window.__fake.app.of('/original-failure').handlers['workstream.create'] = () => { throw new Error('original Project refused. Retry after freeing space.'); }");
       await lane.browser("click", ".rail-actions button:first-child");
-      await lane.until("!!document.querySelector('.rail-create-menu [id$=-item-workstream]')");
-      await lane.browser("click", '.rail-create-menu [id$="-item-workstream"]');
+      await lane.until("!!document.querySelector('.rail-create-menu [role=menuitem]')");
+      await lane.browser("find", "role", "menuitem", "click", "--name", "Workstream");
       await lane.until("!!document.querySelector('.rail-command-notice button')");
       await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] [role=tab]');
       target = ".centre-failures > .reserved-line button:last-child";
@@ -226,7 +230,7 @@ it.concurrent.each(cases)(
 
     for (const shelf of [true, false]) {
       await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()`);
-      await lane.evaluate("document.querySelectorAll('.shelf .shelf-group-control[aria-expanded=false]').forEach(el => el.click())");
+      await lane.evaluate(clickEach(".shelf .shelf-group-control[aria-expanded=false]"));
       const row = kind === "pad" ? ".shelf .pad-name" : ".shelf .todo-row-button";
       await lane.browser("wait", row);
       await shot(`${shelf}-before`);

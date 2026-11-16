@@ -258,7 +258,7 @@ it.skipIf(typographyOutputs.length === 0).each([{ name: "owner", text: ownerSamp
         const source = await (await fetch('/src/pads/PadRichEditor.tsx')).text();
         const dependencies = source.split('"').filter(path => path.includes('/deps/'));
         const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
-        const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+        const { render } = await import(dependencies.find(path => path.includes('/@solidjs_web.js')));
         const { default: PadRichEditor } = await import('/src/pads/PadRichEditor.tsx');
         const original = document.querySelector('.pad-body > .pad-editor');
         original.style.display = 'none';

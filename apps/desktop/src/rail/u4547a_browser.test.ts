@@ -51,8 +51,8 @@ it("u4547a_rendered_heading_keys_preserve_focus_without_calls", async () => {
   await lane.capture("U4547a", "reopened");
   await lane.evaluate("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.', 'rail.createWorkstream')");
   await lane.browser("click", ".rail-actions button");
-  await lane.until("!!document.querySelector('.rail-create-menu [id$=-item-workstream]')");
-  await lane.browser("click", '.rail-create-menu [id$="-item-workstream"]');
+  await lane.until("!!document.querySelector('.rail-create-menu [role=menuitem]')");
+  await lane.browser("find", "role", "menuitem", "click", "--name", "Workstream");
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('Workstream could not be created')");
   await lane.capture("U4547a", "dense-failure");
 

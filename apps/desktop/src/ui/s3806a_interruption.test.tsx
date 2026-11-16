@@ -298,6 +298,7 @@ const pendingPull = async (trigger: string) => {
 
   if (trigger === "unmount") return;
   mounted.connected.rail.select("w");
+  flush();
   pointer("pointerdown", target, 2, 400, 300);
   pointer("pointermove", window, 2, 460, 360);
   pointer("pointerup", window, 2);

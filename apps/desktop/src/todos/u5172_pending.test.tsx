@@ -30,6 +30,8 @@ it("u5172a_unanswered_pad_rename_shows_the_asked_name_marked_applying", async ()
   row.focus();
   fireEvent.keyDown(row, { key: "F2", code: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox");
+  // Solid 2 rewrites an input's `value` on each spread update: typing waits for the field's load to land.
+  await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
   fireEvent.input(field, { target: { value: "plan" } });
   fireEvent.keyDown(field, { key: "Enter" });
 

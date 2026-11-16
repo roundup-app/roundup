@@ -48,7 +48,7 @@ it.skipIf(!!process.env.ROUNDUP_CAPTURES && !captureDir("U350")).each(["tree-40"
     const id = await read<string>(`document.querySelector('.rail-row:has(.rail-chevron)')?.dataset.id ?? document.querySelector('.rail-row').dataset.id`);
     const selector = `.rail-row[data-id="${id}"]`;
     await clickName(selector);
-    await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
+    await wait(`document.querySelector('${selector}').hasAttribute('data-selected')`);
     await browser("focus", selector);
     await wait(`document.activeElement.matches('${selector}')`);
     await browser("press", "Shift+F10");
@@ -68,7 +68,7 @@ it.skipIf(!!process.env.ROUNDUP_CAPTURES && !captureDir("U350")).each(["tree-40"
 
     if (agent) {
       await browser("click", `.rail-row[data-id="${agent}"] .row-state`);
-      await wait(`document.querySelector('.rail-row[data-id="${agent}"]').dataset.selected === 'true'`);
+      await wait(`document.querySelector('.rail-row[data-id="${agent}"]').hasAttribute('data-selected')`);
       await wait(`window.__fake.app.calls.some(call => call.method === 'terminal.snapshot')`);
     }
 
@@ -150,7 +150,7 @@ it.skipIf(!captureDir("U427") && !captureDir("U428")).each(["agents-10", "tree-4
         await wait(`document.activeElement.matches('${selector}')`);
         await snap("focus");
         await clickName(selector);
-        await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
+        await wait(`document.querySelector('${selector}').hasAttribute('data-selected')`);
         await snap("selected-hover");
         await browser("eval", "document.activeElement?.blur()");
         await browser("mouse", "move", "1400", "900");

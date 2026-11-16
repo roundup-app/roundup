@@ -6,7 +6,7 @@ import { copy } from "./copy";
 import { saveViewer, viewer } from "../resize/viewer";
 import { applying } from "../app/pending";
 import PQueue from "p-queue";
-import { createEffect, createMemo, createRoot, createSignal, flush, onCleanup, createStore, reconcile, snapshot, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, flush, latest, onCleanup, createStore, reconcile, snapshot, untrack } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -396,7 +396,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const select = (id: string | null, focus = captureFocus(true), intent?: "open"): void => {
     selectionRevision++;
-    const next = id !== null && model.tree.some((node) => node.id === id) ? id : null;
+    // A refresh may have written the tree while async work still holds the write back: `latest` sees the row `refresh` just fetched.
+    const next = id !== null && latest(() => model.tree.some((node) => node.id === id)) ? id : null;
 
     setTerminalFocus(() => focus);
     setSelectionIntent(intent ?? "select");

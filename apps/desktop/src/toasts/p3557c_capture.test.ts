@@ -45,14 +45,14 @@ it("p3557c_rendered_failure_clears_with_its_deleted_todo", async () => {
   await browser("wait", ".app-toast-action");
   await browser("eval", "window.__fake.app.handlers['todo.list'] = () => { throw new Error('Daemon unavailable') }");
   await browser("click", ".app-toast-action");
-  await browser("wait", "[role=alert]");
+  await browser("wait", "--fn", "!!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
   await capture("dark-failure-visible");
   await capture("dark-failure-visible", "U411");
   await browser("eval", "window.__fake.app.handlers['todo.list'] = () => []");
   await browser("eval", `window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'todo.deleted', data: { id: ${todo.id} } })`);
-  await browser("wait", "--fn", "!document.querySelector('[role=alert]')");
+  await browser("wait", "--fn", "!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')");
   await capture("dark-failure-cleared");
-  expect(JSON.parse(await browser("eval", "!!document.querySelector('[role=alert]')"))).toBe(false);
+  expect(JSON.parse(await browser("eval", "!!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')"))).toBe(false);
 }, 60_000);
 
 // U411's rendered observer is design policy: capture real notices without asserting layout.
@@ -81,11 +81,11 @@ it.skipIf(!captureDir("U411")).each(["needs-you", "error", "todo", "extension"])
       } else f.setStatus(ids[0], '${kind}', line);
     })()`);
     await browser("wait", ".app-toast-action");
-    await browser("focus", ".app-toast:not([data-sibling]) .app-toast-action");
-    await browser("wait", "--fn", "document.querySelectorAll('.app-toast').length === 3 && !document.querySelector('.app-toast[data-overlap]')");
+    await browser("focus", ".app-toast[data-front] .app-toast-action");
+    await browser("wait", "--fn", "document.querySelectorAll('.app-toast').length === 3 && !document.querySelector('.app-toast:not([data-expanded])')");
     await capture(`dark-${kind}-fanned`, "U411");
     await browser("eval", "document.activeElement.blur()");
     await browser("mouse", "move", "0", "0");
-    await browser("wait", "--fn", "!!document.querySelector('.app-toast[data-overlap]')");
+    await browser("wait", "--fn", "!!document.querySelector('.app-toast:not([data-expanded])')");
     await capture(`dark-${kind}-front`, "U411");
 }, 60_000);

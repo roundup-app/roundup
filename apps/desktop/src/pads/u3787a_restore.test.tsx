@@ -366,6 +366,7 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
     if (kind === "todos") await undo.remove([todo.id], region);
     else await undo.removePads([pad], region);
     undo.handoff(region, "shelf");
+    flush();
     await undo.undo("shelf");
     await undo.remove([next.id], "shelf");
     expect(undo.redoAvailable("shelf")).toBe(false);

@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
 import type { ComponentProps } from "@solidjs/web";
-import { Menu as UiMenu, MenuContent, MenuGroup, MenuGroupLabel, MenuItem, MenuItemIndicator, MenuRadioGroup, MenuRadioItem, MenuTrigger, type MenuProps } from "@ui-sdk/solid/menu";
+import { Menu as UiMenu, MenuContent, MenuGroup, MenuGroupLabel, MenuItem, MenuItemIndicator, MenuRadioGroup, MenuRadioItem, MenuTrigger, type MenuOpenChangeReason, type MenuProps } from "@ui-sdk/solid/menu";
 import { createContext, createEffect, createSignal, omit, untrack, useContext } from "solid-js";
 import { createFloatingControl } from "./Dialog";
 import { trackSurface } from "./openSurfaces";
@@ -14,6 +14,8 @@ type RootProps = Omit<MenuProps, "open" | "defaultOpen" | "onOpenChange"> & {
   defaultOpen?: boolean | undefined;
   onOpenChange?: ((details: { open: boolean }) => void) | undefined;
   initialFocus?: ReturnType<typeof captureFocus> | undefined;
+  /** Where focus goes when the menu closes for `reason`; no element returns it to the trigger. */
+  finalFocusEl?: ((reason: MenuOpenChangeReason | undefined) => HTMLElement | null | undefined) | undefined;
 };
 
 const Root = (props: RootProps) => {
@@ -30,13 +32,15 @@ const Root = (props: RootProps) => {
     requestAnimationFrame(() => (props.initialFocus ?? permission)(() => { if (!content.contains(document.activeElement)) content.focus({ preventScroll: true }); }));
   };
 
-  const rest = omit(props, "open", "defaultOpen", "onOpenChange", "initialFocus", "loop");
+  const rest = omit(props, "open", "defaultOpen", "onOpenChange", "initialFocus", "finalFocusEl", "loop");
 
-  // After an item runs, the library returns focus to the trigger. That move is the library's own: a permission its action captured before it, such as the focus a new row asks for, still holds.
-  const returnFocus = () => captureFocus().target(() => untrack(trigger));
+  let closedBy: MenuOpenChangeReason | undefined;
+
+  // After an item runs, the library returns focus to the trigger, or where `finalFocusEl` names. That move is the library's own: a permission its action captured before it, such as the focus a new row asks for, still holds.
+  const returnFocus = () => captureFocus().target(() => untrack(() => props.finalFocusEl?.(closedBy) ?? trigger()));
 
   return <Owner value={{ setTrigger, opened, returnFocus }}>
-    <UiMenu {...rest} loop={props.loop ?? false} open={control.open()} onOpenChange={open => control.change({ open })} />
+    <UiMenu {...rest} loop={props.loop ?? false} open={control.open()} onOpenChange={(open, details) => { closedBy = details.reason; control.change({ open }); }} />
   </Owner>;
 };
 

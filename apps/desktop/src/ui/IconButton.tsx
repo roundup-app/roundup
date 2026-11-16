@@ -13,7 +13,8 @@ const triggerProps = (rest: JSX.ButtonHTMLAttributes<HTMLButtonElement>, chord: 
 };
 
 export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string; action?: ChordName | undefined; tooltip?: string | undefined; /** The name shows elsewhere (a peek, a visible label), so no tooltip. */ bare?: true }) => {
-  const rest = omit(props, "class", "onClick", "action", "tooltip", "bare");
+  // The icon is the button's own child, not a spread prop: a spread re-reads every prop when one changes (the chord on focus), and a re-made icon between pointer down and up drops the click.
+  const rest = omit(props, "class", "onClick", "action", "tooltip", "bare", "children");
 
   const click: JSX.EventHandler<HTMLButtonElement, MouseEvent> = (event) => {
     if (props["aria-disabled"] === "true") {
@@ -36,11 +37,11 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
   const barePlain = merge({ type: "button" as const }, rest, { onClick: click });
 
   // Tip: Escape belongs to the surrounding App surface; blur and pointer leave dismiss the name.
-  return <Show when={!props.bare} fallback={<button {...barePlain} data-button="icon" class={`word ${props.class ?? ""}`} />}><Tip text={props.tooltip ?? props["aria-label"]} chord={chord()}>
+  return <Show when={!props.bare} fallback={<button {...barePlain} data-button="icon" class={`word ${props.class ?? ""}`}>{props.children}</button>}><Tip text={props.tooltip ?? props["aria-label"]} chord={chord()}>
     {(trigger) => {
       const merged = triggerProps(rest, chord, click);
 
-      return <button {...trigger(merged)} data-button="icon" class={`word ${props.class ?? ""}`} />;
+      return <button {...trigger(merged)} data-button="icon" class={`word ${props.class ?? ""}`}>{props.children}</button>;
     }}
   </Tip></Show>;
 };

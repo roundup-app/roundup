@@ -124,6 +124,7 @@ it("r17_any_working_descendant_or_connected_project_keeps_the_clock_live", async
   expect(clock).toHaveBeenCalledTimes(reads);
   expect(app.calls).toEqual([]);
   status(app.of("/other"), "other", "working");
+  await settle();
   expect(intervals.size).toBe(1);
   app.exitDaemon({ code: 0 }, "/other");
   expect(intervals.size).toBe(0);
@@ -173,6 +174,7 @@ it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
   fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
   flush();
   status(app, "a", "blocked");
+  await settle();
   expect(screen.getAllByRole("img", { name: "Blocked" }).length).toBeGreaterThan(0);
   expect(intervals.size).toBe(0);
   app.calls.length = 0;

@@ -23,7 +23,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.capture("U4547b", "agents-10-rest");
   await lane.seedTodos([], false, "tree-40");
   await lane.capture("U4547b", "understand-before");
-  { await lane.browser("click", '[aria-label="Create"]'); await lane.browser("click", '[role="menuitem"][id$="-item-mode"]'); }
+  { await lane.browser("click", '[aria-label="Create"]'); await lane.browser("find", "role", "menuitem", "click", "--name", "Mode"); }
 
   await lane.until("document.querySelector('[role=dialog]') !== null");
   await lane.capture("U4547b", "blank-fields");

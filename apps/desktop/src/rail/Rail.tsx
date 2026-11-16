@@ -8,7 +8,7 @@ import { captureFocus, provideFocusTarget, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
-import { createEffect, createMemo, createRoot, createSignal, flush, For, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -87,6 +87,14 @@ const trackFocus = (element: HTMLElement, report: (id: string | null) => void) =
 
 /** Whether the tree's change came from a plain press of a row, with no modifier key down: the press that replaces the selection. */
 const replacesSelection = (details: { reason: string; event?: Event | undefined }) => details.reason === "item-press" && details.event instanceof MouseEvent && !details.event.ctrlKey && !details.event.metaKey && !details.event.shiftKey;
+
+/** Once the next microtask runs, focus goes to the first row in `tree`, unless it already moved to a row there that survived (a removal's own advance). */
+const focusFirstRowUnlessMoved = (tree: () => HTMLElement | undefined) => queueMicrotask(() => {
+  const active = document.activeElement;
+
+  if (active instanceof HTMLElement && active !== document.body && tree()?.contains(active) && active.isConnected) return;
+  tree()?.querySelector<HTMLElement>(ROW)?.focus();
+});
 
 /** Whether the tree's change is its select-all: ⌘A, or Ctrl+A, with no other modifier. */
 const selectsAll = (details: { reason: string; event?: Event | undefined }) => details.reason === "list-navigation" && details.event instanceof KeyboardEvent && (details.event.metaKey || details.event.ctrlKey) && !details.event.shiftKey && !details.event.altKey && details.event.key.toLowerCase() === "a";
@@ -269,8 +277,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
   const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`${ROW}[data-id="${CSS.escape(id)}"]`) ?? undefined;
 
   const [focused, setFocused] = createSignal<string | null>(null);
+  // The row that unmounted while it had focus. ui-sdk's tree has moved focus to the row's parent by the time the rows settle, so `focused` no longer names it.
+  let unmounted: string | null = null;
+
   createEffect(rows, current => {
-    const id = untrack(focused);
+    const id = unmounted ?? untrack(focused);
+
+    unmounted = null;
 
     if (!id || document.activeElement !== document.body && !container()?.contains(document.activeElement)) return;
     const visible = current.some(row => row.kind === "node" ? row.node.id === id : row.key === id);
@@ -281,13 +294,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
     if (!parent) {
       // U5991a: a row that left at once takes its focus with it; the first row left keeps the Rail's key history.
-      queueMicrotask(() => {
-        const active = document.activeElement;
-
-        // Focus already moved to a surviving row (the removal's own advance): leave it.
-        if (active instanceof HTMLElement && active !== document.body && container()?.contains(active) && active.isConnected) return;
-        container()?.querySelector<HTMLElement>(ROW)?.focus();
-      });
+      focusFirstRowUnlessMoved(container);
 
       return;
     }
@@ -755,6 +762,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
                       {(view) => {
                         // U3800d: a row reads its own subtree of the topology, so a move redraws only the rows whose subtree it changed.
                         const id = untrack(() => view().node.id);
+                        onCleanup(() => { if (document.activeElement?.closest<HTMLElement>(ROW)?.dataset.id === id) unmounted = id; });
                         const below = createMemo(() => topology(), { equals: (a, b) => sameList(descendantsOf(a, id), descendantsOf(b, id)) });
 
                         return (

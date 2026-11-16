@@ -231,6 +231,8 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_escape_
   fireEvent.keyDown(row, { key: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
   const identity = row.closest("[data-todo], [data-incarnation]");
+  // Solid 2 rewrites an input's `value` on each spread update: typing waits for the field's load to land.
+  await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
   const text = "  unfinished 日本語 🌱  ";
   fireEvent.input(field, { target: { value: text } });
   flush();
@@ -449,6 +451,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_navigation_keeps_dr
   row.focus();
   fireEvent.keyDown(row, { key: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
+  await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
   const text = "  leave e\u0301 日本語 🌱  ";
   fireEvent.input(field, { target: { value: text } });
   flush();

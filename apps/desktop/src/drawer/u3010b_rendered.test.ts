@@ -31,8 +31,8 @@ const mountDrawer = async () => {
   await evaluate(`(async () => {
     const source = await (await fetch('/src/drawer/DrawerHost.tsx')).text();
     const dependencies = source.split('"').filter(path => path.includes('/deps/'));
-    const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
-    const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+    const { createComponent, render } = await import(dependencies.find(path => path.includes('/@solidjs_web.js')));
+    const { flush } = await import(dependencies.find(path => path.includes('/solid-js.js')));
     const { createDrawer } = await import('/src/drawer/drawer.ts');
     const { DrawerHost } = await import('/src/drawer/DrawerHost.tsx');
     const { drawerSliding } = await import('/src/drawer/sliding.ts');
@@ -72,7 +72,7 @@ const mountDrawer = async () => {
       await Promise.all(animations().map(animation => animation.finished.catch(() => {})));
     };
     window.__drawerObserver = {
-      drawer, panel, dispose, frame, animations, finished, preferences: [],
+      drawer, panel, dispose, frame, animations, finished, flush, preferences: [],
       state: () => ({ open: drawer.content() !== null, sliding: drawerSliding(),
         incarnation: panel.querySelector('form')?.dataset.incarnation ?? null,
         retained: !!panel.querySelector('form'), inert: panel.inert, submits,
@@ -157,6 +157,7 @@ it("z3742c_a_layer_without_animations_releases_its_content", { retry: 0 }, async
     const o = window.__drawerObserver;
     o.panel.style.setProperty('--duration-drawer', '0ms');
     o.drawer.close();
+    o.flush();
     const animations = o.animations().length;
     await o.finished();
     return { animations, state: o.state() };
@@ -173,6 +174,7 @@ it("z3742c_cancelling_the_current_exit_releases_its_content", { retry: 0 }, asyn
   const result = await evaluate(`(async () => {
     const o = window.__drawerObserver;
     o.drawer.close();
+    o.flush();
     await o.frame();
     const animations = o.animations();
     const completion = Promise.all(animations.map(animation => animation.finished.catch(() => {})));
@@ -194,9 +196,11 @@ it("u3010b_dispose_mid_slide_clears_sliding", { retry: 0 }, async () => {
   expect(await evaluate(`(async () => {
     const o = window.__drawerObserver;
     o.drawer.close();
+    o.flush();
     await o.frame();
     const before = o.state().sliding;
     o.dispose();
+    o.flush();
     return { before, after: o.state().sliding };
   })()`)).toEqual({ before: true, after: false });
 });

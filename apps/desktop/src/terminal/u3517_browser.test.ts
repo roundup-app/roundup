@@ -628,8 +628,8 @@ it("u4590_preparing_an_agent_keeps_the_selected_terminal_usable", async () => {
     window.__fake.app.calls.length = 0;
   })()`);
   await browser("click", '.rail-actions [aria-label="Create"]');
-  await wait("!!document.querySelector('[role=menuitem][data-value=agent]')");
-  await browser("click", '[role=menuitem][data-value=agent]');
+  await wait("!!document.querySelector('[role=menu] [role=menuitem]')");
+  await browser("find", "role", "menuitem", "click", "--name", "Agent");
   await wait("document.querySelectorAll('.pane .xterm-screen').length === 2");
   expect(await read("window.__previousInput.isConnected")).toBe(true);
   await read("window.__previousInput.focus()");
@@ -667,7 +667,7 @@ it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s"
   await wait("!document.querySelector('.bubble:not([hidden])')");
   await read("window.__releaseFonts()");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.open')")).toEqual([]);
-  expect(await read("!!document.querySelector('[role=alert]')")).toBe(false);
+  expect(await read("!!document.querySelector('[role=alert]:not([data-ui-sdk-announcer])')")).toBe(false);
 }, 60_000);
 
 // U4590's opt-in policy observer; the single startup guard above remains the CI guard.
@@ -761,7 +761,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await select("agent-3", "t-agent-3");
         await capture("restore-after-switch");
         await browser("click", '.rail-actions [aria-label="Create"]');
-        await browser("click", '[role=menuitem][data-value=agent]');
+        await browser("find", "role", "menuitem", "click", "--name", "Agent");
         await wait("window.__fake.app.calls.some(c=>c.method==='agent.spawn') && !!document.querySelector('.pane .xterm-screen')");
         id = await read<string>("[...window.__terminals.keys()].at(-1)");
         await read("window.__observedEmulator=null");

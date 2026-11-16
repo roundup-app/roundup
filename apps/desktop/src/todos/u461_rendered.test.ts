@@ -137,7 +137,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_open_restores_exact_revision_without_rp
       const source = await (await fetch('/src/todos/TodoDrawer.tsx')).text();
       const paths = source.split('"').filter(path => path.includes('/deps/'));
       const { createComponent } = await import(paths.find(path => path.includes('/solid-js.js')));
-      const { render } = await import(paths.find(path => path.includes('/solid-js_web.js')));
+      const { render } = await import(paths.find(path => path.includes('/@solidjs_web.js')));
       const { connectProject, ConnectedProjectContext } = await import('/src/state/connectedProject.ts');
       const { TodoDrawer } = await import('/src/todos/TodoDrawer.tsx');
       const richSource = await (await fetch('/src/pads/PadRichEditor.tsx')).text();

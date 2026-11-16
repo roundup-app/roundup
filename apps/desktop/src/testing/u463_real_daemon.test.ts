@@ -106,7 +106,7 @@ const width = 1280;
       await activate('[aria-label="Create"]');
       await batch(
         ["press", "ArrowDown"],
-        ["wait", "--fn", "document.querySelector('[role=menuitem][data-highlighted]')?.dataset.value === 'workstream'"],
+        ["wait", "--fn", "document.querySelector('[role=menuitem][data-highlighted]')?.textContent.startsWith('Workstream')"],
         ["press", "Enter"]
       );
 
@@ -393,8 +393,8 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
     for (const action of ["door", "agent", "prompt", "shell", "quick"]) {
       await read("window.__launches.length = 0");
 
-      if (action === "door") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][id$="-item-workstream"]'); }
-      else if (action === "agent") { await browser("click", '[aria-label="Create"]'); await browser("click", '[role="menuitem"][id$="-item-agent"]'); }
+      if (action === "door") { await browser("click", '[aria-label="Create"]'); await browser("find", "role", "menuitem", "click", "--name", "Workstream"); }
+      else if (action === "agent") { await browser("click", '[aria-label="Create"]'); await browser("find", "role", "menuitem", "click", "--name", "Agent"); }
       else if (action === "prompt") {
         await batch(
           ["press", "Meta+Shift+n"],

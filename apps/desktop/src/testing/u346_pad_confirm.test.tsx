@@ -113,7 +113,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("open", `${real.base}/__daemon/open`);
     await evaluate(`(async () => {
       const source = await (await fetch('/src/App.tsx')).text();
-      const { render } = await import(source.split('"').find(path => path.includes('/deps/solid-js_web.js')));
+      const { render } = await import(source.split('"').find(path => path.includes('/deps/@solidjs_web.js')));
       const { App } = await import('/src/App.tsx');
       const { createServedApp } = await import('/src/testing/realSeam.ts');
       const { useBrowserStorage } = await import('/src/state/storage.ts');

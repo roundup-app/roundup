@@ -8,6 +8,8 @@
   height: var(--toast-front-height);
   margin: 0;
   color: var(--text);
+  /* The Overlay takes no pointer itself and the stack inherits that; the region owns its pointer, so the hover between cards fans the stack out. */
+  pointer-events: auto;
 }
 
 .app-toasts[data-expanded] {

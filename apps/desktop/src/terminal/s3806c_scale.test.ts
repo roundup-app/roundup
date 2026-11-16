@@ -1,6 +1,6 @@
 import * as xtermModule from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { createComponent, createSignal } from "solid-js";
+import { createComponent, createSignal, flush } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { Pane } from "./Pane";
@@ -111,7 +111,8 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
 
   stops.push(() => screens.dispose(), mounted.unmount);
 
-  if (hostKind !== "Bubble") connected.rail.select("a");
+  if (hostKind !== "Bubble") { connected.rail.select("a"); flush(); }
+
   const host = document.querySelector<HTMLElement>(".pane-screen, .bubble-body");
 
   if (!host) throw new Error("Terminal host not mounted");
@@ -188,6 +189,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
 
   if (hostKind === "Bubble") setPlace({ ...place(), min: true });
   else connected.rail.select(null);
+  flush();
   cols = 80; rows = 20;
   notify(1);
   expect(callsTo(app, "terminal.resize")).toHaveLength(3);
@@ -199,6 +201,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
 
   if (hostKind === "Bubble") {
     setPlace({ ...place(), min: false });
+    flush();
     // Input can arrive before Bubble's queued frame. Its resize must already precede this deliberate input.
     terminal.focus();
     terminal.input("resume", true);
@@ -206,6 +209,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
       .toEqual(["terminal.resize", "terminal.write"]);
   } else {
     connected.rail.select("a");
+    flush();
     expect(focused).toEqual([{ cols: 80, rows: 20 }]);
   }
 

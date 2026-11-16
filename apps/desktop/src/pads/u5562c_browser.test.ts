@@ -138,7 +138,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   })()`);
   await browser("click", 'button[aria-label="Text colour"]');
   await browser("wait", '[role="menu"]');
-  expect(await evaluate(`document.querySelector('[role="menuitemradio"][data-value="amber"]').getAttribute("aria-checked")`)).toBe("true");
+  expect(await evaluate(`document.querySelector('[role="menuitemradio"][id$="-amber"]').getAttribute("aria-checked")`)).toBe("true");
 
   if (paletteOutput) {
     await evaluate("window.__paletteReady");
@@ -147,7 +147,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
     writeFileSync(join(paletteOutput, "palette-pointer-frames.json"), JSON.stringify(await evaluate("window.__paletteFrames")));
   }
 
-  await browser("click", '[role="menuitemradio"][data-value="default"]');
+  await browser("click", '[role="menuitemradio"][id$="-default"]');
   expect(await evaluate("document.querySelector('.ProseMirror [data-pad-color]')")).toBeNull();
   expect(await evaluate("!!document.querySelector('.ProseMirror strong mark')")).toBe(true);
   await browser("click", 'button[aria-label="Highlight"]');

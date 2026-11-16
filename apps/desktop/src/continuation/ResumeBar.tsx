@@ -1,5 +1,5 @@
 import "./styles.css";
-import { createEffect, Show } from "solid-js";
+import { createEffect, Show, untrack } from "solid-js";
 import { RpcError } from "../app/seam";
 import { dismissable, RecoveryButtons, ReservedLine } from "../ink/ReservedLine";
 import { focusCentre, queueFocus } from "../keys/focus";
@@ -53,7 +53,7 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"]; active: () => b
   registerKeys({ kind: "leader" }, [{ action: LEADER["leader.resume"], capture: () => ({ available: () => props.active() && work.count() > 0, invoke: () => void work.resumeAll().then(report) }) }]);
 
   createEffect(visible, (now, was) => {
-    if (props.active() && was && !now && document.activeElement === document.body) queueFocus(() => void focusCentre());
+    if (untrack(props.active) && was && !now && document.activeElement === document.body) queueFocus(() => void focusCentre());
   });
 
   return (

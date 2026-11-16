@@ -202,12 +202,23 @@ run("u5483 folded children", () => {
 
 });
 
-// Exercise the same owner/projection Rail mounts; getters charge only its source reads.
+// Exercise the same owner/projection Rail mounts. Solid 2's store copies each source record and reads its getters twice, so the boundary's parent reads are counted on the records the topology receives.
 it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
-  const construction = vi.spyOn(topology, "railTopology");
+  const build = topology.railTopology;
+  let parents = 0;
+
+  const construction = vi.spyOn(topology, "railTopology").mockImplementation(records => ({
+    ...build(records.map(node => Object.defineProperty({ ...node }, "parent", { enumerable: true, get: () => {
+      parents += 1;
+
+      return node.parent;
+    } }))),
+    nodes: [...records],
+  }));
 
   for (const size of [40, 400]) {
     construction.mockClear();
+    parents = 0;
 
     const chain = Array.from({ length: size - 4 }, (_, at) => workstream(`chain-${at}`, {
       parent: at === 0 ? null : `chain-${at - 1}`, order: at,
@@ -218,14 +229,8 @@ it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
     const source = [...chain.toReversed(), workstream("later", { order: 8 }),
       agent("root-agent", "working", "x"), mode("mode", "Go"), workstream("earlier", { order: 7 })];
 
-    let parents = 0;
-
-    const counted = source.map(node => ({ ...node, get parent() { parents += 1;
-
- return node.parent; } }));
-
     const app = createFakeApp();
-    app.handlers["rail.tree"] = () => counted;
+    app.handlers["rail.tree"] = () => source;
     const connected = await connectProject(app, { path: "/p", name: "p" }, () => true, () => NOW);
     createRoot(dispose => {
       const tree = createRailTree(connected, () => new Set(), () => undefined);

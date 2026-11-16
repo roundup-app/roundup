@@ -33,8 +33,11 @@ import type { ToastQueue } from "../toasts/queue";
 import { strandedSwitcherKeys } from "./strandedKeys";
 import "./styles.css";
 
-/** How the Switcher closes decides where focus goes: Escape restores the opener; a chosen row, a dismissal, another modal or a made Workstream goes to the pane (a Terminal's bubble when one was chosen); a Todo or Pad opens its own item; an action keeps the focus its run took. */
+/** How the Switcher closes decides where focus goes: Escape restores the opener; a chosen row, a dismissal, another modal or a made Workstream goes to the pane (a Terminal's bubble when one was chosen); a Todo or Pad opens its own item; an action keeps the focus its run took, and one that took none leaves focus alone, since its reply may still take it and a return to the opener would end that request. */
 type Closing = { kind: "restore" } | { kind: "item" } | { kind: "action"; focus: HTMLElement | null } | { kind: "pane"; terminal: string | null };
+
+/** ui-sdk takes "none" as no focus move; a function that returns null falls back to the trigger, so an action that moved focus elsewhere says "none". */
+const finalFocusOption = (closing: Closing) => closing.kind === "action" && !closing.focus?.isConnected ? "none" as const : () => finalFocus(closing);
 
 const finalFocus = (closing: Closing): HTMLElement | null => {
   if (closing.kind === "action") return closing.focus?.isConnected ? closing.focus : null;
@@ -371,7 +374,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   return (
     <Dialog open={open()} modal="trap-focus" closeOnOutsidePress onOpenChange={isOpen => { if (!isOpen) close({ kind: "restore" }); }}>
-      <DialogContent class="switcher" aria-label={copy.switcherLabel} initialFocus={() => openingFocus.target(() => input)} finalFocus={() => finalFocus(closing)} ref={setPanel}>
+      <DialogContent class="switcher" aria-label={copy.switcherLabel} initialFocus={() => openingFocus.target(() => input)} finalFocus={finalFocusOption(closing)} ref={setPanel}>
         <Combobox.Root autoFocus={false} focusScope={panel} onDismiss={() => close({ kind: "pane", terminal: null })} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
         }} inputEvents={{ // Only native edits replace recovery text.

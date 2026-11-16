@@ -24,6 +24,20 @@ const edgeJump = (side: Side, key: string, maximum: number): number | undefined 
   }
 };
 
+/** Z3742b: an arrow moves the edge 16 px, with Shift 64 px. */
+const STEP = 16;
+
+const LARGE_STEP = 64;
+
+/** U6228: only a jump, a double-click or a drag collapses an open side, so an arrow that would end under the minimum stops at it. */
+const stopAtMinimum = (side: Side, event: KeyboardEvent, now: number): number | undefined => {
+  const shrinking = side.direction === 1 ? "ArrowLeft" : "ArrowRight";
+
+  if (side.collapsedAt === undefined || event.key !== shrinking || now <= side.collapsedAt) return undefined;
+
+  return Math.max(side.min, now - (event.shiftKey ? LARGE_STEP : STEP));
+};
+
 /** U6228: a side that collapses reads any width under its minimum as its collapsed width. */
 const boundsOf = (side: Side, maximum: number, percent: (px: number) => number) => {
   const minSize = percent(side.min);
@@ -104,8 +118,8 @@ export function Splitter(props: {
 
   const primitive = usePrimitive(group, () => ({
     layout: layout(),
-    step: percent(16),
-    largeStep: percent(64),
+    step: percent(STEP),
+    largeStep: percent(LARGE_STEP),
     disabled: props.disabled === true || props.hidden === true || aborting(),
     onLayoutChange: (next, details) => {
       // The group refits its bounds when the window's width changes; the owner's width already follows it.
@@ -136,7 +150,7 @@ export function Splitter(props: {
 
   // The group's own Home and End move the panel before the handle and Enter and a double-click collapse it; the edge's jump is the side's own width.
   const keyDown = (event: KeyboardEvent) => {
-    const jump = edgeJump(props.side, event.key, maximum());
+    const jump = edgeJump(props.side, event.key, maximum()) ?? stopAtMinimum(props.side, event, pixels());
 
     if (jump === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
 
