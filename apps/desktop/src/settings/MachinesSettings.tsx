@@ -39,7 +39,9 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
   const [rowFailure, setRowFailure] = createSignal<{ name: string; sentence: string } | null>(null);
 
   const closeAdd = () => { setAdding(false); queueFocus(() => trigger?.focus({ preventScroll: true })); };
+
   const machines = () => listed()?.machines ?? [];
+
   const setMachines = (next: Machine[]) => mutate(page => ({ machines: next, version: page?.version ?? "", failure: null }));
 
   /** The sentence for a failure to add, or null once the Machine is on the page. */

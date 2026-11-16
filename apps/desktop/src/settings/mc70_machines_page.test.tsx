@@ -84,7 +84,7 @@ const openDialog = async () => within(await screen.findByRole("dialog"));
 it("mc70_no_other_machines_reads_the_empty_line", async () => {
   await open(createFakeApp(), []);
 
-  await screen.findByText("No other machines yet.");
+  await screen.findByText(copy.noOtherMachines);
 });
 
 it("mc70_the_page_has_no_add_field_and_the_button_opens_the_dialog", async () => {
@@ -122,7 +122,7 @@ it("mc73_the_typed_add_calls_machine_add_closes_the_dialog_and_shows_the_row", a
   fireEvent.click(await screen.findByRole("button", { name: "Add a machine" }));
   const dialog = await openDialog();
   fireEvent.input(dialog.getByRole("textbox"), { target: { value: " me@build-box " } });
-  fireEvent.click(dialog.getByRole("button", { name: "Add" }));
+  fireEvent.click(dialog.getByRole("button", { name: copy.add }));
   await within(list).findByText("me@build-box");
   expect(app.calls.find(call => call.method === "machine.add")?.params).toEqual({ name: "me@build-box" });
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -134,7 +134,7 @@ it("mc73_empty_entry_submits_nothing", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add a machine" }));
   const dialog = await openDialog();
   fireEvent.input(dialog.getByRole("textbox"), { target: { value: "   " } });
-  fireEvent.click(dialog.getByRole("button", { name: "Add" }));
+  fireEvent.click(dialog.getByRole("button", { name: copy.add }));
   expect(app.calls.some(call => call.method === "machine.add")).toBe(false);
 });
 
@@ -158,7 +158,7 @@ it("mc73_a_failing_add_keeps_the_dialog_the_text_and_shows_the_sentence", async 
   const dialog = await openDialog();
   const field = dialog.getByRole("textbox");
   fireEvent.input(field, { target: { value: "nowhere" } });
-  fireEvent.click(dialog.getByRole("button", { name: "Add" }));
+  fireEvent.click(dialog.getByRole("button", { name: copy.add }));
   await dialog.findByText(/Couldn't reach nowhere over ssh/);
   // SAFETY: the field is an input element.
   expect((field as HTMLInputElement).value).toBe("nowhere");

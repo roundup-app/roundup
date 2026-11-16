@@ -428,7 +428,7 @@
 /* U7157d: the reset button sits in the row's right-hand column. */
 .settings-field .settings-reset-button { justify-self: end; }
 /* MC70: the page's buttons and the Add dialog's use the App's UI font; the global mono for action captions does not reach them. */
-:is(.settings-machines-page, .add-machine) :is([data-button], [data-button] *) { font-family: var(--font-ui); }
+.settings-machines-page [data-button], .add-machine [data-button] { font-family: var(--font-ui); }
 .settings-machine-state { display: inline-flex; align-items: center; gap: var(--space-1); }
 .settings-machine-dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-round); background: var(--grey); }
 .settings-machine-state[data-state="online"] .settings-machine-dot { background: var(--accent); }

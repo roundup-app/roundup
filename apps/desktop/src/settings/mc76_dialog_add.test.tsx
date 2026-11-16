@@ -6,6 +6,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { createMachines } from "../state/machines";
 import { useBrowserStorage } from "../state/storage";
 import { AppSettings } from "./AppSettings";
+import { copy } from "./copy";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -39,7 +40,7 @@ it("mc76_adding_through_the_dialog_shows_the_field", async () => {
 
   const dialog = within(await screen.findByRole("dialog"));
   fireEvent.input(dialog.getByRole("textbox"), { target: { value: "box" } });
-  fireEvent.click(dialog.getByRole("button", { name: "Add" }));
+  fireEvent.click(dialog.getByRole("button", { name: copy.add }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   setTick(1);
   await waitFor(() => expect(machines.names()).toEqual(["box"]));
