@@ -3,6 +3,7 @@ import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import { dropLine } from "./dropLine";
 import { pointerSensor } from "./pointerSensor";
+import { copy } from "./copy";
 import { fixedSlots } from "./fixedSlots";
 import { depthReading, depthsAt, dropAt, gapAt, isInPlace, legalIndexOf, resolveDrop, withDepth, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
 import { easingOut, glide, reorderMs, translateOf } from "./reorderMotion";
@@ -64,6 +65,8 @@ type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElemen
   onOrderChange?: ((ids: string[], moved: string) => MoveAnswer) | undefined;
   tree?: SortableTree | undefined;
   external?: External<T> | undefined;
+  /** The rows are buttons that keep their own meaning and move by no key (Project tabs): the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
+  plain?: boolean;
   /** The rows run left to right: the landing slot takes the dragged row's width as well as its height, shows as a gap with no outline, and the list does not auto-scroll under the pointer (U6220c). */
   horizontal?: boolean;
   /** The list element, for a caller that also measures or scrolls it. */
@@ -185,9 +188,18 @@ const createSlides = (options: { horizontal: () => boolean | undefined; reduced:
   };
 };
 
+/** U7276c: the screen-reader text of a list whose rows move by `keys`; a drag is spoken without the library's ids. */
+const spoken = (keys: string) => ({
+  screenReaderInstructions: { draggable: keys },
+  announcements: {
+    dragstart: () => copy.dragStarted,
+    dragend: ({ canceled }: { canceled: boolean }) => canceled ? copy.dragCancelled : copy.dragEnded,
+  },
+});
+
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
-  const rest = omit(props, "ids", "onOrderChange", "tree", "external", "horizontal", "ref", "onDrag", "children");
+  const rest = omit(props, "ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children");
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
   let stopTracking: (() => void) | undefined;
@@ -664,11 +676,11 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     hold({ start: slots.startAt(source.initialIndex, index ?? source.initialIndex), run, key: shownOrder(), ...showDrop(source, index ?? source.initialIndex) });
   };
 
-  // Rows drag by pointer only and move by the lists' own ⌥ chords (U7276c), so the library's keyboard instructions, live region and `draggable` role description would misdescribe them.
+  // Rows drag by pointer and move by the lists' own ⌥ chords (U7276c), so the library's screen-reader text names those chords, not its keyboard lift.
   const manager = untrack(() => new DragDropManager({
     sensors: defaults => defaults.filter(sensor => sensor !== KeyboardSensor).map(sensor => sensor === PointerSensor ? pointerSensor() : sensor),
     modifiers: props.horizontal ? [RestrictToHorizontalAxis] : [],
-    plugins: (defaults) => defaults.filter((plugin) => plugin !== Cursor && plugin !== Accessibility && !(props.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin),
+    plugins: (defaults) => defaults.filter((plugin) => plugin !== Cursor && !(props.plain && plugin === Accessibility) && !(props.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Accessibility ? Accessibility.configure(spoken(props.tree ? copy.dragKeysTree : copy.dragKeysList)) : plugin === Feedback ? Feedback.configure({ dropAnimation: settle }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin),
   }));
 
   const context = { manager, detect: slots.detect };
@@ -693,7 +705,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   onCleanup(() => { for (const stop of stopMonitoring) stop(); manager.destroy(); clearPreview(); stopPointer?.(); stopRestoringFocus?.(); mark(null); reclip(); cancelAnimationFrame(latch); line.remove(); });
 
-  return <ListContext value={context}><div {...rest} ref={element => { list = element; props.ref?.(element); }} data-horizontal={props.horizontal ? "" : undefined}>{props.children}</div>{props.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</ListContext>;
+  return <ListContext value={context}><div {...rest} ref={element => { list = element; props.ref?.(element); }} data-plain={props.plain ? "" : undefined} data-horizontal={props.horizontal ? "" : undefined}>{props.children}</div>{props.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</ListContext>;
 };
 
 type ItemProps = Pick<SortableInput<Data>, "id" | "index" | "disabled"> & {
