@@ -221,41 +221,15 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } })),
-    { name: "Rail reparent keys: only itself at the current root", run: async () => {
+    { name: "Rail row chords: only itself at the current root", run: async () => {
       const { app } = await mountRail([workstream("w")]);
-      const source = within(rowOf("w")).getByRole("button", { name: "Move w" });
+      const row = rowOf("w");
 
-      // jsdom lacks these platform APIs; without them the DnD keyboard sensor throws before lifting.
-      const animations = Object.getOwnPropertyDescriptor(document, "getAnimations");
-      const elementAnimations = Object.getOwnPropertyDescriptor(Element.prototype, "getAnimations");
+      row.focus();
 
-      document.getAnimations = () => [];
-      Element.prototype.getAnimations = () => [];
-      vi.stubGlobal("matchMedia", () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
-      vi.stubGlobal("IntersectionObserver", class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      });
-
-      try {
-        source.focus();
-        fireEvent.keyDown(source, { key: " ", code: "Space" });
-        await waitFor(() => expect(document.querySelector('[data-dnd-placeholder]')).not.toBeNull());
-        fireEvent.keyDown(source, { key: "ArrowRight", code: "ArrowRight" });
-        fireEvent.keyDown(source, { key: " ", code: "Space" });
-        await waitFor(() => expect(document.querySelector('[data-dnd-placeholder]')).toBeNull());
-        expect(actionCalls(app)).toEqual([]);
-      } finally {
-        cleanup();
-
-        if (animations) Object.defineProperty(document, "getAnimations", animations);
-        else Reflect.deleteProperty(document, "getAnimations");
-
-        if (elementAnimations) Object.defineProperty(Element.prototype, "getAnimations", elementAnimations);
-        else Reflect.deleteProperty(Element.prototype, "getAnimations");
-        vi.unstubAllGlobals();
-      }
+      for (const key of ["ArrowUp", "ArrowDown", "ArrowRight", "ArrowLeft"]) fireEvent.keyDown(row, { key, code: key, altKey: true });
+      await new Promise(resolve => setTimeout(resolve));
+      expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Terminal tab: no eligible receiver", run: async () => {
       const { app } = await mountBubbles(null, [info("shell", { owner: "/p" })], []);
