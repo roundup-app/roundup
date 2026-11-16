@@ -132,6 +132,10 @@ pub struct ClaudeCode {
     /// U6909a: a `UserPromptSubmit` or tool Signal opened a turn since the last `Stop`,
     /// `StopFailure` or session start. A `StopFailure` outside one ended no turn of the Agent's work.
     prompted: bool,
+    /// TS1: a Message started the turn, so no prompt Signal opened it and no title tells its end.
+    delivered: bool,
+    /// TS1: between `PreCompact` and `PostCompact` the vendor shows a star with the turn running.
+    compacting: bool,
     /// DCL3: work still running after the foreground turn.
     background: Box<background::Background>,
     /// DCL5: compactions the vendor reported finished, and the last one's payload, so a replay of
@@ -166,6 +170,8 @@ impl ClaudeCode {
             final_text: FinalTextKind::Unknown,
             prompt_id: None,
             prompted: false,
+            delivered: false,
+            compacting: false,
             background: Box::default(),
             compactions: 0,
             last_compaction: None,
@@ -272,11 +278,12 @@ impl ClaudeCode {
                 if kind == Some(Kind::NeedsYou) {
                     return None;
                 }
-                if kind != Some(Kind::Working) || self.spinner_at.is_some() {
+                if !self.sheltered() && (kind != Some(Kind::Working) || self.spinner_at.is_some()) {
                     self.spinner_at = Some((self.clock)());
                 }
                 self.settle(Kind::Working, "working".into())
             }
+            '✳' if kind == Some(Kind::Working) && self.sheltered() => None,
             '✳' if kind == Some(Kind::Working) && self.after_pre_tool_use => {
                 let now = (self.clock)();
                 self.star_parked_since.get_or_insert(now);
@@ -285,6 +292,11 @@ impl ClaudeCode {
             '✳' if kind == Some(Kind::Working) => self.settle(Kind::Idle, "idle".into()),
             _ => None,
         }
+    }
+
+    /// TS1: only a Stop, an Interrupt or a session start ends the turn: a title is no evidence.
+    fn sheltered(&self) -> bool {
+        self.delivered || self.compacting
     }
 
     /// A parked star that no `PermissionRequest` followed was a plain idle, and so is a spinner
@@ -307,7 +319,16 @@ impl ClaudeCode {
         let event = payload["hook_event_name"].as_str();
         // DCL5: only the vendor's completed-compaction event counts; `PreCompact` is a start and
         // usage says nothing.
+        if event == Some("PreCompact")
+            && self
+                .status
+                .as_ref()
+                .is_some_and(|s| s.kind == Kind::Working)
+        {
+            self.compacting = true;
+        }
         if event == Some("PostCompact") {
+            self.compacting = false;
             let seen = payload.to_string();
             if self.last_compaction.as_deref() != Some(seen.as_str()) {
                 self.compactions += 1;
@@ -328,11 +349,12 @@ impl ClaudeCode {
         }
         let mut reading = None;
         if event == Some("Stop") {
-            if let (Some(current), Some(incoming)) =
-                (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
-                && current != incoming
-            {
-                return None;
+            // TS2: a Stop of another turn, or one with no identity while a prompt with one runs,
+            // is not evidence this turn ended.
+            match (self.prompt_id.as_deref(), payload["prompt_id"].as_str()) {
+                (Some(current), Some(incoming)) if current != incoming => return None,
+                (Some(_), None) if self.prompted => return None,
+                _ => {}
             }
             if let (Some(current), Some(incoming)) =
                 (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
@@ -376,6 +398,13 @@ impl ClaudeCode {
             Some("SessionStart" | "Stop") => self.prompted = false,
             Some("StopFailure") if !std::mem::take(&mut self.prompted) => return None,
             _ => {}
+        }
+        if matches!(
+            event,
+            Some("UserPromptSubmit" | "Stop" | "StopFailure" | "SessionStart" | "SessionEnd")
+        ) {
+            self.delivered = false;
+            self.compacting = false;
         }
         let (mut kind, mut label) = hook_status(payload)?;
         if event == Some("Stop") {
@@ -484,6 +513,24 @@ impl ClaudeCode {
         None
     }
 
+    /// TS1: a Message reached the inbox. An idle Agent takes it as its next prompt, so its turn
+    /// starts here; a working one folds it into the turn it runs.
+    fn delivered(&mut self) -> Option<Status> {
+        if self.ending != Ending::Running
+            || self.status.as_ref().is_none_or(|s| s.kind != Kind::Idle)
+        {
+            return None;
+        }
+        self.delivered = true;
+        self.background.stopped = false;
+        self.after_pre_tool_use = false;
+        self.star_parked_since = None;
+        self.spinner_at = None;
+        self.asking = None;
+        self.unclear = None;
+        self.settle(Kind::Working, "working".into())
+    }
+
     /// A7180: a turn ends with nothing holding it: `needs-you` when its last message asked the
     /// user, else `idle`. Every path that ends a turn comes here, so each reads it the same way.
     fn end_turn(&mut self) -> Option<Status> {
@@ -583,6 +630,12 @@ impl ClaudeCode {
                 self.retitle(&title)
             }
             Observation::Program(status) => self.settle(status.kind, status.label),
+            Observation::Delivered => self.delivered(),
+            Observation::Interrupted => {
+                self.delivered = false;
+                self.compacting = false;
+                None
+            }
             Observation::Finished(finished) => {
                 self.set_finished(finished);
                 None
@@ -827,150 +880,4 @@ pub fn context_tokens(payload: &Value) -> Result<Option<u64>, rpc::RpcError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicI64, Ordering},
-    };
-
-    struct Clocked {
-        now: Arc<AtomicI64>,
-        adapter: ClaudeCode,
-    }
-
-    impl Clocked {
-        fn new() -> Self {
-            let now = Arc::new(AtomicI64::new(0));
-            let clock = now.clone();
-            let adapter = ClaudeCode::new(move || clock.load(Ordering::SeqCst));
-            Self { now, adapter }
-        }
-
-        fn at(&mut self, ms: i64, observation: Observation) -> Option<Kind> {
-            self.now.store(ms, Ordering::SeqCst);
-            self.adapter.observe(observation);
-            self.adapter.status().map(|s| s.kind)
-        }
-
-        fn signal(&mut self, ms: i64, event: &str) -> Option<Kind> {
-            self.at(ms, Observation::Signal(json!({ "hook_event_name": event })))
-        }
-
-        fn title(&mut self, ms: i64, title: &str) -> Option<Kind> {
-            self.at(ms, Observation::Title(title.into()))
-        }
-    }
-
-    fn failure(a: &mut Clocked, ms: i64) -> Option<Status> {
-        a.now.store(ms, Ordering::SeqCst);
-        let payload = json!({"hook_event_name": "StopFailure", "error": "authentication_failed"});
-        a.adapter.observe(Observation::Signal(payload)).changed
-    }
-
-    #[test]
-    fn u6909a_a_failure_with_no_prompted_turn_shows_nowhere() {
-        let mut a = Clocked::new();
-        a.signal(0, "SessionStart");
-        a.title(100, "◐ Claude Code");
-        a.title(300, "✳ Claude Code");
-        assert_eq!(failure(&mut a, 400), None);
-        assert_eq!(a.adapter.status().map(|s| s.kind), Some(Kind::Idle));
-    }
-
-    #[test]
-    fn u6909a_a_failure_that_ends_a_prompted_turn_still_shows() {
-        let mut a = Clocked::new();
-        a.signal(0, "UserPromptSubmit");
-        let status = failure(&mut a, 100).unwrap();
-        assert_eq!(status.kind, Kind::Error);
-        assert!(
-            status.label.contains("could not sign in"),
-            "{}",
-            status.label
-        );
-
-        let mut b = Clocked::new();
-        b.signal(0, "SessionStart");
-        assert_eq!(failure(&mut b, 100), None);
-        b.signal(200, "UserPromptSubmit");
-        assert_eq!(failure(&mut b, 300).unwrap().kind, Kind::Error);
-    }
-
-    #[test]
-    fn a2b_a_lone_spinner_after_stop_reads_idle() {
-        let mut a = Clocked::new();
-        a.signal(0, "UserPromptSubmit");
-        assert_eq!(a.signal(100, "Stop"), Some(Kind::Idle));
-        assert_eq!(a.title(1500, "◐ task"), Some(Kind::Working));
-        assert_eq!(a.adapter.tick_at(), Some(1500 + SPINNER_HOLD));
-        assert_eq!(
-            a.at(1500 + SPINNER_HOLD - 1, Observation::Tick),
-            Some(Kind::Working)
-        );
-        assert_eq!(
-            a.at(1500 + SPINNER_HOLD, Observation::Tick),
-            Some(Kind::Idle)
-        );
-        assert_eq!(a.adapter.tick_at(), None);
-    }
-
-    #[test]
-    fn a2b_alternating_spinners_keep_working() {
-        let mut a = Clocked::new();
-        a.signal(0, "UserPromptSubmit");
-        a.signal(100, "Stop");
-        let mut at = 1000;
-        for glyph in ["◐", "◑", "◐", "◑", "◐"] {
-            assert_eq!(a.title(at, glyph), Some(Kind::Working));
-            assert_eq!(a.at(at + 960, Observation::Tick), Some(Kind::Working));
-            at += 960;
-        }
-        assert_eq!(a.at(at + SPINNER_HOLD, Observation::Tick), Some(Kind::Idle));
-    }
-
-    #[test]
-    fn a2b_a_signal_drops_the_spinner_hold() {
-        let mut a = Clocked::new();
-        a.signal(0, "Stop");
-        a.title(1000, "◐");
-        assert!(a.adapter.tick_at().is_some());
-        assert_eq!(a.signal(1100, "PostToolUse"), Some(Kind::Working));
-        assert_eq!(a.adapter.tick_at(), None);
-        assert_eq!(a.at(60_000, Observation::Tick), Some(Kind::Working));
-
-        a.signal(61_000, "Stop");
-        a.title(62_000, "◑");
-        a.title(62_500, "✳");
-        assert_eq!(a.adapter.tick_at(), None);
-    }
-
-    #[test]
-    fn dcl5_inactive_turn_stalls_but_live_background_work_does_not() {
-        let mut a = Clocked::new();
-        let ten = 10 * 60 * 1000;
-        a.signal(0, "UserPromptSubmit");
-        a.now.store(ten - 1, Ordering::SeqCst);
-        assert!(
-            !a.adapter.stalled(ten),
-            "just under ten minutes is no stall"
-        );
-        a.now.store(ten, Ordering::SeqCst);
-        assert!(a.adapter.stalled(ten));
-        a.signal(ten, "PostToolUse");
-        assert!(!a.adapter.stalled(ten), "activity clears the stall");
-        // A foreground tool call that has not returned is running work.
-        a.signal(ten, "PreToolUse");
-        a.now.store(4 * ten, Ordering::SeqCst);
-        assert!(!a.adapter.stalled(ten));
-        // A Stop that leaves a background Agent open keeps Working: not a stall either.
-        a.at(
-            4 * ten,
-            Observation::Signal(json!({"hook_event_name":"SubagentStart","agent_id":"b"})),
-        );
-        a.signal(4 * ten, "Stop");
-        a.now.store(6 * ten, Ordering::SeqCst);
-        assert!(!a.adapter.stalled(ten));
-    }
-}
+mod status_tests;
