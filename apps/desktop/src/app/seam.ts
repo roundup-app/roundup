@@ -186,6 +186,7 @@ export const claudeBinarySchema = v.object({ path: v.string(), version: v.string
 /** U5502/U5503: both native menus retain original identities and surface Dock failures. */
 export const menuBarActionSchema = v.variant("kind", [
   v.object({ kind: v.literal("agent"), path: v.string(), agent: v.string() }),
+  v.object({ kind: v.literal("terminal"), path: v.string(), terminal: v.string() }),
   v.object({ kind: v.literal("open") }),
   v.object({ kind: v.literal("failure"), message: v.string() }),
 ]);
