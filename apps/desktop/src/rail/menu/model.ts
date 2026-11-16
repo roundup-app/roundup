@@ -340,7 +340,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
     return [
       renameEntry(node),
-      { when: isDoor(node) && node.has_conversation, id: "restart", label: copy.restart, run: () => requestRestart(node, exit) },
+      { when: isDoor(node) && node.has_conversation, id: "restart", label: copy.restart, shortcut: "R", run: () => requestRestart(node, exit) },
       { when: isYolo(node) && !isMode(node) && running, id: "normal", label: copy.startNormal, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
@@ -381,6 +381,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     requestRemove,
     requestRemoveSelection,
     restartMode,
+    requestRestart,
     makeWorkstream,
     restartPending,
     requestStop,
