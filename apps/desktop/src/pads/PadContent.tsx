@@ -55,6 +55,21 @@ const conflictText = (actor: Actor | "unknown" | null, nameOf: (actor: Actor) =>
 const restoredSave = (changed: boolean, retained: boolean): Save =>
   changed ? { kind: "conflict", actor: "unknown", version: 0 } : retained ? { kind: "paused" } : { kind: "clean" };
 
+/** Markdown can normalize live spaces and empty paragraphs; the editor's exact native draft is retained until acknowledgement, whenever its text cannot be mapped to source or no longer equals the one loaded. */
+const nativeSnapshot = (editor: PadEditorHandle | undefined, text: string | null) =>
+  editor && (text === null || !editor.unchanged()) ? editor.snapshot() : null;
+
+/** The caret a Pad edit retains: the editor's, else the recovered draft's, else none. */
+const caretOf = (editor: PadEditorHandle | undefined, recovered: { selection: ReturnType<PadEditorHandle["selection"]> | null } | undefined) =>
+  editor?.selection() ?? recovered?.selection ?? null;
+
+/** What a Pad edit retains: its source over the base it began from, and the editor's native document when it has one. */
+const draftOf = (original: { name: string; base: string; revision: number }, source: string, snapshot: ReturnType<PadEditorHandle["snapshot"]> | null) => {
+  const value = { originalName: original.name, source, base: original.base, baseRevision: original.revision };
+
+  return snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
+};
+
 const PadBody = (props: {
   initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
@@ -146,17 +161,12 @@ const PadBody = (props: {
   const capture = (typing = editing()) => {
     if (closed || invalid() || (recovered && !editor)) return;
     const text = currentDraft();
-    // Markdown can normalize live spaces and empty paragraphs; retain the exact native draft until acknowledgement.
-    const snapshot = editor && (text === null || !editor.unchanged()) ? editor.snapshot() : null;
+    const snapshot = nativeSnapshot(editor, text);
 
     if (text === null) actionFailure.show(copy.padSourceMappingFailed, "source-mapping");
 
     if ((text === null && !snapshot) || (!typing && text === origin())) return;
-    const selection = editor?.selection() ?? recovered?.selection ?? null;
-    const source = text ?? snapshot!.text;
-    const value = { originalName: name, source, base: originalBase, baseRevision: originalRevision };
-    const complete = snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
-    field.keep(complete, selection);
+    field.keep(draftOf({ name, base: originalBase, revision: originalRevision }, text ?? snapshot!.text, snapshot), caretOf(editor, recovered));
   };
 
   /** Moves the source and its dirty/clean baseline together so a resolved change cannot remain a conflict. */

@@ -22,6 +22,34 @@ import { copy } from "./copy";
 
 type Field = ReturnType<typeof createDraftField<any>>;
 
+type Held = ReturnType<ConnectedProject["drafts"]["list"]>[number];
+
+/** How a rename opens: on nothing, the current draft, a selected one, or a branch off either. */
+type Restored = "none" | "current" | "selected" | "branch";
+
+const restoredFor = (retained: Held | undefined, selecting: boolean, otherThanCurrent: boolean): Restored =>
+  retained?.value.recovery === true || (selecting && otherThanCurrent) ? "branch" : selecting ? "selected" : retained ? "current" : "none";
+
+const appliedOrRefused = (failure: string | null): Applied<null> =>
+  failure === null ? { kind: "applied", value: null } : { kind: "refused", error: new Error(failure), thrown: failure };
+
+/** On an input's first focus, once the library has left its caret at the end: restores `caret`, else selects the whole text. */
+const createFirstFocusSelection = (caret: () => Held["selection"]) => {
+  let done = false;
+
+  return (input: HTMLInputElement) => {
+    if (done) return;
+    done = true;
+    queueMicrotask(() => {
+      if (document.activeElement !== input) return;
+      const restored = caret();
+
+      if (restored) input.setSelectionRange(restored.start, restored.end, restored.direction);
+      else input.select();
+    });
+  };
+};
+
 /** Everything a Terminal tab reads from the Bubbles that owns it. */
 export type TabContext = {
   props: { screens: Screens; recovery?: { project: string; revision: string } | undefined };
@@ -60,8 +88,8 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   let base = "";
   let initial = "";
   let from: { revision: string } | undefined;
-  let selection: ReturnType<typeof drafts.list>[number]["selection"] = null;
-  let restored: "none" | "current" | "selected" | "branch" = "none";
+  let selection: Held["selection"] = null;
+  let restored: Restored = "none";
   const [changed, change] = createSignal(false);
   // One draft field per rename: a new session opens a new one over the retained revision it started from.
   /** Whether this rename holds a draft: it opened on a retained one, or the owner has typed. */
@@ -89,8 +117,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
     }
 
     destination = target;
-    restored = retained?.value.recovery === true || (selected && retained?.revision !== current()?.revision) ? "branch"
-      : selected ? "selected" : retained ? "current" : "none";
+    restored = restoredFor(retained, selected !== undefined, retained?.revision !== current()?.revision);
     initial = parsed?.success ? parsed.output.name : name();
     base = parsed?.success ? parsed.output.base : name();
     from = retained ? { revision: retained.revision } : undefined;
@@ -129,11 +156,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
       return;
     }
 
-    const renamed = async (): Promise<Applied<null>> => {
-      const failure = rename(live, value);
-
-      return failure === null ? { kind: "applied", value: null } : { kind: "refused", error: new Error(failure), thrown: failure };
-    };
+    const renamed = async () => appliedOrRefused(rename(live, value));
 
     // Enter, a click elsewhere: the owner's own send, so a recovered name goes too. An untouched name has no draft to send.
     if (kept()) draft.save();
@@ -202,7 +225,6 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
             <Editable.Context>{(api) => {
               let cancelling = false;
               let field: HTMLInputElement | undefined;
-              let selected = false;
 
               onSettled(() => {
                 api().edit();
@@ -215,17 +237,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
                 return () => window.removeEventListener("blur", leaveApp);
               });
 
-              // The library focuses the field and leaves its caret at the end; once it has, the name is selected whole or as restored.
-              const select = (input: HTMLInputElement) => {
-                if (selected) return;
-                selected = true;
-                queueMicrotask(() => {
-                  if (document.activeElement !== input) return;
-
-                  if (selection) input.setSelectionRange(selection.start, selection.end, selection.direction);
-                  else input.select();
-                });
-              };
+              const select = createFirstFocusSelection(() => selection);
 
               // The library ends an edit whose text did not change without committing it; Enter still settles a restored draft and reports a moved original.
               const enterOnUnchanged = (event: KeyboardEvent & { currentTarget: HTMLInputElement }) => {

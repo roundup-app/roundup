@@ -37,6 +37,63 @@ const placeAt = (focus: Element | null): HintPlace | null =>
                       ? "agent"
                       : null;
 
+type ShownHint = ReturnType<typeof hintsFor>[number];
+
+/** The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row. */
+const shelfHints = (
+  shown: readonly ShownHint[],
+  focused: Element | null,
+  hasChoices: (keys: string) => boolean,
+) => {
+  const shelf = focused?.closest(".window");
+  const rowButton = focused?.matches(".todo-row-button, .pad-name") === true;
+  const onPad = rowButton && focused?.closest(".pad-inset") != null;
+  const canAssign = rowButton && !focused?.closest(".todo-done-fold");
+
+  const editing =
+    focused?.closest("input,textarea,select,[contenteditable]") != null;
+
+  const maximised = shelf?.getAttribute("data-shelf-maximised") === "true";
+  const overlay = shelf?.getAttribute("data-shelf-mode") === "overlay";
+
+  if (editing || layerHoldsKeys()) return [];
+
+  const hidden = (hint: ShownHint) =>
+    (hint.keys === "1–9" && !hasChoices(hint.keys)) ||
+    (hint.label === copy.exportMd && !onPad) ||
+    (hint.label === copy.assign && !canAssign) ||
+    (hint.label === copy.deleteFocusedRow && !rowButton) ||
+    (hint.label === copy.maximise && overlay);
+
+  return shown.flatMap((hint) =>
+    hidden(hint)
+      ? []
+      : [
+          hint.label === copy.maximise && maximised
+            ? { ...hint, label: copy.restore }
+            : hint,
+        ],
+  );
+};
+
+/** Hints drop from the end until the rest fit whole: one that would clip is hidden with every hint after it. */
+const fitHints = (line: HTMLElement): void => {
+  const children = [...line.children].filter(
+    (child): child is HTMLElement => child instanceof HTMLElement,
+  );
+
+  for (const child of children) child.hidden = false;
+
+  const room = line.clientWidth;
+
+  const over = children.findIndex(
+    (child) => child.offsetLeft + child.offsetWidth > room,
+  );
+
+  if (over !== -1)
+    for (const child of children.slice(over)) child.hidden = true;
+};
+
 /** U2230a: the quiet line of the keys that act where focus is, from the same `CHORDS` rows Help lists and the registry binds. */
 export const HintLine = () => {
   const [focus, setFocus] = createSignal<Element | null>(null);
@@ -65,61 +122,15 @@ export const HintLine = () => {
 
     const shown = hintsFor(at);
 
-    if (at !== "shelf") return shown;
-
-    // The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row.
-    const maximised =
-      focus()?.closest(".window")?.getAttribute("data-shelf-maximised") ===
-      "true";
-
-    const focused = focus();
-    const rowButton = focused?.matches(".todo-row-button, .pad-name") === true;
-    const onPad = rowButton && focused?.closest(".pad-inset") != null;
-    const canAssign = rowButton && !focused?.closest(".todo-done-fold");
-
-    const editing =
-      focused?.closest("input,textarea,select,[contenteditable]") != null;
-
-    if (editing || layerHoldsKeys()) return [];
-
-    return shown
-      .filter((hint) => hint.keys !== "1–9" || choices(hint.keys).length > 0)
-      .filter((hint) => hint.label !== copy.exportMd || onPad)
-      .filter((hint) => hint.label !== copy.assign || canAssign)
-      .filter((hint) => hint.label !== copy.deleteFocusedRow || rowButton)
-      .filter(
-        (hint) =>
-          hint.label !== copy.maximise ||
-          focus()?.closest(".window")?.getAttribute("data-shelf-mode") !==
-            "overlay",
-      )
-      .map((hint) =>
-        hint.label === copy.maximise && maximised
-          ? { ...hint, label: copy.restore }
-          : hint,
-      );
+    return at === "shelf"
+      ? shelfHints(shown, focus(), (keys) => choices(keys).length > 0)
+      : shown;
   };
 
   let line: HTMLParagraphElement | undefined;
 
-  /** Hints drop from the end until the rest fit whole: one that would clip is hidden with every hint after it. */
   const fit = (): void => {
-    if (!line) return;
-
-    const children = [...line.children].filter(
-      (child): child is HTMLElement => child instanceof HTMLElement,
-    );
-
-    for (const child of children) child.hidden = false;
-
-    const room = line.clientWidth;
-
-    const over = children.findIndex(
-      (child) => child.offsetLeft + child.offsetWidth > room,
-    );
-
-    if (over !== -1)
-      for (const child of children.slice(over)) child.hidden = true;
+    if (line) fitHints(line);
   };
 
   createEffect(

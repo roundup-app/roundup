@@ -27,6 +27,13 @@ export type ShelfPlacement = { open: boolean; peeking?: boolean; covering?: bool
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
+/** What the window reports of the Shelf: open, peeking over the centre, or closed. */
+const shelfStateOf = (placement: ShelfPlacement) => placement.open ? "open" : placement.peeking ? "peek" : "closed";
+
+/** The focused element when it sits in the Shelf outside the controls that keep their own keys, else null. */
+const shelfFocusOf = (focus: Element | null): Element | null =>
+  focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null;
+
 /** Rail left, centre right; nesting and columns are never drawn as boxes. The Shelf reserves the centre when it has room; the overlay floats over both; every region starts below the window bar. */
 export const Layout = (props: {
   header: JSX.Element;
@@ -59,11 +66,7 @@ export const Layout = (props: {
 }) => {
   const [shelfFocus, setShelfFocus] = createSignal<Element | null>(null);
 
-  const sync = () => {
-    const focus = document.activeElement;
-
-    setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
-  };
+  const sync = () => setShelfFocus(shelfFocusOf(document.activeElement));
 
   makeEventListener(document, "focusin", sync);
   makeEventListener(document, "focusout", sync);
@@ -134,7 +137,7 @@ export const Layout = (props: {
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={String(mode() === "reserved" && placement().maximised === true)} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : placement().peeking ? "peek" : "closed"} data-shelf-peek={String(placement().covering === true)} data-shelf-mode={mode()} data-shelf-shown={String(placement().shown)} data-shelf-reserved={String(reserved())} data-shelf-key={String(placement().keyed === true)} data-shelf-animated={String(placement().animated)}>
+  <div class="window" data-rail={props.railOpen === false ? "closed" : "open"} data-shelf-maximised={String(mode() === "reserved" && placement().maximised === true)} data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={shelfStateOf(placement())} data-shelf-peek={String(placement().covering === true)} data-shelf-mode={mode()} data-shelf-shown={String(placement().shown)} data-shelf-reserved={String(reserved())} data-shelf-key={String(placement().keyed === true)} data-shelf-animated={String(placement().animated)}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="columns" style={{ "grid-area": "1 / 1" }}>

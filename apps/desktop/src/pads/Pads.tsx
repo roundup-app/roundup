@@ -36,6 +36,29 @@ import { createDraftField } from "../state/draftField";
 import { usePadList } from "./padList";
 import type { PadList } from "./padList";
 
+/** The failure of one action on one Pad. It shows while that Pad is listed: a late reply for a deleted source never brings its error back. */
+const createPadFailure = (pads: () => readonly Pad[]) => {
+  const [itemFailure, setItemFailure] = createSignal<{ incarnation: string; message: string; action: string } | null>(null);
+
+  const reportItemFailure = (pad: Pad, message: string | null, action: string) => {
+    if (message !== null) {
+      if (pads().some(current => current.incarnation === pad.incarnation)) setItemFailure({ incarnation: pad.incarnation, message, action });
+    } else {
+      if (itemFailure()?.incarnation === pad.incarnation) setItemFailure(null);
+    }
+  };
+
+  createEffect(createMemo(() => {
+    const failed = itemFailure();
+
+    return failed !== null && !pads().some(pad => pad.incarnation === failed.incarnation);
+  }), (orphaned) => {
+    if (orphaned) setItemFailure(null);
+  });
+
+  return { itemFailure, setItemFailure, reportItemFailure };
+};
+
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
 export const Pads = (props: {
   /** Open this Project's retained creation revision without submitting it. */
@@ -79,24 +102,7 @@ export const Pads = (props: {
   let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
   const listNote = dismissable(() => list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null));
-  const [itemFailure, setItemFailure] = createSignal<{ incarnation: string; message: string; action: string } | null>(null);
-
-  const reportItemFailure = (pad: Pad, message: string | null, action: string) => {
-    if (message !== null) {
-      // A late reply for a deleted source must not resurrect its error on the list.
-      if (pads().some(current => current.incarnation === pad.incarnation)) setItemFailure({ incarnation: pad.incarnation, message, action });
-    } else {
-      if (itemFailure()?.incarnation === pad.incarnation) setItemFailure(null);
-    }
-  };
-
-  createEffect(createMemo(() => {
-    const failed = itemFailure();
-
-    return failed !== null && !pads().some(pad => pad.incarnation === failed.incarnation);
-  }), (orphaned) => {
-    if (orphaned) setItemFailure(null);
-  });
+  const { itemFailure, setItemFailure, reportItemFailure } = createPadFailure(pads);
   const scope = shelfScope(connected);
 
   const create = () =>

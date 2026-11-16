@@ -35,7 +35,7 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../state/railTopol
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, extentOf, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
+  clamped, clearances, defaultPlace, extentOf, placesStorage, reconciledPlaces, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
 import type { Place, Extent } from "./places";
 import "./styles.css";
@@ -86,8 +86,7 @@ export const Bubbles = (props: {
     if (event.storageArea === window.sessionStorage && event.key === `roundup:bubble-places:${path}`) model.reload();
   };
 
-  window.addEventListener("storage", refreshPlaces);
-  onCleanup(() => window.removeEventListener("storage", refreshPlaces));
+  makeEventListener(window, "storage", refreshPlaces);
 
   const failures = createBubbleFailure(() => connected.daemonExit() !== null ? "unknown" : rail.terminals());
   const { failure, set: setFailure } = failures;
@@ -173,18 +172,7 @@ export const Bubbles = (props: {
       lastSelected = chosen;
 
       const prior = untrack(places);
-      const missing = eligible.filter((terminal) => prior[terminal.id] === undefined);
-      const visible = eligible.filter((terminal) => prior[terminal.id] && !prior[terminal.id]!.min);
-      const next = { ...prior };
-      const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
-
-      const selecting = current.kind === "opening" && chosen === current.selection;
-
-      for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: selecting || terminal.id !== latest };
-
-      for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
-
-      if (folds) for (const terminal of eligible) next[terminal.id] = { ...next[terminal.id]!, min: true };
+      const next = reconciledPlaces(prior, eligible, { folds, selecting: current.kind === "opening" && chosen === current.selection, fresh: () => defaultPlace(untrack(extent)) });
 
       if (!samePlaces(next, prior)) commitPlaces(next);
     },
@@ -262,24 +250,7 @@ export const Bubbles = (props: {
       const parent = host.parentElement;
       setBar(parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
       const stack = parent?.getBoundingClientRect();
-
-      const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []]
-        .filter(element => element.querySelector("button, input, [role=tab]"));
-
-      const boxes = controls.flatMap(element => {
-        const box = element.getBoundingClientRect();
-
-        return box.width > 0 && box.height > 0 ? [box] : [];
-      });
-
-      const siblings = boxes.length ? boxes : [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []]
-        .flatMap(element => {
-          const box = element.getBoundingClientRect();
-
-          return box.width > 0 && box.height > 0 ? [box] : [];
-        });
-
-      const nextEdges = [...controls, ...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
+      const { boxes: siblings, watched: nextEdges } = clearances(parent);
 
       for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
 
@@ -748,16 +719,10 @@ export const Bubbles = (props: {
     queueMicrotask(() => focus(() => focusItem(id)));
   };
 
-  window.addEventListener(REVEAL_BUBBLE, onReveal);
-  onCleanup(() => window.removeEventListener(REVEAL_BUBBLE, onReveal));
-  document.addEventListener("focusin", onFocusIn);
-  document.addEventListener("focusin", onBubbleFocus);
-  document.addEventListener("focusin", onFocusLeave);
-  onCleanup(() => {
-    document.removeEventListener("focusin", onFocusLeave);
-    document.removeEventListener("focusin", onBubbleFocus);
-    document.removeEventListener("focusin", onFocusIn);
-  });
+  makeEventListener(window, REVEAL_BUBBLE, onReveal);
+  makeEventListener(document, "focusin", onFocusIn);
+  makeEventListener(document, "focusin", onBubbleFocus);
+  makeEventListener(document, "focusin", onFocusLeave);
 
   // Bubbles are keyed by id: a refreshed `terminal.list` brings new objects for the same Terminals, and a remount would drop the emulator's focus.
   const shownIds = createMemo(() => shown().map((terminal) => terminal.id), { equals: (a, b) => a.length === b.length && a.every((id, at) => id === b[at]) });

@@ -15,6 +15,19 @@ export type HomeTarget = { element: HTMLElement; home: string | null };
 /** U3718: an owner's group a Shelf row can be dropped on; `owner` is null for Unassigned. */
 export type OwnerTarget = { element: HTMLElement; attribute: string; owner: Actor | null };
 
+/** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
+const positionOf = (el: HTMLElement) => {
+  const row = el.getBoundingClientRect();
+  const box = row.width > 0 && row.height > 0 ? row : el.closest("[data-shelf-group]")?.querySelector(".shelf-group-head")?.getBoundingClientRect();
+
+  return box && box.width > 0 && box.height > 0 ? { top: box.top, left: box.left } : undefined;
+};
+
+const restoreScroll = (saved: { element: HTMLElement; top: number; left: number }) => {
+  saved.element.scrollTop = saved.top;
+  saved.element.scrollLeft = saved.left;
+};
+
 /** U490a, U155, U156, U362: the rows of one list of open Todos ordered through `ui/Sortable`: one `todo.reorder` per move, focus kept on the moved row, and the rows that change place slide by U156. */
 export const createSortedList = (source: {
   /** The ids of the list's rows, top to bottom. */
@@ -52,14 +65,6 @@ export const createSortedList = (source: {
   let instantOrder: symbol | null = null;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
 
-  /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
-  const positionOf = (el: HTMLElement) => {
-    const row = el.getBoundingClientRect();
-    const box = row.width > 0 && row.height > 0 ? row : el.closest("[data-shelf-group]")?.querySelector(".shelf-group-head")?.getBoundingClientRect();
-
-    return box && box.width > 0 && box.height > 0 ? { top: box.top, left: box.left } : undefined;
-  };
-
   const measure = () => {
     savedPermission = captureFocus();
     savedFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
@@ -80,8 +85,7 @@ export const createSortedList = (source: {
     instantOrder = null;
 
     if (scroll) {
-      scroll.element.scrollTop = scroll.top;
-      scroll.element.scrollLeft = scroll.left;
+      restoreScroll(scroll);
       scroll = null;
     }
 

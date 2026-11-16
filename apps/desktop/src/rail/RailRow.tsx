@@ -148,6 +148,11 @@ const FoldedCount = (props: { folded: boolean; topology: RailTopology; id: strin
   : <span class="hidden-agents" data-state="collapsed" role="img" aria-label={copy.hiddenAgents(props.hidden!)}>{props.hidden}</span>}</Show>;
 };
 
+/** The control that folds or unfolds a row's children. */
+const FoldControl = (props: { class: string; collapsed: boolean; onToggle: () => void }) => (
+  <IconButton class={props.class} aria-label={props.collapsed ? copy.expand : copy.collapse} aria-expanded={props.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.collapsed ? "right" : "down"} /></IconButton>
+);
+
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
   topology: RailTopology; todoCount: number;
@@ -253,7 +258,7 @@ export const RailRowView = (props: {
   return <TreeItem value={props.row.node.id} aria-label={label()} {...rowProps()} onClick={choose} ref={el => { element = el; props.sortRef(el); }} render={tabStop(tabbable)}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
-      <Show when={folds()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={props.row.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+      <Show when={folds()}><FoldControl class="rail-chevron row-control" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={statusRead()}>{status => <span class="row-status" data-state="status" data-cut={statusCut[1]() ? "" : undefined} ref={statusCut[0]}><Reveal status={status()} {...(status().kind === "error" ? {} : { label: statusLabel() })} live={false} split /></span>}</Show>
@@ -267,7 +272,7 @@ export const RailRowView = (props: {
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
-        <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={props.row.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+        <Show when={isGroup()}><FoldControl class="rail-group-chevron" collapsed={!!props.row.collapsed} onToggle={props.onToggle} /></Show>
       </span>
     </p>
     <Show when={workstream() && !connected.rail.launching(props.row.node.id) && waiting()}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>

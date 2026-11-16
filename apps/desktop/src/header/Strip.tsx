@@ -134,36 +134,68 @@ const createClosing = (props: {
   };
 };
 
-/** The header's strip (U179): one tab per open Project in the order the user left them (U6220c), then a quiet `+`. */
-export const Strip = (props: {
-  tabs: StripTab[];
-  active: string | null;
-  onSelect: (path: string) => void;
-  /** A click on a Tab mark, and leader `⇧J`: that Project opens and its most urgent Agent is selected (U181). */
-  onMark: (path: string) => void;
-  onRename: (
-    path: string,
-    name: string,
-    base?: string,
-  ) => ReturnType<ProjectsState["rename"]>;
-  onClose: (path: string) => void | Promise<void>;
-  /** U6220c: a drag put the tabs in this order. */
-  onReorder: (paths: string[]) => void;
-  /** U6220d: each Project's alert level, and the menu's way to change it. */
-  alerts: ProjectAlertLevels;
-  onChoose: () => void;
-  /** U2694a: the seam that shows a tab's system menu. */
-  app: Pick<AppCalls, "showContextMenu" | "ask" | "writeClipboardText">;
-}) => {
-  // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.
-  const sameEdge = (a: Edge | null, b: Edge | null) =>
-    a === b ||
-    (a !== null &&
-      b !== null &&
-      a.mark === b.mark &&
-      a.count === b.count &&
-      a.nearest === b.nearest);
+/** An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout. */
+const sameEdge = (a: Edge | null, b: Edge | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.mark === b.mark &&
+    a.count === b.count &&
+    a.nearest === b.nearest);
 
+type Span = { from: number; to: number; frame: DOMRect };
+
+/** How one tab sits against the span the list shows: the px of it that the list cuts at either end (null: none), and the side it is scrolled out of view on. */
+const placeOf = (element: HTMLElement, span: Span, open: boolean) => {
+  const near = element.offsetLeft;
+  const far = near + element.offsetWidth;
+
+  // The cover is exactly the piece that shows: fractional layout, so it neither leaves a sliver of the cut tab's border nor reaches the next tab's.
+  const box = element.getBoundingClientRect();
+  const cutAtStart = near < span.from && far > span.from;
+  const cutAtEnd = near < span.to && far > span.to;
+
+  return {
+    // The open tab is never covered: where the list is barely wider than one tab, covering its cut would hide the only tab in view.
+    startPiece: cutAtStart && !open ? box.right - span.frame.left : null,
+    endPiece: cutAtEnd && !open ? span.frame.right - box.left : null,
+    cut: cutAtStart || cutAtEnd,
+    side: far <= span.from ? ("left" as const) : near >= span.to ? ("right" as const) : null,
+  };
+};
+
+/** What the list cuts and hides: the px of the tab cut at each end, whether the open tab is one of those cut, and the tabs scrolled out of view on each side. */
+const scanTabs = (
+  list: HTMLElement,
+  elements: ReadonlyMap<string, HTMLElement>,
+  tabs: readonly StripTab[],
+  active: string | null,
+) => {
+  const span: Span = { from: list.scrollLeft, to: list.scrollLeft + list.clientWidth, frame: list.getBoundingClientRect() };
+  const out: Record<"left" | "right", StripTab[]> = { left: [], right: [] };
+  let startPiece = 0;
+  let endPiece = 0;
+  let activeCut = false;
+
+  for (const tab of tabs) {
+    const element = elements.get(tab.path);
+
+    if (!element) continue;
+
+    const placed = placeOf(element, span, tab.path === active);
+
+    startPiece = placed.startPiece ?? startPiece;
+    endPiece = placed.endPiece ?? endPiece;
+    activeCut ||= tab.path === active && placed.cut;
+
+    if (placed.side) out[placed.side].push(tab);
+  }
+
+  return { startPiece, endPiece, activeCut, out };
+};
+
+/** The strip's overflow (U184, U186): what the list cuts and hides, kept current by an observer, and the open tab kept in view. */
+const createOverflow = (props: { tabs: StripTab[]; active: string | null }) => {
   const [left, setLeft] = createSignal<Edge | null>(null, { equals: sameEdge });
 
   const [right, setRight] = createSignal<Edge | null>(null, {
@@ -177,17 +209,6 @@ export const Strip = (props: {
   let list: HTMLDivElement | undefined;
   const [listElement, setListElement] = createSignal<HTMLDivElement>();
   let observer: ResizeObserver | undefined;
-
-  const {
-    asking,
-    setAsking,
-    closeOpener,
-    setCloseOpener,
-    question,
-    requestClose,
-    closeAll,
-    next,
-  } = createClosing(props);
 
   /** The strip's scrolling list, known to the observer for as long as it is shown. */
   const listRef = () => {
@@ -213,44 +234,7 @@ export const Strip = (props: {
       return;
     }
 
-    const frame = list.getBoundingClientRect();
-    const from = list.scrollLeft;
-    const to = from + list.clientWidth;
-    const out: Record<"left" | "right", StripTab[]> = { left: [], right: [] };
-
-    let startPiece = 0;
-    let endPiece = 0;
-    let activeCut = false;
-
-    for (const tab of props.tabs) {
-      const element = elements.get(tab.path);
-
-      if (!element) continue;
-
-      const near = element.offsetLeft;
-      const far = near + element.offsetWidth;
-
-      // The open tab is never covered: where the list is barely wider than one tab, covering its cut would hide the only tab in view.
-      const open = tab.path === props.active;
-
-      // The cover is exactly the piece that shows: fractional layout, so it neither leaves a sliver of the cut tab's border nor reaches the next tab's.
-      const box = element.getBoundingClientRect();
-
-      if (near < from && far > from && !open)
-        startPiece = box.right - frame.left;
-
-      if (near < to && far > to && !open) endPiece = frame.right - box.left;
-
-      if (
-        tab.path === props.active &&
-        ((near < from && far > from) || (near < to && far > to))
-      )
-        activeCut = true;
-
-      if (element.offsetLeft + element.offsetWidth <= from) out.left.push(tab);
-      else if (element.offsetLeft >= to) out.right.push(tab);
-    }
-
+    const { startPiece, endPiece, activeCut, out } = scanTabs(list, elements, props.tabs, props.active);
     const nextLeft = edgeOf(out.left, false);
     const nextRight = edgeOf(out.right, true);
 
@@ -326,11 +310,6 @@ export const Strip = (props: {
     unrevealed = null;
   };
 
-  const paths = createMemo(() => props.tabs.map((tab) => tab.path), {
-    equals: (a, b) =>
-      a.length === b.length && a.every((path, at) => path === b[at]),
-  });
-
   const layoutKey = createMemo(() =>
     props.tabs.map((tab) => `${tab.path}:${markOf(tab)}`).join(),
   );
@@ -373,6 +352,82 @@ export const Strip = (props: {
     },
   );
 
+  return { left, right, cutStart, cutEnd, listRef, tabRef, reveal, measure, elementOf: (path: string) => elements.get(path) };
+};
+
+/** The cap at one end of the list that tells the marks of the tabs scrolled out of view on that side (U184). */
+const EdgeSlot = (props: {
+  side: "left" | "right";
+  shown: Edge | null;
+  onReveal: (path: string) => void;
+}) => (
+  <Show when={props.shown}>
+    {(hidden) => (
+      <div class="strip-slot" data-side={props.side}>
+        <IconButton
+          class={`strip-edge strip-edge-${props.side} ink`}
+          data-tone={MARKS[hidden().mark].tone}
+          data-kind={hidden().mark}
+          aria-label={copy.hiddenAttention(
+            hidden().count,
+            MARKS[hidden().mark].label.toLowerCase(),
+            props.side,
+          )}
+          onClick={() => props.onReveal(hidden().nearest)}
+        >
+          {props.side === "left" ? copy.previousProjectsMark : ""}
+          <span
+            class="tab-mark ink"
+            data-tone={MARKS[hidden().mark].tone}
+            aria-hidden="true"
+          />
+          {hidden().count > 1 ? ` ${hidden().count}` : ""}
+          {props.side === "right" ? copy.nextProjectsMark : ""}
+        </IconButton>
+      </div>
+    )}
+  </Show>
+);
+
+/** The header's strip (U179): one tab per open Project in the order the user left them (U6220c), then a quiet `+`. */
+export const Strip = (props: {
+  tabs: StripTab[];
+  active: string | null;
+  onSelect: (path: string) => void;
+  /** A click on a Tab mark, and leader `⇧J`: that Project opens and its most urgent Agent is selected (U181). */
+  onMark: (path: string) => void;
+  onRename: (
+    path: string,
+    name: string,
+    base?: string,
+  ) => ReturnType<ProjectsState["rename"]>;
+  onClose: (path: string) => void | Promise<void>;
+  /** U6220c: a drag put the tabs in this order. */
+  onReorder: (paths: string[]) => void;
+  /** U6220d: each Project's alert level, and the menu's way to change it. */
+  alerts: ProjectAlertLevels;
+  onChoose: () => void;
+  /** U2694a: the seam that shows a tab's system menu. */
+  app: Pick<AppCalls, "showContextMenu" | "ask" | "writeClipboardText">;
+}) => {
+  const { left, right, cutStart, cutEnd, listRef, tabRef, reveal, measure, elementOf } = createOverflow(props);
+
+  const {
+    asking,
+    setAsking,
+    closeOpener,
+    setCloseOpener,
+    question,
+    requestClose,
+    closeAll,
+    next,
+  } = createClosing(props);
+
+  const paths = createMemo(() => props.tabs.map((tab) => tab.path), {
+    equals: (a, b) =>
+      a.length === b.length && a.every((path, at) => path === b[at]),
+  });
+
   // U186: leader `⇧J` marks the next Project that needs you, or this one; the webview takes it wherever focus is.
   registerKeys({ kind: "leader" }, [
     {
@@ -399,42 +454,13 @@ export const Strip = (props: {
     },
   ]);
 
-  const edge = (side: "left" | "right", shown: Edge | null) => (
-    <Show when={shown}>
-      {(hidden) => (
-        <div class="strip-slot" data-side={side}>
-          <IconButton
-            class={`strip-edge strip-edge-${side} ink`}
-            data-tone={MARKS[hidden().mark].tone}
-            data-kind={hidden().mark}
-            aria-label={copy.hiddenAttention(
-              hidden().count,
-              MARKS[hidden().mark].label.toLowerCase(),
-              side,
-            )}
-            onClick={() => reveal(hidden().nearest)}
-          >
-            {side === "left" ? copy.previousProjectsMark : ""}
-            <span
-              class="tab-mark ink"
-              data-tone={MARKS[hidden().mark].tone}
-              aria-hidden="true"
-            />
-            {hidden().count > 1 ? ` ${hidden().count}` : ""}
-            {side === "right" ? copy.nextProjectsMark : ""}
-          </IconButton>
-        </div>
-      )}
-    </Show>
-  );
-
   registerKeys(
     { kind: "app" },
     strandedTabKeys({
       paths: () => paths(),
       active: () => props.active,
       focusTab: (path) =>
-        elements.get(path)?.querySelector<HTMLElement>("[role=tab]")?.focus(),
+        elementOf(path)?.querySelector<HTMLElement>("[role=tab]")?.focus(),
     }),
   );
 
@@ -447,7 +473,7 @@ export const Strip = (props: {
       }}
     >
       <div class="strip-scroll">
-        {edge(copy.left, left())}
+        <EdgeSlot side={copy.left} shown={left()} onReveal={reveal} />
         <Tabs.List
           class="tablist"
           aria-label={copy.projects}
@@ -523,7 +549,7 @@ export const Strip = (props: {
             </Sortable.Root>
           )}
         />
-        {edge(copy.right, right())}
+        <EdgeSlot side={copy.right} shown={right()} onReveal={reveal} />
       </div>
       <IconButton
         data-flat-add=""

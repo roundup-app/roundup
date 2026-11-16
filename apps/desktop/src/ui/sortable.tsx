@@ -98,6 +98,98 @@ const stopLibrarySlides = (source: Draggable | null, tree: SortableTree | undefi
   for (const draggable of source?.manager?.registry.draggables ?? []) if (isSortable(draggable)) draggable.sortable.transition = null;
 };
 
+/** The boxes between the rows and the list that clip what they hold and do not scroll; a collapsed group's rows are inert and stay hidden. */
+const clippingBoxes = (rows: readonly Element[], list: HTMLElement | undefined): Set<HTMLElement> => {
+  const clips = (value: string) => value === "hidden" || value === "clip";
+  const boxes = new Set<HTMLElement>();
+
+  for (const row of rows) {
+    if (row.closest("[inert]")) continue;
+
+    for (let box = row.parentElement; box && box !== list; box = box.parentElement) {
+      const { overflowX, overflowY } = getComputedStyle(box);
+
+      if ((clips(overflowX) || clips(overflowY)) && ![overflowX, overflowY].some(value => value === "auto" || value === "scroll")) boxes.add(box);
+    }
+  }
+
+  return boxes;
+};
+
+/** Where a dragged row stood in the DOM, so the list can put it back where the library's own sorting or its placeholder moved it. */
+const createStanding = () => {
+  let stood: { previous: Element | null; next: Element | null; parent: Element | null } | null = null;
+  let lifted: { element: Element; parent: ParentNode; before: ChildNode | null } | null = null;
+
+  return {
+    /** Notes where the row stands among its siblings when its drag is about to start: the library's own sorting (a keyboard drag) moves it in the DOM. */
+    stand: (element: Element) => { stood = { previous: element.previousElementSibling, next: element.nextElementSibling, parent: element.parentElement }; },
+    /** Puts the row back next to the elements it had when it was noted. */
+    restore: (element: Element) => {
+      if (!stood) return;
+      const { previous, next, parent } = stood;
+
+      if (previous && element.previousElementSibling !== previous) previous.insertAdjacentElement("afterend", element);
+      else if (next && element.nextElementSibling !== next) next.insertAdjacentElement("beforebegin", element);
+      else if (!previous && !next && parent) parent.appendChild(element);
+    },
+    forget: () => { stood = null; },
+    /** Notes the lifted row's exact place, text nodes included. */
+    lift: (element: Element | undefined) => {
+      lifted = element?.parentNode ? { element, parent: element.parentNode, before: element.previousSibling } : null;
+    },
+    /** `restore` puts the row next to the elements it had at lift, but the library's placeholder now follows it, so it lands past the text node the list keeps after each row, and the list's next redraw then moves the wrong rows. This puts it back exactly, and forgets the lift. */
+    unmove: () => {
+      const held = lifted;
+
+      lifted = null;
+
+      if (!held || held.element.parentNode !== held.parent || held.element.previousSibling === held.before) return;
+
+      if (held.before && held.before.parentNode !== held.parent) return;
+
+      if (held.before) held.before.after(held.element);
+      else held.parent.prepend(held.element);
+    },
+  };
+};
+
+/** Rows shown off their places by a `translate`, each sliding from where it shows now when asked; a newer offset cancels the slide an older one started. */
+const createSlides = (options: { horizontal: () => boolean | undefined; reduced: () => boolean }) => {
+  const slides = new WeakMap<Element, Animation>();
+  const along = (shift: number) => `${options.horizontal() ? shift : 0}px ${options.horizontal() ? 0 : shift}px`;
+
+  return {
+    /** Shows each row `shift` px from its place: at once, or sliding from where it shows now. Reads every row before it writes one. */
+    place: (rows: readonly { element: HTMLElement; shift: number }[], slide: boolean) => {
+      const from = slide ? rows.map(({ element }) => {
+        const now = translateOf(element);
+
+        return options.horizontal() ? now.x : now.y;
+      }) : [];
+
+      const easing = slide ? easingOut() : "";
+      const duration = slide ? reorderMs(document.documentElement) : 0;
+
+      rows.forEach(({ element, shift }, at) => {
+        slides.get(element)?.cancel();
+        element.style.translate = shift ? along(shift) : "";
+
+        if (slide && Math.abs(from[at]! - shift) >= 0.5 && !options.reduced()) slides.set(element, element.animate({ translate: [along(from[at]!), along(shift)] }, { duration, easing }));
+      });
+    },
+    /** Shows `element` offset by `by` from its place, sliding there from where it shows now when `slide`. */
+    offsetTo: (element: HTMLElement, by: { x: number; y: number }, slide: boolean) => {
+      const from = translateOf(element);
+
+      slides.get(element)?.cancel();
+      element.style.translate = by.x || by.y ? `${by.x}px ${by.y}px` : "";
+
+      if (slide && Math.hypot(from.x - by.x, from.y - by.y) >= 0.5 && !options.reduced()) slides.set(element, element.animate({ translate: [`${from.x}px ${from.y}px`, `${by.x}px ${by.y}px`] }, { duration: reorderMs(document.documentElement), easing: easingOut() }));
+    },
+  };
+};
+
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
   const rest = omit(props, "ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children");
@@ -131,25 +223,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     refocus = null;
   }, { defer: true });
 
-  const along = (shift: number) => `${props.horizontal ? shift : 0}px ${props.horizontal ? 0 : shift}px`;
-  const slides = new WeakMap<Element, Animation>();
-
-  /** Shows each row `shift` px from its place: at once, or sliding from where it shows now. Reads every row before it writes one. */
-  const place = (rows: readonly { element: HTMLElement; shift: number }[], slide: boolean) => {
-    const from = slide ? rows.map(({ element }) => { const now = translateOf(element);
-
- return props.horizontal ? now.x : now.y; }) : [];
-
-    const easing = slide ? easingOut() : "";
-    const duration = slide ? reorderMs(document.documentElement) : 0;
-
-    rows.forEach(({ element, shift }, at) => {
-      slides.get(element)?.cancel();
-      element.style.translate = shift ? along(shift) : "";
-
-      if (slide && Math.abs(from[at]! - shift) >= 0.5 && !reduced()) slides.set(element, element.animate({ translate: [along(from[at]!), along(shift)] }, { duration, easing }));
-    });
-  };
+  const { place, offsetTo } = createSlides({ horizontal: () => props.horizontal, reduced });
 
   // A row shown off its place is cut off by any box between it and the list that clips (the collapsible group of a tree), so those boxes show their overflow until the drop is done.
   // A collapsed group's rows are inert and stay hidden. A drop that ends reclips only the boxes its own drag unclipped: a later drag may hold them already.
@@ -166,18 +240,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   const unclip = (rows: readonly Element[]) => {
     reclip();
-    const clips = (value: string) => value === "hidden" || value === "clip";
-    const boxes = new Set<HTMLElement>();
-
-    for (const row of rows) {
-      if (row.closest("[inert]")) continue;
-
-      for (let box = row.parentElement; box && box !== list; box = box.parentElement) {
-        const { overflowX, overflowY } = getComputedStyle(box);
-
-        if ((clips(overflowX) || clips(overflowY)) && ![overflowX, overflowY].some(value => value === "auto" || value === "scroll")) boxes.add(box);
-      }
-    }
+    const boxes = clippingBoxes(rows, list);
 
     unclipped = [...boxes].map(box => ({ box, overflow: box.style.overflow }));
 
@@ -200,17 +263,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       undo: () => { place(dragged.map(({ element }) => ({ element, shift: 0 })), true); reclipAfterSlide(these); },
       clear: () => { place(dragged.map(({ element }) => ({ element, shift: 0 })), false); reclip(these); },
     };
-  };
-
-  /** Shows `element` offset by `by` from its place, sliding there from where it shows now when `slide`. */
-  const offsetTo = (element: HTMLElement, by: { x: number; y: number }, slide: boolean) => {
-    const from = translateOf(element);
-    const to = by.x || by.y ? `${by.x}px ${by.y}px` : "";
-
-    slides.get(element)?.cancel();
-    element.style.translate = to;
-
-    if (slide && Math.hypot(from.x - by.x, from.y - by.y) >= 0.5 && !reduced()) slides.set(element, element.animate({ translate: [`${from.x}px ${from.y}px`, `${by.x}px ${by.y}px`] }, { duration: reorderMs(document.documentElement), easing: easingOut() }));
   };
 
   /**
@@ -489,32 +541,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   let stopRestoringFocus: (() => void) | undefined;
 
-  // Where the dragged row stands among its siblings when its drag is about to start: the library's own sorting (a keyboard drag) moves it in the DOM.
-  let stood: { previous: Element | null; next: Element | null; parent: Element | null } | null = null;
-
-  const savePosition = (element: Element) => { stood = { previous: element.previousElementSibling, next: element.nextElementSibling, parent: element.parentElement }; };
-
-  const restorePosition = (element: Element) => {
-    if (!stood) return;
-    const { previous, next, parent } = stood;
-
-    if (previous && element.previousElementSibling !== previous) previous.insertAdjacentElement("afterend", element);
-    else if (next && element.nextElementSibling !== next) next.insertAdjacentElement("beforebegin", element);
-    else if (!previous && !next && parent) parent.appendChild(element);
-  };
-
-  // `restorePosition` puts the dragged row back next to the elements it had at lift, but the library's placeholder now follows it,
-  // so it lands past the text node the list keeps after each row, and the list's next redraw then moves the wrong rows. Put it back exactly.
-  let lifted: { element: Element; parent: ParentNode; before: ChildNode | null } | null = null;
-
-  const unmoveLifted = () => {
-    if (!lifted || lifted.element.parentNode !== lifted.parent || lifted.element.previousSibling === lifted.before) return;
-
-    if (lifted.before && lifted.before.parentNode !== lifted.parent) return;
-
-    if (lifted.before) lifted.before.after(lifted.element);
-    else lifted.parent.prepend(lifted.element);
-  };
+  const standing = createStanding();
 
   const clearPreview = () => {
     stopTracking?.();
@@ -546,7 +573,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     flush();
 
     slots.allow(tree && source ? (to) => legalIndex(tree, String(source.id), to) : () => true);
-    lifted = source?.element?.parentNode ? { element: source.element, parent: source.element.parentNode, before: source.element.previousSibling } : null;
+    standing.lift(source?.element);
     const pointerLift = !(event.operation.activatorEvent instanceof KeyboardEvent);
 
     picking = false;
@@ -603,8 +630,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     picked = null;
     painted = null;
 
-    unmoveLifted();
-    lifted = null;
+    standing.unmove();
 
     clearPreview();
     stopPointer?.();
@@ -719,7 +745,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   // A handler that changes the list is drawn before the library goes on: it measures the rows once a handler returns.
   const stopMonitoring = [
     // listener-owner: the drag manager's monitor, not a DOM target; the cleanup below unsubscribes it.
-    manager.monitor.addEventListener("beforedragstart", ({ operation: { source } }) => { if (isSortable(source) && source.element) savePosition(source.element); }),
+    manager.monitor.addEventListener("beforedragstart", ({ operation: { source } }) => { if (isSortable(source) && source.element) standing.stand(source.element); }),
     // listener-owner: the drag manager's monitor, not a DOM target; the cleanup below unsubscribes it.
     manager.monitor.addEventListener("dragstart", onDragStart),
     // listener-owner: the drag manager's monitor, not a DOM target; the cleanup below unsubscribes it.
@@ -728,9 +754,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     manager.monitor.addEventListener("dragend", (event) => {
       const { source } = event.operation;
 
-      if (isSortable(source) && source.element) restorePosition(source.element);
+      if (isSortable(source) && source.element) standing.restore(source.element);
       flush(() => onDragEnd(event));
-      stood = null;
+      standing.forget();
     }),
   ];
 

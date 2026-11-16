@@ -13,6 +13,7 @@ import type { Recovery } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
+import type { ConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
 import { captureActions } from "../keys/registry";
@@ -26,6 +27,37 @@ import type { Screens } from "./screens";
 import "./styles.css";
 import { doorTerminalId } from "../state/doorNode";
 
+
+type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; recovery: Recovery };
+
+/** The one failure the pane shows, with what the user can do about it: each kind states its own dismissal and retry. */
+const paneNotice = ({ given, retry, rail, screens, terminal }: {
+  given: ReturnType<typeof dismissable>;
+  retry: (() => void) | undefined;
+  rail: ConnectedProject["rail"];
+  screens: Screens;
+  terminal: string | null;
+}): PaneNotice | null => {
+  const message = given.message();
+
+  if (message) return { kind: "notice", message, recovery: { dismiss: given.dismiss, recover: retry ? { run: retry } : undefined } };
+
+  const command = rail.commandFailure.surface() === "pane" ? rail.commandFailure.message() : null;
+
+  if (command !== null) {
+    const again = rail.commandFailure.retry();
+
+    return { kind: "command", message: command, recovery: { dismiss: rail.commandFailure.clear, recover: again ? { run: again } : undefined } };
+  }
+
+  const shown = terminal !== null && screens.viewedInBubble(terminal) ? null : screens.failure(terminal);
+
+  if (shown === null) return null;
+
+  const again = screens.retry(terminal);
+
+  return { kind: "terminal", message: shown, recovery: { dismiss: () => screens.dismiss(terminal), recover: again ? { run: again } : undefined } };
+};
 
 /**
  * The selected row's Terminal. Every error line of the centre lives in the pane's one fixed-height slot, so the
@@ -76,29 +108,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
   const givenNotice = dismissable(() => props.notice);
 
-  /** The one failure the pane shows, with what the user can do about it: each kind states its own dismissal and retry. */
-  const notice = createMemo((): { kind: "notice" | "command" | "terminal"; message: string; recovery: Recovery } | null => {
-    const given = givenNotice.message();
-
-    if (given) return { kind: "notice", message: given, recovery: { dismiss: givenNotice.dismiss, recover: props.retryNotice ? { run: props.retryNotice } : undefined } };
-
-    const command = rail.commandFailure.surface() === "pane" ? rail.commandFailure.message() : null;
-
-    if (command !== null) {
-      const retry = rail.commandFailure.retry();
-
-      return { kind: "command", message: command, recovery: { dismiss: rail.commandFailure.clear, recover: retry ? { run: retry } : undefined } };
-    }
-
-    const id = terminalId();
-    const message = id !== null && screens.viewedInBubble(id) ? null : screens.failure(id);
-
-    if (message === null) return null;
-
-    const retry = screens.retry(id);
-
-    return { kind: "terminal", message, recovery: { dismiss: () => screens.dismiss(id), recover: retry ? { run: retry } : undefined } };
-  });
+  const notice = createMemo(() => paneNotice({ given: givenNotice, retry: props.retryNotice, rail, screens, terminal: terminalId() }));
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   const [preparing, setPreparing] = createSignal(false);

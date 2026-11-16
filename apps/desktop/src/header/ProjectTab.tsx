@@ -3,7 +3,7 @@ import type { ProjectsState } from "../state/projects";
 import { copy } from "./copy";
 import * as v from "valibot";
 import { ProjectDraftsContext } from "../state/connectedProject";
-import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, Show, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, flush, onCleanup, onSettled, Show, untrack, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
@@ -12,6 +12,7 @@ import { Tabs } from "../ui/Tabs";
 import { NameDraftRecovery } from "../drawer/NameDraftRecovery";
 import type { SortableParts } from "../ui/sortable";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
+import type { MenuEntry } from "../ui/contextMenu";
 import type { App } from "../app/seam";
 import { modalOpen, registerKeys } from "../keys/registry";
 import { CHORDS, TAB_CLOSE, ariaChord } from "../keys/chords";
@@ -33,6 +34,21 @@ const asApplied = (renamed: Renamed): Applied<Renamed> => {
   const error = new Error(renamed.error);
 
   return { kind: renamed.status === "failed" ? "refused" : "pending", error, thrown: error };
+};
+
+/** Enter or a click elsewhere sends the new name through the draft owner's own send, so a recovered name goes too; with no owner it is sent directly. */
+const sendRename = async (draft: Field | undefined, rename: () => ReturnType<ProjectsState["rename"]>, acknowledged: (renamed: Renamed) => void, skipped: () => void) => {
+  if (!draft) {
+    void rename().then(acknowledged);
+
+    return;
+  }
+
+  draft.save();
+  const sent = await draft.send(() => rename().then(asApplied));
+
+  if (sent.kind === "skipped") skipped();
+  else if (sent.kind === "applied") acknowledged(sent.result);
 };
 
 /** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
@@ -92,6 +108,19 @@ const closeOnKey = (close: () => void) => (press: KeyboardEvent) => {
     close();
   }
 };
+
+/** A selected revision reopens in its own Project once it is no longer pending. Older shared recovery records had no captured base: they stay copy/discard-only. */
+const reopensSelected = (ownProject: boolean, retained: { status: string } | undefined, value: { base?: string | undefined } | null): boolean =>
+  ownProject && retained !== undefined && retained.status !== "pending" && value !== null && value.base !== undefined;
+
+/** U2694a: the Project tab's system menu; Recover drafts shows only when there is work to recover. */
+const tabMenu = (tab: { edit: () => void; recoverable: boolean; recover: () => void; alerts: ProjectAlerts; onAlerts: (level: ProjectAlerts) => void; close: () => void; closing: BulkCloses | undefined }): MenuEntry[] => [
+  { id: "rename", label: copy.rename, shortcut: "F2", run: tab.edit },
+  ...(tab.recoverable ? [{ id: "recover", label: copy.recoverDrafts, run: tab.recover }] : []),
+  { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: tab.alerts === level, run: () => tab.onAlerts(level) })) },
+  { id: "close", label: copy.close, run: tab.close },
+  ...bulkCloseItems(tab.closing),
+];
 
 export const ProjectTab = (props: {
   tab: StripTab;
@@ -186,8 +215,7 @@ export const ProjectTab = (props: {
     const parsed = retained && v.safeParse(schema, retained.value);
     const value = parsed && parsed.success ? parsed.output : null;
 
-    if (selected && (selected.project !== props.tab.path || !retained || retained.status === "pending" || !value || value.base === undefined)) return;
-    // Older shared recovery records had no captured base: keep them copy/discard-only.
+    if (selected && !reopensSelected(selected.project === props.tab.path, retained, value)) return;
     base = value ? value.base : props.tab.base;
     initialName = value?.name ?? props.tab.name;
     restored = selected ? "selected" : value ? "current" : "none";
@@ -231,18 +259,7 @@ export const ProjectTab = (props: {
         if (renamed.status === "acknowledged" && copyFailure() === failure) failCopy(null);
       };
 
-      if (!draft) {
-        void rename().then(acknowledged);
-
-        return;
-      }
-
-      // Enter, a click elsewhere: the owner's own send, so a recovered name goes too.
-      draft.save();
-      const sent = await draft.send(() => rename().then(asApplied));
-
-      if (sent.kind === "skipped") recover(true);
-      else if (sent.kind === "applied") acknowledged(sent.result);
+      await sendRename(draft, rename, acknowledged, () => recover(true));
     }
   };
 
@@ -255,13 +272,8 @@ export const ProjectTab = (props: {
       onContextMenu={(press: MouseEvent) => {
         const app = props.app;
 
-        if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
-          { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
-          ...(records().length || problem() || copyFailure() ? [{ id: "recover", label: copy.recoverDrafts, run: () => { recover(true); } }] : []),
-          { id: "alerts", label: copy.alerts, children: PROJECT_ALERTS.map(level => ({ id: `alerts:${level}`, label: copy.alertLevels[level], checked: props.alerts === level, run: () => props.onAlerts(level) })) },
-          { id: "close", label: copy.close, run: () => props.onClose() },
-          ...bulkCloseItems(props.closing),
-        ], x, y));
+        // The menu shows the tab as it is when the press is released.
+        if (app) openOnRelease(press, (x, y) => void contextMenu(app, untrack(() => tabMenu({ edit, recoverable: !!(records().length || problem() || copyFailure()), recover: () => recover(true), alerts: props.alerts, onAlerts: props.onAlerts, close: props.onClose, closing: props.closing })), x, y));
       }}>
       <Show when={editing() === null} fallback={<Show when={editing()} keyed>{session => {
         const draft = drafts && createDraftField(drafts, destination, schema, session.from);

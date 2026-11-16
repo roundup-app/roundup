@@ -110,6 +110,14 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   </section></Show>;
 };
 
+/** The form a new edit starts from: the captured change's values, else the Todo's own. */
+const formFrom = (todo: Todo, name: "title" | "body", change: Change | undefined): Editing["form"] => {
+  const values = change?.after ?? todo;
+
+  return { text: values[name], base: values[name], expected_change: change?.seq ?? null,
+    home: todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
+};
+
 /**
  * Double-click edits; leaving the field commits once, and only when the text differs from what the field started
  * with, so another Actor's change made meanwhile is never written back. A failed commit reopens the field with
@@ -134,14 +142,7 @@ export const EditableText = (props: {
   const draft = createDraftField(connected.drafts, draftDestination, formSchema, untrack(() => props.revision === undefined ? undefined : { revision: props.revision }));
   const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
 
-  // The form a new edit starts from: the captured change's values, else the Todo's own.
-  const freshForm = (): Editing["form"] => {
-    const change = props.captured();
-    const values = change?.after ?? props.todo;
-
-    return { text: values[props.name], base: values[props.name], expected_change: change?.seq ?? null,
-      home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
-  };
+  const freshForm = () => formFrom(props.todo, props.name, props.captured());
 
   /** What opening an edit now gives: the form to edit, or why the retained work cannot be reopened. */
   const opening = (): { failure: string; editing: null } | { failure: null; editing: Editing } => {
@@ -191,13 +192,10 @@ export const EditableText = (props: {
   const startWith = () => {
     const next = opening();
 
-    if (next.editing === null) {
-      setRetentionFailure(next.failure);
+    setRetentionFailure(next.failure);
 
-      return;
-    }
+    if (next.editing === null) return;
 
-    setRetentionFailure(null);
     setTyped(next.editing.form.text);
     setEditing(next.editing);
   };

@@ -67,6 +67,23 @@ const Root = (props: {
     requestAnimationFrame(() => focus(() => { if (input?.isConnected && !input.closest("[hidden], [inert]")) input.focus({ preventScroll: true }); }));
   };
 
+  // Home/End edit the query for content rows, whose navigation starts only after focus leaves it; form choices move the highlight.
+  const jumpToEdge = (event: KeyboardEvent) => {
+    if (props.contentRow) {
+      event.stopPropagation();
+
+      return;
+    }
+
+    if (event.ctrlKey || event.isComposing) return;
+    const ordered = groups().flatMap(([, items]) => items);
+    const edge = event.key === "Home" ? ordered[0] : ordered.at(-1);
+
+    event.preventDefault();
+
+    if (edge) props.onHighlightChange(edge.value);
+  };
+
   onSettled(() => {
     const element = input;
 
@@ -131,16 +148,8 @@ const Root = (props: {
           return;
         }
 
-        // Home/End edit the query for content rows, whose navigation starts only after focus leaves it; form choices move the highlight.
-        if (props.contentRow && (event.key === "Home" || event.key === "End")) event.stopPropagation();
-
-        if (!props.contentRow && (event.key === "Home" || event.key === "End") && !event.ctrlKey && !event.isComposing) {
-          const ordered = groups().flatMap(([, items]) => items);
-          const edge = event.key === "Home" ? ordered[0] : ordered.at(-1);
-
-          event.preventDefault();
-
-          if (edge) props.onHighlightChange(edge.value);
+        if (event.key === "Home" || event.key === "End") {
+          jumpToEdge(event);
 
           return;
         }

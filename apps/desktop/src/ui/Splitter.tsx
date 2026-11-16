@@ -14,6 +14,63 @@ const group = withOptions(resizable);
 const unreleased = (details: { reason: string; event?: unknown }) =>
   details.reason === "drag" && !details.event;
 
+/** The width a key jumps `side` to, or undefined for a key that does not jump. */
+const edgeJump = (side: Side, key: string, maximum: number): number | undefined => {
+  switch (key) {
+    case "Enter": return side.fallback;
+    case "Home": return side.collapsedAt ?? side.min;
+    case "End": return maximum;
+    default: return undefined;
+  }
+};
+
+/** U6228: a side that collapses reads any width under its minimum as its collapsed width. */
+const boundsOf = (side: Side, maximum: number, percent: (px: number) => number) => {
+  const minSize = percent(side.min);
+  const maxSize = percent(maximum);
+  const { collapsedAt } = side;
+
+  return collapsedAt === undefined ? { minSize, maxSize } : { minSize, maxSize, collapsible: true, collapsedSize: percent(collapsedAt) };
+};
+
+/** Reports the layout root's width and the width of the panel the edge does not belong to, now and whenever either resizes. Returns what stops it. */
+const observeLayout = (root: HTMLElement, opposite: () => "shelf" | "rail", onMeasure: (width: number, opposite: number) => void) => {
+  const measure = () => {
+    const panel = root.querySelector<HTMLElement>(`[data-layout-panel="${opposite()}"]`);
+
+    onMeasure(root.getBoundingClientRect().width || 1, panel && !panel.hidden ? panel.getBoundingClientRect().width : 0);
+  };
+
+  measure();
+  const observer = new ResizeObserver(measure);
+
+  observer.observe(root);
+
+  for (const panel of root.querySelectorAll<HTMLElement>("[data-layout-panel]")) observer.observe(panel);
+
+  return () => observer.disconnect();
+};
+
+/** Until the press ends: `end` on release, `cancel` on a cancelled pointer, a blurred window or Escape. Returns what removes every listener. */
+const listenToPress = (end: () => void, cancel: () => void) => {
+  const removers = [
+    makeEventListener(window, "pointerup", end, true),
+    makeEventListener(window, "pointercancel", cancel, true),
+    makeEventListener(window, "blur", cancel),
+    makeEventListener(window, "keydown", (key) => {
+      if (key.key !== "Escape") return;
+
+      key.preventDefault();
+      key.stopPropagation();
+      cancel();
+    }, true),
+  ];
+
+  return () => {
+    for (const remove of removers) remove();
+  };
+};
+
 /** Z3742b: a pixel and grid adapter over ui-sdk's resizable. The group sees two hidden panels that stand for the region and the rest of the window, with the edge between them as its handle; the group owns drags, arrow steps and bounds, in percent of the window's width. This adapter owns the pixel units, the host measurement, reset, Home and End, and cancellation. */
 export function Splitter(props: {
   side: Side;
@@ -69,14 +126,7 @@ export function Splitter(props: {
     },
   }));
 
-  // U6228: a side that collapses reads any width under its minimum as its collapsed width.
-  const bounds = () => {
-    const minSize = percent(props.side.min);
-    const maxSize = percent(maximum());
-    const { collapsedAt } = props.side;
-
-    return collapsedAt === undefined ? { minSize, maxSize } : { minSize, maxSize, collapsible: true, collapsedSize: percent(collapsedAt) };
-  };
+  const bounds = () => boundsOf(props.side, maximum(), percent);
 
   const resize = (px: number) => {
     if (props.disabled || props.hidden || endHold) return;
@@ -84,18 +134,9 @@ export function Splitter(props: {
     primitive.api.resize(`${id}-side`, percent(px));
   };
 
-  const jumpFor = (key: string): number | undefined => {
-    switch (key) {
-      case "Enter": return props.side.fallback;
-      case "Home": return props.side.collapsedAt ?? props.side.min;
-      case "End": return maximum();
-      default: return undefined;
-    }
-  };
-
   // The group's own Home and End move the panel before the handle and Enter and a double-click collapse it; the edge's jump is the side's own width.
   const keyDown = (event: KeyboardEvent) => {
-    const jump = jumpFor(event.key);
+    const jump = edgeJump(props.side, event.key, maximum());
 
     if (jump === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
 
@@ -128,10 +169,9 @@ export function Splitter(props: {
     endHold?.();
 
     const origin = pixels();
-    const removers: Array<() => void> = [];
 
     const end = () => {
-      for (const remove of removers) remove();
+      stopListening();
       endHold = undefined;
       props.onDragging?.(false);
     };
@@ -143,23 +183,7 @@ export function Splitter(props: {
 
     endHold = end;
     props.onDragging?.(true);
-    removers.push(
-      makeEventListener(window, "pointerup", end, true),
-      makeEventListener(window, "pointercancel", cancel, true),
-      makeEventListener(window, "blur", cancel),
-      makeEventListener(
-        window,
-        "keydown",
-        (key) => {
-          if (key.key !== "Escape") return;
-
-          key.preventDefault();
-          key.stopPropagation();
-          cancel();
-        },
-        true,
-      ),
-    );
+    const stopListening = listenToPress(end, cancel);
   };
 
   onSettled(() => {
@@ -167,29 +191,14 @@ export function Splitter(props: {
 
     if (!root) throw new Error(copy.resizeUnavailable);
 
-    const measure = () => {
-      setExtent(root.getBoundingClientRect().width || 1);
-
-      const opposite = root.querySelector<HTMLElement>(
-        `[data-layout-panel="${first() ? "shelf" : "rail"}"]`,
-      );
-
-      setOther(
-        opposite && !opposite.hidden
-          ? opposite.getBoundingClientRect().width
-          : 0,
-      );
-    };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-
-    observer.observe(root);
-
-    for (const panel of root.querySelectorAll<HTMLElement>(
-      "[data-layout-panel]",
-    ))
-      observer.observe(panel);
+    const stopObserving = observeLayout(
+      root,
+      () => (first() ? "shelf" : "rail"),
+      (width, opposite) => {
+        setExtent(width);
+        setOther(opposite);
+      },
+    );
 
     // Capture on the edge itself, so the hold is in place before the group's own press handling at the document.
     // listener-owner: onSettled refuses onCleanup, so the cleanup it returns removes this.
@@ -197,7 +206,7 @@ export function Splitter(props: {
 
     return () => {
       endHold?.();
-      observer.disconnect();
+      stopObserving();
       edge.removeEventListener("pointerdown", press, true);
     };
   });

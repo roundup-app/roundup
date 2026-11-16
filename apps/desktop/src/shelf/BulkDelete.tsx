@@ -17,6 +17,17 @@ type Target<Id> = { id: Id; label: string; owner?: Actor | null | undefined };
 
 type Question<Id> = { kind: "question" | "pending"; targets: readonly Target<Id>[]; done: boolean };
 
+/** The first row of a Shelf region, else the region itself made focusable. */
+const entryOf = (region: HTMLElement): HTMLElement => {
+  const firstRow = region.querySelector<HTMLElement>(".todo-row-button, .pad-name");
+
+  if (firstRow) return firstRow;
+
+  if (!region.hasAttribute("tabindex")) region.tabIndex = -1;
+
+  return region;
+};
+
 /** U3787a: dispatch the frozen set immediately; retain failed rows after readback. */
 export const createBulkDelete = <Id,>(props: {
   app: Pick<App, "ask">;
@@ -93,15 +104,7 @@ export const createBulkDelete = <Id,>(props: {
 
     if (returnTo?.isConnected) return returnTo;
 
-    if (returnRegion?.isConnected) {
-      const firstRow = returnRegion.querySelector<HTMLElement>(".todo-row-button, .pad-name");
-
-      if (firstRow) return firstRow;
-
-      if (!returnRegion.hasAttribute("tabindex")) returnRegion.tabIndex = -1;
-
-      return returnRegion;
-    }
+    if (returnRegion?.isConnected) return entryOf(returnRegion);
 
     if (deleteButton?.isConnected) return deleteButton;
 

@@ -9,6 +9,7 @@ import { createEffect, createMemo, createRoot, createSignal, flush, onCleanup, c
 import type { Actor } from "@contracts/Actor";
 import type { Status } from "@contracts/Status";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { StatusEvent } from "@contracts/agent/StatusEvent";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { attemptAfter, doorAttempt, doorTerminalId, isDoor, type DoorNode } from "./doorNode";
 import { defaultWorkstreamName } from "./defaultName";
@@ -224,6 +225,64 @@ const shownOver = (tree: readonly RailNode[], pending: readonly Pending[]): read
   return starting.size === 0 ? drawn : drawn.map(node => starting.has(node.id) && isDoor(node) ? { ...node, status: startingStatus(node.status?.since) } : node);
 };
 
+type Resumed = Parameters<ResumptionStorage["write"]>[0];
+
+/** U5483c: when each Door's current Attempt last started working, from `stored` and kept up to date. */
+const createResumed = (stored: Resumed) => {
+  const [resumed, setResumed] = createStore<Resumed>(stored);
+
+  /** Notes the node's working start; false when the node is no working Door or that start is already noted. */
+  const record = (node: RailNode): boolean => {
+    if (!isDoor(node) || node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
+    const noted = { attempt: node.attempt, since: node.status.since };
+
+    setResumed(draft => { draft[node.id] = noted; });
+
+    return true;
+  };
+
+  /** Forgets each Door the tree no longer holds at its noted Attempt, and notes every working start; true when any note changed. */
+  const sync = (tree: readonly RailNode[]): boolean => {
+    const gone = Object.keys(resumed).filter(id => !tree.some(node => node.id === id && isDoor(node) && node.attempt === resumed[id]?.attempt));
+
+    for (const id of gone) setResumed(draft => { delete draft[id]; });
+
+    return tree.filter(record).length > 0 || gone.length > 0;
+  };
+
+  return { resumed, record, sync };
+};
+
+/** `tree` with each unconfirmed rename's asked name and each unconfirmed move drawn on it. */
+const withAsked = (tree: readonly RailNode[], asked: Readonly<Record<string, PendingChange>>): RailNode[] => {
+  const renamed = tree.map(node => {
+    const change = asked[node.id];
+
+    return change?.kind === "rename" ? { ...node, name: change.asked } : node;
+  });
+
+  return Object.entries(asked).reduce((shown, [id, change]) => change.kind === "move" ? movedTo(shown, id, change.asked) : shown, renamed);
+};
+
+/** Writes a Door's reported status onto its row, unless the row already holds a newer one. */
+const applyStatus = (tree: RailNode[], reported: StatusEvent) => {
+  for (const row of tree) {
+    if (isDoor(row) && row.id === reported.id && row.attempt === reported.attempt && row.status_revision !== null && BigInt(reported.status_revision) > BigInt(row.status_revision)) {
+      row.status = reported.status;
+      row.status_revision = reported.status_revision;
+    }
+  }
+};
+
+/** `listed` with Terminal `id` showing `status`, or none when `status` is empty. */
+const withTerminalStatus = (listed: readonly TerminalInfo[], id: string, status: TerminalInfo["status"] | null): TerminalInfo[] => listed.map(terminal => {
+  if (terminal.id !== id) return terminal;
+
+  const { status: _previous, ...rest } = terminal;
+
+  return status ? { ...rest, status } : rest;
+});
+
 export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage, resumptions?: ResumptionStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
@@ -250,16 +309,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const topology = createMemo(() => railTopology(view()));
 
-  const [resumed, setResumed] = createStore<Parameters<ResumptionStorage["write"]>[0]>(resumptions?.read() ?? {});
-
-  const recordResumption = (node: RailNode): boolean => {
-    if (!isDoor(node) || node.status?.kind !== "working" || (resumed[node.id]?.attempt === node.attempt && resumed[node.id]?.since === node.status.since)) return false;
-    const record = { attempt: node.attempt, since: node.status.since };
-
-    setResumed(draft => { draft[node.id] = record; });
-
-    return true;
-  };
+  const { resumed, record: recordResumption, sync: syncResumptions } = createResumed(resumptions?.read() ?? {});
 
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
@@ -356,32 +406,24 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
   const fetchTree = async () => {
     const tree = await app.rpc("rail.tree", null);
-    let resumptionChanged = false;
 
     reconcileAsked(tree);
-
     // The asked changes as reconcileAsked left them.
-    const asked = snapshot(unconfirmed);
+    setModel(draft => { reconcile(withAsked(tree, snapshot(unconfirmed)), "id")(draft.tree); });
+    const resumptionChanged = syncResumptions(tree);
 
-    let shown = tree.map((node) => {
-      const change = asked[node.id];
+    settleDoors(tree);
+    settleSelection(tree);
 
-      return change?.kind === "rename" ? { ...node, name: change.asked } : node;
-    });
+    if (resumptionChanged) await saveResumptions();
 
-    for (const [id, change] of Object.entries(asked)) if (change.kind === "move") shown = movedTo(shown, id, change.asked);
+    flush(); // TEMP-WAVE2B
+    openWanted(tree);
+  };
 
-    setModel(draft => { reconcile(shown, "id")(draft.tree); });
-
-    for (const id of Object.keys(resumed)) {
-      if (tree.some(node => node.id === id && isDoor(node) && node.attempt === resumed[id]?.attempt)) continue;
-      setResumed(draft => { delete draft[id]; });
-      resumptionChanged = true;
-    }
-
+  /** A Door showing a live Terminal has started: its pending start was observed live, and a failure it had is over. */
+  const settleDoors = (tree: readonly RailNode[]) => {
     for (const node of tree) {
-      if (recordResumption(node)) resumptionChanged = true;
-
       if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(draft => { draft[node.id]!.observedLive = true; });
       const failed = doors[node.id]?.failure;
 
@@ -390,7 +432,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         commandFailure.acknowledge(node.id);
       }
     }
+  };
 
+  /** The first tree restores the saved selection and folds; a later one clears a selection whose row is gone. */
+  const settleSelection = (tree: readonly RailNode[]) => {
     if (firstTree) {
       firstTree = false;
       const saved = storage?.read();
@@ -413,10 +458,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         save({ selected: null, collapsed: [...collapsed()] });
       }
     }
+  };
 
-    if (resumptionChanged) await saveResumptions();
-
-    flush(); // TEMP-WAVE2B
+  /** Once the tree holds the Workstream just created, select it and start its Door. */
+  const openWanted = (tree: readonly RailNode[]) => {
     const wanted = wantedWorkstream;
 
     if (wanted !== null && tree.some((node) => node.id === wanted)) {
@@ -472,12 +517,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       let node = undefined as RailNode | undefined;
 
       setModel(draft => {
-        for (const row of draft.tree) {
-          if (isDoor(row) && row.id === data.id && row.attempt === data.attempt && row.status_revision !== null && BigInt(data.status_revision) > BigInt(row.status_revision)) {
-            row.status = data.status;
-            row.status_revision = data.status_revision;
-          }
-        }
+        applyStatus(draft.tree, data);
 
         // The write has not landed in `model` yet; the resumption check reads the Row as this write leaves it.
         const written = draft.tree.find(row => row.id === data.id);
@@ -490,13 +530,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     "agent.toolCall": ({ data }) => setModel(draft => { for (const node of draft.tree) if (node.id === data.id && isDoor(node)) node.tool_call = data.call; }),
     "terminal.changed": () => void fetching(fetchTerminals),
     "terminal.shown": ({ data }) => showTerminal(data.id),
-    "terminal.status": ({ data: { id, status } }) => setTerminals((listed) => listed.map((terminal) => {
-      if (terminal.id !== id) return terminal;
-
-      const { status: _previous, ...rest } = terminal;
-
-      return status ? { ...rest, status } : rest;
-    })),
+    "terminal.status": ({ data: { id, status } }) => setTerminals(listed => withTerminalStatus(listed, id, status)),
     "terminal.exited": ({ data }) => setModel(draft => { draft.exited[data.id] = data.code; }),
   };
 

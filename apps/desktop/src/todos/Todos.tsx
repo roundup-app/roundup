@@ -679,7 +679,7 @@ export const Todos = (props: {
           <Icon name="plus" />
           <span>{copy.todo}</span>
         </button>
-        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on() ? "true" : "false"} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={`${triage.on()}`} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
         <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
       <ReservedLine overlay message={shelfFailure.message()} dismiss={shelfFailure.dismiss} recover={{ run: () => void todos.reload() }} />

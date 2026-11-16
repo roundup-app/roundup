@@ -109,6 +109,15 @@ const readPad = (app: AppSeam, operation: string) => app.rpc("pad.getDeletion", 
   return null;
 });
 
+/** The undoable change as the user reads it: a Rail removal by name, a Todo or Pad deletion by count. */
+const actionName = (action: Stacked | Redo) => {
+  if (action.kind === "rail") return `${copy.remove} ${action.name}`;
+
+  const count = action.kind === "todos" ? action.receipt.deleted.length : "receipts" in action ? action.receipts.length : action.members.length;
+
+  return copy.deleteAction(count, action.kind === "todos" ? copy.todo : copy.pad);
+};
+
 /** Project-owned receipts, never client snapshots. The current connection may change; the operation does not. */
 export function createTodoUndo() {
   const [history, setHistory] = createStore<{ stack: Stacked[] }>({ stack: [] });
@@ -154,14 +163,6 @@ export function createTodoUndo() {
 
     // SAFETY: `asked.kind === kind` narrows the union to the member for K.
     return now.kind === "unconfirmed" && now.asked.kind === kind ? now.asked as Extract<Asked, { kind: K }> : null;
-  };
-
-  const actionName = (action: Stacked | Redo) => {
-    if (action.kind === "rail") return `${copy.remove} ${action.name}`;
-
-    const count = action.kind === "todos" ? action.receipt.deleted.length : "receipts" in action ? action.receipts.length : action.members.length;
-
-    return copy.deleteAction(count, action.kind === "todos" ? copy.todo : copy.pad);
   };
 
   const clearRedoes = (region: string) => setRedoes(all => all.map(action => ({ ...action, regions: action.regions.filter(owner => owner !== region) })).filter(action => action.regions.length > 0));

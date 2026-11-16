@@ -275,19 +275,40 @@ type Draft = v.InferOutput<typeof draftSchema>;
 
 type Destination = Draft["destination"];
 
+type DraftRefusal =
+  | { operation: "restore"; cause: "unreadable" | "invalid" }
+  | { operation: "retain"; cause: "capacity" | "write" | "changed" };
+
 type DraftProblem = {
   project: string;
   destination: Destination | null;
   revision: string | null;
-} & (
-  | { operation: "restore"; cause: "unreadable" | "invalid" }
-  | { operation: "retain"; cause: "capacity" | "write" | "changed" }
-);
+} & DraftRefusal;
 
 type RetainedDraft = { draft: Draft; retained: Promise<DraftProblem | null> };
 
 const sameDestination = (a: Destination, b: Destination) =>
   a.surface === b.surface && a.object === b.object && a.recipient === b.recipient;
+
+/** The first record whose surface registered a form parser that its value fails. */
+const unparsable = (drafts: readonly Draft[], parsers: ReadonlyMap<string, v.GenericSchema>) => drafts.find(draft => {
+  const schema = parsers.get(draft.destination.surface);
+
+  return schema !== undefined && !v.safeParse(schema, draft.value).success;
+});
+
+/** The records held with those saved ones added that are neither held nor retired; work that was sending when saved is unknown. */
+const withRestored = (held: readonly Draft[], saved: readonly Draft[], retired: ReadonlySet<string>): Draft[] => {
+  const known = new Set(held.map(draft => draft.revision));
+
+  return [...saved.flatMap((draft): Draft[] => known.has(draft.revision) || retired.has(draft.revision) ? [] : [{
+    ...draft, status: draft.status === "pending" ? "unknown" : draft.status,
+  }]), ...held];
+};
+
+/** The records a new edit of `target` replaces: its editable drafts, or only the one revision named. */
+const replacedBy = (target: Destination, revision?: string | null) => (previous: Draft) =>
+  previous.status === "draft" && sameDestination(previous.destination, target) && (revision === undefined || previous.revision === revision);
 
 /** One holder per open Project. Owners supply whole forms and original machine identities.
  * Reading/copying never submits, changes the current draft, or resumes autosave.
@@ -330,11 +351,7 @@ export const draftStorage = (project: string) => {
   const retaining = new PQueue({ concurrency: 1 });
 
   const validateSaved = (saved: Draft[]): boolean => {
-    const invalid = saved.find((draft) => {
-      const schema = schemas.get(draft.destination.surface);
-
-      return schema !== undefined && !v.safeParse(schema, draft.value).success;
-    });
+    const invalid = unparsable(saved, schemas);
 
     if (!invalid) return true;
 
@@ -364,11 +381,7 @@ export const draftStorage = (project: string) => {
       if (draft.destination.surface === "rail-clear") removed.add(draft.revision);
     }
 
-    const known = new Set(current().map((draft) => draft.revision));
-
-    hold([...saved.filter((draft) => !known.has(draft.revision) && !removed.has(draft.revision)).map((draft): Draft => ({
-      ...draft, status: draft.status === "pending" ? "unknown" : draft.status,
-    })), ...current()]);
+    hold(withRestored(current(), saved, removed));
 
     return true;
   };
@@ -388,43 +401,32 @@ export const draftStorage = (project: string) => {
   const persist = async (affected: Draft | null, ordinary: Draft[], discarded: string[]): Promise<DraftProblem | null> => {
     if (incompatible) return reported;
 
+    const refuse = (refusal: DraftRefusal) => report({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, ...refusal });
+
     // Never overwrite a record that failed parsing, or a different writer's work.
     const result = storage.restore();
 
-    if (result.status === "failed") {
-      report({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "restore", cause: result.cause });
-
-      return reported;
-    }
+    if (result.status === "failed") return refuse({ operation: "restore", cause: result.cause });
 
     const saved = result.status === "restored" ? result.value.drafts : [];
 
     if (!validateSaved(saved)) return reported;
 
-    if (JSON.stringify(saved) !== baseline) {
-      report({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: "changed" });
-
-      return reported;
-    }
+    if (JSON.stringify(saved) !== baseline) return refuse({ operation: "retain", cause: "changed" });
 
     if (!validateSaved(ordinary)) return reported;
 
     const value = { version: 1 as const, drafts: ordinary };
 
-    if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 10 * 1024 * 1024) {
-      report({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: "capacity" });
-
-      return reported;
-    }
+    if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 10 * 1024 * 1024) return refuse({ operation: "retain", cause: "capacity" });
 
     const failure = await storage.write(value, result.status === "restored" ? result.value : null);
 
     if (failure !== null) {
       setFailures(previous => previous.map(entry => entry.key === `roundup:drafts:${project}`
         ? { ...entry, retry: async () => (await retry())?.cause ?? null } : entry));
-      report({ project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: failure === storageCopy.changed ? "changed" : "write" });
 
-      return reported;
+      return refuse({ operation: "retain", cause: failure === storageCopy.changed ? "changed" : "write" });
     }
 
     baseline = JSON.stringify(v.parse(draftsSchema, value).drafts);
@@ -433,6 +435,14 @@ export const draftStorage = (project: string) => {
     report(null);
 
     return null;
+  };
+
+  /** An acknowledged or discarded record leaves the holder for good, and its retirement is retained. */
+  const retire = (draft: Draft): Promise<DraftProblem | null> => {
+    removed.add(draft.revision);
+    hold(current().filter(entry => entry.revision !== draft.revision));
+
+    return retain(draft);
   };
 
   const retain = (affected: Draft | null): Promise<DraftProblem | null> => {
@@ -511,12 +521,9 @@ export const draftStorage = (project: string) => {
         revision: crypto.randomUUID(), destination: target, value, selection: caret, policy, status: "draft",
       });
 
-      const replaced = (previous: Draft) => previous.status === "draft" && sameDestination(previous.destination, target)
-        && (replaces === undefined || previous.revision === replaces);
+      const replaced = replacedBy(target, replaces);
 
-      for (const previous of current()) {
-        if (replaced(previous)) removed.add(previous.revision);
-      }
+      for (const previous of current().filter(replaced)) removed.add(previous.revision);
 
       hold([...current().filter((previous) => !replaced(previous)), draft]);
       const retained = retain(draft);
@@ -540,32 +547,23 @@ export const draftStorage = (project: string) => {
       const next: Draft = { ...draft, status: "pending" };
       hold(current().map(entry => entry === draft ? next : entry));
       const snapshot = structuredClone(next);
-      const failure = await retain(next);
 
-      return { draft: snapshot, problem: failure };
+      return { draft: snapshot, problem: await retain(next) };
     },
     settle: async (revision: string, outcome: "acknowledged" | "failed" | "unknown"): Promise<DraftProblem | null> => {
       const draft = current().find((entry) => entry.revision === revision);
 
       if (!draft || draft.status === "draft") return reported;
 
-      if (outcome === "acknowledged") {
-        removed.add(revision);
-        hold(current().filter((entry) => entry.revision !== revision));
-      }
-      else hold(current().map(entry => entry === draft ? { ...entry, status: outcome } : entry));
+      if (outcome === "acknowledged") return retire(draft);
+      hold(current().map(entry => entry === draft ? { ...entry, status: outcome } : entry));
 
       return retain(draft);
     },
     discard: async (revision: string): Promise<DraftProblem | null> => {
       const draft = current().find((entry) => entry.revision === revision);
 
-      if (!draft) return reported;
-
-      removed.add(revision);
-      hold(current().filter((entry) => entry.revision !== revision));
-
-      return retain(draft);
+      return draft ? retire(draft) : reported;
     },
     retry,
   };
