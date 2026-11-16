@@ -476,8 +476,8 @@ it("u6845_ready_waits_for_the_state_subscription_and_the_first_snapshot_enables_
   registered?.();
   await waitFor(() => expect(actions).toEqual([{ kind: "ready" }]));
   deliver({ session: "s", sequence: 0, text: "draft", owner: "Me", home: "Home", recovered: [], retention: false, failure: null, mode: "dark" });
-  const button = await screen.findByText<HTMLButtonElement>("Capture a Todo", { selector: "button" });
-  await waitFor(() => expect(button.disabled).toBe(false));
+  const button = await screen.findByRole("button", { name: "Capture a Todo" });
+  await waitFor(() => expect(button.getAttribute("aria-disabled")).not.toBe("true"));
   expect(actions.filter(action => action.kind === "ready")).toHaveLength(1);
 });
 

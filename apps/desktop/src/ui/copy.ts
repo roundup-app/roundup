@@ -1,7 +1,7 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
-  confirming: sharedCopy.confirming,
+  confirming: "Confirming…",
   removing: sharedCopy.removing,
   copying: sharedCopy.copying,
   railDraftConflict: sharedCopy.railDraftConflict,

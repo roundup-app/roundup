@@ -2,11 +2,11 @@ import type { Kind } from "@contracts/Kind";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
-  adding: sharedCopy.adding,
+  adding: "Adding…",
   removing: sharedCopy.removing,
   discarding: sharedCopy.discarding,
-  resetting: sharedCopy.resetting,
-  updating: sharedCopy.updating,
+  resetting: "Resetting…",
+  updating: "Updating…",
   settingsMachines: "Machines",
   thisComputer: "This computer",
   machinesIntro: "Reach your other computers over ssh. Their terminals keep running.",

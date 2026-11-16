@@ -40,7 +40,7 @@ const importRefusals = new Map<number, string>([
 
 export const copy = {
   starting: sharedCopy.starting,
-  importing: sharedCopy.importing,
+  importing: "Importing…",
   retry: sharedCopy.retry,
   retryStorage: sharedCopy.retryStorage,
   riskTime: sharedCopy.riskTime,

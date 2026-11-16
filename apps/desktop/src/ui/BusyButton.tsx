@@ -1,5 +1,5 @@
 import "./BusyButton.css";
-import { omit } from "solid-js";
+import { omit, Show } from "solid-js";
 import type { ComponentProps } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { Button } from "@ui-sdk/solid/button";
@@ -23,7 +23,7 @@ type Props = Omit<ComponentProps<typeof Button>, "render" | "children" | "type" 
   type?: "button" | "submit" | undefined;
 };
 
-/** U170 Busy: ui-sdk's Button is pending while the promise its click returns runs (`aria-busy`, presses refused, focus kept); this shows the busy label and its mark in the idle label's place, so the button keeps its width. A disabled button stays focusable with `aria-disabled` (U171). */
+/** U170 Busy: ui-sdk's Button is pending while the promise its click returns runs (`aria-busy`, presses refused, focus kept); this shows the busy label and its mark in the idle label's place, so the button keeps its width. The button's name stays its idle label; ui-sdk announces the busy label. At rest the busy label is only an attribute, out of the button's text. A disabled button stays focusable with `aria-disabled` (U171). */
 export const BusyButton = (props: Props): JSX.Element => {
   const rest = omit(props, "kind", "children", "busyLabel", "busy", "disabled", "type", "onClick");
 
@@ -44,9 +44,9 @@ export const BusyButton = (props: Props): JSX.Element => {
     render={(attrs, state) => {
       const busy = () => state.pending || props.busy === true;
 
-      return <button {...attrs} data-busy-button="" aria-busy={busy() ? "true" : undefined}>
-        <span class="busy-idle" aria-hidden={busy() ? "true" : undefined}>{props.children}</span>
-        <span class="busy-work" aria-hidden={busy() ? undefined : "true"}><span class="busy-mark" />{props.busyLabel}</span>
+      return <button {...attrs} data-busy-button="" data-busy-label={props.busyLabel} aria-busy={busy() ? "true" : undefined}>
+        <span class="busy-idle">{props.children}</span>
+        <Show when={busy()}><span class="busy-work" aria-hidden="true"><span class="busy-mark" />{props.busyLabel}</span></Show>
       </button>;
     }}
   />;

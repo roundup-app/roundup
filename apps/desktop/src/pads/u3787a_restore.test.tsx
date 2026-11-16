@@ -47,7 +47,7 @@ it.each(["fake", "real"])("u3787a_generated_contract_restores_without_submitting
     await openPad(pad.name, { connected, pads: [restored.pad], revision: draft.revision });
     expect(connected.drafts.list().find(item => item.revision === draft.revision)).toMatchObject({ destination, value: { source: text, originalName: "notes" } });
     expect(await app.rpc("pad.read", { name: "notes" })).toEqual(pad);
-    fireEvent.click(screen.getByText("Resume", { selector: "button" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
     await waitFor(async () => expect((await app.rpc("pad.read", { name: "notes" })).text).toBe(text));
   } finally {
     cleanup();

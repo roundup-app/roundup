@@ -1,8 +1,10 @@
-/* U170 Busy: both labels share one cell, so the button keeps its width whichever shows. */
+/* U170 Busy: the label, the busy label and a hidden copy of the busy label with its mark share one cell, so the button keeps its width whichever shows. */
 button[data-busy-button] { display: inline-grid; place-items: center; }
-.busy-idle, .busy-work { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: inherit; }
-button[data-busy-button][aria-busy="true"] .busy-idle,
-button[data-busy-button]:not([aria-busy="true"]) .busy-work { visibility: hidden; }
+.busy-idle, .busy-work, button[data-busy-button]::after { grid-area: 1 / 1; }
+.busy-idle, .busy-work { display: inline-flex; align-items: center; gap: inherit; }
+button[data-busy-button]::after { content: attr(data-busy-label); visibility: hidden; padding-left: calc(var(--space-3) + var(--space-1)); }
+/* Opacity, not visibility: the idle label stays the button's name while it is busy. */
+button[data-busy-button][aria-busy="true"] .busy-idle { opacity: 0; }
 
 /* The indeterminate mark beside the busy label; it turns only while the button is busy, so it stops when the work ends. */
 .busy-mark {

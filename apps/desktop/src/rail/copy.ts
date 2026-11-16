@@ -14,7 +14,7 @@ const dash = "—";
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
-  opening: sharedCopy.opening,
+  opening: "Opening…",
   retrying: sharedCopy.retrying,
   resuming: sharedCopy.resuming,
   creating: sharedCopy.creating,

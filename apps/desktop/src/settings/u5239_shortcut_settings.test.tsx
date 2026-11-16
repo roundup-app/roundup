@@ -173,7 +173,7 @@ it("u5239e_cancel_writes_nothing_and_no_override_disables_the_control", async ()
   fireEvent.click(saveButton());
   expect(app.chooser.suggestedNames).toEqual([]);
   await saveAppSettings({ shortcuts: { "terminal.new": "meta+shift+KeyT" } });
-  await waitFor(() => expect(saveButton().getAttribute("aria-disabled")).toBe("false"));
+  await waitFor(() => expect(saveButton().getAttribute("aria-disabled")).not.toBe("true"));
   app.chooser.savePath = null;
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   await waitFor(() => expect(app.chooser.suggestedNames).toEqual(["shortcuts.json"]));

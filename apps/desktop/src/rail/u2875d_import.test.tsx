@@ -70,7 +70,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     let release: (result: ImportResult) => void = () => undefined;
     app.handlers["project.importCommit"] = () => new Promise<ImportResult>((resolve) => { release = resolve; });
     const retry = panel().getByRole("button", { name: "Import 1" });
-    await waitFor(() => expect(retry).toHaveProperty("disabled", false));
+    await waitFor(() => expect(retry.getAttribute("aria-disabled")).not.toBe("true"));
     fireEvent.click(retry);
     fireEvent.click(retry);
     await waitFor(() => expect(calls(app, "project.importCommit").length).toBe(3));
@@ -156,7 +156,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
       fireEvent.click(tab("api"));
       await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-      expect((await screen.findByRole<HTMLButtonElement>("button", { name: "Import 1" })).disabled).toBe(false);
+      expect((await screen.findByRole("button", { name: "Import 1" })).getAttribute("aria-disabled")).not.toBe("true");
       expect(screen.getByText(/Import choices.*could not be saved for reload/)).toBeTruthy();
       writes.mockRestore();
       fireEvent.click(panel().getByRole("button", { name: copy.retryStorage }));
@@ -366,7 +366,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
   for (const [number, period, sources] of [[1, "month", ["s2"]], [2, "week", ["s1", "s3"]]] as const) {
     fireEvent.click(panel().getByRole("button", { name: `Open choices ${number}` }));
     expect((await screen.findByRole("button", { name: `Last ${period}` })).getAttribute("aria-pressed")).toBe("true");
-    expect(panel().getByRole("button", { name: `Import ${sources.length}` })).toHaveProperty("disabled", true);
+    expect(panel().getByRole("button", { name: `Import ${sources.length}` }).getAttribute("aria-disabled")).toBe("true");
     await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected).toEqual(sources.map(source => ({ source, revision: `preview-${source.slice(1)}`, title: titles[Number(source.slice(1)) - 1] }))));
     expect(panel().getAllByRole("button", { name: /Open choices/ })).toHaveLength(2);
   }
@@ -374,7 +374,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
   expect(localStorage.getItem(importKey(path("web")))).toBe(other);
   expect(calls(daemon, "project.importCommit")).toEqual([]);
   // Restored choices must first be validated, then explicitly confirmed.
-  await waitFor(() => expect(panel().getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false));
+  await waitFor(() => expect(panel().getByRole("button", { name: "Import 2" }).getAttribute("aria-disabled")).not.toBe("true"));
   expect(calls(daemon, "project.importCommit")).toEqual([]);
 });
 

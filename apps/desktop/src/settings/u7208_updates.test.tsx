@@ -147,7 +147,7 @@ it("u7208b_a_pending_install_shows_updating_and_its_progress_and_ignores_a_secon
   fireEvent.click(press);
   fireEvent.click(press);
   await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
-  expect(screen.getByRole("button", { name: "Updating…" })).toBe(press);
+  expect(screen.getByText("Updating…").closest("button")).toBe(press);
   expect(app.updateInstalls).toBe(1);
 
   const mb = 1_000_000;
@@ -175,7 +175,7 @@ it("u7208c_a_pending_core_update_shows_updating_and_ignores_a_second_click", asy
   fireEvent.click(press);
   fireEvent.click(press);
   await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
-  expect(screen.getByRole("button", { name: "Updating…" })).toBe(press);
+  expect(screen.getByText("Updating…").closest("button")).toBe(press);
   expect(app.coreUpdates).toBe(1);
 
   finish();

@@ -19,7 +19,7 @@ it("u170_busy_a_pending_click_shows_the_busy_label_and_ignores_a_second_click", 
   fireEvent.click(press);
   fireEvent.click(press);
   await waitFor(() => expect(press.getAttribute("aria-busy")).toBe("true"));
-  expect(screen.getByRole("button", { name: BUSY })).toBe(press);
+  expect(screen.getByText(BUSY).closest("button")).toBe(press);
   expect(work).toHaveBeenCalledTimes(1);
 });
 

@@ -368,7 +368,7 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
       if (entry === "selection") {
         fireEvent.click(first, { metaKey: true });
         fireEvent.click(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /), { metaKey: true });
-        fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
+        fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
       } else { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     }
 
@@ -415,7 +415,7 @@ for (const entry of ["selection", "single", "drawer"] as const) {
 
       fireEvent.click(first, { metaKey: true });
       fireEvent.click(screen.getByText("second", { selector: ".pad-name .shelf-title" }).closest<HTMLElement>(".pad-name")!, { metaKey: true });
-      fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
       await screen.findByText("Could not delete second: permission refused");
       expect(screen.getByText("second", { selector: ".pad-name .shelf-title" }).closest<HTMLElement>(".pad-name")!.getAttribute("aria-pressed")).toBe("true");
 
@@ -451,7 +451,7 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
   await showPads();
   fireEvent.click((await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!, { metaKey: true });
   fireEvent.click(screen.getByText("second", { selector: ".pad-name .shelf-title" }).closest<HTMLElement>(".pad-name")!, { metaKey: true });
-  fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
   await acknowledged();
   const restore = daemon.handlers["pad.restore"]!;
   let refuse = true;
@@ -534,7 +534,7 @@ for (const entry of ["selection", "clear-done"] as const) {
     else {
       fireEvent.click(await screen.findByLabelText(/^(?:Idle|Blocked|Done) #5 /), { metaKey: true });
       fireEvent.click(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /), { metaKey: true });
-      fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
     }
 
     await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Retry to check again.");
@@ -635,8 +635,8 @@ it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async 
   expect(connected.drawer.content()).toBe(opening);
   expect(document.activeElement).toBe(button);
   expect(field.value).toBe(draftBytes);
-  const recovery = within(drawer).getByRole<HTMLButtonElement>("button", { name: "Check deletion" });
-  expect(recovery.disabled).toBe(false);
+  const recovery = within(drawer).getByRole("button", { name: "Check deletion" });
+  expect(recovery.getAttribute("aria-disabled")).not.toBe("true");
   const feedback = within(drawer).getByRole("alert");
   const announcements: string[] = [];
   const observer = new MutationObserver(() => { announcements.push(feedback.textContent ?? ""); });
@@ -674,7 +674,7 @@ it("u3787a_a_drawer_delete_explains_an_unconfirmed_pad_deletion", async () => {
   expect(connected.drawer.content()).toBe(opening);
   expect(field.value).toBe(draftBytes);
   expect(document.activeElement).toBe(button);
-  expect(within(drawer).getByRole<HTMLButtonElement>("button", { name: "Check deletion" }).disabled).toBe(false);
+  expect(within(drawer).getByRole("button", { name: "Check deletion" }).getAttribute("aria-disabled")).not.toBe("true");
   expect(daemon.calls.filter(call => ["todo.delete", "todo.restore"].includes(call.method))).toEqual([]);
 });
 

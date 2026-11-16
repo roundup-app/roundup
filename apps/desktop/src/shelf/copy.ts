@@ -1,7 +1,7 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
-  deleting: sharedCopy.deleting,
+  deleting: "Deleting…",
   age: {
     now: sharedCopy.ageNow,
     seconds: sharedCopy.ageSeconds,
