@@ -411,7 +411,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
 
       if (phase === "retention") {
       await lane.browser("click", '.rail-row[data-id="backend"]');
-      await lane.until("document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
+      await lane.until("document.querySelector('.rail-row[data-id=backend]')?.hasAttribute('data-selected') && !document.querySelector('.ask-input')");
       await lane.evaluate("window.__select(null)");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.evaluate(`(() => {

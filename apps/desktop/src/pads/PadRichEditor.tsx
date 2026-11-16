@@ -283,7 +283,8 @@ function MountedEditor(props: EditorProps & { remount: (() => void) | undefined 
 
     crepe = new CrepeBuilder({
       root: host,
-      defaultValue: props.text,
+      // The text this mount began with: reading a ternary prop here would make a memo after setup, which Solid 2 refuses.
+      defaultValue: original,
     })
       .setReadonly(props.readonly)
       .addFeature(blockEdit, blockConfig)

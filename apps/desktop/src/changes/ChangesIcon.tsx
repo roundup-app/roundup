@@ -21,7 +21,7 @@ export const ChangesIcon = (props: { id: string }) => {
   // P11: the failed read keeps its cause and Retry in the Rail's own message surface.
   createEffect(read, (next) => {
     if (next?.failure) rail.commandFailure.show(`${title()}${next.failure}`, null, "rail", () => { void owned.refresh(id); });
-    else if (next && rail.commandFailure.message()?.startsWith(title())) rail.commandFailure.clear();
+    else if (next && untrack(() => rail.commandFailure.message())?.startsWith(title())) rail.commandFailure.clear();
   });
 
   return <Show when={count() > 0}>

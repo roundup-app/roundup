@@ -81,7 +81,7 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   fireEvent.keyDown(row("a:b"), { key: "a", metaKey: true });
   expect(selected()).toEqual(["a:a", "c:12", "c:13", "a:r", "a:b"]);
   expect(document.querySelector('.inbox [aria-expanded="true"]')).toBeNull();
-  expect(document.querySelector('.rail-row[data-selected=true]')).toBeNull();
+  expect(document.querySelector('.rail-row[data-selected]')).toBeNull();
   expect(app.calls.slice(afterRefresh)).toEqual([]);
   expect([...document.querySelectorAll('.inbox .inbox-actions button, .inbox .reserved-actions button')].every(el => !el.hasAttribute("data-collection-value"))).toBe(true);
 });

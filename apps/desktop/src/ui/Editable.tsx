@@ -144,9 +144,13 @@ const createEditable = (props: RootProps) => {
 
     queueMicrotask(() => permission(() => {
       if (ended) return;
+      // A field a caller already focused keeps the caret it restored there; binding moves no caret it chose.
+      const kept = document.activeElement === field ? { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" } : null;
+
       unbind = edit.bindInput(field);
 
-      if (untrack(() => props.selectOnFocus) === false) field.setSelectionRange(field.value.length, field.value.length);
+      if (kept) field.setSelectionRange(kept.start, kept.end, kept.direction);
+      else if (untrack(() => props.selectOnFocus) === false) field.setSelectionRange(field.value.length, field.value.length);
     }));
 
     return () => { ended = true; unbind?.(); };
