@@ -10,4 +10,5 @@
 
 .reserved-line.resume-bar:not([data-empty]) {
   background: var(--ground);
+  pointer-events: auto;
 }

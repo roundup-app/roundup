@@ -20,10 +20,6 @@
   pointer-events: none;
 }
 
-.pane-top > * {
-  pointer-events: auto;
-}
-
 .pane-body {
   position: relative;
   flex: 1;
