@@ -82,6 +82,7 @@ import type { ShortcutFileExport as link_ShortcutFileExport } from "./link/Short
 import type { AddParams as machine_AddParams } from "./machine/AddParams";
 import type { Machine as machine_Machine } from "./machine/Machine";
 import type { RemoveParams as machine_RemoveParams } from "./machine/RemoveParams";
+import type { UpdateParams as machine_UpdateParams } from "./machine/UpdateParams";
 import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
 import type { ListParams as message_ListParams } from "./message/ListParams";
 import type { Message as message_Message } from "./message/Message";
@@ -305,6 +306,7 @@ export type RpcMethods = {
   "machine.list": { params: null; result: machine_Machine[] };
   "machine.add": { params: machine_AddParams; result: machine_Machine[] };
   "machine.remove": { params: machine_RemoveParams; result: machine_Machine[] };
+  "machine.update": { params: machine_UpdateParams; result: machine_Machine[] };
   "skill.status": { params: null; result: skill_SkillFiles };
   "skill.setup": { params: null; result: skill_SkillFiles };
   "skill.remove": { params: null; result: skill_SkillFiles };

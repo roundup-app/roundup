@@ -8,7 +8,7 @@ Status: in development; the Daemon, `rup` and the macOS App run. See `docs/archi
 
 ## Install
 
-Needs: macOS on Apple Silicon (the bundles are `aarch64` only), and `claude` and `herdr-core` 0.1.20 or newer on your login-shell `PATH`. No checkout is needed.
+Needs: macOS on Apple Silicon (the bundles are `aarch64` only), and `claude` and `herdr-core` 0.1.21 or newer on your login-shell `PATH`. No checkout is needed.
 
 Stable and Dev install side by side and never share data. Both update themselves: Settings › Updates installs a newer roundup or herdr-core when you press its button, and "Update available" in the application menu opens it.
 

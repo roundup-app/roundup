@@ -11,4 +11,9 @@ export type Machine = {
 	 *  the Daemon holds none for it.
 	 */
 	away?: boolean,
+	/**
+	 *  MC75: whether this Machine's herdr-core is older than this Mac's; absent when either
+	 *  version is unknown or the Machine is offline.
+	 */
+	outdated?: boolean,
 };

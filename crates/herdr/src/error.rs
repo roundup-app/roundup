@@ -64,6 +64,9 @@ pub enum Error {
     /// (no exec) stands in for it.
     #[error("herdr-core lists no {0}; update herdr-core")]
     NoMethod(String),
+    /// MC72: `herdr-core machine update` failed; holds the last line it printed.
+    #[error("{0}")]
+    Update(String),
     /// The pipe closed before or during the call.
     #[error("connection to herdr-core closed")]
     Closed,
@@ -88,6 +91,7 @@ impl Error {
             Error::Refused(_) => "unsupported_generation",
             Error::TooOld(_) => "core_too_old",
             Error::NoMethod(_) => "core_no_method",
+            Error::Update(_) => "update_failed",
             Error::Closed => "core_closed",
             Error::TimedOut => "core_silent",
             Error::Rpc(_) => "core_error",

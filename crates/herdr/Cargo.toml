@@ -12,5 +12,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["process"] }
 
+[dev-dependencies]
+tempfile = "3"
+
 [lints]
 workspace = true

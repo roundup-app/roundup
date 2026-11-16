@@ -21,6 +21,11 @@ pub struct Machine {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = bool)]
     pub away: Option<bool>,
+    /// MC75: whether this Machine's herdr-core is older than this Mac's; absent when either
+    /// version is unknown or the Machine is offline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = bool)]
+    pub outdated: Option<bool>,
 }
 
 /// `machine.add`: the ssh name of the machine to add.
@@ -33,6 +38,13 @@ pub struct AddParams {
 /// `machine.remove`: the name of the listed machine herdr-core forgets (MC71).
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RemoveParams {
+    /// A name `machine.list` gave; This Mac's own name is refused.
+    pub name: String,
+}
+
+/// `machine.update`: the name of the listed machine whose herdr-core the CLI updates (MC72).
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct UpdateParams {
     /// A name `machine.list` gave; This Mac's own name is refused.
     pub name: String,
 }

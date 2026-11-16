@@ -1,5 +1,5 @@
 //! MC32: files are read and written through herdr-core's file methods, against a fake core that
-//! lists the methods `schema/herdr-core-0.1.20.json` advertises and answers with its recorded errors.
+//! lists the methods `schema/herdr-core-0.1.21.json` advertises and answers with its recorded errors.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -15,7 +15,7 @@ use herdr::{Conn, Edit, Error};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, duplex};
 
-const SCHEMA: &str = include_str!("../schema/herdr-core-0.1.20.json");
+const SCHEMA: &str = include_str!("../schema/herdr-core-0.1.21.json");
 
 fn frame(payload: &Value) -> Vec<u8> {
     let p = serde_json::to_vec(payload).unwrap();
@@ -53,7 +53,7 @@ fn fake_core(
         let mut r = BufReader::new(core_r);
         let mut line = String::new();
         r.read_line(&mut line).await.unwrap();
-        let hello = json!({"jsonrpc":"2.0","id":0,"result":{"generation":1,"version":"0.1.20","framed":true,"methods":methods}});
+        let hello = json!({"jsonrpc":"2.0","id":0,"result":{"generation":1,"version":"0.1.21","framed":true,"methods":methods}});
         core_w
             .write_all(format!("{hello}\n").as_bytes())
             .await
