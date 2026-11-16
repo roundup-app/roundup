@@ -24,7 +24,7 @@ const mountRail = async (...args: Parameters<typeof mountFixture>) => {
 /** The enabled items of the last menu that U56 and U7191a name. */
 const labels = () => (shown.shownMenus.at(-1)?.items ?? []).filter((item) => item.enabled && ["Stop", "Restart", "Remove"].includes(item.label)).map((item) => item.label);
 
-const resumeIcon = (name: string) => within(rowOf(name)).queryByRole("button", { name: copy.resume });
+const resumeIcon = (name: string) => within(rowOf(name)).queryByRole("button", { name: copy.restart });
 
 const exited = (id: string) => exitedTerminal(id, 0);
 
@@ -89,7 +89,7 @@ describe("u68 resume from the Rail menu", () => {
     resumeRow("a");
     resumeRow("b");
 
-    await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }, { id: "b" }]));
+    await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }, { id: "b", mode: "normal" }]));
 
     for (const method of ["agent.spawn", "rail.spawnTerminal", "terminal.write"]) expect(railCallsTo(app, method)).toEqual([]);
   });
@@ -103,7 +103,7 @@ describe("u68 resume from the Rail menu", () => {
     // U5991a: the row already shows running, so a second activation has no Resume to choose.
     await waitFor(() => expect(resumeIcon("a")).toBeNull());
 
-    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
+    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
     finish(resumable("a"));
   });
 
@@ -185,7 +185,7 @@ describe("u68 resume from the Rail menu", () => {
     resumeRow("a");
 
     await waitFor(() => expect(emulators.made.has("t-a2")).toBe(true));
-    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
+    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
     expect(railCallsTo(app, "rail.tree").length).toBe(trees + 1);
     await waitFor(() => expect(railCallsTo(app, "terminal.list").length).toBe(lists + 1));
     expect(screen.queryByRole("alert")).toBeNull();
@@ -205,7 +205,7 @@ describe("u68 resume from the Rail menu", () => {
     resumeRow("a");
 
     await waitFor(() => expect(resumeIcon("a")).not.toBeNull());
-    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
+    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
   });
 
   it("u68_unknown_outcome_with_a_failed_refresh_says_the_outcome_is_unknown", async () => {
@@ -220,7 +220,7 @@ describe("u68 resume from the Rail menu", () => {
     resumeRow("a");
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
+    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
   });
 
   it("u68_a_reload_before_and_after_resume_never_calls_agent_resume", async () => {

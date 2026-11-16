@@ -54,11 +54,11 @@ it("u4547d_pending_and_failed_restart_keep_one_operation", async () => {
 });
 
 it("u4547d_only_explicit_restart_requests_a_fresh_session", async () => {
-  const tree = [mode("mode", "saved", { status: { kind: "done", label: "", since: 0, finished: "0" }, can_resume: true })];
+  const tree = [mode("mode", "saved", { status: { kind: "done", label: "", since: 0, finished: "0" }, can_resume: true, has_conversation: true })];
   const m = await mountRail(tree, [exitedTerminal("mode", 0)]);
   m.app.handlers["agent.resume"] = () => tree[0]!;
   resumeRow("mode");
-  await waitFor(() => expect(railCallsTo(m.app, "agent.resume")).toEqual([{ id: "mode" }]));
+  await waitFor(() => expect(railCallsTo(m.app, "agent.resume")).toEqual([{ id: "mode", mode: "normal" }]));
   m.rail.select("mode");
   await m.rail.refresh();
   await chooseAction(m.app, "mode", copy.modePromptMenu);
