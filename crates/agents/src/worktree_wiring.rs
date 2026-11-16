@@ -61,6 +61,25 @@ impl Agents {
             .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
     }
 
+    /// U7186a: what the Agent's recorded file writes leave changed against the default branch.
+    pub(super) async fn owned_changes(
+        &self,
+        id: &str,
+    ) -> Result<contracts::agent::OwnedChanges, RpcError> {
+        self.shared.node(id)?;
+        let edits: Vec<String> = self
+            .shared
+            .runs()
+            .agent(id)
+            .map(|agent| agent.facts.edits.iter().cloned().collect())
+            .unwrap_or_default();
+        let git = self.shared.git.bounded();
+        let groups = tokio::task::spawn_blocking(move || git.owned_groups(&edits))
+            .await
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?;
+        Ok(contracts::agent::OwnedChanges { groups })
+    }
+
     /// U2540a: read one comparison within the assigned Worktree.
     pub(super) async fn compare_file(
         &self,
