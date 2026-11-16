@@ -1,5 +1,5 @@
 import { createSignal, onCleanup } from "solid-js";
-import type { Accessor } from "solid-js";
+import type { Accessor, Setter } from "solid-js";
 import type { OwnedGroup } from "@contracts/agent/OwnedGroup";
 import type { AppSeam } from "../app/seam";
 import type { Events } from "../app/events";
@@ -12,15 +12,21 @@ const WRITING = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 
 /** U7186c: what each Agent owns, read on first sight, again on a file-writing tool call and when a turn ends, and on no timer. */
 export const createOwnedChanges = (app: AppSeam, events: Events, daemonExit: Accessor<unknown>) => {
-  const reads = new Map<string, ReturnType<typeof createSignal<OwnedRead | undefined>>>();
+  type Cell = [Accessor<OwnedRead | undefined>, Setter<OwnedRead | undefined>];
+
+  const reads = new Map<string, Cell>();
   const generation = new Map<string, number>();
 
   const cell = (id: string) => {
-    let found = reads.get(id);
+    const found = reads.get(id);
 
-    if (!found) reads.set(id, found = createSignal<OwnedRead | undefined>(undefined));
+    if (found) return found;
+    const [get, set] = createSignal<OwnedRead | undefined>(undefined);
+    const made: Cell = [get, set];
 
-    return found;
+    reads.set(id, made);
+
+    return made;
   };
 
   const refresh = async (id: string): Promise<OwnedRead | undefined> => {
