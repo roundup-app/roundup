@@ -193,6 +193,7 @@ static TABLE: &[(&str, Policy)] = &[
     ("link.read", PLAIN),
     ("machine.add", PLAIN),
     ("machine.list", PLAIN),
+    ("machine.remove", PLAIN),
     ("message.acceptResult", Policy { actor: Actor::Caller, inputs: Inputs::Id, ..PLAIN }),
     ("message.drop", PLAIN),
     ("message.get", PLAIN),
