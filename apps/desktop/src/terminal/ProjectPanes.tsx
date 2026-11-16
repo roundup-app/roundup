@@ -1,5 +1,6 @@
 import { provideFocusTarget } from "../keys/focus";
 import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
+import type { JSX } from "solid-js";
 import { Pane } from "./Pane";
 import { doorTerminalId } from "../state/doorNode";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -16,6 +17,8 @@ type Options = {
   focusPane: () => void;
   notice: () => string | null;
   openObject: (url: string, surface: string) => void;
+  /** What a Pane holds in its reserved top row; `active` says whether the Pane is the one shown. */
+  top: (active: () => boolean) => JSX.Element;
 };
 
 /**
@@ -89,6 +92,7 @@ export const createProjectPanes = (options: Options) => {
     return (
       <ConnectedProjectContext.Provider value={open}>
         <div ref={host} class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
+          <div class="pane-top">{options.top(active)}</div>
           <Pane observeTerminal={active() ? id => options.observeTerminal(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreen(path, shared)} openObject={options.openObject} />
         </div>
       </ConnectedProjectContext.Provider>

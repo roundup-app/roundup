@@ -35,6 +35,8 @@ type Setup = {
   work: Record<string, ContinuationAction[]>;
   read?: (id: string) => Reconciliation;
   resume?: (params: ResumeWorkParams) => ResumeWork | Promise<ResumeWork>;
+  /** Whether the Pane holding the line is the one shown; default yes. */
+  shown?: boolean;
 };
 
 const mount = async (setup: Setup) => {
@@ -59,7 +61,7 @@ const mount = async (setup: Setup) => {
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
-  render(() => <ConnectedProjectContext.Provider value={connected}><ResumeBar notify={candidate => toasts.push(candidate)} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext.Provider value={connected}><ResumeBar notify={candidate => toasts.push(candidate)} active={() => setup.shown ?? true} /></ConnectedProjectContext.Provider>);
   await connected.rail.settled();
 
   // The line stays mounted and goes empty; it shows only while it has something to say.
@@ -198,6 +200,14 @@ it("u7211d_the_command_is_offered_only_while_an_agent_has_unfinished_work", asyn
   select("b");
   fireEvent.click(await screen.findByRole("button", { name: copy.dismiss }));
   expect(command()).toBeDefined();
+});
+
+it("u7211d_a_pane_that_is_not_shown_offers_no_command", async () => {
+  const { reads } = await mount({ work: { b: [action("x1")] }, shown: false });
+
+  await waitFor(() => expect(reads).toContain("b"));
+  await new Promise(done => setTimeout(done, 0));
+  expect(command()).toBeUndefined();
 });
 
 it("u7211d_the_command_resumes_every_agent_with_work_and_reports_how_many", async () => {

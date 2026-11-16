@@ -2,7 +2,6 @@ import Hourglass from "lucide-solid/icons/hourglass";
 import { Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Bubbles } from "../bubbles/Bubbles";
-import { ResumeBar } from "../continuation/ResumeBar";
 import { copy } from "./copy";
 import { InProject } from "./InProject";
 import { failureLine } from "../ink/ReservedLine";
@@ -11,7 +10,6 @@ import { ProjectSettingsView } from "../rail/ProjectSettings";
 import { ResourceStrip } from "../resources/ResourceStrip";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { createProjectPanes } from "../terminal/ProjectPanes";
-import type { ToastQueue } from "../toasts/queue";
 
 /** U7155a: the centre of a Project view; the kept Panes sit in `panes`, and `children` mount around them once the Project is connected. */
 export const ProjectCentre = (props: {
@@ -19,13 +17,11 @@ export const ProjectCentre = (props: {
   open: ConnectedProject | undefined;
   failure: Error | undefined;
   retry: () => void;
-  notify: ToastQueue["notify"];
   children: JSX.Element;
 }) => (
   <div class="centre-stack">
     <div class="project-center-area">
       <div class="project-center-content" inert={props.open?.settingsView.open()} style={{ visibility: props.open?.settingsView.open() ? "hidden" : "visible" }}>
-        <InProject open={props.open}>{() => <ResumeBar notify={props.notify} />}</InProject>
         <div class="pane-stack">{props.panes.view()}</div>
         <InProject open={props.open}>{() => props.children}</InProject>
       </div>

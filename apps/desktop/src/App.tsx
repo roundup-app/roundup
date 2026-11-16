@@ -2,6 +2,7 @@ import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
+import { ResumeBar } from "./continuation/ResumeBar";
 import { createProjectPanes } from "./terminal/ProjectPanes";
 import { InProject } from "./window/InProject";
 import { ProjectCentre } from "./window/ProjectCentre";
@@ -432,7 +433,7 @@ export const App = (props: {
 
   const panes = createProjectPanes({
     active: projects.active, connectionOf, createEmulator: () => props.createEmulator ?? lazyXtermEmulators(), observeTerminal: (path, id) => props.observeTerminal?.(path, id),
-    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
+    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }), top: active => <ResumeBar notify={toasts.notify} active={active} />,
   });
 
   return (
@@ -518,7 +519,7 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)} notify={toasts.notify}>
+            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)}>
               <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
               <Feedback notify={toasts.notify} />
               <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />

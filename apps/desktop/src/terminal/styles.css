@@ -11,6 +11,12 @@
   padding-inline: var(--space-2);
 }
 
+/* U7211a: every Pane reserves one line above its Terminal, so what the line says moves nothing (U3807), covers no output (U7192) and keeps the first PTY grid the fitted one (U4590). */
+.pane-top {
+  flex: none;
+  min-block-size: var(--line);
+}
+
 .pane-body {
   position: relative;
   flex: 1;

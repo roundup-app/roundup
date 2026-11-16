@@ -1,4 +1,4 @@
-/* U7211a: the row is reserved above every Agent's Terminal, so the line showing or going moves nothing. */
+/* U7211a: the Pane's top row holds the line; it sits in the reserved row like any failure line. */
 .reserved-line.resume-bar {
   padding-inline: var(--space-2);
 }
