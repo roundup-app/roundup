@@ -20,6 +20,7 @@ export const CONTRACT = {
     "agent.interrupt": "14f2a58ce154f8c5",
     "agent.land": "5aba65a94dd09a2a",
     "agent.makeWorkstream": "b0bf88e3e19a3664",
+    "agent.ownedChanges": "87a1a536ad077489",
     "agent.prompt": "827059ae7d416823",
     "agent.restartMode": "3fb7f13656fa7b80",
     "agent.resume": "03d50d8e10ea3910",

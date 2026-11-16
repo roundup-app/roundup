@@ -277,6 +277,22 @@ pub struct ChangedFiles {
     pub files: Vec<ChangedFile>,
 }
 
+/// One repository and branch an Agent owns changes in (U7186a): `files` are the current state
+/// against `base`, the default branch, sorted by `path`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct OwnedGroup {
+    pub repo: String,
+    pub branch: String,
+    pub base: String,
+    pub files: Vec<ChangedFile>,
+}
+
+/// What `agent.ownedChanges` returns (U7186a), sorted by `repo` then `branch`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct OwnedChanges {
+    pub groups: Vec<OwnedGroup>,
+}
+
 /// Select one relative path in an Agent's Worktree (U2540a).
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CompareFileParams {

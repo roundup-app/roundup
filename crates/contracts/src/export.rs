@@ -70,6 +70,8 @@ pub fn types() -> specta::Types {
         .register::<crate::agent::ChangedStatus>()
         .register::<crate::agent::ChangedFile>()
         .register::<crate::agent::ChangedFiles>()
+        .register::<crate::agent::OwnedGroup>()
+        .register::<crate::agent::OwnedChanges>()
         .register::<crate::agent::CompareFileParams>()
         .register::<crate::agent::FileContent>()
         .register::<crate::agent::FileComparison>()

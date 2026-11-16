@@ -140,6 +140,28 @@ async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
     run.finish().await;
 }
 
+/// U7191a: a Mode's Restart is `agent.resume`: it starts a new run on the conversation and types no saved prompt.
+#[tokio::test]
+async fn u7191a_a_mode_restart_types_no_saved_prompt() {
+    let prompt = "Saved words";
+    let mut run = mode(prompt).await;
+    let expected = format!("\x1b[200~{prompt}\x1b[201~\r").into_bytes();
+    assert_eq!(recorded_bytes(&run).await, expected);
+    let before = run.attempt.clone();
+    let node = run
+        .user
+        .request("agent.resume", json!({"id":run.child,"mode":"normal"}))
+        .await
+        .unwrap();
+    assert_ne!(node["attempt"], before);
+    assert_eq!(node["id"], run.child);
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    idle(&run).await;
+    assert_eq!(recorded_bytes(&run).await, Vec::<u8>::new());
+    run.finish().await;
+}
+
 #[tokio::test]
 async fn a4452c_failed_recording_retries_without_another_physical_write() {
     let mut run = mode("Keep this exact prompt").await;
