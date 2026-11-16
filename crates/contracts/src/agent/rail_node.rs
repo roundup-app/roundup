@@ -84,6 +84,10 @@ impl RailNode {
         self.door().is_some_and(|door| door.can_resume)
     }
 
+    pub fn has_conversation(&self) -> bool {
+        self.door().is_some_and(|door| door.has_conversation)
+    }
+
     pub fn mode_prompt(&self) -> Option<String> {
         self.agent()?.mode_prompt.clone()
     }
@@ -232,6 +236,9 @@ pub struct DoorFacts {
     /// A22: true only for an exited Agent or Door with saved conversation data (A21) and no
     /// start in flight. `false` for a Terminal.
     pub can_resume: bool,
+    /// U7191b: the Daemon holds a saved conversation (A21) for this Agent or Door, running or exited; Restart resumes it. `false` for a Terminal.
+    #[serde(default)]
+    pub has_conversation: bool,
     /// Permission prompts are off for the last acknowledged Attempt; cleared on reopen.
     #[serde(default)]
     pub yolo: bool,

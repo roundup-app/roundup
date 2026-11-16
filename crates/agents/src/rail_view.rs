@@ -214,6 +214,7 @@ impl Shared {
             ) => false,
             None | Some(Slot::Gone) => true,
         };
+        door.has_conversation = door.can_resume;
         door.can_resume &= exited;
         door.yolo = match slot {
             Some(Slot::Running(run)) => run.yolo(),
