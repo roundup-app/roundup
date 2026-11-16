@@ -1,4 +1,4 @@
-import { isDoor, isYolo } from "../../state/doorNode";
+import { hasConversation, isDoor, isYolo } from "../../state/doorNode";
 import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
@@ -61,7 +61,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   const [state, setState] = createSignal<Confirming | null>(null);
   let removingSelection = false;
   const resuming = new Set<string>();
-  const { restartMode, restartPending } = createModeRestart(app, rail);
+  const { restartMode, restartRow, restartPending } = createModeRestart(app, rail, (node, exit) => requestRestart(node, exit));
 
   const lossesOf = (chosen: readonly RailNode[]) => chosen.flatMap(node => [
     ...(isDoor(node) && node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
@@ -84,12 +84,12 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     void railCommand(rail, { item: node.id, draw: () => rail.drawExit(node.id, { kind: "signal" }), call: () => app.rpc("agent.stop", { id: node.id }), terminals: true });
   };
 
-  /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
-  const requestStop = (node: RailNode, exit: ExitState | null) => {
+  /** U428, U7191b: Stop and Restart end the run, so a `working`, `needs-you` or `blocked` Agent asks first and any other Agent acts at once. */
+  const askFirst = (kind: "stop" | "restart", now: (node: RailNode) => void | Promise<void>) => (node: RailNode, exit: ExitState | null) => {
     if (state() !== null) return;
 
-    if (needsConfirmation(node, exit)) setState({ kind: "stop", node, exit });
-    else stopNow(node);
+    if (needsConfirmation(node, exit)) setState({ kind, node, exit });
+    else void now(node);
   };
 
   /** U7191a: Restart resumes the same conversation in the mode it ran in, through the one `agent.resume` path. */
@@ -99,13 +99,9 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     return restart(node, isYolo(node) ? "yolo" : "normal");
   };
 
-  /** U7191b: asks when it would interrupt work, by Stop's rule; an idle, done or stopped Agent restarts at once. */
-  const requestRestart = (node: RailNode, exit: ExitState | null) => {
-    if (state() !== null) return;
-
-    if (needsConfirmation(node, exit)) setState({ kind: "restart", node, exit });
-    else void restartNow(node);
-  };
+  /** U428: the Rail's stop icon. */
+  const requestStop = askFirst("stop", stopNow);
+  const requestRestart = askFirst("restart", restartNow);
 
   const resume = async (id: string) => {
     if (resuming.has(id)) return;
@@ -340,12 +336,14 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
     return [
       renameEntry(node),
-      { when: isDoor(node) && node.has_conversation, id: "restart", label: copy.restart, shortcut: "R", run: () => requestRestart(node, exit) },
+      // U7191a: a Mode without a conversation types its saved prompt on Restart; `R` reaches Modes only.
+      { when: hasConversation(node) || isMode(node), id: "restart", label: copy.restart, shortcut: isMode(node) ? "R" : undefined, run: () => restartRow(node.id) },
       { when: isYolo(node) && !isMode(node) && running, id: "normal", label: copy.startNormal, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
       { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
-      { when: isResumable(node, exit), id: "resume", label: copy.resume, run: () => {
+      // U7191a: a row holding a conversation lists Restart, which resumes it, so Resume serves a row without one.
+      { when: isResumable(node, exit) && !hasConversation(node), id: "resume", label: copy.resume, run: () => {
         rail.select(node.id);
 
         return resume(node.id);
@@ -381,7 +379,7 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     requestRemove,
     requestRemoveSelection,
     restartMode,
-    requestRestart,
+    restartRow,
     makeWorkstream,
     restartPending,
     requestStop,

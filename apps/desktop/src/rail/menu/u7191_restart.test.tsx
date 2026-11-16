@@ -1,9 +1,9 @@
 import { batch } from "solid-js";
 import { copy } from "../copy";
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
-import { agent, door } from "../../testing/nodes";
+import { agent, door, mode } from "../../testing/nodes";
 import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
 
 afterEach(() => batch(cleanup));
@@ -26,6 +26,39 @@ it("u7191a_yolo_to_normal_is_start_normal", async () => {
   open("a");
 
   expect(app.menuLabels().filter(label => label === copy.restart || label === copy.startNormal)).toEqual([copy.restart, copy.startNormal]);
+});
+
+it("u7191a_a_mode_restart_icon_menu_and_key_run_one_action", async () => {
+  const saved = mode("m", "saved", { status: { kind: "idle", label: "", since: 0, finished: "0" }, has_conversation: true });
+  const { app, rail } = await mountRail([saved]);
+  app.handlers["agent.resume"] = () => saved;
+  const row = rowOf("m");
+
+  fireEvent.click(within(row).getByRole("button", { name: copy.restart }));
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toHaveLength(1));
+  await rail.settled();
+  open("m");
+  expect(app.shownMenus.at(-1)?.items.find(item => item.label === copy.restart)?.shortcut).toBe("R");
+  await app.pickMenu(copy.restart);
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toHaveLength(2));
+  await rail.settled();
+  row.focus();
+  fireEvent.keyDown(row, { key: "r", code: "KeyR" });
+
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual(Array.from({ length: 3 }, () => ({ id: "m", mode: "normal" }))));
+  expect(railCallsTo(app, "agent.restartMode")).toEqual([]);
+});
+
+it("u7191a_an_exited_row_lists_one_restart_and_no_resume", async () => {
+  const { app } = await mountRail([agent("a", "done", "stopped", { can_resume: true, has_conversation: true })], [exitedTerminal("a", 0)]);
+  app.handlers["agent.resume"] = () => agent("a", "idle", "ready", { has_conversation: true });
+
+  open("a");
+  expect(app.menuLabels().filter(label => label === copy.restart || label === copy.resume)).toEqual([copy.restart]);
+  expect(app.shownMenus.at(-1)?.items.find(item => item.label === copy.restart)?.shortcut).toBeUndefined();
+  await app.pickMenu(copy.restart);
+
+  await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]));
 });
 
 it("u7191b_restart_is_absent_without_a_conversation", async () => {

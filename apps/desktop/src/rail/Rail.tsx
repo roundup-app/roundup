@@ -136,7 +136,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
         { when: moveAgent.available(node.id), id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) },
         { when: node.kind === "agent" && node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
         { when: node.kind === "agent" && node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
-        { when: isMode(node) && !(isDoor(node) && node.has_conversation), id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } },
         { when: isMode(node), id: "mode-prompt", label: copy.modePromptMenu, run: () => { setDialog({ kind: "opening-prompt", id: node.id }); } },
         { id: "folder", label: copy.openFolder, run: actions.folder },
         { id: "editor", label: copy.openInEditor, run: actions.editor },
@@ -461,19 +460,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     editor: () => void opened(() => app.openInEditor(directoryOf(node))),
   });
 
-  /** U7191a: every Restart on a row runs one action: a Door with a conversation resumes it, any other Mode types its saved prompt. */
-  const restartRow = (node: RailNode) => {
-    if (isDoor(node) && node.has_conversation) menu.requestRestart(node, rail.exitOf(node));
-    else void menu.restartMode(node.id);
-  };
-
   const agentActions = (node: RailNode, base: Pick<RowActions, "folder" | "editor">) => {
     const exit = rail.exitOf(node);
     const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
 
     if (isMode(node)) actions.restart = {
       pending: menu.restartPending(node.id),
-      run: () => { restartRow(node); },
+      run: () => { menu.restartRow(node.id); },
       menu: click => {
         if (!(click.currentTarget instanceof HTMLElement)) return;
         const box = click.currentTarget.getBoundingClientRect();
@@ -588,11 +581,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
 
       return {
         available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && isMode(node)),
-        invoke: () => {
-          const node = rail.nodes.find(candidate => candidate.id === id);
-
-          if (node) restartRow(node);
-        },
+        invoke: () => { if (id) menu.restartRow(id); },
       };
     } },
     { action: CHORDS["agent.new"], match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
