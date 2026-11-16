@@ -152,7 +152,7 @@ async fn door_with_children(project: &Project, consult: bool) -> (String, String
             .to_owned();
         ids.push(idle.clone());
     }
-    daemon::h21_poll("every child to finish a turn", async || {
+    daemon::poll_until("every child to finish a turn", async || {
         let tree = project.rail_tree(&user).await;
         ids.iter()
             .all(|id| {
@@ -224,7 +224,7 @@ async fn dcl7_restart_resumes_only_jobs_selected_by_door() {
     model_saw(&project, &format!("- {job} open-job (attempt 1)")).await;
     resume_result(&project).await;
     // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
-    daemon::h21_poll("the resumed Job's new Attempt", async || {
+    daemon::poll_until("the resumed Job's new Attempt", async || {
         let tree = project.rail_tree(&user).await;
         (node(&tree, &job).attempt() != job_before.attempt()).then_some(())
     })
@@ -254,7 +254,7 @@ async fn dcr4_relaunch_carries_on_the_cut_off_job_only() {
     model_saw(&project, "[open jobs]").await;
     resume_result(&project).await;
     // The Attempt moves when the resumed Agent's session starts, which can follow the tool result.
-    daemon::h21_poll("the resumed Job's new Attempt", async || {
+    daemon::poll_until("the resumed Job's new Attempt", async || {
         let tree = project.rail_tree(&user).await;
         (node(&tree, &job).attempt() != job_before.attempt()).then_some(())
     })
@@ -349,7 +349,7 @@ async fn reported_job(project: &Project, door: &str) -> String {
         "the Job's report failed: {report}"
     );
     let user = project.client().await;
-    daemon::h21_poll("the reporting Job to finish its turn", async || {
+    daemon::poll_until("the reporting Job to finish its turn", async || {
         let tree = project.rail_tree(&user).await;
         tree.iter()
             .any(|n| {
