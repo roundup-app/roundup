@@ -114,3 +114,26 @@ it("mc73_a_failing_host_shows_the_hint_inline_and_keeps_the_text", async () => {
   expect(rows()).toHaveLength(0);
   expect(screen.queryByRole("alertdialog")).toBeNull();
 });
+
+it("mc71_this_mac_cannot_be_removed", async () => {
+  const list = await open(createFakeApp(), [box]);
+  await within(list).findByRole("button", { name: "Remove box" });
+  const [first] = within(list).getAllByRole("listitem");
+
+  expect(first && within(first).queryByRole("button")).toBeNull();
+});
+
+it("mc71_a_refused_rm_keeps_the_row_with_the_hint", async () => {
+  const app = createFakeApp();
+  const list = await open(app, [box]);
+  app.handlers["machine.remove"] = () => {
+    throw new RpcError(-32603, "machine_busy: stop its agents first");
+  };
+
+  fireEvent.click(await within(list).findByRole("button", { name: "Remove box" }));
+  await waitFor(() => expect(app.questions).toHaveLength(1));
+  app.answerQuestion?.(true);
+  await screen.findByText(/stop its agents first/);
+  expect(rows()).toHaveLength(1);
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
