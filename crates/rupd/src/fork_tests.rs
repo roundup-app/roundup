@@ -743,3 +743,79 @@ async fn fk7159b_a_picked_refused_project_fails_the_call() {
         "{reply}"
     );
 }
+
+/// Four Projects in the live folder, with a `projects.json` over them and two paths the Fork lacks.
+fn with_projects_json(live: &Live) -> (Vec<String>, Vec<Daemon>) {
+    let mut paths: Vec<String> = ["alpha", "beta"]
+        .iter()
+        .map(|t| live._tmp.path().join(t).to_string_lossy().into_owned())
+        .collect();
+    let mut daemons = Vec::new();
+    for tag in ["gamma", "delta"] {
+        let project = live._tmp.path().join(tag);
+        std::fs::create_dir_all(&project).unwrap();
+        daemons.push(Daemon::open_project(&project, &live.data).unwrap().0);
+        paths.push(project.to_string_lossy().into_owned());
+    }
+    let gone = live._tmp.path().join("gone").to_string_lossy().into_owned();
+    let open = [&paths[2], &paths[0], &paths[3], &paths[1]];
+    let recent = [&paths[1], &gone, &paths[3], &paths[0], &paths[2]];
+    let file = json!({
+        "open": open, "recent": recent,
+        "names": {paths[0].clone(): "Roundup", paths[3].clone(): "Last"},
+        "extra": 7,
+    });
+    std::fs::write(live.data.join("projects.json"), file.to_string()).unwrap();
+    (paths, daemons)
+}
+
+fn read_json(path: &Path) -> Value {
+    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+}
+
+#[tokio::test]
+async fn fk5977g_the_fork_keeps_the_open_projects_in_live_order_with_their_names() {
+    let live = live();
+    let (paths, _daemons) = with_projects_json(&live);
+    let before = std::fs::read(live.data.join("projects.json")).unwrap();
+    let full = live.fork_dir("full");
+    assert!(fork(&live, &full, json!({})).await["result"].is_object());
+    let got = read_json(&full.join("projects.json"));
+    // Only the Project the Fork lacks (`gone`) drops out; every other entry keeps its place.
+    assert_eq!(got["open"], json!([paths[2], paths[0], paths[3], paths[1]]));
+    assert_eq!(
+        got["recent"],
+        json!([paths[1], paths[3], paths[0], paths[2]])
+    );
+    assert_eq!(
+        got["names"],
+        json!({paths[0].clone(): "Roundup", paths[3].clone(): "Last"})
+    );
+    assert_eq!(got["extra"], 7);
+
+    let picked = live.fork_dir("picked");
+    let pick = json!({"name":"Two","colour":"pink","projects":[{"key":live.keys[1]},{"key":live.keys[0]}]});
+    assert!(fork(&live, &picked, pick).await["result"].is_object());
+    let got = read_json(&picked.join("projects.json"));
+    assert_eq!(got["open"], json!([paths[0], paths[1]]));
+    assert_eq!(got["recent"], json!([paths[1], paths[0]]));
+    assert_eq!(got["names"], json!({paths[0].clone(): "Roundup"}));
+    assert_eq!(
+        std::fs::read(live.data.join("projects.json")).unwrap(),
+        before
+    );
+}
+
+#[tokio::test]
+async fn fk5977g_no_live_file_gives_no_fork_file_and_an_unparsable_one_is_refused() {
+    let live = live();
+    let none = live.fork_dir("none");
+    assert!(fork(&live, &none, json!({})).await["result"].is_object());
+    assert!(!none.join("projects.json").exists());
+
+    std::fs::write(live.data.join("projects.json"), "{not json").unwrap();
+    let bad = live.fork_dir("bad");
+    let reply = fork(&live, &bad, json!({})).await;
+    assert_eq!(reply["error"]["code"], rpc::code::INVALID_PARAMS);
+    assert!(!bad.exists());
+}

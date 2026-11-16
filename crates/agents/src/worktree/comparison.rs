@@ -15,8 +15,18 @@ impl Git {
         if !worktree.path.is_dir() {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
-        let dir = &worktree.path;
         let base = self.comparison_base(worktree)?;
+        Ok(ChangedFiles {
+            files: self.files_against(&worktree.path, &base)?,
+        })
+    }
+
+    /// The files `dir`'s working tree differs in from `base`, outside `.roundup/`, sorted by path.
+    pub(super) fn files_against(
+        &self,
+        dir: &Path,
+        base: &str,
+    ) -> Result<Vec<ChangedFile>, RpcError> {
         let diff = [
             "--no-optional-locks",
             "diff",
@@ -25,13 +35,13 @@ impl Git {
             "-M",
         ];
         let names = self
-            .run(dir, &[&diff[..], &["-z", "--name-status", &base]].concat())
+            .run(dir, &[&diff[..], &["-z", "--name-status", base]].concat())
             .map_err(failed)?;
         let patch = self
-            .run(dir, &[&diff[..], &["-U0", &base]].concat())
+            .run(dir, &[&diff[..], &["-U0", base]].concat())
             .map_err(failed)?;
         let counts = self
-            .run(dir, &[&diff[..], &["--numstat", &base]].concat())
+            .run(dir, &[&diff[..], &["--numstat", base]].concat())
             .map_err(failed)?;
         // Git quotes unusual paths without -z, so each count record occupies one line even for a rename.
         // Counts also classify a pure binary rename, whose patch has no binary marker or hunk.
@@ -72,7 +82,7 @@ impl Git {
         }
         files.retain(|file| !file.path.starts_with(".roundup/"));
         files.sort_by(|a, b| a.path.cmp(&b.path));
-        Ok(ChangedFiles { files })
+        Ok(files)
     }
 
     fn comparison_base(&self, worktree: &Worktree) -> Result<String, RpcError> {

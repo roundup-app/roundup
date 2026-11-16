@@ -309,5 +309,6 @@ it.each(["id", "presence", "path", "branch", "base", "name", "status"] as const)
   else if (relevant) await waitFor(() => expect(state.read(id)).toEqual({ failure: null, state: { ...facts, ahead: 11 } }));
   else expect(state.read(id)).toBe(previous);
   expect(count).toBe(relevant ? 1 : 0);
-  expect(app.calls.slice(before).map(call => ({ method: call.method, params: call.params }))).toEqual(relevant && change !== "presence" ? [{ method: "agent.worktreeState", params: { id: "a" } }, { method: "rail.tree", params: null }, { method: "agent.worktreeState", params: { id } }] : [{ method: "agent.worktreeState", params: { id: "a" } }, { method: "rail.tree", params: null }]);
+  // U7211a: a Door that stops is read once for unfinished work; that read is no worktree reconcile.
+  expect(app.calls.slice(before).filter(call => call.method !== "message.reconcileWork").map(call => ({ method: call.method, params: call.params }))).toEqual(relevant && change !== "presence" ? [{ method: "agent.worktreeState", params: { id: "a" } }, { method: "rail.tree", params: null }, { method: "agent.worktreeState", params: { id } }] : [{ method: "agent.worktreeState", params: { id: "a" } }, { method: "rail.tree", params: null }]);
 });

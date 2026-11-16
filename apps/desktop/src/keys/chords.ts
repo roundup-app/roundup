@@ -175,6 +175,7 @@ const LEADER_TABLE = {
   "leader.rail": { name: "leader.rail", keys: "R", what: copy.toggleTheRail, short: copy.rail, press: "KeyR" },
   "leader.capture": { name: "leader.capture", keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   "leader.inbox": { name: "leader.inbox", keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
+  "leader.resume": { name: "leader.resume", keys: "U", what: copy.resumeUnfinishedWork, short: copy.leaderShortResume, press: "KeyU" },
 } satisfies Record<string, Omit<LeaderKey, "keys"> & { keys: string }>;
 
 export const LEADER = withKeyTexts(LEADER_TABLE);

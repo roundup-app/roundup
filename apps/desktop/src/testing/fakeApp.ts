@@ -39,6 +39,7 @@ const emptyReads: Handlers = {
   "ask.list": () => [],
   "deliverable.list": () => [],
   "provenance.history": () => [],
+  "message.reconcileWork": ({ id }) => ({ agent: id, actions: [], blocked: [], context: [], pending_checks: [] }),
 };
 
 /** One `selectOutput` call: the listener stays here after `release`, so a test can call it late. */

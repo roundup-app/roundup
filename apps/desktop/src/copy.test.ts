@@ -1,10 +1,8 @@
 import { copy } from "./app/copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { door, workstream } from "./testing/nodes";
 import { mountRailAndPane } from "./terminal/paneHarness";
-import { notices } from "./testing/notices";
 
 afterEach(cleanup);
 
@@ -98,10 +96,7 @@ const STRUCTURE = new Set([
   // U3309: physical key codes (including the generated Digit template) never render as copy.
   "ArrowUp", "ArrowDown", "Digit ",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
-  "N", "KeyN", "R", "KeyR", "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "B", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyB", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
-  // Solid 2 and ui-sdk wiring: DOM event names, key names, ARIA token values, CSS shorthand, ui-sdk part names, an id prefix, the Rail row's class and developer invariants are never shown.
-  "blur", "F2", "Home", "End", "true", "false", "treeitem", "a:", "root", "div", "side", "rest", "1 / 1 / auto / auto", "rail-row row-wash", "rail-row row-wash rail-root-divider",
-  "no item parent at depth   for  ", "A Dialog's content renders inside its Root.", "A Panel's content renders inside its Root.", "Popover parts belong inside Popover.Root", "A ui-sdk primitive declares no options",
+  "N", "KeyN", "R", "KeyR", "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "B", "T", "I", "U", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyB", "KeyU", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
   // U3529: display media and a recovery availability discriminant, never displayed copy.
@@ -294,11 +289,10 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
   app.handlers["rail.startDoor"] = () => { throw new Error("keep THIS launch failure 🧭"); };
 
   connected.rail.select("w");
-  flush();
   fireEvent.click((await screen.findAllByRole("button", { name: copy.start })).find((button) => button.closest(".pane-door"))!);
   const retry = (await screen.findAllByRole("button", { name: copy.retry })).find((button) => button.closest(".pane-door"))!;
 
-  expect(notices("alert")).toHaveLength(1);
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
   app.handlers["rail.startDoor"] = () => door("w", "working", "starting");
   fireEvent.click(retry);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w", cols: 100, rows: 30 }, { id: "w", cols: 100, rows: 30 }]));

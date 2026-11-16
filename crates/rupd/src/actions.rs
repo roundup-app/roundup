@@ -22,6 +22,8 @@ type Pending = HashMap<u64, oneshot::Sender<Result<Value, RpcError>>>;
 
 struct App {
     frames: mpsc::UnboundedSender<Frame>,
+    /// The App's process, whose own connections keep LK1's `other-project` answer (LK6).
+    peer: Option<u32>,
     pending: Pending,
 }
 
@@ -49,9 +51,10 @@ impl Answerer {
     }
 
     /// A second registration replaces the first (NA6 policy).
-    fn register(&self, frames: mpsc::UnboundedSender<Frame>) {
+    fn register(&self, frames: mpsc::UnboundedSender<Frame>, peer: Option<u32>) {
         let previous = self.app.lock().replace(App {
             frames,
+            peer,
             pending: Pending::new(),
         });
         if let Some(previous) = previous {
@@ -60,6 +63,11 @@ impl Answerer {
                 .frames
                 .send(json!({"jsonrpc":"2.0", "method":"action.closed"}).into());
         }
+    }
+
+    /// Whether `peer` is the process of the registered App.
+    pub(crate) fn is_app(&self, peer: Option<u32>) -> bool {
+        peer.is_some() && self.app.lock().as_ref().is_some_and(|app| app.peer == peer)
     }
 
     /// The App's connection closed: its registration ends and its pending calls are lost.
@@ -304,7 +312,7 @@ impl Daemon {
         if conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user's App answers actions"));
         }
-        self.actions.register(conn.events.clone());
+        self.actions.register(conn.events.clone(), conn.peer);
         // UA3: the names the App now holds are checked against the User actions.
         self.extensions.app_registered();
         Ok(())
@@ -398,6 +406,18 @@ impl Daemon {
                 format!("the App did not answer; \"{}\" may have run", run.name),
             )),
             Relay::Answer(answer) => serde_json::from_value(answer?).map_err(RpcError::internal),
+        }
+    }
+
+    /// LK6: the one typed read the relay carries, answered by the Daemon of the link's Project.
+    pub(crate) async fn relay_link_read(&self, url: &str) -> Result<Value, RpcError> {
+        match self.actions.relay("link.read", json!({ "url": url })).await {
+            Relay::NoApp => Err(app_closed()),
+            Relay::Lost => Err(RpcError::new(
+                code::UNKNOWN_OUTCOME,
+                "the App did not answer the link read; retry it",
+            )),
+            Relay::Answer(answer) => answer,
         }
     }
 

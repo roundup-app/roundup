@@ -203,7 +203,7 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   expect(within(row).getByText(m.store.comments!.get(1)![0]!.body)).toBeTruthy();
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
   expect([...panel().querySelectorAll(".inbox-group")].map(group => [group.getAttribute("data-agent"), [...group.querySelectorAll("[data-comment]")].map(row => row.getAttribute("data-comment"))])).toEqual([["c", ["2"]], ["a", ["1", "3"]], ["f", []]]);
-  expect(m.app.calls.some((call) => call.method.startsWith("message."))).toBe(false);
+  expect(m.app.calls.some((call) => call.method.startsWith("message.") && call.method !== "message.reconcileWork")).toBe(false);
 });
 
 it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_inboxrow_resume_%s", async (transition) => {
