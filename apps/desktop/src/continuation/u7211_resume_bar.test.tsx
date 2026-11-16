@@ -107,10 +107,10 @@ it("u7211a_a_failed_read_says_so_and_retries", async () => {
     return planOf(id, id === "a" ? [action("x1")] : []);
   } });
 
+  select("a");
   await waitFor(() => expect(bar()?.textContent).toContain(copy.checkFailed(copy.rpcFailure(CODE))));
 
   failing = false;
-  select("a");
   fireEvent.click(inBar().getByRole("button", { name: inkCopy.retry }));
   await waitFor(() => expect(inBar().getByRole("button", { name: copy.resume })).toBeTruthy());
   expect(bar()?.textContent).not.toContain(copy.checkFailed(copy.rpcFailure(CODE)));

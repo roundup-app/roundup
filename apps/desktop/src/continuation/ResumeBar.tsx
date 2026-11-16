@@ -6,6 +6,7 @@ import { focusCentre, queueFocus } from "../keys/focus";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
+import { isDoor } from "../state/doorNode";
 import type { Tally } from "../state/continuation";
 import type { ToastQueue } from "../toasts/queue";
 import { copy } from "./copy";
@@ -19,15 +20,18 @@ const lineOf = ({ resumed, failed }: Tally): string => {
 };
 
 /**
- * U7211a to U7211c: the one slim line over the top edge of the selected Agent's Terminal when it has unfinished work the
- * user has not dismissed, with Resume and Dismiss; it stays mounted and empty otherwise, so showing it moves nothing
- * (U3807), and it never resumes by itself. `⌘K U` and the command
+ * U7211a to U7211c: the one slim line in the row above the selected Agent's Terminal, which every Agent's Terminal
+ * reserves. It says so when the Agent has unfinished work the user has not dismissed, with Resume and Dismiss, and stays
+ * empty otherwise, so showing it moves nothing (U3807) and covers no output (U7192). It never resumes by itself. `⌘K U` and the command
  * list resume every Agent's, while one has some, and a Toast says how many resumed. When the read of unfinished work
  * fails the line says so instead, with a retry.
  */
 export const ResumeBar = (props: { notify: ToastQueue["notify"] }) => {
   const { rail, continuation: work, project } = useConnectedProject();
   const id = () => rail.selected() ?? "";
+
+  /** Every Agent's Terminal frame reserves this row, so the line showing or going moves nothing and covers no output. */
+  const framed = () => rail.nodes.some(node => node.id === id() && isDoor(node) && node.attempt !== null && node.terminal_id !== null);
 
   const unchecked = dismissable(() => {
     const error = work.readFailure();
@@ -57,20 +61,21 @@ export const ResumeBar = (props: { notify: ToastQueue["notify"] }) => {
   }, { defer: true }));
 
   return (
-    <ReservedLine
-      overlay
-      class="resume-bar"
-      message={message()}
-      status={visible() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
-      dismiss={dismiss}
-      recover={recover()}
-      action={<Show when={pending() && !message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
-      onKeyDown={event => {
-        if (event.key !== "Escape") return;
+    <Show when={framed()}>
+      <ReservedLine
+        class="resume-bar"
+        message={message()}
+        status={visible() ? work.busy(id()) ? copy.resuming : copy.stopped : null}
+        dismiss={dismiss}
+        recover={recover()}
+        action={<Show when={pending() && !message()}><RecoveryButtons dismiss={dismiss} recover={work.busy(id()) ? undefined : recover()} /></Show>}
+        onKeyDown={event => {
+          if (event.key !== "Escape") return;
 
-        event.stopPropagation();
-        dismiss();
-      }}
-    />
+          event.stopPropagation();
+          dismiss();
+        }}
+      />
+    </Show>
   );
 };
