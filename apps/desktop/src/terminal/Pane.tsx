@@ -16,7 +16,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
-import { captureActions } from "../keys/registry";
+import { captureActions, modalOpen } from "../keys/registry";
 import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
@@ -189,7 +189,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     untrack(() => {
       screens.resize(id, screens.show(id, host, false));
 
-      if (!rail.restored() && !doorNotRunning) {
+      // A modal layer keeps its focus; the Dialog's close returns focus to the pane.
+      if (!rail.restored() && !doorNotRunning && !modalOpen()) {
         // A mounted Drawer may still cover the centre until its dismissal effects settle.
         const focus = () => focusPermission(() => screens.emulatorFor(id).focus());
 

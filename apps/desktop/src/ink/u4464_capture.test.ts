@@ -192,10 +192,10 @@ it.skipIf(!captureDir("U4464") && !captureDir("U5163"))("u5606_capture_empty_vie
       await snap(`${theme}-draft-recovery`);
       await load("tree-40");
       await browser("click", '[aria-label="Create"]');
-      await wait(`!!document.querySelector('[role="menuitem"][id$="-item-workstream"]')`);
+      await wait(`!!document.querySelector('[role="menuitem"][data-value="workstream"]')`);
       expect(await read(`window.__u5606Calls`)).toBe(0);
       await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name', 'rail.createWorkstream')`);
-      await browser("click", '[role="menuitem"][id$="-item-workstream"]');
+      await browser("click", '[role="menuitem"][data-value="workstream"]');
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected: choose another Workstream name')`);
       await snap(`${theme}-dense-failure`);
       expect(await read(`window.__u5606Calls`)).toBe(1);

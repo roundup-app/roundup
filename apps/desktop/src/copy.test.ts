@@ -96,7 +96,7 @@ const STRUCTURE = new Set([
   // U2749b: a development/test invariant, never App copy.
   "Tooltip anchor excludes its opening pointer",
   // U3309: physical key codes (including the generated Digit template) never render as copy.
-  "ArrowUp", "ArrowDown", "Digit ",
+  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Digit ",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
   "N", "KeyN", "R", "KeyR", "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "B", "T", "I", "U", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyB", "KeyU", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   // Solid 2 and ui-sdk wiring: DOM event names, key names, ARIA token values, CSS shorthand, ui-sdk part names, an id prefix, the Rail row's class and developer invariants are never shown.

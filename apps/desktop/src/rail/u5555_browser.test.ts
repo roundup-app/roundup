@@ -45,7 +45,8 @@ const noticeReady = "!!document.querySelector('.rail-command-notice [role=alert]
 const menuClosed = "!document.querySelector('[role=menu]') && document.activeElement?.getAttribute('aria-label') === 'Create'";
 
 // The menu takes focus a frame after it mounts; a key pressed before then goes nowhere.
-const menuFocused = "document.activeElement?.getAttribute('role') === 'menu'";
+// Accepted change 1: opening a menu focuses its first item, so focus sits inside the menu, not on it.
+const menuFocused = "!!document.activeElement?.closest('[role=menu]')";
 
 const kinds = ["agent", "workstream", "mode"];
 
@@ -60,13 +61,13 @@ it.each(cases)("u5217_rendered_menu_matches_chord $seed $kind", async ({ seed, k
 
     if (menu) {
       await run(`click ${quote('[aria-label="Create"]')}`, wait("!!document.querySelector('[role=menu]')"));
-      expect(await lane.evaluate("[...document.querySelectorAll('[role=menuitem]')].map(item => [item.id.replace(/^.*-item-/, ''), item.getAttribute('aria-keyshortcuts'), item.querySelector('kbd').textContent])")).toEqual([
+      expect(await lane.evaluate("[...document.querySelectorAll('[role=menuitem]')].map(item => [item.getAttribute('data-value'), item.getAttribute('aria-keyshortcuts'), item.querySelector('kbd').textContent])")).toEqual([
         ["agent", "Meta+N", "⌘N"], ["workstream", "Alt+Meta+N", "⌥⌘N"], ["mode", "Shift+Meta+M", "⇧⌘M"],
       ]);
       expect((await lane.calls()).filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toEqual([]);
 
       if (kind === "agent") await lane.capture("U5217", `${seed}-menu`);
-      await run(`click ${quote(`[role=menuitem][id$=-item-${kind}]`)}`, wait(settled), wait("!document.querySelector('[role=menu]')"));
+      await run(`click ${quote(`[role=menuitem][data-value=${kind}]`)}`, wait(settled), wait("!document.querySelector('[role=menu]')"));
     } else await run(`press ${chord}`, wait(settled), wait("!document.querySelector('[role=menu]')"));
     outcomes.push(await lane.evaluate("({ calls: window.__fake.app.calls.filter(call => ['agent.spawn','rail.createWorkstream'].includes(call.method)).map(call => ({method:call.method,params:call.params})), selection: document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id'), dialog: !!document.querySelector('[role=dialog]'), focus: document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.getAttribute('data-id') })"));
   }
@@ -76,7 +77,7 @@ it.each(cases)("u5217_rendered_menu_matches_chord $seed $kind", async ({ seed, k
 
 it.each(cases)("u5555_rendered_keyboard_chooses $seed $kind", async ({ seed, kind, index }) => {
   await fresh(seed);
-  const highlighted = (value: string) => wait(`document.querySelector('[role=menuitem][data-highlighted]')?.id.endsWith('-item-${value}')`);
+  const highlighted = (value: string) => wait(`document.querySelector('[role=menuitem][data-highlighted]')?.getAttribute('data-value') === '${value}'`);
 
   await run(`focus ${quote('[aria-label="Create"]')}`, "press Shift+Tab", "press Tab");
   expect(await lane.focused()).toBe("Create");

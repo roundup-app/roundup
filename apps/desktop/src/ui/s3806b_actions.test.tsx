@@ -5,6 +5,7 @@ import { createSignal, flush } from "solid-js";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "../testing/menuProbe";
+import { notice } from "../testing/notices";
 import type { OpenParams } from "@contracts/terminal/OpenParams";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -512,8 +513,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
     if (row.method === "agent.spawn") {
       if (row.owner === "App") {
-        const notice = await screen.findByRole("alert");
-        expect(notice.textContent).toContain(`${row.label} rejected by the Daemon`);
+        const alert = await waitFor(() => notice("alert"));
+        expect(alert.textContent).toContain(`${row.label} rejected by the Daemon`);
         expect(ofMethod()).toHaveLength(1);
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect(("other" in mounted ? mounted.other : undefined)?.calls.filter(call => call.method === row.method || call.method === "message.send" || call.method === "terminal.write") ?? []).toEqual([]);
@@ -524,8 +525,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
         expect(ofMethod()).toHaveLength(1);
       }
 
-      const notice = document.querySelector(".rail-command-notice")!;
-      const retry = notice.querySelector("button");
+      const retry = document.querySelector(".rail-command-notice")!.querySelector("button");
       expect(retry).not.toBeNull();
       expect(connected.rail.commandFailure.message()).toContain("New Agent");
       // Removing the rendering owner must not discard the connection's recovery.

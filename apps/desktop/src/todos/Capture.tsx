@@ -300,7 +300,8 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     capture: () => ({ available: () => !open() && connected.daemonExit() === null, invoke: show }),
   }]);
   // A request can predate the mounted dialog (a Project chosen while Capture was absent), so the effect starts after mount.
-  createEffect(createMemo(() => props.open), wanted => { if (wanted) untrack(port ? nativeShow : show); });
+  // Its first value is read as the dialog mounts, before the previous owner's cleanup closes the request, so apply reads the request again.
+  createEffect(createMemo(() => props.open), () => { if (untrack(() => props.open)) untrack(port ? nativeShow : show); });
   onCleanup(() => { if (untrack(() => open() || nativeOpen())) props.onOpenChange?.(false); });
 
   if (untrack(() => props.open) === undefined) registerKeys({ kind: "app" }, [{

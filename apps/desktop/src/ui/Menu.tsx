@@ -57,4 +57,7 @@ const Content = (props: Omit<ComponentProps<typeof MenuContent>, "class"> & { cl
   return <MenuContent finalFocus={owner.returnFocus} {...rest} ref={[props.ref, owner.opened]} class={["app-menu", props.class]} />;
 };
 
-export const Menu = { Root, Trigger, Content, Item: MenuItem, Group: MenuGroup, GroupLabel: MenuGroupLabel, RadioGroup: MenuRadioGroup, RadioItem: MenuRadioItem, ItemIndicator: MenuItemIndicator };
+/** ui-sdk gives an item a generated id and keeps its value off the DOM; the App names each item by its value. */
+const Item = (props: ComponentProps<typeof MenuItem>) => <MenuItem data-value={props.value} {...props} />;
+
+export const Menu = { Root, Trigger, Content, Item, Group: MenuGroup, GroupLabel: MenuGroupLabel, RadioGroup: MenuRadioGroup, RadioItem: MenuRadioItem, ItemIndicator: MenuItemIndicator };

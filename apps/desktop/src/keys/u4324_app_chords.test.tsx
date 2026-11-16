@@ -160,7 +160,8 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   target.focus();
   expect(document.activeElement).toBe(target);
   const selected = fixture?.connected().rail.selected();
-  const benchState = () => ["data-shelf", "data-shelf-maximised"].map(name => document.querySelector(".window")?.getAttribute(name)).join();
+  // U3721a: `⌘K B` steps the Bench one size; with a row focused the step opens that row's Drawer and leaves the window's own attributes as they were.
+  const benchState = () => [...["data-shelf", "data-shelf-maximised"].map(name => document.querySelector(".window")?.getAttribute(name)), document.querySelector(".drawer[data-open=true]") !== null].join();
   const shelfBefore = benchState();
   const original = fixture?.connected().drafts.list().find(record => record.destination.surface === "ask" && record.value.text === draft);
   const received = vi.fn();

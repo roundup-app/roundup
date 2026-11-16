@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
@@ -25,6 +26,8 @@ it("u3789f_f2_and_menu_rename_any_owners_item", async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "F2", code: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox");
+  // The field's pending update must land before the typing: left pending, it writes the field's value back.
+  flush();
   fireEvent.input(field, { target: { value: "plan" } });
   fireEvent.keyDown(field, { key: "Enter" });
 

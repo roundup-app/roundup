@@ -5,6 +5,7 @@ import { flush } from "solid-js";
 import { App } from "../App";
 import type { ConnectedProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
+import { storageIdle } from "../state/storage";
 import { agent, door, info, workstream } from "../testing/nodes";
 import { padHandlers, todoHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
@@ -14,7 +15,8 @@ import { appSettings } from "../settings/preferences";
 import { endLeader } from "./registry";
 import { openAsk } from "../ask/askFixture";
 
-afterEach(() => { cleanup(); endLeader(); localStorage.clear(); sessionStorage.clear(); });
+// A save queued as the test ends lands after a clear that does not wait for it, and the next test starts with it.
+afterEach(async () => { cleanup(); endLeader(); await storageIdle(); localStorage.clear(); sessionStorage.clear(); });
 
 const press = (options: KeyboardEventInit = {}) => {
   const event = new KeyboardEvent("keydown", { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true, bubbles: true, cancelable: true, ...options });

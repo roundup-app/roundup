@@ -224,7 +224,7 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
   create.click();
 
   if (create.getAttribute("aria-label") === "Create") {
-    const workstream = await appears(() => document.querySelector<HTMLElement>('[role="menuitem"][id$="-item-workstream"]'), "the Workstream menu item");
+    const workstream = await appears(() => document.querySelector<HTMLElement>('[role="menuitem"][data-value="workstream"]'), "the Workstream menu item");
     workstream.click();
   }
 

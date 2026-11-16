@@ -7,12 +7,14 @@ import userEvent from "@testing-library/user-event";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info, mode, NOW, workstream, doorOf } from "../testing/nodes";
+import { storageIdle } from "../state/storage";
 import { lazyEmulators } from "../terminal/lazyEmulator";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 
-afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
+// A save queued as the test ends lands after a clear that does not wait for it, and the next test starts with it.
+afterEach(async () => { cleanup(); await storageIdle(); localStorage.clear(); sessionStorage.clear(); });
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
 

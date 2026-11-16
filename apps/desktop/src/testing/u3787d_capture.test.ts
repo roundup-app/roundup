@@ -107,8 +107,8 @@ it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", a
     await lane.until("!document.querySelector('.header-recovery')");
     await lane.browser("focus", ".rail-row");
     await lane.browser("press", "ContextMenu");
-    await lane.until("!!document.querySelector('[role=menuitem][id$=-item-recover]')");
-    await lane.browser("click", "[role=menuitem][id$=-item-recover]");
+    await lane.until("!!document.querySelector('[role=menuitem][data-value=recover]')");
+    await lane.browser("click", "[role=menuitem][data-value=recover]");
     await lane.until("!!document.querySelector('.draft-revisions')");
     await capture("unfinished-work");
   expect(await lane.evaluate<number>("document.querySelectorAll('.draft-revisions button').length")).toBeGreaterThan(0);

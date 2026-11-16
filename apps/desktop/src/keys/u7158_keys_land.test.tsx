@@ -142,6 +142,9 @@ describe("u7158 a stray key goes to the centre", () => {
     await userEvent.keyboard("{ArrowDown}");
     expect(document.activeElement).toBe(row("b"));
 
+    // The focused row's Tooltip is open and takes the first Escape: Escape closes only the newest layer. The next reaches the row.
+    fireEvent.keyDown(row("b"), { key: "Escape", code: "Escape" });
+
     for (const key of ["Escape", "Tab"]) expect(fireEvent.keyDown(row("b"), { key, code: key })).toBe(true);
 
     expect(document.activeElement).toBe(row("b"));

@@ -8,6 +8,8 @@ import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext, type ConnectedProject } from "../state/connectedProject";
 import { RpcError, type NativeOpen } from "../app/seam";
 import { keyOfPath } from "./linkRoute";
+// The App loads this module on mount and a link click does nothing until it has; loaded here, the click never waits on its first transform.
+import "./nativeOpen";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
 

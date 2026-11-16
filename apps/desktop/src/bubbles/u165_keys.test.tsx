@@ -3,6 +3,7 @@ import { flush } from "solid-js";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
+import { shownText } from "../testing/rowTip";
 import { bubbleNames, bubbleCalls, bubbleChord, mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => {
@@ -70,7 +71,8 @@ describe("u165 the keys for bubbles", () => {
 
     await mountRail(TREE);
     expect([...document.querySelectorAll("button")].map((button) => button.textContent?.trim())).not.toContain("+ terminal");
-    expect(document.body.textContent).not.toContain("terminal");
+    // A closed Tooltip keeps its words in the page, hidden; only the shown words count.
+    expect(shownText(document.body)).not.toContain("terminal");
   });
 
   it("u165_leader_m_minimises_and_restores_the_focused_bubble", async () => {

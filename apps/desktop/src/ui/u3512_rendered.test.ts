@@ -20,8 +20,8 @@ const openForm = async () => {
   await lane.browser("focus", `.shelf .todo-row[data-id="${id}"] .todo-row-button`);
   await key("o");
   await lane.until("!!document.querySelector('[role=menu]')");
-  await lane.evaluate(`document.querySelector('[role=menuitem][id$="-item-new-workstream"]').scrollIntoView({block: 'nearest'})`);
-  await lane.browser("click", '[role=menuitem][id$="-item-new-workstream"]');
+  await lane.evaluate(`document.querySelector('[role=menuitem][data-value="new-workstream"]').scrollIntoView({block: 'nearest'})`);
+  await lane.browser("click", '[role=menuitem][data-value="new-workstream"]');
   await lane.until("!!document.querySelector('.new-workstream textarea')");
 };
 

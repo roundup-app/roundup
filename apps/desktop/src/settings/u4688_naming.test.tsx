@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
@@ -35,6 +36,8 @@ it("u4688a_global_naming_controls", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(await screen.findByText(/Enter a naming guide/)).toBeTruthy();
   expect(saved.namingGuide).toBe("role-verb-object");
+  // The first draft's pending update must land before the next typing: left pending, it writes the field's value back.
+  flush();
   fireEvent.input(field, { target: { value: "役割\n動作-対象" } });
   fireEvent.blur(field);
   expect(saved.namingGuide).toBe("role-verb-object");
