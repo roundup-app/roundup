@@ -61,8 +61,7 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
         initialExpansion: "open",
         itemHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24,
         stickyFolders: false,
-        // U3787c: library name-prefix typeahead, and Shift/⌘⇧ ranges that replace the selection.
-        typeahead: "name-prefix",
+        // U3787c: Shift/⌘⇧ ranges replace the selection; a letter is never type-to-find (U7158).
         rangeSelection: "replace",
         icons: { set: "minimal", colored: false },
         // The library defines its palette on :host, inside its shadow root.

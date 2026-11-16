@@ -38,6 +38,7 @@ import {
   clamped, clearances, defaultPlace, extentOf, placesStorage, reconciledPlaces, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
 import type { Place, Extent } from "./places";
+import { askOnce } from "../settings/warnings";
 import "./styles.css";
 
 const ESCAPE = "Escape".split(" ");
@@ -402,7 +403,7 @@ export const Bubbles = (props: {
         }
 
         if (outcomeOf(thrown) === "failed") void openTerminal(() => false, false, workstream);
-        else void app.ask({ title: copy.newTerminal, message: copy.terminalOpenAgainQuestion, okLabel: copy.newTerminal, cancelLabel: copy.keep }).then(accepted => { if (accepted) void openTerminal(() => false, false, workstream); });
+        else void askOnce(app, "new-terminal-again", { title: copy.newTerminal, message: copy.terminalOpenAgainQuestion, okLabel: copy.newTerminal, cancelLabel: copy.keep }).then(accepted => { if (accepted) void openTerminal(() => false, false, workstream); });
       });
 
       return null;

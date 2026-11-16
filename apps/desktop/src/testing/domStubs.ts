@@ -33,6 +33,9 @@ Element.prototype.scrollIntoView ??= () => undefined;
 // Lists scroll to a highlighted row and watch their size; jsdom has neither.
 Element.prototype.scrollTo ??= () => undefined;
 
+// jsdom paints no boxes, so nothing sits under a point; ui-sdk's resizable handles ask, and a test that wants an answer sets its own.
+Document.prototype.elementFromPoint ??= () => null;
+
 globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };
 
 // Pierre watches viewport intersections; jsdom never paints an intersecting box.

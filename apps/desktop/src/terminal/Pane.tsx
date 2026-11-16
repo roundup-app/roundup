@@ -7,7 +7,7 @@ import { appSettings, saveAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
 import { layoutMoving } from "../resize/motion";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, getOwner, onCleanup, onSettled, runWithOwner, Show, For, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, For, untrack } from "solid-js";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Recovery } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
@@ -26,6 +26,7 @@ import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
 import { doorTerminalId } from "../state/doorNode";
+import { centreState } from "./centreState";
 
 
 type PaneNotice = { kind: "notice" | "command" | "terminal"; message: string; recovery: Recovery };
@@ -69,12 +70,10 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const { rail } = connected;
   let fontSize: number | undefined;
   const createEmulator = props.createEmulator ?? lazyXtermEmulators();
-  const owner = getOwner();
 
   const screens = createScreens(connected, (id, copy) => {
     fontSize ??= untrack(() => appSettings().fontSize);
-    // An emulator is made when a Terminal shows, from an effect's apply, which has no owner of its own: it belongs to this Pane.
-    const emulator = runWithOwner(owner, () => createEmulator(id, copy));
+    const emulator = createEmulator(id, copy);
 
     emulator.setFontSize(fontSize);
 
@@ -102,7 +101,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   const terminalId = createMemo(() => doorTerminalId(selected()));
 
-  createEffect(terminalId, id => { props.observeTerminal?.(id); });
+  createEffect(() => [terminalId(), props.observeTerminal] as const, ([id, observe]) => { observe?.(id); });
   onCleanup(() => props.observeTerminal?.(null));
 
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
@@ -290,7 +289,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
           body = element;
         }}
       >
-        <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
+        <div class="pane-screen" {...centreState(connected, selected())} ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>

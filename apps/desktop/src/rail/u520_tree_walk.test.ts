@@ -110,9 +110,9 @@ run("u520 the Rail is a tree", () => {
     await press("Home");
     await page.until(`() => document.activeElement?.matches('.section-head') === true`);
     expect(await page.call<boolean>(`() => document.activeElement === document.querySelector('.rail-tree .section-head')`)).toBe(true);
-    // A letter jumps to the row whose name begins with it.
+    // U7158: a letter finds no row; focus stays on the heading after two frames.
     await press("m");
-    await at("migrate");
+    expect(await page.call<boolean>(`() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(document.activeElement?.matches('.section-head') === true))))`)).toBe(true);
   });
 
   it("u520_done_line_is_not_a_row", async () => {

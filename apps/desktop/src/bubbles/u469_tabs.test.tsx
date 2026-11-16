@@ -304,6 +304,7 @@ it("u469_daemon_exit_keeps_one_read_only_bubble_and_clears_saved_places", async 
   const mounted = await mountBubbles();
 
   mounted.setExit({code:1});
+  flush();
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
   expect(window.sessionStorage.getItem('roundup:bubble-places:/p')).toBeNull();
 });
@@ -316,13 +317,15 @@ it("u3512a_terminal_close_waits_for_one_native_answer_and_cancel_keeps_it", asyn
   fireEvent.click(close);
   flush();
   expect(app.questions).toHaveLength(1);
-  expect(await questionDialog()).toEqual({ title: "Close cargo test?", message: "The Terminal and its output will be removed. Its running program will stop.", okLabel: "Close", cancelLabel: "Keep" });
+  expect(await questionDialog()).toEqual({ title: "Close cargo test?", message: "The Terminal and its output will be removed. Its running program will stop.", okLabel: "Close", cancelLabel: "Keep", suppressible: "Don't ask again" });
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   await answerQuestion(false);
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   expect(close.isConnected).toBe(true);
+  await new Promise(resolve => setTimeout(resolve));
   fireEvent.click(close);
   flush();
+  await questionDialog();
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "1" }]));
 });

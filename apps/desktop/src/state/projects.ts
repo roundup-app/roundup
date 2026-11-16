@@ -125,7 +125,7 @@ export const createProjectsState = (app: App, saved = openTabStorage(), order = 
   }), { fail: setReadFailure });
 
   const reload = async () => {
-    if (read.state().kind === "pending") return;
+    if (untrack(read.state).kind === "pending") return;
 
     await read();
     setLoaded(true);

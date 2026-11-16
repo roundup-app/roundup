@@ -82,8 +82,8 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   await press("Delta", "ArrowDown", "終 e\u0301 😀");
   fireEvent.keyDown(rowOf("終 e\u0301 😀"), { key: "a", metaKey: true });
   await waitFor(() => expect(document.querySelectorAll(".rail-row[data-selected]")).toHaveLength(5));
-  // U3787c's Rail clause: a name prefix moves focus only; the selection and the open row stay.
-  await press("終 e\u0301 😀", "G", "Gamma");
+  // U7158: a letter finds no row; the selection and the open row stay.
+  await press("終 e\u0301 😀", "G", "終 e\u0301 😀");
   expect(document.querySelectorAll(".rail-row[data-selected]")).toHaveLength(5);
   expect(rail.selected()).toBe("row-1");
 });

@@ -95,7 +95,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
       save({ collapsed: next });
     },
-    settleLayout: () => setLaidOut(collapsed()),
+    settleLayout: () => setLaidOut(untrack(collapsed)),
     rail: {
       label: copy.resizeRail,
       direction: 1,

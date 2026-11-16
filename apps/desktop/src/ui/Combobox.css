@@ -22,7 +22,6 @@
 
 :where([data-slot="command-input"]) {
   height: revert;
-  outline: revert;
 }
 
 :where([data-slot="command-list"]) {
@@ -31,7 +30,6 @@
 
 :where([data-slot="command-item"]) {
   min-height: revert;
-  outline: revert;
   user-select: revert;
 }
 

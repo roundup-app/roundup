@@ -237,7 +237,7 @@ it("u491_keys_limits_and_reset_commit_the_final_pixels_once", async () => {
 });
 
 // The Shelf's handle has the rest of the window before it, so the group's own keys would resize that instead.
-it("u491_shelf_home_end_and_reset_set_the_shelfs_own_width_once", async () => {
+it("u491_shelf_home_end_and_reset_set_the_shelf_width_once", async () => {
   const mounted = mountEdge("shelf");
 
   mounted.edge.focus();

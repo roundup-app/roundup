@@ -1,7 +1,7 @@
 import { makeEventListenerStack } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, createMemo, For, onCleanup } from "solid-js";
+import { createEffect, createMemo, For, onCleanup, untrack } from "solid-js";
 import { Portal } from "@solidjs/web";
 import { provideFocusTarget } from "../keys/focus";
 import { registerKeys } from "../keys/registry";
@@ -81,12 +81,14 @@ export const Bubble = (props: {
   });
 
   // A Terminal is viewed while its Bubble is open; a folded or closed one gathers unseen output. The default place is open, so a Bubble not yet placed is not viewed: its stored place may fold it.
-  createEffect(() => props.preparing || !props.placed ? null : { id: id(), open: !place().min }, viewing => { if (viewing) props.screens.viewing(viewing.id, viewing.open); });
+  createEffect(() => props.preparing || !props.placed ? null : { id: id(), open: !place().min }, viewing => { if (viewing) untrack(() => props.screens.viewing(viewing.id, viewing.open)); });
 
   const mount = () => {
     provideFocusTarget(`bubble.${id()}`, () => body?.querySelector<HTMLElement>("textarea"));
     createEffect(createMemo(() => props.preparing ? null : id()), terminal => {
-      if (terminal !== null && body) props.screens.resize(terminal, props.screens.show(terminal, body, false));
+      const host = body;
+
+      if (terminal !== null && host) untrack(() => props.screens.resize(terminal, props.screens.show(terminal, host, false)));
     });
 
     const watched = typeof ResizeObserver !== "undefined" ? makeResizeObserver(refitNextFrame) : undefined;

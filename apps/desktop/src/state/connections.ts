@@ -80,7 +80,7 @@ const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connecti
   const [attempt, setAttempt] = createSignal<Attempt>(null);
 
   const connect = async (generation: number): Promise<Attempt> => {
-    const exit = tab()?.exit;
+    const exit = untrack(tab)?.exit;
 
     try {
       registration.abort();

@@ -503,6 +503,7 @@ export const createFakeApp = (): FakeApp => {
       return () => window.removeEventListener("open-project-page", receive);
     },
     forkBranch: async () => "fork",
+    forkColour: async () => null,
     forkMake: async () => {},
     forkList: async () => [],
     forkRename: async () => {},

@@ -185,7 +185,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
   return <section class="diff-reader" aria-label={copy.diff}>
     <header class="diff-header">
       <div class="diff-identity">
-        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
+        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => <>{value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</>}</Show></p>
       </div>
       <div class="diff-actions">
         <Show when={read()}>{value => <>

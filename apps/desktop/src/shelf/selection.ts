@@ -30,7 +30,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
 
   createEffect(createMemo(() => `${context()}:${host?.open()}`), clear, { defer: true });
   createEffect(ids, visible => {
-    setSelected(selected().filter(id => visible.includes(id)));
+    setSelected(untrack(selected).filter(id => visible.includes(id)));
 
     for (const id of rows.keys()) if (!visible.includes(id)) rows.delete(id);
 

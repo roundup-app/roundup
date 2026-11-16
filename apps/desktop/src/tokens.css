@@ -542,6 +542,11 @@ button, file-tree-container, diffs-container {
 [data-flat-tab] {
   box-shadow: none
 }
+/* ui-sdk's toast card and resize handle carry their own shadow; the stack and the edge are flat. */
+.app-toast[data-slot="toast"],
+.resize-edge {
+  box-shadow: none
+}
 
 /* Resolve on the scene container so local grounds do not inherit a root-resolved mix. */
 .empty-state-ground {

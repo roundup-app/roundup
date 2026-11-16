@@ -1,5 +1,5 @@
 import { provideFocusTarget } from "../keys/focus";
-import { createEffect, createSignal, For, onCleanup, onSettled, Show, untrack } from "solid-js";
+import { createEffect, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Pane } from "./Pane";
 import { doorTerminalId } from "../state/doorNode";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -35,8 +35,8 @@ export const createProjectPanes = (options: Options) => {
 
     if (active !== null && options.connectionOf(active) && !next.includes(active)) next.push(active);
 
-    return next.length !== kept.length || next.some((path, index) => path !== kept[index]) ? next : undefined;
-  }, next => { if (next) setShown(next); });
+    if (next.length !== kept.length || next.some((path, index) => path !== kept[index])) setShown(next);
+  });
 
   const setScreen = (path: string, shared: Screens | undefined) => setScreens(known => {
     const next = new Map(known);
@@ -65,17 +65,16 @@ export const createProjectPanes = (options: Options) => {
     let host: HTMLDivElement | undefined;
 
     // IP7168d: styles.css pauses a Pane's Terminals while `data-inactive` is set. The attribute's removal draws them in the same task, so the first frame of the switch holds the output they missed; xterm resumes from an observer a task later.
-    onSettled(() => {
+    onMount(() => {
       if (!host) return;
 
-      const watcher = new MutationObserver(() => { if (!host?.hasAttribute("data-inactive")) screens().get(path)?.redraw(); });
+      const shown = new MutationObserver(() => { if (!host?.hasAttribute("data-inactive")) screens().get(path)?.redraw(); });
 
-      watcher.observe(host, { attributes: true, attributeFilter: ["data-inactive"] });
-
-      return () => watcher.disconnect();
+      shown.observe(host, { attributes: true, attributeFilter: ["data-inactive"] });
+      onCleanup(() => shown.disconnect());
     });
 
-    createEffect(active, now => {
+    createEffect(on(active, now => {
       if (!now) return;
 
       // U7155a: only the shown Pane answers for the centre's Terminal.
@@ -85,14 +84,14 @@ export const createProjectPanes = (options: Options) => {
 
       // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
       if (arrived) queueMicrotask(() => arrived(() => focusSelected(open, options.focusPane)));
-    });
+    }));
 
     return (
-      <ConnectedProjectContext value={open}>
+      <ConnectedProjectContext.Provider value={open}>
         <div ref={host} class="pane-host" data-inactive={active() ? undefined : ""} inert={!active()}>
           <Pane observeTerminal={active() ? id => options.observeTerminal(path, id) : undefined} notice={open.rail.failure() ?? (active() ? options.notice() : null) ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={shared => setScreen(path, shared)} openObject={options.openObject} />
         </div>
-      </ConnectedProjectContext>
+      </ConnectedProjectContext.Provider>
     );
   };
 

@@ -17,7 +17,7 @@ import { ToolCallLine } from "./ToolCallLine";
 
 export const ProjectOverview = () => {
   const { rail, hasView, hideView } = useConnectedProject();
-  const attention = createMemo(() => attentionOrder(rail.nodes, rail.dismissed));
+  const attention = createMemo(() => attentionOrder(rail.nodes, [], rail.dismissed).flatMap(entry => entry.kind === "agent" ? [entry.node] : []));
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
 

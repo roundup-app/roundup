@@ -3,7 +3,7 @@ import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCutTitle } from "../ui/cutTitle";
-import { createEffect, createMemo, createSignal, lazy, Loading, onCleanup, Show, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, Loading, onCleanup, Show, untrack, type Accessor } from "solid-js";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { Worktree } from "@contracts/agent/Worktree";
 import { copy } from "./copy";
@@ -119,9 +119,8 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
   let viewButton: HTMLButtonElement | undefined;
 
-  const id = props.id;
-  const worktree = { ...props.worktree };
-  const title = `${copy.reviewChanges} · ${props.name}: `;
+  // The Panel is made per Worktree (a keyed Show), so what it was made for is read once.
+  const { id, worktree, title } = untrack(() => ({ id: props.id, worktree: { ...props.worktree }, title: `${copy.reviewChanges} · ${props.name}: ` }));
 
   const originalAvailable = () => {
     const found = rail.nodes.find(node => node.id === id);
@@ -186,9 +185,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
                   <dt>{copy.worktreeState}</dt>
                   <dd>{copy.worktreeStateText(state().ahead, state().behind, state().dirty)}</dd>
                   <dt>{copy.worktreeCi}</dt>
-                  <dd><Show when={state().ci} fallback={copy.worktreeCiUnavailable}>{(ci) => copy.worktreeCiText(ci().state, ci().stale)}</Show></dd>
+                  <dd><Show when={state().ci} fallback={copy.worktreeCiUnavailable}>{(ci) => <>{copy.worktreeCiText(ci().state, ci().stale)}</>}</Show></dd>
                   <dt>{copy.worktreePr}</dt>
-                  <dd><Show when={state().pr} fallback={copy.worktreePrUnavailable}>{(pr) => copy.worktreePrText(pr().number, pr().stale)}</Show></dd>
+                  <dd><Show when={state().pr} fallback={copy.worktreePrUnavailable}>{(pr) => <>{copy.worktreePrText(pr().number, pr().stale)}</>}</Show></dd>
                 </>
               )}
             </Show>

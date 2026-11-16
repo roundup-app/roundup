@@ -267,7 +267,7 @@ it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", asyn
       await browser("set", "media", "color-scheme", theme);
       await load("agents-10");
       await browser("eval", `(async () => {
-        const {render} = await import('/node_modules/solid-js/web/dist/web.js');
+        const {render} = await import('/node_modules/@solidjs/web/dist/web.js');
         const {createComponent} = await import('/node_modules/solid-js/dist/solid.js');
         const {KindGlyph} = await import('/src/ink/KindGlyph.tsx');
         const sheet = document.createElement('div');

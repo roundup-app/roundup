@@ -233,9 +233,9 @@ it("u5742d_choice_takes_focus_when_terminal_becomes_ready", async () => {
 it("u5742a_reselect_replaces_modifier_selection_and_focuses_terminal", async () => {
   const m = await mount();
   fireEvent.click(row("ann"), { metaKey: true });
-  await waitFor(() => expect(row("ann").dataset.selected).toBe("true"));
+  await waitFor(() => expect(row("ann").hasAttribute("data-selected")).toBe(true));
   fireEvent.click(row("dee"), { metaKey: true });
-  await waitFor(() => expect(row("dee").dataset.selected).toBe("true"));
+  await waitFor(() => expect(row("dee").hasAttribute("data-selected")).toBe(true));
   fireEvent.click(row("ann"));
   await provesChoice(m, "ann");
   row("ann").focus();

@@ -1,4 +1,4 @@
-import { createEffect, createMemo, onCleanup } from "solid-js";
+import { createEffect, createMemo, onCleanup, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
@@ -37,8 +37,8 @@ export const WindowBar = (props: {
     if (writing || disposed) return;
     writing = true;
 
-    while (!disposed && written !== title()) {
-      const next = title();
+    while (!disposed && written !== untrack(title)) {
+      const next = untrack(title);
       written = next;
 
       try {

@@ -55,13 +55,13 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $opening", async ({ 
   const before = app.calls.length;
   eligible[1]!.focus();
 
-  for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", eligible.length - 1], ["ArrowDown", eligible.length - 1], ["ArrowUp", eligible.length - 2], ["ArrowDown", eligible.length - 1], ["a", command === "view:workstreams" ? 1 : 0], ["l", command === "view:workstreams" ? 1 : 0]] as const) {
+  for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", eligible.length - 1], ["ArrowDown", eligible.length - 1], ["ArrowUp", eligible.length - 2], ["ArrowDown", eligible.length - 1]] as const) {
     fireEvent.keyDown(document.activeElement!, { key });
     flush();
     expect(document.activeElement).toBe(eligible[at]);
   }
 
-  expect(selected(rows)).toEqual([eligible[command === "view:workstreams" ? 1 : 0]]);
+  expect(selected(rows)).toEqual([]);
   expect(app.calls.slice(before)).toEqual([]);
   expect(document.querySelector(".todo-drawer, .rail-row[data-selected]")).toBeNull();
 });

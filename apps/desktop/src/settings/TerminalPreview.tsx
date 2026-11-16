@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, onSettled } from "solid-js";
+import { createEffect, onCleanup, onSettled, untrack } from "solid-js";
 import { Terminal } from "@xterm/xterm";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { FitAddon } from "@xterm/addon-fit";
@@ -15,7 +15,7 @@ const previewSample = [`${copy.previewApp}  \x1b[1m${copy.terminalPreview}${rese
 /** A local, read-only xterm sample; it owns no Daemon identity or input subscription. */
 export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }) => {
   let host!: HTMLDivElement;
-  const terminal = new Terminal({ ...xtermOptions, ...props.type, disableStdin: true, cursorBlink: false, scrollback: 0 });
+  const terminal = new Terminal({ ...xtermOptions, ...untrack(() => props.type), disableStdin: true, cursorBlink: false, scrollback: 0 });
   const disposers: (() => void)[] = [];
   const fit = new FitAddon();
   terminal.loadAddon(fit);

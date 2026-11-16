@@ -250,6 +250,8 @@ export const RailRowView = (props: {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || props.lifted) return;
 
     if (!(event.target instanceof Element) || event.target.closest("button, input, a, [contenteditable]")) return;
+    // The tree focuses a pressed row after this handler; a pointer has focused it already. Doing it first keeps that focus move from voiding the choice's own permission to focus the Terminal.
+    element?.focus({ preventScroll: true });
     props.onOpen();
   };
 

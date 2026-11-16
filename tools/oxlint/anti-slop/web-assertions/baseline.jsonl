@@ -170,8 +170,6 @@
 {"file":"apps/desktop/src/shelf/u3723_keys.test.tsx","test":"u3721_maximise_keeps_the_centre_mounted","identity":"940f5c502645d02487876973ae4c52f9aeaf2baec8a3b196cecf87eb5520390a"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream","identity":"3584dc00f3a8d9693b550f86174da332e428f6468c04722a6b4de307befaae95"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream","identity":"0fb78cd6acf6261f37a5aece8387e9ad932401f4afd9ddca325ced26dfc08204"}
-{"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"91dbf1adf1390a1884af999ac18b944293a87770f4ab059dfed0a288728c26f4"}
-{"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open","identity":"fa7ee3309df6a767c299562e68534f662dd6b96a5dc11aa78f605863dea522c9"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"ae2644be8e5e1a6163a0fff0832ecbecdacfbd69ec97791c2ff0e4f2df8dacc2"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"c4624e5e55ec24894524697014c998e9a67ab4b8067bc03b999dd96b22b877d9"}
 {"file":"apps/desktop/src/switcher/u529_switcher.test.tsx","test":"u2773e_unreadable_query_offers_only_retry_until_there_is_text","identity":"e60fd2ba870b6b76306b13e9b4a5deaf211765157b93a07417a3bd47dd3a15ee"}

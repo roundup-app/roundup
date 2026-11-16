@@ -152,10 +152,11 @@ export const ProjectTab = (props: {
   const mark = () => props.suppressed ? null : markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
   const authority = useContext(ProjectDraftsContext);
-  const drafts = authority?.(props.tab.path);
+  const path = untrack(() => props.tab.path);
+  const drafts = authority?.(path);
   drafts?.validate("header", schema);
-  drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
-  const destination = Object.freeze({ surface: "header", object: props.tab.path, recipient: null });
+  drafts?.registerRecovery("header", draft => draft.destination.object === path ? "available" : "unavailable");
+  const destination = Object.freeze({ surface: "header", object: path, recipient: null });
   createEffect(createMemo(() => editing() !== null), open => open && drafts ? drafts.editor(destination) : undefined);
   const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path && draft.destination.recipient === null) ?? []);
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));

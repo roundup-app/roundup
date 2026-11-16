@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import axe from "axe-core";
 import { Terminal } from "@xterm/xterm";
@@ -56,7 +56,7 @@ it("u5242b_each_control_is_described_by_the_text_under_it", async () => {
   expect(document.querySelectorAll(".settings-hint:empty")).toHaveLength(0);
   await section("Agents");
   const permission = screen.getByRole("combobox", { name: "Permission mode" });
-  expect(permission.parentElement?.nextElementSibling?.id).toBe(permission.getAttribute("aria-describedby"));
+  expect(permission.nextElementSibling?.id).toBe(permission.getAttribute("aria-describedby"));
   await section("Shortcuts");
   const shortcut = document.querySelector(".settings-shortcut:has([aria-describedby])")!;
   expect(shortcut.nextElementSibling?.id).toBe(shortcut.querySelector("button")!.getAttribute("aria-describedby"));
@@ -81,6 +81,7 @@ it("u5242c_forward_reopens_settings_after_back_and_clears_on_other_navigation", 
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
   await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
   window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: "/other", command: "project-settings" } }));
+  flush();
   fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
   await new Promise(resolve => setTimeout(resolve, 0));
   expect(() => screen.getByRole("region", { name: "Settings" })).toThrow();

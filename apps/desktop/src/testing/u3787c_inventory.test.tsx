@@ -68,7 +68,7 @@ it.each(shelf)("u3787c_each_list_navigates_visible_rows Shelf navigation %s", as
   const before = app.calls.length;
   rows[0]!.focus();
 
-  for (const [key, at] of [["ArrowUp", 0], ["ArrowDown", 1], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["Home", 0], ["É", 4]] as const) {
+  for (const [key, at] of [["ArrowUp", 0], ["ArrowDown", 1], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["Home", 0]] as const) {
     fireEvent.keyDown(document.activeElement!, { key });
     await settled();
     expect(document.activeElement).toBe(rows[at]);
@@ -143,7 +143,7 @@ it.each(["counted control", "Review changes"])("u3787c_each_list_navigates_visib
   const before = app.calls.length;
   rows[0]!.focus();
 
-  for (const [key, at] of [["ArrowUp", 0], ["ArrowDown", 1], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["Home", 0], ["c", 2]] as const) {
+  for (const [key, at] of [["ArrowUp", 0], ["ArrowDown", 1], ["ArrowUp", 0], ["End", 4], ["ArrowDown", 4], ["Home", 0]] as const) {
     fireEvent.keyDown(shadow()!.activeElement!, { key, composed: true });
     await settled();
     expect(shadow()?.activeElement).toBe(rows[at]);
@@ -247,7 +247,7 @@ it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_l
   const heading = screen.getByLabelText("Rail", { selector: '[role="tree"]' }).querySelector(".section-head");
   rows[2]!.focus();
 
-  for (const [key, target] of [["Home", heading], ["ArrowUp", heading], ["ArrowDown", rows[0]], ["ArrowDown", rows[1]], ["ArrowUp", rows[0]], ["End", rows[4]], ["ArrowDown", rows[4]], ["B", rows[1]]] as const) {
+  for (const [key, target] of [["Home", heading], ["ArrowUp", heading], ["ArrowDown", rows[0]], ["ArrowDown", rows[1]], ["ArrowUp", rows[0]], ["End", rows[4]], ["ArrowDown", rows[4]], ["B", rows[4]]] as const) {
     fireEvent.keyDown(document.activeElement!, { key });
     await settled();
     expect(document.activeElement).toBe(target);

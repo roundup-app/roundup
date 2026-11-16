@@ -24,6 +24,11 @@ const stateRow = (on: boolean) => v.fallback(
   rowDefault(on),
 );
 
+/** U7157: every question that can stop being asked, each under its own stable key. */
+export const questionKeys = ["close-terminal", "new-terminal-again", "new-workstream-again", "close-project", "rail-confirm"] as const;
+
+export type QuestionKey = (typeof questionKeys)[number];
+
 const schema = storageSchema("roundup:app-settings", v.object({
   permissionMode: v.fallback(v.picklist(["", "default", "acceptEdits", "plan", "auto"]), ""),
   engine: v.fallback(v.string(), ""),
@@ -50,6 +55,8 @@ const schema = storageSchema("roundup:app-settings", v.object({
   // FB6, U6381a: the Feedback Issue's URL; the live one until the owner saves another or none.
   feedbackIssue: v.fallback(v.string(), "https://github.com/roundup-app/roundup/issues/6163"),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
+  // U7157c: the questions the user chose not to be asked again; an entry that is not a known key is dropped.
+  suppressed: v.fallback(v.pipe(v.array(v.unknown()), v.transform(keys => questionKeys.filter(key => keys.includes(key)))), []),
   stateAlerts: v.fallback(
     v.object({ working: stateRow(false), blocked: stateRow(false), "needs-you": stateRow(true), error: stateRow(true), done: stateRow(false) }),
     { working: rowDefault(false), blocked: rowDefault(false), "needs-you": rowDefault(true), error: rowDefault(true), done: rowDefault(false) },

@@ -4,6 +4,7 @@ import type { JSX } from "@solidjs/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { outcomeOf } from "../app/seam";
 import { copy } from "./copy";
+import { askOnce } from "../settings/warnings";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { ConnectedProject } from "../state/connectedProject";
 
@@ -48,7 +49,8 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       if (!terminal || connected.daemonExit() !== null) return;
 
       if (!rail.terminals().some(item => item.id === terminal.id && item.incarnation === terminal.incarnation)) return;
-      const accepted = await app.ask({ title: copy.closeQuestion(nameFor(terminal)), message: terminal.running ? copy.closeTerminalWarning : copy.closeTerminalOutputWarning, okLabel: copy.close, cancelLabel: copy.keep });
+      // U7157a: a Terminal whose program has ended closes at once.
+      const accepted = !terminal.running || await askOnce(app, "close-terminal", { title: copy.closeQuestion(nameFor(terminal)), message: copy.closeTerminalWarning, okLabel: copy.close, cancelLabel: copy.keep });
 
       if (!accepted) {
         focus(() => { if (active instanceof HTMLElement && active.isConnected) active.focus({ preventScroll: true }); });

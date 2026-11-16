@@ -75,7 +75,10 @@
 .note-form input:focus-visible,
 .note-form textarea:focus-visible,
 .app-select-trigger:focus-visible,
-.app-combobox-input:focus-visible {
+.app-combobox-input:focus-visible,
+.app-checkbox-box:focus-visible,
+.app-switch-track:focus-visible,
+.app-radio-mark:focus-visible {
   outline: var(--stroke-width) solid var(--accent);
   outline-offset: var(--stroke-width);
 }

@@ -1,6 +1,6 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import * as v from "valibot";
-import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
 import type { ConnectedProject } from "../state/connectedProject";
 import { createDraftField } from "../state/draftField";
 import type { Applied } from "../app/pending";
@@ -82,7 +82,9 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
 
   const name = () => nameFor(terminal());
   const [nameRef, nameCut] = createCut();
-  let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
+  let closeButton: HTMLButtonElement | undefined;
+  provideFocusTarget(`bubble.${id}.close`, () => closeButton);
+  let destination = Object.freeze({ surface: "bubbles", object: untrack(() => terminal().incarnation), recipient: id });
   createEffect(createMemo(() => editing()?.id === id), editingHere => editingHere ? drafts.editor(destination) : undefined);
   const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
   let base = "";
@@ -268,7 +270,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
         </div>;
       }}
       </Show>
-      <IconButton ref={element => provideFocusTarget(`bubble.${id}.close`, element)} aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
+      <IconButton ref={closeButton} aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
     </FlatTab>
   </>;
 };

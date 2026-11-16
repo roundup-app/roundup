@@ -1,7 +1,7 @@
 import { throttle } from "@solid-primitives/scheduled";
 import { forgetScrollback, retainScrollback } from "./scrollback";
 import { copy as appCopy } from "./copy";
-import { createSignal, type Accessor } from "solid-js";
+import { createSignal, getOwner, runWithOwner, type Accessor } from "solid-js";
 import type { ConnectedProject } from "../state/connectedProject";
 import { createClipboard } from "./clipboard";
 import { createFailures } from "./failures";
@@ -74,6 +74,8 @@ type Holder = {
 /** `openObject` is the App's one route for a `roundup://` link (AL3); without it the link goes to the OS like any other address. */
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, openObject?: (url: string, surface: string) => void): Screens => {
   const { app, rail, daemonExit, project } = connected;
+  // An emulator is made when a Terminal shows, from an effect's apply, which has no owner of its own: it belongs to whoever created the screens.
+  const owner = getOwner();
   const holders = new Map<string, Holder>();
   /** The offset up to which a Terminal's output was shown, kept when its stream is released. */
   const shownTo = new Map<string, number>();
@@ -181,7 +183,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = prepared ?? createEmulator(id, (text) => clipboard.copy(id, text));
+    const emulator = prepared ?? runWithOwner(owner, () => createEmulator(id, (text) => clipboard.copy(id, text)));
 
     const [atBottom, setAtBottom] = createSignal(true);
     const type = createTyping(emulator, (data) => attempt(id, app.rpc("terminal.write", { id, data })));

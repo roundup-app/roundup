@@ -8,7 +8,7 @@ import type { ActivationSource } from "../keys/registry";
 import { triage } from "../todos/triage";
 import { copy } from "./copy";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
 import type { JSX } from "@solidjs/web";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
@@ -167,7 +167,7 @@ export const Layout = (props: {
       data-animated={String(placement().animated)}
       hidden={!placement().rendered}
       inert={!placement().open && !placement().peeking}
-      ref={element => placement().attach?.(element)}
+      ref={element => untrack(placement).attach?.(element)}
     >
       {props.shelfTabs}
       <div class="shelf-controls">

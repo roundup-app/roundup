@@ -33,7 +33,7 @@ export const Select = (props: {
     controller.close();
   }, true);
 
-  return <div class="app-select" ref={setRoot}>
+  return <div class="app-select app-select-labelled" ref={setRoot}>
     <SelectRoot items={props.choices} value={props.value} {...props.disabled === undefined ? {} : { disabled: props.disabled }} controller={controller}
       onValueChange={next => props.onValueChange(next ?? props.value)}
       open={control.open()} onOpenChange={open => control.change({ open })}>

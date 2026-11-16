@@ -24,6 +24,7 @@ import "./ui/SegmentGroup.css";
 import "./ui/reading.styles.css";
 import { trackScrollbars } from "./scrollHover";
 import { routeWebLinks } from "./app/webLinks";
+import { applyForkColour } from "./app/forkColour";
 
 trackScrollbars(document);
 
@@ -39,6 +40,9 @@ if (!new URLSearchParams(location.search).has("capture")) await tauri.projects()
 if (!new URLSearchParams(location.search).has("capture")) {
   void followMaterial(document.documentElement).catch(error => console.error(error));
 }
+
+// U6044a: the root wears the Fork colour before the first view mounts.
+await applyForkColour(tauri, document.documentElement);
 
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
 

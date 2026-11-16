@@ -284,7 +284,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: 
     rail.select(destination);
   };
 
-  // The rows chosen: the tree owns range, toggle, select-all and typeahead; a plain press and opening a row replace them.
+  // The rows chosen: the tree owns range, toggle and select-all; a plain press and opening a row replace them. A letter never finds a row here: keys/stray.ts takes it (U7158).
   const [selected, setSelected] = createSignal<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
   const isSelected = (id: string) => selected().includes(id);
 

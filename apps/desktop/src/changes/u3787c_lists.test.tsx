@@ -43,7 +43,7 @@ it("u3787c_each_list_navigates_visible_rows changed files", async () => {
   const { app } = await open();
   row("bravo.ts").focus();
 
-  for (const [key, path] of [["Home", "alpha.ts"], ["ArrowUp", "alpha.ts"], ["End", "echo.ts"], ["ArrowDown", "echo.ts"], ["ArrowUp", "delta.ts"], ["c", "charlie.ts"]]) {
+  for (const [key, path] of [["Home", "alpha.ts"], ["ArrowUp", "alpha.ts"], ["End", "echo.ts"], ["ArrowDown", "echo.ts"], ["ArrowUp", "delta.ts"]]) {
     fireEvent.keyDown(active(), { key });
     await waitFor(() => expect(focused()).toBe(path));
   }

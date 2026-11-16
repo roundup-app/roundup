@@ -59,7 +59,3 @@
 .app-checkbox-box[data-invalid] {
   border-color: var(--red);
 }
-.app-checkbox-box:focus-visible {
-  outline: var(--stroke-width) solid var(--accent);
-  outline-offset: var(--stroke-width);
-}

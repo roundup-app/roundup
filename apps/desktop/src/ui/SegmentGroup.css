@@ -49,8 +49,3 @@
 .app-segment[data-disabled] {
   color: var(--disabled);
 }
-
-.app-segment:focus-visible {
-  outline: var(--stroke-width) solid var(--accent);
-  outline-offset: var(--stroke-width);
-}

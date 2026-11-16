@@ -19,22 +19,26 @@
   --scale: calc(1 - var(--toast-index) * (1 - var(--scale-press)));
   position: absolute;
   inset: 0 0 auto;
-  z-index: calc(var(--toast-count) - var(--toast-index));
+  z-index: 0;
   display: block;
   height: var(--toast-height);
   padding: 0;
   border: 0;
-  box-shadow: none;
   color: inherit;
   font-size: inherit;
   background-color: var(--ground);
   border-radius: var(--radius-control);
-  translate: var(--toast-swipe-x, 0px) var(--y);
+  translate: var(--toast-swipe-x, var(--length-zero)) var(--y);
   scale: var(--scale);
   transform-origin: top center;
   user-select: none;
   will-change: translate, scale, opacity;
   transition: translate var(--duration-toast-in) var(--easing-out), scale var(--duration-toast-in) var(--easing-out), opacity var(--duration-toast-in) var(--easing-out);
+}
+
+/* The newest card sits over the folded ones behind it. */
+.app-toast[data-front] {
+  z-index: 1;
 }
 
 .app-toast[data-expanded] {
@@ -66,7 +70,7 @@
 /* U3793, U7192: a card enters from, and a leaving card fades and moves to, one gap toward the top edge. */
 .app-toast[data-starting-style],
 .app-toast[data-ending-style] {
-  translate: var(--toast-swipe-x, 0px) calc(var(--y) - var(--space-2));
+  translate: var(--toast-swipe-x, var(--length-zero)) calc(var(--y) - var(--space-2));
   opacity: 0;
 }
 

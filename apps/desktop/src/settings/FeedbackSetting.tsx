@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, untrack } from "solid-js";
 import { Field } from "../ui/Field";
 import { appSettings, saveAppSettings } from "./preferences";
 import { copy } from "./copy";
@@ -6,7 +6,7 @@ import { validIssueUrl } from "../feedback/target";
 
 /** FB6: the Feedback Issue's URL. A value saves when it is empty or an Issue URL; any other stays in the field, marked invalid. */
 export const FeedbackSetting = (props: { onFailure: (message: string | null) => void }) => {
-  const [text, setText] = createSignal(appSettings().feedbackIssue);
+  const [text, setText] = createSignal(untrack(appSettings).feedbackIssue);
   const invalid = () => text().trim() !== "" && !validIssueUrl(text());
 
   const commit = async () => {

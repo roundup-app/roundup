@@ -21,7 +21,13 @@ export function windowRects(this: HTMLElement) {
 
 /** jsdom has no pointer events either: a mouse press the library accepts as primary. */
 export class MousePointerEvent extends MouseEvent {
-  readonly pointerId = 1;
-  readonly pointerType = "mouse";
-  readonly isPrimary = true;
+  constructor(type: string, init?: MouseEventInit) {
+    super(type, init);
+    // The library reads these three off the event it is handed.
+    Object.defineProperties(this, {
+      pointerId: { value: 1 },
+      pointerType: { value: "mouse" },
+      isPrimary: { value: true },
+    });
+  }
 }

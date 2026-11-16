@@ -59,7 +59,7 @@ export const createBulkDelete = <Id,>(props: {
     return message === undefined ? [] : [{ target, message }];
   });
 
-  const clearFailures = () => props.targets().forEach(target => failures.clear(target.id));
+  const clearFailures = () => untrack(props.targets).forEach(target => failures.clear(target.id));
   const [readFailure, setReadFailure] = createSignal<string | null>(null);
   let readback: (() => Promise<void>) | undefined;
   let revision = 0;

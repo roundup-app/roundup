@@ -8,7 +8,7 @@
 
 /* A leaf is told from a branch inside :where(), so the Rail's own display and columns (.rail-tree .rail-row) still win. */
 .app-tree [data-slot="tree-label"],
-.app-tree [data-slot="tree-item"]:where(:not(:has(> [data-slot="tree-label"], > [data-slot="tree-group"]))) {
+.app-tree [data-slot="tree-item"]:where(:not(:has([data-slot="tree-label"], [data-slot="tree-group"]))) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -25,7 +25,7 @@
 
 /* D6: a row declares its hover state; text colour is the one it already has. */
 .app-tree [data-slot="tree-label"]:hover,
-.app-tree [data-slot="tree-item"]:where(:not(:has(> [data-slot="tree-label"], > [data-slot="tree-group"]))):hover {
+.app-tree [data-slot="tree-item"]:where(:not(:has([data-slot="tree-label"], [data-slot="tree-group"]))):hover {
   color: var(--text);
 }
 
@@ -37,14 +37,8 @@
 
 .app-tree [data-slot="tree-indicator"] { rotate: none; }
 
-.app-tree [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"] {
-  outline: none;
-  --row-wash: var(--selected);
-}
-
-.app-tree [data-slot="tree-item"]:focus-visible > [data-slot="tree-label"].row-wash-inert {
-  --row-wash: var(--hover);
-}
+/* The library rings the label of a focused item; the App draws no control ring (U4382a). */
+.app-tree [data-slot="tree-label"] { outline: none; }
 
 /* U4335a: both trees anchor connections to the same glyph box and Token step. */
 :root {

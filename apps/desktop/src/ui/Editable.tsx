@@ -310,13 +310,15 @@ export const NameField = (props: {
   fail: (message: string | null) => void;
 }) => {
   const { drafts, project } = useConnectedProject();
-  const destination = { surface: "row-name", object: props.object, recipient: null };
+  // The field is made for one row and the name it has now: it reads both once.
+  const [object, current] = untrack(() => [props.object, props.name] as const);
+  const destination = { surface: "row-name", object, recipient: null };
   drafts.validate(destination.surface, nameSchema);
   const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
-  const restored = records().at(-1);
+  const restored = untrack(records).at(-1);
   const parsed = v.safeParse(nameSchema, restored?.value);
-  const [text, setText] = createSignal(parsed.success ? parsed.output.text : props.name);
-  const base = parsed.success ? parsed.output.base : props.name;
+  const [text, setText] = createSignal(parsed.success ? parsed.output.text : current);
+  const base = parsed.success ? parsed.output.base : current;
   const [version, setVersion] = createSignal<string | null>(parsed.success ? parsed.output.version : null);
   const [ready, setReady] = createSignal(parsed.success);
   const [pending, setPending] = createSignal(false);
@@ -325,7 +327,7 @@ export const NameField = (props: {
   onCleanup(() => { alive = false; });
   onCleanup(drafts.editor(destination));
 
-  const loading = parsed.success ? Promise.resolve(version()) : props.version().then(value => { if (alive) { setVersion(value); setReady(true); } }).catch(error => {
+  const loading = parsed.success ? Promise.resolve(parsed.output.version) : untrack(() => props.version()).then(value => { if (alive) { setVersion(value); setReady(true); } }).catch(error => {
     if (!(error instanceof Error)) throw error;
     props.fail(error.message);
   });

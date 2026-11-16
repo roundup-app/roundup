@@ -186,9 +186,8 @@ p {
   bottom: 0;
   z-index: 1;
   width: var(--space-2);
-  /* ui-sdk paints its resize handle as a bar with a focus ring; the edge draws only the accent bar below. */
+  /* ui-sdk paints its resize handle as a bar with a focus ring; the edge draws only the accent bar below (no shadow: tokens.css). */
   background: none;
-  box-shadow: none;
   cursor: ew-resize;
   touch-action: none;
 }

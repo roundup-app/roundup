@@ -56,7 +56,3 @@
 .app-switch:hover:not([data-disabled]) .app-switch-label {
   color: var(--text);
 }
-.app-switch-track:focus-visible {
-  outline: var(--stroke-width) solid var(--accent);
-  outline-offset: var(--stroke-width);
-}
