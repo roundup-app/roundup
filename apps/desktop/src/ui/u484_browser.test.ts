@@ -316,7 +316,7 @@ it("u484_scroll_and_stop", async () => {
 // U7276a–b run in the App harness, whose lists hold real rows, controls and RPC calls.
 const REORDERS = "window.__fake.app.calls.filter(c => ['rail.move', 'todo.reorder', 'todo.setBlockers', 'todo.move', 'pad.reorder', 'pad.setOwner'].includes(c.method)).length";
 
-/** Opens the harness on `seed` and starts counting: `__dragged` turns true once any row is held, `__hits` counts unswallowed clicks on `target`. */
+/** Opens the harness on `seed` and starts counting: `__dragged` turns true once any row is lifted, `__hits` counts unswallowed clicks on `target`. */
 const harness = async (seed: string, open: (() => Promise<void>) | null, target: string) => {
   const href = new URL(`harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`, origin).href;
   // A case that folds a row or opens a tab stores it; the next case starts from the seed's own layout.
@@ -358,14 +358,14 @@ const pointIn = (selector: string, inset: number | null) => read<{ x: number; y:
   return { x: Math.round(${inset === null ? "b.left + b.width / 2" : `b.left + ${inset}`}), y: Math.round(b.top + b.height / 2) };
 })()`);
 
-/** Whether the row being held is the one `selector` names. */
+/** Whether the lifted row is the one `selector` names. */
 const holds = (selector: string) => read<boolean>(`(() => {
-  const held = document.querySelector('[data-dnd-dragging]');
+  const lifted = document.querySelector('[data-dnd-dragging]');
   const pressed = document.querySelector(${JSON.stringify(selector)});
-  return !!held && !!pressed && (held.contains(pressed) || pressed.contains(held));
+  return !!lifted && !!pressed && (lifted.contains(pressed) || pressed.contains(lifted));
 })()`);
 
-/** Presses at `at`, moves `by` px down in steps and waits for the held row; Escape and the release then cancel it. */
+/** Presses at `at`, moves `by` px down in steps and waits for the lifted row; Escape and the release then cancel it. */
 const liftAndCancel = async (selector: string, at: { x: number; y: number }, by: number) => {
   await browser("mouse", "move", String(at.x), String(at.y));
   await browser("mouse", "down");

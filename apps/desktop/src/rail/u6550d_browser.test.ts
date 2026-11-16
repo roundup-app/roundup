@@ -81,7 +81,7 @@ it("u6550d_escape_after_a_pointer_lift_slides_each_row_once", async () => {
 }, 90_000);
 
 // U6550a: a press on the Workstream's body and a move hold it; its children leave the list under a count and come back on Escape or a drop in place; a row with no children carries no count.
-it("u6550a_held_workstream_folds_its_children", async () => {
+it("u6550a_lifted_workstream_folds_its_children", async () => {
   await page.scheme("light");
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 800);
   await wait(`document.querySelector('[data-id="backend"]') && window.__fake`);
