@@ -321,7 +321,7 @@ fn commit(
         }
         return Ok(Committed::WriteFailed);
     }
-    {
+    let repeated = {
         let mut store = lock(&inner.store);
         if !said.is_empty() {
             // What the receiver was last given is the content of the last entry written.
@@ -336,13 +336,13 @@ fn commit(
                 }
             }
         }
-        for id in repeats {
-            if let Some(message) = store.deliver_repeat(*id)? {
-                inner
-                    .bus
-                    .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
-            }
-        }
+        repeats
+            .iter()
+            .filter_map(|id| store.deliver_repeat(*id).transpose())
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    if !repeated.is_empty() {
+        flight::delivered(inner, agent, repeated);
     }
     if let Some(inbox) = inner.inbox.get() {
         for note in &notes {
