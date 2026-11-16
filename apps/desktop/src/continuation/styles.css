@@ -8,8 +8,19 @@
   flex: 0 1 auto;
 }
 
-/* U7211a: the line covers the Terminal's top inset plus whole rows, never half of one: its height is that inset and the rows it spans. */
+/* U7211a: the line spans exactly one Terminal row, as the emulator measured it at the user's zoom (--terminal-row), so its edge falls on a row boundary. */
 .pane-top .reserved-line.resume-bar:not([data-empty]) {
+  block-size: var(--terminal-row, calc(var(--text-terminal) * var(--line-terminal)));
+  min-block-size: 0;
+  max-block-size: none;
+}
+
+/* U7192: the line never covers the cursor row, so it moves to the Terminal's bottom edge while the cursor is on row 0. */
+.pane-host[data-cursor-top] .pane-top {
+  inset-block: auto 0;
+}
+
+.reserved-line.resume-bar:not([data-empty]) {
   --resume-rows: 1;
   block-size: calc(var(--space-2) + var(--resume-rows) * var(--text-terminal) * var(--line-terminal));
   min-block-size: 0;

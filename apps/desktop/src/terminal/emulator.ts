@@ -95,7 +95,23 @@ type InputOrigin = Terminal & { _core: { coreService: {
 } } };
 
 /** xterm's render service: its public `refresh` waits an animation frame, its `sync` flag does not; `_isPaused` is what its IntersectionObserver sets for a Terminal outside the viewport. */
-type RenderRows = Terminal & { _core: { _renderService?: { _isPaused: boolean; refreshRows(start: number, end: number, sync: boolean): void } } };
+type RenderRows = Terminal & { _core: { _renderService?: { _isPaused: boolean; dimensions?: { css: { cell: { height: number } } }; refreshRows(start: number, end: number, sync: boolean): void } } };
+
+/**
+ * U7211a: tells the Pane's floating line the emulator's measured row height, which follows the user's zoom, and whether the cursor sits on row 0,
+ * so the line spans one whole row and sits at the bottom edge when the top row holds the cursor.
+ */
+const publishRow = (terminal: Terminal, element: HTMLElement, cursorOnTop: boolean): void => {
+  const host = element.closest<HTMLElement>(".pane-host");
+  // SAFETY: pinned xterm 6.1 keeps the measured cell on `_core._renderService.dimensions`; absent, the line falls back to the font Tokens.
+  const height = (terminal as RenderRows)._core._renderService?.dimensions?.css.cell.height;
+
+  if (!host) return;
+
+  if (height) host.style.setProperty("--terminal-row", `${height}px`);
+
+  if (host.hasAttribute("data-cursor-top") !== cursorOnTop) host.toggleAttribute("data-cursor-top", cursorOnTop);
+};
 
 /** Draws every row now. With `resume`, past xterm's pause for a Terminal outside the viewport (IP7168d): that pause lifts from an observer task, a frame late. */
 const drawNow = (terminal: Terminal, resume = false): void => {
@@ -291,6 +307,7 @@ export const createXtermEmulators = (
       // With scrollback the Terminal has content; the row scan runs only while the buffer is one screen.
       flag("data-terminal-content", scrollback || Array.from({ length: terminal.rows }, (_, row) => buffer.getLine(row)?.translateToString(true)).some(Boolean));
       probe?.rendered(id);
+      publishRow(terminal, element, buffer.cursorY === 0);
 
       const { fontSize, fontFamily, fontWeight, lineHeight, letterSpacing } = terminal.options;
       const key = [window.devicePixelRatio, fontSize, fontFamily, fontWeight, lineHeight, letterSpacing, renderer.kind === "webgl"].join("|");
