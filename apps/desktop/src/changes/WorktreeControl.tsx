@@ -96,7 +96,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   };
 
   onCleanup(() => { generation++; });
-  createEffect(() => [state(), version()] as const, () => { void refresh(); });
+  // rc.21 runs an effect's apply on every recompute; the memo lets only a new state or version reload.
+  const reload = createMemo(() => [state(), version()] as const, { equals: (a, b) => a[0] === b[0] && a[1] === b[1] });
+  createEffect(reload, () => { void refresh(); });
 
 
   const node = () => {

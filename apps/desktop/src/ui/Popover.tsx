@@ -1,7 +1,7 @@
 import { captureFocus } from "../keys/focus";
 import type { ComponentProps } from "@solidjs/web";
-import { Popover as UiPopover, PopoverContent, PopoverTrigger, type PopoverContentProps, type PopoverProps } from "@ui-sdk/solid/popover";
-import { createContext, createEffect, createSignal, omit, useContext } from "solid-js";
+import { Popover as UiPopover, PopoverContent, PopoverTitle, PopoverTrigger, type PopoverContentProps, type PopoverProps } from "@ui-sdk/solid/popover";
+import { createContext, createEffect, createSignal, omit, Show, useContext } from "solid-js";
 import { createFloatingControl } from "./Dialog";
 import "./Trigger.css";
 import "./Popover.css";
@@ -73,8 +73,12 @@ export const Popover = {
   },
   Content: (props: Omit<ComponentProps<typeof PopoverContent>, "class"> & { class?: string | undefined }) => {
     const owner = inside();
-    const rest = omit(props, "class", "initialFocus", "finalFocus");
+    const rest = omit(props, "class", "initialFocus", "finalFocus", "aria-label", "children");
 
-    return <PopoverContent {...rest} initialFocus={owner.initialTarget} finalFocus={owner.finalFocus()} class={["app-popover", props.class]} />;
+    // ui-sdk names a popover by its title, else by its trigger; an `aria-label` becomes a hidden title so it names the popover.
+    return <PopoverContent {...rest} initialFocus={owner.initialTarget} finalFocus={owner.finalFocus()} class={["app-popover", props.class]}>
+      <Show when={props["aria-label"]}>{label => <PopoverTitle hidden>{label()}</PopoverTitle>}</Show>
+      {props.children}
+    </PopoverContent>;
   },
 };
