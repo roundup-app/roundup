@@ -124,9 +124,9 @@ export const chooseAction = async (app: ReturnType<typeof createFakeApp>, name: 
   await app.pickMenu(label);
 };
 
-/** The row's Resume icon: the one control that sends `agent.resume {id}` (U428, U68). */
+/** The exited row's play icon, labelled Restart: it sends `agent.resume {id, mode}` (U428, U7191a). */
 export const resumeRow = (name: string): void => {
-  fireEvent.click(within(rowOf(name)).getByRole("button", { name: copy.resume }));
+  fireEvent.click(within(rowOf(name)).getByRole("button", { name: copy.restart }));
 };
 
 /** Chooses a creation kind through the shared footer menu. */
