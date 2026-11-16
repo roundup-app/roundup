@@ -15,5 +15,11 @@ fn mc72_remove_uses_a_method_in_the_pinned_schema() {
         .unwrap();
 
     assert_eq!(sent, "machine.rm");
-    assert!(schema["methods"][sent].is_object());
+    assert!(
+        schema["advertised"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|method| method == sent)
+    );
 }
