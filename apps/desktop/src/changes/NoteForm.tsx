@@ -15,12 +15,14 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
   const revision = restored?.revision ?? crypto.randomUUID();
   const replacing = restored?.replacing ?? props.editing?.id;
 
-  const initial: Fields = untrack(() => ({
-    side: restored?.side ?? props.editing?.side ?? props.selection.side,
-    start: restored?.start ?? String(props.editing?.start ?? props.selection.start),
-    end: restored?.end ?? String(props.editing?.end ?? props.selection.end),
-    text: restored?.text ?? props.editing?.text ?? "",
-  }));
+  const { editing, selection } = untrack(() => ({ editing: props.editing, selection: props.selection }));
+
+  const initial: Fields = {
+    side: restored?.side ?? editing?.side ?? selection.side,
+    start: restored?.start ?? String(editing?.start ?? selection.start),
+    end: restored?.end ?? String(editing?.end ?? selection.end),
+    text: restored?.text ?? editing?.text ?? "",
+  };
 
   const [fields, setFields] = createSignal(initial);
   // rc.21 reads lag writes until flush; the retained form must carry what the last edit wrote, so `written` keeps it.
