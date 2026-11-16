@@ -1,0 +1,3 @@
+import { TooltipTrigger } from "@ui-sdk/solid/tooltip";
+
+export const Example = () => <TooltipTrigger>Owner</TooltipTrigger>;

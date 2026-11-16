@@ -241,7 +241,7 @@ it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () =
 it("u2742c_a_terminal_tab_without_a_main_agent_has_no_switch_pair", async () => {
   await start();
   await read(`document.querySelector('.rail-row[data-id="first-workstream"]').click()`);
-  await wait(`!!document.querySelector('.terminal-tab[data-bubble="103"]') && document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'first-workstream'`);
+  await wait(`!!document.querySelector('.terminal-tab[data-bubble="103"]') && document.querySelector('.rail-row[data-selected]')?.dataset.id === 'first-workstream'`);
   await read(`document.querySelector('.terminal-tab[data-bubble="103"]').focus(); window.__beforeNoPair = window.__fake.app.calls.length`);
   await key();
   expect(await read(`({tab:!!document.activeElement?.matches('.terminal-tab[data-bubble="103"]'), calls:window.__fake.app.calls.slice(window.__beforeNoPair).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))})`)).toEqual({ tab: true, calls: [] });

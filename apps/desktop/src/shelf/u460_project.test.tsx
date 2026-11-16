@@ -1,5 +1,5 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -10,7 +10,7 @@ import { RpcError } from "../app/seam";
 import { askToDelete } from "./bulkQuestionHarness";
 import { todo } from "../todos/testHarness";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("u460_pending_delete_stays_with_its_project", async () => {
   const { app } = seedApp("empty-project", 0);
@@ -26,6 +26,7 @@ it("u460_pending_delete_stays_with_its_project", async () => {
   const rows = within(list).getAllByRole("button").filter((row) => row.classList.contains("todo-row-button") && row.hasAttribute("aria-pressed"));
   fireEvent.click(rows[0]!, { metaKey: true });
   fireEvent.click(rows[1]!, { metaKey: true });
+  flush();
   const kept = deferred<null>();
   app.handlers["todo.delete"] = async () => { await kept.promise; throw new RpcError(-32001, "old Project error"); };
 
@@ -47,11 +48,13 @@ it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", asy
   const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
   fireEvent.click(row, { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }), { metaKey: true });
+  flush();
   const cancel = screen.getByRole("button", { name: "Clear" });
   const tab = within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /Todos/ });
   tab.focus();
   const calls = app.calls.length;
   fireEvent.keyDown(tab, { key: "Escape" });
+  flush();
   expect(cancel.isConnected).toBe(false);
   expect(within(screen.getByRole("region", { name: "Todos" })).queryAllByRole("button", { pressed: true })).toEqual([]);
   expect(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /Todos/ })).toBe(tab);

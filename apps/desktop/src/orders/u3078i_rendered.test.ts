@@ -91,7 +91,7 @@ it.skipIf(!enabled)("u3078i_rendered_open_inspect_resume", { retry: 0, timeout: 
     await browser("find", "role", "menuitem", "click", "--name", "Work progress", "--exact");
     await wait("!!document.querySelector('.progress-section')");
     await capture("open");
-    await browser("click", ".progress-earlier [data-part=trigger]");
+    await browser("click", ".progress-earlier [data-slot=collapsible-trigger]");
     await click("Open notes v1");
     await wait("!!document.querySelector('.progress-row [role=alert]')");
     await capture("evidence-unavailable");

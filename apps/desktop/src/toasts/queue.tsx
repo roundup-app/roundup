@@ -1,8 +1,7 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { createEventListener } from "@solid-primitives/event-listener";
-import { createMemo, createSignal } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createMemo, createSignal, type Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "./copy";
 import { createToast } from "../ui/Toast";
@@ -42,7 +41,7 @@ export type Candidate = {
 type Entry = Candidate & { id: string };
 
 export type ToastQueue = {
-  /** The shared Toast the layer renders; Ark owns every card's lifetime, hover and focus pausing. */
+  /** The shared Toast the layer renders; the Toast owns every card's lifetime, hover and focus pausing. */
   toast: ReturnType<typeof createToast>;
   /** How many cards show, so the layer re-measures only when they change. */
   shown: Accessor<number>;
@@ -59,7 +58,15 @@ export type ToastQueue = {
 
 /** U410 to U414. Event policy lives here: queued Toasts while away, coalescing by Agent, the summary card and the one-per-second sound. Lifetimes belong to the shared Toast; with nothing pushed, nothing runs. */
 export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () => number = Date.now): ToastQueue => {
-  const [entries, setEntries] = createSignal<readonly Entry[]>([]);
+  // `sync` plans from the list straight after a change, before a signal would commit it, so the list lives here and the signal only publishes it.
+  let list: readonly Entry[] = [];
+  const [published, publish] = createSignal(list);
+
+  const change = (update: (all: readonly Entry[]) => readonly Entry[]) => {
+    list = update(list);
+    publish(list);
+  };
+
   const [failure, setFailure] = createSignal<string | null>(null);
   const failures = new Map<string, { item: string; message: string }>();
   const kept = new Map<string, Candidate>();
@@ -82,8 +89,8 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
       displayed.delete(id);
 
-      if (id === MORE) setEntries((all) => all.slice(0, MOST_SHOWN - 1));
-      else setEntries((all) => all.filter((entry) => entry.id !== id));
+      if (id === MORE) change((all) => all.slice(0, MOST_SHOWN - 1));
+      else change((all) => all.filter((entry) => entry.id !== id));
 
       sync();
     },
@@ -105,7 +112,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     for (const [id, failed] of failures) {
       if (failed.item !== item) continue;
       failures.delete(id);
-      toast.store.remove(id);
+      toast.remove(id);
     }
 
     setFailure([...failures.values()].at(-1)?.message ?? null);
@@ -115,29 +122,29 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
   function showFailure(message: string, entry: Entry) {
     const id = JSON.stringify([FAILURE, entry.project ?? "", "item", "read"]);
 
-    toast.store.remove(id);
+    toast.remove(id);
     failures.delete(id);
     failures.set(id, { item: entry.item, message });
     setFailure(message);
     toast.show({ id, name: "", content: "", body: () => <ReservedLine message={message} dismiss={() => toast.dismiss(id)} />, duration: NO_TIME, extra: true });
   }
 
-  const shown = createMemo(() => Math.min(entries().length, MOST_SHOWN));
+  const shown = createMemo(() => Math.min(published().length, MOST_SHOWN));
 
   /** Shows the newest two Entries and, past three, one summary card standing for the rest. The summary is the oldest card, so it rests last. */
   function sync() {
-    const all = entries();
+    const all = list;
     const hidden = all.length > MOST_SHOWN ? all.length - (MOST_SHOWN - 1) : 0;
     const cards = hidden > 0 ? all.slice(0, MOST_SHOWN - 1) : all;
 
     if (hidden > 0 && !displayed.has(MORE)) {
-      for (const entry of cards) if (displayed.delete(entry.id)) toast.store.remove(entry.id);
+      for (const entry of cards) if (displayed.delete(entry.id)) toast.remove(entry.id);
     }
 
     if (hidden > 0) {
       toast.show({ id: MORE, name: "", content: copy.toastOverflow(hidden) });
       displayed.add(MORE);
-    } else if (displayed.delete(MORE)) toast.store.remove(MORE);
+    } else if (displayed.delete(MORE)) toast.remove(MORE);
 
     for (const entry of [...cards].reverse()) {
       if (displayed.has(entry.id)) continue;
@@ -148,18 +155,18 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
   }
 
   const show = (candidate: Candidate) => {
-    const old = entries().find((entry) => entry.key === candidate.key);
+    const old = list.find((entry) => entry.key === candidate.key);
 
-    if (old && displayed.delete(old.id)) toast.store.remove(old.id);
+    if (old && displayed.delete(old.id)) toast.remove(old.id);
 
-    for (const id of known.keys()) if (!entries().some((entry) => entry.id === id)) known.delete(id);
+    for (const id of known.keys()) if (!list.some((entry) => entry.id === id)) known.delete(id);
 
     next += 1;
 
     const entry = { ...candidate, id: String(next) };
 
     known.set(entry.id, entry);
-    setEntries((all) => [entry, ...all.filter((each) => each.key !== candidate.key)]);
+    change((all) => [entry, ...all.filter((each) => each.key !== candidate.key)]);
     sync();
   };
 
@@ -193,15 +200,15 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     settle,
     suppress: (key) => {
       kept.delete(key);
-      const removed = entries().filter(entry => entry.key === key);
+      const removed = list.filter(entry => entry.key === key);
 
       for (const entry of removed) {
         displayed.delete(entry.id);
         known.delete(entry.id);
-        toast.store.remove(entry.id);
+        toast.remove(entry.id);
       }
 
-      setEntries(all => all.filter(entry => entry.key !== key));
+      change(all => all.filter(entry => entry.key !== key));
       sync();
     },
     notify: (candidate) => {

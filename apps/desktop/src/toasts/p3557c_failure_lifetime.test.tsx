@@ -4,7 +4,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
 import { watchProject } from "./watch";
 import { agent, USER } from "../testing/nodes";
-import { TOAST_AGENT as AGENT, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
+import { TOAST_AGENT as AGENT, alerts, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
 
 const tree = () => [agent("a", "working", "x", { name: "scout" })];
 
@@ -13,7 +13,7 @@ const settle = async () => {
   await vi.advanceTimersByTimeAsync(400);
 };
 
-const alert = () => screen.queryByRole("alert");
+const alert = () => alerts()[0] ?? null;
 
 beforeEach(() => vi.useFakeTimers());
 
@@ -43,15 +43,15 @@ describe("p3557c_failure_lifetime_todo", () => {
     await settle();
     fireEvent.click(screen.getByRole("button", { name: /Changed Todo/ }));
     await settle();
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(alerts()).toHaveLength(1);
     mounted.app.emit(by(USER, { name: "todo.updated", data: todo(1, USER) }));
     mounted.app.emit(by(USER, { name: "todo.deleted", data: { id: 1 } }));
     await settle();
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(alerts()).toHaveLength(1);
     expect(mounted.connected.drafts.list()).toContainEqual(draft);
     mounted.app.emit(by(USER, { name: "todo.deleted", data: { id: 2 } }));
     await settle();
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerts()).toHaveLength(0);
     expect(mounted.connected.drafts.list()).toContainEqual(draft);
   });
 
@@ -108,12 +108,12 @@ it("u3791c_same_scope_failure_replaces_only_in_original_project", async () => {
     await settle();
     fireEvent.click(screen.getByRole("button", { name: /Changed Todo.*second/ }));
     await settle();
-    expect(screen.getAllByRole("alert", { hidden: true })).toHaveLength(2);
+    expect(alerts({ hidden: true })).toHaveLength(2);
     first.app.emit(by(USER, { name: "todo.deleted", data: { id: 1 } }));
     await settle();
-    expect(screen.getAllByRole("alert", { hidden: true })).toHaveLength(1);
+    expect(alerts({ hidden: true })).toHaveLength(1);
     app.emit(by(USER, { name: "todo.deleted", data: { id: 1 } }));
     await settle();
-    expect(screen.queryByRole("alert", { hidden: true })).toBeNull();
+    expect(alerts({ hidden: true })).toHaveLength(0);
   } finally { stop(); second.stopTerminalScheme(); }
 });

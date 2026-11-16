@@ -71,7 +71,7 @@ it("u4688b_rendered_naming_typing_and_recovery", async () => {
       await lane.until("document.querySelector('.settings-naming textarea')?.value.includes('twenty characters')");
       await lane.evaluate(`(() => {window.__fake.app.handlers['daemon.setNaming'] = () => {throw new Error('Naming settings could not be saved: disk full. Free space, then Save to retry.');}; return true;})()`);
       await lane.browser("click", ".settings-naming button");
-      await lane.until("document.querySelector('.settings-naming [data-part=error-text]')?.textContent.includes('disk full')");
+      await lane.until("document.querySelector('.settings-naming [data-slot=field-error]')?.textContent.includes('disk full')");
       await capture("U4688b", seed, "failure");
       await lane.evaluate("(() => {window.__fake.app.handlers['daemon.setNaming'] = () => null; return true;})()");
       await lane.browser("click", ".settings-naming button");

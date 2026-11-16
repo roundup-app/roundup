@@ -1,7 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { Portal } from "solid-js/web";
-import { createEffect, on, createMemo, createSignal, Show } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, Show, untrack, type Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { StartChoice } from "@contracts/workstream/StartChoice";
 import { copy } from "./copy";
@@ -47,16 +45,16 @@ const WaitFor = (props: { todos: readonly { id: number; title: string }[]; value
     chords: ["Escape"], run: () => { close(); button?.focus(); },
   }]);
 
-  return <Popover.Root closeOnInteractOutside={false} open={open()} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
-    <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { button = element; }} type="button" data-button="quiet" class="app-dialog-pick" onClick={() => { if (open()) close(); else setOpen(true); }}>
+  return <Popover.Root closeOnInteractOutside={false} open={open()} onOpenChange={({ open }) => { if (!open) close(); }}>
+    <Popover.Trigger render={attributes => <button {...attributes} ref={element => { button = element; }} type="button" data-button="quiet" class="app-dialog-pick" onClick={() => { if (open()) close(); else setOpen(true); }}>
       <span>{chosen() ? `#${chosen()!.id} ${chosen()!.title}` : copy.chooseTodo}</span><Icon name="down" />
     </button>} />
-    <Popover.Positioner><Popover.Content ref={element => { panel = element; }} class="todo-blocker-menu" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
+    <Popover.Content ref={element => { panel = element; }} side="bottom" align="start" class="todo-blocker-menu" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
       <Combobox.Root items={shown()} inputValue={query()} onInput={setQuery} highlightedValue={highlighted()} onHighlightChange={setHighlight}
         onSelect={value => { props.onPick(value); close(); }}
         label={copy.startAfterTodoLabel} placeholder={copy.blockerPlaceholder} empty={copy.noMatch}
         row={item => <><span class="todo-blocker-title">{item.label}</span><span class="mono light">#{item.value}</span></>} />
-    </Popover.Content></Popover.Positioner>
+    </Popover.Content>
   </Popover.Root>;
 };
 
@@ -65,21 +63,21 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
   const connected = useConnectedProject();
   const todos = useTodoList();
 
-  const retained = createMemo<number | null>(previous => props.target() ?? previous, null);
+  const retained = createMemo<number | null>(previous => props.target() ?? previous ?? null);
 
   return <Show when={retained()}>{id => {
-    const [name, setName] = createSignal(todos.byId().get(id())?.title ?? "");
+    const [name, setName] = createSignal(untrack(() => todos.byId().get(id())?.title ?? ""));
     const [start, setStart] = createSignal<Start>(startChoices()[1]!.value);
     const [after, setAfter] = createSignal<string>("");
     const [failure, setFailure] = createSignal<string | null>(null);
     const [pending, setPending] = createSignal(false);
-    createEffect(on(props.target, target => {
+    createEffect(createMemo(props.target), target => {
       if (target === null) return;
-      setName(todos.byId().get(target)?.title ?? "");
+      setName(untrack(() => todos.byId().get(target)?.title ?? ""));
       setStart(startChoices()[1]!.value);
       setAfter("");
       setFailure(null);
-    }));
+    });
     const others = createMemo(() => todos.all().filter(todo => !todo.done && todo.id !== id()));
     const chosen = () => start() === "afterTodo" ? (others().find(todo => String(todo.id) === after())?.id ?? null) : null;
     const ready = () => name().trim() !== "" && (start() !== "afterTodo" || chosen() !== null) && !pending();
@@ -104,33 +102,31 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
     };
 
     return <Dialog.Root open={props.target() !== null} onOpenChange={({ open }) => { if (!open) props.done(id(), null); }} finalFocusEl={() => props.returnTo(id())}>
-      <Portal><Dialog.Positioner>
-        <Dialog.Content class="new-workstream" aria-label={copy.newWorkstreamTitle}>
-          <form class="app-dialog-form" onSubmit={event => { event.preventDefault(); void create(); }}>
-            <Dialog.Title>{copy.newWorkstreamTitle}</Dialog.Title>
-            <label class="app-dialog-name">
-              <span class="app-dialog-label">{copy.workstreamNameLabel}</span>
-              <textarea class="field-frame" spellcheck={false} autocorrect="off" autocapitalize="off" rows={1} value={name()} onInput={event => setName(event.currentTarget.value)}
-                onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} />
-            </label>
-            <RadioGroup label={copy.startChoiceLabel} value={start()} onValueChange={setStart}
-              choices={startChoices()} />
-            <Show when={start() === "afterTodo"}>
-              <div class="app-dialog-name">
-                <span class="app-dialog-label">{copy.startAfterTodoLabel}</span>
-                <WaitFor todos={others()} value={after()} onPick={setAfter} />
-              </div>
-            </Show>
-            <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
-            <div class="app-dialog-actions">
-              <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
-              <Tip disabled={ready()} text={createBlocked()}>{trigger =>
-                <button {...trigger()} type="submit" data-button="primary" aria-disabled={!ready()}>{copy.createWorkstream}</button>
-              }</Tip>
+      <Dialog.Content class="new-workstream" aria-label={copy.newWorkstreamTitle}>
+        <form class="app-dialog-form" onSubmit={event => { event.preventDefault(); void create(); }}>
+          <Dialog.Title>{copy.newWorkstreamTitle}</Dialog.Title>
+          <label class="app-dialog-name">
+            <span class="app-dialog-label">{copy.workstreamNameLabel}</span>
+            <textarea class="field-frame" spellcheck={false} autocorrect="off" autocapitalize="off" rows={1} value={name()} onInput={event => setName(event.currentTarget.value)}
+              onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} />
+          </label>
+          <RadioGroup label={copy.startChoiceLabel} value={start()} onValueChange={setStart}
+            choices={startChoices()} />
+          <Show when={start() === "afterTodo"}>
+            <div class="app-dialog-name">
+              <span class="app-dialog-label">{copy.startAfterTodoLabel}</span>
+              <WaitFor todos={others()} value={after()} onPick={setAfter} />
             </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Positioner></Portal>
+          </Show>
+          <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
+          <div class="app-dialog-actions">
+            <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
+            <Tip disabled={ready()} text={createBlocked()}>{trigger =>
+              <button {...trigger()} type="submit" data-button="primary" aria-disabled={ready() ? "false" : "true"}>{copy.createWorkstream}</button>
+            }</Tip>
+          </div>
+        </form>
+      </Dialog.Content>
     </Dialog.Root>;
   }}</Show>;
 };

@@ -105,7 +105,7 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
         // `⌘/` opens the Ask bar, which would swallow every later probe.
         document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
-        // Ark acknowledges the controlled opening before the sweep can dismiss its field.
+        // The dialog acknowledges the controlled opening before the sweep can dismiss its field.
         if (press.defaultPrevented && code === "KeyT" && mods.metaKey && mods.shiftKey) {
           await waitFor(() => expect(document.querySelector(".capture-field")).not.toBeNull());
         }

@@ -1,44 +1,77 @@
-/* U3792: Notification Stack's folded pile, after AffectUI's MIT CSS (https://www.affectui.com/components/notification-stack). Ark sets --index, --y, --scale and --opacity per card: folded, each card behind is 5% smaller and one gap higher; fanned out, each rests at its own offset. */
-.app-toast[data-scope="toast"] {
-  right: 0;
+/* U3792: Notification Stack's folded pile, after AffectUI's MIT CSS (https://www.affectui.com/components/notification-stack). The library sets --toast-index, --toast-offset, --toast-height and the region's --toast-front-height: folded, each card behind the newest is smaller and one gap higher; fanned out, each rests at its own offset. The region's height covers the gaps, so the pointer stays in the stack between cards. */
+.app-toasts {
+  position: fixed;
+  inset: auto var(--space-3) calc(var(--space-3) + var(--hint-row-height) + var(--rail-actions-height)) auto;
+  z-index: var(--layer-toast);
   width: calc(var(--shelf-width) - var(--space-6));
   max-width: calc(100vw - var(--space-6));
+  height: var(--toast-front-height);
+  margin: 0;
+  color: var(--text);
+}
+
+.app-toasts[data-expanded] {
+  height: calc(var(--toast-stack-height) + (var(--toast-count) - 1) * var(--space-2));
+}
+
+.app-toast[data-slot="toast"] {
+  --y: calc(var(--toast-index) * var(--space-2) * -1);
+  --scale: calc(1 - var(--toast-index) * (1 - var(--scale-press)));
+  position: absolute;
+  inset: auto 0 0;
+  z-index: calc(var(--toast-count) - var(--toast-index));
+  display: block;
+  height: var(--toast-height);
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
   background-color: var(--ground);
   border-radius: var(--radius-control);
-  translate: var(--x) var(--y);
-  scale: var(--scale, 1);
+  translate: var(--toast-swipe-x, 0px) var(--y);
+  scale: var(--scale);
   transform-origin: bottom center;
-  opacity: var(--opacity);
-  z-index: 0;
+  user-select: none;
   will-change: translate, scale, opacity;
   transition: translate var(--duration-toast-in) var(--easing-out), scale var(--duration-toast-in) var(--easing-out), opacity var(--duration-toast-in) var(--easing-out);
 }
 
-/* U7059: the card itself is not clipped, so Ark's ghost strip over each gap keeps the stack's hover; its content and bar clip inside this inner box. */
+.app-toast[data-expanded] {
+  --y: calc(-1 * (var(--toast-offset) + var(--toast-index) * var(--space-2)));
+  --scale: 1;
+}
+
+/* Folded, every card is clipped to the newest one's height. */
+.app-toast:not([data-front], [data-expanded]) {
+  height: var(--toast-front-height);
+}
+
+.app-toast[data-swiping] {
+  transition: none;
+}
+
+/* The card itself is not clipped; its content and bar clip inside this inner box. */
 .app-toast-clip {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-control);
 }
 
-/* Ark marks the front card so its folded siblings stay behind it. */
-.app-toast:not([data-sibling]) {
-  z-index: 1;
-}
-
 /* Folded cards show only their opaque edges, so deeper content cannot paint over a nearer edge. */
-.app-toast[data-overlap][data-sibling] * {
+.app-toast:not([data-front], [data-expanded]) * {
   visibility: hidden;
 }
 
-/* U3793: a leaving card fades and sinks one gap from where Ark placed it. */
-.app-toast[data-state="closed"] {
-  translate: var(--x) calc(var(--lift) * var(--offset) + var(--space-2));
-  transition-duration: var(--duration-toast);
+/* U3793: a card enters from, and a leaving card fades and sinks to, one gap below its place. */
+.app-toast[data-starting-style],
+.app-toast[data-ending-style] {
+  translate: var(--toast-swipe-x, 0px) calc(var(--y) + var(--space-2));
+  opacity: 0;
 }
 
-.app-toast[data-state="closed"][data-overlap] {
-  translate: var(--x) calc(var(--lift-amount) * var(--index) + var(--space-2));
+.app-toast[data-ending-style] {
+  transition-duration: var(--duration-toast);
 }
 
 .app-toast-bar {
@@ -100,20 +133,27 @@
   display: none;
 }
 
-.app-toast [data-part="title"] {
+.app-toast [data-slot="toast-title"] {
+  flex: 0 1 auto;
   min-width: 0;
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
+  font-size: inherit;
   font-weight: 600;
 }
 
-.app-toast [data-part="description"] {
+.app-toast [data-slot="toast-description"] {
+  flex: 0 1 auto;
+  order: 0;
   min-width: 0;
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--grey);
+  font-size: inherit;
   white-space: nowrap;
 }
 
@@ -129,14 +169,14 @@
 
 /* U3793: the cards switch at once; the bar keeps draining, the only sight of the time left. */
 @media (prefers-reduced-motion: reduce) {
- .app-toast[data-scope="toast"] {
+ .app-toast[data-slot="toast"] {
     transition: none;
   }
 }
 
 /* An error names its cause and its fix: both wrap rather than cut. */
-.app-toast[data-type="error"] [data-part="title"],
-.app-toast[data-type="error"] [data-part="description"] {
+.app-toast[data-type="error"] [data-slot="toast-title"],
+.app-toast[data-type="error"] [data-slot="toast-description"] {
   overflow: visible;
   text-overflow: clip;
   white-space: normal;

@@ -74,7 +74,7 @@ it("u5690_rendered_selection_actions_on_dense_tree", async () => {
     await browser("mouse", "up", "right");
     await wait("!!document.querySelector('[role=menu]')");
     await capture("selection-menu");
-    expect(await read("[...document.querySelectorAll('.rail-row[data-selected=true]')].map(row => row.dataset.id)")).toEqual(chosen);
+    expect(await read("[...document.querySelectorAll('.rail-row[data-selected]')].map(row => row.dataset.id)")).toEqual(chosen);
 
     if (baseline) {
       await browser("press", "Escape");

@@ -44,7 +44,7 @@ it.each(["agents-10", "tree-40"])("u5531b_keyboard_and_click_walk_internal_child
     })()`);
     await lane.until("!!document.querySelector('[data-id=\"fold:internal:' + window.__u5531.home + '\"]')");
     const branch = await lane.evaluate<string>("'fold:internal:' + window.__u5531.home");
-    const control = `[data-id="${branch}"] [data-part=branch-control]`;
+    const control = `[data-id="${branch}"]`;
     await lane.capture("U5531b", `${seed}-closed`);
     await lane.browser("click", control);
     await lane.until("!!document.querySelector('[data-id=\"' + window.__u5531.child + '\"]')");
@@ -60,9 +60,9 @@ it.each(["agents-10", "tree-40"])("u5531b_keyboard_and_click_walk_internal_child
     await lane.until("!document.querySelector('[data-id=\"' + window.__u5531.child + '\"]')");
     await lane.capture("U5531b", `${seed}-reclosed`);
     const idle = await lane.evaluate<string>("'fold:' + window.__u5531.home");
-    await lane.browser("click", `[data-id="${idle}"] [data-part=branch-control]`);
+    await lane.browser("click", `[data-id="${idle}"]`);
     await lane.capture("U5531b", `${seed}-idle-open`);
-    await lane.browser("click", `[data-id="${idle}"] [data-part=branch-control]`);
+    await lane.browser("click", `[data-id="${idle}"]`);
     await lane.evaluate(`(() => {
       const app=window.__fake.app; const nodes=app.handlers['rail.tree']();
       const child=nodes.find(node=>node.id===window.__u5531.child);

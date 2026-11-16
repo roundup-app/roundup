@@ -82,6 +82,6 @@ it("u6398a_a_pointer_press_on_a_fork_sheet_branch_starts_one_projection", async 
   const nodes = [door("d", "working", "Door", { name: "Door", order: 0 }), agent("a", "working", "busy", { name: "Agent", parent: "d", order: 0 })];
   render(() => <ForkSheet app={createFakeApp()} open sources={() => [{ path: "/p", name: "p", nodes }]} onClose={() => {}} />);
   const sheet = await screen.findByRole("dialog");
-  fireEvent.click(sheet.querySelector<HTMLElement>('[data-part="branch-control"]')!, { detail: 1 });
+  fireEvent.click(sheet.querySelector<HTMLElement>('[role="treeitem"][data-branch]')!, { detail: 1 });
   expect(engine.animateLayout).toHaveBeenCalledOnce();
 });

@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf } from "./testHarness";
@@ -205,6 +206,7 @@ it("u3808_the_app_refetches_handed_facts_on_unchanged_value_events_and_keeps_unk
   m.app.handlers["todo.listHanded"] = () => new Promise(resolve => { answer = resolve; });
   m.store.todos = [todo(1, { title: "fresh list with pending facts" }), todo(2)];
   const pending = m.todos.reload();
+  flush();
   expect(m.todos.handed()).toBeNull();
   await waitFor(() => expect(m.todos.all()[0]?.title).toBe("fresh list with pending facts"));
   before = m.todos.all().map(todo => ({ ...todo }));

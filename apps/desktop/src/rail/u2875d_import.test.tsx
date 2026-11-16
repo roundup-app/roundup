@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { copy } from "./copy";
 import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -15,7 +14,7 @@ import { openTabs, tab, path } from "../header/stripFixture";
 import { createImport } from "../state/importState";
 import { exitedTerminal, mountRail, rowOf } from "./railFixture";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 // Resolve the current panel after navigation or remount; role queries stay inside its content.
 const panel = () => within(screen.getByLabelText(copy.importTitle, { selector: "section" }));
@@ -112,7 +111,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     openProjectPage("import-work");
     await screen.findByRole("button", { name: "Import 1" });
     expect(daemon.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(1);
-    batch(cleanup);
+    cleanup();
 
     const restored = createImport(daemon, path("api"), () => undefined);
 
@@ -161,7 +160,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       writes.mockRestore();
       fireEvent.click(panel().getByRole("button", { name: copy.retryStorage }));
       await waitFor(() => expect(screen.queryByText(/Import choices.*could not be saved for reload/)).toBeNull());
-      batch(cleanup);
+      cleanup();
       const restored = createImport(daemon, path("api"), () => undefined);
       expect([...restored.selected().keys()]).toEqual(["s1"]);
       expect(daemon.calls.filter((call) => call.method === "project.importCommit")).toEqual([]);
@@ -304,7 +303,7 @@ it("u3049a_unchanged_record_saves_normally", async () => {
   await clickSource("一つ目");
   await clickSource("三つ目");
   expect(screen.queryByRole("status", { name: /conflict/i })).toBeNull();
-  batch(cleanup);
+  cleanup();
   const { connected } = await mountRail([]);
   expect([connected.importing.period(), [...connected.importing.selected()].map(([source, { revision, title }]) => [source, { revision, title }])]).toEqual(["week", [
     ["s1", { revision: "preview-1", title: titles[0] }], ["s3", { revision: "preview-3", title: titles[2] }],
@@ -359,7 +358,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
   reads.mockRestore();
   fireEvent.click(retry);
   await waitFor(() => expect(retry.isConnected).toBe(false));
-  batch(cleanup);
+  cleanup();
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await screen.findByRole("status", { name: /conflict/i });
 
@@ -384,7 +383,7 @@ it.each([1, 2])("u3049b_discard_consumes_only_selected_version_%s", async (numbe
   await waitFor(() => expect(screen.queryByRole("status", { name: /conflict/i })).toBeNull());
   const sources = number === 2 ? ["s2"] : ["s1", "s3"];
   await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected.map((entry: { source: string }) => entry.source)).toEqual(sources));
-  batch(cleanup);
+  cleanup();
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
 
   await screen.findByRole("button", { name: `Import ${sources.length}` });
@@ -501,7 +500,7 @@ it.each([false, true])("u3049b_initial_restore_retry_keeps_versions_separate_rec
     ]);
     expect([connected.importing.period(), [...connected.importing.selected().keys()]]).toEqual(["week", ["s1", "s3"]]);
     await waitFor(() => expect(connected.importing.restoreFailure()).toBe(false));
-    batch(cleanup);
+    cleanup();
     const reopened = await mountRail([]);
     expect(reopened.connected.importing.choices().map(entry => [entry.period, entry.sources])).toEqual(expect.arrayContaining([
       ["month", ["s2"]], ["week", ["s1", "s3"]],

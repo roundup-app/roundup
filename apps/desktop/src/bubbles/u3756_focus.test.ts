@@ -37,7 +37,7 @@ const load = async (seed = "empty-project", recording?: string) => {
     await browser("click", "[role=menuitem][data-value=workstream]");
   }
 
-  await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected=true]')`);
+  await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected]')`);
 };
 
 it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer_bubble_and_input_%s", async seed => {
@@ -52,7 +52,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
 
   await browser("press", "Meta+t");
   await wait(`!!document.activeElement?.closest('.bubble') && !!window.__terminals.get('101')`);
-  await read(`window.selectedWorkstream = document.querySelector('.rail-row[data-selected=true]').dataset.id`);
+  await read(`window.selectedWorkstream = document.querySelector('.rail-row[data-selected]').dataset.id`);
   await browser("keyboard", "type", "before");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write')`);
   await read(`window.__fake.writeOutput('101', 'DRAWING BEFORE ARRIVAL' + String.fromCharCode(13, 10))`);
@@ -62,7 +62,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
   await capture("U3756a", `${seed}-arrived`);
   expect(await read(`document.activeElement === window.bubbleFocus`)).toBe(true);
-  expect(await read(`document.querySelector('.rail-row[data-selected=true]').dataset.id === window.selectedWorkstream`)).toBe(true);
+  expect(await read(`document.querySelector('.rail-row[data-selected]').dataset.id === window.selectedWorkstream`)).toBe(true);
   expect(await read(`window.__fake.app.outputSubscriptions.some(s => s.id === '101' && !s.released)`)).toBe(true);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.close')`)).toEqual([]);
   expect(await read(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed')`)).toBe("true");
@@ -115,7 +115,7 @@ const newer = async (choice: string) => {
     await read(`document.querySelector('.drawer textarea').focus()`);
     await browser('keyboard', 'type', ' exact newer drawer é 😀 '); // taste-skill-ignore: Unicode draft probe, not interface decoration.
   } else {
-    await read(`document.querySelector('.rail-row:not([data-selected=true])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
+    await read(`document.querySelector('.rail-row:not([data-selected])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
     expect(await read(`!!document.activeElement?.closest('.rail') && document.activeElement.matches('[tabindex]')`)).toBe(true);
   }
 
@@ -174,7 +174,7 @@ it("u3756d_initial_and_explicit_terminal_focus_still_work", async () => {
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('')`)).toBe("initial");
   await capture("U3756d", "initial");
   await newer("bubble");
-  await read(`window.originalRow = document.querySelector('.rail-row[data-selected=true]')`);
+  await read(`window.originalRow = document.querySelector('.rail-row[data-selected]')`);
   await browser("focus", `.rail-row[data-id="${await read<string>("window.originalRow.dataset.id")}"]`);
   await browser("press", "Enter");
   await wait(`!!document.activeElement?.closest('.pane-screen')`);
@@ -193,8 +193,8 @@ for (const intervene of [false, true]) {
       const tab = document.querySelector('#shelf-tab-pads[role=tab]'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     })()`);
     await wait(`!!document.querySelector('.pad-name')`);
-    await read(`document.querySelector('[data-pad="pad-3"] .pad-name').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
-    await wait(`!document.querySelector('[data-pad="pad-3"] .pad-name').closest('[data-shelf-group][data-state=closed]')`);
+    await read(`document.querySelector('[data-pad="pad-3"] .pad-name').closest('.shelf-group-body[data-closed]')?.closest('[data-shelf-group]').querySelector('.shelf-group-control').click()`);
+    await wait(`!document.querySelector('[data-pad="pad-3"] .pad-name').closest('.shelf-group-body[data-closed]')`);
     await browser("click", '[data-pad="pad-3"] .pad-name');
     await wait(`document.activeElement === document.querySelector('[data-pad="pad-3"] .pad-name')`);
     await browser("press", "Enter");
@@ -241,7 +241,7 @@ it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_
   await fresh("resources");
   // A reload restores selection; leave it before installing handlers and mounting the tested Worktree panel.
   await browser("click", '[data-id="bare-agent"] .name');
-  await wait(`document.querySelector('.rail-row[data-id="bare-agent"]')?.dataset.selected === 'true'`);
+  await wait(`document.querySelector('.rail-row[data-id="bare-agent"]')?.hasAttribute('data-selected')`);
   await read(`(() => {
     window.__fake.app.handlers['agent.worktreeState'] = () => ({ahead:1,behind:0,dirty:true});
     window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[{path:'src/file.ts',status:'modified',line:1}]});
@@ -287,7 +287,7 @@ const loadDense = async () => {
   await wait(`!!document.querySelector('[role=menuitem][data-value=workstream]')`);
   await browser("click", "[role=menuitem][data-value=workstream]");
   await wait(`!!window.arrive`);
-  await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);
+  await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected]').dataset.id })`);
   await wait(`!!document.querySelector('.todo-row-button')`);
 };
 
@@ -327,8 +327,8 @@ it.each(["initial", "return"])("u3756b_a_select_focus_frame_yields_to_the_newer_
 
 it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => {
   await loadDense();
-  await read(`document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')?.querySelector('[data-part=branch-control]').click()`);
-  await wait(`!document.querySelector('.todo-row-button').closest('[data-shelf-group][data-state=closed]')`);
+  await read(`document.querySelector('.todo-row-button').closest('.shelf-group-body[data-closed]')?.closest('[data-shelf-group]').querySelector('.shelf-group-control').click()`);
+  await wait(`!document.querySelector('.todo-row-button').closest('.shelf-group-body[data-closed]')`);
   await wait(`document.querySelector('.todo-row-button').getBoundingClientRect().height > 0`);
   await browser("focus", ".todo-row-button");
   await wait(`document.activeElement?.matches('.todo-row-button')`);
@@ -380,10 +380,10 @@ it("u3756b_the_queued_agent_editor_yields_to_the_newer_rail_choice", async () =>
     const queued = [], queue = window.queueMicrotask;
     window.queueMicrotask = task => queued.push(task);
     try {
-      document.querySelector('.rail-row[data-selected=true]').dispatchEvent(new KeyboardEvent('keydown', {key:'N',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
+      document.querySelector('.rail-row[data-selected]').dispatchEvent(new KeyboardEvent('keydown', {key:'N',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
     } finally { window.queueMicrotask = queue; }
     window.queuedCount = queued.length;
-    window.newFocus = document.querySelector('.rail-row[data-selected=true]');
+    window.newFocus = document.querySelector('.rail-row[data-selected]');
     window.newFocus.focus();
     queued.forEach(task => queue(task));
   })()`);

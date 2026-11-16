@@ -1,5 +1,6 @@
+import { flush } from "solid-js";
 import { DisplayClockContext } from "../state/clock";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { cleanup, render as renderWithoutClock, screen, waitFor } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,7 +10,7 @@ import { event } from "../testing/nodes";
 import { mountTodos, todo } from "./testHarness";
 import { Todos } from "./Todos";
 
-const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext.Provider value={() => () => 0}>{view()}</DisplayClockContext.Provider>);
+const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}>{view()}</DisplayClockContext>);
 
 afterEach(cleanup);
 
@@ -29,10 +30,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Todos />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
+    flush();
 
     expect(screen.queryByRole("group", { name: /No Todos/ })).toBeNull();
 
@@ -70,10 +72,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Todos />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
+    flush();
 
     await waitFor(() => expect(replies.length).toBe(1));
 
@@ -119,10 +122,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Todos />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
+    flush();
 
     const exhausted = await screen.findByRole("alert");
 
@@ -151,10 +155,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Todos />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
+    flush();
 
     expect((await screen.findByText(/daemon says no/)).textContent).toBe("daemon says no");
     expect(screen.queryByText("No Todos yet")).toBeNull();

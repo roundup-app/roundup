@@ -1,4 +1,4 @@
-import { createRoot, onCleanup } from "solid-js";
+import { createRoot, onCleanup, runWithOwner } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import { createTodosState } from "./state";
@@ -9,7 +9,7 @@ type Shared = { list: TodosState; users: number; dispose: () => void };
 const shared = new WeakMap<ConnectedProject, Shared>();
 
 const open = (connected: ConnectedProject): Shared =>
-  createRoot((dispose) => ({ list: createTodosState(connected.app, connected.events, connected.project.path), users: 0, dispose }));
+  runWithOwner(null, () => createRoot((dispose) => ({ list: createTodosState(connected.app, connected.events, connected.project.path), users: 0, dispose })));
 
 /** One shared `todo.list` with its bounded `todo.listHanded` facts, refetched as U15 says, serves the Shelf, the Drawer and every Rail row (U60); it logs no Touch. The fetch and the subscription end with the last reader. */
 export const useTodoList = (): TodosState => {

@@ -1,5 +1,5 @@
 import { outcomeOf } from "../app/seam";
-import { batch, createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { copy } from "./copy";
 import * as v from "valibot";
 import type { ImportFailure } from "@contracts/project/ImportFailure";
@@ -144,6 +144,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   let saving: Promise<void> = Promise.resolve();
 
   const persist = (edit = true) => {
+    // Every caller has just written the signals this reads.
+    flush();
     const retained = edit ? drafts?.edit(destination, value(), null, "ordinary", draftRevision ?? null) : null;
 
     if (retained) draftRevision = retained.draft.revision;
@@ -184,12 +186,10 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
     invalidate();
     draftRevision = revision;
-    batch(() => {
-      setPromptSignal(choice.prompt ?? DEFAULT_PROMPT); setListingAgent(choice.agent);
-      setPeriodSignal(choice.period);
-      setSelected(new Map(choice.sources.map((source, at) => [source, { revision: choice.revisions[at] ?? "", title: choice.titles?.[at] ?? source }])));
-      setOpen(true); setDiscovery(null); setVerified(false); setLoading(false); setStale([]); setFailed(new Map()); setFailure(null);
-    });
+    setPromptSignal(choice.prompt ?? DEFAULT_PROMPT); setListingAgent(choice.agent);
+    setPeriodSignal(choice.period);
+    setSelected(new Map(choice.sources.map((source, at) => [source, { revision: choice.revisions[at] ?? "", title: choice.titles?.[at] ?? source }])));
+    setOpen(true); setDiscovery(null); setVerified(false); setLoading(false); setStale([]); setFailed(new Map()); setFailure(null);
 
     return persist(false).then(() => refresh());
   };
@@ -200,7 +200,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     deadline = setTimeout(() => {
       if (mine !== latest) return;
       invalidate();
-      batch(() => { setLoading(false); setFailure(copy.importTimeout); });
+      setLoading(false); setFailure(copy.importTimeout);
     }, 20_000);
     setVerified(false);
     setLoading(true);
@@ -216,24 +216,22 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
       if (mine !== latest) return;
 
-      batch(() => {
-        const keep = new Map<string, { revision: string; title: string }>();
-        const dropped: string[] = [];
+      const keep = new Map<string, { revision: string; title: string }>();
+      const dropped: string[] = [];
 
-        for (const [source, entry] of selected()) {
-          const now = found.candidates.find((candidate) => candidate.source === source);
+      for (const [source, entry] of selected()) {
+        const now = found.candidates.find((candidate) => candidate.source === source);
 
-          if (now?.revision === entry.revision) keep.set(source, entry);
-          else dropped.push(entry.title);
-        }
+        if (now?.revision === entry.revision) keep.set(source, entry);
+        else dropped.push(entry.title);
+      }
 
-        setDiscovery(found);
-        setSelected(keep);
-        setStale(dropped);
-        setVerified(true);
+      setDiscovery(found);
+      setSelected(keep);
+      setStale(dropped);
+      setVerified(true);
 
-        if (!hasConflict()) persist();
-      });
+      if (!hasConflict()) persist();
     } catch (error) {
       if (mine === latest) setFailure(error instanceof Error ? error.message : String(error));
     } finally {
@@ -382,18 +380,17 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         const uncertain = [...refused.values()].some(failure => failure.outcome !== "failed");
 
         if (submittedRevision) drafts?.settle(submittedRevision, refused.size === 0 ? "acknowledged" : uncertain ? "unknown" : "failed");
-        batch(() => {
-          const rest = new Map(selected());
+        const rest = new Map(selected());
 
-          for (const outcome of outcomes) {
-            if (outcome.error === null && outcome.workstream !== null && rest.get(outcome.source) === submitted.get(outcome.source)) rest.delete(outcome.source);
-          }
+        for (const outcome of outcomes) {
+          if (outcome.error === null && outcome.workstream !== null && rest.get(outcome.source) === submitted.get(outcome.source)) rest.delete(outcome.source);
+        }
 
-          setSelected(rest);
-          setFailed(refused);
+        setSelected(rest);
+        setFailed(refused);
 
-          if (rest.size === 0) { setOpen(false); setDiscovery(null); setVerified(false); }
-        });
+        if (rest.size === 0) { setOpen(false); setDiscovery(null); setVerified(false); }
+
         persist();
 
         if (uncertain) setVerified(false);

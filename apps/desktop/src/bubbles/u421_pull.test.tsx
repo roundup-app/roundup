@@ -1,4 +1,5 @@
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { Menu } from "../ui/Menu";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { placesStorage } from "./places";
@@ -27,6 +28,7 @@ const fire = (type: string, target: Element | Window, init: Mouse): Event => {
 
   Object.defineProperty(event, "pointerType", { value: pointerType });
   target.dispatchEvent(event);
+  flush();
 
   return event;
 };
@@ -44,7 +46,7 @@ const left = (id: string): number => parseFloat(bubble(id).style.left);
 
 const top = (id: string): number => parseFloat(bubble(id).style.top);
 
-const frame = () => new Promise((done) => requestAnimationFrame(() => done(null)));
+const frame = () => new Promise((done) => requestAnimationFrame(() => { flush(); done(null); }));
 
 const ready = async (selected: string | null = "a") => {
   const mounted = await mountBubbles(selected);
@@ -279,7 +281,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 
   it("u421_an_open_rail_menu_closes_on_the_press_and_starts_no_pull", async () => {
     await ready();
-    const open = render(() => <Menu.Root open><Menu.Trigger>More</Menu.Trigger><Menu.Positioner><Menu.Content><Menu.Item value="a">A</Menu.Item></Menu.Content></Menu.Positioner></Menu.Root>);
+    const open = render(() => <Menu.Root open><Menu.Trigger>More</Menu.Trigger><Menu.Content><Menu.Item value="a">A</Menu.Item></Menu.Content></Menu.Root>);
 
     await waitFor(() => expect(document.querySelector('[role="menu"]')).not.toBeNull());
     press(document.body, 400, 300);

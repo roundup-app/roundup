@@ -1,13 +1,11 @@
 import { isDoor } from "./doorNode";
-import { createStore } from "solid-js/store";
+import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, runWithOwner, useContext, type Accessor, type Owner } from "solid-js";
 import { createHeld } from "./held";
 import { createTodoUndo } from "./undo";
 import type { RpcMethodName } from "@contracts/methods";
 import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
 import { withAppSettings } from "../settings/preferences";
-import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, runWithOwner, untrack, useContext } from "solid-js";
-import type { Accessor, Owner } from "solid-js";
 import { createImport } from "./importState";
 import { draftStorage } from "./storage";
 import { copy } from "./copy";
@@ -65,7 +63,8 @@ type ProjectDrafts = Drafts & {
 export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { paths?: Accessor<string[]> } => {
   const projects = new Map<string, ProjectDrafts>();
 
-  const [paths, setPaths] = createSignal<string[]>([]);
+  // A Project's holder is made on first use, which can be inside a component or a memo.
+  const [paths, setPaths] = createSignal<string[]>([], { ownedWrite: true });
 
   const forProject = (path: string): ProjectDrafts => {
     const existing = projects.get(path);
@@ -73,7 +72,8 @@ export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { pat
     if (existing) return existing;
 
     const storage = draftStorage(path);
-    const [recovery, setRecovery] = createStore<Record<string, Recovery | undefined>>({});
+    // Surfaces register from their bodies.
+    const [recovery, setRecovery] = createSignal<Record<string, Recovery | undefined>>({}, { ownedWrite: true });
 
     const holder: ProjectDrafts = {
       undo: createTodoUndo(),
@@ -81,11 +81,11 @@ export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { pat
       settingsView: createSettingsView(),
       editor: storage.editor,
       recoverable: storage.recoverable,
-      registerRecovery: (surface, resolve) => setRecovery(surface, () => resolve),
+      registerRecovery: (surface, resolve) => setRecovery(all => ({ ...all, [surface]: resolve })),
       availability: (draft, facts) => {
         if (draft.destination.surface === "terminal_selection") return "unavailable";
 
-        return recovery[draft.destination.surface]?.(draft, facts) ?? "unverified";
+        return recovery()[draft.destination.surface]?.(draft, facts) ?? "unverified";
       },
       list: storage.list,
       problem: storage.problem,
@@ -173,6 +173,8 @@ export const connectProject = async (
   routing?: AskRouting,
   /** Opens the Shelf on a tab when a request is made. */
   openShelf?: ShelfRequest,
+  /** What the connection's children belong to, so a caller inside an effect apply (which has no ambient owner) can still parent them; none means they belong to nobody and end with their stop. */
+  lifetime: Owner | null = null,
 ): Promise<ConnectedProject> => {
   drafts.undo.reconnect(app);
   const original = app;
@@ -197,14 +199,14 @@ export const connectProject = async (
   // including a tab closed before setup finishes, or its recovery resource would retain it.
   if (getOwner()) onCleanup(() => { ended = true; });
 
-  // The Rail, unseen, queue and asks children run under this one root, with one stop.
+  // The Rail, unseen, queue and asks children run under this one root, with one stop; the connecting attempt's end does not stop it.
   let children: Owner | null = null;
 
-  const stopChildren = createRoot(dispose => {
+  const stopChildren = runWithOwner(lifetime, () => createRoot(dispose => {
     children = getOwner();
 
     return dispose;
-  });
+  }));
 
   const inChildren = <T,>(create: () => T): T => {
     const created = runWithOwner(children, create);
@@ -277,9 +279,9 @@ export const connectProject = async (
 /** App-run authority for owners outside a connection, including Project tabs.
  * Resolve by the original Project path, even after its connection or tab closes.
  */
-export const ProjectDraftsContext = createContext<ReturnType<typeof createProjectDrafts>>();
+export const ProjectDraftsContext = createContext<ReturnType<typeof createProjectDrafts> | null>(null);
 
-export const ConnectedProjectContext = createContext<ConnectedProject>();
+export const ConnectedProjectContext = createContext<ConnectedProject | null>(null);
 
 export const useConnectedProject = (): ConnectedProject => {
   const connected = useContext(ConnectedProjectContext);
@@ -293,12 +295,10 @@ export const useConnectedProject = (): ConnectedProject => {
 export const useCreation = (kind: "todo" | "pad" | "terminal", consume: (home: string) => void) => {
   const connected = useConnectedProject();
 
-  createEffect(() => {
-    const request = connected.creation();
-
+  createEffect(() => connected.creation(), request => {
     if (request?.kind !== kind) return;
 
     connected.finishCreation();
-    untrack(() => consume(request.home));
+    consume(request.home);
   });
 };

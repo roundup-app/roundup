@@ -6,6 +6,7 @@ import type { FileDrop } from "./seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
+import { notices } from "../testing/notices";
 
 const drop = (x: number, y: number, ...paths: string[]): FileDrop => ({ phase: "drop", paths, x, y });
 
@@ -15,7 +16,7 @@ const tabX = (at: number) => at * 100 + 50;
 
 const rowY = (id: string) => ROW_TOP + [...document.querySelectorAll(".rail-row")].findIndex((row) => row.getAttribute("data-id") === id) * 30 + 15;
 
-const selected = () => document.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id");
+const selected = () => document.querySelector(".rail-row[data-selected]")?.getAttribute("data-id");
 
 
 const mount = async (trees: Record<string, RailNode[]>) => {
@@ -123,7 +124,7 @@ describe("u420 a file dropped on a target lands in that target", () => {
     expect(document.querySelectorAll("[data-drop]")).toHaveLength(0);
     expect(app.of("/Users/me/web").calls.filter((call) => call.method === "terminal.write")).toEqual([]);
     expect([...made.values()].flatMap((emulator) => emulator.pasted)).toEqual([]);
-    expect(document.querySelector("[role=alert]")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   });
 
   it("u420_a_non_image_dropped_on_a_workstream_pastes_into_its_door", async () => {
@@ -132,7 +133,7 @@ describe("u420 a file dropped on a target lands in that target", () => {
     app.dropFiles(drop(100, rowY("w1"), "/p/notes.txt"));
     await waitFor(() => expect(made.get("t-w1")!.pasted).toEqual(["'/p/notes.txt' "]));
 
-    expect(document.querySelector("[role=alert]")).toBeNull();
+    expect(notices("alert")).toEqual([]);
   });
 
   it("u420_a_directory_dropped_on_a_workstream_pastes_into_its_door", async () => {

@@ -7,7 +7,7 @@ import { appSettings, saveAppSettings } from "../settings/preferences";
 import { copy } from "./copy";
 import { layoutMoving } from "../resize/motion";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, For, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, getOwner, onCleanup, onSettled, runWithOwner, Show, For, untrack } from "solid-js";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
 import type { Recovery } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
@@ -36,25 +36,27 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   const { rail } = connected;
   let fontSize: number | undefined;
   const createEmulator = props.createEmulator ?? lazyXtermEmulators();
+  const owner = getOwner();
 
   const screens = createScreens(connected, (id, copy) => {
-    fontSize ??= appSettings().fontSize;
-    const emulator = createEmulator(id, copy);
+    fontSize ??= untrack(() => appSettings().fontSize);
+    // An emulator is made when a Terminal shows, from an effect's apply, which has no owner of its own: it belongs to this Pane.
+    const emulator = runWithOwner(owner, () => createEmulator(id, copy));
 
     emulator.setFontSize(fontSize);
 
     return emulator;
   }, props.openObject);
 
-  createEffect(on(() => appSettings().fontSize, size => {
+  createEffect(createMemo(() => appSettings().fontSize), size => {
     fontSize = size;
     screens.setFontSize(size);
     refitNextFrame();
-  }, { defer: true }));
+  }, { defer: true });
 
-  createEffect(on(() => appSettings().fontFamily, () => refitNextFrame(), { defer: true }));
+  createEffect(createMemo(() => appSettings().fontFamily), () => { refitNextFrame(); }, { defer: true });
 
-  props.screensRef?.(screens);
+  onSettled(() => { props.screensRef?.(screens); });
 
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
@@ -67,7 +69,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   const terminalId = createMemo(() => doorTerminalId(selected()));
 
-  createEffect(() => props.observeTerminal?.(terminalId()));
+  createEffect(terminalId, id => { props.observeTerminal?.(id); });
   onCleanup(() => props.observeTerminal?.(null));
 
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
@@ -134,7 +136,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     }
   };
 
-  createEffect(on(rail.selected, () => preparation?.abort(), { defer: true }));
+  createEffect(rail.selected, () => { preparation?.abort(); }, { defer: true });
   onCleanup(() => { preparation?.abort(); rail.prepareTerminal = undefined; });
   let pendingFrame: number | null = null;
 
@@ -153,10 +155,10 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   };
 
   // U389, U430, U371: an edge drag or a Drawer or Shelf slide changes the pane's width every frame; the Terminal is fitted once when it ends.
-  createEffect(on(layoutMoving, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
+  createEffect(layoutMoving, (now) => { if (!now) refitNextFrame(); }, { defer: true });
 
   // X14: the Terminal the selection leaves stops receiving output; only its subscription is released.
-  createEffect(on(terminalId, (_id, previous) => { if (previous != null) screens.hide(previous); }, { defer: true }));
+  createEffect(terminalId, (_id, previous) => { if (previous != null) screens.hide(previous); });
 
   createEffect(() => {
     const host = screen();
@@ -164,7 +166,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     const focusPermission = rail.terminalFocus();
     const doorNotRunning = doorState() !== null;
 
-    if (!host || preparing()) return;
+    return { host, id, focusPermission, doorNotRunning, preparing: host !== undefined && preparing() };
+  }, ({ host, id, focusPermission, doorNotRunning, preparing }) => {
+    if (!host || preparing) return;
 
     if (id === null) {
       host.replaceChildren();
@@ -248,6 +252,8 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     },
   })));
 
+  provideFocusTarget("pane.terminal", () => untrack(screen)?.querySelector<HTMLElement>("textarea, [tabindex]"));
+
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
   let body: HTMLElement | undefined;
 
@@ -304,13 +310,12 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       <div class="pane-origin">
 
       <div
-        class="pane-body"
-        classList={{ "drop-over": dropOver() }}
+        class={["pane-body", { "drop-over": dropOver() }]}
         ref={(element) => {
           body = element;
         }}
       >
-        <div class="pane-screen" ref={element => { setScreen(element); provideFocusTarget("pane.terminal", () => element.querySelector<HTMLElement>("textarea, [tabindex]")); resizeObserver?.observe(element); }} />
+        <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
@@ -325,7 +330,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         </Show>
         <Show when={doorState()}>
           {(state) => (
-            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.launching(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.launching(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
+            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.launching(selected()!.id) || connected.daemonExit() !== null ? "true" : undefined} onClick={() => { if (!rail.launching(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
               </button>} />

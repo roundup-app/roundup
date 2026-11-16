@@ -1,5 +1,4 @@
-import { createSignal, onCleanup, untrack } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createSignal, onCleanup, untrack, type Accessor } from "solid-js";
 import * as v from "valibot";
 import { command } from "../app/command";
 import type { App, DaemonExit, Project } from "../app/seam";

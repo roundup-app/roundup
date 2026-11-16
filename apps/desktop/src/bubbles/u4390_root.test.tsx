@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
@@ -63,8 +64,10 @@ it.each(["plus", "chord"])("u4390_root_open_survives_a_stale_list_before_first_l
   expect(mounted.connected.rail.terminals().find(terminal => terminal.id === "9")?.owner).toBe("w");
   expect(mounted.connected.rail.selected()).toBeNull();
   mounted.connected.rail.select("w");
+  flush();
   expect(tabs()).toEqual(["9"]);
   mounted.connected.rail.select(null);
+  flush();
   expect(tabs()).toEqual(["project", "9"]);
 });
 
@@ -72,13 +75,16 @@ it("u4390_close_after_first_listing_removes_only_the_chosen_terminal", async () 
   const mounted = await openThroughStaleList("plus");
   mounted.app.handlers["terminal.list"] = () => mounted.connected.rail.terminals().filter(terminal => terminal.id !== "9");
   fireEvent.click(document.querySelector('[aria-label="Close new shell"]')!);
+  flush();
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "9" }]));
   await mounted.connected.rail.settled();
   expect(tabs()).toEqual(["project"]);
   expect(document.querySelector('.bubble[data-bubble="9"]')).toBeNull();
   mounted.connected.rail.select("w");
+  flush();
   mounted.connected.rail.select(null);
+  flush();
   expect(tabs()).toEqual(["project"]);
 });
 
@@ -88,11 +94,14 @@ it("u524_a_non_root_open_resets_root_visibility_and_keeps_project_terminals", as
   mounted.app.handlers["terminal.open"] = () => ({ terminal_id: "10" });
   mounted.app.handlers["terminal.list"] = () => listed;
   mounted.connected.rail.select("w");
+  flush();
   fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  flush();
   await mounted.connected.rail.settled();
   await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("10"));
   await mounted.connected.rail.settled();
   mounted.connected.rail.select(null);
+  flush();
   expect(tabs()).toEqual(["project"]);
   expect(bubbleCalls(mounted.app, "terminal.open")).toMatchObject([{ workstream: "w" }, { workstream: "w" }]);
 });

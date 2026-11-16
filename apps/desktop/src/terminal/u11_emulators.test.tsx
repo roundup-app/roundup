@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { mountPane, subscribed } from "./paneHarness";
 import { info, node, terminal } from "../testing/nodes";
+import { notices } from "../testing/notices";
 
 const decoded = (chunks: Uint8Array[]): string[] => chunks.map((chunk) => new TextDecoder().decode(chunk));
 
@@ -50,7 +51,7 @@ describe("u11 one emulator per Terminal", () => {
 
     await screen.findByRole("alert", { name: /^Terminal output stopped\.\s+channel refused$/ });
 
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(notices("alert")).toHaveLength(1);
   });
 
   it("u11_closing_the_pane_disposes_every_emulator", async () => {

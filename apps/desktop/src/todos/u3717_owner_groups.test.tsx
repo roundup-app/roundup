@@ -15,7 +15,7 @@ const ME = { kind: "user" as const, id: "you", parent: null };
 
 const groups = () => [...document.querySelectorAll("[data-shelf-group]")].map((el) => el.getAttribute("data-shelf-group"));
 
-const unfold = (id: string) => fireEvent.click(document.querySelector(`[data-shelf-group="${id}"] [data-part="branch-control"]`)!);
+const unfold = (id: string) => fireEvent.click(document.querySelector(`[data-shelf-group="${id}"] .shelf-group-control`)!);
 
 const mount = (extra: Parameters<typeof todo>[1][] = []) => mountTodos([
   todo(1, { owner: ME }), todo(2, { owner: by("b") }), todo(3, { owner: by("a") }), todo(4), todo(5, { owner: by("gone") }), todo(6, { owner: by("a"), done: true }), ...extra.map((over, at) => todo(10 + at, over)),
@@ -82,7 +82,7 @@ it("u3720_a_failed_assign_shows_its_cause_and_keeps_the_group", async () => {
   expect(document.querySelector('[data-shelf-group="a"] [data-todo="3"]')).toBeTruthy();
 });
 
-const content = (id: string) => document.querySelector(`[data-shelf-group="${id}"] [data-part="branch-content"]`)!;
+const content = (id: string) => document.querySelector(`[data-shelf-group="${id}"] .shelf-group-body`)!;
 
 it("u3717_group_order_is_me_agents_unassigned", async () => {
   await mountTodos([todo(1, { owner: by("b") }), todo(2, { owner: by("a") }), todo(3, { owner: ME }), todo(4)], true, [agent("a", "idle", "A", { name: "alpha", order: 1 }), agent("b", "idle", "B", { name: "beta", order: 0 })]);

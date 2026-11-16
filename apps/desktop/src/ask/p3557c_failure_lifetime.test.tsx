@@ -1,4 +1,5 @@
 import { event } from "../testing/nodes";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
@@ -25,18 +26,22 @@ it("p3557c_failure_lifetime_ask_rows", async () => {
 
   await waitFor(() => expect(document.querySelectorAll(".ask-row")).toHaveLength(2));
   fireEvent.click(document.querySelectorAll<HTMLButtonElement>(".ask-row")[0]!.querySelector<HTMLButtonElement>(".ask-choices button")!);
+  flush();
   await waitFor(() => expect(lines()[0]).toContain("pick refused"));
   expect(lines()[1]).toBeNull();
 
   // Dismissal clears exactly that part's line and nothing else.
   fireEvent.click(within(document.querySelectorAll<HTMLElement>(".ask-row")[0]!).getByRole("button", { name: "Dismiss" }));
+  flush();
   await waitFor(() => expect(lines()).toEqual([null, null]));
 
   // A later acknowledged pick of the same part clears its failure.
   fireEvent.click(document.querySelectorAll<HTMLButtonElement>(".ask-row")[0]!.querySelector<HTMLButtonElement>(".ask-choices button")!);
+  flush();
   await waitFor(() => expect(lines()[0]).toContain("pick refused"));
   app.handlers["ask.pick"] = () => ask("a1", 1, [{ text: "first", placement: { kind: "routed", workstream: "lead" }, state: "queued" }, waiting("second")]);
   fireEvent.click(document.querySelectorAll<HTMLButtonElement>(".ask-row")[0]!.querySelector<HTMLButtonElement>(".ask-choices button")!);
+  flush();
   await waitFor(() => expect(lines()[0]).toBeNull());
 });
 
@@ -54,10 +59,15 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   app.handlers["deliverable.list"] = () => records;
   app.handlers["deliverable.resolve"] = ({ id }) => id === "publication-1" ? { kind: "unavailable", cause: "missing-revision" } : { kind: "retained", path: "/p", sha256: "h" };
   app.emit(event({ name: "deliverable.changed" }));
+  flush();
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = () => within(made).getAllByRole("listitem");
   const lines = () => rows().map(row => row.querySelector(".reserved-line")?.getAttribute("title") || null);
-  const open = (i: number) => fireEvent.click(within(rows()[i]!).getAllByRole("button")[0]!);
+
+  const open = (i: number) => {
+    fireEvent.click(within(rows()[i]!).getAllByRole("button")[0]!);
+    flush();
+  };
 
   await waitFor(() => expect(rows()).toHaveLength(2));
   open(0);
@@ -71,6 +81,7 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
 
   // Dismissal clears it.
   fireEvent.click(within(rows()[0]!).getByRole("button", { name: "Dismiss" }));
+  flush();
   await waitFor(() => expect(lines()).toEqual([null, null]));
 
   // A later acknowledged open of the same record clears its failure.
@@ -88,12 +99,14 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   records = [published(2)];
   app.emit(event({ name: "deliverable.changed" }));
+  flush();
   await waitFor(() => expect(rows()).toHaveLength(1));
   expect(lines()).toEqual([null]);
 });
 
 function type(element: HTMLTextAreaElement | HTMLInputElement | null, value: string) {
   fireEvent.input(element!, { target: { value } });
+  flush();
 }
 
 it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
@@ -102,10 +115,12 @@ it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
 
   type(input(), "send me");
   fireEvent.keyDown(input()!, { key: "Enter" });
+  flush();
   const line = () => document.querySelector(".ask-send-status")?.getAttribute("title") ?? null;
   await waitFor(() => expect(line()).toContain("refused"));
 
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  flush();
   await waitFor(() => expect(line()).toBeNull());
   expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
 });
@@ -120,9 +135,11 @@ it("u5558e_failed_reload_retains_data", async () => {
   app.handlers["deliverable.list"] = () => { throw new RpcError(-32003, "Publication list unavailable"); };
 
   app.emit(event({ name: "deliverable.changed" }));
+  flush();
   await waitFor(() => expect(within(made).getByRole("alert")).toBeTruthy());
   app.handlers["deliverable.list"] = () => [published(1)];
   app.emit(event({ name: "deliverable.changed" }));
+  flush();
   await waitFor(() => expect(within(made).getAllByRole("listitem")).toHaveLength(1));
   expect(app.calls.filter(call => ["deliverable.resolve", "ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
@@ -134,6 +151,7 @@ it("u5558a_automatic_reload_preserves_focused_publication", async () => {
   app.handlers["deliverable.list"] = () => [published(1), published(2)];
   app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/publication-1", sha256: "hash-1" });
   app.emit(event({ name: "deliverable.changed" }));
+  flush();
   const made = await screen.findByRole("region", { name: "Made" });
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   const opener = within(made).getByRole("button", { name: "Open Title 1" });
@@ -141,10 +159,12 @@ it("u5558a_automatic_reload_preserves_focused_publication", async () => {
 
   app.handlers["deliverable.list"] = () => [published(3), { ...published(1), home: "ops", title: "Updated result" }, published(2)];
   app.emit(event({ name: "deliverable.changed" }));
+  flush();
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(document.activeElement).toBe(opener);
   expect(within(made).getByRole("button", { name: "Open Updated result" })).toBe(opener);
   fireEvent.keyDown(opener, { key: "Enter" });
+  flush();
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: "/retained/publication-1", line: null }]));
   expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "project-original", id: "publication-1" }]);
 });

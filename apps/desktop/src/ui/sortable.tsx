@@ -1,255 +1,29 @@
-import GripVertical from "lucide-solid/icons/grip-vertical";
+import GripVertical from "@lucide/solid/icons/grip-vertical";
 import { IconButton } from "./IconButton";
 import { ReducedMotionContext } from "../app/reducedMotion";
 import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
 import { dropLine } from "./dropLine";
 import { pointerSensor } from "./pointerSensor";
-import { scrollerOf } from "./scrollerOf";
-import { depthReading, depthsAt, depthSteps, dropAt, gapAt, isInPlace, keyDrop, keyStart, keyTurn, legalIndexOf, resolveDrop, stepLevel, withDepth, type DepthStep, type DepthReading, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
+import { fixedSlots } from "./fixedSlots";
+import { depthReading, depthsAt, dropAt, gapAt, isInPlace, keyDrop, keyStart, keyTurn, legalIndexOf, resolveDrop, withDepth, type DropRules, type SortableDrop, type TreeRow } from "./treeDrop";
 import { easingOut, glide, reorderMs, translateOf } from "./reorderMotion";
 import "./sortable.css";
-import { Accessibility, AutoScroller, Cursor, Feedback, PointerSensor, type DragDropManager, type Draggable, type DropAnimationFunction, type Droppable } from "@dnd-kit/dom";
-import { CollisionPriority, CollisionType, type CollisionDetector, type UniqueIdentifier } from "@dnd-kit/abstract";
+import { Accessibility, AutoScroller, Cursor, DragDropManager, Feedback, PointerSensor, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Draggable, type DropAnimationFunction } from "@dnd-kit/dom";
+import type { CollisionDetector, Data } from "@dnd-kit/abstract";
 import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers";
 import { showPopover } from "@dnd-kit/dom/utilities";
 import { effect } from "@dnd-kit/state";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { DragDropProvider } from "@dnd-kit/solid";
-import { isSortable } from "@dnd-kit/dom/sortable";
-import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { createContext, createEffect, createSignal, createMemo, mergeProps, on, onCleanup, splitProps, untrack, useContext, type JSX } from "solid-js";
-
-/** Past this many pixels outside the list the preview shows no move; back inside the lower gap it follows again. */
-const FAR_OUT_PX = 56;
-
-const FAR_IN_PX = 40;
-
-/** A drop slot changes hands only once the pointer is this share of a row nearer the other slot. */
-const STICKY_ROW_SHARE = 0.25;
-
-/**
- * Collision against the slots the rows had at lift, never the live boxes that move.
- * A pointer drag keeps the library's target on the dragged row itself, so the library moves no row in the DOM:
- * the other rows make room by `translate`, as a function of the pointer (`pose`), and the drop takes slot `slot()`.
- * Keyboard drags keep the library's own sorting.
- * Far from the list the slot is the row's own: nothing moves and a release puts it back.
- */
-const fixedSlots = (axis: "x" | "y", list: () => HTMLElement | undefined, depth: boolean) => {
-  type Lift = { starts: number[]; sizes: number[]; size: number; box: DOMRect; ids: Set<UniqueIdentifier>; elements: Element[]; scroller: Element | null; offset: number };
-
-  type Row = { id: UniqueIdentifier; index: number; element: Element | undefined };
-
-  const offset = (scroller: Element | null) => scroller ? (axis === "x" ? scroller.scrollLeft : scroller.scrollTop) : 0;
-  let lift: Lift | null = null;
-  let dragged: { id: UniqueIdentifier; from: number; at: number; manager: DragDropManager } | null = null;
-  let slot = -1;
-  let far = false;
-  let pointer: { x: number; y: number } | null = null;
-  /** Whether a drop at index `to` is one the caller takes; the pointer picks only among those. */
-  let allowed = (_to: number): boolean => true;
-  // A tree drag's depth below or above the dragged row's own, read from the pointer's x against the steps of the slot it picks.
-  let level = 0;
-  let grabX = 0;
-  let reading: DepthReading | undefined;
-  let steps: { slot: number; lo: number; steps: DepthStep[] } | null = null;
-
-  const rowsOf = (): Row[] => [...dragged?.manager.registry.droppables ?? []].filter((row): row is Droppable & Row => isSortable(row)).filter(row => row.element && list()?.contains(row.element));
-
-  const measure = (rows: readonly Row[]): Lift | null => {
-    const shown = rows.filter((row): row is Row & { element: Element } => !!row.element).sort((a, b) => a.index - b.index);
-
-    if (!shown.length) return null;
-    const rects = shown.map(row => row.element.getBoundingClientRect());
-
-    // The rows' own extent, cut to what the scrolling ancestor shows: a strip can overflow its container.
-    const scroller = scrollerOf(shown[0]!.element);
-    const view = scroller?.getBoundingClientRect();
-    const left = Math.max(Math.min(...rects.map(r => r.left)), view?.left ?? -Infinity);
-    const top = Math.max(Math.min(...rects.map(r => r.top)), view?.top ?? -Infinity);
-    const right = Math.min(Math.max(...rects.map(r => r.right)), view?.right ?? Infinity);
-    const bottom = Math.min(Math.max(...rects.map(r => r.bottom)), view?.bottom ?? Infinity);
-    const start = axis === "x" ? "left" : "top";
-    const length = axis === "x" ? "width" : "height";
-
-    // Slots are kept in scroll-content coordinates: auto-scroll moves the rows under a fixed slot.
-    return { starts: rects.map(rect => rect[start] + offset(scroller)), sizes: rects.map(rect => rect[length]), size: rects[0]![length], box: new DOMRect(left, top, right - left, bottom - top), ids: new Set(shown.map(row => row.id)), elements: shown.map(row => row.element), scroller, offset: offset(scroller) };
-  };
-
-  /** Where the dragged row's start edge sits, in scroll-content coordinates, once it sits at index `to`. */
-  const startOf = (from: number, to: number) => to <= from ? lift!.starts[to]! : lift!.starts[to]! + lift!.sizes[to]! - lift!.sizes[from]!;
-
-  const shifts = (from: number, to: number): number[] | null => {
-    if (!lift || from < 0 || to < 0 || to >= lift.starts.length || from >= lift.starts.length) return null;
-    const order = lift.starts.map((_, index) => index).filter(index => index !== from);
-
-    order.splice(to, 0, from);
-    let cursor = lift.starts[0]!;
-    const out: number[] = [];
-
-    order.forEach((index, at) => {
-      out[index] = cursor - lift!.starts[index]!;
-      cursor += lift!.sizes[index]! + (lift!.starts[at + 1] === undefined ? 0 : lift!.starts[at + 1]! - lift!.starts[at]! - lift!.sizes[at]!);
-    });
-
-    return out;
-  };
-
-  /** The lifted row's middle now, in scroll-content coordinates of the lift. */
-  const liftedMiddle = () => startOf(dragged!.from, dragged!.from) + lift!.sizes[dragged!.from]! / 2 + (axis === "x" ? pointer!.x : pointer!.y) - dragged!.at + offset(lift!.scroller) - lift!.offset;
-
-  /** The slot the pointer picks: the one nearest the lifted row's middle among those `allowed`, kept until another is past STICKY_ROW_SHARE of a row nearer. */
-  const repick = (): number => {
-    // The pick reads the lifted row's middle against its own middle at each slot, the places `pose` draws, so a tall row and the rows agree.
-    const middle = liftedMiddle();
-    const distance = (index: number) => Math.abs(startOf(dragged!.from, index) + lift!.sizes[dragged!.from]! / 2 - middle);
-    const open = lift!.starts.map((_, index) => index).filter(allowed);
-    const nearest = open.reduce((best, index) => distance(index) < distance(best) ? index : best, open[0] ?? -1);
-
-    return nearest >= 0 && nearest !== slot && (!allowed(slot) || distance(slot) - distance(nearest) > STICKY_ROW_SHARE * lift!.size) ? nearest : slot;
-  };
-
-  // The pointer picks the slot nearest the dragged row; it changes hands only past STICKY_ROW_SHARE of a row.
-  const update = () => {
-    if (!dragged || !pointer) return;
-    const rows = rowsOf();
-
-    // A row that joined the list mid-drag makes new slots. One that leaves keeps its slot, and a row unregistered for a moment changes nothing.
-    if (!lift || rows.some(row => !lift!.ids.has(row.id))) {
-      lift = measure(rows);
-      steps = null;
-
-      if (!lift) return;
-    }
-
-    const { x, y } = pointer;
-    const { box } = lift;
-    // A tree takes its depth from how far the pointer sits beyond the list's end edge, so that overrun is no distance from the list.
-    const gap = Math.hypot(Math.max(box.left - x, 0, depth && axis === "y" ? 0 : x - box.right), Math.max(box.top - y, 0, depth && axis === "x" ? 0 : y - box.bottom));
-
-    far = far ? gap > FAR_IN_PX : gap > FAR_OUT_PX;
-
-    slot = far ? dragged.from : repick();
-
-    if (!reading) return;
-
-    if (steps?.slot !== slot) {
-      const { lo, hi } = reading.levels(slot);
-
-      steps = { slot, lo, steps: depthSteps(grabX, reading.indent, lo, hi, reading.box) };
-    }
-
-    level = stepLevel(steps.steps, steps.lo, level, x);
-  };
-
-  /**
-   * How far each row at lift shows from its place now: the dragged row's centre, moved by the pointer, sits between two slots,
-   * and every other row stands that share of the way between its places for those two slots (the paper's `d.between`).
-   */
-  const startAt = (from: number, to: number): number | null => {
-    if (!lift || from < 0 || to < 0 || to >= lift.starts.length || from >= lift.starts.length) return null;
-
-    return startOf(from, to) - offset(lift.scroller);
-  };
-
-  const snapped = () => !!lift && lift.starts.some((_, index) => !allowed(index));
-
-  const pose = (): number[] | null => {
-    if (!lift || !dragged || !pointer) return null;
-    const { from } = dragged;
-
-    if (far) return lift.starts.map(() => 0);
-
-    // Where the owner refuses some slots the rows stand at the slot picked, never between, so no gap opens where a release cannot land.
-    if (snapped()) return shifts(from, slot);
-    const centre = liftedMiddle();
-    const slots = lift.starts.map((_, to) => startOf(from, to) + lift!.sizes[from]! / 2);
-    const k = Math.max(0, Math.min(slots.length - 2, slots.findLastIndex(at => at <= centre)));
-    const share = slots.length < 2 ? 0 : Math.max(0, Math.min(1, (centre - slots[k]!) / (slots[k + 1]! - slots[k]!)));
-    const a = shifts(from, k), b = shifts(from, Math.min(k + 1, slots.length - 1));
-
-    return a && b ? a.map((shift, index) => index === from ? 0 : shift + (b[index]! - shift) * share) : null;
-  };
-
-  type Input = { droppable: Droppable; dragOperation: { source: Draggable | null; target: Droppable | null; activatorEvent: Event | null } };
-
-  const choose = ({ droppable, dragOperation }: Input) => {
-    const { source, target } = dragOperation;
-
-    if (!isSortable(droppable) || !isSortable(source)) return null;
-    const hit = { id: droppable.id, value: 1, type: CollisionType.Collision, priority: CollisionPriority.Normal };
-
-    // Keyboard drags choose their own target; a pointer drag's target stays the row itself.
-    return (dragOperation.activatorEvent instanceof KeyboardEvent ? target?.id : source.id) === droppable.id ? hit : null;
-  };
-
-  // SAFETY: the library calls this with the DOM package's draggables and droppables, which is the `Input` it reads; its generic parameters only widen them.
-  /** The detector also tells a row whether a keyboard drag may stop at index `to`: the drops the owner takes. */
-  const detect = Object.assign(choose, { takes: (to: number) => allowed(to) }) as CollisionDetector & { takes: (to: number) => boolean };
-
-  let posed: ((pose: number[]) => void) | undefined;
-
-  const at = (x: number, y: number) => {
-    pointer = { x, y };
-    update();
-    const now = pose();
-
-    if (now) posed?.(now);
-  };
-
-  const scrolled = () => { update(); const now = pose();
-
- if (now) posed?.(now); };
-
-  const moved = (x: number, y: number) => { if (dragged) at(x, y); };
-
-  return {
-    detect,
-    /** The drag's own report of the pointer, the one source of a move: `begin` starts the slot from where the pointer is when the drag starts. */
-    moved,
-    /** Limits the drops a pointer can pick to the indices `ok` takes, until the next call. */
-    allow: (ok: (to: number) => boolean) => { allowed = ok; },
-    isFar: () => far,
-    /** The slot a pointer release takes now. */
-    slot: () => slot,
-    /** The dragged row's top edge at the slot it picked, in view coordinates, where the owner refuses some slots; else null. */
-    snappedTop: (): number | null => dragged && snapped() ? startAt(dragged.from, slot) : null,
-    /** Levels a tree drop sits deeper than the dragged row's own depth, negative for shallower. */
-    level: () => level,
-    /** Where the depth steps in the slot the pointer picks now. */
-    steps: (): readonly DepthStep[] => steps?.steps ?? [],
-    /** Where the dragged row's start edge shows once it sits at index `to`: the rows' places at lift, in view coordinates now. */
-    startAt,
-    /** How far each row shows from its place at lift once the row at `from` sits at `to`; the dragged row's own entry is its move. */
-    shifts,
-    /** The rows in their order at lift. */
-    rowsAtLift: (): readonly Element[] => lift?.elements ?? [],
-    /** Starts reading the pointer for one drag of `source`, grabbed at `grab`; `onPose` gets every row's offset as the pointer moves. With `depth` it also reads the drop's depth. Returns what stops it. */
-    begin: (source: Draggable | null, grab: { x: number; y: number }, current: { x: number; y: number }, onPose: (pose: number[]) => void, depth?: DepthReading) => {
-      lift = null; far = false; pointer = null; dragged = null; slot = -1; posed = onPose; level = 0; grabX = grab.x; reading = depth; steps = null;
-
-      if (!isSortable(source) || !source.manager) return () => undefined;
-      dragged = { id: source.id, from: source.initialIndex, at: axis === "x" ? grab.x : grab.y, manager: source.manager };
-      slot = source.initialIndex;
-      lift = measure(rowsOf());
-      // The move that started the drag was made before this listener: the slot starts from where the pointer is now, not from the lift.
-      pointer = { x: current.x, y: current.y };
-      update();
-      window.addEventListener("scroll", scrolled, { capture: true, passive: true });
-
-      return () => {
-        window.removeEventListener("scroll", scrolled, { capture: true });
-        posed = undefined;
-      };
-    },
-  };
-};
+import { isSortable, resolveSortableTransition, Sortable as LibrarySortable, type SortableInput } from "@dnd-kit/dom/sortable";
+import { createContext, createEffect, createSignal, createMemo, flush, omit, onCleanup, onSettled, untrack, useContext } from "solid-js";
+import type { JSX } from "@solidjs/web";
 
 /** Longest the dragged row waits at its new place for the Daemon's answer to show in the list. */
 const ANSWER_WAIT_MS = 2500;
 
-/** What a row reads from its list: the collision detector, and whether a keyboard drag may stop at index `to`. */
-const SlotsContext = createContext<CollisionDetector & { takes: (to: number) => boolean }>();
+/** What a row reads from its list: the manager its sortable joins, the collision detector, and whether a keyboard drag may stop at index `to`. */
+const ListContext = createContext<{ manager: DragDropManager; detect: CollisionDetector & { takes: (to: number) => boolean } }>();
 
 /** A drop target outside the list; `element` carries `data-drop` while the pointer is over it. */
 type ExternalTarget = { element: HTMLElement; /** Carried instead of the list's `attribute` while the pointer is over this target. */ attribute?: string };
@@ -326,12 +100,12 @@ const stopLibrarySlides = (source: Draggable | null, tree: SortableTree | undefi
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const reduced = useContext(ReducedMotionContext) ?? (() => matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children"]);
+  const rest = omit(props, "ids", "onOrderChange", "tree", "external", "plain", "horizontal", "ref", "onDrag", "children");
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
   let stopTracking: (() => void) | undefined;
   let stopPointer: (() => void) | undefined;
-  const slots = untrack(() => fixedSlots(local.horizontal ? "x" : "y", () => list, !!local.tree));
+  const slots = untrack(() => fixedSlots(props.horizontal ? "x" : "y", () => list, !!props.tree));
 
   // A drop shows its new order at once: the dragged row settles into the slot and waits there until the list itself shows the order, or the Daemon refuses.
   // The move itself runs once the row has landed (`run`): a list that redraws on a move then blocks no frame of the settle.
@@ -343,28 +117,28 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     setTimeout(() => { if (commit === next) { commit = null; next.run(); next.clear(); } }, 1000);
   };
 
-  const shownOrder = createMemo(() => local.tree ? local.tree.rows.map(row => `${row.id}>${row.parent}`).join() : local.ids.join());
+  const shownOrder = createMemo(() => props.tree ? props.tree.rows.map(row => `${row.id}>${row.parent}`).join() : props.ids.join());
   const arrivals = new Set<() => void>();
 
   // The rows' offsets go in the same update that redraws the list: a list that slides its rows reads where they show before it redraws and again after.
   // The list moves the dropped row's node when it shows the move, which drops focus; the handle takes it back.
   let refocus: HTMLElement | null = null;
 
-  createEffect(on(shownOrder, () => {
+  createEffect(shownOrder, () => {
     for (const arrive of arrivals) arrive();
 
     if (refocus?.isConnected && document.activeElement === document.body) refocus.focus();
     refocus = null;
-  }, { defer: true }));
+  }, { defer: true });
 
-  const along = (shift: number) => `${local.horizontal ? shift : 0}px ${local.horizontal ? 0 : shift}px`;
+  const along = (shift: number) => `${props.horizontal ? shift : 0}px ${props.horizontal ? 0 : shift}px`;
   const slides = new WeakMap<Element, Animation>();
 
   /** Shows each row `shift` px from its place: at once, or sliding from where it shows now. Reads every row before it writes one. */
   const place = (rows: readonly { element: HTMLElement; shift: number }[], slide: boolean) => {
     const from = slide ? rows.map(({ element }) => { const now = translateOf(element);
 
- return local.horizontal ? now.x : now.y; }) : [];
+ return props.horizontal ? now.x : now.y; }) : [];
 
     const easing = slide ? easingOut() : "";
     const duration = slide ? reorderMs(document.documentElement) : 0;
@@ -464,6 +238,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const arrived = () => end(true);
 
     // A list that draws the move at once (the Rail) already shows the new order: holding the rows too would shift them twice.
+    flush();
+
     if (shownOrder() !== dragged.key) return end(true);
     arrivals.add(arrived);
 
@@ -482,7 +258,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
       if (dragged?.start == null) return { x: box.x, y: box.y };
 
-      return local.horizontal ? { x: dragged.start, y: box.y } : { x: box.x, y: dragged.start };
+      return props.horizontal ? { x: dragged.start, y: box.y } : { x: box.x, y: dragged.start };
     };
 
     commit = null;
@@ -544,8 +320,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     previewed = drop;
 
-    if (local.tree && keyboard) list?.style.setProperty("--sortable-shift", `${((drop?.depth ?? ownDepth) - ownDepth) * local.tree.indent}px`);
-    local.tree?.onPreview(drop);
+    if (props.tree && keyboard) list?.style.setProperty("--sortable-shift", `${((drop?.depth ?? ownDepth) - ownDepth) * props.tree.indent}px`);
+    props.tree?.onPreview(drop);
   };
 
   /** The drop for the gap before index `index` of the dragged row: a keyboard drag at its own depth, else `level` levels from the row's own depth. */
@@ -641,7 +417,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   // A keyboard drag's drop follows its keys; a pointer drag's is its pick (`showPick`).
   const track = (source: Draggable | null) => {
-    const tree = local.tree;
+    const tree = props.tree;
 
     if (!tree || !isSortable(source) || !keyboard) return;
     preview(resolve(tree, String(source.id), source.index, 0).drop);
@@ -665,14 +441,14 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   /** Draws `pick` with the line, starting at the inset a row at its depth has; with no pick it fades out where it is. */
   const drawPick = (pick: Pick | null) => {
-    const x = pick && local.tree ? lineStart + (pick.drop.depth - ownDepth) * local.tree.indent : null;
+    const x = pick && props.tree ? lineStart + (pick.drop.depth - ownDepth) * props.tree.indent : null;
 
     line.place(x, pick ? `${pick.index} ${pick.drop.depth} ${pick.drop.parent ?? ""}` : "");
   };
 
   /** Picks the drop for the pointer now and draws it when it changes. */
   const showPick = (source: Draggable | null) => {
-    const tree = local.tree;
+    const tree = props.tree;
 
     if (!picking || !tree || !isSortable(source)) return;
     const id = String(source.id), index = slots.slot();
@@ -690,17 +466,17 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   /** Opens the line for one pointer drag of `row` along the row's top edge, as wide as the row at lift, so it ends at the row's right edge. */
   const openLine = (row: HTMLElement) => {
-    if (!local.tree) return;
+    if (!props.tree) return;
     const box = row.getBoundingClientRect();
 
-    lineStart = box.left + local.tree.inset(row);
+    lineStart = box.left + props.tree.inset(row);
     lineTop = box.top;
     line.open(box);
     line.ride(box.top);
   };
 
   const mark = (next: T | null) => {
-    const attributeOf = (target: T | null) => target?.attribute ?? local.external?.attribute ?? "data-drop";
+    const attributeOf = (target: T | null) => target?.attribute ?? props.external?.attribute ?? "data-drop";
 
     if (next?.element !== over?.element) {
       if (over) over.element.removeAttribute(attributeOf(over));
@@ -713,7 +489,21 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   let stopRestoringFocus: (() => void) | undefined;
 
-  // `@dnd-kit/solid` puts the dragged row back next to the elements it had at lift, but the library's placeholder now follows it,
+  // Where the dragged row stands among its siblings when its drag is about to start: the library's own sorting (a keyboard drag) moves it in the DOM.
+  let stood: { previous: Element | null; next: Element | null; parent: Element | null } | null = null;
+
+  const savePosition = (element: Element) => { stood = { previous: element.previousElementSibling, next: element.nextElementSibling, parent: element.parentElement }; };
+
+  const restorePosition = (element: Element) => {
+    if (!stood) return;
+    const { previous, next, parent } = stood;
+
+    if (previous && element.previousElementSibling !== previous) previous.insertAdjacentElement("afterend", element);
+    else if (next && element.nextElementSibling !== next) next.insertAdjacentElement("beforebegin", element);
+    else if (!previous && !next && parent) parent.appendChild(element);
+  };
+
+  // `restorePosition` puts the dragged row back next to the elements it had at lift, but the library's placeholder now follows it,
   // so it lands past the text node the list keeps after each row, and the list's next redraw then moves the wrong rows. Put it back exactly.
   let lifted: { element: Element; parent: ParentNode; before: ChildNode | null } | null = null;
 
@@ -733,10 +523,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     list?.style.removeProperty("--sortable-shift");
   };
 
-  onCleanup(() => { clearPreview(); stopPointer?.(); stopRestoringFocus?.(); stopListening?.(); mark(null); reclip(); cancelAnimationFrame(latch); line.remove(); });
-
-  return <SlotsContext.Provider value={slots.detect}><DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor)} modifiers={local.horizontal ? [RestrictToHorizontalAxis] : []} onDragStart={(event) => {
-    const tree = local.tree;
+  const onDragStart = (event: DragStartEvent) => {
+    const tree = props.tree;
     const source = event.operation.source;
     const feedback = source?.manager?.registry.plugins.get(Feedback);
 
@@ -755,6 +543,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     // The children fold before the rows are measured, so the slots are those of the folded list.
     if (tree && source) tree.onLift?.(String(source.id), event.operation.activatorEvent instanceof KeyboardEvent);
+    flush();
 
     slots.allow(tree && source ? (to) => legalIndex(tree, String(source.id), to) : () => true);
     lifted = source?.element?.parentNode ? { element: source.element, parent: source.element.parentNode, before: source.element.previousSibling } : null;
@@ -773,7 +562,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (source?.element instanceof HTMLElement) grab(source, source.element, tree, pointerLift);
 
     stopListening?.();
-    local.onDrag?.(true);
+    props.onDrag?.(true);
 
     if (!tree || !isSortable(source) || !(event.operation.activatorEvent instanceof KeyboardEvent)) {
       keyboard = null;
@@ -782,7 +571,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     }
 
     holdKeys(tree, String(source.id));
-  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility) && !(local.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle, keyboardTransition: null }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin)} onDragMove={(event) => {
+  };
+
+  const onDragMove = (event: DragMoveEvent) => {
     const { source, position } = event.operation;
 
     // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
@@ -792,10 +583,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (!(event.operation.activatorEvent instanceof KeyboardEvent)) slots.moved(x, y);
     track(source);
 
-    if (!local.external || !source) return;
-    mark(local.external.target(String(source.id), x, y));
+    if (!props.external || !source) return;
+    mark(props.external.target(String(source.id), x, y));
     showPick(source);
-  }} onDragEnd={(event) => {
+  };
+
+  const onDragEnd = (event: DragEndEvent) => {
     const source = event.operation.source;
     const outside = over;
     const pointerDrag = !(event.operation.activatorEvent instanceof KeyboardEvent);
@@ -818,7 +611,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopPointer = undefined;
 
     mark(null);
-    local.onDrag?.(false);
+    props.onDrag?.(false);
     stopListening?.();
     stopListening = undefined;
 
@@ -839,7 +632,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       });
     }
 
-    const tree = local.tree;
+    const tree = props.tree;
     const point = event.operation.position.current;
 
     // The preview shows what a release commits: far from the list it shows no move, and nothing commits.
@@ -864,7 +657,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (pointerDrag) swallowNextClick();
 
     // The row ends over another list: the list's glide (U3311) is its one motion, so the library's drop animation stays off.
-    if (outside && source && local.external) {
+    if (outside && source && props.external) {
       const feedback = source.manager?.registry.plugins.get(Feedback);
 
       if (feedback) feedback.dropAnimation = null;
@@ -874,9 +667,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
  return; }
 
-    if (outside && source && local.external) {
+    if (outside && source && props.external) {
       relax();
-      local.external.onDropOutside(String(source.id), outside);
+      props.external.onDropOutside(String(source.id), outside);
 
       return;
     }
@@ -902,7 +695,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
  return; }
 
-    const order = [...local.ids];
+    const order = [...props.ids];
     const [moved] = order.splice(source.initialIndex, 1);
 
     if (moved === undefined) { relax();
@@ -910,47 +703,102 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
  return; }
 
     order.splice(index ?? source.initialIndex, 0, moved);
-    const run = () => local.onOrderChange?.(order, String(source.id));
+    const run = () => props.onOrderChange?.(order, String(source.id));
 
     hold({ start: slots.startAt(source.initialIndex, index ?? source.initialIndex), run, key: shownOrder(), ...showDrop(source, index ?? source.initialIndex, pointerDrag) });
-  }}><div {...rest} ref={element => { list = element; local.ref?.(element); }} data-plain={local.plain ? "" : undefined} data-horizontal={local.horizontal ? "" : undefined}>{local.children}</div>{local.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</DragDropProvider></SlotsContext.Provider>;
+  };
+
+  const manager = untrack(() => new DragDropManager({
+    sensors: defaults => defaults.map(sensor => sensor === PointerSensor ? pointerSensor() : sensor),
+    modifiers: props.horizontal ? [RestrictToHorizontalAxis] : [],
+    plugins: (defaults) => defaults.filter((plugin) => plugin !== Cursor && !(props.plain && plugin === Accessibility) && !(props.horizontal && plugin === AutoScroller)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: settle, keyboardTransition: null }) : plugin === AutoScroller ? AutoScroller.configure({ threshold: { x: 0, y: 0.2 } }) : plugin),
+  }));
+
+  const context = { manager, detect: slots.detect };
+
+  // A handler that changes the list is drawn before the library goes on: it measures the rows once a handler returns.
+  const stopMonitoring = [
+    // listener-owner: the drag manager's monitor, not a DOM target; the cleanup below unsubscribes it.
+    manager.monitor.addEventListener("beforedragstart", ({ operation: { source } }) => { if (isSortable(source) && source.element) savePosition(source.element); }),
+    // listener-owner: the drag manager's monitor, not a DOM target; the cleanup below unsubscribes it.
+    manager.monitor.addEventListener("dragstart", onDragStart),
+    // listener-owner: the drag manager's monitor, not a DOM target; the cleanup below unsubscribes it.
+    manager.monitor.addEventListener("dragmove", (event) => flush(() => onDragMove(event))),
+    // listener-owner: the drag manager's monitor, not a DOM target; the cleanup below unsubscribes it.
+    manager.monitor.addEventListener("dragend", (event) => {
+      const { source } = event.operation;
+
+      if (isSortable(source) && source.element) restorePosition(source.element);
+      flush(() => onDragEnd(event));
+      stood = null;
+    }),
+  ];
+
+  onCleanup(() => { for (const stop of stopMonitoring) stop(); manager.destroy(); clearPreview(); stopPointer?.(); stopRestoringFocus?.(); stopListening?.(); mark(null); reclip(); cancelAnimationFrame(latch); line.remove(); });
+
+  return <ListContext value={context}><div {...rest} ref={element => { list = element; props.ref?.(element); }} data-plain={props.plain ? "" : undefined} data-horizontal={props.horizontal ? "" : undefined}>{props.children}</div>{props.tree ? <div class="sortable-line" popover="manual" aria-hidden="true" ref={line.box}><div class="sortable-line-bar" ref={line.bar} /></div> : null}</ListContext>;
 };
 
-type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
+type ItemProps = Pick<SortableInput<Data>, "id" | "index" | "disabled"> & {
   /** The row holds a slot others can land on but cannot be lifted: it has no drag activator, so it is announced neither draggable nor disabled. */
   fixed?: boolean;
   /** The handle is also a button: a pointer drag starts after 4 px, so a click stays a click, and Space and Enter stay the button's own. */
   pressable?: boolean;
-  children: (parts: ReturnType<typeof useSortable>) => JSX.Element;
+  children: (parts: SortableParts) => JSX.Element;
 };
 
 /** What `Item` hands its row: the refs of the row and its handle, and the library's sortable. */
-export type SortableParts = ReturnType<typeof useSortable>;
+export type SortableParts = {
+  sortable: LibrarySortable;
+  isDragging: () => boolean;
+  ref: (element: Element | undefined) => void;
+  handleRef: (element: Element | undefined) => void;
+};
 
 const Item = (props: ItemProps) => {
-  const slots = useContext(SlotsContext);
+  const { manager, detect } = useContext(ListContext);
+  const [dragging, setDragging] = createSignal(false);
+  const fixed = untrack(() => props.fixed);
+
   // A keyboard drag's next target skips the rows whose index the owner refuses: the library then moves the row to the next index it takes.
-  const accept = slots ? { accept: (): boolean => slots.takes(sortable.sortable.index) } : {};
-  const sortable = useSortable(untrack(() => mergeProps(props, { transition: { duration: 0 } }, slots ? { collisionDetector: slots } : {}, accept, props.pressable ? { sensors: [pointerSensor()] } : {})));
+  const sortable: LibrarySortable = untrack(() => {
+    const input: ConstructorParameters<typeof LibrarySortable>[0] = {
+      id: props.id,
+      index: props.index,
+      disabled: props.disabled ?? false,
+      transition: resolveSortableTransition({ duration: 0 }),
+      collisionDetector: detect,
+      accept: (): boolean => detect.takes(sortable.index),
+      register: false,
+    };
 
-  if (!untrack(() => props.fixed)) return untrack(() => props.children(sortable));
+    if (props.pressable) input.sensors = [pointerSensor()];
 
-  // The row stays a drop slot (its element is the droppable's) but the draggable gets none, so the library binds no activator to it.
-  // The library sets the elements in an effect; this one is created after it, so it runs after it.
-  const [element, setElement] = createSignal<Element>();
-
-  createEffect(() => {
-    if (element()) sortable.sortable.source = undefined;
+    return new LibrarySortable(input, manager);
   });
 
-  // SAFETY: the wrapper takes the element the library's own setter takes and passes it on; the cast only drops the setter's updater overload.
-  const ref = ((next?: Element) => {
-    setElement(next);
+  createEffect(() => [props.id, props.disabled ?? false] as const, ([id, disabled]) => { sortable.id = id; sortable.disabled = disabled; });
+  createEffect(() => props.index, (index) => { sortable.index = index; });
 
-    return sortable.ref(next);
-  }) as SortableParts["ref"];
+  onSettled(() => {
+    const stopDragging = effect(() => { setDragging(sortable.isDragging); });
+    const unregister = sortable.register();
 
-  return untrack(() => props.children({ ...sortable, ref }));
+    return () => { stopDragging(); unregister(); };
+  });
+
+  return untrack(() => props.children({
+    sortable,
+    isDragging: dragging,
+    ref: (element) => {
+      if (!element) return;
+      sortable.element = element;
+
+      // The row stays a drop slot (its element is the droppable's) but the draggable gets none, so the library binds no activator to it.
+      if (fixed) sortable.source = undefined;
+    },
+    handleRef: (handle) => { if (handle) sortable.handle = handle; },
+  }));
 };
 
 /** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. The row beside it names what moves, so it shows no tooltip (U6614a). */

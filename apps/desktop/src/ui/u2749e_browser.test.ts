@@ -27,11 +27,11 @@ run("u2749e a tooltip takes no press", () => {
     const owner = await page.call<{ x: number; y: number }>(`() => { const b = document.getElementById("tip-owner").getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; }`);
 
     await page.hover(owner.x, owner.y);
-    await page.until(`() => document.querySelector('[data-scope="tooltip"][data-part="content"]')`);
+    await page.until(`() => document.querySelector('[data-slot="tooltip-content"][data-open]')`);
 
     // The press point is inside both the tooltip's box and the beneath button's box.
     const press = await page.call<{ x: number; y: number } | null>(`() => {
-      const t = document.querySelector('[data-scope="tooltip"][data-part="content"]').getBoundingClientRect();
+      const t = document.querySelector('[data-slot="tooltip-content"][data-open]').getBoundingClientRect();
       const b = document.getElementById("beneath").getBoundingClientRect();
       const left = Math.max(t.left, b.left), right = Math.min(t.right, b.right), top = Math.max(t.top, b.top), bottom = Math.min(t.bottom, b.bottom);
       return left < right && top < bottom ? { x: (left + right) / 2, y: (top + bottom) / 2 } : null;

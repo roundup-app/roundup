@@ -3,6 +3,7 @@ import { questionProbe } from "../testing/menuProbe";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { RpcError } from "../app/seam";
 import { agent } from "../testing/nodes";
 import { openTabs, path, tab, projectTablist, projectTabs } from "./stripFixture";
@@ -133,10 +134,12 @@ describe("u184 close with a question", () => {
     expect(close.getAttribute("data-visible")).toBe("false");
 
     fireEvent.pointerEnter(tab("api").parentElement!);
+    flush();
 
     expect(close.getAttribute("data-visible")).toBe("true");
 
     fireEvent.pointerLeave(tab("api").parentElement!);
+    flush();
 
     expect(close.getAttribute("data-visible")).toBe("false");
     expect(close.isConnected).toBe(true);
@@ -167,6 +170,7 @@ const withLayout = async (run: () => Promise<void>) => {
     await openTabs({ a: [], b: [agent("x", "needs-you", "x")], c: [], d: [agent("z", "needs-you", "x")], e: [agent("y", "error", "x")] });
     document.querySelectorAll<HTMLElement>(".project-tab").forEach((element, at) => (element.dataset.at = String(at * 60)));
     fireEvent.scroll(projectTablist());
+    flush();
     await run();
   } finally {
     spies.forEach((spy) => spy.mockRestore());
@@ -197,8 +201,8 @@ describe("u184 overflow", () => {
       await withLayout(async () => {
         const open = projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true");
 
-        // SAFETY: the stub records its receiver, which is the Element that was revealed.
-        expect(reveal.mock.calls.map((call) => (call[0] as Element).textContent)).toEqual([open?.textContent]);
+        // SAFETY: the stub records its receiver, which is the Element that was revealed: the tab's row, which also holds its close control.
+        expect(reveal.mock.calls.map((call) => (call[0] as Element).querySelector("[role=tab]")?.textContent)).toEqual([open?.textContent]);
       });
     } finally {
       Element.prototype.scrollIntoView = original;
@@ -222,6 +226,7 @@ describe("u184 overflow", () => {
         reveal.mockClear();
 
         fireEvent.click(document.querySelector(".strip-edge")!);
+        flush();
 
         expect(reveal).toHaveBeenCalledTimes(1);
         // SAFETY: the stub records its receiver, which is the Element the click revealed.
@@ -240,6 +245,7 @@ describe("u184 overflow", () => {
       // Scrolled to the end: `a` and `b` lie left of the view, and `b` carries a mark.
       Object.defineProperty(list, "scrollLeft", { configurable: true, value: 200 });
       fireEvent.scroll(list);
+      flush();
 
       const edges = [...document.querySelectorAll(".strip-edge-left")];
 

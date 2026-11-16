@@ -2,11 +2,12 @@ import { parse } from "@babel/parser";
 import { traverseFast } from "@babel/types";
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { createSignal } from "solid-js";
+import { createSignal, flush, untrack } from "solid-js";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ReservedLine } from "./ReservedLine";
+import { notice, notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -15,12 +16,12 @@ it("u3807_the_line_form_is_mounted_without_a_message_and_keeps_its_height", () =
   const { container } = render(() => <section><button>Before</button><ReservedLine message={message()} dismiss={() => setMessage(null)} /><button>After</button></section>);
   const surface = container.firstElementChild!;
   const nodes = [...surface.children];
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
   setMessage("Could not save\nTry again");
-  expect(screen.getByRole("alert").closest(".reserved-line")?.getAttribute("title")).toBe("Could not save\nTry again");
+  expect(notices("alert")[0]!.closest(".reserved-line")?.getAttribute("title")).toBe("Could not save\nTry again");
   expect([...surface.children]).toEqual(nodes);
   setMessage(null);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
   expect([...surface.children]).toEqual(nodes);
 });
 
@@ -30,7 +31,7 @@ it("u3807_the_overlay_form_is_out_of_flow", () => {
   const surface = container.firstElementChild!;
   const nodes = [...surface.children];
   setMessage("Could not send");
-  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(notices("alert")).toHaveLength(1);
   expect([...surface.children]).toEqual(nodes);
   setMessage(null);
   expect([...surface.children]).toEqual(nodes);
@@ -41,7 +42,8 @@ it("u3807_a_new_status_replaces_the_previous_status_in_the_same_place", () => {
   const view = render(() => <ReservedLine status={status()} />);
   const place = view.container.firstElementChild;
   setStatus("Original object unavailable");
-  expect(screen.getByRole("status").textContent).toBe("Original object unavailable");
+  flush();
+  expect(notice("status").textContent).toBe(untrack(status));
   expect(view.container.firstElementChild).toBe(place);
 });
 

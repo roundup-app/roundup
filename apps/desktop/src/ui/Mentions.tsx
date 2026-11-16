@@ -1,15 +1,16 @@
-import { Combobox, createListCollection, useComboboxContext } from "@ark-ui/solid/combobox";
-import { createContext, createMemo, createSignal, useContext, For, Show, splitProps, type JSX } from "solid-js";
-import { mergeProps } from "@zag-js/solid";
-import { Portal } from "solid-js/web";
+import { Command, CommandInput, CommandItem, CommandItemText, CommandList } from "@ui-sdk/solid/command";
+import { Popover, PopoverContent } from "@ui-sdk/solid/popover";
+import { createContext, createSignal, For, omit, Show, useContext } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import "./Combobox.css";
-import { floatingControl } from "./Dialog";
-
-const PointerHighlight = createContext<() => void>(() => undefined);
+import "./Popover.css";
+import { createFloatingControl } from "./Dialog";
 
 type Mention = { value: string; label: string };
 
-/** A textarea suggestion list: Ark owns keyboard navigation, activation and the input's active descendant. */
+const Suggestions = createContext<{ field: () => HTMLElement | undefined; setField: (element: HTMLElement) => void; highlighted: () => string | null; select: (value: string) => void }>();
+
+/** A textarea suggestion list: ui-sdk's Command owns keyboard navigation, activation and the input's active descendant. */
 const Root = (props: {
   items: readonly Mention[];
   highlightedValue: string | null;
@@ -19,62 +20,68 @@ const Root = (props: {
   children: JSX.Element;
   onDismiss: () => void;
 }) => {
-  const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: item => item.value, itemToString: item => item.label }));
-
-  // Zag 1.45 reports pointer and keyboard highlights through the same callback.
-  // Keep the controlled keyboard choice while allowing item clicks and tooltip events.
-  let pointerEvent = false;
-
-  const notePointer = () => {
-    pointerEvent = true;
-    setTimeout(() => { pointerEvent = false; });
-  };
-
   const [element, setElement] = createSignal<HTMLElement>();
-  const control = floatingControl({ get open() { return props.items.length > 0; }, onOpenChange: details => { if (!details.open) props.onDismiss(); } }, element);
+  const [field, setField] = createSignal<HTMLElement>();
+  const control = createFloatingControl({ get open() { return props.items.length > 0; }, onOpenChange: details => { if (!details.open) props.onDismiss(); } }, element);
 
-  return <PointerHighlight.Provider value={notePointer}><Combobox.Root ref={setElement} collection={collection()} open={control.open()} inputValue={props.inputValue}
-    value={[]} highlightedValue={props.highlightedValue} loopFocus inputBehavior="none" selectionBehavior="preserve"
-    openOnClick={false} openOnKeyPress={false} positioning={{ placement: "bottom-start", gutter: 4, strategy: "fixed" }}
-    onHighlightChange={details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); }}
-    onOpenChange={control.change}
-    onValueChange={details => { const value = details.value[0];
+  // A press or focus landing on the textarea itself is editing, not leaving the list.
+  const withinField = (event: Event | undefined) => event?.target instanceof Node && field()?.contains(event.target) === true;
 
-      if (value !== undefined) props.onSelect(value); }}>
-    {props.children}
-  </Combobox.Root></PointerHighlight.Provider>;
+  // Pointer movement keeps the controlled keyboard choice; clicks still activate through onAction.
+  return <Command ref={setElement} value={props.highlightedValue} query={props.inputValue} filter={false} loop onAction={props.onSelect}
+    onValueChange={(value, details) => { if (details.reason === "item-hover") details.cancel(); else props.onHighlightChange(value); }}>
+    <Popover open={control.open()} onOpenChange={(open, details) => { if (open || !(details.reason === "outside-press" || details.reason === "focus-out") || !withinField(details.event)) control.change({ open }); }}>
+      <Suggestions value={{ field, setField, highlighted: () => props.highlightedValue, select: value => props.onSelect(value) }}>{props.children}</Suggestions>
+    </Popover>
+  </Command>;
 };
 
 const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onKeyDown"> & { open: boolean; onKey: (event: KeyboardEvent) => void }) => {
-  const [local, rest] = splitProps(props, ["open", "onKey", "class"]);
-  const combobox = useComboboxContext();
+  const mentions = useContext(Suggestions);
+  const rest = omit(props, "open", "onKey", "class", "ref");
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (local.open && !event.isComposing && !event.shiftKey && event.key === "Tab" && combobox().highlightedValue) {
-      event.preventDefault();
-      combobox().selectValue(combobox().highlightedValue!);
+  // ui-sdk's input is single-line; mentions keep the textarea's multiline textbox role, which supports active-descendant list navigation.
+  return <CommandInput render={attributes => {
+    const input = omit(attributes, "type", "role", "aria-expanded", "aria-controls", "onKeyDown", "ref");
 
-      return;
-    }
+    return <textarea {...input} {...rest} ref={[attributes.ref, props.ref, mentions.setField]}
+    class={`${props.class ?? ""} field-frame`} role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-controls={props.open ? attributes["aria-controls"] : undefined} spellcheck={false} autocorrect="off" autocapitalize="off"
+    onKeyDown={(event: KeyboardEvent) => {
+      const value = mentions.highlighted();
 
-    // Ark handles the open list; the Ask bar handles submission and the second Escape.
-    if (!local.open || event.key === "Escape") local.onKey(event);
-  };
+      if (props.open && !event.isComposing && !event.shiftKey && event.key === "Tab" && value) {
+        event.preventDefault();
+        mentions.select(value);
 
-  return <Combobox.Control><Combobox.Input asChild={attributes => {
-    const inputAttributes: () => JSX.InputHTMLAttributes<HTMLTextAreaElement> = attributes;
-    const [, input] = splitProps(mergeProps(inputAttributes, { onKeyDown }), ["type", "role", "aria-expanded", "aria-controls"]);
+        return;
+      }
 
-    // Ark's input defaults to a single-line combobox; mentions keep the textarea's
-    // multiline textbox role, which supports active-descendant list navigation.
-    return <textarea {...input} {...rest} class={`${local.class ?? ""} field-frame`} role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-controls={local.open ? combobox().getInputProps()["aria-controls"] : undefined} spellcheck={false} autocorrect="off" autocapitalize="off" />;
-  }} /></Combobox.Control>;
+      // The list handles its keys; the Ask bar handles submission and the second Escape.
+      if (!props.open || event.key === "Escape") props.onKey(event);
+      else attributes.onKeyDown?.(event);
+    }} />;
+  }} />;
 };
 
-const List = (props: { label: string; items: readonly Mention[]; row: (item: Mention) => JSX.Element }) => (
-  <Show when={props.items.length > 0}><Portal><Combobox.Positioner><Combobox.Content class="app-popover app-mentions-panel app-mentions app-combobox-list" aria-label={props.label} on:pointermove={{ capture: true, handleEvent: useContext(PointerHighlight) }} on:pointerleave={{ capture: true, handleEvent: useContext(PointerHighlight) }}>
-    <For each={props.items}>{item => <Combobox.Item item={item} class="app-combobox-item"><Combobox.ItemText>{props.row(item)}</Combobox.ItemText></Combobox.Item>}</For>
-  </Combobox.Content></Combobox.Positioner></Portal></Show>
-);
+const List = (props: { label: string; items: readonly Mention[]; row: (item: Mention) => JSX.Element }) => {
+  const mentions = useContext(Suggestions);
+
+  return <Show when={props.items.length > 0 && mentions.field()}>{field =>
+    <PopoverContent anchor={field()} initialFocus="none" finalFocus="none" side="bottom" align="start" sideOffset={4} class="app-popover app-mentions-panel"
+      render={attributes => {
+        const panel = omit(attributes, "role", "aria-labelledby", "aria-describedby");
+
+        return <div {...panel} role="presentation" />;
+      }}>
+      <CommandList class="app-mentions app-combobox-list" aria-label={props.label} render={attributes => {
+        const list = omit(attributes, "aria-labelledby");
+
+        return <div {...list} />;
+      }}>
+        <For each={props.items}>{item => <CommandItem value={item.value} label={item.label} class="app-combobox-item"><CommandItemText>{props.row(item)}</CommandItemText></CommandItem>}</For>
+      </CommandList>
+    </PopoverContent>}
+  </Show>;
+};
 
 export const Mentions = { Root, Field, List };

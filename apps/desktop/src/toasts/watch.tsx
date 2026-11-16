@@ -29,11 +29,11 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
   const settle = (item: string) => settleItem(owned(item));
   const push = (candidate: Candidate) => pushCandidate({ ...candidate, key: owned(candidate.key), item: owned(candidate.item), project: connected.project.path });
   // The Kind each Agent last had, so a load or a repeat makes no Toast.
-  const seen = new Map<string, Kind>(rail.nodes.flatMap((node) => (isDoor(node) && node.status ? [[node.id, node.status.kind] as const] : [])));
+  const seen = new Map<string, Kind>(untrack(() => rail.nodes.flatMap((node) => (isDoor(node) && node.status ? [[node.id, node.status.kind] as const] : []))));
 
   const stopFiltering = createRoot(dispose => {
-    createEffect(() => {
-      for (const node of rail.nodes) if (node.alert_level === "quiet") untrack(() => suppress(owned(node.id)));
+    createEffect(() => rail.nodes.filter((node) => node.alert_level === "quiet").map((node) => node.id), (quiet) => {
+      for (const id of quiet) suppress(owned(id));
     });
 
     return dispose;

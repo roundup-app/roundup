@@ -27,7 +27,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_rail_dense_selection_and_reco
     await lane.browser("focus", ".rail-row");
     await lane.capture("U3787c", `rail-${seed}-before`);
     await lane.browser("press", "Meta+a");
-    await lane.until("document.querySelectorAll('.rail-row[data-selected=true]').length === document.querySelectorAll('.rail-row').length");
+    await lane.until("document.querySelectorAll('.rail-row[data-selected]').length === document.querySelectorAll('.rail-row').length");
     expect(await lane.calls()).toEqual([]);
     await lane.capture("U3787c", `rail-${seed}-selected`);
     await lane.browser("press", "F2");

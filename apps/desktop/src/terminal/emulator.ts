@@ -2,8 +2,7 @@ import { copy as appCopy } from "./copy";
 import { showScrollbars } from "../scrollHover";
 import { layoutMoving } from "../resize/motion";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { createRoot, createEffect, on, getOwner, onCleanup, runWithOwner } from "solid-js";
-import type { Owner } from "solid-js";
+import { createRoot, createEffect, getOwner, onCleanup, runWithOwner, type Owner } from "solid-js";
 import { terminalType, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { attachLinkGestures } from "./linkGestures";
@@ -227,7 +226,7 @@ export const createXtermEmulators = (
     let focusOnShow = true;
     let fontsReady = !document.fonts;
 
-    // Every listener and observer this emulator adds belongs to one root.
+    // Every listener and observer this emulator adds belongs to one root, a child of whoever creates the emulator.
 
     let owner: Owner | null = null;
 
@@ -441,7 +440,7 @@ export const createXtermEmulators = (
     };
 
     within(() => {
-      createEffect(on(() => {
+      createEffect(() => {
         const { fontSize: _size, ...type } = terminalType();
 
         return type;
@@ -466,7 +465,7 @@ export const createXtermEmulators = (
           remeasure(terminal, next);
           size();
         });
-      }));
+      });
     });
 
     const loadRenderer = () => {

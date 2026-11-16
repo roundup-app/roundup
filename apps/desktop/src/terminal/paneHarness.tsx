@@ -1,7 +1,7 @@
 import type { Screens } from "./screens";
 import { render } from "@solidjs/testing-library";
 import { expect, vi } from "vitest";
-import type { Accessor } from "solid-js";
+import { flush, type Accessor } from "solid-js";
 import type { DaemonExit } from "../app/seam";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -193,10 +193,12 @@ export const mountPane = async (
   let screens: Screens | undefined;
 
   const { container } = render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Pane createEmulator={factory} screensRef={(shared) => { screens = shared; }} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
+
+  flush();
 
   return { app, connected, emulators: made, container, screens: () => screens! };
 };
@@ -207,10 +209,10 @@ export const mountRailAndPane = async (tree: RailNode[]): Promise<Mounted> => {
   const { factory, made } = fakeEmulators();
 
   const { container } = render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Rail />
       <Pane createEmulator={factory} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   return { app, connected, emulators: made, container, screens: () => { throw new Error("mountRailAndPane holds no shared screens"); } };

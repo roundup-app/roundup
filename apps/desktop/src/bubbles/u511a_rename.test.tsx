@@ -1,4 +1,5 @@
 import { copy as recoveryCopy } from "../sharedCopy";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createProjectDrafts } from "../state/connectedProject";
@@ -14,7 +15,9 @@ const tab = (id: string) => document.querySelector<HTMLButtonElement>(`button.te
 const field = () => document.querySelector<HTMLInputElement>(".terminal-tab-editor input");
 
 const edit = async (id: string) => {
+  flush();
   fireEvent.dblClick(tab(id)!);
+  flush();
   await waitFor(() => expect(field()).not.toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(field()));
 };
@@ -23,7 +26,7 @@ it("u511a_double_click_selects_the_current_name", async () => {
   await mountBubbles();
   await edit("2");
   expect(field()!.value).toBe("zsh");
-  expect([field()!.selectionStart, field()!.selectionEnd]).toEqual([0, 3]);
+  await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd]).toEqual([0, 3]));
   expect(document.querySelector(".terminal-tab-editor button")).toBeNull();
 });
 
@@ -33,11 +36,14 @@ it("u511a_every_name_surface_updates", async () => {
   await edit("2");
   const name = "  build  ";
   fireEvent.input(field()!, { target: { value: name } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe(name.trim()));
   expect(tab("2")!.getAttribute("aria-label")).toBe(name.trim());
   expect(tab("2")!.hasAttribute("title")).toBe(false);
   fireEvent.keyDown(document, { key: "Tab" });
+  flush();
   tab("2")!.focus();
   expect((await screen.findByRole("tooltip")).textContent).toBe(name.trim());
   width.mockRestore();
@@ -54,8 +60,11 @@ it("u511a_enter_commits_once", async () => {
   const writes = vi.spyOn(Storage.prototype, "setItem");
 
   fireEvent.input(field()!, { target: { value: "build" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   fireEvent.blur(field() ?? document.body);
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   await waitFor(() => expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toHaveLength(1));
   writes.mockRestore();
@@ -65,10 +74,13 @@ it("u511a_completion_preserves_expected_focus", async () => {
   await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "build" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   await edit("2");
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   await edit("2");
 
@@ -77,6 +89,7 @@ it("u511a_completion_preserves_expected_focus", async () => {
 
   other.focus();
   fireEvent.blur(input);
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   expect(document.activeElement).toBe(other);
 });
@@ -92,6 +105,7 @@ it.each(["double-click", "native Rename"] as const)("u3787c_escape_restores_the_
   if (opening === "double-click") await edit("2");
   else {
     fireEvent.contextMenu(tab("2")!);
+    flush();
     await mounted.app.pickMenu("Rename");
     await waitFor(() => expect(document.activeElement).toBe(field()));
   }
@@ -99,8 +113,10 @@ it.each(["double-click", "native Rename"] as const)("u3787c_escape_restores_the_
   const input = field()!;
   const exact = "  e\u0301 🪁 雪\t  ";
   fireEvent.input(input, { target: { value: exact } });
+  flush();
   input.setSelectionRange(2, 6, "backward");
   fireEvent.select(input);
+  flush();
   const writes = vi.spyOn(Storage.prototype, "setItem");
   const calls = [...mounted.app.calls];
   const underlying = vi.fn();
@@ -110,6 +126,7 @@ it.each(["double-click", "native Rename"] as const)("u3787c_escape_restores_the_
   finally { document.removeEventListener("keydown", underlying); }
 
   fireEvent.blur(input);
+  flush();
   await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   expect(tab("2")!.getAttribute("aria-label")).toBe(saved);
   expect([...document.querySelectorAll("button.terminal-tab")].map(control => control.getAttribute("aria-pressed"))).toEqual(visibility);
@@ -122,6 +139,7 @@ it.each(["double-click", "native Rename"] as const)("u3787c_escape_restores_the_
   await edit("2");
   expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
   fireEvent.blur(field()!);
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   expect(mounted.connected.drafts.list()).toEqual(retained);
   expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toEqual([]);
@@ -132,11 +150,15 @@ it("u511a_empty_restores_the_default", async () => {
   await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "build" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("build"));
   await edit("2");
   fireEvent.input(field()!, { target: { value: "   " } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("zsh"));
   expect(window.sessionStorage.getItem(window.sessionStorage.key(0)!)).not.toContain("name");
 });
@@ -146,6 +168,7 @@ it("u511a_unchanged_closes_without_writing", async () => {
   const before = JSON.stringify({ ...window.sessionStorage });
   await edit("2");
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   expect(JSON.stringify({ ...window.sessionStorage })).toBe(before);
 });
@@ -154,21 +177,41 @@ it("u511a_click_away_commits_before_the_target_action", async () => {
   await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "kept" } });
+  flush();
   const pressed = tab("1")!.getAttribute("aria-pressed");
   fireEvent.pointerDown(tab("1")!);
+  flush();
   tab("1")!.focus();
   fireEvent.click(tab("1")!);
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("kept"));
   await waitFor(() => expect(tab("1")!.getAttribute("aria-pressed")).not.toBe(pressed));
+});
+
+it("u511a_window_blur_commits_a_changed_name_and_leaves_an_untouched_one_open", async () => {
+  await mountBubbles();
+  await edit("2");
+  window.dispatchEvent(new Event("blur"));
+  expect(field()).not.toBeNull();
+  fireEvent.input(field()!, { target: { value: "away" } });
+  flush();
+  window.dispatchEvent(new Event("blur"));
+  await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("away"));
+  expect(field()).toBeNull();
 });
 
 it("u511a_edit_entry_preserves_terminal_visibility", async () => {
   await mountBubbles();
   const before = [...document.querySelectorAll(".terminal-tab")].map(node => node.getAttribute("aria-pressed"));
   fireEvent.click(tab("2")!.querySelector(".terminal-tab-name")!);
+  flush();
+  await waitFor(() => expect(tab("2")!.getAttribute("aria-pressed")).toBe("false"));
   fireEvent.click(tab("2")!.querySelector(".terminal-tab-name")!);
+  flush();
+  await waitFor(() => expect(tab("2")!.getAttribute("aria-pressed")).toBe("true"));
   await edit("2");
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   await waitFor(() => expect(tab("2")).not.toBeNull());
   expect([...document.querySelectorAll(".terminal-tab")].map(node => node.getAttribute("aria-pressed"))).toEqual(before);
 });
@@ -177,10 +220,14 @@ it("u511a_name_survives_selection_and_webview_reload", async () => {
   const first = await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "kept" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("kept"));
   first.connected.rail.select("b");
+  flush();
   first.connected.rail.select("a");
+  flush();
   expect(tab("2")?.getAttribute("aria-label")).toBe("kept");
   cleanup();
   await mountBubbles();
@@ -190,6 +237,7 @@ it("u511a_name_survives_selection_and_webview_reload", async () => {
 it("u511a_context_rename_uses_the_same_editor", async () => {
   const { app } = await mountBubbles();
   fireEvent.contextMenu(tab("2")!, { clientX: 10, clientY: 10 });
+  flush();
   await app.pickMenu("Rename");
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect(field()!.value).toBe("zsh");
@@ -201,6 +249,7 @@ it("u511a_editing_keys_do_not_reach_the_terminal", async () => {
   await edit("2");
   const press = bubbleChord("t", {}, field()!);
   fireEvent.keyDown(field()!, { key: "a" });
+  flush();
   expect(press.defaultPrevented).toBe(false);
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
@@ -210,7 +259,9 @@ it("u511a_composition_enter_keeps_editing", async () => {
   await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "かな" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter", isComposing: true });
+  flush();
   expect(field()).not.toBeNull();
   expect(tab("2")).toBeNull();
 });
@@ -219,7 +270,9 @@ it("u511a_duplicate_names_are_independent", async () => {
   await mountBubbles("a", [info("1", { owner: "a", title: "zsh" }), info("2", { owner: "w", title: "zsh" })]);
   await edit("2");
   fireEvent.input(field()!, { target: { value: "build" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("build"));
   expect(tab("1")!.getAttribute("aria-label")).toBe("zsh");
 });
@@ -234,14 +287,18 @@ it("u511a_custom_name_survives_title_updates", async () => {
 
   await edit("2");
   fireEvent.input(field()!, { target: { value: "build" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("build"));
   retitle("vim");
   await waitFor(() => expect(mounted.connected.rail.terminals().find((terminal) => terminal.id === "2")?.title).toBe("vim"));
   expect(tab("2")!.getAttribute("aria-label")).toBe("build");
   await edit("2");
   fireEvent.input(field()!, { target: { value: "" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("vim"));
   retitle("htop");
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("htop"));
@@ -251,7 +308,9 @@ it("u511a_closed_or_restarted_terminals_do_not_inherit_names", async () => {
   const mounted = await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "build" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("build"));
   mounted.setListed(TERMINALS.filter((terminal) => terminal.id !== "2"));
   mounted.app.emit(event({ name: "terminal.changed" }));
@@ -267,23 +326,31 @@ it("u2773a_bubbles_restores_exact_work", async () => {
   await edit("2");
   const text = "  e\u0301 🫧 draft  ";
   fireEvent.input(field()!, { target: { value: text } });
+  flush();
   field()!.setSelectionRange(2, 5, "backward");
   fireEvent.select(field()!);
+  flush();
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
   mounted.connected.rail.select("other");
+  flush();
   mounted.connected.rail.select("a");
+  flush();
   await edit("2");
   expect(field()!.value).toBe(text);
   expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 5, "backward"]);
   mounted.connected.rail.select("other");
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   mounted.connected.rail.select("a");
+  flush();
   expect(field()).toBeNull();
   await edit("2");
   expect(field()!.value).toBe(text);
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   cleanup();
   const restored = await mountBubbles();
   await edit("2");
@@ -305,27 +372,36 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
 
   await edit("2");
   fireEvent.input(field()!, { target: { value: "  failed A 雪  " } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(mounted.connected.drafts.list().some(draft => draft.status === "failed")).toBe(true);
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
   blocked.mockRestore();
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  flush();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "  newer B 🫧  " } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   expect(mounted.connected.drafts.list().map(draft => [draft.value.name, draft.status])).toEqual([["  failed A 雪  ", "failed"], ["  newer B 🫧  ", "draft"]]);
   await waitFor(() => expect(tab("2")).not.toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  flush();
   const revisions = await screen.findByRole("dialog", { name: "Unfinished work" });
 
   fireEvent.click(within(revisions).getByRole("button", { name: /^Inspect · Failed/ }));
+  flush();
   fireEvent.click(within(revisions).getByRole("button", { name: "Close" }));
+  flush();
   await edit("2");
   expect(field()!.value).toBe("  newer B 🫧  ");
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe("newer B 🫧"));
-  expect(mounted.connected.drafts.list().map(draft => [draft.value.name, draft.status])).toEqual([["  failed A 雪  ", "failed"]]);
+  await waitFor(() => expect(mounted.connected.drafts.list().map(draft => [draft.value.name, draft.status])).toEqual([["  failed A 雪  ", "failed"]]));
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
   await waitFor(() => expect(createProjectDrafts()("/p").list().map(draft => draft.value.name)).toEqual(["  failed A 雪  "]));
   cleanup();
@@ -333,13 +409,18 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
   expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  failed A 雪  "]);
   await edit("2");
   fireEvent.input(field()!, { target: { value: "  retained C 雪  " } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   await waitFor(() => expect(tab("2")).not.toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  flush();
   const selected = await screen.findByRole("dialog", { name: "Unfinished work" });
 
   fireEvent.click(within(selected).getByRole("button", { name: /^Inspect · Failed/ }));
+  flush();
   fireEvent.click(within(selected).getByRole("button", { name: recoveryCopy.discardRevision }));
+  flush();
   expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  retained C 雪  "]);
 });
 
@@ -347,11 +428,13 @@ it("u2773c_bubbles_external_change_keeps_original", async () => {
   const mounted = await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "  original e\u0301 🫧  " } });
+  flush();
   mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, title: "external" } : terminal));
   mounted.app.emit(event({ name: "terminal.changed" }));
   await waitFor(() => expect(mounted.connected.rail.terminals().find(terminal => terminal.id === "2")!.title).toBe("external"));
   expect(field()!.value).toBe("  original e\u0301 🫧  ");
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(recovery).getByText(recoveryCopy.railDraftConflict)).toBeDefined();
   expect(tab("2")!.getAttribute("aria-label")).toBe("external");
@@ -361,9 +444,11 @@ it("u2773c_bubbles_external_change_keeps_original", async () => {
   expect(mounted.connected.drafts.list()[0]!.destination).toEqual({ surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" });
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  flush();
   await edit("2");
   expect(field()!.value).toBe("zsh");
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
 });
 
 it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
@@ -379,19 +464,25 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   const text = "  recover e\u0301 🪁  ";
   await edit("2");
   fireEvent.input(field()!, { target: { value: text } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  flush();
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   await within(recovery).findByRole("alert");
   const clipboard = vi.fn().mockResolvedValue(undefined);
   vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.click(within(recovery).getByRole("button", { name: "Copy name" }));
+  flush();
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith(text));
   blocked.mockRestore();
   fireEvent.click(within(recovery).getByRole("button", { name: "Retry storage only" }));
+  flush();
   await waitFor(() => expect(JSON.parse(window.localStorage.getItem("roundup:drafts:/p")!).drafts[0].value.name).toBe(text));
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
   fireEvent.click(within(recovery).getByRole("button", { name: recoveryCopy.discardRevision }));
+  flush();
   expect(mounted.connected.drafts.list()).toEqual([]);
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
 });
@@ -426,8 +517,10 @@ it("u3787c_escape_restores_the_name_selected_terminal_recovery", async () => {
   const input = field()!;
   const exact = "  recovery e\u0301 🪁 雪\t  ";
   fireEvent.input(input, { target: { value: exact } });
+  flush();
   input.setSelectionRange(3, 8, "backward");
   fireEvent.select(input);
+  flush();
   const before = drafts.list();
   const retained = before.find(draft => draft.value.name === exact)!;
   const calls = [...app.calls];
@@ -439,6 +532,7 @@ it("u3787c_escape_restores_the_name_selected_terminal_recovery", async () => {
   finally { document.removeEventListener("keydown", underlying); }
 
   fireEvent.blur(input);
+  flush();
   await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
   expect(underlying).not.toHaveBeenCalled();
@@ -448,6 +542,7 @@ it("u3787c_escape_restores_the_name_selected_terminal_recovery", async () => {
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([exact, 3, 8, "backward"]);
   fireEvent.blur(field()!);
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   expect(drafts.list()).toEqual(before);
   expect(drafts.list()).toContainEqual(a);
@@ -468,12 +563,14 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
     .toEqual([a.value.name, 2, 7, "backward"]);
   field()!.focus();
   fireEvent.blur(field()!);
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   open(b.revision);
   await waitFor(() => expect(field()?.value).toBe(b.value.name));
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([1, 4, "forward"]);
   connected.rail.select("other");
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   expect(drafts.list()).toEqual(before);
   expect(app.calls).toEqual(calls);
@@ -487,9 +584,12 @@ it.each(["failed", "unknown"] as const)("u3021c_bubbles_editing_selected_revisio
   open(a.revision);
   await waitFor(() => expect(document.activeElement).toBe(field()));
   fireEvent.input(field()!, { target: { value: "  edited A 🧭  " } });
+  flush();
   field()!.setSelectionRange(1, 6, "backward");
   fireEvent.select(field()!);
+  flush();
   fireEvent.blur(field()!);
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   const edited = drafts.list().find(draft => draft.value.name === "  edited A 🧭  ")!;
   expect(edited.selection).toEqual({ start: 1, end: 6, direction: "backward" });
@@ -504,6 +604,7 @@ it.each(["failed", "unknown"] as const)("u3021c_bubbles_editing_selected_revisio
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([1, 6, "backward"]);
   fireEvent.keyDown(field()!, { key: "Escape" });
+  flush();
   expect(app.calls).toEqual(calls);
   cleanup();
   const reopened = await mountBubbles();
@@ -522,6 +623,7 @@ it.each(["acknowledged", "failed"] as const)("u3021c_bubbles_confirmation_settle
   open(a.revision);
   await waitFor(() => expect(document.activeElement).toBe(field()));
   fireEvent.input(field()!, { target: { value: "edited A" } });
+  flush();
   const submitted = drafts.list().find(draft => draft.value.name === "edited A")!;
   const write = Storage.prototype.setItem;
 
@@ -532,6 +634,7 @@ it.each(["acknowledged", "failed"] as const)("u3021c_bubbles_confirmation_settle
   });
 
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(drafts.list().find(draft => draft.revision === submitted.revision)?.status)
     .toBe(outcome === "acknowledged" ? undefined : "failed"));
   expect(tab("2")!.getAttribute("aria-label")).toBe(outcome === "acknowledged" ? "edited A" : "zsh");
@@ -539,6 +642,20 @@ it.each(["acknowledged", "failed"] as const)("u3021c_bubbles_confirmation_settle
   expect(drafts.list()).toContainEqual(a);
   expect(drafts.list()).toContainEqual(b);
   writes.mockRestore();
+});
+
+it("u3021c_bubbles_enter_on_an_edited_confirmation_submits_it_once", async () => {
+  const { drafts, a, open } = await selectedBubbles();
+  const submit = vi.spyOn(drafts, "submit");
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  fireEvent.input(field()!, { target: { value: "edited A" } });
+  flush();
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
+  await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe("edited A"));
+  expect(field()).toBeNull();
+  expect(submit).toHaveBeenCalledTimes(1);
 });
 
 it("u3021c_bubbles_selected_edit_keeps_captured_base_conflict_refusal", async () => {
@@ -549,7 +666,9 @@ it("u3021c_bubbles_selected_edit_keeps_captured_base_conflict_refusal", async ()
   open(a.revision);
   await waitFor(() => expect(document.activeElement).toBe(field()));
   fireEvent.input(field()!, { target: { value: "my edit" } });
+  flush();
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(recovery).getByText(recoveryCopy.railDraftConflict)).toBeDefined();
   expect(tab("2")!.getAttribute("aria-label")).toBe("external");
@@ -565,6 +684,7 @@ it("u3021c_bubbles_unknown_acceptance_is_never_retried_unchanged", async () => {
   open(a.revision);
   await waitFor(() => expect(document.activeElement).toBe(field()));
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
   expect(drafts.list()).toEqual(before);
@@ -625,15 +745,19 @@ it("u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen", async ()
   app.emit(event({ name: "terminal.changed" }));
   await waitFor(() => expect(connected.rail.terminals().some(terminal => terminal.id === "2")).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  flush();
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
 
   fireEvent.click(within(dialog).getByRole("button", { name: /^Inspect · Failed/ }));
+  flush();
   const clipboard = vi.fn().mockResolvedValue(undefined);
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  flush();
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith("  A e\u0301 🫧 雪  "));
   fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
+  flush();
   expect(drafts.list()).toEqual([b]);
   await waitFor(() => expect(createProjectDrafts()("/p").list()).toEqual([b]));
   cleanup();
@@ -650,9 +774,10 @@ it("u3021c_bubbles_confirming_retained_failure_consumes_only_that_revision", asy
   open(a.revision);
   await waitFor(() => expect(document.activeElement).toBe(field()));
   fireEvent.keyDown(field()!, { key: "Enter" });
+  flush();
   await waitFor(() => expect(field()).toBeNull());
   await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe(String(a.value.name).trim()));
-  expect(drafts.list()).toEqual([b]);
+  await waitFor(() => expect(drafts.list()).toEqual([b]));
 });
 
 it.each(["stopped", "removed", "replaced"] as const)("u3021c_bubbles_closes_recovered_editor_when_original_ends_%s", async unavailable => {
@@ -661,6 +786,7 @@ it.each(["stopped", "removed", "replaced"] as const)("u3021c_bubbles_closes_reco
   open(a.revision);
   await waitFor(() => expect(document.activeElement).toBe(field()));
   fireEvent.input(field()!, { target: { value: "  unsent edit 雪  " } });
+  flush();
   const before = drafts.list();
 
   setListed(unavailable === "removed" ? TERMINALS.filter(terminal => terminal.id !== "2")
@@ -676,6 +802,7 @@ it.each(["stopped", "removed", "replaced"] as const)("u3021c_bubbles_closes_reco
     await edit("2");
     expect(field()!.value).toBe("zsh");
     fireEvent.keyDown(field()!, { key: "Enter" });
+    flush();
     expect(drafts.list()).toEqual(before);
   }
 });

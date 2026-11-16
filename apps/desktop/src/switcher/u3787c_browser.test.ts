@@ -99,7 +99,7 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
 // Normal reads may continue while Name is focused; only effects would violate navigation.
 const effects = "window.__fake.app.calls.filter(c=>/\\.(spawn|create|open|write|remove|delete|send|assign|setAuto)$/.test(c.method))";
 
-const selection = "[...document.querySelectorAll('.rail-row[data-selected=true]')].map(e=>e.dataset.id)";
+const selection = "[...document.querySelectorAll('.rail-row[data-selected]')].map(e=>e.dataset.id)";
 
 it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async () => {
   await observeName(async ({ browser, batch, highlighted, read, options, open, capture }) => {

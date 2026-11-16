@@ -1,5 +1,6 @@
 import { questionProbe } from "../testing/menuProbe";
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, vi } from "vitest";
 
 /** U3512a: native confirmations are observed at the App seam, never as a web question. */
@@ -20,7 +21,9 @@ export const askToDelete = async (count: number) => {
 
 export const answerQuestion = async (accepted: boolean): Promise<void> => {
   questionProbe.answer?.(accepted);
-  await Promise.resolve();
+  // The answer's continuation and the writes it makes settle before the next action reads their result.
+  await new Promise(resolve => setTimeout(resolve));
+  flush();
 };
 
 /** U3787a deletion dispatches at activation; join its rendered readback. */

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { copy } from "./copy";
 import { expect, it } from "vitest";
 import { gate, mountApp, select, openWorkProgress } from "../testing/appFixture";
@@ -10,6 +11,7 @@ import type { ResumeWork } from "@contracts/message/ResumeWork";
 import type { FakeApp } from "../testing/fakeApp";
 import { progressSeed } from "../testing/progressSeed";
 import { agent, clarifying, door } from "../testing/nodes";
+import { alerts } from "../toasts/toastFixture";
 
 const WRITES = ["message.send", "message.resumeWork", "agent.setOrder", "agent.spawn", "agent.resume", "terminal.write"];
 
@@ -123,6 +125,7 @@ it("u3078i_navigation_preserves_input_and_original_identity", async () => {
 
   // An edit of the Order is unsent input; Resume neither sends nor discards it.
   drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: "Fix login and logout" }, null, "ordinary");
+  flush();
   expect(drafts("/p").list().map((draft) => draft.value["ask"])).toEqual(["Fix login and logout"]);
   fireEvent.click(within(section).getByRole("button", { name: "Resume unfinished work" }));
 
@@ -131,6 +134,7 @@ it("u3078i_navigation_preserves_input_and_original_identity", async () => {
   slow.resolve({ decision: { id: "d1", request: "r", actions: ["action-login"], message: 7 }, reconciliation: seeded.plan });
   await waitFor(() => expect(app.calls.some((call) => call.method === "message.resumeWork")).toBe(true));
   select("alpha");
+  flush();
 
   expect(paramsOf<{ id: string }>(app, "message.resumeWork").map((params) => params.id)).toEqual(["a"]);
   expect(wrote(app).map((call) => call.method)).toEqual(["message.resumeWork"]);
@@ -160,6 +164,7 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
 
   const exact = "  Unfinished\n草稿 📝  ";
   drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: exact }, null, "ordinary");
+  flush();
   const before = drafts("/p").list();
   const view = within(section);
   fireEvent.click(view.getByRole("button", { name: "Open login v2" }));
@@ -187,6 +192,7 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
     else await waitFor(() => expect([...section.querySelectorAll("[data-report]")].some(row => row.getAttribute("data-report") === "r-login")).toBe(false));
   }
 
+  flush();
   const login = row("r-login");
   expect(login !== null && within(login).queryByRole("alert", { name: "Cannot open login; retry" }) !== null).toBe(transition === "unrelated report recovery" || transition === "read failure");
   expect(within(row("r-deploy")!).queryByText("Cannot open deployment; retry") !== null).toBe(transition !== "unrelated report recovery");
@@ -215,6 +221,7 @@ it.each(["dismiss", "acknowledge"] as const)("p3557c_failure_lifetime_work_progr
     await view.findByRole("status");
   }
 
+  flush();
   expect(view.queryByRole("alert", { name: /Agent stopped; start it again/ })).toBeNull();
 });
 
@@ -231,6 +238,7 @@ it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_li
 
   const exact = "  still editing\n草稿  ";
   drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: exact }, null, "ordinary");
+  flush();
   const before = drafts("/p").list();
   unreadable = true;
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
@@ -250,6 +258,7 @@ it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_li
     await waitFor(() => expect(document.querySelector('.rail-row[data-id="b"]')).toBeNull());
   }
 
+  flush();
   expect(screen.queryByText(/Progress read failed; retry/) !== null).toBe(transition === "unrelated removal");
   expect(drafts("/p").list()).toEqual(before);
 
@@ -262,13 +271,14 @@ it("p3557c_failure_lifetime_work_progress_navigation", async () => {
 
   const exact = "  alpha only\n草稿  ";
   drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: exact }, null, "ordinary");
+  flush();
   const before = drafts("/p").list();
   fireEvent.click(within(section).getByRole("button", { name: "Open login v2" }));
   await screen.findByText("Cannot open alpha; retry");
   select("beta");
   await openWorkProgress(app, "b");
   await screen.findByRole("region", { name: "Progress" });
-  expect(screen.queryAllByRole("alert")).toHaveLength(0);
+  expect(alerts()).toHaveLength(0);
   expect(drafts("/p").list()).toEqual(before);
   expect(before.map(draft => [draft.destination, draft.value["ask"]])).toEqual([[{ surface: "orders", object: "a", recipient: "a" }, exact]]);
 });
@@ -282,8 +292,8 @@ it.each(["dismiss", "unrelated removal"] as const)("p3557c_failure_lifetime_work
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   const draft = connected.drafts.edit({ surface: "orders", object: "other", recipient: "other" }, { ask: "  retained 草稿\n" }, null, "ordinary").draft;
-  render(() => <ConnectedProjectContext.Provider value={connected}><WorkProgress id="historical" /></ConnectedProjectContext.Provider>);
-  await screen.findByRole("alert");
+  render(() => <ConnectedProjectContext value={connected}><WorkProgress id="historical" /></ConnectedProjectContext>);
+  await waitFor(() => expect(alerts()).toHaveLength(1));
 
   if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
@@ -291,6 +301,7 @@ it.each(["dismiss", "unrelated removal"] as const)("p3557c_failure_lifetime_work
     await connected.rail.refresh();
   }
 
-  expect(screen.queryByRole("alert") !== null).toBe(transition === "unrelated removal");
+  flush();
+  expect(alerts()).toHaveLength(transition === "unrelated removal" ? 1 : 0);
   expect(connected.drafts.list()).toEqual([draft]);
 });

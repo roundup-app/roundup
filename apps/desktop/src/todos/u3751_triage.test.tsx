@@ -1,11 +1,11 @@
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, workstream } from "../testing/nodes";
 import { mountTodos, todo as makeTodo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
-afterEach(() => batch(cleanup));
+afterEach(cleanup);
 
 // T must have no name-prefix match so these observers enter triage (U3787c).
 const todo: typeof makeTodo = (id, over) => makeTodo(id, { title: `item ${id}`, ...over });
@@ -23,7 +23,10 @@ const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 const press = (target: HTMLElement, key: string, init: KeyboardEventInit = {}) => {
   target.focus();
 
-  return fireEvent.keyDown(target, { key, code: /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : key, ...init });
+  const handled = fireEvent.keyDown(target, { key, code: /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : key, ...init });
+  flush();
+
+  return handled;
 };
 
 const enter = async () => {
@@ -206,7 +209,7 @@ it.each(["x", "Tab", "un-nest", "a", "o", "w", "c", "j", "k"].flatMap(action => 
     const menu = await screen.findByRole("menu");
     await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
     nextKey(action === "w" ? "w" : "a");
-    await waitFor(() => expect(menu.getAttribute("aria-activedescendant")).toBe(within(menu).getByRole("menuitem", { name: action === "w" ? "work" : "alpha" }).id));
+    await waitFor(() => expect(within(menu).getByRole("menuitem", { name: action === "w" ? "work" : "alpha" }).hasAttribute("data-highlighted")).toBe(true));
     nextKey("Enter");
   }
 
@@ -260,7 +263,7 @@ it("u3474c_recovers_a_missing_or_empty_target_after_arrival", async () => {
   store.todos = [todo(1)];
   app.emit(todoEvent("todo.created", store.todos[0]!));
   await waitFor(() => expect(row(1)).toBeTruthy());
-  const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!;
+  const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control')!;
   fireEvent.click(disclosure);
   await waitFor(() => expect(row(1)?.closest("[hidden]")).toBeNull());
   nextKey("x");
@@ -341,11 +344,10 @@ const cancelPicker = async (entry: string, dismissal: string) => {
 
   if (dismissal === "Escape") nextKey("Escape");
   else {
-    // @zag-js/interact-outside defers tracking to raf, then installs pointerdown in a zero-delay timer.
-    await new Promise<void>(resolve => requestAnimationFrame(() => { setTimeout(resolve, 0); }));
-    // jsdom has no PointerEvent constructor; MouseEvent retains the button used by Ark.
+    // jsdom has no PointerEvent constructor; MouseEvent keeps the button the layer checks. The layer consumes an outside press and swallows the click that completes it.
     fireEvent(document.body, new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
     fireEvent(document.body, new MouseEvent("pointerup", { bubbles: true, button: 0 }));
+    fireEvent.click(document.body);
   }
 
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());

@@ -7,7 +7,7 @@ const FRAME_CLASSES = ["field-frame", "field-inline"];
 const NON_TEXT_TYPES = new Set(["checkbox", "radio", "number", "range", "hidden", "file", "button", "submit", "color"]);
 
 /**
- * The only exceptions, each with its reason: Ark's hidden inputs behind a control that draws its own
+ * The only exceptions, each with its reason: the hidden inputs behind a control that draws its own
  * mark. A new entry needs a reason a reviewer accepts.
  */
 const EXEMPT_FILES: Record<string, string> = {

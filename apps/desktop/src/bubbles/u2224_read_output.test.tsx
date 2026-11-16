@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
 import type { Place } from "./places";
@@ -22,6 +23,7 @@ describe("u2224 selecting shows output with nothing over it", () => {
     await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
 
     mounted.connected.rail.select("a");
+    flush();
     await waitFor(() => expect(chip("1")).not.toBeNull());
     expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(0);
     expect(document.querySelectorAll(".bubble:not([hidden])")).toHaveLength(0);
@@ -32,6 +34,7 @@ describe("u2224 selecting shows output with nothing over it", () => {
     await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
 
     mounted.connected.rail.select("a");
+    flush();
     await waitFor(() => expect(chip("1")).not.toBeNull());
     fireEvent.click(chip("1"));
     await waitFor(() => expect(pressed("1")).toBe(true));
@@ -44,6 +47,7 @@ describe("u2224 selecting shows output with nothing over it", () => {
     await waitFor(() => expect(chip("2")).not.toBeNull());
 
     mounted.connected.rail.select("a");
+    flush();
     await waitFor(() => expect(chip("1")).not.toBeNull());
     fireEvent.click(chip("1"));
     await waitFor(() => expect(shown()).toEqual(["1"]));
@@ -76,6 +80,7 @@ describe("u2224 selecting shows output with nothing over it", () => {
     expect(shown()).toEqual(["2"]);
 
     mounted.connected.rail.select("a");
+    flush();
     await waitFor(() => expect(shown()).toEqual([]));
     expect(calls()).toBe(sent);
     expect(mounted.connected.rail.selected()).toBe("a");

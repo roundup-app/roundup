@@ -170,7 +170,7 @@ it("u5243b_a_result_control_edits_the_same_setting", async () => {
   await waitFor(() => expect(appSettings().padWidth).toBe("full"));
   fireEvent.input(search(), { target: { value: "" } });
   await section("Pads");
-  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Full" }).checked).toBe(true);
+  expect(screen.getByRole("radio", { name: "Full" }).getAttribute("aria-checked")).toBe("true");
 });
 
 it("u5243c_search_typing_changes_nothing_but_the_results", async () => {

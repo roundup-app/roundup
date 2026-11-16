@@ -39,11 +39,11 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = [], railOnly
   await showEverything(connected);
 
   render(() => (
-    <DisplayClockContext.Provider value={() => () => 0}><ConnectedProjectContext.Provider value={connected}>
+    <DisplayClockContext value={() => () => 0}><ConnectedProjectContext value={connected}>
       <Rail />
       {railOnly ? null : <><Pads /><Todos /></>}
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-    </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
+    </ConnectedProjectContext></DisplayClockContext>
   ));
 
   await connected.rail.settled();

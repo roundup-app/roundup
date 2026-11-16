@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mountBubbles } from "./bubblesFixture";
 import { clamped, placesStorage, resizedAbout, toggledFill, ZONES } from "./places";
@@ -78,9 +79,12 @@ it.each([40, 56])("u4459_no_move_resize_or_fill_reaches_the_bar_%s", async measu
       const press = new MouseEvent("pointerdown", { bubbles: true, clientX: 400, clientY: 300, button: route === "pull" ? 2 : 0, buttons: route === "pull" ? 2 : 1 });
       Object.defineProperty(press, "pointerType", { value: "mouse" });
       fireEvent(target, press);
+      flush();
       fireEvent(window, new MouseEvent("pointermove", { clientX: 400, clientY: 2000, buttons: route === "pull" ? 2 : 1 }));
+      flush();
       await frame(); // Bubble.drag and pulling apply their pending geometry in requestAnimationFrame.
       fireEvent(window, new MouseEvent("pointerup", { button: route === "pull" ? 2 : 0 }));
+      flush();
     }
 
     expect(bottom(), route).toBeLessThanOrEqual(600 - measuredHeight);

@@ -1,4 +1,4 @@
-import { createEffect, createRoot } from "solid-js";
+import { createEffect, createRoot, flush } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
@@ -43,7 +43,7 @@ const section = async (name: string) => {
   fireEvent.click(tab);
   await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
 
-  // Wait for Ark to mount the selected page without scanning hidden pages for visibility.
+  // Wait for the selected page to mount without scanning hidden pages for visibility.
   const panel = await screen.findByLabelText(name, { selector: '[role="tabpanel"]' });
   await waitFor(() => expect(panel.querySelector('[aria-busy="true"]')).toBeNull());
 
@@ -53,7 +53,7 @@ const section = async (name: string) => {
 const select = async (label: string, value: string) => {
   if (label === "Appearance") {
     const panel = await section("Appearance");
-    fireEvent.click(panel.getByLabelText(value, { selector: "input" }));
+    fireEvent.click(panel.getByRole("radio", { name: value }));
     await waitFor(() => expect(appSettings().mode).toBe(value.toLowerCase()));
 
     return;
@@ -68,7 +68,7 @@ const pick = async (label: string, value: string) => {
   const page = await section("Agents");
   const trigger = page.getByLabelText(new RegExp(`^${label} `), { selector: "button" });
   fireEvent.click(trigger);
-  const list = within(await screen.findByLabelText(label, { selector: '[role="listbox"]' }));
+  const list = within(await screen.findByRole("listbox", { name: label }));
   fireEvent.click(await list.findByRole("option", { name: value }));
   await page.findByLabelText(`${label} ${value}`, { selector: "button" });
   await waitFor(() => {
@@ -90,6 +90,7 @@ const commit = async (label: string, text: string, valid = true) => {
 
   const field = await page.findByLabelText(label, { selector: "input" });
   fireEvent.input(field, { target: { value: text } });
+  flush();
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
 
   if (valid) await waitFor(() => expect(appSettings()[label === "Font size" ? "fontSize" : "fontFamily"]).toBe(label === "Font size" ? Number(text) : text));
@@ -123,13 +124,14 @@ it("u3802_a_failed_list_shows_the_message_and_keeps_the_choice", async () => {
   expect(screen.getByRole("button", { name: "Model Model One" })).toBeTruthy();
 });
 
-it.each(["300", "2", "not a number"])("u3803_a_bad_size_is_refused_and_changes_nothing_%s", async invalid => {
+// A number input holds no text that is not a number: a nonnumeric or nonfinite draft reads back empty.
+it.each([["300", "300"], ["2", "2"], ["not a number", ""], ["NaN", ""], ["Infinity", ""]])("u3803_a_bad_size_is_refused_and_changes_nothing_%s", async (invalid, shown) => {
   await mount();
   await commit("Font size", "17");
   await commit("Font size", invalid, false);
   expect(await screen.findByText(/Choose a font size from/)).toBeTruthy();
   expect(appSettings().fontSize).toBe(17);
-  expect(screen.getByLabelText<HTMLInputElement>("Font size", { selector: "input" }).value).toBe(invalid);
+  expect(screen.getByLabelText<HTMLInputElement>("Font size", { selector: "input" }).value).toBe(shown);
 });
 
 it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
@@ -189,16 +191,16 @@ it("u3804_reset_restores_the_default", async () => {
   expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe("⇧⌘T");
 });
 
-it.each(["Font size", "Line height", "Letter spacing"])("u3806_unsubmitted_fields_survive_close_and_reload_without_applying %s", async label => {
+it.each(["Font size", "Line height", "Letter spacing"].flatMap(label => [[label, "999", "999"], [label, "too big", ""]]))("u3806_unsubmitted_fields_survive_close_and_reload_without_applying %s %s", async (label, typed, shown) => {
   await mount();
   await commit("Font size", "17");
-  fireEvent.input(screen.getByLabelText(label, { selector: "input" }), { target: { value: "too big" } });
-  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ text: "too big" }) })));
+  fireEvent.input(screen.getByLabelText(label, { selector: "input" }), { target: { value: typed } });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ text: shown }) })));
   fireEvent.click(screen.getByText("← Back", { selector: "button" }));
   cleanup();
   await mount();
   await section("Terminal");
-  expect((await screen.findByLabelText<HTMLInputElement>(label, { selector: "input" })).value).toBe("too big");
+  expect((await screen.findByLabelText<HTMLInputElement>(label, { selector: "input" })).value).toBe(shown);
   expect(appSettings().fontSize).toBe(17);
 });
 
@@ -222,8 +224,8 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
 it("u4687a_mode_segments_keep_scheme_behavior", async () => {
   await mount();
   await section("Appearance");
-  expect(screen.getByLabelText<HTMLInputElement>("System", { selector: "input" }).checked).toBe(true);
-  fireEvent.click(screen.getByLabelText("Dark", { selector: "input" }));
+  expect(screen.getByRole("radio", { name: "System" }).getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
   await waitFor(() => expect(appSettings().mode).toBe("dark"));
 });
 
@@ -235,7 +237,7 @@ it("u4687a_family_and_weight_choices_keep_existing_values", async () => {
   fireEvent.click(screen.getByLabelText("Font family", { selector: "button" }));
   fireEvent.click(await screen.findByRole("option", { name: "Uninstalled custom face" }));
   expect(appSettings().fontFamily).toBe("Uninstalled custom face");
-  fireEvent.click(screen.getByLabelText("500", { selector: "input" }));
+  fireEvent.click(screen.getByRole("radio", { name: "500" }));
   await waitFor(() => expect(appSettings().fontWeight).toBe(500));
 });
 
@@ -260,11 +262,14 @@ it.each([["Line height", "lineHeight", "1", "2"], ["Letter spacing", "letterSpac
       await waitFor(() => expect(appSettings()[name]).toBe(Number(value)));
     }
 
-    for (const value of ["", "NaN", "Infinity", "-1", "999"]) {
+    for (const [value, shown] of [["", ""], ["not a number", ""], ["NaN", ""], ["Infinity", ""], ["-1", "-1"], ["999", "999"]] as const) {
+      fireEvent.input(input, { target: { value: max } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      await waitFor(() => expect(screen.queryByText(new RegExp(label + " must be"))).toBeNull());
       fireEvent.input(input, { target: { value } });
       fireEvent.keyDown(input, { key: "Enter" });
       expect(await screen.findByText(new RegExp(label + " must be"))).toBeTruthy();
-      expect(input.value).toBe(value);
+      expect(input.value).toBe(shown);
       expect(appSettings()[name]).toBe(Number(max));
     }
 });
@@ -290,9 +295,14 @@ it("u4687b_preview_follows_valid_drafts_without_committing", async () => {
   fireEvent.input(input, { target: { value: "1.2" } });
   await waitFor(() => expect(preview.options.lineHeight).toBe(1.2));
   expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
-  fireEvent.input(input, { target: { value: "invalid" } });
-  expect(preview.options.lineHeight).toBe(1.2);
-  expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
+
+  for (const value of ["invalid", "99"]) {
+    fireEvent.input(input, { target: { value } });
+    flush();
+    expect(preview.options.lineHeight).toBe(1.2);
+    expect(appSettings().lineHeight).toBe(xtermOptions.lineHeight);
+  }
+
   expect(app.calls.filter(call => call.method.startsWith("terminal.") || call.method === "agent.spawn")).toEqual([]);
 });
 
@@ -300,7 +310,7 @@ it("u4687b_preview_never_creates_or_writes_a_terminal", async () => {
   const app = await mount();
   await section("Terminal");
   await screen.findByRole("region", { name: "Terminal preview" });
-  fireEvent.click(screen.getByLabelText("600", { selector: "input" }));
+  fireEvent.click(screen.getByRole("radio", { name: "600" }));
   await waitFor(() => expect(appSettings().fontWeight).toBe(600));
   expect(app.calls.filter(call => call.method.startsWith("terminal.") || call.method === "agent.spawn")).toEqual([]);
   expect(app.outputSubscriptions).toEqual([]);
@@ -310,10 +320,10 @@ it("u4687c_unfinished_settings_survive_external_changes", async () => {
   await mount();
   await section("Terminal");
   const input = await screen.findByLabelText<HTMLInputElement>("Line height", { selector: "input" });
-  fireEvent.input(input, { target: { value: " 1.25 " } });
+  fireEvent.input(input, { target: { value: "1.25" } });
   await saveAppSettings({ lineHeight: 1.5 });
   fireEvent.keyDown(input, { key: "Enter" });
-  expect(input.value).toBe(" 1.25 ");
+  expect(input.value).toBe("1.25");
   expect(appSettings().lineHeight).toBe(1.5);
   expect(screen.getAllByText(/Settings were changed elsewhere/).length).toBeGreaterThan(0);
 });
@@ -348,13 +358,13 @@ it("u4687c_saved_changes_reach_other_project_tabs", async () => {
   window.dispatchEvent(new Event("open-app-settings"));
 
   for (const tab of await screen.findAllByText("Terminal", { selector: '[role="tab"]' })) fireEvent.click(tab);
-  const choices = await screen.findAllByLabelText<HTMLInputElement>("500", { selector: "input" });
+  const choices = await screen.findAllByRole("radio", { name: "500" });
   fireEvent.click(choices[0]!);
-  await waitFor(() => expect(choices.every(choice => choice.checked)).toBe(true));
+  await waitFor(() => expect(choices.every(choice => choice.getAttribute("aria-checked") === "true")).toBe(true));
   cleanup();
   await mount();
   await section("Terminal");
-  expect(screen.getByLabelText<HTMLInputElement>("500", { selector: "input" }).checked).toBe(true);
+  expect(screen.getByRole("radio", { name: "500" }).getAttribute("aria-checked")).toBe("true");
 });
 
 const portWith = (configure: (press: string | null) => Promise<void>): import("../app/seam").CapturePort => ({
@@ -426,12 +436,14 @@ it("u6276a_a_change_reaches_every_open_project_tab", async () => {
   const seen: string[][] = [[], []];
 
   const dispose = createRoot(dispose => {
-    seen.forEach((tab, index) => createEffect(() => { tab.push(`${index}:${appSettings().mode}`); }));
+    seen.forEach((tab, index) => createEffect(() => appSettings().mode, mode => { tab.push(`${index}:${mode}`); }));
 
     return dispose;
   });
 
+  flush();
   await saveAppSettings({ mode: "dark" });
+  flush();
   dispose();
   expect(seen).toEqual([["0:system", "0:dark"], ["1:system", "1:dark"]]);
 });

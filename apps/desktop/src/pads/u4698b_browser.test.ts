@@ -52,8 +52,8 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
       await browser("click", "#shelf-tab-todos");
     }
 
-    await browser("wait", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
-    await evaluate(`(() => { const group = document.querySelector('.todos-tab [data-shelf-group="unassigned"]'); if (group?.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part="branch-control"]').click(); return true; })()`);
+    await browser("wait", '.todos-tab [data-shelf-group="unassigned"] .shelf-group-control');
+    await evaluate(`(() => { const group = document.querySelector('.todos-tab [data-shelf-group="unassigned"] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
     await browser("wait", ".shelf .todo-row-button");
     await browser("focus", ".shelf .todo-row-button");
     await browser("press", "Enter");
@@ -83,7 +83,7 @@ it.skipIf(typographyOutputs.length > 0 || Boolean(captureDir("U5705"))).each([[1
     return true;
   })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(name) + '] .pad-name')}).focus(); return true; })()`);
   await browser("press", "Enter");
@@ -244,7 +244,7 @@ it.skipIf(typographyOutputs.length === 0).each([{ name: "owner", text: ownerSamp
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: fixture.name, text: fixture.text })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(fixture.name) + '] .pad-name')}).focus(); return true; })()`);
   await browser("press", "Enter");
@@ -333,7 +333,7 @@ it.skipIf(typographyOutputs.length === 0)("u5574b_empty_document_remains_editabl
   await settle();
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', ${JSON.stringify({ name: "rhythm-probe", text: structureSample })}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="rhythm-probe"] .pad-name').focus(); return true; })()`);
   await browser("press", "Enter");
@@ -487,7 +487,7 @@ it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns
   const openTodo = async () => {
     if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-todos");
     await browser("wait", '.todos-tab [data-shelf-group="unassigned"]');
-    await evaluate(`(() => { const group = document.querySelector('.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+    await evaluate(`(() => { const group = document.querySelector('.todos-tab [data-shelf-group="unassigned"] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
     await browser("wait", '[data-todo="1"] .todo-row-button');
     await browser("focus", '[data-todo="1"] .todo-row-button');
     await browser("press", "Enter");
@@ -514,7 +514,7 @@ it.skipIf(!todoWidthOutput)("u5705_observe_nonempty_todo_and_pad_reading_columns
   await settle();
   await browser("click", "#shelf-tab-pads");
   await browser("wait", '[data-shelf-group="unassigned"]');
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate("document.querySelector('.pads-tab [data-pad=\"Reading review\"] .pad-name').focus(); true");
   await browser("press", "Enter");
@@ -572,9 +572,9 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
 
     if (afterPad) {
       await browser("click", "#shelf-tab-pads");
-      await browser("wait", '.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+      await browser("wait", '.pads-tab [data-shelf-group=unassigned] .shelf-group-control');
 
-      if (await evaluate("document.querySelector('.pads-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]');
+      if (await evaluate("document.querySelector('.pads-tab [data-shelf-group=unassigned] .shelf-group-control').getAttribute('aria-expanded') === 'false'")) await browser("click", '.pads-tab [data-shelf-group=unassigned] .shelf-group-control');
       await browser("wait", ".pad-name");
       await settle();
       await browser("focus", ".pad-name");
@@ -601,9 +601,9 @@ it.each(["plus", "slash"].flatMap(entry => [false, true].map(afterPad => ({ entr
     })()`);
 
     if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) await browser("click", "#shelf-tab-todos");
-    await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
+    await browser("wait", '[data-shelf-group="unassigned"] .shelf-group-control');
 
-    if (await evaluate("document.querySelector('.todos-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+    if (await evaluate("document.querySelector('.todos-tab [data-shelf-group=unassigned] .shelf-group-control').getAttribute('aria-expanded') === 'false'")) await browser("click", '.todos-tab [data-shelf-group="unassigned"] .shelf-group-control');
     await browser("wait", '[data-todo="1"] .todo-row-button');
     await browser("focus", '[data-todo="1"] .todo-row-button');
     await browser("press", "Enter");

@@ -236,9 +236,9 @@ it("u6249b_a_refused_scheme_push_adds_no_second_line_beside_the_rail_failure", a
   await vi.advanceTimersByTimeAsync(BACKOFF);
   const connected = await connecting;
 
-  render(() => <ConnectedProjectContext.Provider value={connected}>
+  render(() => <ConnectedProjectContext value={connected}>
     <Pane notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext>);
 
   try {
     await vi.advanceTimersByTimeAsync(0);

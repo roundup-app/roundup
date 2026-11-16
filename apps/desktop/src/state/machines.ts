@@ -1,5 +1,4 @@
-import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createSignal, type Accessor } from "solid-js";
 import type { Machine } from "@contracts/machine/Machine";
 import type { AppSeam, DaemonExit } from "../app/seam";
 
@@ -23,12 +22,15 @@ export const createMachines = (app: AppSeam, now: Accessor<number>, daemonExit: 
       createEffect(() => {
         now();
 
-        if (!visible() || daemonExit()) return;
+        return visible() && !daemonExit();
+      }, active => {
+        if (!active) return;
 
         let stale = false;
 
-        onCleanup(() => { stale = true; });
-        untrack(() => { void app.rpc("machine.list", null).then(machines => { if (!stale) setList(machines); }, () => {}); });
+        void app.rpc("machine.list", null).then(machines => { if (!stale) setList(machines); }, () => {});
+
+        return () => { stale = true; };
       });
     },
   };

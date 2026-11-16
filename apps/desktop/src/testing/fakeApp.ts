@@ -1,3 +1,4 @@
+import { flush } from "solid-js";
 import { projectMenu } from "./menuProbe";
 import type { SubscribeParams } from "@contracts/SubscribeParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -247,10 +248,12 @@ export const createFakeApp = (): FakeApp => {
     },
     subscribed: [],
     head: 0,
+    // A platform event reaches the page in a task of its own, so it has applied by the time its call returns.
     emit: (event) => {
       if (!onEvent) throw new Error("the webview has not subscribed yet");
 
       onEvent(event);
+      flush();
     },
     outputSubscriptions: [],
     outputPositions: new Map(),
@@ -276,9 +279,11 @@ export const createFakeApp = (): FakeApp => {
       else exited.add(named);
 
       for (const listener of exitListeners) listener({ path: named, ...exit });
+      flush();
     },
     dropFiles: (drop) => {
       for (const listener of dropListeners) listener(drop);
+      flush();
     },
     canonicalProjectPath: async path => path,
     projects: async () => open.map((project) => ({ ...project, running: !exited.has(project.path) })),

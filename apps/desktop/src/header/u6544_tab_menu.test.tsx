@@ -50,6 +50,7 @@ it("u6544b_close_others_left_right", async () => {
   await app.pickMenu("Close Others");
   await waitFor(() => expect(app.closed.sort()).toEqual([path("a"), path("c")]));
   app.closed.length = 0;
+  await waitFor(() => expect(projectTabs().map(each => each.textContent)).toEqual(["b"]));
   open("b");
   expect(labels()).not.toContain("Close Others");
   await app.closeMenu();

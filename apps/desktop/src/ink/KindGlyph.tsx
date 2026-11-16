@@ -1,5 +1,5 @@
 import { animate } from "motion";
-import { createComputed, createEffect, createMemo, createSignal, on, onCleanup, Show, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show, untrack, useContext } from "solid-js";
 import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
 import { copy } from "./copy";
 import type { Kind } from "@contracts/Kind";
@@ -15,31 +15,34 @@ const curve = (tokens: CSSStyleDeclaration, name: string): [number, number, numb
 const WorkingArc = (props: { frozen?: string | undefined }) => {
   let path!: SVGPathElement;
 
-  const reduced = props.frozen === undefined
+  const reduced = untrack(() => props.frozen) === undefined
     ? useContext(ReducedMotionContext) ?? (window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true)
     : () => true;
 
-  createEffect(() => {
-    if (props.frozen !== undefined) {
-      path.style.transform = props.frozen;
+  createEffect(
+    () => ({ frozen: props.frozen, still: reduced() }),
+    ({ frozen, still }) => {
+      if (frozen !== undefined) {
+        path.style.transform = frozen;
 
-      return;
+        return;
+      }
+
+      const tokens = getComputedStyle(document.documentElement);
+
+      if (still) {
+        return;
+      }
+
+      const duration = tokens.getPropertyValue("--duration-working").trim();
+      const seconds = parseFloat(duration) / (duration.endsWith("ms") ? 1000 : 1);
+
+      if (!(seconds > 0)) return;
+      const turn = animate(path, { transform: ["rotate(0deg)", "rotate(360deg)"] }, { duration: seconds, ease: curve(tokens, "--easing-working"), repeat: Infinity });
+
+      return () => turn.cancel();
     }
-
-    const tokens = getComputedStyle(document.documentElement);
-
-    if (reduced()) {
-      return;
-    }
-
-    const duration = tokens.getPropertyValue("--duration-working").trim();
-    const seconds = parseFloat(duration) / (duration.endsWith("ms") ? 1000 : 1);
-
-    if (!(seconds > 0)) return;
-    const turn = animate(path, { transform: ["rotate(0deg)", "rotate(360deg)"] }, { duration: seconds, ease: curve(tokens, "--easing-working"), repeat: Infinity });
-
-    onCleanup(() => turn.cancel());
-  });
+  );
 
   return <path ref={element => { path = element; }} class="working-arc" d="M8 8V2A6 6 0 0 1 14 8Z" fill="currentColor" stroke="none" />;
 };
@@ -78,7 +81,7 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
   let current: SVGSVGElement | undefined;
   let outgoing: HTMLElement | undefined;
   let running: { cancel(): void }[] = [];
-  let shown = props.kind;
+  let shown = untrack(() => props.kind);
 
   const stop = () => { running.forEach(animation => animation.cancel()); running = []; };
 
@@ -86,42 +89,56 @@ export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: str
   // The memo passes on only a different Kind: a redraw that hands the same Kind again starts no fade and reads no style.
   const changed = createMemo(() => props.kind);
 
-  createComputed(on(changed, kind => {
-    const previous = shown;
+  createEffect(
+    () => {
+      const kind = changed();
 
-    // A redraw re-reads the prop for every Glyph; only a different Kind is a change to fade.
-    if (kind === previous) return;
+      // A redraw re-reads the prop for every Glyph; only a different Kind is a change to fade.
+      if (kind === shown) return undefined;
 
-    shown = kind;
-    // Read what is on screen before the running fade is cancelled, so an interrupted fade continues from it.
-    const from = current ? parseFloat(getComputedStyle(current).opacity) || 1 : 1;
-    const turn = current?.querySelector(".working-arc") ? getComputedStyle(current.querySelector(".working-arc")!).transform : "none";
+      // Read what is on screen before the running fade is cancelled, so an interrupted fade continues from it.
+      const from = current ? parseFloat(getComputedStyle(current).opacity) || 1 : 1;
+      const turn = current?.querySelector(".working-arc") ? getComputedStyle(current.querySelector(".working-arc")!).transform : "none";
 
-    stop();
-    setLeaving(reduced() ? undefined : { kind: previous, from, turn });
-  }, { defer: true }));
+      return { kind, from, turn, still: untrack(reduced) };
+    },
+    change => {
+      if (!change) return;
 
-  createEffect(on(() => [leaving(), reduced()] as const, ([mark, reduce]) => {
-    if (reduce) {
+      const previous = shown;
+
+      shown = change.kind;
       stop();
-      setLeaving(undefined);
+      setLeaving(change.still ? undefined : { kind: previous, from: change.from, turn: change.turn });
+    },
+    { defer: true }
+  );
 
-      return;
-    }
+  createEffect(
+    () => [leaving(), reduced()] as const,
+    ([mark, reduce]) => {
+      if (reduce) {
+        stop();
+        setLeaving(undefined);
 
-    if (!mark || !outgoing || !current) return;
+        return;
+      }
 
-    // Read only when a crossfade runs: a style read in every mounted glyph's first effect forces a style recalculation per row.
-    const tokens = getComputedStyle(document.documentElement);
-    const seconds = parseFloat(tokens.getPropertyValue("--duration-reduced")) / 1000;
+      if (!mark || !outgoing || !current) return;
 
-    if (!(seconds > 0)) return setLeaving(undefined);
-    // Opaque marks stacked: an eased pair keeps the combined Glyph from dimming at the midpoint.
-    const fades = [animate(current, { opacity: [0, 1] }, { duration: seconds, ease: curve(tokens, "--easing-glyph-in") }), animate(outgoing, { opacity: [mark.from, 0] }, { duration: seconds, ease: curve(tokens, "--easing-glyph-out") })];
+      // Read only when a crossfade runs: a style read in every mounted glyph's first effect forces a style recalculation per row.
+      const tokens = getComputedStyle(document.documentElement);
+      const seconds = parseFloat(tokens.getPropertyValue("--duration-reduced")) / 1000;
 
-    running = fades;
-    void fades[1]!.then(() => { if (running === fades) { setLeaving(undefined); running = []; } }, () => {});
-  }, { defer: true }));
+      if (!(seconds > 0)) return setLeaving(undefined);
+      // Opaque marks stacked: an eased pair keeps the combined Glyph from dimming at the midpoint.
+      const fades = [animate(current, { opacity: [0, 1] }, { duration: seconds, ease: curve(tokens, "--easing-glyph-in") }), animate(outgoing, { opacity: [mark.from, 0] }, { duration: seconds, ease: curve(tokens, "--easing-glyph-out") })];
+
+      running = fades;
+      void fades[1]!.then(() => { if (running === fades) { setLeaving(undefined); running = []; } }, () => {});
+    },
+    { defer: true }
+  );
 
   onCleanup(stop);
 

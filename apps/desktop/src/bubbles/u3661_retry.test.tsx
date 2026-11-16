@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
@@ -19,6 +20,7 @@ const failTerminalTwo = async () => {
   };
 
   fireEvent.click(closeButton("zsh"));
+  flush();
   await answerQuestion(true);
   await waitFor(() => expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy());
 
@@ -29,10 +31,12 @@ it("u3661_closing_another_terminal_keeps_the_failed_close_retry", async () => {
   const { app } = await failTerminalTwo();
 
   fireEvent.click(closeButton("cargo test"));
+  flush();
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "2" }, { id: "1" }]));
   expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close zsh");
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  flush();
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "2" }, { id: "1" }, { id: "2" }]));
 });
@@ -41,6 +45,7 @@ it("u3661_cancelling_another_close_keeps_the_failed_close_retry", async () => {
   const { app } = await failTerminalTwo();
 
   fireEvent.click(closeButton("cargo test"));
+  flush();
   await answerQuestion(false);
   expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "2" }]);
   expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close zsh");
@@ -58,11 +63,13 @@ it("u3661_a_later_failure_replaces_the_earlier_retry", async () => {
   };
 
   fireEvent.click(closeButton("cargo test"));
+  flush();
   await answerQuestion(true);
   await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close cargo"));
   expect(document.querySelector('[role="alert"]')?.textContent).not.toContain("cannot close zsh");
   app.handlers["terminal.close"] = succeed;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  flush();
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "2" }, { id: "1" }, { id: "1" }]));
 });

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
@@ -75,6 +76,7 @@ it("u2773a_rail_task_keeps_original_recipient_after_selection_changes", async ()
   const { message } = await import("../testing/centreFixture");
   mounted.app.handlers["message.send"] = () => message(1);
   mounted.rail.select("a");
+  flush();
   open();
   fireEvent.input(field(), { target: { value: " exact\n😀 " } });
   mounted.rail.select("b");
@@ -104,7 +106,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   const other = createFakeApp();
   other.handlers["rail.tree"] = () => [workstream("other")];
   const connection = await connectProject(other, { name: "Other", path: "/other" }, () => true, Date.now);
-  render(() => <ConnectedProjectContext.Provider value={connection}><Rail /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connection}><Rail /></ConnectedProjectContext>);
   open();
   fireEvent.input(field(), { target: { value: " B\ne\u0301 " } });
   refuse(new RpcError(-32003, "refused original"));
@@ -235,7 +237,7 @@ it("u2773c_a_recovered_draft_never_sends", async () => {
 
 it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", async () => {
   const { connected, app } = await mountRail([workstream("w")]);
-  render(() => <ConnectedProjectContext.Provider value={connected}><span /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><span /></ConnectedProjectContext>);
   open();
   fireEvent.input(field(), { target: { value: " exact\n😀 " } });
   fireEvent.keyDown(field(), { key: "Escape" });
@@ -243,6 +245,7 @@ it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", asyn
   expect(revision.value.text).toBe(" exact\n😀 ");
   expect(connected.drafts.list()).toHaveLength(1);
   connected.drafts.discard(revision.revision);
+  flush();
   expect(screen.queryAllByRole("textbox", { hidden: true })).toEqual([]);
   open();
   fireEvent.input(field(), { target: { value: "new work" } });
@@ -316,6 +319,7 @@ it("u350_retired_clear_drafts_do_not_reopen_or_send", async () => {
   cleanup();
   const reopened = await mountRail([door("a", "idle", "ready"), door("b", "idle", "ready")]);
   reopened.rail.select("b");
+  flush();
   open();
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect(field().value).toBe(text);
@@ -345,6 +349,7 @@ it.each(["agent", "door"])("u7129_retry_resends_the_failed_revision_not_the_newe
  return workstream("spawned"); };
 
   if (target === "door") mounted.rail.select("a");
+  flush();
   open();
   fireEvent.input(field(), { target: { value: "A" } });
   fireEvent.keyDown(field(), { key: "Enter" });

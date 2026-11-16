@@ -15,9 +15,9 @@ it("u5301b_a_read_failure_retries_by_calling_the_read_again", async () => {
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
 
-  render(() => <ConnectedProjectContext.Provider value={connected}>
+  render(() => <ConnectedProjectContext value={connected}>
     <Pane notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext>);
 
   try {
     await screen.findByRole("alert");

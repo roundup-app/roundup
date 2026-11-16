@@ -270,7 +270,7 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
   await browser("click", '.rail [data-id="tokens"] .row-state');
   await browser("wait", ".xterm-screen");
   await settle();
-  await evaluate("(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); return true; })()");
+  await evaluate("(() => { document.querySelector('.todos-tab [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click(); return true; })()");
   await browser("wait", ".shelf [data-todo] .todo-row-button");
   await browser("click", ".shelf [data-todo] .todo-row-button");
   await settle();
@@ -339,7 +339,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 
     await browser("click", '.rail [data-id="tokens"] .row-state');
     await browser("wait", ".xterm-screen");
-    await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+    await browser("click", '.todos-tab [data-shelf-group="unassigned"] .shelf-group-control');
     await browser("click", '.shelf [data-todo="1"] .todo-row-button');
     await settle();
     expect(await evaluate("matchMedia('(prefers-color-scheme: dark)').matches")).toBe(true);
@@ -354,12 +354,12 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
     await evaluate(`(() => {
       const drawer = document.querySelector('.drawer');
       const terminal = document.querySelector('.xterm-screen');
-      const selected = document.querySelector('.rail .rail-row[data-selected=true]');
+      const selected = document.querySelector('.rail .rail-row[data-selected]');
       const todo = document.querySelector('.shelf [data-todo="1"]');
       const state = () => ({ closeLeft: drawer.querySelector('.close').getBoundingClientRect().left, closeTranslate: getComputedStyle(drawer.querySelector('.close')).translate, left: drawer.getBoundingClientRect().left, width: drawer.getBoundingClientRect().width,
         open: drawer.dataset.open, mounted: drawer.dataset.mounted, inert: drawer.inert,
         focus: document.activeElement?.className, returned: document.activeElement === todo.querySelector('.todo-row-button'), home: selected?.dataset.id, todo: todo.dataset.todo,
-        sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail .rail-row[data-selected=true]'),
+        sameTerminal: terminal === document.querySelector('.xterm-screen'), sameHome: selected === document.querySelector('.rail .rail-row[data-selected]'),
         mode: document.querySelector('.window').dataset.shelfMode });
       const samples = [];
       const events = [];
@@ -543,7 +543,7 @@ rendered(`u3010b_pointer_targets_remain_reachable_during_reversal_${mode}_${rate
 it("u3010b_panel_edge_press_preserves_the_open_todo", { retry: 0 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
   await browser("set", "viewport", "1512", "950");
-  await browser("click", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+  await browser("click", '.todos-tab [data-shelf-group="unassigned"] .shelf-group-control');
   await browser("click", '.shelf [data-todo="5"] .todo-row-button');
   await settle();
   await browser("click", '.shelf [data-todo="5"] .todo-row-button');

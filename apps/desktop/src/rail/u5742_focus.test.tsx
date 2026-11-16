@@ -1,6 +1,5 @@
 import { TargetText } from "../terminal/TargetText";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { batch } from "solid-js";
 import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -13,7 +12,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
 
@@ -54,7 +53,7 @@ const mount = async (nodes: RailNode[] = [agent("ann", "idle", "ready"), agent("
 const provesChoice = async (m: Awaited<ReturnType<typeof mount>>, id: string) => {
   await waitFor(() => {
     expect(m.connected.rail.selected()).toBe(id);
-    expect([...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id)).toEqual([id]);
+    expect([...document.querySelectorAll<HTMLElement>('.rail-row[data-selected]')].map(row => row.dataset.id)).toEqual([id]);
     expect(document.activeElement?.closest(".pane-screen")).not.toBeNull();
     expect(document.activeElement?.getAttribute("data-terminal")).toBe(`t-${id}`);
   });
@@ -119,7 +118,7 @@ it("u5742c_overview_choice_focuses_terminal", async () => {
 
 it("u5742b_modifier_selection_and_arrows_keep_rail_focus", async () => {
   const m = await mount(["ann", "bea", "cee", "dee"].map(id => agent(id, "idle", "ready")));
-  const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected="true"]')].map(row => row.dataset.id);
+  const selected = () => [...document.querySelectorAll<HTMLElement>('.rail-row[data-selected]')].map(row => row.dataset.id);
 
   const user = userEvent.setup();
 
@@ -340,7 +339,7 @@ const mountTextLink = async (kind: "agent" | "workstream") => {
   render(() => <App app={app} createEmulator={emulators.factory} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open;  }} />);
   await waitFor(() => expect(connected).toBeDefined());
   const url = `roundup://${kind}/chosen?project=project-0000000000000000`;
-  render(() => <ConnectedProjectContext.Provider value={connected}><TargetText objectLinks text={`Choose ${url}.`} base="/project" /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><TargetText objectLinks text={`Choose ${url}.`} base="/project" /></ConnectedProjectContext>);
   const link = await screen.findByRole("link", { name: url });
 
   return { app, connected, emulators, link, url };

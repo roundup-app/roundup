@@ -25,26 +25,30 @@ describe("u25 disconnected protections after U3791a recovery exhaustion", () => 
     const { app, header } = await openApp();
 
     app.exitDaemon({ code: 1, recovery: "waiting" });
+
     expect(within(header).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
     app.exitDaemon({ code: 1 });
 
-    expect(within(header).getByText(appCopy.daemonExit("exited 1"))).toBeTruthy();
+    // The ink line is a tooltip trigger; ui-sdk keeps its hidden tooltip content in the page, so the text query names the line.
+    expect(within(header).getByText(appCopy.daemonExit("exited 1"), { selector: ".ink" })).toBeTruthy();
   });
 
   it("u25_a_signal_exit_reads_by_signal", async () => {
     const { app, header } = await openApp();
 
     app.exitDaemon({ code: null, recovery: "waiting" });
+
     expect(within(header).queryByText(appCopy.daemonExit("exited by signal"))).toBeNull();
     app.exitDaemon({ code: null });
 
-    expect(within(header).getByText(appCopy.daemonExit("exited by signal"))).toBeTruthy();
+    expect(within(header).getByText(appCopy.daemonExit("exited by signal"), { selector: ".ink" })).toBeTruthy();
   });
 
   it("u25_the_spawn_actions_are_disabled", async () => {
     const { app } = await openApp();
 
     app.exitDaemon({ code: 1 });
+
 
     for (const button of screen.getAllByRole("button", { name: /^(New Workstream|Create)$/ })) {
       expect(button.matches('[aria-disabled="true"]')).toBe(true);

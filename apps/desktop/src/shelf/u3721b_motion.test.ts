@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { createRoot, createSignal } from "solid-js";
+import { createRoot, createSignal, flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { createShelfFrame } from "./frame";
 import { createMaximiseSlide } from "../ui/slideLifetime";
@@ -13,23 +13,24 @@ it("u3721b_each_size_change_starts_one_transform_motion_and_no_width_motion", ()
     for (const declaration of transitions) expect(declaration, declaration).not.toMatch(/\b(width|grid-template-columns)\b/);
   }
 
-  createRoot(dispose => {
-    const [reduced, setReduced] = createSignal(false);
-    const frame = createShelfFrame(() => "/one", reduced, () => {});
+  const [reduced, setReduced] = createSignal(false);
+  const { frame, dispose } = createRoot(dispose => ({ frame: createShelfFrame(() => "/one", reduced, () => {}), dispose }));
 
-    for (const source of ["key", "pointer"] as const) {
-      frame.toggle(source);
-      expect([frame.animated(), frame.keyed()]).toEqual([true, source === "key"]);
-      frame.toggle(source);
-      frame.toggleMaximise(source);
-      expect([frame.animated(), frame.keyed()]).toEqual([true, source === "key"]);
-    }
+  for (const source of ["key", "pointer"] as const) {
+    frame.toggle(source);
+    flush();
+    expect([frame.animated(), frame.keyed()]).toEqual([true, source === "key"]);
+    frame.toggle(source);
+    frame.toggleMaximise(source);
+    flush();
+    expect([frame.animated(), frame.keyed()]).toEqual([true, source === "key"]);
+  }
 
-    setReduced(true);
-    frame.toggle("key");
-    expect(frame.animated()).toBe(false);
-    dispose();
-  });
+  setReduced(true);
+  frame.toggle("key");
+  flush();
+  expect(frame.animated()).toBe(false);
+  dispose();
 });
 
 const panel = (widths: number[]) => {
@@ -95,8 +96,10 @@ it("u3721b_closing_a_full_bench_slides_it_out_whole_then_restores_its_width", ()
   frame.toggleMaximise("key");
   frame.toggle("key");
   frame.unmaximise();
+  flush();
   expect(frame.maximised()).toBe(true);
   frame.settle();
+  flush();
   expect(frame.maximised()).toBe(false);
   dispose();
 });

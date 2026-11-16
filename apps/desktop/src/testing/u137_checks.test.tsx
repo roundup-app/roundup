@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterAll, beforeAll, afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -9,7 +8,7 @@ import type { Checks } from "./checks";
 import { seedApp } from "./seeds";
 
 afterEach(() => {
-  batch(cleanup);
+  cleanup();
   document.querySelectorAll("style[data-u137]").forEach((sheet) => sheet.remove());
 });
 
@@ -241,7 +240,7 @@ rendered("u137 rendered surfaces", () => {
       await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=empty-project");
 
       const observed = await page.call<string[]>(`(surface) => {
-        document.body.innerHTML = '<div class="${surface}" ${({ 'app-select-list': 'role="listbox" data-scope="select" data-part="content"', 'app-menu': 'role="menu" data-scope="menu" data-part="content"', 'shelf': 'data-open="true"', 'app-popover': 'data-scope="popover" data-part="content"', 'app-dialog': 'role="dialog" data-scope="dialog" data-part="content"' }[surface] ?? "")} style="box-shadow:var(--elevation)"><p>Text</p></div><p class="content">Content</p>';
+        document.body.innerHTML = '<div class="${surface}" ${({ 'app-select-list': 'role="listbox" data-slot="select-content"', 'app-menu': 'role="menu" data-slot="menu-content"', 'shelf': 'data-open="true"', 'app-popover': 'data-slot="popover-content"', 'app-dialog': 'role="dialog" data-slot="dialog-content"' }[surface] ?? "")} style="box-shadow:var(--elevation)"><p>Text</p></div><p class="content">Content</p>';
         const statuses = [window.__checks().D8.status];
         if (surface === 'app-select-list') {
           document.querySelector('.' + surface).removeAttribute('role');

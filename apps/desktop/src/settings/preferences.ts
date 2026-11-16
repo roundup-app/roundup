@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, onCleanup, untrack } from "solid-js";
 import PQueue from "p-queue";
 import * as v from "valibot";
 import tokens from "../tokens.css?inline";
@@ -131,8 +131,7 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
 
 /** Own the root's explicit scheme for this App lifetime. System continues using the native media query. */
 export const applyAppAppearance = () => {
-  createEffect(() => {
-    const { mode, interfaceScale, focusMarkers } = appSettings();
+  createEffect(appSettings, ({ mode, interfaceScale, focusMarkers }) => {
     document.documentElement.dataset.interfaceScale = interfaceScale;
     document.documentElement.dataset.focusMarkers = String(focusMarkers);
     document.documentElement.dataset.mode = mode;
@@ -144,8 +143,7 @@ export const applyAppAppearance = () => {
   // MC40: the Tokens `look.json` colours; one dropped from the file returns to its stylesheet value.
   let coloured: string[] = [];
 
-  createEffect(() => {
-    const colours = lookColours();
+  createEffect(lookColours, colours => {
     const style = document.documentElement.style;
 
     for (const token of coloured) if (!(token in colours)) style.removeProperty(token);
@@ -221,7 +219,10 @@ export const followAppAppearance = (changed: () => void): (() => void) => {
   const query = window.matchMedia?.(DARK_SCHEME);
 
   const dispose = createRoot(dispose => {
-    createEffect(on(() => appSettings().mode, changed, { defer: true }));
+    // A memo: another setting changing must not repaint the theme.
+    const mode = createMemo(() => appSettings().mode);
+
+    createEffect(mode, () => { changed(); }, { defer: true });
 
     return dispose;
   });

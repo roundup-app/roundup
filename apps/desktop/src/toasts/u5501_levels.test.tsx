@@ -1,4 +1,5 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { agent, event, USER } from "../testing/nodes";
 import { mountToasts, status, by, TOAST_AGENT, toastTodo } from "./toastFixture";
@@ -40,6 +41,7 @@ it("u5501_levels_override_only_their_channels", async () => {
   app.emit(status("all", "blocked"));
   expect(app.stateAlerts).toHaveLength(7);
   connected.rail.select(null);
+  flush();
   app.emit(status("all", "working"));
   expect(app.stateAlerts.at(-1)).toMatchObject({ alert: false, sound: true });
 });
@@ -66,14 +68,18 @@ it("u5501_quiet_holds_one_row_per_eligible_event", async () => {
   app.emit(status("a", "needs-you"));
   app.emit(status("a", "error"));
   app.emit(status("a", "error"));
-  await waitFor(() => expect(connected.held.rows()).toHaveLength(2));
+  // Fake timers hold the microtask that publishes a write; flushing publishes it now.
+  flush();
+  expect(connected.held.rows()).toHaveLength(2);
   expect(connected.held.rows().map(row => [row.agent, row.kind])).toEqual([["a", "error"], ["a", "needs-you"]]);
   app.emit(by(TOAST_AGENT, { name: "todo.updated", data: toastTodo(7, USER) }));
+  flush();
   expect(connected.held.rows()).toHaveLength(3);
   app.emit(by(TOAST_AGENT, { name: "todo.updated", data: toastTodo(8, TOAST_AGENT) }));
   app.emit(event({ name: "todo.deleted", data: { id: 7 } }));
   app.handlers["rail.tree"] = () => [agent("a", "error", "error", { alert_level: "default" })];
   await connected.rail.refresh();
+  flush();
   expect(connected.held.rows()).toHaveLength(3);
   expect(sounds).toEqual([]);
   expect(toasts()).toEqual([]);

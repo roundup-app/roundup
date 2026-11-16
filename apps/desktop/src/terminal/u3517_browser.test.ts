@@ -422,7 +422,7 @@ it.skipIf(!groundOutput)("u4456c_shelf_drawers_and_visual_content", async () => 
     await groundLoad("tree-40", base, "system");
     await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click()");
     await wait("!!document.querySelector('.shelf')");
-    await read("for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
+    await read("for (const control of document.querySelectorAll('[data-shelf-group] .shelf-group-control')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
     await groundCapture(base, "tree-40", "system", "shelf");
     await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
@@ -446,7 +446,7 @@ it.skipIf(!groundOutput)("u4456c_shelf_drawers_and_visual_content", async () => 
 it.skipIf(!groundOutput)("u4456c_floating_menu_picker_dialog", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     await groundLoad("tree-40", base, "system");
-    await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
+    await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); for (const control of document.querySelectorAll('[data-shelf-group] .shelf-group-control')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
     await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
     await read("window.__fake.app.rpc('todo.list', null).then(todos => { const row = [...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility() && todos.some(todo => !todo.done && todo.id === Number(row.closest('[data-todo]')?.dataset.todo))); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', {key:'o',code:'KeyO',bubbles:true,cancelable:true})); })");

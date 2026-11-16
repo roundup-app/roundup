@@ -3,8 +3,7 @@ import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
-import { createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createSignal, createStore, flush } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { failureOf } from "../../app/failureOf";
 import { applying } from "../../app/pending";
@@ -67,8 +66,10 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
   ]);
 
   const restartMode = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
-    if (restarts[id]?.pending) return { kind: "pending" };
-    setRestarts(id, { request, pending: true });
+    let claimed = false;
+    setRestarts(entries => { if (!entries[id]?.pending) { entries[id] = { request, pending: true }; claimed = true; } });
+
+    if (!claimed) return { kind: "pending" };
 
     try {
       const outcome = await railCommand(rail, {
@@ -80,14 +81,14 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
       });
 
       if (outcome.kind === "applied") {
-        setRestarts(id, undefined);
+        setRestarts(entries => { delete entries[id]; });
 
         return { kind: "acknowledged" };
       }
 
       return { kind: outcome.kind === "refused" ? "failed" : "unknown", message: outcome.error.message };
     } finally {
-      if (restarts[id]) setRestarts(id, { request, pending: false });
+      setRestarts(entries => { if (entries[id]) entries[id] = { request, pending: false }; });
     }
   };
 
@@ -184,6 +185,8 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
   const judge = async (current: Removing) => {
     setState(current);
+    // An Agent has no read to await: the check below must see the confirm just opened.
+    flush();
 
     const tree = rail.nodes;
     const lists = known();

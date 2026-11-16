@@ -4,17 +4,19 @@ import { createToast, ToastProvider } from "./Toast";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+const leaving = () => document.querySelector('[data-slot="toast"]')?.hasAttribute("data-ending-style");
+
 it("u492_five_second_expiry", async () => {
   vi.useFakeTimers();
   const toast = createToast({ limit: 3, newestFirst: true });
   render(() => <ToastProvider toast={toast} label="Updates" />);
   toast.show({ id: "one", name: "Agent", content: "Needs you" });
   await vi.advanceTimersByTimeAsync(4999);
-  expect(screen.getByRole("status").dataset.state).toBe("open");
+  expect(leaving()).toBe(false);
   await vi.advanceTimersByTimeAsync(1);
-  expect(screen.getByRole("status").dataset.state).toBe("closed");
+  expect(leaving()).not.toBe(false);
   await vi.advanceTimersByTimeAsync(200);
-  expect(screen.queryByRole("status")).toBeNull();
+  expect(document.querySelector('[data-slot="toast"]')).toBeNull();
 });
 
 it.each(["empty", "immediate", "hovered", "focused", "exiting"])("u492_idle_and_disposal_run_nothing_%s", async (state) => {
@@ -24,7 +26,7 @@ it.each(["empty", "immediate", "hovered", "focused", "exiting"])("u492_idle_and_
   const view = render(() => <ToastProvider toast={toast} label="Updates" />);
 
   if (state === "empty") {
-    expect(document.querySelector('[data-scope="toast"]')).toBeNull();
+    expect(document.querySelector('[data-slot="toast"]')).toBeNull();
     expect(vi.getTimerCount()).toBe(0);
   } else {
     toast.show({ id: "one", name: "Agent", content: "Needs you" });
@@ -40,11 +42,11 @@ it.each(["empty", "immediate", "hovered", "focused", "exiting"])("u492_idle_and_
 
   view.unmount();
   const calls = dismissed.mock.calls.length;
-  expect(document.querySelector('[data-scope="toast"]')).toBeNull();
+  expect(document.querySelector('[data-slot="toast"]')).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
   await vi.advanceTimersByTimeAsync(10000);
   expect(dismissed).toHaveBeenCalledTimes(calls);
-  expect(document.querySelector('[data-scope="toast"]')).toBeNull();
+  expect(document.querySelector('[data-slot="toast"]')).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
 });
 
@@ -61,6 +63,6 @@ it("u492_configured_limit_never_replays_evicted_cards", async () => {
 
   for (const id of ["a", "b", "summary"]) toast.dismiss(id);
   await vi.advanceTimersByTimeAsync(10000);
-  expect(document.querySelector('[data-scope="toast"]')).toBeNull();
+  expect(document.querySelector('[data-slot="toast"]')).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
 });

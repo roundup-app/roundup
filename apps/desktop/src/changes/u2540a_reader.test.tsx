@@ -11,6 +11,7 @@ import { notesFor } from "./notes";
 import { VirtualizedFileDiff, Virtualizer, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch, structuredPatch } from "diff";
 import { copy as readerCopy } from "./copy";
+import { notices } from "../testing/notices";
 
 // ESM exports are non-configurable: spy mode records the scenario's library calls while executing the real implementation.
 // eslint-disable-next-line anti-slop/no-module-mocking
@@ -85,7 +86,7 @@ it.each([{ id: "plain", path: "src/a.ts" }, { id: "a", path: "src/deep/b.ts" }])
   const notes = notesFor(app, "/p");
 
   app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
-  render(() => <ConnectedProjectContext.Provider value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><DiffReader id={requested().id} path={requested().path} name="a" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext>);
   await waitFor(() => expect(rendered()).toHaveLength(1));
   let finish!: (value: typeof COMPARISON) => void;
 
@@ -140,12 +141,12 @@ it("u5646d_refresh_recovery_and_disposal", async () => {
   app.handlers["agent.compareFile"] = () => { throw new Error("read refused"); };
 
   await connected.worktrees.refresh("a");
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   expect(rendered()).toHaveLength(1);
   expect(vi.mocked(VirtualizedFileDiff.prototype.setSelectedLines).mock.calls.at(-1)?.[0]).toEqual({ side: "deletions", start: 2, end: 2 });
   app.handlers["agent.compareFile"] = () => structuredClone(COMPARISON);
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
   expect(processFile).toHaveBeenCalledTimes(1);
   expect(rendered()).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -211,7 +212,7 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   app.handlers["agent.compareFile"] = () => { throw new RpcError(-32001, "Worktree unavailable"); };
 
   await connected.worktrees.refresh("a");
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   app.handlers["agent.compareFile"] = () => COMPARISON;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByRole("button", { name: /Add note/ });
@@ -231,7 +232,7 @@ it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s",
   app.handlers["agent.compareFile"] = () => { throw new Error("comparison refused; retry loading this diff"); };
 
   await connected.worktrees.refresh("a");
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
 
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
@@ -239,10 +240,10 @@ it.each(["retry", "dismiss", "signal"])("u5558e_failed_reload_retains_data: %s",
 
     if (action === "signal") await connected.worktrees.refresh("a");
     else fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toHaveLength(0));
   }
 
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
   expect(await screen.findByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);

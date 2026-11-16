@@ -1,7 +1,5 @@
-/* U414: Ark positions the stack above the resource strip; its announcement layer holds no box. */
-.toasts,
-.toasts .reserved-content,
-.toasts .reserved-status {
+/* U414: the Toaster positions the stack above the resource strip; its wrapper holds no box. */
+.toasts {
   display: contents;
 }
 

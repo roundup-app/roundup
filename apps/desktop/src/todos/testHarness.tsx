@@ -1,6 +1,6 @@
 // T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { createNow, DisplayClockContext } from "../state/clock";
-import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, onCleanup, onSettled, Show, untrack } from "solid-js";
 import { expect, vi } from "vitest";
 import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -27,15 +27,15 @@ import { Rail } from "../rail/Rail";
 vi.mock("../pads/PadRichEditor", async (original) => {
   const actual = await original<typeof import("../pads/PadRichEditor")>();
 
-  return { default: (props: import("solid-js").ComponentProps<typeof import("../pads/PadRichEditor").default>) => {
+  return { default: (props: import("@solidjs/web").ComponentProps<typeof import("../pads/PadRichEditor").default>) => {
   if (props.label === undefined) return <actual.default {...props} />;
   let field: HTMLTextAreaElement | undefined;
-  const [text, setText] = createSignal(props.text);
-  let base = props.text;
+  const [text, setText] = createSignal(untrack(() => props.text));
+  let base = untrack(() => props.text);
   // PadRichEditor closes its selection callback before destroying the editor.
   let closed = false;
   onCleanup(() => { closed = true; });
-  onMount(() => {
+  onSettled(() => {
     if (!props.initialFocus) return;
     props.onReady({
       getText: () => field!.value,
@@ -50,8 +50,8 @@ vi.mock("../pads/PadRichEditor", async (original) => {
     });
   });
 
-  return <Show when={!!props.initialFocus} fallback={<p tabIndex={0}>{props.text}</p>}><textarea ref={field} aria-label={props.label} spellcheck={false} autocorrect="off" autocapitalize="off" value={text()}
-    onInput={event => { setText(event.currentTarget.value); props.onChange(); props.onText(text()); }}
+  return <Show when={!!props.initialFocus} fallback={<p tabindex={0}>{props.text}</p>}><textarea ref={field} aria-label={props.label} spellcheck={false} autocorrect="off" autocapitalize="off" value={text()}
+    onInput={event => { const typed = event.currentTarget.value; setText(typed); props.onChange(); props.onText(typed); }}
     onSelect={() => { if (!closed) props.onSelection?.(); }} onBlur={event => props.onBlur(event.relatedTarget)} /></Show>;
 } }; });
 
@@ -98,8 +98,8 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
   const { unmount } = render(() => {
     const now = createNow(clock, () => false);
 
-    return <DisplayClockContext.Provider value={now.subscribe}>
-    <ConnectedProjectContext.Provider value={connected}>
+    return <DisplayClockContext value={now.subscribe}>
+    <ConnectedProjectContext value={connected}>
       <Layout
         header="roundup"
         rail={renderRail ? <Rail /> : null}
@@ -107,14 +107,15 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
         shelf={<Shelf />}
         overlay={<DrawerHost drawer={connected.drawer} reducedMotion={reduced} />}
       />
-    </ConnectedProjectContext.Provider>
-  </DisplayClockContext.Provider>;
+    </ConnectedProjectContext>
+  </DisplayClockContext>;
   });
 
-  if (initial.length > 0) await waitFor(() => expect(document.querySelector(".shelf-groups [data-part=branch-control], .shelf-done-line")).not.toBeNull());
-  const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+  if (initial.length > 0) await waitFor(() => expect(document.querySelector(".shelf-groups [data-slot='tree-item'][data-branch], .shelf-done-line")).not.toBeNull());
+  const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-slot="tree-item"][data-branch]');
 
-  if (disclosure) fireEvent.click(disclosure);
+  // Opening the group is setup, not the person's focus: ui-sdk's press takes focus where the old widget's did not.
+  if (disclosure) { fireEvent.click(disclosure); disclosure.blur(); }
 
   return { app, store, connected, todos, unmount, setReduced };
 };
@@ -140,14 +141,21 @@ export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done
   expect(mark.textContent).toBe("");
 };
 
-/** Focus moving to another control, the comment field by default: how Ark's Editable sees the user leave the title field. */
-export const leaveTitle = async (to?: HTMLElement) => {
-  // Ark starts watching for outside focus a frame after the edit opens.
-  await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
-  fireEvent.focusIn(to ?? within(document.querySelector<HTMLElement>(".drawer")!).getByRole("textbox", { name: "Write a comment" }));
+/** A save is sent against the change the Todo's history last showed, so an edit opened before that reply arrives has no original to save over. */
+export const historyLoaded = async (app: ReturnType<typeof createFakeApp>) => {
+  await waitFor(() => expect(todoCallsTo(app, "todo.getHistory").length).toBeGreaterThan(0));
+  await new Promise(resolve => setTimeout(resolve, 0));
 };
 
-/** Resolves once Ark's Editable has hidden the title field (autoResize hides by visibility): the edit ended. */
+/** Focus leaving the title field for another control, the comment field by default: the field reports where focus is going and keeps focus itself, as when the save returns it to the shown title. */
+export const leaveTitle = async (to?: HTMLElement) => {
+  const drawer = document.querySelector<HTMLElement>(".drawer")!;
+  const field = drawer.querySelector<HTMLTextAreaElement>("textarea[aria-label='Title']")!;
+
+  fireEvent.focusOut(field, { relatedTarget: to ?? within(drawer).getByRole("textbox", { name: "Write a comment" }) });
+};
+
+/** Resolves once the Editable has hidden the title field by visibility: the edit ended. */
 export const titleClosed = (field: HTMLElement) => waitFor(() => {
   if (field.style.visibility !== "hidden") throw new Error("the title is still editing");
 });

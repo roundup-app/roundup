@@ -1,6 +1,5 @@
 import { captureFocus, queueFocus } from "../keys/focus";
-import { createSignal } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createSignal, type Accessor } from "solid-js";
 
 /** U3814: the open center page and its original return destination, retained when changing pages. */
 export type SettingsViewState = {

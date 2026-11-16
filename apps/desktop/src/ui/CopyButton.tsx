@@ -1,4 +1,5 @@
-import { createEffect, createMemo, createSignal, mapArray, on, onCleanup, splitProps, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, mapArray, omit, onCleanup } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { debounce } from "@solid-primitives/scheduled";
 import { writeText } from "../app/clipboard";
 import type { App } from "../app/seam";
@@ -67,16 +68,20 @@ export const CopyButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
   onSuccess?: (() => void) | undefined;
   onFailure: (error: Error) => void;
 }) => {
-  const [local, rest] = splitProps(props, ["app", "text", "identity", "children", "onSuccess", "onFailure", "failureLabel"]);
+  const rest = omit(props, "app", "text", "identity", "children", "onSuccess", "onFailure", "failureLabel");
   const feedback = createCopyFeedback();
-  createEffect(on(() => [local.text, local.identity, local.app], feedback.reset));
+  // A memo: a parent recomputing the same text must not clear the copy feedback early.
+  const copying = createMemo(() => [props.text, props.identity, props.app] as const, { equals: (before, after) => before.every((part, index) => part === after[index]) });
+
+  createEffect(copying, feedback.reset);
 
   const write = () => {
-    const text = local.text;
-    const success = local.onSuccess;
-    const failure = local.onFailure;
-    void feedback.run(() => writeText(local.app, text), () => success?.(), failure);
+    const app = props.app;
+    const text = props.text;
+    const success = props.onSuccess;
+    const failure = props.onFailure;
+    void feedback.run(() => writeText(app, text), () => success?.(), failure);
   };
 
-  return <button type="button" data-button="quiet" {...rest} onClick={write}>{feedback.copied() ? copy.copied : feedback.failed() && local.failureLabel ? local.failureLabel : local.children}</button>;
+  return <button type="button" data-button="quiet" {...rest} onClick={write}>{feedback.copied() ? copy.copied : feedback.failed() && props.failureLabel ? props.failureLabel : props.children}</button>;
 };

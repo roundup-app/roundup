@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { mountBubbles } from "../bubbles/bubblesFixture";
 import { info } from "../testing/nodes";
 import { openTabs, tab } from "./stripFixture";
@@ -29,17 +30,18 @@ it.each([
 
     const field = await screen.findByRole("textbox", { name: "Project name" });
     await waitFor(() => expect(document.activeElement).toBe(field));
-    expect(targetTab.getAttribute("data-selected")).toBe(String(selected));
+    expect(targetTab.getAttribute("data-selected")).toBe(selected ? "true" : null);
     expect(activeTab.getAttribute("data-selected")).toBe("true");
   } else {
     await mountBubbles();
     const target = document.querySelector<HTMLButtonElement>(`.terminal-tab[data-bubble="${selected ? "2" : "1"}"]`)!;
     expect(target.getAttribute("aria-pressed")).toBe(String(selected));
     fireEvent.dblClick(target);
+    flush();
     const field = document.querySelector(".terminal-tab-editor input");
     await waitFor(() => expect(document.activeElement).toBe(field));
     expect(field).not.toBeNull();
-    expect(document.querySelector(`.terminal-tab-pair[data-bubble="${selected ? "2" : "1"}"]`)?.getAttribute("data-selected")).toBe(String(selected));
+    expect(document.querySelector(`.terminal-tab-pair[data-bubble="${selected ? "2" : "1"}"]`)?.getAttribute("data-selected")).toBe(selected ? "true" : null);
   }
 });
 

@@ -68,10 +68,10 @@ it("u5483b_click_opens_and_closes_the_branch", async () => {
   await mountRail([workstream("stream"), agent("child", "done", "done", { parent: "stream", final_text: { ...empty, finished: "0" } })]);
   const branch = () => screen.getByRole("treeitem", { name: /idle/ });
   await waitFor(() => expect(branch().getAttribute("aria-expanded")).toBe("false"));
-  fireEvent.click(branch().querySelector("[data-part=branch-control]")!);
+  fireEvent.click(branch());
   await settled();
   expect(rowNames()).toContain("child");
-  fireEvent.click(branch().querySelector("[data-part=branch-control]")!);
+  fireEvent.click(branch());
   await settled();
   expect(rowNames()).not.toContain("child");
   await waitFor(() => expect(branch().getAttribute("aria-expanded")).toBe("false"));
@@ -103,7 +103,7 @@ it("u5483b_folding_an_ancestor_recovers_descendant_focus", async () => {
   rowOf("descendant").focus();
   await settled();
   app.emit(event({ name: "agent.status", data: { id: "parent", attempt: "1", status_revision: "2", status: { kind: "done", label: "finished", since: NOW, finished: "0" } } }));
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-id="fold:stream"] [data-part="branch-control"]')));
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-id="fold:stream"]')));
 });
 
 it.each(["needs-you", "error", "blocked"] as const)("u5483b_attention_and_work_return_immediately %s", async kind => {
@@ -160,7 +160,7 @@ it("u5483a_done_and_idle_share_one_branch", async () => {
 it("u5483a_workstreams_keep_separate_folds", async () => {
   await mountRail([workstream("first"), workstream("second", { order: 1 }), ...["first", "second"].map(parent => agent(`${parent}-child`, "done", "finished", { parent, final_text: { ...empty, finished: "0" } }))]);
   await waitFor(() => expect(screen.getAllByRole("treeitem", { name: /idle/ })).toHaveLength(2));
-  fireEvent.click(document.querySelector('[data-id="fold:first"] [data-part="branch-control"]')!);
+  fireEvent.click(document.querySelector('[data-id="fold:first"]')!);
   await waitFor(() => expect(rowNames()).toContain("first-child"));
   expect(rowNames()).not.toContain("second-child");
 });
@@ -196,7 +196,7 @@ it("u6238b_the_row_returns_when_selection_moves", async () => {
   expect(folds()).toEqual(["1 internal", "2 idle"]);
   rail.select("a");
   await settled();
-  fireEvent.click(document.querySelector('[data-id="fold:stream"] [data-part=branch-control]')!);
+  fireEvent.click(document.querySelector('[data-id="fold:stream"]')!);
   await settled();
   expect(rowNames()).toEqual(["stream", "busy", "a", "b"]);
 });
@@ -219,7 +219,7 @@ it("u6238a_the_remaining_fold_still_opens_with_arrow_right", async () => {
   await settled();
   rail.select("a");
   await settled();
-  const fold = document.querySelector<HTMLElement>('[data-id="fold:stream"] [data-part=branch-control]')!;
+  const fold = document.querySelector<HTMLElement>('[data-id="fold:stream"]')!;
   fold.focus();
   expect(document.activeElement).toBe(fold);
   fireEvent.keyDown(fold, { key: "ArrowRight" });

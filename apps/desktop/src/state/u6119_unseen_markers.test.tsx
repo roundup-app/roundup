@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent, door, event, workstream } from "../testing/nodes";
 import { mountBubbles } from "../bubbles/bubblesFixture";
@@ -58,7 +59,7 @@ describe("u6119 a Workstream's child shows no dot", () => {
     await waitFor(() => expect(unread(row("w"))).toBe(true));
 
     status(app, "child", 3, "needs-you", "1");
-    await waitFor(() => expect(row("w").querySelector("[data-kind]")?.getAttribute("data-kind")).toBe("needs-you"));
+    await waitFor(() => expect(row("w").getAttribute("data-kind")).toBe("needs-you"));
   });
 
   it("u6119c_a_child_terminal_tab_shows_no_unseen_output", async () => {
@@ -103,13 +104,16 @@ describe("u6119 a Workstream's child shows no dot", () => {
     status(app, "top", 2, "idle", "1");
     await waitFor(() => expect(unread(row("top"))).toBe(true));
     fireEvent.click(tab("observer"));
+    flush();
     const before = [mark(), dock()];
 
     status(app, "child", 2, "idle", "1");
     fireEvent.click(tab("api"));
+    flush();
     await waitFor(() => expect(unread(row("top"))).toBe(true));
     expect(unread(row("child"))).toBe(false);
     fireEvent.click(tab("observer"));
+    flush();
     expect([mark(), dock()]).toEqual(before);
     expect(before).toEqual([null, 0]);
 
@@ -127,7 +131,7 @@ describe("u6119 a Workstream's child shows no dot", () => {
 
     fireEvent.click(within(row("w")).getByRole("button", { name: "Collapse" }));
     app.of(path("api")).emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "2", status: { kind, label, since: 2, finished: "0" } } }));
-    await waitFor(() => expect(row("w").querySelector("[data-kind]")?.getAttribute("data-kind")).toBe(kind));
+    await waitFor(() => expect(row("w").getAttribute("data-kind")).toBe(kind));
     fireEvent.click(tab("observer"));
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("aria-label")).toBe(mark));
     expect(app.badges.at(-1)).toBe(dock);

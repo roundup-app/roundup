@@ -1,5 +1,4 @@
-import { createEffect, createSignal, onCleanup } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 
 export type SlideLifetime = {
   /** A pointer slide toward the latest destination is running. */
@@ -77,7 +76,7 @@ export const createMaximiseSlide = (element: Accessor<HTMLElement | undefined>, 
     if (host) host.style.minWidth = "";
   };
 
-  createEffect(() => { if (!active()) cancel(); });
+  createEffect(() => [active(), element()] as const, ([isActive]) => { if (!isActive) cancel(); });
   onCleanup(cancel);
 
   return {

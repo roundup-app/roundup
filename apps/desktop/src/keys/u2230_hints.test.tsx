@@ -1,7 +1,7 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { batch, createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { App } from "../App";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
@@ -14,7 +14,7 @@ import { endLeader, registerKeys } from "./registry";
 import { CHORDS, hintsFor, pressOf, CHORD_ROWS } from "./chords";
 import type { HintPlace } from "./chords";
 
-afterEach(() => { batch(cleanup); endLeader(); });
+afterEach(() => { cleanup(); endLeader(); });
 
 const focusableEmulator = (): EmulatorFactory => () => {
   const field = document.createElement("textarea");
@@ -86,6 +86,7 @@ const label = (place: HintPlace): string[] => hintsFor(place).map((hint) => `${h
 
 const toRail = async () => {
   fireEvent.click(rowOf("b"));
+  flush();
   rowOf("b").focus();
   await waitFor(() => expect(line()).toEqual(label("rail")));
 };
@@ -101,6 +102,7 @@ const toPane = async () => {
 /** U2541b: a Terminal Bubble offers existing App chords. */
 const toBubble = async () => {
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
+  flush();
   rowOf("lead").focus();
   await settled();
   await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
@@ -110,17 +112,20 @@ const toBubble = async () => {
 
 const toPlace = async (place: "pad" | "drawer") => {
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
+  flush();
   document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!.focus();
 
   if (document.querySelector<HTMLElement>(".window")!.dataset["shelf"] !== "open") {
     fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
     fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "b", code: "KeyB" });
+    flush();
   }
 
   showShelfTab("Pads");
-  const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"]');
+  flush();
+  const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"] .shelf-group-control');
 
-  if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+  if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group);
   const pad = await within(document.querySelector<HTMLElement>(".shelf")!).findByRole("button", { name: "notes" });
   pad.focus();
   fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
@@ -142,6 +147,7 @@ const press = (target: Element, presses: string): boolean => {
   });
 
   target.dispatchEvent(event);
+  flush();
 
   return event.defaultPrevented && pressOf(event) === presses;
 };
@@ -182,6 +188,7 @@ describe("u2230 shortcut hints", () => {
     expect(button.disabled).toBe(false);
     fireEvent.pointerDown(button);
     fireEvent.click(button);
+    flush();
 
     if (hint.keys === "⇧⌘⌫") await answerQuestion(true);
 
@@ -220,22 +227,26 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
   const app = await open();
   await toRail();
   showShelfTab("Todos");
+  flush();
   const shelf = within(document.querySelector<HTMLElement>(".shelf")!);
   const control = target === "Todos tab" ? within(document.querySelector<HTMLElement>(".shelf-tabs")!).getByRole("tab", { name: /Todos/ }) : await shelf.findByRole("button", { name: target });
   control.focus();
   await waitFor(() => expect(line().some(hint => hint.startsWith("D "))).toBe(false));
   fireEvent.keyDown(document.activeElement!, { key: target !== "Maximise" ? "t" : "m", code: target !== "Maximise" ? "KeyT" : "KeyM" });
+  flush();
 
   if (target !== "Maximise") {
     const control = await screen.findByLabelText("Triage", { selector: "button" });
-    // Ark publishes tab focus changes before the next paint. Observe the settled mode.
+    // The tabs publish focus changes before the next paint. Observe the settled mode.
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     expect(control.getAttribute("aria-pressed")).toBe("true");
     fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+    flush();
     expect(control.getAttribute("aria-pressed")).toBe("false");
   } else {
     expect(shelf.getByRole("button", { name: "Restore" })).toBe(control);
     fireEvent.keyDown(document.activeElement!, { key: "m", code: "KeyM" });
+    flush();
     expect(shelf.getByRole("button", { name: "Maximise" })).toBe(control);
   }
 
@@ -253,9 +264,10 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
   if (owner === "terminal") await toPane();
   else {
     showShelfTab(owner === "pads" ? "Pads" : "Todos");
+    flush();
 
     if (owner === "menu") {
-      render(() => <Menu.Root open><Menu.Trigger>Open</Menu.Trigger><Menu.Positioner><Menu.Content><Menu.Item value="a">A</Menu.Item></Menu.Content></Menu.Positioner></Menu.Root>, { container: document.querySelector(".shelf")! });
+      render(() => <Menu.Root open><Menu.Trigger>Open</Menu.Trigger><Menu.Content><Menu.Item value="a">A</Menu.Item></Menu.Content></Menu.Root>, { container: document.querySelector(".shelf")! });
       (await screen.findByRole("menuitem")).focus();
     } else if (owner !== "pads") {
       const surface = document.createElement("div");
@@ -276,6 +288,7 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
 
   const event = new KeyboardEvent("keydown", { key: "t", code: "KeyT", bubbles: true, cancelable: true });
   document.activeElement!.dispatchEvent(event);
+  flush();
   expect(event.defaultPrevented).toBe(false);
   expect(document.querySelector("[data-triage-toggle]")?.getAttribute("aria-pressed")).toBe("false");
   disposeLayer();
@@ -291,12 +304,14 @@ it("u4453c_hints_use_the_bar_or_key_chips", async () => {
   const context = line();
 
   fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
+  flush();
   const armed = document.querySelector(".leader")!;
 
   expect(retained.contains(armed)).toBe(true);
   expect(armed.querySelectorAll(".hint").length).toBeGreaterThan(0);
   expect(line()).not.toEqual(context);
   fireEvent.keyDown(rowOf("b"), { key: "Escape", code: "Escape" });
+  flush();
   expect(document.querySelector(".hint-line")).toBe(retained);
   expect(document.querySelector(".leader")).toBeNull();
   expect(line()).toEqual(context);

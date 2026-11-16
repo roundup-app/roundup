@@ -7,7 +7,7 @@ const KEY = "project-0000000000000000";
 /** The fake Daemon reads an Agent other than the selected row for a link to it, as `link.read` does for an Agent of this Project; answers its id. */
 const readsAgent = () => read<string>(`(() => {
   const app = window.__fake.app;
-  const current = document.querySelector('.rail-row[data-selected=true]')?.dataset.id;
+  const current = document.querySelector('.rail-row[data-selected]')?.dataset.id;
   const node = app.handlers['rail.tree']().find(each => each.kind === 'agent' && each.id !== current);
   app.handlers['link.read'] = () => ({ kind: 'agent', id: node.id, node, digest: null });
   return node.id;
@@ -21,7 +21,7 @@ it.each(["agent", "door", "shell"])("al3_a_plain_roundup_link_selects_its_object
   await output(`\x1b[2J\x1b[Hsee roundup://agent/${id}?project=${KEY}.`);
   await move(8); await click();
   await wait("window.__fake.app.calls.some(c => c.method === 'link.read')");
-  await wait(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === '${id}'`);
+  await wait(`document.querySelector('.rail-row[data-selected]')?.dataset.id === '${id}'`);
   await settled();
   expect(await reads()).toEqual([{ url: `roundup://agent/${id}?project=${KEY}` }]);
   expect(await read("window.__fake.app.attemptedTargets")).toEqual([]);
@@ -32,7 +32,7 @@ it("al3_an_osc8_agent_link_shows_its_text_and_selects_the_agent", async () => {
   const id = await readsAgent();
   await output(`\x1b[2J\x1b[H\x1b]8;;roundup://agent/${id}?project=${KEY}\x1b\\researcher-checks-free-routes\x1b]8;;\x1b\\ waits`);
   await move(5); await click();
-  await wait(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === '${id}'`);
+  await wait(`document.querySelector('.rail-row[data-selected]')?.dataset.id === '${id}'`);
   await settled();
   expect(await reads()).toEqual([{ url: `roundup://agent/${id}?project=${KEY}` }]);
   expect(await read("window.__fake.app.attemptedTargets")).toEqual([]);

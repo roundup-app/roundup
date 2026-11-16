@@ -69,7 +69,7 @@ def observe(side, origin):
         load("/harness.html?seed=tree-40")
         evaluate("for(const t of document.querySelectorAll('[role=tab]'))if(t.textContent.startsWith('Todos')&&t.getAttribute('aria-expanded')!=='true')t.click();")
         wait("!!document.querySelector('.shelf [data-shelf-group]')")
-        evaluate("for(const e of document.querySelectorAll('.shelf [data-shelf-group] [data-part=branch-control]'))if(e.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false')e.click();")
+        evaluate("for(const e of document.querySelectorAll('.shelf [data-shelf-group] .shelf-group-control'))if(e.getAttribute('aria-expanded')==='false')e.click();")
         wait("!!document.querySelector('.shelf .todo-row[data-todo] .shelf-title')")
         evaluate(SETTLE)
 
@@ -201,16 +201,16 @@ def observe(side, origin):
                 ("tab", "[data-control=Tab] button[data-value=second]"),
                 ("primary", "[aria-label='Filled controls'] [data-button=primary]"),
                 ("neutral", "[aria-label='Filled controls'] [data-button=quiet]"),
-                ("menu-trigger", "[data-scope=menu][data-part=trigger]"),
+                ("menu-trigger", "[data-slot=menu-trigger]"),
                 ("select-trigger", ".app-select-trigger"),
                 ("disclosure", ".disclosure-trigger"), ("link", "a"), ("summary", "summary"),
             ):
                 press(name + "-pointer", selector)
                 press(name + "-key", selector, " " if name in ("checkbox", "switch", "radio", "segment") else "Enter")
-            press("menu-item-pointer", "[role=menuitem]", opening="[data-scope=menu][data-part=trigger]")
+            press("menu-item-pointer", "[role=menuitem]", opening="[data-slot=menu-trigger]")
             press("select-option-pointer", ".app-select-item:last-child", opening=".app-select-trigger")
             load("/src/ui/u133.html")
-            browser("click", "[data-scope=menu][data-part=trigger]")
+            browser("click", "[data-slot=menu-trigger]")
             capture("floating-menu")
     finally:
         browser("close")

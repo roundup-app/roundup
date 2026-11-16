@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import * as Solid from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -27,6 +27,7 @@ it("u365_ask_row_links_open_once", async () => {
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: "/work/lead/src/a.ts", line: 42 }]));
   fireEvent.click(screen.getByRole("link", { name: "https://example.com" }));
   await waitFor(() => expect(app.openedTargets).toHaveLength(2));
+  flush();
   expect(connected.rail.selected()).toBe(selected);
   expect(app.calls.filter(call => ["ask.send", "ask.pick", "message.send", "agent.spawn", "terminal.write"].includes(call.method))).toEqual([]);
 });
@@ -55,14 +56,15 @@ it("u365_ask_slash_commands_stay_plain_text", async () => {
   fireEvent.input(draft, { target: { value: "exact unsent draft" } });
   const calls = app.calls.length;
 
-  const readonly = render(() => <ConnectedProjectContext.Provider value={connected}>
+  const readonly = render(() => <ConnectedProjectContext value={connected}>
     <TargetText text={text} base="/" />
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext>);
 
   expect(readonly.container.querySelectorAll("a")).toHaveLength(0);
   const row = await screen.findByRole("button", { name: /\/clear/ });
   expect(row.querySelectorAll("a")).toHaveLength(0);
   fireEvent.mouseOver(row);
+  flush();
   expect(app.attemptedTargets).toEqual([]);
   expect(app.calls.slice(calls).filter(call => ["agent.spawn", "rail.startDoor", "agent.prompt", "ask.send", "ask.pick", "message.send", "terminal.write"].includes(call.method))).toEqual([]);
   fireEvent.click(row);
@@ -104,7 +106,7 @@ it("al5_inbox_and_overview_text_links_open_the_object", async () => {
   cleanup();
 
   const inbox = await mountTodos([], true, [ann, agent("asker", "needs-you", `Read ${url} next`, { name: "Asker" })]);
-  render(() => <ConnectedProjectContext.Provider value={inbox.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={inbox.connected}><AskBar /></ConnectedProjectContext>);
   inbox.connected.showView(null);
   inbox.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });

@@ -86,7 +86,7 @@ it("u3791c_enter_intervene_review_failure_journey", async () => {
     await page.openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe("  failed save keeps this 🌿  ");
     await browser("click", "#shelf-tab-pads");
-    await evaluate("document.querySelector('.pads-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')?.click(); true");
+    await evaluate("document.querySelector('.pads-tab [data-shelf-group] .shelf-group-control[aria-expanded=false]')?.click(); true");
     await until("!!document.querySelector('.pad-name')");
     await browser("click", ".pad-name");
     await until("document.activeElement?.matches('.pad-name')");

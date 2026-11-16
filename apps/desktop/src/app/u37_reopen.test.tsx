@@ -2,6 +2,7 @@ import { copy as windowCopy } from "../window/copy";
 import { copy as appCopy } from "./copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "./seam";
@@ -38,7 +39,7 @@ describe("u37 Reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(within(header).getByText(appCopy.daemonExit("exited 1"))).toBeTruthy();
+    expect(within(header).getByText(appCopy.daemonExit("exited 1"), { selector: ".ink" })).toBeTruthy();
     expect(within(header).getByRole("button", { name: windowCopy.reopen })).toBeTruthy();
   });
 
@@ -126,7 +127,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     app.opened.failure = failure;
     reopen(header);
 
-    await waitFor(() => expect(within(header).queryByText(failure.message)).not.toBeNull());
+    await waitFor(() => expect(within(header).queryByText(failure.message, { selector: ".ink" })).not.toBeNull());
 
     expect(within(header).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
     expect(within(header).getByRole("button", { name: windowCopy.reopen })).not.toBeNull();
@@ -148,7 +149,11 @@ describe("u37 Reopen after the Daemon exits", () => {
     reopen(screen.getByRole("region", { name: "Rail" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: windowCopy.reopen })).toBeNull());
 
-    fireEvent.click(await screen.findByText("a"));
+    // A pointer press focuses the row before the click lands; the Rail's Tree takes focus on click too, and that move would cancel the Pane's own claim on focus.
+    const row = (await screen.findByText("a")).closest<HTMLElement>(".rail-row")!;
+
+    row.focus();
+    fireEvent.click(row);
     await waitFor(() => expect(made.get("t-a")?.host).not.toBeNull());
     made.get("t-a")!.type(Uint8Array.of(3));
 
@@ -163,6 +168,8 @@ describe("u37 Reopen after the Daemon exits", () => {
     app.openProject = (path) => (asked.count++, open(path));
     app.exitDaemon({ code: 1 });
     reopen(header);
+    // A second click is a task of its own: the first has applied by then.
+    flush();
     reopen(header);
 
     expect(asked.count).toBe(1);
@@ -176,7 +183,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     const failure = new RpcError(-32603, "rupd stayed silent");
     app.opened.failure = failure;
     reopen(header);
-    await waitFor(() => expect(within(header).queryByText(failure.message)).not.toBeNull());
+    await waitFor(() => expect(within(header).queryByText(failure.message, { selector: ".ink" })).not.toBeNull());
 
     app.opened.failure = null;
     reopen(header);

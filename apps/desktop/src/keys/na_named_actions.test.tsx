@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { batch, createRoot } from "solid-js";
+import { createRoot } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
@@ -9,7 +9,7 @@ import { captureActions, registerKeys } from "./registry";
 
 const disposals: (() => void)[] = [];
 
-afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); batch(cleanup); localStorage.clear(); });
+afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); cleanup(); localStorage.clear(); });
 
 const PINNED = `agent.new agent.new-with-prompt workstream.new mode.new terminal.new leader.open switcher.open feedback.open attention.jump todo.capture terminal.switch rail.collapse-expand rail.move rail.rename help.open
 agent.restart-mode rail.remove ask.open todo.assign-slot todo.open-draft todo.add todo.assign shelf.maximise todo.delete todo.export shelf.close rail.close-peek terminal.text-larger terminal.text-smaller

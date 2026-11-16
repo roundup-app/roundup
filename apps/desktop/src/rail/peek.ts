@@ -1,4 +1,4 @@
-import { createEffect, createSignal, on, type Accessor } from "solid-js";
+import { createEffect, createSignal, type Accessor } from "solid-js";
 import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { layerOpen } from "../keys/focus";
@@ -22,7 +22,7 @@ export const createRailPeek = (collapsed: Accessor<boolean>, region: () => Eleme
     when: press => !press.defaultPrevented && press.key === "Escape" && peeking() && !layerOpen(true),
     capture: () => ({ available: peeking, invoke: unpeek }) }]);
 
-  createEffect(on(collapsed, (now) => { if (!now) unpeek(); }));
+  createEffect(collapsed, now => { if (!now) unpeek(); });
 
   return peeking;
 };

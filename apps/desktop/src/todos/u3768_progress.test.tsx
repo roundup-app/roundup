@@ -136,7 +136,7 @@ describe("u3770 a finishing Todo plays one motion", () => {
       await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("checkbox", { name: "Complete todo 1" });
     }
 
-    fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
+    fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control')!);
 
     if (actor === "user") {
       fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("checkbox", { name: "Complete todo 1" }));
@@ -147,7 +147,7 @@ describe("u3770 a finishing Todo plays one motion", () => {
     await waitFor(() => expect(bar()?.getAttribute("aria-valuenow")).toBe("1"));
 
     expect(playing()).toBe(0);
-    fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
+    fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control')!);
     expect(document.querySelector('.shelf-groups [data-todo="1"]')).toBeNull();
   });
 

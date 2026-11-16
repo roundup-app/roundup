@@ -6,6 +6,7 @@ import { info, terminal } from "../testing/nodes";
 import { callsTo, mountPane, subscribed } from "./paneHarness";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { saveAppSettings } from "../settings/preferences";
+import { notices } from "../testing/notices";
 
 const savedKey = "roundup:app-settings";
 
@@ -176,5 +177,5 @@ it("u6249b_storage_failure_keeps_size_and_logs_the_cause_without_showing_it", as
   vi.advanceTimersToNextFrame();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
   await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining(failure.message)));
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
 });

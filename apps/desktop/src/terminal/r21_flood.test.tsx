@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { createRoot } from "solid-js";
 import { node, info, terminal } from "../testing/nodes";
 import { fromBase64 } from "./base64";
 import { connectFakeProject, fakeEmulators, subscribed } from "./paneHarness";
@@ -11,7 +12,7 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
   const { factory, made } = fakeEmulators();
   const parsed: (() => void)[] = [];
 
-  const screens = createScreens(connected, (id) => {
+  const screens = createRoot(() => createScreens(connected, (id) => {
     const emulator = factory(id);
     const write = emulator.write;
 
@@ -21,7 +22,7 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
       if (bytes.length && id === "t-flood") parsed.push(() => done?.());
       else done?.();
     } };
-  });
+  }));
 
   const host = () => document.body.appendChild(document.createElement("div"));
 
@@ -68,7 +69,7 @@ it("r21_backlogged_output_yields_to_each_display_frame", async () => {
   const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
   const { factory, made } = fakeEmulators();
 
-  const screens = createScreens(connected, (id) => {
+  const screens = createRoot(() => createScreens(connected, (id) => {
     const emulator = factory(id);
     const write = emulator.write;
 
@@ -79,7 +80,7 @@ it("r21_backlogged_output_yields_to_each_display_frame", async () => {
       // Each chunk takes 6 ms to parse.
       setTimeout(() => done?.(), 6);
     } };
-  });
+  }));
 
   try {
     screens.show("t-flood", document.body.appendChild(document.createElement("div")));
@@ -113,7 +114,7 @@ it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
   const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
   const { factory, made } = fakeEmulators();
 
-  const screens = createScreens(connected, (id) => {
+  const screens = createRoot(() => createScreens(connected, (id) => {
     const emulator = factory(id);
     const write = emulator.write;
 
@@ -124,7 +125,7 @@ it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
       // Parsing runs at 1000 bytes per ms.
       setTimeout(() => done?.(), bytes.length / 1000);
     } };
-  });
+  }));
 
   try {
     screens.show("t-flood", document.body.appendChild(document.createElement("div")));

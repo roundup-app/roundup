@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,7 +8,7 @@ import { RequestedApp } from "../testing/requestedApp";
 import { showEverythingInApp } from "../testing/showEverything";
 
 afterEach(async () => {
-  batch(cleanup);
+  cleanup();
   // The frame's last write is asynchronous; clearing first would let it land in the next test's storage.
   await new Promise(done => setTimeout(done, 100));
   localStorage.clear();

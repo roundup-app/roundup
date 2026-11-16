@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { mountTodos, todo, todoCallsTo } from "./testHarness";
+import { historyLoaded, mountTodos, todo, todoCallsTo } from "./testHarness";
 
 afterEach(cleanup);
 
@@ -14,6 +14,7 @@ const open = async (body: string, done = false) => {
 
   await within(panel()).findByRole("button", { name: /^Blocked by/ });
   await within(panel()).findByRole("region", { name: "Activity" });
+  await historyLoaded(mounted.app);
 
   return mounted;
 };

@@ -63,7 +63,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
     } } : undefined} />
     <For each={state()?.recovered}>{draft => <div class="capture-recovery">
       <span class="ink" data-state={draft.status}>{draft.label}</span>
-      <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={draft.text} />
+      <textarea class="capture-field field-frame" aria-label={copy.recoveredCaptureDraft} rows={1} readonly value={draft.text} />
       <div class="capture-actions">
         <button data-button="quiet" onClick={() => {
           const current = state();

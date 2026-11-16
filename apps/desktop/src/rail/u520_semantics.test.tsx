@@ -88,7 +88,7 @@ it("u5645a_reconciled_structure_updates_once_and_view_changes_do_not_rebuild", a
     expect(rail.nodes.find(node => node.id === "inner")).toBe(inner);
     // Both projections and selection share one build for the reconciled revision.
     expect(construction.mock.calls.length).toBe(before + 1);
-    projection.rows(); projection.collection(); projection.treeRows();
+    projection.rows(); projection.items(); projection.treeRows();
     expect(construction.mock.calls.length).toBe(before + 1);
   };
 

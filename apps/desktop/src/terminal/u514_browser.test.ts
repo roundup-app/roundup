@@ -67,7 +67,7 @@ const selectRow = async (id: string) => {
     ["focus", `.rail-row[data-id="${id}"]`],
     ["wait", "--fn", `document.activeElement?.matches('.rail-row[data-id="${id}"]')`],
     ["press", "Enter"],
-    ["wait", "--fn", `document.querySelector('.rail-row[data-id="${id}"]')?.dataset.selected === 'true'`]
+    ["wait", "--fn", `document.querySelector('.rail-row[data-id="${id}"]')?.hasAttribute('data-selected')`]
   );
 };
 
@@ -249,8 +249,8 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
     await batch(
       ["click", "#shelf-tab-pads"],
       ["wait", "--fn", "document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'"],
-      ["wait", "--fn", "document.querySelector('.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]')?.checkVisibility()"],
-    ["eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()"],
+      ["wait", "--fn", "document.querySelector('.pads-tab [data-shelf-group=unassigned] .shelf-group-control')?.checkVisibility()"],
+    ["eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click()"],
       ["wait", "--fn", "document.querySelector('[data-pad=pad-3] .pad-name')?.textContent === 'pad-3'"],
       ["eval", "document.querySelector('[data-pad=pad-3] .pad-name').focus()"],
       ["wait", "--fn", "document.activeElement?.matches('.pad-name')"],
@@ -350,8 +350,8 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await batch(
     ["click", "#shelf-tab-pads"],
     ["wait", "--fn", "document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'"],
-    ["wait", "--fn", "document.querySelector('.pads-tab [data-shelf-group=unassigned] [data-part=branch-control]')?.checkVisibility()"],
-    ["eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()"],
+    ["wait", "--fn", "document.querySelector('.pads-tab [data-shelf-group=unassigned] .shelf-group-control')?.checkVisibility()"],
+    ["eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click()"],
     ["wait", "--fn", "document.querySelector('[data-pad=pad-0] .pad-name')?.textContent === 'pad-0'"],
     ["eval", "document.querySelector('[data-pad=pad-0] .pad-name').focus()"],
     ["wait", "--fn", "document.activeElement?.matches('.pad-name')"],

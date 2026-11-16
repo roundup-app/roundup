@@ -6,6 +6,39 @@
   clip-path: inset(50%);
 }
 
+/* ui-sdk's stylesheet gives its list parts their own look: these zero-specificity rules hand back every property the App's rules below do not set. */
+:where([data-slot="command"]) {
+  display: revert;
+  flex-direction: revert;
+  width: revert;
+  max-width: revert;
+  overflow: revert;
+  border: revert;
+  border-radius: revert;
+  background: revert;
+  color: revert;
+  font-size: revert;
+}
+
+:where([data-slot="command-input"]) {
+  height: revert;
+  outline: revert;
+}
+
+:where([data-slot="command-list"]) {
+  padding: revert;
+}
+
+:where([data-slot="command-item"]) {
+  min-height: revert;
+  outline: revert;
+  user-select: revert;
+}
+
+:where([data-slot="command-empty"]) {
+  font-size: revert;
+}
+
 .app-combobox-list {
   max-height: calc(var(--space-5) * 10);
   overflow: auto;
@@ -32,7 +65,7 @@
   color: var(--text);
 }
 
-.app-combobox-empty {
+.app-combobox-empty:not(:empty) {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   color: var(--grey);
@@ -45,9 +78,8 @@
 }
 
 .app-popover.choice-picker {
-  z-index: var(--layer-menu);
   box-sizing: border-box;
-  width: 100%;
+  width: var(--anchor-width);
   padding: var(--space-1);
 }
 

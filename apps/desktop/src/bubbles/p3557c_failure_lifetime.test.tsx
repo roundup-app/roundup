@@ -1,10 +1,12 @@
 import { copy as recoveryCopy } from "../sharedCopy";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { copy } from "./copy";
 import { event } from "../testing/nodes";
 import { answerQuestion, questionClosed, questionDialog } from "../shelf/bulkQuestionHarness";
 import { mountBubbles, TERMINALS } from "./bubblesFixture";
+import { notices } from "../testing/notices";
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
 
@@ -15,10 +17,11 @@ afterEach(() => {
 
 const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
 
-const close = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"] > button:last-child`)!;
+const close = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"] > button:last-of-type`)!;
 
 const closeAccepted = async (id: string) => {
   fireEvent.click(close(id));
+  flush();
   await questionDialog();
   await answerQuestion(true);
   await questionClosed();
@@ -29,6 +32,7 @@ const field = () => document.querySelector<HTMLInputElement>(".terminal-tab-edit
 const edit = async (id: string) => {
   tab(id).focus();
   fireEvent.dblClick(tab(id).querySelector(".terminal-tab-name")!);
+  flush();
   await waitFor(() => expect(field()).not.toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(field()));
 };
@@ -40,6 +44,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     const mounted = await mountBubbles();
     const { app, connected, setListed } = mounted;
     fireEvent.click(document.querySelector(".bubble:not([hidden]) [aria-label=Minimise]")!);
+    flush();
     const text = "  unfinished e\u0301 🫧 雪  ";
     const retainedEdit = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: text, base: "other run" }, null, "ordinary");
     await retainedEdit.retained;
@@ -64,16 +69,20 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
 
       await edit("2");
       fireEvent.input(field(), { target: { value: "  rejected name 雪  " } });
+      flush();
       fireEvent.keyDown(field(), { key: "Enter" });
+      flush();
       const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
       storage.mockRestore();
       fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+      flush();
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(tab("2")));
     } else {
       app.handlers["daemon.ping"] = () => { throw new Error("Close refused\nTry again"); };
 
       fireEvent.contextMenu(tab("2"), { clientX: 10, clientY: 10 });
+      flush();
       await app.pickMenu("Copy link");
       await screen.findByRole("alert", { name: refusal });
     }
@@ -97,6 +106,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       await connected.rail.refresh({ terminals: true });
     } else if (transition === "cancel-delete") {
       fireEvent.contextMenu(tab("2"), { clientX: 10, clientY: 10 });
+      flush();
       await app.closeMenu();
     } else if (transition === "other-delete") {
       await closeAccepted("1");
@@ -104,15 +114,19 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       await connected.rail.refresh({ terminals: true });
     } else if (transition === "open") {
       fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+      flush();
       await waitFor(() => expect(tab("9")).not.toBeNull());
       await connected.rail.refresh({ terminals: true });
     } else if (transition === "dismiss") {
       fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+      flush();
     } else if (transition === "save" || transition === "other-save" || transition === "cancel-edit") {
       await edit(transition === "other-save" ? "1" : "2");
 
-      if (transition !== "cancel-edit") fireEvent.input(field(), { target: { value: "saved name" } });
+      if (transition !== "cancel-edit") { fireEvent.input(field(), { target: { value: "saved name" } }); flush(); }
+
       fireEvent.keyDown(field(), { key: transition === "cancel-edit" ? "Escape" : "Enter" });
+      flush();
       await waitFor(() => expect(field()).toBeNull());
       await waitFor(() => expect(document.activeElement).toBe(tab(transition === "other-save" ? "1" : "2")));
     } else {
@@ -123,7 +137,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     }
 
     if (["delete", "dismiss", "save", "replace", "successful-delete"].includes(transition)) {
-      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      await waitFor(() => expect(notices("alert")).toHaveLength(0));
     } else expect(screen.getByRole("alert", { name: transition === "failed-delete" ? "Still refused" : refusal })).toBeDefined();
     expect(connected.drafts.list()).toContainEqual(retained);
 
@@ -141,6 +155,7 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
   app.handlers["terminal.open"] = () => { throw new Error("Cannot open Terminal"); };
 
   fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+  flush();
   await screen.findByRole("alert", { name: "Cannot open Terminal" });
 
   if (transition === "delete") {
@@ -150,17 +165,20 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
   } else if (transition === "save") {
     await edit("2");
     fireEvent.input(field(), { target: { value: "renamed" } });
+    flush();
     fireEvent.keyDown(field(), { key: "Enter" });
+    flush();
     await waitFor(() => expect(field()).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   } else if (transition === "recover") {
     app.handlers["terminal.open"] = open;
     fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+    flush();
     await waitFor(() => expect(tab("9")).not.toBeNull());
-  } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  } else { fireEvent.click(screen.getByRole("button", { name: "Dismiss" })); flush(); }
 
-  if (["dismiss", "recover"].includes(transition)) await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-  else expect(screen.getAllByRole("alert")).toHaveLength(1);
+  if (["dismiss", "recover"].includes(transition)) await waitFor(() => expect(notices("alert")).toHaveLength(0));
+  else expect(notices("alert")).toHaveLength(1);
   expect(connected.drafts.list()).toEqual([retained]);
 });
 
@@ -176,26 +194,32 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
   const other = otherEdit.draft;
   app.clipboardFailure = new Error("Clipboard refused");
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  flush();
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  const inspect = (name: string) => fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`Inspect.*${name}`) }));
+  const inspect = (name: string) => { fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`Inspect.*${name}`) })); flush(); };
+
   inspect("zsh");
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  flush();
   await within(dialog).findByRole("alert", { name: /Clipboard refused/ });
   const before = drafts.list();
 
-  if (transition === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Dismiss" }));
-  else if (transition === "discard") fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
+  if (transition === "dismiss") { fireEvent.click(within(dialog).getByRole("button", { name: "Dismiss" })); flush(); }
+  else if (transition === "discard") { fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision })); flush(); }
   else if (transition === "copy") {
     app.clipboardFailure = null;
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+    flush();
   } else if (transition === "other-copy") {
     inspect("other run");
     app.clipboardFailure = null;
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+    flush();
     await waitFor(() => expect(app.clipboardWrites.at(-1)).toBe("other unfinished"));
   } else if (transition === "other-discard") {
     inspect("other run");
     fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
+    flush();
   } else {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Disk full"); });
     await drafts.edit(destination, { name: "still in memory", base: "zsh" }, null, "ordinary").retained;
@@ -218,6 +242,7 @@ it("p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure wi
   await closeAccepted("2");
   await screen.findByRole("alert", { name: "Close refused" });
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  flush();
   await questionDialog();
   await answerQuestion(false);
   await waitFor(() => expect(document.activeElement).toBe(close("2")));

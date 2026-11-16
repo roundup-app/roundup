@@ -1,4 +1,12 @@
 .app-splitter {
-  cursor: col-resize;
-  touch-action: none;
+  cursor: ew-resize;
+}
+
+/* The resizable group measures these two panels and draws neither. */
+.app-splitter-shim {
+  position: absolute;
+  block-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
 }

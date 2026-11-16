@@ -4,6 +4,7 @@ import { RpcError } from "../app/seam";
 import { info, node } from "../testing/nodes";
 import { connectFakeProject, fakeEmulators, mountPane, subscribed } from "./paneHarness";
 import { createScreens } from "./screens";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -39,7 +40,7 @@ it("u6249b_terminal_output_subscribing_retries_and_shows_nothing_when_a_retry_su
   connected.rail.select("a");
   await subscribed(app, "t-a");
   expect(calls()).toBe(4);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
 });
 
 it("u6249b_terminal_output_stops_after_the_last_retry_and_its_retry_button_subscribes_again", async () => {
@@ -52,7 +53,7 @@ it("u6249b_terminal_output_stops_after_the_last_retry_and_its_retry_button_subsc
   expect(calls()).toBe(5);
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await subscribed(app, "t-a");
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
 });
 
 it("u6249b_terminal_restore_failure_offers_retry_instead_of_telling_the_user_to_switch_away", async () => {
@@ -70,7 +71,7 @@ it("u6249b_terminal_restore_failure_offers_retry_instead_of_telling_the_user_to_
 
   expect(snapshots).toBe(5);
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
   expect(emulators.get("t-a")).toBeDefined();
 });
 
@@ -79,15 +80,15 @@ it("u6249d_a_terminal_failure_is_dismissed_by_its_button_and_by_escape_inside_th
 
   refuseOutput(app, Infinity);
   connected.rail.select("a");
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
 
   connected.rail.select(null);
   connected.rail.select("a");
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   fireEvent.keyDown(screen.getByRole("button", { name: "Dismiss" }), { key: "Escape" });
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  await waitFor(() => expect(notices("alert")).toHaveLength(0));
 });
 
 it("u6249b_attaching_retries_a_preparation_that_fails_and_stops_for_a_cancelled_one", async () => {

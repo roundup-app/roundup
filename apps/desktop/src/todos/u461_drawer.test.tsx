@@ -50,6 +50,9 @@ it("u461_delete_failure_is_retryable", async () => {
   fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   fireEvent.click(within(panel()).getByRole("button", { name: "More actions" }));
   fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
+  // The pending Delete is disabled: choosing it again leaves the menu open, so close it as a user would before the next try.
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   reject(new RpcError(-32003, "Delete failed"));
@@ -166,8 +169,8 @@ for (const { remaining, reopened, target } of [
 }
 
 it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () => {
+  // The harness has opened the Unassigned group already; clicking it again would fold the rows away.
   const mounted = await mountTodos([todo(1, { done: true }), todo(2, { blockers: [1] }), todo(3)]);
-  fireEvent.click(await screen.findByText("Unassigned"));
   { const row = await screen.findByRole("button", { name: "Done #1 todo 1" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
   const box = await within(panel()).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });

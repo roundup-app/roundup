@@ -1,7 +1,6 @@
 import type { Handed } from "@contracts/todo/Handed";
 import { sameOwner } from "../shelf/scope";
 import type { Todo } from "@contracts/todo/Todo";
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { beforeOf } from "./beforeOf";
 
 const byId = (a: Todo, b: Todo): number => a.id - b.id;
@@ -199,20 +198,6 @@ export const rowTopology = (rows: readonly NestedRow[]) => {
   };
 
   return { rows, index, parent, end, firstChild, nextSibling, root, children };
-};
-
-type TreeNode = { id: string; children: TreeNode[] };
-
-/** Ark owns the keyboard semantics; application construction visits each child slot once. */
-export const treeCollection = (topology: ReturnType<typeof rowTopology>) => {
-  const root: TreeNode = { id: "root", children: [] };
-  const nodes = topology.rows.map((row): TreeNode => ({ id: String(row.todo.id), children: [] }));
-  nodes.forEach((node, at) => {
-    const parent = topology.parent[at];
-    (parent == null ? root : nodes[parent]!).children.push(node);
-  });
-
-  return createTreeCollection<TreeNode>({ nodeToValue: node => node.id, nodeToString: node => node.id, rootNode: root });
 };
 
 /** U3808: the latest eligible Handed Todo of each live Agent. */

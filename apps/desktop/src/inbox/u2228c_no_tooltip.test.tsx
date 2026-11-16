@@ -19,7 +19,7 @@ const NODES: RailNode[] = [
 it("u2228c_inbox_and_switcher_rows_open_no_tooltip", async () => {
   const m = await mountTodos([], true, structuredClone(NODES));
 
-  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });

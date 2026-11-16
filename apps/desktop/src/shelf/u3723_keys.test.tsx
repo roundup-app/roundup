@@ -1,7 +1,7 @@
 import { openProjectPage, questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
-import { batch } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
@@ -10,7 +10,7 @@ import { stubDialogLayout } from "./bulkQuestionHarness";
 import { captureActions } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 stubDialogLayout();
 
@@ -32,7 +32,8 @@ const open = async (pads = false, unnest?: boolean) => {
     fireEvent.click(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /^Pads/ }));
     await waitFor(() => expect(document.querySelector(".shelf .pad-name")).not.toBeNull());
 
-    for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+    for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] .shelf-group-control')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+    flush();
   }
 
   const rows = [...document.querySelectorAll<HTMLButtonElement>(pads ? ".shelf .pad-name" : ".shelf .todo-row-button[aria-pressed]")];
@@ -43,13 +44,17 @@ const open = async (pads = false, unnest?: boolean) => {
 
 const press = (target: HTMLElement, key: string, init: KeyboardEventInit = {}) => {
   target.focus();
+  const unhandled = fireEvent.keyDown(target, { key, code: `Key${key.toUpperCase()}`, ...init });
 
-  return fireEvent.keyDown(target, { key, code: `Key${key.toUpperCase()}`, ...init });
+  flush();
+
+  return unhandled;
 };
 
 it.each([false, true])("u3723_d_asks_once_to_delete_the_focused_row_and_calls_nothing_first (%s)", async pads => {
   const { app, rows } = await open(pads);
   fireEvent.click(rows[1]!, { metaKey: true });
+  flush();
   press(rows[0]!, "d");
   await waitFor(() => expect(app.calls.filter(call => call.method === (pads ? "pad.delete" : "todo.delete"))).toHaveLength(1));
 });
@@ -83,6 +88,7 @@ it("u3723_keys_are_inert_in_text_fields_dialogs_modifiers_and_repeats", async ()
   }
 
   fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
+  flush();
   const field = screen.getByLabelText("New Todo title");
 
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
@@ -127,6 +133,7 @@ it("u3722_the_chip_comes_from_the_registry_row", async () => {
   expect(keys).toBe(row.keys);
 
   fireEvent.keyDown(button, { key: keys.toLowerCase(), code: row.presses[0]! });
+  flush();
   expect(shelf.getByRole("button", { name: "Restore" })).toBe(button);
 });
 
@@ -136,6 +143,7 @@ it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async plac
 
   if (place === "naming") {
     fireEvent.click(screen.getByRole("button", { name: "Add Pad", hidden: true }));
+    flush();
     field = screen.getByLabelText("Pad name");
   } else {
     rows[0]!.focus();
@@ -157,6 +165,7 @@ it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", 
   fireEvent.keyDown(rows[0]!, { key: "d", code: "KeyD" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.delete")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
+  flush();
   screen.getByLabelText("New Todo title").focus();
 });
 
@@ -176,6 +185,7 @@ it.each(["A", "W", "X", "C"])("u3787b_triage_commands_share_the_focused_todo: %s
   else if (key === "C") {
     const field = await screen.findByRole("textbox", { name: "Write a comment" });
     fireEvent.input(field, { target: { value: "reviewed" } });
+    flush();
     fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
     await waitFor(() => expect(app.calls.filter(call => call.method === "todo.comment").map(call => call.params)).toEqual([{ id, body: "reviewed" }]));
   } else {
@@ -188,8 +198,10 @@ it("u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode", async () => {
   const { app, rows } = await open();
   rows[0]!.focus();
   fireEvent.click(screen.getByRole("button", { name: "Triage" }));
+  flush();
   const captured = captureActions(document.activeElement).find(action => action.value === "action:chord:X")!;
   fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  flush();
   expect(fireEvent.keyDown(document.activeElement!, { key: "x", code: "KeyX" })).toBe(true);
   openProjectPage("action:chord:X");
   captured.run();
@@ -208,6 +220,7 @@ it.each([false, true])("u3787b_nesting_captures_the_focused_todo_once: out=%s fr
 
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.setBlockers").map(call => call.params)).toEqual([{ id: 2, blockers: out ? [] : [1] }]));
   fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
+  flush();
   screen.getByLabelText("New Todo title").focus();
   captured.run();
   openProjectPage(`action:chord:${chord}`);
@@ -217,6 +230,7 @@ it.each([false, true])("u3787b_nesting_captures_the_focused_todo_once: out=%s fr
 it("u3787b_todo_open_uses_the_focused_row: key", async () => {
   const { app, rows } = await open();
   fireEvent.click(rows[1]!);
+  flush();
   rows[0]!.focus();
   const id = Number(rows[0]!.closest("[data-todo]")!.getAttribute("data-todo"));
   expect(document.activeElement).toBe(rows[0]);
@@ -231,6 +245,7 @@ it("u3787b_todo_open_uses_the_focused_row: key", async () => {
 it("u3787b_todo_rename_keeps_the_captured_row: key", async () => {
   const { app, rows } = await open();
   fireEvent.click(rows[1]!);
+  flush();
   rows[0]!.focus();
   const target = rows[0]!.closest("[data-todo]");
   const captured = captureActions(rows[0]!).find(action => action.keys === "F2")!;

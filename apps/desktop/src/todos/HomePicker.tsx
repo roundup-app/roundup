@@ -1,10 +1,8 @@
-import { anchorBox } from "../ui/anchorBox";
 import type { captureFocus } from "../keys/focus";
-import { For } from "solid-js";
-import type { Accessor } from "solid-js";
-import { Portal } from "solid-js/web";
+import { For, type Accessor } from "solid-js";
 import { Menu } from "../ui/Menu";
 import { copy } from "./copy";
+import { pickerAnchor } from "./pickerAnchor";
 import type { Home } from "./homes";
 
 /**
@@ -18,26 +16,23 @@ export const HomePicker = (props: {
   replacement?: () => HTMLElement | null | undefined;
   choose: (id: number, home: string | null) => void;
   close: () => void;
-}) => (
+}) => {
+  const anchor = pickerAnchor(props);
+
+  return (
   <Menu.Root initialFocus={props.target()?.focus}
-    lazyMount
-    unmountOnExit
     open={props.target() !== null && props.offers().length > 0}
-    positioning={{ placement: "bottom-start", getAnchorRect: () => anchorBox(props.target()?.anchor, props.replacement) }}
     onOpenChange={({ open }) => { if (!open) props.close(); }}
-    onSelect={({ value }) => {
+    onAction={value => {
       const target = props.target();
       const offer = props.offers()[Number(value)];
 
       if (target && offer) props.choose(target.id, offer.home);
     }}
   >
-    <Portal>
-      <Menu.Positioner>
-        <Menu.Content class="owner-picker" aria-label={copy.homesFor(props.target()?.id ?? "")}>
-          <For each={props.offers()}>{(offer, index) => <Menu.Item value={String(index())}>{offer.name}</Menu.Item>}</For>
-        </Menu.Content>
-      </Menu.Positioner>
-    </Portal>
+    <Menu.Content side="bottom" align="start" anchor={anchor} class="owner-picker" aria-label={copy.homesFor(props.target()?.id ?? "")}>
+      <For each={props.offers()}>{(offer, index) => <Menu.Item value={String(index())}>{offer.name}</Menu.Item>}</For>
+    </Menu.Content>
   </Menu.Root>
-);
+  );
+};

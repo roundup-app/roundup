@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -51,15 +51,16 @@ const mountPaneWithDrawer = async (selectAgent: boolean) => {
   };
 
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Pane createEmulator={() => emulator} />
       <DrawerHost drawer={connected.drawer} reducedMotion={connected.reducedMotion} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   if (selectAgent) connected.rail.select("a");
 
   connected.drawer.open(() => <input aria-label="field" />);
+  flush();
   focused.length = 0;
 
   return { connected, focused };
@@ -101,10 +102,10 @@ const mountPaneWithFocusedTerminal = async () => {
   };
 
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Pane createEmulator={() => emulator} />
       <DrawerHost drawer={connected.drawer} reducedMotion={connected.reducedMotion} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   connected.rail.select("a");
@@ -151,8 +152,10 @@ describe("u28 Esc closes", () => {
   it("u28_esc_closes_the_open_drawer", () => {
     const drawer = mountDrawer();
     drawer.open(() => <p>detail</p>);
+    flush();
 
     fireEvent.keyDown(document.body, { key: "Escape" });
+    flush();
 
     expect(drawer.content()).toBeNull();
   });
@@ -160,8 +163,10 @@ describe("u28 Esc closes", () => {
   it("u28_esc_inside_a_field_leaves_the_drawer_open", () => {
     const drawer = mountDrawer();
     drawer.open(() => <input aria-label="field" />);
+    flush();
 
     fireEvent.keyDown(screen.getByLabelText("field"), { key: "Escape" });
+    flush();
 
     expect(drawer.content()).not.toBeNull();
   });
@@ -169,8 +174,10 @@ describe("u28 Esc closes", () => {
   it("u28_esc_inside_a_pad_text_field_leaves_the_drawer_open", () => {
     const drawer = mountDrawer();
     drawer.open(() => <textarea aria-label="text" />);
+    flush();
 
     fireEvent.keyDown(screen.getByLabelText("text"), { key: "Escape" });
+    flush();
 
     expect(drawer.content()).not.toBeNull();
   });

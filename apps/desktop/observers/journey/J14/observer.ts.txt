@@ -187,7 +187,7 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
       }
       // Stop one idle Agent with its pointer Stop action to produce done.
       await browser("click", `[data-id="${ids[2]}"] .name`);
-      await wait(`document.querySelector('[data-id="${ids[2]}"][data-selected=true]')`);
+      await wait(`document.querySelector('[data-id="${ids[2]}"][data-selected]')`);
       await browser("click", `[data-id="${ids[2]}"] [aria-label="Stop"]`);
       await wait(`document.querySelector('[data-id="${ids[2]}"][data-kind=done]')`);
       expect(new Set((await app.rpc('rail.tree',null)).filter(n=>n.kind==='agent').map(n=>n.status?.kind)).size).toBe(6);
@@ -199,16 +199,16 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
       }
       await observe("understand-collapsed");
       await evalResult(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'j',metaKey:true,bubbles:true}))`);
-      await wait(`document.querySelector('[role=treeitem][data-selected=true][data-kind=error]')`);
+      await wait(`document.querySelector('[role=treeitem][data-selected][data-kind=error]')`);
       await observe("understand-jump");
       if (!(await evalResult(`!!document.querySelector('[role=treeitem][data-id="${ids[6]}"] .name')`))) await browser("click", `[role=treeitem][data-id="${second}"] [aria-label="Collapse"]`);
       await wait(`document.querySelector('[role=treeitem][data-id="${ids[6]}"] .name')`);
       await browser("click", `[data-id="${ids[6]}"] .name`);
-      await wait(`document.querySelector('[data-id="${ids[6]}"][data-selected=true]')`);
+      await wait(`document.querySelector('[data-id="${ids[6]}"][data-selected]')`);
       await observe("intervene-terminal");
       await read("intervene");
       await browser("click", `[data-id="${first}"] .name`);
-      await wait(`document.querySelector('[data-id="${first}"][data-selected=true]')`);
+      await wait(`document.querySelector('[data-id="${first}"][data-selected]')`);
       await activate('[aria-label="Show Shelf"]');
       await wait(`document.querySelector('[data-todo]')`);
       await observe("review-workstream");

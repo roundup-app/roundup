@@ -1,7 +1,7 @@
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "../testing/menuProbe";
 import { createSignal, For } from "solid-js";
-import { render } from "solid-js/web";
+import { render } from "@solidjs/web";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { DrawerHost } from "../drawer/DrawerHost";
@@ -52,20 +52,20 @@ const Fixture = () => {
 
   const Draw = () => <div><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></div>;
 
-  return <ConnectedProjectContext.Provider value={connected}>
+  return <ConnectedProjectContext value={connected}>
     <Tabs.Root value={active()} onValueChange={({ value }) => setActive(value)} activationMode="manual"
       ids={{ trigger: value => `tab-${encodeURIComponent(value)}`, content: value => `panel-${encodeURIComponent(value)}` }}>
       <button data-button="quiet" id="origin" onClick={() => connected.drawer.open(() => <>
         <p>Unchanged Drawer content</p><input aria-label="Drawer input" /><textarea aria-label="Drawer text" />
-        <div contentEditable tabIndex={0}>Editable content</div>
+        <div contenteditable="true" tabindex={0}>Editable content</div>
       </>)}>Open Drawer</button>
       <input aria-label="Outside field" />
-      <div class="xterm" tabIndex={0}>Terminal</div>
+      <div class="xterm" tabindex={0}>Terminal</div>
       {reverse ? <><Draw /><Top /></> : <><Top /><Draw /></>}
       <For each={tabs()}>{tab => <Tabs.Content value={tab.path}>Real content: {tab.name}</Tabs.Content>}</For>
       <output data-marks>{marks()}</output>
     </Tabs.Root>
-  </ConnectedProjectContext.Provider>;
+  </ConnectedProjectContext>;
 };
 
 render(() => <Fixture />, document.getElementById('root')!);

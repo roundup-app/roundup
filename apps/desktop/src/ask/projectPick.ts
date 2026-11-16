@@ -55,11 +55,15 @@ export const createProjectPick = (from: {
   createEffect(() => {
     const value = from.text();
 
-    if (value.trim() === "") return setPick({});
+    if (value.trim() === "") return { value, reset: true, arm: false };
 
-    if (picked() && pickedOn && pickedOn.count > 1 && value !== pickedOn.text) setPick({});
+    const reset = picked() && pickedOn !== null && pickedOn.count > 1 && value !== pickedOn.text;
 
-    if (shown() && !picked()) pause(value);
+    return { value, reset, arm: shown() && (reset || !picked()) };
+  }, ({ value, reset, arm }) => {
+    if (reset) setPick({});
+
+    if (arm) pause(value);
   });
 
   const current = () => (placed()?.text === from.text() ? placed()!.parts : null);

@@ -70,7 +70,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     // The recorded dense Shelf supplies the real owner menu and New Workstream Dialog.
     await read("document.querySelector('.rail-row').click(); if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos')?.click()");
     await wait("!!document.querySelector('.shelf')");
-    await read("(() => { for (const b of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (b.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') b.click(); })()");
+    await read("(() => { for (const b of document.querySelectorAll('[data-shelf-group] .shelf-group-control')) if (b.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') b.click(); })()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
     await read("(() => { const row = [...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', {key:'o',code:'KeyO',bubbles:true,cancelable:true})); })()");
     await wait("!!document.querySelector('[role=menu]')");

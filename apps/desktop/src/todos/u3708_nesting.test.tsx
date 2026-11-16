@@ -1,5 +1,5 @@
-import { batch, createMemo, createRoot, createSignal } from "solid-js";
-import { treeRows, rowTopology, treeCollection, planDrop } from "./todoView";
+import { createMemo, createRoot, createSignal, flush } from "solid-js";
+import { treeRows, rowTopology, planDrop } from "./todoView";
 import { createDependencyGroups, groupFacts, type DependencyGroupRetention } from "./dependencyGroups";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,11 +7,13 @@ import { SCOPE_ROW, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
-afterEach(() => batch(cleanup));
+afterEach(cleanup);
 
 const levelOf = (id: number) => Number(rowOf(id).closest("[role=treeitem]")?.getAttribute("aria-level"));
 
-const ids = () => [...document.querySelectorAll<HTMLElement>("[data-level]")].map((row) => Number(row.dataset.id));
+const TODO_ROWS = '[role=tree][aria-label="Todos"] [role=treeitem][data-level]';
+
+const ids = () => [...document.querySelectorAll<HTMLElement>(TODO_ROWS)].map((row) => Number(row.dataset.id));
 
 const buttonOf = (id: number) => within(rowOf(id)).getByRole<HTMLButtonElement>("button", { name: new RegExp(`^(Idle|Blocked|Done) #${id}\\b`) });
 
@@ -21,7 +23,7 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
       todo(1), todo(2, { blocked: true, blockers: [1] }), todo(3, { blocked: true, blockers: [2] }),
       todo(4, { blocked: true, blockers: [99] }),
     ]);
-    await screen.findByRole("tree");
+    await screen.findByRole("tree", { name: "Todos" });
 
     expect(ids()).toEqual([1, 2, 3, 4]);
     expect([1, 2, 3, 4].map(levelOf)).toEqual([1, 2, 3, 1]);
@@ -35,9 +37,9 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
     await screen.findAllByRole("treeitem");
     const list = document.querySelector<HTMLElement>(".todo-list");
     const tree = within(list!).getByRole("tree");
-    const items = [...document.querySelectorAll<HTMLElement>("[data-level]")];
+    const items = [...document.querySelectorAll<HTMLElement>(TODO_ROWS)];
 
-    expect(tree.getAttribute("data-scope")).toBe("tree-view");
+    expect(tree.getAttribute("aria-label")).toBe("Todos");
     expect(items.every((item) => item.closest("[role=tree]") === tree)).toBe(true);
 
     expect(within(tree).getAllByRole("treeitem")).toHaveLength(2);
@@ -48,7 +50,7 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
   it("u3809_ticking_a_parent_keeps_its_dependency_group", async () => {
     const { app, store } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
 
-    await screen.findByRole("tree");
+    await screen.findByRole("tree", { name: "Todos" });
     fireEvent.contextMenu(rowOf(1));
     await app.pickMenu("Complete");
     await waitFor(() => expect(callsTo(app, "todo.complete")).toHaveLength(1));
@@ -65,7 +67,7 @@ describe("u3709 Tab nests a row and shift Tab un-nests it", () => {
   it("u3709_tab_nests_under_the_row_above_and_calls_set_blockers_once", async () => {
     const { app, store } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [7] }), todo(7, { done: true })]);
 
-    await screen.findByRole("tree");
+    await screen.findByRole("tree", { name: "Todos" });
     buttonOf(2).focus();
     fireEvent.keyDown(buttonOf(2), { key: "Tab" });
 
@@ -78,7 +80,7 @@ describe("u3709 Tab nests a row and shift Tab un-nests it", () => {
   it("u3709_shift_tab_removes_the_first_blocker", async () => {
     const { app, store } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] }), todo(3, { blocked: true, blockers: [1] })]);
 
-    await screen.findByRole("tree");
+    await screen.findByRole("tree", { name: "Todos" });
     buttonOf(2).focus();
     fireEvent.keyDown(buttonOf(2), { key: "Tab", shiftKey: true });
 
@@ -90,10 +92,11 @@ describe("u3709 Tab nests a row and shift Tab un-nests it", () => {
   it("u3709_tab_elsewhere_moves_focus_as_before", async () => {
     const { app } = await mountTodos([todo(1), todo(2)]);
 
-    await screen.findByRole("tree");
+    await screen.findByRole("tree", { name: "Todos" });
     buttonOf(1).focus();
     expect(fireEvent.keyDown(buttonOf(1), { key: "Tab" })).toBe(true);
     expect(fireEvent.keyDown(buttonOf(1), { key: "Tab", shiftKey: true })).toBe(true);
+    flush();
     expect(callsTo(app, "todo.setBlockers")).toEqual([]);
   });
 });
@@ -104,7 +107,7 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
 
     app.handlers["todo.setBlockers"] = () => { throw new RpcError(-32003, "todo 1 would wait on itself through todo 2"); };
 
-    await screen.findByRole("tree");
+    await screen.findByRole("tree", { name: "Todos" });
     buttonOf(2).focus();
     fireEvent.keyDown(buttonOf(2), { key: "Tab" });
 
@@ -219,7 +222,7 @@ describe("u3811 completion advances the visible dependency groups", () => {
     await waitFor(() => expect(screen.queryByRole("progressbar", { name: "Todos done" })).toBeNull());
     mounted.connected.rail.select(null);
     await screen.findByRole("progressbar", { name: "Todos done" });
-    const owner = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!;
+    const owner = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control')!;
 
     if (owner.closest('[aria-expanded]')?.getAttribute("aria-expanded") === "false") fireEvent.click(owner);
     await screen.findByRole("button", { name: "Toggle todo 1 group" });
@@ -241,6 +244,7 @@ describe("u3811 completion advances the visible dependency groups", () => {
     const mounted = await setup(false);
     await accept(mounted);
     mounted.setReduced(true);
+    flush();
     expect(disclosure(1).getAttribute("aria-expanded")).toBe("false");
     expect(document.querySelector('[data-motion="play"]')).toBeNull();
   });
@@ -293,6 +297,7 @@ it("u3811_bursts_and_reopening_settle_on_the_latest_facts", async () => {
   fireEvent.animationEnd(rowOf(2).querySelector('.todo-strike')!);
 
   for (const fill of document.querySelectorAll(".app-progress-fill")) fireEvent.transitionEnd(fill, { propertyName: "transform" });
+  flush();
   expect(first.getAttribute("aria-expanded")).toBe("true");
   expect(next.getAttribute("aria-expanded")).toBe("false");
   expect(within(rowOf(2)).getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
@@ -323,7 +328,7 @@ it("u3811_bursts_and_reopening_settle_on_the_latest_facts (a hidden completed gr
   expect(disclosure(7).getAttribute("aria-expanded")).toBe("true");
 });
 
-// Counts owned storage slots, including repeated references, but not Todo payloads or Ark internals.
+// Counts owned storage slots, including repeated references, but not Todo payloads or a library's own state.
 const retainedSlots = <T,>(value: T, payloads: ReadonlySet<object>): number => {
   const pending: unknown[] = [value];
   const seen = new Set<object>();
@@ -352,37 +357,42 @@ it("u5644a_chain_retains_linear_topology_and_group_facts", () => {
     return target[key as keyof T];
   } });
 
-  createRoot(dispose => {
-    const all = Array.from({ length: 2000 }, (_, at) => observed(todo(at + 1, { blockers: observed(at ? [at] : []), done: at < 1999 })));
+  const all = Array.from({ length: 2000 }, (_, at) => observed(todo(at + 1, { blockers: observed(at ? [at] : []), done: at < 1999 })));
+  let retained: DependencyGroupRetention | null = null;
+
+  const { setList, list, rows, groups, dispose } = createRoot(dispose => {
     const [list, setList] = createSignal(all);
     const rows = createMemo(() => observed(treeRows(list()).map(observed)));
-    let retained: DependencyGroupRetention | null = null;
 
     const groups = createDependencyGroups({ project: {}, key: () => "one", keys: () => new Set(["one"]), ids: () => new Set(list().map(item => item.id)),
       loaded: () => true, rows, playing: () => false, reduced: () => true, shown: () => true, group: () => "one", focusAfterClose: () => {}, observe: value => { retained = value; } });
 
-    const check = () => {
-      const topology = rowTopology(rows());
-      const collection = treeCollection(topology);
-      expect(topology.rows).toHaveLength(2000);
-      expect(topology.parent.slice(0, 4)).toEqual([null, 0, 1, 2]);
-      expect(topology.end.every(end => end === 2000)).toBe(true);
-      expect(groups.groups().size).toBe(1999);
-      expect([...groups.groups().values()].every(group => !Array.isArray(group) && group.start < group.end)).toBe(true);
-      expect(retainedSlots({ retained, topology, nodes: collection.rootNode }, new Set([...all, ...list()]))).toBeLessThanOrEqual(64 * all.length);
-    };
-
-    expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
-    check();
-    const next = all.map(item => item.id === 2000 ? observed({ ...item, done: true }) : item);
-    inspections = 0;
-    setList(next);
-    expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
-    check();
-    expect(groups.groups().get(1999)?.done).toBe(1);
-    expect(groups.expanded(1999)).toBe(false);
-    dispose();
+    return { setList, list, rows, groups, dispose };
   });
+
+  flush();
+
+  const check = () => {
+    const topology = rowTopology(rows());
+    expect(topology.rows).toHaveLength(2000);
+    expect(topology.parent.slice(0, 4)).toEqual([null, 0, 1, 2]);
+    expect(topology.end.every(end => end === 2000)).toBe(true);
+    expect(groups.groups().size).toBe(1999);
+    expect([...groups.groups().values()].every(group => !Array.isArray(group) && group.start < group.end)).toBe(true);
+    expect(retainedSlots({ retained, topology }, new Set([...all, ...list()]))).toBeLessThanOrEqual(64 * all.length);
+  };
+
+  expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
+  check();
+  const next = all.map(item => item.id === 2000 ? observed({ ...item, done: true }) : item);
+  inspections = 0;
+  setList(next);
+  flush();
+  expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
+  check();
+  expect(groups.groups().get(1999)?.done).toBe(1);
+  expect(groups.expanded(1999)).toBe(false);
+  dispose();
 });
 
 it.each(["chain", "wide"])("u5644a_chain_and_wide_tree_build_without_repeated_scans %s", branching => {
@@ -398,11 +408,10 @@ it.each(["chain", "wide"])("u5644a_chain_and_wide_tree_build_without_repeated_sc
   const all = Array.from({ length: 2000 }, (_, at) => observed(todo(at + 1, { blockers: observed(at ? [branching === "chain" ? at : 1] : []) })));
   const rows = observed(treeRows(observed(all)).map(observed));
   const topology = rowTopology(rows);
-  const collection = treeCollection(topology);
   const groups = groupFacts(topology);
 
   for (const row of rows) topology.children(row.todo.id);
-  expect(collection.rootNode.children).toHaveLength(1);
+  expect(topology.children(null)).toHaveLength(1);
   expect(groups.get(1)?.total).toBe(1999);
   expect(inspections).toBeLessThanOrEqual(64 * (2000 + 1999));
 });
@@ -415,10 +424,8 @@ it.each([
 ])("u5644a_topology_preserves_order_membership_and_cycle_fallback $name", ({ list, triples, children }) => {
   const rows = treeRows(list);
   const topology = rowTopology(rows);
-  const collection = treeCollection(topology);
   expect(rows.map(row => [row.todo.id, row.parent, row.level])).toEqual(triples);
   expect([null, ...rows.map(row => row.todo.id)].map(id => topology.children(id).map(row => row.todo.id))).toEqual(children);
-  expect([collection.rootNode, ...rows.map(row => collection.findNode(String(row.todo.id))!)].map(node => node.children.map(child => Number(child.id)))).toEqual(children);
   expect(topology.parent.map(at => at == null ? null : rows[at]!.todo.id)).toEqual(rows.map(row => row.parent));
   rows.forEach((row, at) => expect(rows.slice(at + 1, topology.end[at]).every(child => child.level > row.level)).toBe(true));
 });
@@ -428,21 +435,27 @@ it.each([
   { list: [todo(1), todo(2, { blockers: [1], done: true }), todo(3, { blockers: [1] })], before: [[1, 2, 1]], after: [[1, 2, 2]] },
   { list: [todo(1, { blockers: [2] }), todo(2, { blockers: [1] }), todo(3, { blockers: [99] })], before: [], after: [] },
 ])("u5644b_group_transitions_match_current_facts %#", ({ list, before, after }) => {
-  createRoot(dispose => {
+  const { setAll, groups, dispose } = createRoot(dispose => {
     const [all, setAll] = createSignal(list);
 
     const groups = createDependencyGroups({ project: {}, key: () => "one", keys: () => new Set(["one"]), ids: () => new Set(all().map(item => item.id)),
       loaded: () => true, rows: createMemo(() => treeRows(all())), playing: () => false, reduced: () => true, shown: () => true, group: () => "one", focusAfterClose: () => {} });
 
-    const facts = () => [...groups.groups()].map(([id, group]) => [id, group.total, group.done]);
-    expect(facts()).toEqual(before);
-    setAll(list.map(item => item.id === 3 ? { ...item, done: true } : item));
-    expect(facts()).toEqual(after);
-    expect([...groups.groups().keys()].map(id => [groups.expanded(id), groups.visible(id)])).toEqual(after.map(([, total, done]) => [total !== done, true]));
-    setAll(list);
-    expect(facts()).toEqual(before);
-    dispose();
+    return { setAll, groups, dispose };
   });
+
+  flush();
+
+  const facts = () => [...groups.groups()].map(([id, group]) => [id, group.total, group.done]);
+  expect(facts()).toEqual(before);
+  setAll(list.map(item => item.id === 3 ? { ...item, done: true } : item));
+  flush();
+  expect(facts()).toEqual(after);
+  expect([...groups.groups().keys()].map(id => [groups.expanded(id), groups.visible(id)])).toEqual(after.map(([, total, done]) => [total !== done, true]));
+  setAll(list);
+  flush();
+  expect(facts()).toEqual(before);
+  dispose();
 });
 
 it("u5644a_drop_plans_preserve_descendants_and_order", () => {

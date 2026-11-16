@@ -1,6 +1,6 @@
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-// U2694f/g exercise the mounted App: row-only fixtures miss Ark activation and Bubble restoration.
+// U2694f/g exercise the mounted App: row-only fixtures miss the menu's activation and Bubble restoration.
 import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
@@ -22,7 +22,7 @@ beforeEach(() => {
 const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
 
 afterEach(() => {
-  batch(cleanup);
+  cleanup();
   vi.restoreAllMocks();
 
   if (clipboardBefore) Object.defineProperty(navigator, "clipboard", clipboardBefore);
@@ -34,6 +34,7 @@ const fire = (type: string, target: Element | Window, x: number, y: number, butt
 
   Object.defineProperty(event, "pointerType", { value: "mouse" });
   target.dispatchEvent(event);
+  flush();
 
   return event;
 };
@@ -79,6 +80,7 @@ it.each(["Terminal tab", "Terminal Bubble"])("u4409a_each_surface_projects_order
   const before = app.calls.length;
 
   fireEvent.contextMenu(target);
+  flush();
 
   expect(app.shownMenus).toHaveLength(1);
   const items = app.shownMenus[0]!.items;
@@ -95,6 +97,7 @@ it.each(["Send", "Copy link", "Rename", "Close"])("u4322b_bubble_choice_uses_its
   const header = await waitFor(() => document.querySelector('.bubble[data-bubble="shell"]:not([hidden]) .bubble-header') ?? Promise.reject(new Error("No Bubble bar")));
 
   fireEvent.contextMenu(header);
+  flush();
   await app.pickMenu(choice === "Send" ? "a" : choice);
 
   if (choice === "Send") {
@@ -106,6 +109,7 @@ it.each(["Send", "Copy link", "Rename", "Close"])("u4322b_bubble_choice_uses_its
     expect(input.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("shell");
     expect(input.value).toBe("Shell");
     fireEvent.keyDown(input, { key: "Escape" });
+    flush();
   } else {
     await questionDialog();
     expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([]);
@@ -155,12 +159,18 @@ it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_rig
   for (const type of ["mousedown", "mouseup"]) target.addEventListener(type, () => delivered.push(type));
 
   fireEvent.pointerDown(target, { button: 0, buttons: 1 });
+  flush();
   fireEvent.mouseDown(target, { button: 0, buttons: 1 });
+  flush();
   fireEvent.pointerMove(target, { buttons: 1 });
+  flush();
   fireEvent.mouseMove(target, { buttons: 1 });
+  flush();
   emulator.select("exact é 🪁 output"); // taste-skill-ignore: Unicode Terminal selection probe.
   fireEvent.pointerUp(target, { button: 0, buttons: 0 });
+  flush();
   fireEvent.mouseUp(target, { button: 0, buttons: 0 });
+  flush();
   expect(controls().filter(each => !before.includes(each))).toEqual([]);
   delivered.length = 0;
   fire("pointerdown", target, 10, 10, 2);
@@ -179,7 +189,7 @@ it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_rig
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
 
-const selected = () => document.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id");
+const selected = () => document.querySelector(".rail-row[data-selected]")?.getAttribute("data-id");
 
 const pane = () => [...document.querySelectorAll(".bubble")].map((bubble) => [bubble.getAttribute("data-bubble"), bubble.hasAttribute("hidden")]);
 
@@ -194,6 +204,7 @@ const gesture = (target: Element, ctrl: boolean, early: boolean, distance = 0) =
       : new MouseEvent(type, init);
 
     target.dispatchEvent(press);
+    flush();
 
     return press;
   };
@@ -219,6 +230,7 @@ it.each(cases)("u5690a_context_click_selects_only_its_target_without_activation:
   const { app, emulators } = await mountApp("tree-40", true);
   const chosen = isSelected ? id : id === "w" ? "branch" : "w";
   fireEvent.click(row(chosen));
+  flush();
 
   if (chosen !== "w") {
     await waitFor(() => expect(emulators.made.has(`t-${chosen}`)).toBe(true));
@@ -242,9 +254,12 @@ it.each(cases)("u5690a_context_click_selects_only_its_target_without_activation:
 it("u5690a_dismissal_keeps_the_context_target_and_prior_pane", async () => {
   const { app } = await mountApp("bubbles");
   fireEvent.click(row("runner"));
+  flush();
   const tab = await screen.findByRole("button", { name: "cargo test" });
   fireEvent.click(tab);
+  flush();
   fireEvent.click(screen.getByRole("button", { name: "Minimise" }));
+  flush();
   const before = pane();
   expect(before.some(([, hidden]) => hidden)).toBe(true);
   gesture(row("first-workstream"), true, true);
@@ -286,14 +301,20 @@ it("u2694f_empty_space_opens_no_menu_or_terminal", async () => {
 it("u2694g_keyboard_disclosure_works_when_ctrl_click_has_no_compatibility_click", async () => {
   const { app } = await mountApp("tree-40", true);
   fireEvent.pointerDown(row("w"), { button: 0, ctrlKey: true });
+  flush();
   fireEvent.contextMenu(row("w"), { button: 0, ctrlKey: true });
+  flush();
   fireEvent.pointerUp(row("w"), { button: 0, ctrlKey: true });
+  flush();
   await app.closeMenu();
   const disclosure = row("w").querySelector<HTMLElement>(".rail-chevron")!;
   disclosure.focus();
   fireEvent.keyDown(disclosure, { key: " " });
+  flush();
   fireEvent.keyUp(disclosure, { key: " " });
+  flush();
   // The browser synthesises this click for Space, without another pointerdown.
   fireEvent.click(disclosure, { detail: 0 });
+  flush();
   expect(row("w").closest('[role="treeitem"]')?.getAttribute("aria-expanded")).toBe("false");
 });

@@ -1,10 +1,10 @@
 import { isDoor } from "../state/doorNode";
 import { applying } from "../app/pending";
 import { captureFocus } from "../keys/focus";
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, untrack } from "solid-js";
-import { createStore, reconcile } from "solid-js/store";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack, createStore, reconcile } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import { createTodoHistory } from "./TodoHistory";
+import { createReply } from "../state/read";
 import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -19,7 +19,7 @@ import { createDraftField } from "../state/draftField";
 import { rowButtonOf, triage } from "./triage";
 
 // Rows are keyed by id so fold state, focus and fade survive an arrival.
-const byId = { key: "id" };
+const byId = "id";
 
 
 type Part = { text: string } | { summary: string; details: string };
@@ -62,7 +62,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const { app, events, rail, drawer, drafts, now } = useConnectedProject();
   // Keyed by id so a refresh keeps each comment's row, fold state and focus (U3776).
   const [thread, setThread] = createStore<Comment[]>([]);
-  const content = drawer.content();
+  const content = untrack(drawer.content);
   const [sendFailure, setSendFailure] = createSavedFailure(() => props.saved?.() ?? 0);
   // The Drawer keys its body by id, so the thread's destination never changes.
   const destination = untrack(() => ({ surface: "todos", object: String(props.id), recipient: "comment" }));
@@ -74,7 +74,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     return kept.success ? kept.output.text : "";
   };
 
-  createEffect(() => onCleanup(drafts.editor(destination)));
+  createEffect(() => destination, target => drafts.editor(target));
   const [expanded, setExpanded] = createSignal(false);
 
   // Opening reads the thread and marks it read; a failed mark rides with the thread it belongs to.
@@ -82,7 +82,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const [reads, setReads] = createSignal({});
   const refetch = () => setReads({});
 
-  const [comments] = createResource(() => ({ id: props.id, read: reads() }), async ({ id }) => {
+  const comments = createReply(() => ({ id: props.id, read: reads() }), async ({ id }) => {
     let list: Comment[] | undefined;
     const reading = await failureOf(async () => { list = await app.rpc("todo.comments", { id }); });
     const marking = list?.some(comment => !comment.read) ? await failureOf(() => app.rpc("todo.markCommentsRead", { id })) : null;
@@ -90,7 +90,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     return { list, failure: reading ?? marking };
   });
 
-  const loaded = () => comments.state === "pending" ? undefined : comments.latest;
+  const loaded = comments.reply;
   const [dismissed, dismiss] = createSignal<unknown>(null);
   const failure = () => loaded() === dismissed() ? null : loaded()?.failure ?? null;
 
@@ -132,15 +132,13 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const spoken = (comment: Comment) => partsOf(comment.body, comment.author.kind === "agent").map((part) => "summary" in part ? `${part.summary}\n${part.details}` : part.text).join("\n");
 
   // The store follows the thread the resource holds; a comment not shown before is announced once.
-  createEffect(() => {
-    const list = loaded()?.list;
-
+  createEffect(() => loaded()?.list, list => {
     if (!list) return;
     const arrived = shown === null ? [] : list.filter(comment => !shown!.has(comment.id));
     shown = new Set(list.map(comment => comment.id));
 
-    if (arrived.length > 0) setAnnouncement(arrived.map(comment => `${author(comment)}: ${spoken(comment)}`).join("\n"));
-    setThread(reconcile(list, byId));
+    if (arrived.length > 0) setAnnouncement(untrack(() => arrived.map(comment => `${author(comment)}: ${spoken(comment)}`).join("\n")));
+    setThread(draft => { reconcile(list, byId)(draft); });
   });
 
   onCleanup(events.subscribe(event => {
@@ -150,9 +148,10 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   }));
 
   // U3753: `c` on a triage row asks for this Todo's field.
-  createEffect(() => {
-    if (triage.commentFor() === props.id && field) {
-      triage.focusComment(() => field!.focus());
+  // The field exists once this runs: an effect's compute runs before the template below has set it.
+  createEffect(() => triage.commentFor() === props.id, ask => {
+    if (ask && field) {
+      triage.focusComment(() => field?.focus());
       triage.askComment(null);
     }
   });
@@ -187,7 +186,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
       <Show when={glyphOf(comment)}>{(node) => <Show when={!rail.dismissed(node())}><FailureLine status={node().status} dismiss={() => rail.dismiss(node())} /></Show>}</Show>
       <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)
-        ? <Collapsible.Root class="todo-status" lazyMount unmountOnExit>
+        ? <Collapsible.Root class="todo-status">
           <Collapsible.Trigger data-button="quiet" class="word todo-status-summary">{part.summary}</Collapsible.Trigger>
           <Collapsible.Content class="todo-status-details">{part.details}</Collapsible.Content>
         </Collapsible.Root>
@@ -199,12 +198,12 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
     {history.feedback}
     <ReservedLine message={failure()} dismiss={() => dismiss(loaded())} recover={{ run: () => void refetch(), label: copy.commentRetry }} />
     <Show when={(history.changes()?.length ?? 0) > 0}>
-      <Collapsible.Root lazyMount unmountOnExit open={historyExpanded()} onOpenChange={details => setHistoryExpanded(details.open)}>
+      <Collapsible.Root open={historyExpanded()} onOpenChange={open => setHistoryExpanded(open)}>
         <Collapsible.Trigger data-button="quiet" class="word todo-history-line"><Icon name={historyExpanded() ? "down" : "right"} />{copy.historyEntries(history.changes()!.length)}</Collapsible.Trigger>
         <Collapsible.Content class="todo-activity-entries"><For each={history.changes()}>{history.entry}</For></Collapsible.Content>
       </Collapsible.Root>
     </Show>
-    <Collapsible.Root lazyMount open={expanded()} onOpenChange={details => setExpanded(details.open)}>
+    <Collapsible.Root open={expanded()} onOpenChange={open => setExpanded(open)}>
       <Show when={older().length > 0}><Collapsible.Trigger data-button="quiet" class="word todo-older">{copy.olderActivity(older().length)}</Collapsible.Trigger></Show>
       <Collapsible.Content class="todo-activity-entries"><For each={older()}>{renderEntry}</For></Collapsible.Content>
     </Collapsible.Root>
@@ -219,6 +218,6 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} /></div>
     <ReservedLine message={sendFailure()} dismiss={() => setSendFailure(null)} />
-    <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
+    <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? "true" : undefined} onClick={() => void send()}>{copy.comment}</button></p>
   </section>;
 };

@@ -1,11 +1,11 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 import { AGENT, openShelf, padOf } from "../pads/padsFixture";
 import { stubDialogLayout } from "./bulkQuestionHarness";
 
-afterEach(() => batch(cleanup));
+afterEach(() => cleanup());
 
 stubDialogLayout();
 
@@ -21,6 +21,7 @@ it("u460_backspace_after_a_click_deletes_the_todo_when_focus_is_on_the_page", as
 
   const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
   fireEvent.click(row);
+  flush();
   leaveFocus(row);
   fireEvent.keyDown(document.body, { key: "Backspace" });
   await waitFor(() => expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1] }]));
@@ -30,6 +31,7 @@ it("u460_backspace_after_a_click_deletes_the_pad_when_focus_is_on_the_page", asy
   const { app } = await openShelf([padOf("a", AGENT), padOf("b", AGENT)]);
   const row = await screen.findByRole("button", { name: "a" });
   fireEvent.click(row);
+  flush();
   leaveFocus(row);
   fireEvent.keyDown(document.body, { key: "Backspace" });
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.delete").map((call) => call.params)).toEqual([expect.objectContaining({ name: "a" })]));

@@ -1,6 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { createComputed, createEffect, createSignal, on, onCleanup } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Sortable } from "../ui/sortable";
 import type { SortedRow } from "./OpenRow";
@@ -141,18 +140,27 @@ export const createSortedList = (source: {
     return `${id}:${todo?.owner?.kind ?? ""}:${todo?.owner?.id ?? ""}`;
   }).join();
 
-  createComputed(on(placement, measure, { defer: true }));
-  createEffect(on(placement, () => queueMicrotask(settle), { defer: true }));
+  const placed = createMemo(placement);
+
+  createEffect((previous?: string) => {
+    const next = placed();
+
+    if (previous !== undefined) measure();
+
+    return next;
+  }, () => { queueMicrotask(settle); }, { defer: true });
   // U3010c: reduced motion switched on mid-slide settles every row now, with no replay.
-  createEffect(on(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true }));
+  createEffect(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true });
   createEffect(() => {
-    const all = source.all();
-    const ids = source.ids();
     const request = movedFocus();
+    const moved = source.all().find((todo) => todo.id === request?.id);
+    const ids = source.ids();
 
-    const moved = all.find((todo) => todo.id === request?.id);
+    return request && moved && request.arrived(moved) ? { request, ids } : null;
+  }, (arrival) => {
+    if (!arrival) return;
+    const { request, ids } = arrival;
 
-    if (!request || !moved || !request.arrived(moved)) return;
     setMovedFocus(null);
     queueMicrotask(() => {
       if (document.activeElement === document.body || document.activeElement === null) {
@@ -162,7 +170,7 @@ export const createSortedList = (source: {
           row?.focus();
 
           // A folded owner group keeps its moved row hidden; its disclosure keeps focus reachable.
-          if (document.activeElement === document.body) request.element.querySelector<HTMLElement>('[data-part="branch-control"]')?.focus();
+          if (document.activeElement === document.body) request.element.querySelector<HTMLElement>(".shelf-group-control")?.focus();
         });
       }
     });

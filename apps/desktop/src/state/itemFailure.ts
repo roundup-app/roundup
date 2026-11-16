@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from "solid-js";
+import { createEffect, createMemo, createSignal } from "solid-js";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 
 type Terminal = Readonly<Pick<TerminalInfo, "id" | "incarnation">>;
@@ -18,8 +18,8 @@ export const createItemFailure = (exists: (item: string) => boolean, terminals: 
     return (item.kind === "rail" ? item.id === null || exists(item.id) : terminals().some(terminal => terminal.id === item.terminal.id && terminal.incarnation === item.terminal.incarnation)) ? current : null;
   };
 
-  createEffect(() => {
-    if (state() !== null && live() === null) setState(null);
+  createEffect(createMemo(() => state() !== null && live() === null), gone => {
+    if (gone) setState(null);
   });
 
   return {
@@ -30,16 +30,8 @@ export const createItemFailure = (exists: (item: string) => boolean, terminals: 
     /** Terminal and Rail ids are separate namespaces; retain the original incarnation even if the caller's facts change. */
     showTerminal: (message: string, terminal: Terminal, surface: "rail" | "pane" = "pane", retry: (() => void) | null = null) => setState({ message, item: { kind: "terminal", terminal: { id: terminal.id, incarnation: terminal.incarnation } }, surface, retry }),
     /** An acknowledged save, or any success, of `item` clears only a failure about it. */
-    acknowledge: (item: string | null) => {
-      const prior = state()?.item;
-
-      if (prior?.kind === "rail" && prior.id === item) setState(null);
-    },
-    acknowledgeTerminal: (terminal: Terminal) => {
-      const prior = state()?.item;
-
-      if (prior?.kind === "terminal" && prior.terminal.id === terminal.id && prior.terminal.incarnation === terminal.incarnation) setState(null);
-    },
+    acknowledge: (item: string | null) => setState(current => current?.item.kind === "rail" && current.item.id === item ? null : current),
+    acknowledgeTerminal: (terminal: Terminal) => setState(current => current?.item.kind === "terminal" && current.item.terminal.id === terminal.id && current.item.terminal.incarnation === terminal.incarnation ? null : current),
     clear: () => setState(null),
   };
 };

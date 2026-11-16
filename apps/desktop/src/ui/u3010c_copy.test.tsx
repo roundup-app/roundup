@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { createSignal, Show } from "solid-js";
+import { createSignal, flush, Show } from "solid-js";
 import { createFakeApp } from "../testing/fakeApp";
 import { CopyButton } from "./CopyButton";
 import { copy } from "./copy";
@@ -21,6 +21,7 @@ it("u3010c_copy_feedback_belongs_to_the_acknowledged_control", () => withStylesh
   expect(screen.getByRole("button", { name: "First" })).toBe(first);
   acknowledge!();
   await Promise.resolve();
+  flush();
   expect(screen.getByRole("button", { name: copy.copied })).toBe(first);
   expect(screen.getByRole("button", { name: "Second" })).toBe(second);
   await vi.advanceTimersByTimeAsync(1000);
@@ -28,12 +29,14 @@ it("u3010c_copy_feedback_belongs_to_the_acknowledged_control", () => withStylesh
   acknowledge!();
   await Promise.resolve();
   await vi.advanceTimersByTimeAsync(600);
+  flush();
   expect(screen.getByRole("button", { name: copy.copied })).toBe(first);
 
   app.writeClipboardText = async () => { throw new Error("refused"); };
 
   fireEvent.click(first);
   await Promise.resolve();
+  flush();
   expect(screen.getByRole("button", { name: "First" })).toBe(first);
   expect(failed).toHaveBeenCalledOnce();
   await vi.runAllTimersAsync();

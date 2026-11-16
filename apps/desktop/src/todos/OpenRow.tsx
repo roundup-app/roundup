@@ -4,8 +4,8 @@ import { OpenButton } from "../ink/OpenButton";
 import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { NameField } from "../ui/Editable";
-import type { Accessor, JSX } from "solid-js";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { type Accessor, createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { Todo } from "@contracts/todo/Todo";
 import { createCutTitle } from "../ui/cutTitle";
 import type { ActivationSource } from "../keys/registry";
@@ -64,7 +64,7 @@ export const OpenRow = (props: {
   /** U3708: the Shelf list's tree place of this row; absent for the Rail's copy. */
   place?: { level: number; parent: number | null };
   connections?: JSX.Element;
-  /** U3708: `ui/TreeView`'s `treeitem` props for this row (its role and level). */
+  /** U3708: the `treeitem` props for this row (its role and level). */
   treeItem?: JSX.HTMLAttributes<HTMLElement>;
   /** U3770: a finish is playing on this row. */
   motion?: boolean;
@@ -82,7 +82,7 @@ export const OpenRow = (props: {
   const connected = useConnectedProject();
   const todos = useTodoList();
   const copied = createCopyFeedback();
-  const unregisterCopy = props.copyWith?.(copied);
+  const unregisterCopy = untrack(() => props.copyWith?.(copied));
   onCleanup(() => unregisterCopy?.());
   // The frame and button must unregister through the same closures that registered them.
   const sorted = untrack(() => props.sorted);
@@ -113,7 +113,7 @@ export const OpenRow = (props: {
 
   const clearFailure = () => { setFailure(null); setMoveFailure(null); };
 
-  createEffect(on(() => props.todo.id, clearFailure));
+  createEffect(createMemo(() => props.todo.id), clearFailure);
   onCleanup(connected.events.subscribe(event => {
     if (doesClearTodoFailure(event, props.todo.id)) clearFailure();
   }));
@@ -160,7 +160,7 @@ export const OpenRow = (props: {
           }}
           ref={(row) => {
             rowButton = row;
-            props.registerRow?.(props.todo.id, row);
+            props.registerRow?.(untrack(() => props.todo.id), row);
             sorted?.button(row);
           }}
         >
@@ -172,7 +172,7 @@ export const OpenRow = (props: {
         </span>
         <Age updatedAt={props.todo.updated_at} />
         <OpenButton name={props.todo.title} onOpen={() => props.onOpen(props.todo, "pointer")} />
-        <Show when={sorted}>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} ref={el => order().handle(el ?? null)} />}</Show>
+        <Show when={sorted} keyed>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} ref={el => order.handle(el ?? null)} />}</Show>
       </div>
   );
 
@@ -181,7 +181,7 @@ export const OpenRow = (props: {
       glyph={<span><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
-      aria-busy={todos.pendingOf(props.todo.id) ? true : undefined}
+      aria-busy={todos.pendingOf(props.todo.id) ? "true" : undefined}
       data-requested={connected.padsTab() === "todos" && props.todo.creator.kind === "agent" && props.todo.creator.id === connected.padsOwner() ? "true" : undefined}
       onClick={event => {
         if (editing() || props.lifted || !(event.target instanceof Element) || event.target.closest("button, input, [role=checkbox]")) return;
@@ -200,7 +200,7 @@ export const OpenRow = (props: {
       data-group-complete={props.groupComplete === undefined ? undefined : String(props.groupComplete)}
       data-motion={props.motion ? "play" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
-      data-editing={editing()}
+      data-editing={String(editing())}
       data-selected={props.pressed || picked() || props.selected ? "true" : undefined}
       role={props.treeItem?.role}
       aria-level={props.treeItem?.["aria-level"]}

@@ -19,8 +19,8 @@ const load = async (reduced = false) => {
   const url = `${rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=selection`;
   await browser("open", url);
   await browser("wait", ".shelf-tabs");
-  await browser("wait", "--fn", `!!document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"], .shelf [data-todo] button')`);
-  await evaluate(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return true; })()`);
+  await browser("wait", "--fn", `!!document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control, .shelf [data-todo] button')`);
+  await evaluate(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control[aria-expanded="false"]')?.click(); return true; })()`);
   await browser("wait", "--fn", `!!document.querySelector('.shelf [data-todo] button')`);
   await settle();
 };
@@ -107,7 +107,7 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     // Select the row itself: its centre can contain a quick action on hover.
     await browser("focus", '.rail-row[data-id="backend"]');
     await browser("press", "Enter");
-    await browser("wait", "--fn", `!!document.querySelector('.rail-row[data-selected="true"]') && !!document.activeElement.closest('.pane-screen')`);
+    await browser("wait", "--fn", `!!document.querySelector('.rail-row[data-selected]') && !!document.activeElement.closest('.pane-screen')`);
     await settle();
     await evaluate(`(() => { window.__bubbleOrigin = document.activeElement; return true; })()`);
     expect(await keyFrame("t", "KeyT", "!!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.bubble')", true)).toBe(true);

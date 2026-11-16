@@ -16,7 +16,7 @@ it("u5562c_code_colours_render", { retry: 0, timeout: 90000 }, async () => {
     return true;
   })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Code colours"] .pad-name').focus(); return true; })()`);
   await browser("press", "Enter");
@@ -47,7 +47,7 @@ it("u5562a_insert_each_callout", { retry: 0, timeout: 180000 }, async () => {
     const name = `Insert callout ${kind}`;
     await evaluate(`(async () => { window.__fake.app.calls.length = 0; await window.__fake.app.rpc('pad.create', {name:${JSON.stringify(name)},text:'Keep  exact\\n'}); const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
     await browser("wait", "[data-shelf-group=unassigned]");
-    await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+    await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
     await browser("wait", ".pad-name");
     await evaluate(`(() => { document.querySelector(${JSON.stringify('.pads-tab [data-pad=' + JSON.stringify(name) + '] .pad-name')}).focus(); return true; })()`);
     await browser("press", "Enter");
@@ -76,7 +76,7 @@ it("u5562b_selection_colour_and_highlight_in_the_real_editor", { retry: 0, timeo
   await browser("set", "viewport", "1512", "950");
   await evaluate(`(async () => { await window.__fake.app.rpc('pad.create', {name:'Selection colours',text:'before **word** after'}); document.querySelector('#shelf-tab-pads').click(); return true; })()`);
   await browser("wait", "[data-shelf-group=unassigned]");
-  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
   await browser("wait", ".pad-name");
   await evaluate(`(() => { document.querySelector('.pads-tab [data-pad="Selection colours"] .pad-name').focus(); return true; })()`);
   await browser("press", "Enter");

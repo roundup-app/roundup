@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup } from "solid-js";
+import { createSignal, onSettled, onCleanup } from "solid-js";
 import { Tabs } from "./Tabs";
 import "../tokens.css";
 import "../styles.css";
@@ -15,7 +15,7 @@ export const u498Fixture = () => {
   let commit = 0;
   const acknowledge = () => requestAnimationFrame(() => { root.dataset.commit = String(++commit); });
 
-  onMount(() => {
+  onSettled(() => {
     for (const event of ["click", "keydown", "input", "pointerover", "pointermove"]) document.addEventListener(event, acknowledge);
     acknowledge();
   });

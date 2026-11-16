@@ -1,8 +1,8 @@
-import { isFocusVisible } from "@zag-js/focus-visible";
+import { isFocusFromKeyboard } from "@ui-sdk/core";
 import { surfaceOpen } from "../ui/openSurfaces";
 import { CHORDS } from "../keys/chords";
-import Maximize from "lucide-solid/icons/maximize";
-import Minimize from "lucide-solid/icons/minimize";
+import Maximize from "@lucide/solid/icons/maximize";
+import Minimize from "@lucide/solid/icons/minimize";
 import { createShelfFrame } from "../shelf/frame";
 import { captureFocus } from "../keys/focus";
 import { activationSource } from "../keys/registry";
@@ -10,10 +10,8 @@ import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "./copy";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { useContext } from "solid-js";
-import { createContext, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
-import type { Accessor } from "solid-js";
-import { Portal } from "solid-js/web";
+import { useContext, createContext, createEffect, createMemo, createSignal, onCleanup, Show, untrack, type Accessor } from "solid-js";
+import { Portal } from "@solidjs/web";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING, fillsCentre } from "./drawer";
 import { createMaximiseSlide, createSlideLifetime } from "../ui/slideLifetime";
@@ -23,7 +21,7 @@ import type { DrawerContent, DrawerState } from "./drawer";
 
 export const DrawerMaximisedContext = createContext<Accessor<boolean>>(() => false);
 
-export const DrawerExpandContext = createContext<(host: HTMLElement | undefined) => void>();
+export const DrawerExpandContext = createContext<((host: HTMLElement | undefined) => void) | null>(null);
 
 /**
  * An overlay: absolutely positioned over the Shelf, at the window's right edge. The centre narrows by the
@@ -44,7 +42,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
     maximiseSlide.start(before, source === "key");
   };
 
-  createEffect(() => onCleanup(props.drawer.bindSize(() => ({ maximised: frame.maximised(), toggle: toggleMaximise }))));
+  createEffect(() => props.drawer, drawer => drawer.bindSize(() => ({ maximised: frame.maximised(), toggle: toggleMaximise })));
 
   const [expandHost, setExpandHost] = createSignal<HTMLElement>();
 
@@ -55,7 +53,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   );
 
   const [edgeHovered, setEdgeHovered] = createSignal(false);
-  const isOpen = () => props.drawer.content() !== null;
+  const isOpen = createMemo(() => props.drawer.content() !== null);
   const instant = () => props.reducedMotion();
   const [settling, setSettling] = createSignal(false);
   let settleFrame: number | undefined;
@@ -64,62 +62,60 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   let savedRegion: HTMLElement | null = null;
 
   // U40: opening takes the keyboard; closing gives it back to whatever kept it, unless focus left the Drawer on its own.
-  createEffect(
-    on(isOpen, (open, wasOpen) => {
-      const host = panel();
+  createEffect(isOpen, (open, wasOpen) => {
+    const host = untrack(panel);
 
-      if (open && !wasOpen) {
-        openingSelection = connected?.rail.selected();
-        savedFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        savedRegion = savedFocus?.closest<HTMLElement>("[data-history-region]") ?? null;
-        captureFocus()(() => host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true }));
-      } else if (wasOpen && !open) {
-        const stayedInDrawer = host?.contains(document.activeElement) ?? false;
-        const firstRow = savedRegion?.querySelector<HTMLElement>('.todo-row-button, .pad-name, [data-id][data-part="item"], [data-id] [data-part="branch-control"]');
-        const toRefocus = savedFocus?.isConnected ? savedFocus : firstRow ?? savedRegion;
+    if (open && !wasOpen) {
+      openingSelection = untrack(() => connected?.rail.selected());
+      savedFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      savedRegion = savedFocus?.closest<HTMLElement>("[data-history-region]") ?? null;
+      captureFocus()(() => host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true }));
+    } else if (wasOpen && !open) {
+      const stayedInDrawer = host?.contains(document.activeElement) ?? false;
+      const firstRow = savedRegion?.querySelector<HTMLElement>('.todo-row-button, .pad-name, [data-id][role="treeitem"]');
+      const toRefocus = savedFocus?.isConnected ? savedFocus : firstRow ?? savedRegion;
 
-        const regionDestination = toRefocus === savedRegion;
-        savedFocus = null;
-        savedRegion = null;
+      const regionDestination = toRefocus === savedRegion;
+      savedFocus = null;
+      savedRegion = null;
 
-        if (stayedInDrawer && connected?.rail.selected() === openingSelection && toRefocus?.isConnected) captureFocus()(() => {
-          if (regionDestination && !toRefocus.hasAttribute("tabindex")) toRefocus.tabIndex = -1;
-          toRefocus.focus({ preventScroll: true });
-        });
-      }
-    }),
-  );
+      if (stayedInDrawer && untrack(() => connected?.rail.selected()) === openingSelection && toRefocus?.isConnected) captureFocus()(() => {
+        if (regionDestination && !toRefocus.hasAttribute("tabindex")) toRefocus.tabIndex = -1;
+        toRefocus.focus({ preventScroll: true });
+      });
+    }
+  });
 
   // U64: a different chosen row dismisses the Drawer; its Terminal owns focus after readiness.
-  createEffect(on(() => connected?.rail.selected(), (id, previous) => {
-    if (id != null && id !== previous) props.drawer.close(isFocusVisible() ? "key" : "pointer");
-  }, { defer: true }));
+  createEffect(() => connected?.rail.selected(), (id, previous) => {
+    if (id != null && id !== previous) props.drawer.close(isFocusFromKeyboard() ? "key" : "pointer");
+  }, { defer: true });
 
   // U430: the centre moves for as long as the slide runs; with no motion there is no slide.
   const lifetime = createSlideLifetime(() => [panel()]);
 
-  createEffect(() => setDrawerSliding(lifetime.sliding()));
+  createEffect(() => lifetime.sliding(), sliding => { setDrawerSliding(sliding); });
   onCleanup(() => setDrawerSliding(false));
-  createEffect(on(lifetime.exiting, (exiting, was) => { if (was && !exiting && !isOpen()) setMounted(null); }));
+  createEffect(lifetime.exiting, (exiting, was) => { if (was && !exiting && !untrack(isOpen)) setMounted(null); });
 
   createEffect(
-    on(() => [props.drawer.content(), props.drawer.source(), props.reducedMotion()] as const, (_action, previous) => {
+    () => [props.drawer.content(), props.drawer.source(), props.reducedMotion()] as const,
+    ([content, source, reduced], previous) => {
       const current = ++revision;
       cancelAnimationFrame(settleFrame ?? 0);
-      setSettling(previous !== undefined && instant());
-      const content = props.drawer.content();
+      setSettling(previous !== undefined && reduced);
 
       if (content !== null) setMounted(() => content);
-      else if (instant()) setMounted(null);
+      else if (reduced) setMounted(null);
 
       if (previous === undefined) return;
 
       // U3010b: a preference change alone settles; turning reduced motion off replays no slide.
-      const preferenceOnly = previous[0] === props.drawer.content() && previous[1] === props.drawer.source();
+      const preferenceOnly = previous[0] === content && previous[1] === source;
 
-      lifetime.retarget(isOpen(), !instant() && !preferenceOnly);
+      lifetime.retarget(content !== null, !reduced && !preferenceOnly);
 
-      if (!instant()) return;
+      if (!reduced) return;
 
       // Flush the settled layout before restoring the Shelf's own transition policy.
       queueMicrotask(() => {
@@ -127,11 +123,11 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         void panel()!.offsetWidth;
         settleFrame = requestAnimationFrame(() => setSettling(false));
       });
-    }),
+    },
   );
 
   // U3721b: the centre takes the Drawer's width once, when its slide ends; a width never interpolates.
-  const reserve = createMemo<boolean>(prev => lifetime.sliding() ? prev : isOpen(), untrack(isOpen));
+  const reserve = createMemo<boolean>(prev => lifetime.sliding() ? (prev ?? untrack(isOpen)) : isOpen());
 
   onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 
@@ -155,13 +151,13 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       class="drawer"
       aria-label={copy.drawer}
       inert={!isOpen()}
-      data-open={isOpen()}
-      data-maximised={frame.maximised()}
-      data-fill={frame.maximised() && fillsCentre(props.drawer.surface()?.kind)}
-      data-mounted={mounted() !== null}
-      data-reserve={reserve()}
+      data-open={String(isOpen())}
+      data-maximised={String(frame.maximised())}
+      data-fill={String(frame.maximised() && fillsCentre(props.drawer.surface()?.kind))}
+      data-mounted={String(mounted() !== null)}
+      data-reserve={String(reserve())}
       data-motion={instant() ? "none" : "slide"}
-      data-settling={settling()}
+      data-settling={String(settling())}
       ref={setPanel}
       onPointerMove={(event) => {
         const host = event.currentTarget;
@@ -197,7 +193,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         </IconButton>
       </div>
       <Show when={mounted()} keyed>
-        {(content) => <DrawerMaximisedContext.Provider value={frame.maximised}><DrawerExpandContext.Provider value={setExpandHost}>{content()}</DrawerExpandContext.Provider></DrawerMaximisedContext.Provider>}
+        {(content) => <DrawerMaximisedContext value={frame.maximised}><DrawerExpandContext value={setExpandHost}>{content()}</DrawerExpandContext></DrawerMaximisedContext>}
       </Show>
     </aside>
   );

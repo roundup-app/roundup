@@ -1,8 +1,7 @@
 import { confirmed } from "../app/receipt";
 import type { Deletion as RailDeletion } from "@contracts/agent/Deletion";
 import PQueue from "p-queue";
-import { createSignal } from "solid-js";
-import { createStore, produce, unwrap } from "solid-js/store";
+import { createSignal, createStore, snapshot } from "solid-js";
 import { copy } from "./copy";
 import type { Deletion as PadDeletion } from "@contracts/pad/Deletion";
 import type { RedoDeleteParams } from "@contracts/pad/RedoDeleteParams";
@@ -114,8 +113,8 @@ const readPad = (app: AppSeam, operation: string) => app.rpc("pad.getDeletion", 
 export function createTodoUndo() {
   const [history, setHistory] = createStore<{ stack: Stacked[] }>({ stack: [] });
   const stack = () => history.stack;
-  const push = (item: Stacked) => setHistory(produce(draft => { draft.stack.push(item); }));
-  const drop = (id: string) => setHistory(produce(draft => { draft.stack.splice(draft.stack.findIndex(item => item.id === id), 1); }));
+  const push = (item: Stacked) => setHistory(draft => { draft.stack.push(item); });
+  const drop = (id: string) => setHistory(draft => { draft.stack.splice(draft.stack.findIndex(item => item.id === id), 1); });
 
   /** U5991a: the Rail's pending change of an undo or redo, bound by the Project's Rail state; a call lifts it once the Rail holds the Daemon's result. */
   let railPending: ((direction: "undo" | "redo") => (kept: boolean) => Promise<void>) | null = null;
@@ -128,7 +127,10 @@ export function createTodoUndo() {
 
   /** U5170b: an idle history starts anything; an unconfirmed one only starts the work it is waiting on. */
   const mayStart = (asked: Asked) => {
-    const now = work();
+    let now!: Work;
+
+    // The updater reads the latest write, so a call made in the same turn as another sees it running.
+    setWork(current => now = current);
 
     return now.kind === "idle" || now.kind === "unconfirmed" && sameWork(now.asked, asked);
   };
@@ -192,11 +194,11 @@ export function createTodoUndo() {
   const queue = new PQueue({ concurrency: 1 }); // An idle queue starts the call in the same tick; a busy one waits for the earlier calls.
 
   const serial = <A extends unknown[], T>(run: (...args: A) => Promise<T>) => (...args: A): Promise<T> => {
-    setLine("queued", count => count + 1);
+    setLine(draft => { draft.queued++; });
 
     // The count drops in the tick the call settles, so a key on its failure line is not refused. SAFETY: no timeout is set, so `add` resolves with the task's result, never `void`.
     return queue.add(async () => {
-      try { return await run(...args); } finally { setLine("queued", count => count - 1); }
+      try { return await run(...args); } finally { setLine(draft => { draft.queued--; }); }
     }) as Promise<T>;
   };
 
@@ -408,13 +410,13 @@ export function createTodoUndo() {
             members.push({ receipt: restored, operation: crypto.randomUUID(), request: null });
           } catch (error) {
             if (!(error instanceof Error)) throw error;
-            failed.push(unwrap(receipt));
+            failed.push(snapshot(receipt));
             causes.push(`${receipt.pad.name}: ${error.message}`);
           }
         }
 
         // SAFETY: the stacked action was found by kind "pads" above.
-        const source = unwrap(operation) as Extract<Stacked, { kind: "pads" }>;
+        const source = snapshot(operation) as Extract<Stacked, { kind: "pads" }>;
 
         if (members.length) setRedoes(all => {
           const previous = all.find(item => item.kind === "pads" && item.source.id === source.id);
@@ -424,11 +426,11 @@ export function createTodoUndo() {
             : [...all, { kind: "pads", source, members, regions: [...operation.regions] }];
         });
 
-        if (failed.length) setHistory(produce(draft => {
+        if (failed.length) setHistory(draft => {
           const at = draft.stack.find(item => item.id === source.id);
 
           if (at?.kind === "pads") at.receipts = failed;
-        }));
+        });
         else drop(source.id);
         setFailure(causes.length ? { kind: "restore", message: causes.join("; ") } : null);
 
@@ -526,14 +528,14 @@ export function createTodoUndo() {
           }
         }
 
-        if (receipts.length) setHistory(produce(draft => {
+        if (receipts.length) setHistory(draft => {
           const at = draft.stack.find(item => item.id === action.source.id);
 
           if (at?.kind === "pads") {
             at.regions = [...action.regions];
             at.receipts.push(...receipts);
           } else draft.stack.push({ ...action.source, regions: [...action.regions], receipts: [...receipts] });
-        }));
+        });
 
         action.members = failed;
 
@@ -580,7 +582,7 @@ export function createTodoUndo() {
       const operation = stack().findLast(action => action.regions.includes(from));
 
       if (!operation || operation.regions.includes(to)) return;
-      setHistory(produce(draft => { draft.stack.find(item => item.id === operation.id)?.regions.push(to); }));
+      setHistory(draft => { draft.stack.find(item => item.id === operation.id)?.regions.push(to); });
     },
     failure: () => failure()?.message ?? null,
     blocked: () => failure()?.kind === "blocked",

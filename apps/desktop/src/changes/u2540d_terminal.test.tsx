@@ -16,7 +16,7 @@ const mount = async () => {
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "src/a.ts", line: 1, status: "modified" }] });
   app.handlers["agent.compareFile"] = () => COMPARISON;
   connected.rail.select("a");
-  render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>);
   await subscribed(app, "t-a");
 
   return mounted;

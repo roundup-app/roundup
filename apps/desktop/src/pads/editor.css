@@ -494,3 +494,29 @@ details[data-pad-agents] summary:focus-visible {
 .pad-format-controls .icon { fill: none; }
 
 .pad-colour-menu { transform-origin: var(--transform-origin); }
+
+.pad-colour-menu[data-pointer] {
+  transition: opacity var(--duration-menu-in) var(--easing-out), transform var(--duration-menu-in) var(--easing-out);
+}
+
+.pad-colour-menu[data-pointer][data-starting-style],
+.pad-colour-menu[data-pointer][data-ending-style] {
+  opacity: 0;
+  transform: scale(var(--scale-menu));
+}
+
+.pad-colour-menu[data-pointer][data-ending-style] {
+  transition-duration: var(--duration-menu-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pad-colour-menu[data-pointer] {
+    transition-property: opacity;
+    transition-duration: var(--duration-reduced);
+  }
+
+  .pad-colour-menu[data-pointer][data-starting-style],
+  .pad-colour-menu[data-pointer][data-ending-style] {
+    transform: none;
+  }
+}

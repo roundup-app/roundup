@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createSignal, flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { Dialog } from "./Dialog";
 import { mountSwitcher, openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
@@ -16,9 +15,9 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 const modal = () => {
   const [open, setOpen] = createSignal(false);
 
-  render(() => <Dialog.Root open={open()} onOpenChange={({ open }) => setOpen(open)}><Portal><Dialog.Positioner><Dialog.Content>
+  render(() => <Dialog.Root open={open()} onOpenChange={({ open }) => setOpen(open)}><Dialog.Content>
     <Dialog.Title>Import</Dialog.Title><button>Inside</button>
-  </Dialog.Content></Dialog.Positioner></Portal></Dialog.Root>);
+  </Dialog.Content></Dialog.Root>);
 
   return async (open: boolean) => {
     setOpen(open);
@@ -40,6 +39,7 @@ it.each(["ask", "switcher"] as const)("u3295b_modal_dismissal_keeps_unsubmitted_
   const text = "  ops exact e\u0301 🐝  ";
 
   fireEvent.input(input, { target: { value: text } });
+  flush();
   const before = connected.drafts.list().filter(draft => draft.destination.surface === kind);
   const calls = app.calls.length;
   const change = modal();
@@ -63,6 +63,7 @@ it("u3295b_switcher_cannot_cover_a_dialog", async () => {
   const focus = document.activeElement;
 
   openSwitcher();
+  flush();
   expect(field()).toBeNull();
   expect(document.activeElement).toBe(focus);
 });
@@ -80,12 +81,13 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
     render(() => {
       const [open, setOpen] = createSignal(true);
 
-      return <ConnectedProjectContext.Provider value={connected}><button onClick={() => setOpen(true)}>Recover</button><NoteRecovery notes={notes} open={open()} onOpenChange={setOpen} available={() => true} name={() => "a"} /></ConnectedProjectContext.Provider>;
+      return <ConnectedProjectContext value={connected}><button onClick={() => setOpen(true)}>Recover</button><NoteRecovery notes={notes} open={open()} onOpenChange={setOpen} available={() => true} name={() => "a"} /></ConnectedProjectContext>;
     });
     fireEvent.click(await screen.findByRole("button", { name: "Resume note" }));
   }
 
   fireEvent.input(await screen.findByRole("textbox", { name: "Note" }), { target: { value: text } });
+  flush();
   const original = structuredClone(notes.entries());
   const change = modal();
 

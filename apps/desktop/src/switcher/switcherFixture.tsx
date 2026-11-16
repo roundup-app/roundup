@@ -1,7 +1,7 @@
 import { isDoor } from "../state/doorNode";
 import { leaderKey } from "../keys/leaderFixture";
 import { render, waitFor } from "@solidjs/testing-library";
-import { createSignal, Show } from "solid-js";
+import { createSignal, flush, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ActionRow } from "@contracts/action/ActionRow";
 import type { Todo } from "@contracts/todo/Todo";
@@ -60,12 +60,13 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   const failures: (string | null)[] = [];
 
   if (selected !== null) connected.rail.select(selected);
+  flush();
 
   render(() => {
     const [screens, setScreens] = createSignal<Screens>();
 
     return (
-      <DisplayClockContext.Provider value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext.Provider value={connected}>
+      <DisplayClockContext value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext value={connected}>
         <AttentionKey />
         <AskBar />
         <Rail />
@@ -75,7 +76,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
           <div class="resource-strip" /><span class="resource-agent" />
           <Switcher notify={notify} onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
-      </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
+      </ConnectedProjectContext></DisplayClockContext>
     );
   });
 
@@ -88,12 +89,16 @@ export const switcherKey = (key: string, init: KeyboardEventInit = {}, target: E
   const event = new KeyboardEvent("keydown", { key, code: key.length === 1 ? `Key${key.toUpperCase()}` : key, bubbles: true, cancelable: true, ...init });
 
   target.dispatchEvent(event);
+  flush();
 
   return event;
 };
 
 /** Open the switcher as the leader does: `⌘K` then `K` (U2239). */
-export const openSwitcher = (): void => void leaderKey("KeyK");
+export const openSwitcher = (): void => {
+  leaderKey("KeyK");
+  flush();
+};
 
 export const field = (): HTMLInputElement | null => document.querySelector<HTMLInputElement>(".switcher input");
 

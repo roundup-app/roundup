@@ -32,8 +32,13 @@ const FONT_LENGTH = /\b\d*\.?\d+(?:px|em|rem|pt|%)/;
 // A value is a Token read when nothing is left once every `var(--…)` is taken out.
 const withoutVars = (value: string): string => value.replace(/var\(--[\w-]+\)/g, " ").trim();
 
+// A CSS-wide keyword hands the property to another rule, so it holds no look of its own.
+const HANDED_BACK = new Set(["inherit", "initial", "unset", "revert"]);
+
 const isLiteral = (property: string, value: string): boolean => {
   const rest = withoutVars(value);
+
+  if (HANDED_BACK.has(rest.toLowerCase())) return false;
 
   if (EASING.test(rest)) return true;
 
@@ -51,7 +56,7 @@ const isLiteral = (property: string, value: string): boolean => {
 
   if (DURATION_PROPERTY.test(property)) return DURATION.test(rest) && !/^0m?s$/.test(rest);
 
-  if (FONT_SIZE_PROPERTY.test(property)) return FONT_LENGTH.test(rest) || (property === "font-size" && rest !== "" && rest !== "inherit");
+  if (FONT_SIZE_PROPERTY.test(property)) return FONT_LENGTH.test(rest) || (property === "font-size" && rest !== "");
 
   return false;
 };

@@ -1,5 +1,4 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { batch } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
@@ -9,7 +8,7 @@ import { ConnectedProjectContext, type ConnectedProject } from "../state/connect
 import { RpcError, type NativeOpen } from "../app/seam";
 import { keyOfPath } from "./linkRoute";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.restoreAllMocks(); });
 
 const KEY = "project-0000000000000000";
 
@@ -30,7 +29,7 @@ const mountSurface = async (text: string, kind: "agent" | "workstream" = "agent"
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => { connected = open; }} />);
   await waitFor(() => expect(connected).toBeDefined());
   await waitFor(() => expect(receive).toBeDefined());
-  render(() => <ConnectedProjectContext.Provider value={connected}><TargetText objectLinks text={text} base="/project" /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><TargetText objectLinks text={text} base="/project" /></ConnectedProjectContext>);
 
   return { app, connected, receive: receive!, link: text.includes("://") ? await screen.findByRole("link") : null! };
 };

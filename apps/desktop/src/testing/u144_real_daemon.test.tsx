@@ -42,7 +42,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   const mount = () => render(() => {
     connected.worktrees.watch(() => true);
 
-    return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
+    return <ConnectedProjectContext value={connected}><WorktreeControl /></ConnectedProjectContext>;
   });
 
   beforeAll(async () => {
@@ -371,7 +371,7 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
       await holder.discard(incompatible.revision);
     }
 
-    let headerFactory: typeof drafts | undefined;
+    let headerFactory: typeof drafts | null = null;
     const setWindowTitle = app.setWindowTitle;
 
     app.setWindowTitle = async (title) => {

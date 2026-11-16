@@ -10,9 +10,9 @@ export const RailHandle = (props: { collapsed: boolean; peek: boolean; slide: "c
   const name = () => props.collapsed ? copy.expandRail : copy.collapseRail;
 
   return (
-    <div class="rail-handle" data-collapsed={props.collapsed || undefined} data-peek={props.peek || undefined} data-slide={props.slide} data-dragging={props.dragging || undefined}>
+    <div class="rail-handle" data-collapsed={props.collapsed ? "true" : undefined} data-peek={props.peek ? "true" : undefined} data-slide={props.slide} data-dragging={props.dragging ? "true" : undefined}>
       <Tip class="" content={<KeyHint chipAfter keys={leaderKeys(LEADER["leader.rail"])}>{name()}</KeyHint>}>
-        {(trigger) => <IconButton bare {...trigger({ "aria-expanded": !props.collapsed, onClick: () => props.onToggle() })} aria-label={name()} class="rail-handle-button"><Icon name={props.collapsed ? "right" : "left"} /></IconButton>}
+        {(trigger) => <IconButton bare {...trigger({ "aria-expanded": props.collapsed ? "false" : "true", onClick: () => props.onToggle() })} aria-label={name()} class="rail-handle-button"><Icon name={props.collapsed ? "right" : "left"} /></IconButton>}
       </Tip>
     </div>
   );

@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRoot, createSignal } from "solid-js";
+import { createRoot, createSignal, flush, untrack } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { cleanup } from "@solidjs/testing-library";
 import { mountTodos } from "../todos/testHarness";
 import { createReducedMotion } from "../app/reducedMotion";
 import { buildReport } from "./frames";
-import { expandFixtureTodos, observePreference, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
+import { expandFixtureTodos, createPreferenceObserver, domLayers, fixtureTodos, everyTwoSeconds, glyphsCycle, layersCycle, pointerReorder, todosCycle } from "./frame_run";
 import type { Layers } from "./frame_run";
 import { bounded, writeInChunks } from "./run";
 import { prepareFixture } from "./fixture";
@@ -89,115 +89,121 @@ describe("u3010g the frame recorder drives every workload", () => {
       todos: { action_at_ms: 21, action: "reorder" as const, targets: [4, 1], rows: [{ target: 4, transform: "matrix(1, 0, 0, 1, 0, 16)", from: "translate(0px, 32px)", to: "none", x: 1200, y: 300, progress: 0.5 }] },
     }));
 
-    createRoot(dispose => {
-      const reduced = createReducedMotion(() => ({
-        matches: false,
-        addEventListener: (_type, listener) => { listeners.add(listener); },
-        removeEventListener: (_type, listener) => { listeners.delete(listener); },
-      }));
+    const [reduced, dispose] = createRoot(dispose => [createReducedMotion(() => ({
+      matches: false,
+      addEventListener: (_type, listener) => { listeners.add(listener); },
+      removeEventListener: (_type, listener) => { listeners.delete(listener); },
+    })), dispose] as const);
 
-      const stop = observePreference(reduced, () => at, () => phase, journal, movement);
+    // The browser delivers a media change outside any owner; the update it causes settles before the next one.
+    const deliver = (matches: boolean) => {
+      for (const listener of listeners) listener({ matches });
+      flush();
+    };
 
-      expect(listeners.size).toBe(1);
-      expect(movement).not.toHaveBeenCalled();
-      phase = "sample";
-      at = 23;
+    const stop = createPreferenceObserver(reduced, () => at, () => phase, journal, movement);
 
-      for (const listener of listeners) listener({ matches: true });
-      expect(journal).toEqual([
-        { at_ms: 12, reduced: false, phase: "warmup" },
-        { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }], todos: { action_at_ms: 21, action: "reorder", targets: [4, 1], rows: [{ target: 4, transform: "matrix(1, 0, 0, 1, 0, 16)", from: "translate(0px, 32px)", to: "none", x: 1200, y: 300, progress: 0.5 }] } },
-      ]);
-      expect(movement).toHaveBeenCalledTimes(1);
-      phase = "after-actions";
+    flush();
+    expect(listeners.size).toBe(1);
+    expect(movement).not.toHaveBeenCalled();
+    phase = "sample";
+    at = 23;
+    deliver(true);
+    expect(journal).toEqual([
+      { at_ms: 12, reduced: false, phase: "warmup" },
+      { at_ms: 23, reduced: true, phase: "sample", movement: { panel: "drawer", target: "todo-open", action_at_ms: 20, from: 1512, destination: 952, observed: 1200, progress: 312 / 560 }, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0, 0, -1, 0, 0)", degrees: 180 }], todos: { action_at_ms: 21, action: "reorder", targets: [4, 1], rows: [{ target: 4, transform: "matrix(1, 0, 0, 1, 0, 16)", from: "translate(0px, 32px)", to: "none", x: 1200, y: 300, progress: 0.5 }] } },
+    ]);
+    expect(movement).toHaveBeenCalledTimes(1);
+    phase = "after-actions";
 
-      for (const listener of listeners) listener({ matches: false });
-      expect(movement).toHaveBeenCalledTimes(1);
-      expect(journal.at(-1)).toEqual({ at_ms: 23, reduced: false, phase: "after-actions" });
-      stop();
+    deliver(false);
+    expect(movement).toHaveBeenCalledTimes(1);
+    expect(journal.at(-1)).toEqual({ at_ms: 23, reduced: false, phase: "after-actions" });
+    stop();
 
-      for (const listener of listeners) listener({ matches: true });
-      expect(reduced()).toBe(true);
-      expect(journal).toHaveLength(3);
-      expect(listeners.size).toBe(1);
-      dispose();
-      expect(listeners.size).toBe(0);
-    });
+    deliver(true);
+    expect(untrack(reduced)).toBe(true);
+    expect(journal).toHaveLength(3);
+    expect(listeners.size).toBe(1);
+    dispose();
+    expect(listeners.size).toBe(0);
   });
 
   it("u3010d_a_live_switch_retains_only_the_preceding_frame_of_its_source_value", () => {
-    createRoot(dispose => {
-      const [reduced, change] = createSignal(false);
-      const journal: import("./frames").PreferenceAction[] = [];
-      let at = 0;
+    const [reduced, change] = createSignal(false);
+    const journal: import("./frames").PreferenceAction[] = [];
+    let at = 0;
 
-      const previous = { at_ms: 9, reduced: false, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0.1, -0.1, -1, 0, 0)", degrees: 174 }] };
+    const previous = { at_ms: 9, reduced: false, glyphs: [{ target: "fixture-agent", transform: "matrix(-1, 0.1, -0.1, -1, 0, 0)", degrees: 174 }] };
 
-      const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({
-        glyphs: [{ target: "fixture-agent", transform: "matrix(-1, -0.1, 0.1, -1, 0, 0)", degrees: 186 }],
-      }), { afterUpdate: () => {}, read: () => "settled", previousFrame: () => previous });
+    const stop = createPreferenceObserver(reduced, () => at, () => "sample", journal, () => ({
+      glyphs: [{ target: "fixture-agent", transform: "matrix(-1, -0.1, 0.1, -1, 0, 0)", degrees: 186 }],
+    }), { afterUpdate: () => {}, read: () => "settled", previousFrame: () => previous });
 
-      at = 10;
-      change(true);
-      expect(journal.at(-1)).toMatchObject({ previous_frame: previous, glyphs: [{ degrees: 186 }] });
-      // No frame has observed the enabled source; the old disabled frame cannot
-      // stand for the immediately preceding movement when disabling again.
-      change(false);
-      expect(journal.at(-1)).not.toHaveProperty("previous_frame");
-      at = 11;
-      change(true);
-      expect(journal.at(-1)).not.toHaveProperty("previous_frame");
-      stop();
-      dispose();
-    });
+    flush();
+
+    at = 10;
+    change(true);
+    flush();
+    expect(journal.at(-1)).toMatchObject({ previous_frame: previous, glyphs: [{ degrees: 186 }] });
+    // No frame has observed the enabled source; the old disabled frame cannot
+    // stand for the immediately preceding movement when disabling again.
+    change(false);
+    flush();
+    expect(journal.at(-1)).not.toHaveProperty("previous_frame");
+    at = 11;
+    change(true);
+    flush();
+    expect(journal.at(-1)).not.toHaveProperty("previous_frame");
+    stop();
   });
 
   it("u3010d_a_live_switch_records_its_result_after_the_app_update", () => {
-    createRoot(dispose => {
-      const [reduced, change] = createSignal(false);
-      const journal: import("./frames").PreferenceAction[] = [];
-      const tasks: (() => void)[] = [];
-      let at = 10;
-      let result: "moving" | "settled" = "moving";
+    const [reduced, change] = createSignal(false);
+    const journal: import("./frames").PreferenceAction[] = [];
+    const tasks: (() => void)[] = [];
+    let at = 10;
+    let result: "moving" | "settled" = "moving";
 
-      const stop = observePreference(reduced, () => at, () => "sample", journal, () => ({}), {
-        afterUpdate: callback => { tasks.push(callback); },
-        read: () => result,
-      });
-
-      change(true);
-      expect(journal.at(-1)?.settlement).toEqual({ status: "pending" });
-      result = "settled";
-      at = 11;
-      tasks.shift()!();
-      expect(journal.at(-1)?.settlement).toEqual({ status: "settled", at_ms: 11 });
-      stop();
-      dispose();
+    const stop = createPreferenceObserver(reduced, () => at, () => "sample", journal, () => ({}), {
+      afterUpdate: callback => { tasks.push(callback); },
+      read: () => result,
     });
+
+    flush();
+
+    change(true);
+    flush();
+    expect(journal.at(-1)?.settlement).toEqual({ status: "pending" });
+    result = "settled";
+    at = 11;
+    tasks.shift()!();
+    expect(journal.at(-1)?.settlement).toEqual({ status: "settled", at_ms: 11 });
+    stop();
   });
 
   it.each(["superseded", "disposed"] as const)("u3010d_a_pending_switch_cannot_claim_completion_after_it_is_%s", reason => {
-    createRoot(dispose => {
-      const [reduced, change] = createSignal(false);
-      const journal: import("./frames").PreferenceAction[] = [];
-      const tasks: (() => void)[] = [];
+    const [reduced, change] = createSignal(false);
+    const journal: import("./frames").PreferenceAction[] = [];
+    const tasks: (() => void)[] = [];
 
-      const stop = observePreference(reduced, () => 10, () => "sample", journal, () => ({}), {
-        afterUpdate: callback => { tasks.push(callback); },
-        read: () => "settled",
-      });
-
-      change(true);
-      const entry = journal.at(-1)!;
-
-      if (reason === "superseded") change(false);
-      else stop();
-      tasks.shift()!();
-      expect(entry.settlement).toEqual({ status: reason });
-      expect(reduced()).toBe(reason === "disposed");
-      stop();
-      dispose();
+    const stop = createPreferenceObserver(reduced, () => 10, () => "sample", journal, () => ({}), {
+      afterUpdate: callback => { tasks.push(callback); },
+      read: () => "settled",
     });
+
+    flush();
+
+    change(true);
+    flush();
+    const entry = journal.at(-1)!;
+
+    if (reason === "superseded") { change(false); flush(); }
+    else stop();
+    tasks.shift()!();
+    expect(entry.settlement).toEqual({ status: reason });
+    expect(untrack(reduced)).toBe(reason === "disposed");
+    stop();
   });
 
   it("u3010g_an_incompatible_project_is_refused_before_fixture_writes", async () => {

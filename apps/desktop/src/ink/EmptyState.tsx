@@ -1,7 +1,7 @@
 import { KeyChip } from "../keys/KeyChip";
 import { ariaChord, type Chord } from "../keys/chords";
-import { createSignal, createUniqueId, For, onCleanup, onMount, Show, type JSX } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createSignal, createUniqueId, For, onSettled, Show } from "solid-js";
+import { type JSX, Portal } from "@solidjs/web";
 import { createResizeObserver } from "@solid-primitives/resize-observer";
 
 const scenes = {
@@ -23,10 +23,7 @@ export const EmptyState = (props: { art: keyof typeof scenes; title: string; lin
   const [targets, setTargets] = createSignal<Element[]>([]);
   const [visible, setVisible] = createSignal(false);
 
-  const measure = () => {
-    const surface = room();
-
-    if (!surface) return;
+  const measureSurface = (surface: HTMLElement) => {
     const bounds = surface.getBoundingClientRect();
     const unit = parseFloat(getComputedStyle(box).getPropertyValue("--space-6"));
     const content = [...surface.querySelectorAll<HTMLElement>(".empty-state-content,h3,p,button,li,[role=alert]")];
@@ -44,22 +41,30 @@ export const EmptyState = (props: { art: keyof typeof scenes; title: string; lin
     setTargets([surface, box, ...content]);
   };
 
+  const measure = () => {
+    const surface = room();
+
+    if (surface) measureSurface(surface);
+  };
+
   if (typeof ResizeObserver !== "undefined") createResizeObserver(targets, measure);
 
-  onMount(() => {
-    setRoom(box.closest<HTMLElement>(".choose-project,.shelf-area,.pane-body,.note-recovery,.draft-recovery") ?? box);
+  onSettled(() => {
+    const surface = box.closest<HTMLElement>(".choose-project,.shelf-area,.pane-body,.note-recovery,.draft-recovery") ?? box;
+    setRoom(surface);
     const observer = new MutationObserver(measure);
-    observer.observe(room()!, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["data-terminal-content"] });
-    onCleanup(() => observer.disconnect());
-    measure();
+    observer.observe(surface, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["data-terminal-content"] });
+    measureSurface(surface);
+
+    return () => observer.disconnect();
   });
 
   return <div ref={el => { box = el; }} class="empty-state" role="group" aria-labelledby={title}>
-    <Show when={visible()}><Portal mount={room()!} ref={el => { el.classList.add("empty-state-ground"); el.setAttribute("aria-hidden", "true"); }}><svg viewBox="0 0 1024 768" aria-hidden="true"><use href={`${scenes[props.art]}#scene`} width="1024" height="768" /></svg></Portal></Show>
+    <Show when={visible()}><Portal mount={room()!}><div class="empty-state-ground" aria-hidden="true"><svg viewBox="0 0 1024 768" aria-hidden="true"><use href={`${scenes[props.art]}#scene`} width="1024" height="768" /></svg></div></Portal></Show>
     <div class="empty-state-content">
       <h3 id={title} class="empty-state-title">{props.title}</h3>
       <Show when={props.line}>{line => <p class="empty-state-line">{line()}</p>}</Show>
-      <Show when={props.actions?.length}><div class="empty-state-actions"><For each={props.actions}>{(action, index) => <button type="button" data-button={index() === 0 ? "primary" : "quiet"} aria-label={action.label} aria-keyshortcuts={ariaChord(action.chord)} aria-disabled={props.available === false ? true : undefined} onClick={() => { if (props.available !== false) action.run(); }}>{action.label}<KeyChip keys={action.chord.keys} /></button>}</For></div></Show>
+      <Show when={props.actions?.length}><div class="empty-state-actions"><For each={props.actions}>{(action, index) => <button type="button" data-button={index() === 0 ? "primary" : "quiet"} aria-label={action.label} aria-keyshortcuts={ariaChord(action.chord)} aria-disabled={props.available === false ? "true" : undefined} onClick={() => { if (props.available !== false) action.run(); }}>{action.label}<KeyChip keys={action.chord.keys} /></button>}</For></div></Show>
       <Show when={props.action}><div class="empty-state-actions">{props.action}</div></Show>
     </div>
   </div>;

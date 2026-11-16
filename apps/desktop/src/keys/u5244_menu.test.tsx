@@ -2,14 +2,14 @@ import { padHandlers } from "../testing/stores";
 import { USER } from "../testing/nodes";
 import { openPad } from "../pads/padsFixture";
 import { showEverythingInApp } from "../testing/showEverything";
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { saveAppSettings } from "../settings/preferences";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 const focusAt = async (place: "terminal" | "rail row" | "Shelf row" | "Pad editor") => {
   const mounted = await mountNavigation(false, 0);
@@ -27,7 +27,7 @@ const focusAt = async (place: "terminal" | "rail row" | "Shelf row" | "Pad edito
     await showEverythingInApp(undefined, "Pads");
     await openPad("Plan");
     screen.getByLabelText("Pad body", { selector: '[role="textbox"]' }).focus();
-  } else document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
+  } else document.querySelector<HTMLElement>('.rail-row')!.focus();
 
   await waitFor(() => expect(projectMenu.items.length).toBeGreaterThan(5));
 
@@ -61,6 +61,7 @@ it("u5244b_choosing_a_disabled_item_runs_nothing", async () => {
   const focus = document.activeElement;
   const calls = daemon.calls.length;
   openProjectPage(id, "/p");
+  flush();
   expect(daemon.calls).toHaveLength(calls);
   expect(document.activeElement).toBe(focus);
 });
@@ -79,7 +80,7 @@ it("u5919b_project_sequences_track_the_configured_leader", async () => {
   await mountNavigation(false, 1);
   await waitFor(() => expect(projectMenu.items.filter(item => item.id.startsWith("action:leader:")).map(item => item.shortcut)).toEqual(["⇧⌘T C", "⇧⌘T P"]));
 
-  const row = document.querySelector<HTMLElement>('[data-part="item"]')!;
+  const row = document.querySelector<HTMLElement>('.rail-row')!;
   row.focus();
   fireEvent.keyDown(row, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   fireEvent.keyDown(row, { key: "p", code: "KeyP" });

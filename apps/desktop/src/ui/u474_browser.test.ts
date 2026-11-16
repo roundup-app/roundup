@@ -103,7 +103,7 @@ const loadAppIcon = async (base: string, seed: string, selector: string) => {
   if (seed === "tree-40") {
     await browser("eval", `document.querySelector('#shelf-tab-todos[aria-expanded=false]')?.click()`);
     await browser("wait", "--fn", `!!document.querySelector('.shelf .todo-row-button')`);
-    await browser("eval", `document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
+    await browser("eval", `document.querySelector('.todos-tab [data-shelf-group=unassigned] .shelf-group-control[aria-expanded=false]')?.click()`);
     await browser("focus", ".shelf .todo-row-button");
     await browser("press", "Enter");
   }
@@ -137,8 +137,8 @@ it("u477_app_focus_shows_each_icon_button_name", async () => {
     await browser("wait", "--fn", `document.activeElement?.id === "u477-previous"`);
     await browser("press", "Tab");
     await browser("wait", "--fn", `document.activeElement === ${query}`);
-    // A menu trigger also has data-state; wait on the described tooltip itself.
-    await browser("wait", "--fn", `document.getElementById(${query}.getAttribute('aria-describedby'))?.dataset.state === 'open'`);
+    // A closed tooltip stays mounted, so wait for the described tooltip to open.
+    await browser("wait", "--fn", `document.getElementById(${query}.getAttribute('aria-describedby'))?.hasAttribute('data-open')`);
     expect(await read<boolean>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.getAttribute('role') === 'tooltip'`), selector).toBe(true);
     await capture("after");
   }

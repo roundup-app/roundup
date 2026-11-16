@@ -1,10 +1,9 @@
 /* U529: an opaque panel over the centre pane with Help's hairline (D8: only the Drawer and a bubble have a shadow); no hover box. */
 .switcher {
-  position: absolute;
-  top: var(--space-5);
-  left: 50%;
-  z-index: var(--layer-dialog);
-  width: min(var(--switcher-width), calc(100% - var(--space-5)));
+  position: fixed;
+  top: calc(var(--header-height) + var(--space-5));
+  left: calc(var(--fill-rail) + (100vw - var(--fill-rail) - var(--fill-reserve)) / 2);
+  width: min(var(--switcher-width), calc(100vw - var(--fill-rail) - var(--fill-reserve) - var(--space-5)));
   transform: translateX(-50%);
   padding: var(--space-2);
   background-color: var(--surface);

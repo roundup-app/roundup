@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { batch } from "solid-js";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { expect, it } from "vitest";
 import { openPad, openShelf, waitForReload } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
@@ -29,6 +29,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     // No pad.changed Event precedes either stale reply.
     app.handlers["pad.list"] = () => [remote];
     fireEvent.input(field, { target: { value: "my draft" } });
+    flush();
     fireEvent.focusOut(field);
     await drawer.findByText("Use theirs");
     await waitFor(() => expect(drawer.queryByText(/pad notes is at revision/)).toBeNull());
@@ -55,6 +56,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     expect(drawer.queryByText(/pad notes is at revision/)).toBeNull();
     app.handlers["pad.write"] = () => ({ ...intervening, text: "after choice", revision: 4 });
     fireEvent.input(field, { target: { value: "after choice" } });
+    flush();
     fireEvent.focusOut(field);
     await waitFor(() => expect(calls.filter((call) => call.method === "pad.write")).toEqual([
       { method: "pad.write", params: { name: "notes", text: "my draft", expectedRevision: 1, expectedIncarnation: pad.incarnation } },
@@ -63,7 +65,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     ]));
     expect(calls.filter((call) => call.method === "pad.read")).toHaveLength(1);
   } finally {
-    batch(cleanup);
+    cleanup();
   }
 }, 180_000);
 
@@ -132,7 +134,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     let currentName = "agent-work";
 
     const openRealPad = async () => {
-      await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
+      await browser("wait", `.rail-row[data-id='${home.id}']`);
 
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
       await browser("wait", "[data-shelf-row] .pad-name");

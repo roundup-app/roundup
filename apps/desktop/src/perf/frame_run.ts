@@ -1,7 +1,6 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
-import { createComputed, createRoot, onCleanup, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, onCleanup, type Accessor } from "solid-js";
 import { is, string } from "valibot";
-import type { Accessor } from "solid-js";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
@@ -22,7 +21,7 @@ const SETTLE_MS = 400;
 const WORKING_GLYPHS = 10;
 
 /** Reads the App's accessor; disposal releases only this recorder, never the App's media subscription. */
-export const observePreference = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs" | "todos"> = () => ({}), settlement?: {
+export const createPreferenceObserver = (reduced: Accessor<boolean>, now: () => number, phase: () => PreferenceAction["phase"], journal: PreferenceAction[], displacement: () => Pick<PreferenceAction, "movement" | "glyphs" | "todos"> = () => ({}), settlement?: {
   previousFrame?(): PreferenceAction["previous_frame"];
   afterUpdate(callback: () => void): void;
   read(change: PreferenceAction): "settled" | "moving" | "unavailable";
@@ -34,18 +33,20 @@ export const observePreference = (reduced: Accessor<boolean>, now: () => number,
     if (pending) pending.settlement = { status: "disposed" };
     pending = undefined;
   });
-  createComputed(() => {
-    const value = reduced();
-    const entry: PreferenceAction = { at_ms: now(), reduced: value, phase: untrack(phase) };
+  // A memo: the journal records a switch only when the value changes, not on each recompute of the App's accessor.
+  const preference = createMemo(reduced);
+
+  createEffect(preference, value => {
+    const entry: PreferenceAction = { at_ms: now(), reduced: value, phase: phase() };
 
     if (pending) pending.settlement = { status: "superseded" };
     pending = undefined;
 
-    // The initial value is setup, not a switch. Sample displacement synchronously
-    // with the shared source change, before a later frame can reach its endpoint.
+    // The initial value is setup, not a switch. Sample displacement in the update
+    // of the shared source change, before a later frame can reach its endpoint.
     if (!initial && entry.phase === "sample") {
-      Object.assign(entry, untrack(displacement));
-      const previous = untrack(() => settlement?.previousFrame?.());
+      Object.assign(entry, displacement());
+      const previous = settlement?.previousFrame?.();
 
       // A frame from before another source change or the sample cannot establish
       // the immediately preceding movement of the value being replaced.
@@ -808,7 +809,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string, redu
       return { movement: { panel: action.panel, target: action.target, action_at_ms: action.at_ms, from: action.from, destination: action.destination, observed, progress } };
     };
 
-    const stopPreference = observePreference(reduced, () => performance.now(), () => phase, preference, displacement, {
+    const stopPreference = createPreferenceObserver(reduced, () => performance.now(), () => phase, preference, displacement, {
       previousFrame: () => previousFrame,
       afterUpdate,
       read: change => preferenceSettlement(workload, fixture, layerActions.find(action => action.at_ms === change.movement?.action_at_ms), todoActions.find(action => action.at_ms === change.todos?.action_at_ms)),

@@ -1,5 +1,5 @@
 import { fireEvent } from "@solidjs/testing-library";
-import { createRoot, onCleanup } from "solid-js";
+import { createRoot, flush, onCleanup } from "solid-js";
 import { expect, it } from "vitest";
 import { createShelfFrame } from "./frame";
 import { shelfKeys } from "./keys";
@@ -23,11 +23,14 @@ it("u491a_shortcut_scope", () => {
 
   expect(frame.open()).toBe(true);
   toggleChord();
+  flush();
   expect(frame.open()).toBe(false);
   frame.toggle();
+  flush();
   expect(frame.open()).toBe(true);
 
   dispose();
   toggleChord();
+  flush();
   expect(frame.open()).toBe(true);
 });

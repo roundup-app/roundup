@@ -5,14 +5,13 @@ import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
 import { copy } from "./copy";
 import { createItemFailures } from "../ink/itemFailures";
-import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext } from "solid-js";
-import type { Accessor, JSX } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createContext, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack, useContext, type Accessor } from "solid-js";
+import { type JSX, Portal } from "@solidjs/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { strandedFocus } from "../keys/stranded";
 
-export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean>; /** U3730: the scope line, where the tab's one add control sits. */ scope: Accessor<HTMLElement | undefined> }>();
+export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean>; /** U3730: the scope line, where the tab's one add control sits. */ scope: Accessor<HTMLElement | undefined> } | null>(null);
 
 type Target<Id> = { id: Id; label: string; owner?: Actor | null | undefined };
 
@@ -65,7 +64,7 @@ export const createBulkDelete = <Id,>(props: {
     props.clear();
   };
 
-  createEffect(on(() => `${props.context()}:${host?.open()}`, reset, { defer: true }));
+  createEffect(createMemo(() => `${props.context()}:${host?.open()}`), () => reset(), { defer: true });
   onCleanup(() => { revision += 1; });
 
   let returnRegion: HTMLElement | null = null;
@@ -80,8 +79,10 @@ export const createBulkDelete = <Id,>(props: {
     returnRegion = returnTo?.closest<HTMLElement>("[data-history-region]")
       ?? returnTo?.closest(".shelf")?.querySelector<HTMLElement>(props.noun === "Todos" ? ".todos-tab" : ".pads-tab") ?? null;
     nextFocus = props.afterRemoval?.() ?? (() => null);
-    setQuestion({ kind: "question", targets: unique, done });
-    void confirm();
+    const asked: Question<Id> = { kind: "question", targets: unique, done };
+
+    setQuestion(asked);
+    void confirm(asked);
   };
 
   /** The opener while it lives, else a Shelf control that does: a deleted row's button is gone. */
@@ -113,10 +114,7 @@ export const createBulkDelete = <Id,>(props: {
     if (next !== undefined) props.replace([next]);
   };
 
-  const confirm = async () => {
-    const kept = question();
-
-    if (kept?.kind !== "question") return;
+  const confirm = async (kept: Question<Id>) => {
     const focus = captureFocus();
     const mine = revision;
     const targets = kept.targets;
@@ -139,6 +137,7 @@ export const createBulkDelete = <Id,>(props: {
       if (kept.done && refused.length > 0) props.reveal?.();
 
       for (const item of refused) if (props.targets().some(row => row.id === item.id)) failures.fail(item.id, item.message);
+      flush();
       const remaining = failed();
       props.replace(remaining.map(({ target }) => target.id));
       setQuestion(null);
@@ -191,6 +190,7 @@ export const createBulkDelete = <Id,>(props: {
 
   const labelOf = (target: Target<Id>) => `${target.label}${props.noun === "Todos" ? ` #${String(target.id)}` : ""}`;
 
+  const busy = () => (question()?.kind === "pending" ? "true" : "false");
   const shown = () => (readFailure() === null ? failed() : []);
   const failureText = (failure: { target: Target<Id>; message: string }) => `${copy.couldNotDelete} ${labelOf(failure.target)}${copy.colon}${failure.message}`;
 
@@ -212,7 +212,7 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().some(owner => owner.live)}>
           <p>{copy.agentsMayStillBeWritingDeletingDoesNot(owners().filter(owner => owner.live).map(owner => owner.name).join(copy.comma))}</p>
         </Show>
-        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}
+        <ReservedLine data-deletion-pending={busy()} aria-busy={busy()} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}
           dismiss={() => { if (readFailure() !== null) setReadFailure(null); else if (shown().length > 0) clearFailure(shown()[0]!); }}
           recover={readFailure() !== null ? { run: () => void readback?.() } : undefined} />
         <For each={shown().slice(1)}>{failure => (

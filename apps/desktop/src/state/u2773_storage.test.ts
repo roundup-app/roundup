@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createComponent, createComputed, createRoot, useContext } from "solid-js";
+import { createComponent, createEffect, createRoot, flush, useContext } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -139,8 +139,8 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", async () => {
   const observations: ReturnType<typeof drafts.problem>[] = [];
 
   const stop = createRoot((dispose) => {
-    for (const [index, consumer] of [drafts, authority("/project/a")].entries()) createComputed(() => {
-      observations[index] = consumer.problem();
+    for (const [index, consumer] of [drafts, authority("/project/a")].entries()) createEffect(() => consumer.problem(), problem => {
+      observations[index] = problem;
     });
 
     return dispose;
@@ -148,6 +148,7 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", async () => {
 
   const failure = { project: "/project/a", destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" };
   expect(drafts.validate("todos", v.object({ title: v.string() }))).toEqual(failure);
+  flush();
   expect(observations).toEqual([failure, failure]);
   const a = (await retained(drafts.edit(incompatible.destination, { title: "submitted" }, null, "ordinary"))).draft;
   expect((await drafts.submit(a.revision))?.problem).toEqual(failure);
@@ -329,7 +330,7 @@ const openDraftProjects = async () => {
   const paths = [join(directory, "a"), join(directory, "b")];
   const app = createFakeApp();
   const seen: ConnectedProject[] = [];
-  let header: { drafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined; connected: ConnectedProject | undefined } | undefined;
+  let header: { drafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | null; connected: ConnectedProject | null } | undefined;
   const setWindowTitle = app.setWindowTitle;
 
   // WindowBar invokes this existing App seam from outside ConnectedProjectContext.
@@ -384,6 +385,7 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
     const returned = await opened.select(0);
     expect(returned.drafts.list()).toEqual([{ ...a, status }, b]);
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(opened.current()).not.toBe(first));
     const replaced = await opened.select(0);
@@ -426,8 +428,8 @@ it("u2773h_shared_consumers_observe_capacity", async () => {
       stop = dispose;
 
       // Independent readers track the same holder, as two mounted surface owners do.
-      for (const [index, owner] of [header, connected.drafts].entries()) createComputed(() => {
-        observations[index] = { records: owner.list(), problem: owner.problem() };
+      for (const [index, owner] of [header, connected.drafts].entries()) createEffect(() => ({ records: owner.list(), problem: owner.problem() }), observed => {
+        observations[index] = observed;
       });
     });
     const a = (await edit(connected.drafts, "a".repeat(6 * 1024 * 1024)));
@@ -457,6 +459,7 @@ it("u2773e_shared_project_credentials_stay_memory_only_across_replacement", asyn
     const first = await opened.select(0);
     const secret = (await retained(first.drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-shared-2812" }, null, "credential"))).draft;
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(opened.current()).not.toBe(first));
     const replaced = await opened.select(0);

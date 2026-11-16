@@ -1,4 +1,4 @@
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
 import { RpcError } from "./seam";
 import { command } from "./command";
@@ -23,6 +23,7 @@ describe("command runner (U183, U184, U186)", () => {
 
     answer = Promise.resolve("ok");
     const next = call();
+    flush();
     expect(call.state()).toEqual({ kind: "pending" });
     await next;
     expect(call.state()).toEqual({ kind: "idle" });

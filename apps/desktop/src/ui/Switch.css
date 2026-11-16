@@ -6,16 +6,6 @@
   position: relative;
   cursor: pointer;
 }
-.app-switch input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  font: inherit;
-  cursor: pointer;
-}
 .app-switch-track {
   display: flex;
   align-items: center;
@@ -23,21 +13,32 @@
   box-sizing: border-box;
   width: calc(var(--space-4) + var(--space-3));
   height: var(--space-4);
-  padding: var(--hairline-width);
+  min-height: 0;
+  padding: 0;
   border: var(--hairline-width) solid var(--form-border);
   border-radius: var(--radius-pill);
   background: var(--form-off);
 }
+.app-switch-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+/* The thumb sits one hairline inside the border; a translate, so the track holds no off-scale padding (D2). */
 .app-switch-thumb {
   width: var(--space-3);
   height: var(--space-3);
   border-radius: var(--radius-pill);
   background: var(--form-thumb);
+  translate: var(--hairline-width) 0;
 }
-.app-switch-track[data-state="checked"] {
+.app-switch-track[data-checked] {
   background: var(--accent);
   border-color: var(--accent);
   justify-content: flex-end;
+}
+.app-switch-track[data-checked] .app-switch-thumb {
+  translate: calc(-1 * var(--hairline-width)) 0;
 }
 .app-switch[data-disabled] {
   color: var(--disabled);
@@ -52,15 +53,10 @@
 .app-switch-track[data-invalid] {
   border-color: var(--red);
 }
-.app-switch input:hover:not(:disabled),
-.app-switch:has(input:hover:not(:disabled)) .app-switch-label {
+.app-switch:hover:not([data-disabled]) .app-switch-label {
   color: var(--text);
 }
-.app-switch:has(input[data-pressed="true"]:not(:disabled)) {
-  opacity: var(--press-opacity);
-}
-
-/* Pointer activation ends the keyboard ring even when the input keeps focus. */
-.app-switch:not([data-keyboard-focus]):has(input:focus-visible) .app-switch-track {
-  outline: none;
+.app-switch-track:focus-visible {
+  outline: var(--stroke-width) solid var(--accent);
+  outline-offset: var(--stroke-width);
 }

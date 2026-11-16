@@ -57,9 +57,9 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
           return { revision:${JSON.stringify(revision)}, capture:${JSON.stringify(name)}, checks:window.__checks(),
             tokens: Object.fromEntries(['--space-1','--space-2','--space-3','--space-4','--space-5','--space-6','--rail-inset','--rail-step','--tree-origin','--rail-edge','--rail-slot','--rail-section-gap'].map(t => [t,getComputedStyle(document.querySelector('.rail-tree')).getPropertyValue(t)])),
             sources: {inset:'rail/styles.css: .rail-tree --rail-edge / --rail-inset',slot:'rail/styles.css: --rail-slot, section indicator and sortable-handle',gap:'rail/styles.css: .rail-section + .rail-section',depth:'ui/Tree.css: --tree-step; Rail.tsx drag probe'},
-            heads:heads.map(el => ({name:el.textContent,box:box(el),icon:el.querySelector('svg') ? box(el.querySelector('svg')) : null,chevron:el.querySelector('[data-part=branch-indicator] svg') ? box(el.querySelector('[data-part=branch-indicator] svg')):null})),
+            heads:heads.map(el => ({name:el.textContent,box:box(el),icon:el.querySelector('svg') ? box(el.querySelector('svg')) : null,chevron:el.querySelector('[data-slot=tree-indicator] svg') ? box(el.querySelector('[data-slot=tree-indicator] svg')):null})),
             rows:rows.map(el => ({id:el.dataset.id,kind:el.className,section:el.closest('.rail-section')?.getAttribute('aria-label'),box:box(el),mark:el.querySelector('.row-state,.glyph,.kind-mark') ? box(el.querySelector('.row-state,.glyph,.kind-mark')):null,grip:el.querySelector('.sortable-handle svg') ? box(el.querySelector('.sortable-handle svg')):null,connectors:[...el.querySelectorAll('.tree-pass,.tree-stem,.tree-branch')].map(box),selected:el.dataset.selected,hover:el.matches(':hover'),focus:el.matches(':focus-within'),actions:[...el.querySelectorAll('.row-icons,.row-controls')].map(a=>({opacity:getComputedStyle(a).opacity,buttons:[...a.querySelectorAll('button')].map(b=>b.getAttribute('aria-label'))}))})),
-            focus:document.activeElement?.getAttribute('aria-label'), selected:[...document.querySelectorAll('.rail-row[data-selected=true]')].map(el=>el.dataset.id),calls:window.__fake.app.calls,questions:window.__fake.app.questions,alerts:[...document.querySelectorAll('[role=alert]')].map(el=>el.textContent),
+            focus:document.activeElement?.getAttribute('aria-label'), selected:[...document.querySelectorAll('.rail-row[data-selected]')].map(el=>el.dataset.id),calls:window.__fake.app.calls,questions:window.__fake.app.questions,alerts:[...document.querySelectorAll('[role=alert]')].map(el=>el.textContent),
             clauses:{1:'critic: compare row marks and connector paint with each head icon',2:'critic: compare rendered grip and chevron centres',3:'critic: compare section gaps with adjacent row gaps and paired heights',4:'compare baseline Checks; failure and keyboard evidence',5:'critic: action opacity, hover/focus/selection and keyboard calls in state captures'} };
         })()`);
 
@@ -139,16 +139,16 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
               await read("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.', 'rail.createWorkstream')");
               await browser("click", ".rail-actions button");
 
-              await wait("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
-              await browser("click", '.rail-create-menu [data-value="workstream"]');
+              await wait("!!document.querySelector('.rail-create-menu [id$=-item-workstream]')");
+              await browser("click", '.rail-create-menu [id$="-item-workstream"]');
 
               await wait("[...document.querySelectorAll('[role=alert]')].some(el=>el.textContent.includes('Workstream could not be created'))");
               await snap(`${prefix}-failure`);
               const before = await read("window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length");
               await browser("click", ".rail-actions button");
 
-              await wait("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
-              await browser("click", '.rail-create-menu [data-value="workstream"]');
+              await wait("!!document.querySelector('.rail-create-menu [id$=-item-workstream]')");
+              await browser("click", '.rail-create-menu [id$="-item-workstream"]');
 
               await wait(`window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length>${before}`);
               await snap(`${prefix}-recovered`);
@@ -234,7 +234,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 for (let index=0; index<buttons; index++) {
                   await browser("press", "Tab");
                   await wait(`document.activeElement !== document.querySelector(${JSON.stringify(row)})`);
-                  const action=await read(`({label:document.activeElement.getAttribute('aria-label'),row:document.activeElement.closest('.rail-row')?.dataset.id,selected:[...document.querySelectorAll('.rail-row[data-selected=true]')].map(el=>el.dataset.id)})`);
+                  const action=await read(`({label:document.activeElement.getAttribute('aria-label'),row:document.activeElement.closest('.rail-row')?.dataset.id,selected:[...document.querySelectorAll('.rail-row[data-selected]')].map(el=>el.dataset.id)})`);
 
                   if (action.row!==id) break;
 

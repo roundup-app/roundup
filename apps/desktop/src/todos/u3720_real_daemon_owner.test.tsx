@@ -33,7 +33,7 @@ while time.monotonic()<end:
  time.sleep(.1)
 `;
 
-// Ark's Editable keeps the title field mounted and hides it by visibility outside an edit.
+// The Editable keeps the title field mounted and hides it by visibility outside an edit.
 const titleEditing = "!!document.querySelector('.todo-detail-title textarea[aria-label=Title]')?.checkVisibility({visibilityProperty:true})";
 
 // U3311 names a real Daemon and pointer/clock observer; the fake vendor never supplies App or Todo success facts.
@@ -119,7 +119,7 @@ it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_dae
     await lane.until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
     await lane.until(`!!document.querySelector('${group("unassigned")}')`);
-    await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');if(g.dataset.state==='closed')g.querySelector('[data-part=branch-control]').click();return true;})()`);
+    await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');const control=g.querySelector('.shelf-group-control');if(control.getAttribute('aria-expanded')==='false')control.click();return true;})()`);
     await lane.evaluate(`(() => { window.__assignCalls = []; const fetch = window.fetch.bind(window); window.fetch = (url, options) => { if (String(url).endsWith('/__daemon/rpc')) { const call = JSON.parse(options.body); if (call.method === 'todo.assign') window.__assignCalls.push(call); if (call.method === window.__failure?.method) { const failure = window.__failure; window.__failure = null; return Promise.resolve(new Response(JSON.stringify({error:{code:-32003,message:failure.message}}), {headers:{'Content-Type':'application/json'}})); } } return fetch(url, options); }; return true; })()`);
     await lane.browser("click", ".shelf-done-line button:first-child");
     await lane.until("document.querySelector('.todo-done-fold') !== null");
@@ -336,7 +336,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openTodo = async () => {
       await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
-      await lane.until(`(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click()); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
+      await lane.until(`(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group] .shelf-group-control[aria-expanded=false]').forEach(control => control.click()); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
       await lane.browser("focus", `[data-todo="${todo.id}"] .todo-row-button`);
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-comment-field')");
@@ -344,7 +344,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openPad = async () => {
       await lane.browser("click", "#shelf-tab-pads");
-      await lane.until("(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
+      await lane.until("(() => {document.querySelector('.shelf').querySelectorAll('[data-shelf-group] .shelf-group-control[aria-expanded=false]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
       await lane.browser("focus", ".pad-name");
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer .ProseMirror')");

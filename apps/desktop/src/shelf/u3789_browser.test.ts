@@ -17,7 +17,7 @@ const shot = async (id: string, stage: string, step: string): Promise<Checks> =>
     columns: Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row'))
       .filter(row => row.checkVisibility()).map(row => ({
         name: row.textContent,
-        mark: row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(),
+        mark: row.querySelector('[data-slot=tree-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(),
         title: row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(),
         age: row.querySelector('.item-age')?.getBoundingClientRect().toJSON(),
         figures: row.querySelector('.item-age') && getComputedStyle(row.querySelector('.item-age')).fontVariantNumeric,
@@ -116,7 +116,7 @@ it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activa
     await wait("document.querySelector('.pads-tab')");
   }
 
-  await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
+  await browser("eval", "document.querySelectorAll('.shelf-groups .shelf-group-control[aria-expanded=false]').forEach(button => button.click())");
   const selector = kind === "pad" ? '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .todo-open' : '.todos-tab [data-todo="1"] .todo-open';
   // Read the role/name before activating: a missing Pad action is the red case.
   expect(await read(`(() => { const button = document.querySelector('${selector}'); return button ? {role:button.tagName, name:button.getAttribute('aria-label')} : null; })()`)).toEqual({role:"BUTTON", name:kind === "pad" ? "Open a-pad-with-a-very-long-name-here" : "Open todo 1"});
@@ -190,7 +190,7 @@ it.skipIf(!captureDir("U4908") && !ageCaptures().length).each([true, false].flat
 
     if (kind === "pads") await browser("click", "#shelf-tab-pads");
     await wait(`document.querySelector('.${kind}-tab')`);
-    await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
+    await browser("eval", "document.querySelectorAll('.shelf-groups .shelf-group-control[aria-expanded=false]').forEach(button => button.click())");
     await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
     const row = kind === "todos" ? `.todos-tab [data-todo="${seed === "tree-40" ? 1 : 11}"] .todo-row-button` : `.pads-tab [data-pad="${"P".repeat(120)}"] .pad-name`;
     await browser("scrollintoview", row);

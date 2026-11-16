@@ -1,5 +1,5 @@
 import type { RailNode } from "@contracts/agent/RailNode";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show, type Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { OwnerGroup } from "../shelf/scope";
 import { ownersOnRail } from "../shelf/scope";
@@ -31,7 +31,7 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   const current = createMemo(() => connected.rail.nodes.find((node): node is Workstream => node.kind === "workstream" && node.id === props.home()));
   const [failure, setFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal(false);
-  createEffect(on(() => current()?.id, () => setFailure(null)));
+  createEffect(createMemo(() => current()?.id), () => { setFailure(null); });
   onCleanup(connected.events.subscribe(event => {
     if (event.name === "workstream.updated") {
       if (event.data.id === current()?.id) setFailure(null);

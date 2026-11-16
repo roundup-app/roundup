@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { door, event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
@@ -6,6 +7,7 @@ import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
 import { ask, input, mountAskBar as mountClosed, openAsk as reopen, press } from "./askFixture";
 import { copy } from "./copy";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -19,7 +21,10 @@ const mountAskBar = async (...args: Parameters<typeof mountClosed>) => {
   return mounted;
 };
 
-const type = (text: string) => fireEvent.input(input()!, { target: { value: text } });
+const type = (text: string) => {
+  fireEvent.input(input()!, { target: { value: text } });
+  flush();
+};
 
 const sent = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter((call) => call.method === "ask.send").map((call) => call.params);
 
@@ -216,12 +221,13 @@ it("u2773a_ask_restores_exact_work", async () => {
   const exact = "  e\u0301 🌿\nsecond line  ";
   type(exact);
   input()!.setSelectionRange(2, 6, "backward");
-  fireEvent.select(input()!);
+  fireEvent.select(input()!); flush();
   first.app.emit(event({ name: "ask.changed", data: { ask: ask("incoming", 1, [], "incoming work") } }));
   expect(input()!.value).toBe(exact);
   press("Escape", {}, input()!);
   first.connected.showView(null);
   first.connected.rail.select("ann");
+  flush();
   expect(input()).toBeNull();
   await reopen();
   expect(input()!.value).toBe(exact);
@@ -291,7 +297,7 @@ it("u2773b_ask_checks_unknown_acceptance_without_resending", async () => {
   fireEvent.click(check);
   await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.text)).toEqual(["new B"]));
   expect(input()!.value).toBe("new B");
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
   expect(sent(app)).toEqual([{ text: " exact A 🌿\n ", submission }]);
 });
 
@@ -381,14 +387,14 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   try {
     type(exact);
     expect(input()!.value).toBe(exact);
-    await screen.findByRole("alert");
+    await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     await screen.findByRole("button", { name: "Open" });
     expect(clipboard).not.toHaveBeenCalled();
     expect(input()!.value).toBe(exact);
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toHaveLength(0));
     expect(sent(mounted.app)).toEqual([]);
     const path = mounted.connected.project.path;
     mounted.unmount();
@@ -398,9 +404,11 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     press("Escape", {}, input()!);
     reopened.connected.showView(null);
     reopened.connected.rail.select("ann");
+    flush();
     expect(reopened.connected.drafts.recoverable().map(draft => draft.value.text)).toEqual([exact]);
     reopened.connected.showView(null);
     reopened.connected.rail.select(null);
+    flush();
     await reopen();
     expect(input()!.value).toBe(exact);
     expect(sent(reopened.app)).toEqual([]);
@@ -430,7 +438,7 @@ it("u2773b_ask_out_of_order_replies_keep_newest_work", async () => {
   acceptB(ask("accepted-b", 1, []));
   await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.text)).toEqual([" A 🌿\n ", " C newest\n "]));
   refuseA(new RpcError(-32003, "older refused"));
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   expect(input()!.value).toBe(" C newest\n ");
   expect(connected.drafts.list().map(draft => [draft.value.text, draft.status])).toEqual([[" A 🌿\n ", "failed"], [" C newest\n ", "draft"]]);
   expect(sent(app)).toHaveLength(2);
@@ -448,6 +456,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const b = connected.drafts.edit(destination, { text: "  newer B 🌱\n ", workstream: null, name: null }, { start: 3, end: 7, direction: "forward" }, "ordinary").draft;
   connected.showView(null);
   connected.rail.select("ann");
+  flush();
   const before = connected.drafts.list();
   const calls = [...app.calls];
 
@@ -471,12 +480,12 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_editing_selected_work_preser
   const { app, connected, setRecovery } = mounted;
 
   type("@ops A e\u0301 🌿\nexact  ");
-  input()!.setSelectionRange(2, 8, "backward"); fireEvent.select(input()!);
+  input()!.setSelectionRange(2, 8, "backward"); fireEvent.select(input()!); flush();
   const a = connected.drafts.list()[0]!;
   await connected.drafts.submit(a.revision); await connected.drafts.settle(a.revision, outcome);
   expect(a.value).toMatchObject({ workstream: "ops", name: "ops" });
   type("B current\n  ");
-  input()!.setSelectionRange(1, 4, "forward"); fireEvent.select(input()!);
+  input()!.setSelectionRange(1, 4, "forward"); fireEvent.select(input()!); flush();
   const b = connected.drafts.list().at(-1)!;
   // Equal names do not replace the captured Workstream identity.
   app.handlers["rail.tree"] = () => [workstream("ops", { name: "Renamed" }), workstream("replacement", { name: "ops" })];
@@ -487,7 +496,7 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_editing_selected_work_preser
   await waitFor(() => expect(document.activeElement).toBe(input()));
   expect(input()!.value).toBe("@ops A e\u0301 🌿\nexact  ");
   type("@ops A e\u0301 🌿\nedited  ");
-  input()!.setSelectionRange(3, 9, "backward"); fireEvent.select(input()!);
+  input()!.setSelectionRange(3, 9, "backward"); fireEvent.select(input()!); flush();
   const edited = connected.drafts.list().at(-1)!;
   expect(connected.drafts.list().find(draft => draft.revision === b.revision)).toEqual(b);
   expect(app.calls).toEqual(calls);
@@ -572,12 +581,14 @@ it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
   try {
     connected.showView(null);
     connected.rail.select("ann");
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     const copy = await screen.findByRole("button", { name: "Copy" });
 
     fireEvent.click(copy);
     expect(clipboard.mock.calls).toEqual([[exact]]);
     fireEvent.click(within(copy.closest("li")!).getByRole("button", { name: "Discard" }));
+    flush();
     expect(connected.drafts.list()).toEqual([b]);
     const path = connected.project.path;
     mounted.unmount();
@@ -605,7 +616,7 @@ it("u3021c_ask_ordinary_edits_preserve_recovered_work_after_older_settlement", a
   setRecovery({ project: connected.project.path, revision: a.revision });
   await waitFor(() => expect(document.activeElement).toBe(input()));
   type("A recovered edit");
-  input()!.setSelectionRange(2, 5, "backward"); fireEvent.select(input()!);
+  input()!.setSelectionRange(2, 5, "backward"); fireEvent.select(input()!); flush();
   const edited = connected.drafts.list().at(-1)!;
   press("Escape", {}, input()!);
   await reopen();
@@ -645,6 +656,7 @@ const published = (revision: number): Deliverable => ({
 it("u3299d_copy_uses_selected_item_publication", async () => {
   const { app, connected } = await mountClosed();
   connected.showView("made");
+  flush();
   const records = [published(7), published(9)];
   app.handlers["deliverable.list"] = () => records;
   app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/exact", sha256: "hash-9" });
@@ -663,6 +675,7 @@ it("u3299d_copy_uses_selected_item_publication", async () => {
 it("u3299d_named_rows_keep_recorded_targets_publication", async () => {
   const { app, connected } = await mountClosed();
   connected.showView("made");
+  flush();
   app.handlers["deliverable.list"] = () => [published(7), published(9)];
   app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "retained", path: `/retained/${id}`, sha256: "exact-hash" });
   app.emit(event({ name: "deliverable.changed" }));
@@ -671,6 +684,7 @@ it("u3299d_named_rows_keep_recorded_targets_publication", async () => {
 
   for (const row of rows) {
     fireEvent.click(within(row).getByRole("button"));
+    flush();
     await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   }
 

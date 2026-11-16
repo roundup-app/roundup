@@ -32,7 +32,7 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
   for (const kind of ["pad", "todo"]) {
     await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
 
-    if (kind === "todo") await evaluate(`(() => { const group = document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+    if (kind === "todo") await evaluate(`(() => { const group = document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control'); if (group?.getAttribute('aria-expanded') === 'false') group.click(); return true; })()`);
     const row = kind === "pad" ? ".shelf .pad-name" : ".shelf .todo-row-button";
     await browser("wait", row);
     await browser("batch", "--bail", `focus '${row}'`, "press Enter", `wait '${kind === "pad" ? ".drawer .ProseMirror" : ".drawer .todo-detail-title"}'`);
@@ -96,13 +96,13 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
 
   // CI5527b: one CLI connection for the two folds, so the first key's focus and start reading follow without a spawn each.
   await run(
-    quote("document.querySelectorAll('.rail [data-part=branch-control][data-depth=\"1\"][data-state=open]').forEach(el => el.click())"),
-    quote("document.querySelectorAll('.shelf [data-part=branch-control][data-state=open]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }")
+    quote("document.querySelectorAll('.rail .section-head[aria-expanded=true]').forEach(el => el.click())"),
+    quote("document.querySelectorAll('.shelf .shelf-group-control[aria-expanded=true]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }")
   );
 
   // Milkdown owns Tab inside its editor. Opposite sweeps meet there without editing the Pad.
   for (const key of covered ? ["Tab", "Shift+Tab"] : ["Tab"]) {
-    await run(`focus '${covered ? ".rail [data-part=branch-control]" : ".rail-actions button:last-child"}'`, quote("window.__cycle.start = document.activeElement"));
+    await run(`focus '${covered ? ".rail .section-head" : ".rail-actions button:last-child"}'`, quote("window.__cycle.start = document.activeElement"));
     let complete = false;
 
     for (let step = 0; step < 160; step++) {
@@ -206,8 +206,8 @@ it.concurrent.each(cases)(
       await lane.until("!!document.querySelector('.project-tab[data-path=\"/original-failure\"] [aria-selected=true]') && !!document.querySelector('.rail-actions')");
       await lane.evaluate("window.__fake.app.of('/original-failure').handlers['workstream.create'] = () => { throw new Error('original Project refused. Retry after freeing space.'); }");
       await lane.browser("click", ".rail-actions button:first-child");
-      await lane.until("!!document.querySelector('.rail-create-menu [data-value=workstream]')");
-      await lane.browser("click", '.rail-create-menu [data-value="workstream"]');
+      await lane.until("!!document.querySelector('.rail-create-menu [id$=-item-workstream]')");
+      await lane.browser("click", '.rail-create-menu [id$="-item-workstream"]');
       await lane.until("!!document.querySelector('.rail-command-notice button')");
       await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] [role=tab]');
       target = ".centre-failures > .reserved-line button:last-child";
@@ -226,7 +226,7 @@ it.concurrent.each(cases)(
 
     for (const shelf of [true, false]) {
       await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()`);
-      await lane.evaluate("document.querySelectorAll('.shelf [data-part=branch-control][data-state=closed]').forEach(el => el.click())");
+      await lane.evaluate("document.querySelectorAll('.shelf .shelf-group-control[aria-expanded=false]').forEach(el => el.click())");
       const row = kind === "pad" ? ".shelf .pad-name" : ".shelf .todo-row-button";
       await lane.browser("wait", row);
       await shot(`${shelf}-before`);

@@ -1,10 +1,11 @@
-import { createDeferred, createEffect, createMemo, createSignal, on, type Accessor } from "solid-js";
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
+import { debounce } from "@solid-primitives/scheduled";
+import { createEffect, createMemo, createSignal, flush, untrack, type Accessor } from "solid-js";
+import type { TreeItemData } from "@ui-sdk/solid/tree";
 import type { RailNode as ProjectNode } from "@contracts/agent/RailNode";
 import { KIND_ICON } from "../ink/kindIcon";
 import type { ConnectedProject } from "../state/connectedProject";
 import { easingOut, reorderMs, translateOf } from "../ui/reorderMotion";
-import { railCollection } from "./collection";
+import { branchesOf, railItems } from "./collection";
 import { copy } from "./copy";
 import { foldIdOf, layoutRail, type NodeRow, type RailRow } from "./layout";
 import { isWorkstream } from "../state/railTopology";
@@ -35,10 +36,6 @@ const sameRow = (a: RailRow, b: RailRow): boolean => {
   return a.kind === "fold" && b.kind === "fold" && a.depth === b.depth && a.parent === b.parent && a.group === b.group && a.status === b.status && a.count === b.count && a.open === b.open && sameList(a.trail, b.trail);
 };
 
-type RailNode = { id: string; name: string; childrenCount?: number; children?: RailNode[] };
-
-type Entry = { node: RailNode; indexPath: number[]; branch: boolean };
-
 /** The animations on a row that run its translate. */
 const cancelTranslates = (row: HTMLElement) => {
   for (const animation of row.getAnimations()) {
@@ -55,7 +52,7 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
   const slides = new WeakMap<HTMLElement, Animation>();
   const rows = () => [...container()?.querySelectorAll<HTMLElement>(".rail-row[data-id]") ?? []];
 
-  createEffect(on(lifted, () => queueMicrotask(() => {
+  createEffect(lifted, () => { queueMicrotask(() => {
     const before = drawn;
     const reduced = matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
@@ -79,13 +76,13 @@ const createLiftMotion = (container: Accessor<HTMLElement | undefined>, lifted: 
       // A row the sortable shifted slides itself from that shift; a second translate here would double it.
       else if (!row.style.translate && Math.abs(was - tops[at]!) >= 1) slides.set(row, row.animate({ translate: [`0 ${was - tops[at]!}px`, "0 0"] }, options));
     });
-  }), { defer: true }));
+  }); }, { defer: true });
 
   // A row inside a collapsed group is inert and not drawn: it returns by fading in, never by sliding from where the hidden group left it.
   return (keyboard: boolean) => { keyed = keyboard; drawn = new Map(rows().filter(row => !row.closest("[inert], [hidden]")).map(row => [row.dataset.id!, row.getBoundingClientRect().top])); };
 };
 
-export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, rowElement: (id: string) => HTMLElement | undefined, container: Accessor<HTMLElement | undefined> = () => undefined) => {
+export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<ReadonlySet<string | null>>, container: Accessor<HTMLElement | undefined> = () => undefined) => {
   const { rail, now } = connected;
   /** U6550a: the row a drag holds; its children fold under it until the drop is shown. */
   const [lifted, setLifted] = createSignal<string | null>(null);
@@ -110,21 +107,30 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     const before = new Map(previous?.map(row => [row.key, row]));
 
     return sectionRows().flatMap(section => section.rows).map(row => stable(before, row));
-  }, []);
+  });
 
   const signatures = new WeakMap<object, string>();
   const shown = new WeakMap<object, ReadonlySet<string>>();
-  const lagging = createDeferred(topology);
+
+  // Solid 2's `createDeferred` lags only an async answer; a sync source it serves at once, so the task's wait is a debounce.
+  const [lagging, setLagging] = createSignal(untrack(topology));
+  const catchUp = debounce((next: ReturnType<typeof topology>) => setLagging(next), 0);
+
+  createEffect(topology, next => { catchUp(next); });
+
   const [keyed, setKeyed] = createSignal<object | null>(null);
 
-  /** Builds the collection now when a redraw put it off, so a key pressed before that task walks the rows as they show. */
-  const settleCollection = () => { setKeyed(topology()); };
+  /** Builds the items now when a redraw put it off, so a key pressed before that task walks the rows as they show. */
+  const settleItems = () => {
+    setKeyed(topology());
+    flush();
+  };
 
   /** The values of the sections and rows the Rail shows now. */
   const showing = (): ReadonlySet<string> => new Set([...presentSections().map(section => `section:${section.id}`), ...rows().map(row => row.kind === "node" ? row.node.id : row.key)]);
 
   /** A redraw that shows the very rows `previous` was last drawn with, in any order, puts its rebuild off a task, unless a key press asked for it first. */
-  const putOff = <T extends object>(previous: T | undefined, live: ReadonlySet<string>): previous is T => {
+  const putOff = (previous: TreeItemData[] | undefined, live: ReadonlySet<string>): previous is TreeItemData[] => {
     const drawn = previous && shown.get(previous);
 
     if (!drawn || lagging() === topology() || keyed() === topology()) return false;
@@ -133,11 +139,12 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
   };
 
   /**
-   * Section branches share Ark's keyboard walk and add one semantic level above their rows.
-   * A move shows the same rows in a new order, so the collection is rebuilt a task after the redraw: Ark's item props for every row are the larger part of that redraw.
-   * A redraw that shows a row more or a row fewer, as an add, a removal or a fold that opens or closes does, is built at once, and so is the tree a key press finds (`settleCollection`).
+   * Section items share the tree's keyboard walk and add one semantic level above their rows.
+   * U3800g: a move shows the same rows in a new order, so the items are rebuilt a task after the redraw: the tree's shape for every row is the larger part of that redraw.
+   * A redraw that shows a row more or a row fewer, as an add, a removal or a fold that opens or closes does, is built at once, and so is the tree a key press finds (`settleItems`).
+   * A move that leaves the tree's signature as it was keeps the items, so the tree does not recompute its shape.
    */
-  const collection = createMemo<ReturnType<typeof createTreeCollection<RailNode>>>(previous => {
+  const items = createMemo<TreeItemData[]>(previous => {
     const live = showing();
 
     if (putOff(previous, live)) return previous;
@@ -148,16 +155,15 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     const parent = chosen?.parent == null ? undefined : topology().nodes[topology().index.get(chosen.parent) ?? -1];
     const foldId = chosen && parent ? foldIdOf(chosen, parent.id, { collapsed: collapsed(), unfolded: unfolded(), now: now() }) : null;
 
-    // U6238a: a closed fold lifts the selected Agent, so the collection holds it beside its siblings, as the rows do.
+    // U6238a: a closed fold lifts the selected Agent, so the items hold it beside its siblings, as the rows do.
     if (foldId !== null && !unfolded().has(foldId)) allUnfolded.delete(foldId);
 
-    const children = presentSections().map(section => ({
-      id: `section:${section.id}`, name: section.label,
-      children: railCollection(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now(), selected }, section.id)).rootNode.children ?? [],
+    const next = presentSections().map(section => ({
+      value: `section:${section.id}`, label: section.label,
+      children: railItems(layoutRail(topology(), { collapsed: new Set(), unfolded: allUnfolded, now: now(), selected }, section.id)),
     }));
 
-    // U3800g: a move that leaves the tree's signature as it was keeps the collection, so Ark does not recompute every row's item props.
-    const signature = JSON.stringify(children);
+    const signature = JSON.stringify(next);
 
     if (previous && signatures.get(previous) === signature) {
       shown.set(previous, live);
@@ -165,57 +171,19 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
       return previous;
     }
 
-    const next = createTreeCollection<RailNode>({
-      nodeToValue: node => node.id, nodeToString: node => node.name,
-      isNodeDisabled: node => Boolean(rowElement(node.id)?.closest("[hidden], [inert], [aria-disabled=true]")),
-      rootNode: { id: "", name: "", children },
-    });
-
     signatures.set(next, signature);
     shown.set(next, live);
 
     return next;
   });
 
-  const expanded = createMemo<string[]>(() => collection().getBranchValues().filter(id => {
+  const branches = createMemo<ReadonlySet<string>>(() => new Set(branchesOf(items())));
+
+  const expanded = createMemo<string[]>(() => branchesOf(items()).filter(id => {
     const section = sections.find(section => `section:${section.id}` === id);
 
     return section ? !rail.closedSections().has(section.id) : id.startsWith("fold:") ? unfolded().has(id.slice(5)) : !collapsed().has(id);
-  }), [], { equals: sameList });
-
-  /** One walk of the collection gives every node its index path; a move then costs O(rows), not a `getIndexPath` scan per row. */
-  const entries = createMemo<Map<string, Entry>>((previous) => {
-    const next = new Map<string, Entry>();
-
-    const walk = (node: RailNode, indexPath: number[]) => {
-      node.children?.forEach((child, at) => {
-        const path = [...indexPath, at];
-        const kept = previous?.get(child.id);
-
-        const same = kept && kept.indexPath.join() === path.join() && kept.node.name === child.name && kept.node.childrenCount === child.childrenCount
-          && (kept.node.children?.map(each => each.id).join() ?? "") === (child.children?.map(each => each.id).join() ?? "");
-
-        // SAFETY: `child` comes from this collection's own rootNode, so isBranchNode reads a node it holds.
-        // An unmoved row keeps its entry object, so its provider props do not change.
-        next.set(child.id, same ? kept : { node: child, indexPath: path, branch: collection().isBranchNode(child as never) });
-        walk(child, path);
-      });
-    };
-
-    // SAFETY: rootNode's children are the nodes `RailNode` names (id, name, optional childrenCount and children).
-    walk(collection().rootNode as RailNode, []);
-
-    return next;
-  });
-
-  /** The tree node, index path and branch-ness Ark's providers need for the row `id`; stable while that row is unchanged. */
-  const entryOf = (id: string) => {
-    const entry = entries().get(id);
-
-    if (!entry) throw new Error(`no node for row ${id}`);
-
-    return entry;
-  };
+  }), { equals: sameList });
 
   const nodeRows = createMemo(() => rows().filter((row): row is NodeRow => row.kind === "node"));
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
@@ -239,5 +207,5 @@ export const createRailTree = (connected: ConnectedProject, unfolded: Accessor<R
     onLift: (id: string | null, keyboard = false) => { keepDrawn(keyboard); setLifted(id); },
   };
 
-  return { topology, sectionRows, rows, collection, settleCollection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };
+  return { topology, sectionRows, rows, items, settleItems, branches, expanded, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules };
 };

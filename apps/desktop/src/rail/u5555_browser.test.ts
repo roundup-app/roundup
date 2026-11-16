@@ -60,13 +60,13 @@ it.each(cases)("u5217_rendered_menu_matches_chord $seed $kind", async ({ seed, k
 
     if (menu) {
       await run(`click ${quote('[aria-label="Create"]')}`, wait("!!document.querySelector('[role=menu]')"));
-      expect(await lane.evaluate("[...document.querySelectorAll('[role=menuitem]')].map(item => [item.dataset.value, item.getAttribute('aria-keyshortcuts'), item.querySelector('kbd').textContent])")).toEqual([
+      expect(await lane.evaluate("[...document.querySelectorAll('[role=menuitem]')].map(item => [item.id.replace(/^.*-item-/, ''), item.getAttribute('aria-keyshortcuts'), item.querySelector('kbd').textContent])")).toEqual([
         ["agent", "Meta+N", "⌘N"], ["workstream", "Alt+Meta+N", "⌥⌘N"], ["mode", "Shift+Meta+M", "⇧⌘M"],
       ]);
       expect((await lane.calls()).filter(call => ["agent.spawn", "rail.createWorkstream"].includes(call.method))).toEqual([]);
 
       if (kind === "agent") await lane.capture("U5217", `${seed}-menu`);
-      await run(`click ${quote(`[role=menuitem][data-value=${kind}]`)}`, wait(settled), wait("!document.querySelector('[role=menu]')"));
+      await run(`click ${quote(`[role=menuitem][id$=-item-${kind}]`)}`, wait(settled), wait("!document.querySelector('[role=menu]')"));
     } else await run(`press ${chord}`, wait(settled), wait("!document.querySelector('[role=menu]')"));
     outcomes.push(await lane.evaluate("({ calls: window.__fake.app.calls.filter(call => ['agent.spawn','rail.createWorkstream'].includes(call.method)).map(call => ({method:call.method,params:call.params})), selection: document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id'), dialog: !!document.querySelector('[role=dialog]'), focus: document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.getAttribute('data-id') })"));
   }
@@ -76,7 +76,7 @@ it.each(cases)("u5217_rendered_menu_matches_chord $seed $kind", async ({ seed, k
 
 it.each(cases)("u5555_rendered_keyboard_chooses $seed $kind", async ({ seed, kind, index }) => {
   await fresh(seed);
-  const highlighted = (value: string) => wait(`document.querySelector('[role=menuitem][data-highlighted]')?.dataset.value === '${value}'`);
+  const highlighted = (value: string) => wait(`document.querySelector('[role=menuitem][data-highlighted]')?.id.endsWith('-item-${value}')`);
 
   await run(`focus ${quote('[aria-label="Create"]')}`, "press Shift+Tab", "press Tab");
   expect(await lane.focused()).toBe("Create");
@@ -93,7 +93,7 @@ it.each(["pointer", "Enter", "Space"])("u5629_rendered_failed_start_recovery_%s"
   await fresh("tree-40");
   // Failed-start recovery begins at a Workstream without requesting descendants.
   await lane.evaluate("window.__fake.setStatus('migrate', 'idle', 'idle'); true");
-  await run(`click ${quote('[data-id="backend"][data-part="branch-control"]')}`, wait("!!document.querySelector('[role=treeitem][data-id=backend][aria-selected=true]')"));
+  await run(`click ${quote('[data-id="backend"]')}`, wait("!!document.querySelector('[role=treeitem][data-id=backend][aria-selected=true]')"));
   await lane.evaluate("(() => { const app = window.__fake.app; const spawn = app.handlers['agent.spawn']; app.handlers['agent.spawn'] = params => { app.handlers['agent.spawn'] = spawn; throw window.__fake.refusal(-32003, 'Spawn refused. Check setup and retry.'); }; return true; })()");
   await run("press Meta+n", wait(noticeReady));
   const original = await lane.calls("agent.spawn");
@@ -129,7 +129,7 @@ it.each(["pointer", "Enter", "Space"])("u5629_rendered_failed_start_recovery_%s"
   await capture("retry");
   await fresh("tree-40");
   await lane.evaluate("window.__fake.setStatus('migrate', 'idle', 'idle'); true");
-  await run(`click ${quote('[data-id="backend"][data-part="branch-control"]')}`, wait("!!document.querySelector('[role=treeitem][data-id=backend][aria-selected=true]')"));
+  await run(`click ${quote('[data-id="backend"]')}`, wait("!!document.querySelector('[role=treeitem][data-id=backend][aria-selected=true]')"));
   await lane.evaluate("(() => { const app = window.__fake.app; const spawn = app.handlers['agent.spawn']; app.handlers['agent.spawn'] = params => { app.handlers['agent.spawn'] = spawn; throw window.__fake.refusal(-32003, 'Spawn refused. Check setup and retry.'); }; return true; })()");
   await run("press Meta+n", wait(noticeReady), `click ${quote('[aria-label="Create"]')}`, wait(menuFocused), "press Escape", wait(menuClosed), `click ${quote(".rail-command-notice .reserved-actions button:last-child")}`, wait("!document.querySelector('.rail-command-notice [role=alert]')"));
   expect(await lane.calls("agent.spawn")).toHaveLength(1);

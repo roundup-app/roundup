@@ -1,5 +1,5 @@
-import { batch } from "solid-js";
 import { chooseFooter } from "../rail/railFixture";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
@@ -7,14 +7,16 @@ import { openProjectPage } from "../testing/menuProbe";
 import { openSwitcher } from "../switcher/switcherFixture";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { agent, door, info } from "../testing/nodes";
+import { notices } from "../testing/notices";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 // U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_bar_plus_opens_once_and_focuses: $source $selection", async ({ source, selection }) => {
   const { daemon, connected, shells, emulators } = await mountNavigation(selection === "empty", 0, 2);
 
   if (selection !== "empty") connected().rail.select(selection);
+  flush();
 
   const owner = selection === "empty" ? null : "home";
   daemon.handlers["terminal.open"] = () => { shells.push(info("shell", { owner: owner ?? "/p" }));
@@ -39,6 +41,7 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   const initial = screen.getByLabelText("Terminals", { selector: '[role="group"]' });
   expect(within(initial).getAllByRole("button")).toEqual([within(initial).getByRole("button", { name: "New Terminal" })]);
   fireEvent.keyDown(document, { key: "Tab" });
+  flush();
   within(initial).getByRole("button", { name: "New Terminal" }).focus();
   expect(await screen.findByRole("tooltip")).toBeDefined();
   expect(daemon.calls.filter(call => ["terminal.open", "agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toHaveLength(0);
@@ -46,8 +49,10 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   await connected().rail.refresh({ terminals: true });
   const bar = await screen.findByLabelText("Terminals", { selector: '[role="group"]' });
   fireEvent.click(document.querySelector('.terminal-tab[data-bubble="shell"]')!);
+  flush();
   await waitFor(() => expect(emulators.made.has("shell")).toBe(true));
   fireEvent.click(document.querySelector('.terminal-tab[data-bubble="shell"]')!);
+  flush();
   expect(document.querySelector('.terminal-tabs[role="group"]')).toBe(bar);
   shells[0] = info("shell", { owner: "/p", running: false, exit_code: 0 });
   await connected().rail.refresh({ terminals: true });
@@ -65,12 +70,15 @@ it("u4274c_terminal_bar_follows_eligible_terminals_on_selection", async () => {
   nodes.push({ ...nodes[0]!, id: "other", name: "Other", order: 20 });
   await connected().rail.refresh({ terminals: true });
   connected().rail.select("a1");
+  flush();
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull());
   const bar = document.querySelector(".terminal-tabs");
   connected().rail.select("other");
+  flush();
   expect(document.querySelectorAll(".terminal-tab")).toHaveLength(0);
   expect(document.querySelector(".terminal-tabs")).toBe(bar);
   connected().rail.select("a1");
+  flush();
   expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull();
   expect(daemon.calls.filter(call => call.method === "terminal.close")).toHaveLength(0);
 });
@@ -81,7 +89,8 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
 
   const action = document.querySelector<HTMLButtonElement>(".terminal-new")!;
   fireEvent.click(action);
-  await screen.findByRole("alert");
+  flush();
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   await waitFor(() => expect(document.activeElement).toBe(action));
   daemon.handlers["terminal.open"] = () => {
     shells.push(info("shell", { owner: "/p" }));
@@ -90,9 +99,10 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
   };
 
   fireEvent.click(action);
+  flush();
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: null, cols: 100, rows: 30 }, { workstream: null, cols: 100, rows: 30 }]);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toHaveLength(0);
 });
 
 it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
@@ -103,9 +113,10 @@ it("u4313a_closing_the_last_terminal_returns_focus_to_plus", async () => {
 
     return null; };
 
-  const close = document.querySelector<HTMLButtonElement>('.terminal-tab-pair[data-bubble="shell"] button:last-child')!;
+  const close = document.querySelector<HTMLButtonElement>('.terminal-tab-pair[data-bubble="shell"] button:last-of-type')!;
   close.focus();
   fireEvent.click(close);
+  flush();
   await answerQuestion(true);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".terminal-new")));
   expect(within(screen.getByLabelText("Terminals", { selector: '[role="group"]' })).getAllByRole("button")).toEqual([document.querySelector(".terminal-new")]);
@@ -116,6 +127,7 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
   const { daemon, connected, nodes } = await mountNavigation(selection === "empty", 0, 2);
 
   if (selection !== "empty") connected().rail.select(selection);
+  flush();
   const parent = null;
   daemon.handlers["agent.spawn"] = () => {
     const spawned = agent("fresh", "idle", "starting", { parent });
@@ -151,6 +163,7 @@ it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_
   }
 
   if (selection !== "empty") connected().rail.select(selection);
+  flush();
   const selected = connected().rail.selected();
   const owner = selection === "empty" || selection === "root-agent" ? null : "home";
   daemon.handlers["terminal.open"] = () => {
@@ -165,9 +178,11 @@ it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_
   const field = await screen.findByRole("combobox");
   await waitFor(() => expect(document.activeElement).toBe(field));
   fireEvent.input(field, { target: { value: "New Terminal" } });
+  flush();
   const option = await screen.findByRole("option", { name: /New Terminal/ });
   expect(option).toBeDefined();
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  flush();
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner, cols: 100, rows: 30 }]);
   expect(emulators.made.has("shell")).toBe(true);
@@ -177,8 +192,10 @@ it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_
   if (selection === "root-agent") {
     expect(document.querySelector('.terminal-tab[data-bubble="unrelated"]')).toBeNull();
     connected().rail.select(null);
+    flush();
     expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull();
     connected().rail.select(selected);
+    flush();
     expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).toBeNull();
   }
 });
@@ -191,9 +208,11 @@ it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(vie
     shells.push(info("shell", { owner: "home", title: "shell" }));
     await connected().rail.refresh({ terminals: true });
     connected().rail.select(view === "agent" ? "a1" : view === "door" ? "supervisor" : view === "ask" ? null : "home");
+    flush();
   }
 
   if (view === "inbox" || view === "resources") connected().showView(view);
+  flush();
   const bar = screen.getByLabelText("Terminals", { selector: '[role="group"]' });
   expect(within(bar).getByRole("button", { name: "New Terminal" }).hasAttribute("disabled")).toBe(false);
   expect(bar.querySelector('.terminal-tab[data-bubble="shell"]') !== null).toBe(populated && view !== "ask");
@@ -205,12 +224,16 @@ it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
   shells.push(info("saved", { owner: "home", title: "zsh" }));
   await connected().rail.refresh({ terminals: true });
   connected().rail.select("home");
+  flush();
   const tab = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="saved"]')!;
   fireEvent.dblClick(tab);
+  flush();
   const field = await screen.findByLabelText("Terminal name", { selector: "input" });
   const text = "  saved e\u0301 🫧  "; // taste-skill-ignore: Unicode draft preservation probe.
   fireEvent.input(field, { target: { value: text } });
+  flush();
   fireEvent.keyDown(field, { key: "Escape" });
+  flush();
   await waitFor(() => expect(document.activeElement?.getAttribute("data-bubble")).toBe("saved"));
   shells[0] = { ...shells[0]!, running: false, exit_code: 0 };
   await connected().rail.refresh({ terminals: true });
@@ -222,12 +245,14 @@ it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
   };
 
   fireEvent.click(screen.getByLabelText("New Terminal", { selector: "button" }));
+  flush();
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("new"));
   expect(connected().drafts.list()).toEqual(retained);
   const recovery = document.querySelector<HTMLButtonElement>(".terminal-recover")!;
   recovery.focus();
   expect(document.activeElement).toBe(recovery);
   fireEvent.click(recovery);
+  flush();
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(dialog.querySelector(".draft-value")?.textContent).toBe(text);
   expect(connected().drafts.list()).toEqual([expect.objectContaining({ destination: { surface: "bubbles", object: shells[0]!.incarnation, recipient: "saved" }, value: { name: text, base: "zsh" } })]);
@@ -250,7 +275,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       await page.browser("open", new URL("/harness.html?seed=agents-10", url).href);
       await page.until("!!window.__fake && !!document.querySelector('[data-id=agent-3]')");
       await page.browser("click", "[data-id=agent-3]");
-      await page.until("document.querySelector('[data-id=agent-3]').getAttribute('data-selected') === 'true'");
+      await page.until("document.querySelector('[data-id=agent-3]').hasAttribute('data-selected')");
       await page.browser("press", "Meta+k");
       await page.until("!!document.querySelector('.hint-line.leader')");
       await page.browser("press", "k");
@@ -264,7 +289,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       await page.evaluate("document.fonts.ready.then(() => true)");
       const output = join(captureDir("U4453c")!, side!);
       mkdirSync(output, { recursive: true });
-      const observed = await page.evaluate<{ checks: unknown }>("({checks:window.__checks(), selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, focused:document.activeElement?.closest('.bubble')?.dataset.bubble, shown:[...document.querySelectorAll('.bubble:not([hidden])')].map(b=>b.dataset.bubble), calls:window.__fake.app.calls.filter(c=>c.method==='terminal.open')})");
+      const observed = await page.evaluate<{ checks: unknown }>("({checks:window.__checks(), selected:document.querySelector('.rail-row[data-selected]')?.dataset.id, focused:document.activeElement?.closest('.bubble')?.dataset.bubble, shown:[...document.querySelectorAll('.bubble:not([hidden])')].map(b=>b.dataset.bubble), calls:window.__fake.app.calls.filter(c=>c.method==='terminal.open')})");
       writeFileSync(join(output, "root-agent.checks.json"), JSON.stringify(observed.checks, null, 2));
       writeFileSync(join(output, "root-agent.observation.json"), JSON.stringify({ ...observed, checks: undefined }, null, 2));
       await page.browser("screenshot", join(output, "root-agent.png"));
@@ -274,7 +299,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       await page.browser("open", new URL("/harness.html?seed=tree-40", url).href);
       await page.until("!!window.__fake && !!document.querySelector('[data-id=migrate]')");
       await page.browser("click", "[data-id=migrate]");
-      await page.until("document.querySelector('[data-id=migrate]').getAttribute('data-selected') === 'true'");
+      await page.until("document.querySelector('[data-id=migrate]').hasAttribute('data-selected')");
       await page.evaluate("window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Cannot open Terminal: the shell could not start. Check the shell configuration and retry New Terminal.'); }; true");
       await page.until("!!document.querySelector('.terminal-new')");
       await page.browser("click", ".terminal-new");

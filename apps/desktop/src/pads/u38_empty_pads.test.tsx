@@ -1,6 +1,7 @@
 import { DisplayClockContext } from "../state/clock";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { cleanup, render as renderWithoutClock, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
@@ -8,8 +9,9 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { Pads } from "./Pads";
 import { deferred, openShelf, padOf, AGENT } from "./padsFixture";
+import { notice, notices } from "../testing/notices";
 
-const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext.Provider value={() => () => 0}>{view()}</DisplayClockContext.Provider>);
+const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext value={() => () => 0}>{view()}</DisplayClockContext>);
 
 afterEach(cleanup);
 
@@ -29,10 +31,11 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Pads />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
+    flush();
 
     expect(screen.queryByRole("group", { name: /No Pads/ })).toBeNull();
 
@@ -70,9 +73,9 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Pads />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
 
     await waitFor(() => expect(replies.length).toBe(1));
@@ -108,9 +111,9 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Pads />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
 
     await waitFor(() => expect(replies.length).toBe(1));
@@ -156,23 +159,24 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Pads />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
 
-    const exhausted = await screen.findByRole("alert");
+    await waitFor(() => expect(notices("alert")).toHaveLength(1));
+    const exhausted = notice("alert");
 
     expect(calls).toBe(READ_ATTEMPTS);
 
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "auth-notes" } });
     await waitFor(() => expect(calls).toBe(READ_ATTEMPTS + 1));
 
-    expect(screen.getByRole("alert")).toBe(exhausted);
+    expect(notice("alert")).toBe(exhausted);
 
     retry.resolve([]);
 
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toHaveLength(0));
     expect(calls).toBe(READ_ATTEMPTS + 1);
   });
 
@@ -188,9 +192,9 @@ describe("u38 empty Pads", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Pads />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
 
     expect((await screen.findByText(/daemon says no/)).textContent).toBe("daemon says no");

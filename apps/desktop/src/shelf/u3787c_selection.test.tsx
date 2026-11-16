@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { RequestedApp } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { todoHandlers, padHandlers } from "../testing/stores";
@@ -20,7 +20,7 @@ const inventory = [
 const names = ["Alpha", "長い名前 é 🧭 ".repeat(10), "same", "same", "Éclair", "Zulu", "hidden", "disabled"];
 
 // Dispose the App together so each row registration cannot rebuild the native menu during teardown.
-afterEach(() => { batch(cleanup); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 const mount = async (entry: typeof inventory[number], titles = names) => {
   const app = createFakeApp();
@@ -34,13 +34,13 @@ const mount = async (entry: typeof inventory[number], titles = names) => {
   showShelfTab(entry.tab);
 
   const group = await waitFor(() => {
-    const row = document.querySelector<HTMLElement>(`${entry.tab === "Todos" ? ".todos-tab" : ".pads-tab"} [data-shelf-group="unassigned"] [data-part="branch-control"]`);
+    const row = document.querySelector<HTMLElement>(`${entry.tab === "Todos" ? ".todos-tab" : ".pads-tab"} [data-shelf-group="unassigned"] .shelf-group-control`);
     expect(row).not.toBeNull();
 
     return row!;
   });
 
-  if (group.closest('[data-shelf-group]')?.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
+  if (group.getAttribute("aria-expanded") === "false") fireEvent.click(group);
 
   const rows = await waitFor(() => {
     const rows = [...document.querySelectorAll<HTMLButtonElement>(`.shelf ${entry.selector}`)];
@@ -81,6 +81,7 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $tab", async entry =
   expect(document.activeElement).toBe(first);
   const match = rowFor(4);
   fireEvent.keyDown(first, { key: "É" });
+  flush();
   expect(document.activeElement).toBe(match);
   expect(match.getAttribute("aria-pressed")).toBe("true");
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
@@ -92,17 +93,23 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $tab", async entr
   const eligible = rows.filter(row => !row.hidden && !row.disabled);
   const selected = () => rows.filter(row => row.getAttribute("aria-pressed") === "true");
   fireEvent.click(eligible[2]!, { shiftKey: true });
+  flush();
   expect(selected()).toEqual([eligible[2]]);
   fireEvent.click(eligible[0]!, { metaKey: true });
+  flush();
   expect(selected()).toEqual([eligible[0], eligible[2]]);
   fireEvent.click(eligible[0]!, { metaKey: true });
+  flush();
   expect(selected()).toEqual([eligible[2]]);
   fireEvent.click(eligible[3]!, { metaKey: true, shiftKey: true });
+  flush();
   expect(selected()).toEqual(eligible.slice(0, 4));
   fireEvent.click(eligible[1]!, { shiftKey: true });
+  flush();
   expect(selected()).toEqual(eligible.slice(0, 2));
   eligible[0]!.focus();
   fireEvent.keyDown(eligible[0]!, { key: "a", metaKey: true });
+  flush();
   expect(selected()).toEqual(eligible);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);
@@ -114,6 +121,7 @@ it.each(inventory.flatMap(entry => ["d", "e", "m", "o", "t", "1"].map(prefix => 
   const { rows, app, before, rowFor } = await mount(entry, ["Alpha", `${prefix}example`, "same", "same", "Éclair", "Zulu", "hidden", "disabled"]);
   rows[0]!.focus();
   fireEvent.keyDown(rows[0]!, { key: prefix, code: /^\d$/.test(prefix) ? `Digit${prefix}` : `Key${prefix.toUpperCase()}` });
+  flush();
   const match = rowFor(1);
   expect(document.activeElement).toBe(match);
   expect(match.getAttribute("aria-pressed")).toBe("true");

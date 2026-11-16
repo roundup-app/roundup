@@ -4,6 +4,7 @@ import { info, node } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { pasteEvent } from "../testing/clipboard";
 import { mountPane } from "./paneHarness";
+import { notices } from "../testing/notices";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -18,14 +19,14 @@ it.each(["dismissal", "clipboard success keeps output failure"] as const)("p3557
 
   if (action === "dismissal") {
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(notices("alert")).toHaveLength(0));
     expect(app.calls.length).toBe(calls);
   }
 
   if (action === "clipboard success keeps output failure") {
     pasteEvent(container.querySelector("[data-terminal]")!, "ok");
     await waitFor(() => expect(app.calls.length).toBeGreaterThan(calls));
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(notices("alert")).toHaveLength(1);
   }
 });
 

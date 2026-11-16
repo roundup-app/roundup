@@ -1,5 +1,6 @@
 import { copy } from "./copy";
-import { Show, type JSX } from "solid-js";
+import { Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { ownKeys, type RowActions } from "./rows";
@@ -7,7 +8,7 @@ import { ownKeys, type RowActions } from "./rows";
 const RowIcon = (props: { name: "rotate-cw" | "stop" | "play" | "more"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
   <IconButton
     aria-label={props.label}
-    aria-disabled={props.disabled ? true : undefined}
+    aria-disabled={props.disabled ? "true" : undefined}
     {...ownKeys}
     onClick={(click) => {
       click.stopPropagation();

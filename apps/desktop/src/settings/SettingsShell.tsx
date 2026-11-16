@@ -1,5 +1,6 @@
 import { captureFocus } from "../keys/focus";
-import { For, onMount, Show, type JSX } from "solid-js";
+import { For, onSettled, Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import "./styles.css";
@@ -10,7 +11,7 @@ export const SettingsShell = (props: { heading: string; hideHeading?: boolean; o
 
   // Opening moves focus into the view, so Escape reaches its handler.
   const initialFocus = captureFocus();
-  onMount(() => initialFocus(() => view.focus()));
+  onSettled(() => { initialFocus(() => view.focus()); });
 
   return (
   <section ref={view} tabindex="-1" class="settings-view" aria-label={props.heading} onKeyDown={event => { if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) { event.preventDefault(); props.onClose(); } }}>

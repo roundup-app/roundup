@@ -1,4 +1,4 @@
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { seedApp } from "../testing/seeds";
 import { RequestedApp } from "../testing/requestedApp";
 import { showEverythingInApp } from "../testing/showEverything";
@@ -12,14 +12,19 @@ import { afterEach, expect, it } from "vitest";
 import { openTabs, tab } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
 import { HintLine } from "./HintLine";
-import { Leader } from "./Leader";
+import { createLeader } from "./Leader";
 import { mountTodos, todo } from "../todos/testHarness";
-import { ConnectedProjectContext } from "../state/connectedProject";
+import { ConnectedProjectContext, type ConnectedProject } from "../state/connectedProject";
 import { RpcError } from "../app/seam";
 import { leaderArmed, endLeader } from "./registry";
 
-// CI timed out in this hook: unbatched owner disposal recomputes mounted menus and hints per owner.
-afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { cleanup(); endLeader(); localStorage.clear(); sessionStorage.clear(); });
+
+const renderLeaderHints = (connected: ConnectedProject) => render(() => {
+  createLeader(connected);
+
+  return <ConnectedProjectContext value={connected}><HintLine /></ConnectedProjectContext>;
+});
 
 it.each(["key", "pointer", "button"] as const)("u4690_each_hint_runs_its_key_action_once: Ask %s", async source => {
   const { app } = await openTabs({ api: [agent("a1", "idle", "x")] });
@@ -44,7 +49,7 @@ it.each(["key", "pointer", "button"] as const)("u4690_each_hint_runs_its_key_act
 it.each([1, 9])("u4690d_each_number_assigns_its_key_target_once: %s", async number => {
   for (const source of ["key", "pointer"] as const) {
     const { app, connected } = await mountTodos([todo(1)], true, Array.from({ length: 9 }, (_, at) => agent(`a${at + 1}`, "idle", "x", { name: `Agent ${at + 1}`, order: at })));
-    render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
+    renderLeaderHints(connected);
     const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .row-head .todo-row-button')!;
     row.focus();
     await waitFor(() => expect(document.querySelector(`.hint-line [data-hint="Digit${number}"]`)).not.toBeNull());
@@ -53,13 +58,13 @@ it.each([1, 9])("u4690d_each_number_assigns_its_key_target_once: %s", async numb
     else fireEvent.click(document.querySelector(`.hint-line [data-hint="Digit${number}"]`)!);
     await waitFor(() => expect(app.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number}`, parent: null } }]));
     expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
-    batch(cleanup);
+    cleanup();
   }
 });
 
 it("u4690c_unavailable_or_stale_hints_run_nothing", async () => {
   const { app, connected } = await mountTodos([todo(1)], true, [agent("a1", "idle", "x")]);
-  render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
+  renderLeaderHints(connected);
   const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .row-head .todo-row-button')!;
   row.focus();
   await waitFor(() => expect(document.querySelector('.hint-line [data-hint="Digit1"]')).not.toBeNull());
@@ -67,13 +72,15 @@ it("u4690c_unavailable_or_stale_hints_run_nothing", async () => {
   fireEvent.pointerDown(stale);
   app.handlers["rail.tree"] = () => [];
   await connected.rail.refresh();
+  flush();
   fireEvent.click(stale);
+  flush();
   expect(app.calls.filter(call => call.method === "todo.assign" || call.method === "terminal.write")).toEqual([]);
 });
 
 it.each(["key", "pointer"] as const)("u4690c_rejected_hint_uses_key_failure_path: %s", async source => {
   const { app, connected, store } = await mountTodos([todo(1)], true, [agent("a1", "idle", "x")]);
-  render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
+  renderLeaderHints(connected);
   app.handlers["todo.assign"] = () => { throw new RpcError(-32003, "Assignment refused: retry after reconnecting"); };
 
   const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .row-head .todo-row-button')!;
@@ -97,11 +104,13 @@ it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wa
   if (source === "key") {
     fireEvent.keyDown(row, { key: "k", code: "KeyK", metaKey: true });
     fireEvent.keyDown(row, { key: "k", code: "KeyK", metaKey: true, repeat: true });
+    flush();
     expect(leaderArmed()).toBe(true);
     fireEvent.pointerDown(document.querySelector('.hint-line [data-hint="K"]')!);
     fireEvent.click(document.querySelector('.hint-line [data-hint="K"]')!);
   } else {
     fireEvent.click(document.querySelector('.hint-line [data-hint="⌘K"]')!);
+    flush();
     fireEvent.keyDown(row, { key: "k", code: "KeyK" });
   }
 
@@ -110,10 +119,13 @@ it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wa
 });
 
 // These cases use the production App owners and the existing fake Daemon seam.
-const press = (code: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement ?? document.body, {
-  key: code === "Slash" ? "/" : code.startsWith("Key") ? code.slice(3).toLowerCase() : code,
-  code, ...init,
-});
+const press = (code: string, init: KeyboardEventInit = {}) => {
+  fireEvent.keyDown(document.activeElement ?? document.body, {
+    key: code === "Slash" ? "/" : code.startsWith("Key") ? code.slice(3).toLowerCase() : code,
+    code, ...init,
+  });
+  flush();
+};
 
 const activate = async (keys: string, source: "key" | "pointer", leader = false) => {
   if (leader) {
@@ -129,6 +141,7 @@ const activate = async (keys: string, source: "key" | "pointer", leader = false)
     const button = document.querySelector<HTMLButtonElement>(selector)!;
     fireEvent.pointerDown(button);
     fireEvent.click(button);
+    flush();
   }
   else {
     const row = (leader ? [...LEADER_ROWS] : [...CHORD_ROWS]).find(row => row.keys === keys);
@@ -191,7 +204,7 @@ it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wa
 it.each([true, false].flatMap(accepted => (["key", "pointer"] as const).map(source => ({ accepted, source }))))(
   "u4690_each_hint_runs_its_key_action_once: Remove $source accepted=$accepted", async ({ accepted, source }) => {
     const { app, connected } = await mountSwitcher("ann");
-    render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
+    renderLeaderHints(connected);
     const row = document.querySelector<HTMLElement>('.rail-row[data-id="ann"]')!;
     row.focus();
     await activate("⇧⌘⌫", source);
@@ -206,7 +219,7 @@ it.each([true, false].flatMap(accepted => (["key", "pointer"] as const).map(sour
 it.each(["M", "W"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690_each_hint_runs_its_key_action_once: Bubble $keys $source", async ({ keys, source }) => {
     const { app, connected, emulators } = await mountSwitcher("ops");
-    render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
+    renderLeaderHints(connected);
     await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(false));
     emulators.made.get("7")!.focus();
     await activate(keys, source, true);
@@ -283,15 +296,17 @@ it.each(["modal", "project", "pending"])("u4690c_unavailable_or_stale_hints_run_
   const focus = document.activeElement;
   const calls = app.calls.length;
   fireEvent.click(stale);
+  flush();
   expect(document.activeElement).toBe(focus);
   expect(app.calls).toHaveLength(calls);
 });
 
 it.each(["owned", "done"])("u4690d_each_number_assigns_its_key_target_once: unavailable %s", async state => {
   const { app, connected } = await mountTodos([todo(1, state === "done" ? { done: true } : { owner: { kind: "agent", id: "a1", parent: null } })], true, [agent("a1", "idle", "idle")]);
-  render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
+  renderLeaderHints(connected);
 
-  for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-part="branch-control"]')) fireEvent.click(control);
+  for (const control of document.querySelectorAll<HTMLElement>('.shelf .shelf-group-control')) fireEvent.click(control);
+  flush();
 
   if (state === "done") fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
   const row = document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button')!;

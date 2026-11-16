@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { App } from "../App";
 import { copy } from "./copy";
@@ -56,36 +57,45 @@ it.each(inventory)("u3787c_each_list_navigates_visible_rows $opening", async ({ 
 
   for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", eligible.length - 1], ["ArrowDown", eligible.length - 1], ["ArrowUp", eligible.length - 2], ["ArrowDown", eligible.length - 1], ["a", command === "view:workstreams" ? 1 : 0], ["l", command === "view:workstreams" ? 1 : 0]] as const) {
     fireEvent.keyDown(document.activeElement!, { key });
+    flush();
     expect(document.activeElement).toBe(eligible[at]);
   }
 
   expect(selected(rows)).toEqual([eligible[command === "view:workstreams" ? 1 : 0]]);
   expect(app.calls.slice(before)).toEqual([]);
-  expect(document.querySelector(".todo-drawer, .rail-row[data-selected=true]")).toBeNull();
+  expect(document.querySelector(".todo-drawer, .rail-row[data-selected]")).toBeNull();
 });
 
 it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async ({ command, selector }) => {
   const { app, rows, eligible: r } = await mount(command, selector);
   const before = app.calls.length;
   fireEvent.click(r[1]!, { shiftKey: true });
+  flush();
   expect(selected(rows)).toEqual([r[1]]);
   fireEvent.click(r[4]!, { metaKey: true, shiftKey: true });
+  flush();
   expect(selected(rows)).toEqual([r[4]]);
   fireEvent.click(r[1]!, { metaKey: true });
+  flush();
   expect(selected(rows)).toEqual([r[1], r[4]]);
   fireEvent.click(r[3]!, { shiftKey: true });
+  flush();
   expect(selected(rows)).toEqual([r[1], r[2], r[3]]);
   fireEvent.click(r[2]!, { metaKey: true });
+  flush();
   expect(selected(rows)).toEqual([r[1], r[3]]);
   fireEvent.click(r[4]!, { metaKey: true, shiftKey: true });
+  flush();
   expect(selected(rows)).toEqual([r[2], r[3], r[4]]);
   fireEvent.keyDown(r[4]!, { key: "a", metaKey: true });
+  flush();
   expect(selected(rows)).toEqual(r);
   r[1]!.hidden = true;
   fireEvent.keyDown(r[4]!, { key: "a", metaKey: true });
+  flush();
   expect(selected(rows)).toEqual(r.filter((_, at) => at !== 1));
   expect(app.calls.slice(before)).toEqual([]);
-  expect(document.querySelector(".todo-drawer, .rail-row[data-selected=true]")).toBeNull();
+  expect(document.querySelector(".todo-drawer, .rail-row[data-selected]")).toBeNull();
   expect(app.openedTargets).toEqual([]);
 });
 
@@ -93,6 +103,7 @@ it.each(["Enter", " "])("u3787c_Made_activation_resolves_the_original_identity_%
   const { app, eligible } = await mount("view:made", ".made-open");
   eligible[2]!.focus();
   fireEvent.keyDown(eligible[2]!, { key });
+  flush();
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "url", url: "https://example.com/record-2" }]));
   expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "original-project", id: "record-2" }]);
 });
@@ -101,6 +112,7 @@ it.each(["Enter", " "])("u3787c_Made_activation_resolves_the_original_identity_%
 it.each(inventory.filter(entry => entry.command !== "view:made"))("u3787c_reopening_keeps_the_existing_list_lifetime $opening", async ({ command, selector }) => {
   const { app, rows } = await mount(command, selector);
   fireEvent.click(rows[1]!, { metaKey: true });
+  flush();
   expect(selected(rows)).toEqual([rows[1]]);
 
   if (command !== "view:made") openProjectPage("view:made", "/p");
@@ -109,6 +121,7 @@ it.each(inventory.filter(entry => entry.command !== "view:made"))("u3787c_reopen
   const close = screen.getByRole("button", { name: copy.closeView(copy.deliverables) });
   close.focus();
   fireEvent.click(close);
+  flush();
   await waitFor(() => expect(screen.queryByRole("region", { name: copy.deliverables })).toBeNull());
 
   if (command === "view:made") openProjectPage(command, "/p");

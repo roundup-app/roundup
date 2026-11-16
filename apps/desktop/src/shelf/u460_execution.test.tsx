@@ -1,13 +1,14 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 import { deferred, openShelf, padOf } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
+import { notices } from "../testing/notices";
 import { USER } from "../testing/nodes";
 import { stubDialogLayout, askToDelete, questionClosed } from "./bulkQuestionHarness";
 
-afterEach(() => batch(cleanup));
+afterEach(() => cleanup());
 
 stubDialogLayout();
 
@@ -59,7 +60,7 @@ it("u460_lost_response_refetches_before_retry", async () => {
   await askToDelete(2);
   await questionClosed();
   expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) (?:#1 |#2 )/ })).toBeNull();
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(notices("alert")).toEqual([]);
 });
 
 
@@ -160,6 +161,7 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   const focusedRow = screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
   focusedRow.focus();
   fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
+  flush();
   expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(false);
 });
 
@@ -218,10 +220,12 @@ for (const owner of ["todos", "pads"] as const) {
     app.handlers[remove] = () => { throw new RpcError(-32001, "denied"); };
 
     const draft = connected.drafts.edit({ surface: "todos", object: "3", recipient: "body" }, { text: "  unfinished é 🧭\n\nlast  ", base: "", expected_change: null, title: "todo 3", body: "", done: false, blockers: [] }, { start: 2, end: 9, direction: "forward" }, "ordinary").draft;
+    flush();
     const retained = connected.drafts.list();
     await screen.findByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #1 / : "first" });
     fireEvent.click(row("first"), { metaKey: true });
     fireEvent.click(row("second"), { metaKey: true });
+    flush();
     await askToDelete(2);
       await screen.findByText(message("first"));
     await screen.findByText(message("second"));

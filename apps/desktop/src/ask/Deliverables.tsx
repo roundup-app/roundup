@@ -1,5 +1,5 @@
-import { createComputed, createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
-import { createStore, reconcile } from "solid-js/store";
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { createEffect, createMemo, createProjection, createSignal, For, onCleanup, Show } from "solid-js";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
@@ -19,9 +19,8 @@ import { shelfScope } from "../shelf/scope";
 export const createDeliverables = () => {
   const { unseen } = useConnectedProject();
 
-  const [records, setRecords] = createStore<Deliverable[]>([]);
   // Matching publication ids retain their row and keyboard focus across RPC snapshots.
-  createComputed(() => setRecords(reconcile(unseen.publications.records(), { key: "id" })));
+  const records = createProjection<Deliverable[]>(() => unseen.publications.records(), []);
 
   return { ...unseen.publications, records: () => records };
 };
@@ -52,8 +51,7 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
   const fail = (id: string, cause: string) => setFailures(all => new Map(all).set(id, cause));
   const clear = (id: string) => setFailures(all => all.has(id) ? new Map([...all].filter(([each]) => each !== id)) : all);
   // P3557c: a failure leaves with its record; it never moves to another.
-  createEffect(() => {
-    const present = new Set(props.state.records().map(record => record.id));
+  createEffect(() => new Set(props.state.records().map(record => record.id)), present => {
     setFailures(all => [...all.keys()].every(id => present.has(id)) ? all : new Map([...all].filter(([id]) => present.has(id))));
   });
   let disposed = false;
@@ -91,6 +89,18 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
       if (record) void open(record);
     },
   });
+
+  const track = (id: string) => {
+    let current: HTMLElement | undefined;
+
+    onCleanup(() => { if (current && heads.get(id) === current) heads.delete(id); });
+
+    return (element: HTMLElement) => {
+      current = element;
+      heads.set(id, element);
+      content.register(element, id);
+    };
+  };
 
   const copied = createCopyLabels(() => records().map(record => record.id));
 
@@ -133,18 +143,18 @@ export const Deliverables = (props: { state: ReturnType<typeof createDeliverable
   const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
     : record.target.kind === "pad" ? copy.deliverableRevision() : copy.deliverableRetained;
 
-  return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
+  return <section ref={element => {
+    section = element;
+    makeEventListener(element, "click", content.click, true);
+    makeEventListener(element, "keydown", rowKey, true);
+  }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading() ? "true" : "false"}>
       <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
       <ReservedLine message={line.message()} status={props.state.loading() ? copy.deliverablesLoading : null} dismiss={line.dismiss} recover={{ run: () => props.state.reload() }} />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
-      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
+      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={String(content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id))}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
-            heads.set(record.id, element); content.register(element, record.id);
-            onCleanup(() => { if (heads.get(record.id) === element) heads.delete(record.id); });
-          }} data-row-selected={content.selection.isSelected(record.id)} aria-current={selected() === record.id ? "true" : undefined}
-          aria-label={copy.openDeliverable(record.title)} aria-describedby={`made-details-${record.id} made-time-${record.id}`} aria-disabled={pending() !== null}
-          onClick={() => { void open(record); }}>
+        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title)}>{trigger => <button {...trigger({ ref: track(record.id), onClick: () => { void open(record); } })} type="button" data-button="quiet" class="made-open" data-row-selected={String(content.selection.isSelected(record.id))} aria-current={selected() === record.id ? "true" : undefined}
+          aria-label={copy.openDeliverable(record.title)} aria-describedby={`made-details-${record.id} made-time-${record.id}`} aria-disabled={pending() !== null ? "true" : "false"}>
           <span class="made-content">
             <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>
             <span class="made-status" data-state={record.target.kind}>{status(record)}</span>

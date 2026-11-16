@@ -1,15 +1,14 @@
 import { animate as motionAnimate, animateLayout as motionLayout } from "motion";
-import { createRoot, createEffect } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createRoot, createEffect, type Accessor } from "solid-js";
 
-/** Every fold control in the App: Ark's tree branch and collapsible triggers, and the Rail's chevrons and section heads. */
-const folds = '[data-scope="tree-view"][data-part="branch-control"], [data-scope="tree-view"][data-part="branch-trigger"], [data-scope="collapsible"][data-part="trigger"], .rail-chevron, .rail-group-chevron, .section-head, [data-fold]';
+/** Every fold control in the App: the tree's branches and indicators, the collapsible triggers, and the Rail's chevrons and section heads. */
+const folds = '[data-slot="tree-item"][data-branch], [data-slot="tree-indicator"], [data-slot="collapsible-trigger"], [data-group-toggle], .rail-chevron, .rail-group-chevron, .section-head, [data-fold]';
 
 /** What slides when a fold changes the layout above it; nesting is handled by the projection tree. */
-const movers = '[role="treeitem"], [data-part="item"], [data-part="branch-control"], .rail-row, .todo-row';
+const movers = '[role="treeitem"], .rail-row, .todo-row';
 
 /** What arrives through opacity. */
-const bodies = '[data-scope="tree-view"][data-part="branch-content"], [data-scope="collapsible"][data-part="content"], .todo-group-content';
+const bodies = '[data-slot="tree-group"], [data-slot="collapsible-panel"], .shelf-group-body, .todo-group-body, .todo-group-content';
 
 const tag = "data-layout";
 
@@ -55,8 +54,7 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
     let ease: Ease = [0, 0, 0, 0];
     let running: Session | null = null;
 
-    createEffect(() => {
-      reduced();
+    createEffect(reduced, () => {
       const tokens = getComputedStyle(doc.documentElement);
 
       const read = (name: string) => {
@@ -112,7 +110,7 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
         if (aria === null) body.removeAttribute("aria-hidden");
         else body.setAttribute("aria-hidden", aria);
 
-        body.hidden = body.dataset.state !== "open";
+        body.hidden = !body.hasAttribute("data-open");
       }, seconds * 1000);
     };
 
@@ -127,7 +125,7 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
 
       if (reduced()) {
         void settled(scope).then(() => {
-          for (const body of scope.querySelectorAll<HTMLElement>(bodies)) if (body.dataset.state === "open") animate(body, { opacity: [0, 1] }, { duration: fade });
+          for (const body of scope.querySelectorAll<HTMLElement>(bodies)) if (body.hasAttribute("data-open")) animate(body, { opacity: [0, 1] }, { duration: fade });
         });
 
         return;
@@ -169,10 +167,11 @@ export function foldMotion(doc: Document, reduced: Accessor<boolean>, { animate,
         if (!retargeting) for (const body of scope.querySelectorAll<HTMLElement>(bodies)) if (!known.has(body)) animate(body, { opacity: [0, 1] }, { duration: seconds, ease });
 
         for (const { body, parent, next, rect } of before) {
-          if (body.isConnected && !body.hidden && body.dataset.state === "closed") {
-            // Ark hides a closed branch a frame after its state flips; show it again in the same tick.
-            const watch = new MutationObserver(() => { if (body.hidden) { watch.disconnect(); leave(body, parent, next, rect); } });
+          if (body.isConnected && !body.hidden && body.hasAttribute("data-closed")) {
+            // A closed body is hidden or unmounted a frame after its state flips; show it again in the same tick.
+            const watch = new MutationObserver(() => { if (body.hidden || !body.isConnected) { watch.disconnect(); leave(body, parent, next, rect); } });
             watch.observe(body, { attributes: true, attributeFilter: ["hidden"] });
+            watch.observe(parent, { childList: true });
             setTimeout(() => watch.disconnect(), 200);
           } else leave(body, parent, next, rect);
         }

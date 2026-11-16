@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 import { captureFocus } from "../keys/focus";
 import type { ConnectedProject } from "../state/connectedProject";
 import { ROW } from "./rows";
@@ -24,9 +24,7 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
 
   const pointerOutside = () => released ?? (pointerPressed && pointerAt !== null && outside(pointerAt));
 
-  createEffect(() => {
-    const tree = container();
-
+  createEffect(container, tree => {
     if (!tree) return;
 
     if (tree) {
@@ -73,13 +71,14 @@ export const createRailDrag = (rail: ConnectedProject["rail"], container: () => 
     window.addEventListener("pointerup", release, { capture: true });
     window.addEventListener("keydown", clear, { capture: true });
     tree.addEventListener("keydown", lift, { capture: true });
-    onCleanup(() => {
+
+    return () => {
       window.removeEventListener("pointerdown", press, { capture: true });
       window.removeEventListener("pointermove", follow, { capture: true });
       window.removeEventListener("pointerup", release, { capture: true });
       window.removeEventListener("keydown", clear, { capture: true });
       tree.removeEventListener("keydown", lift, { capture: true });
-    });
+    };
   });
 
   const placeDrop = (next: { depth: number } | null) => {

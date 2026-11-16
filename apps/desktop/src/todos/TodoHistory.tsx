@@ -1,11 +1,12 @@
 import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
-import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import type { Event } from "@contracts/Event";
 import type { Change } from "@contracts/todo/Change";
 
 import { useConnectedProject } from "../state/connectedProject";
+import { createReply } from "../state/read";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { createSavedFailure } from "./EditableText";
 
@@ -55,44 +56,42 @@ const changesHistory = (event: Event, id: number) =>
 /** History loads with the Drawer, but entries render and the read is sent only once the user opens the line. */
 export const createTodoHistory = (props: { id: number; saved?: (() => number) | undefined; onCapture?: ((change: Change | undefined) => void) | undefined; exposed: () => boolean }) => {
   const { app, events, drawer, rail, now } = useConnectedProject();
-  const content = drawer.content();
+  const content = untrack(drawer.content);
   const [copyFailure, failCopy] = createSavedFailure(() => props.saved?.() ?? 0);
-  const [history, { refetch }] = createResource(() => props.id, id => app.rpc("todo.getHistory", { id }));
-  const loaded = () => history.error || history.state === "pending" ? undefined : history.latest;
-  const firstSeq = createMemo<number | null>(previous => previous ?? loaded()?.changes.at(-1)?.seq ?? (loaded() ? 0 : null), null);
+  const history = createReply(() => props.id, id => app.rpc("todo.getHistory", { id }));
+  const loaded = () => history.error() ? undefined : history.reply();
+  const firstSeq = createMemo<number | null>(previous => previous ?? loaded()?.changes.at(-1)?.seq ?? (loaded() ? 0 : null));
 
   // The opened section reads the entries it showed on opening, once per Drawer: closing it again does not read twice.
-  const opened = createMemo(previous => previous || props.exposed() && drawer.content() === content, false);
+  const opened = createMemo<boolean>(previous => previous || props.exposed() && drawer.content() === content);
 
-  const [read, { refetch: reread }] = createResource(
+  const read = createReply(
     () => opened() && (firstSeq() ?? 0) > 0 && { id: props.id, through: firstSeq() ?? 0 },
     args => app.rpc("todo.readHistory", args),
   );
 
   const [dismissed, dismiss] = createSignal<unknown>(null);
-  const problem = () => history.error ?? read.error;
+  const problem = () => history.error() ?? read.error();
 
   const failure = () => {
-    const error: unknown = problem();
+    const error = problem();
 
-    return error && error !== dismissed() ? (error instanceof Error ? error.message : String(error)) : null;
+    return error && error !== dismissed() ? error.message : null;
   };
 
-  createEffect(() => {
-    const latest = loaded();
-
+  createEffect(loaded, latest => {
     if (latest) props.onCapture?.(latest.changes.at(-1));
   });
 
   onCleanup(events.subscribe((event) => {
     if (doesClearTodoFailure(event, props.id)) failCopy(null);
 
-    if (changesHistory(event, props.id)) void refetch();
+    if (changesHistory(event, props.id)) history.refetch();
   }));
 
   return {
     changes: () => loaded()?.changes,
-    feedback: <ReservedLine message={copyFailure() ?? failure()} dismiss={() => { failCopy(null); dismiss(problem()); }} recover={{ run: () => { void refetch(); void reread(); }, label: copy.retryHistory }} />,
+    feedback: <ReservedLine message={copyFailure() ?? failure()} dismiss={() => { failCopy(null); dismiss(problem()); }} recover={{ run: () => { history.refetch(); read.refetch(); }, label: copy.retryHistory }} />,
     copy: <Show when={loaded()}>{record => <CopyButton app={app} text={JSON.stringify({
       lines: record().changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent, now())),
       history: record(), failure: failure(),

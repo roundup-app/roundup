@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountSwitcher, switcherKey as press } from "../switcher/switcherFixture";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -64,7 +65,7 @@ it("z3788a_find_steps_through_matches_and_returns_focus", async () => {
 
   emulator.matches = false;
   press("Enter", {}, input);
-  expect(await screen.findByRole("status")).toBeTruthy();
+  await waitFor(() => expect(notices("status")).toHaveLength(1));
 
   press("Escape", {}, input);
   expect(document.querySelector('input[aria-label="Find in Terminal"]')).toBeNull();

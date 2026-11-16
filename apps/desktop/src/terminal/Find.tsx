@@ -1,4 +1,4 @@
-import { createSignal, onMount } from "solid-js";
+import { createSignal, onSettled } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Field } from "../ui/Field";
 import { copy } from "./copy";
@@ -10,7 +10,7 @@ export const Find = (props: { query: string; setQuery: (query: string) => void; 
 
   const step = (backwards: boolean): void => { setMissed(props.query !== "" && !props.find(props.query, backwards)); };
 
-  onMount(() => { input.focus(); input.select(); });
+  onSettled(() => { input.focus(); input.select(); });
 
   return (
     <Field.Root class="terminal-find">

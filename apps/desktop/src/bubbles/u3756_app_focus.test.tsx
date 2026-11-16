@@ -1,4 +1,5 @@
 import { isDoor } from "../state/doorNode";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -93,6 +94,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
 
   if (ask) {
     fireEvent.input(ask, { target: { value: "u4011 exact marker" } });
+    flush();
     expect(ask.value).toBe("u4011 exact marker");
     expect(document.activeElement).toBe(ask);
   }
@@ -105,12 +107,15 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
 it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
   const m = await mount();
   m.connected.rail.select("home");
+  flush();
   await waitFor(() => expect(document.querySelector(".pane-action")).not.toBeNull());
   const origin = document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!;
   origin.focus();
   fireEvent.click(document.querySelector(".pane-action")!);
+  flush();
   await waitFor(() => expect(m.app.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(1));
   fireEvent.keyDown(document.activeElement!, { key: "t", code: "KeyT", metaKey: true });
+  flush();
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
 
   if (ending === "origin") origin.focus();

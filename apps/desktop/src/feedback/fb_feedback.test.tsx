@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Sent } from "@contracts/feedback/Sent";
 import type { Candidate } from "../toasts/queue";
@@ -44,7 +45,7 @@ const mount = async (capture: () => Promise<FeedbackReport> = async () => report
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
   connected.rail.select("ann");
-  render(() => <ConnectedProjectContext.Provider value={connected}><Feedback notify={candidate => toasts.push(candidate)} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><Feedback notify={candidate => toasts.push(candidate)} /></ConnectedProjectContext>);
   await connected.rail.settled();
 
   return { app, sends, ids, toasts, answer: (next: () => Promise<Sent>) => { sent = next; } };
@@ -66,6 +67,7 @@ it("fb1_the_chord_opens_the_form_with_focus_in_the_field", async () => {
 
   await open();
   chord(field()!);
+  flush();
   expect(app.feedbackCapture).toHaveBeenCalledTimes(1);
   expect(document.querySelectorAll(".feedback-form")).toHaveLength(1);
 });
@@ -121,6 +123,7 @@ it("fb2_the_form_previews_the_shot_and_drops_it", async () => {
   await open();
   expect(document.querySelector<HTMLImageElement>(".feedback-shot img")!.src).toContain("iVBOR");
   fireEvent.click(document.querySelector(".feedback-shot button")!);
+  flush();
   expect(document.querySelector(".feedback-shot")).toBeNull();
 });
 
@@ -129,6 +132,7 @@ it("fb2_a_dropped_shot_is_not_sent", async () => {
 
   await open();
   fireEvent.click(document.querySelector(".feedback-shot button")!);
+  flush();
   send();
   await waitFor(() => expect(sends).toHaveLength(1));
   expect(sends[0]).not.toHaveProperty("shot");
@@ -139,6 +143,7 @@ it("fb3_the_form_shows_the_text_that_posts", async () => {
 
   await open();
   fireEvent.input(field()!, { target: { value: "the Rail jumps" } });
+  flush();
 
   const shown = document.querySelector(".feedback-facts")!.textContent;
 
@@ -195,11 +200,14 @@ it("fb6_the_setting_holds_and_validates_the_issue_url", async () => {
   const input = view.container.querySelector("input")!;
 
   fireEvent.input(input, { target: { value: "not a url" } });
+  flush();
   fireEvent.blur(input);
+  flush();
   expect(input.getAttribute("aria-invalid")).toBe("true");
   expect(validIssueUrl(URL)).toBe(true);
   expect(validIssueUrl("https://github.com/o/r/pull/3")).toBe(false);
   fireEvent.input(input, { target: { value: URL } });
+  flush();
   fireEvent.blur(input);
   await waitFor(() => expect(failures).toEqual([null]));
   expect((await import("../settings/preferences")).appSettings().feedbackIssue).toBe(URL);

@@ -81,7 +81,7 @@ it("u450_window_title_failure_is_visible", async () => {
   app.windowTitleHandler = async () => { throw failure; };
 
   fireEvent.click(document.querySelector('.rail-row[data-id="a"]')!);
-  expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
+  expect((await screen.findByRole("alert", { name: failure.message })).textContent).toContain(failure.message);
   expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api — a" });
 });
 

@@ -2,7 +2,7 @@ import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
-import Hourglass from "lucide-solid/icons/hourglass";
+import Hourglass from "@lucide/solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
@@ -13,11 +13,11 @@ import { AppSettings } from "./settings/AppSettings";
 import { createSettingsView } from "./state/settingsView";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
-import { CHORDS, LEADER } from "./keys/chords";
+import { CHORDS, LEADER, chordsOf } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
-import { batch, lazy, createEffect, createMemo, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
-import type { Accessor, JSX } from "solid-js";
+import { lazy, createEffect, createMemo, createRoot, createSignal, createUniqueId, For, getOwner, onCleanup, onSettled, runWithOwner, Show, untrack, type Accessor } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ChooseProject, EmptyShelf } from "./window/FirstRun";
 import { EmptyRail } from "./rail/EmptyRail";
 import { Layout } from "./window/Layout";
@@ -40,7 +40,7 @@ import { dismissable, failureLine } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
-import { DockBadge } from "./rail/DockBadge";
+import { createDockBadge } from "./rail/DockBadge";
 import { createProjectAlerts } from "./state/projectAlerts";
 import { createStateAlerts } from "./rail/stateAlerts";
 import { Rail } from "./rail/Rail";
@@ -48,7 +48,7 @@ import { createRailPeek } from "./rail/peek";
 import { createRailSlide } from "./rail/slide";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
-import { Leader } from "./keys/Leader";
+import { createLeader } from "./keys/Leader";
 import type { LinkContent } from "@contracts/link/LinkContent";
 import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
@@ -99,19 +99,15 @@ const RUNNING = new Set(["working", "needs-you", "blocked"]);
 /** Project regions show loading until their connection is ready, and failure if setup fails. */
 const InProject = (props: { open: ConnectedProject | undefined; failure?: Error | undefined; failed?: (failure: Error) => JSX.Element; pending?: JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
   <Show when={props.open} keyed fallback={<Show when={props.failure} keyed fallback={props.pending}>{(failure) => props.failed?.(failure)}</Show>}>
-    {(open) => <ConnectedProjectContext.Provider value={open}>{props.children(open)}</ConnectedProjectContext.Provider>}
+    {(open) => <ConnectedProjectContext value={open}>{props.children(open)}</ConnectedProjectContext>}
   </Show>
 );
 
 // The fold helper loads after mount so Motion's layout projection stays out of the entry bundle (R3800).
 const documentMotion = (reducedMotion: Accessor<boolean>) => {
-  const stopPress = pressFeedback(document);
   const fold = import("./ui/fold").then(({ foldMotion }) => foldMotion(document, reducedMotion));
 
-  return () => {
-    stopPress();
-    void fold.then(stop => stop());
-  };
+  return () => void fold.then(stop => stop());
 };
 
 export const App = (props: {
@@ -147,7 +143,8 @@ export const App = (props: {
     if (!textTarget(event.target)) event.preventDefault();
   };
 
-  onMount(() => onCleanup(documentMotion(props.reducedMotion)));
+  pressFeedback(document);
+  onSettled(() => documentMotion(props.reducedMotion));
   makeEventListener(window, "contextmenu", suppressBrowserMenu);
   makeEventListener(window, "pointerdown", clearBrowserSelection, true);
 
@@ -221,13 +218,13 @@ export const App = (props: {
   const railLine = dismissable(railFailure);
   const storageLine = dismissable(() => storageFailures().length > 0 ? storageCopy.failure(storageFailures()) : null);
   const capture = props.app.capture;
-  onMount(() => {
+  onSettled(() => {
     // U6249d: C1 retries twice, at 0.5 s and 2 s, then goes to the log.
     if (capture) void pRetry(() => capture.configure(appSettings().quickAddAnywhere || null), { retries: 2, minTimeout: 500, factor: 4 }).catch(error => hide(String(error)));
   });
   onCleanup(() => { void capture?.configure(null); });
 
-  createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
+  createEffect(projects.active, () => { setJumpFailure(null); }, { defer: true });
 
   const [renamingProjects, setRenamingProjects] = createSignal<ReadonlyMap<string, { name: string; revision: number }>>(new Map());
   let renameRevision = 0;
@@ -254,24 +251,25 @@ export const App = (props: {
   const failNative = (message: string | null, action?: { label: string; run: () => void }) => setNativeFailure(message === null ? null : action ? { message, action } : { message });
   let nativeHandler: Promise<(request: OpenRequest) => void> | undefined;
   const routeNativeOpen = (request: OpenRequest) => void nativeHandler?.then(handle => handle(request)).catch(error => failNative(String(error)));
-  onMount(() => {
-    const owner = getOwner();
-    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
-    const stop = props.app.onNativeOpen?.(routeNativeOpen, cause => failNative(cause));
+  const owner = getOwner();
+  onSettled(() => {
+    const app = props.app;
 
-    if (stop) onCleanup(stop);
+    nativeHandler = import("./window/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup, untrack }, app, projects, connectionOf, item: linkedItem, fail: failNative }))!);
+
+    return app.onNativeOpen?.(routeNativeOpen, cause => failNative(cause));
   });
 
   untrack(() => watchMenuBar({
     solid: { createEffect, createMemo, createSignal, onCleanup }, app: props.app, tabs: projects.tabs,
     connection: connectionOf, open: () => setFocus("menu"),
-    select: (path, agent) => batch(() => {
+    select: (path, agent) => {
       settingsView.close(false);
       connectionOf(path)!.settingsView.close(false);
       railOf(path)!.select(agent);
       projects.select(path);
       setFocus(document.hasFocus() ? "focused" : "blurred");
-    }),
+    },
     fail: setMenuBarFailure, hide,
   }));
 
@@ -323,13 +321,19 @@ export const App = (props: {
     setCaptureOpen(true);
   };
 
-  createEffect(() => registerKeys({ kind: "app" }, [{
-    action: CHORDS["todo.capture"],
-    capture: () => ({
-      available: () => !captureChoosing() && (projects.active() === null || connectionOf(projects.active()!)?.daemonExit() === null),
-      invoke: () => void openCapture(),
-    }),
-  }]));
+  // The quick-add press is a setting: the registration follows it.
+  createEffect(() => chordsOf(CHORDS["todo.capture"]), chords => runWithOwner(owner, () => createRoot(dispose => {
+    registerKeys({ kind: "app" }, [{
+      action: CHORDS["todo.capture"],
+      chords,
+      capture: () => ({
+        available: () => !captureChoosing() && (projects.active() === null || connectionOf(projects.active()!)?.daemonExit() === null),
+        invoke: () => void openCapture(),
+      }),
+    }]);
+
+    return dispose;
+  })));
 
   const storageFailures = createMemo(() => {
     const open = activeConnection();
@@ -338,13 +342,7 @@ export const App = (props: {
     return storageProblems().filter(problem => problem.key !== railKey);
   });
 
-  createEffect(() => {
-    if (!props.prepareIdle) return;
-
-    const open = activeConnection();
-
-    if (open) props.prepareIdle(open);
-  });
+  createEffect(() => props.prepareIdle && activeConnection(), open => { if (open) props.prepareIdle?.(open); });
 
   // U370, U373, U4457: the Shelf's open state and open tab, kept per Project.
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
@@ -387,11 +385,7 @@ export const App = (props: {
 
   const writeMenu = untrack(() => createMenuWriter(props.app, setWindowFailure));
 
-  createEffect(() => {
-    nativeMenu();
-
-    void writeMenu(nativeMenu);
-  });
+  createEffect(nativeMenu, () => { void writeMenu(nativeMenu); });
   onCleanup(untrack(() => props.app.onProjectPage(({ path, command }) => {
     if (path !== projects.active()) return;
     const open = connectionOf(path);
@@ -444,12 +438,13 @@ export const App = (props: {
     };
   } }]);
 
+  createDockBadge({ app: untrack(() => props.app), rails: () => connectedEntries(connections()).map(([path, connection]) => ({ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) })), onFailure: hide });
+
   const emulators = () => props.createEmulator ?? lazyXtermEmulators();
 
   return (
-    <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
+    <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><Show when={projects.loaded()}>
       <ProjectOpening opening={opening} />
-      <DockBadge app={props.app} rails={() => connectedEntries(connections()).map(([path, connection]) => ({ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) }))} onFailure={hide} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
           trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,
@@ -592,14 +587,16 @@ export const App = (props: {
         overlay={
           <>
             <InProject open={activeConnection()} failure={activeFailure()}>
-              {(open) => (
-                <>
-                  <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
-                  <Leader />
-                  <InboxKey />
-                  
-                </>
-              )}
+              {(open) => {
+                createLeader(open);
+
+                return (
+                  <>
+                    <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
+                    <InboxKey />
+                  </>
+                );
+              }}
             </InProject>
             <ProjectPicker projects={projects} />
             <InProject open={captureOwner()}>{(open) => <Capture open={captureOpen()} onOpenChange={setCaptureOpen} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
@@ -609,6 +606,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider></ReducedMotionContext.Provider>
+    </Show></ProjectDraftsContext></DisplayClockContext></ReducedMotionContext>
   );
 };

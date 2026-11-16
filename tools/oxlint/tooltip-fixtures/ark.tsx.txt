@@ -1,3 +1,0 @@
-import { Tooltip } from "@ark-ui/solid/tooltip";
-
-export const Example = () => <Tooltip.Trigger>Owner</Tooltip.Trigger>;

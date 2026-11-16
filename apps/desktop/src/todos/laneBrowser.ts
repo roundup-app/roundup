@@ -120,7 +120,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
         return true;
       })()`);
       // U3717: the Agent's Todos fall in Unassigned, which starts folded; the polled predicate unfolds it.
-      await until("(() => { document.querySelector('.shelf [data-shelf-group=\"unassigned\"][data-state=\"closed\"] [data-part=\"branch-control\"]')?.click(); return document.querySelectorAll('.shelf .todo-row').length >= " + titles.length + "; })()");
+      await until("(() => { document.querySelector('.shelf [data-shelf-group=\"unassigned\"] .shelf-group-control[aria-expanded=\"false\"]')?.click(); return document.querySelectorAll('.shelf .todo-row').length >= " + titles.length + "; })()");
       await resetCalls();
     },
     order: () => evaluate<number[]>("[...document.querySelectorAll('.shelf .todo-row[data-id]')].map(row => Number(row.dataset.id))"),

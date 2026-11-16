@@ -106,7 +106,7 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
   };
 
   return <Dialog.Root open={report() !== null} initialFocusEl={() => form?.querySelector("textarea") ?? null} onOpenChange={({ open }) => { if (!open) setReport(null); }}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form feedback-form">
+    <Dialog.Content class="app-dialog-form feedback-form">
       <form ref={element => { form = element; queueFocus(() => { if (element.isConnected) element.querySelector("textarea")?.focus({ preventScroll: true }); }); }} onSubmit={event => { event.preventDefault(); send(); }}>
         <Dialog.Title>{copy.title}</Dialog.Title>
         <Field.Root>
@@ -129,6 +129,6 @@ export const Feedback = (props: { notify: ToastQueue["notify"] }) => {
           <button type="submit" data-button="primary">{copy.send}</button>
         </div>
       </form>
-    </Dialog.Content></Dialog.Positioner>
+    </Dialog.Content>
   </Dialog.Root>;
 };

@@ -12,12 +12,12 @@ const open = async () => {
   const connected = await connectProject(seedApp("tree-40", 0).app, {name: "harness", path: "/Users/you/harness"}, () => true, () => 0);
   await connected.rail.settled();
   connected.rail.select("backend");
-  render(() => <ConnectedProjectContext.Provider value={connected}>
+  render(() => <ConnectedProjectContext value={connected}>
     <Tabs.Root defaultValue="todos">
       <Tabs.List aria-label="Bench"><Tabs.Trigger value="todos">Todos</Tabs.Trigger><Tabs.Trigger value="pads">Pads</Tabs.Trigger></Tabs.List>
       <Shelf open={() => true} />
     </Tabs.Root>
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext>);
   await waitFor(() => expect(document.querySelector('[data-shelf-scope] [role="switch"]')).not.toBeNull());
 };
 

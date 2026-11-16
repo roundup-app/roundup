@@ -30,13 +30,13 @@ export const SaveAsMode = (props: { id: string; onClose: () => void; finalFocus:
   };
 
   return <Dialog.Root open={open()} finalFocusEl={props.finalFocus} onOpenChange={({ open }) => { if (!open) { setOpen(false); props.onClose(); } }}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form">
+    <Dialog.Content class="app-dialog-form">
       <Dialog.Title>{copy.saveAsModeTitle}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={name()} onInput={event => setName(event.currentTarget.value)} /></Field.Root>
         <ReservedLine message={failure()} dismiss={() => setFailure(null)} />
-        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !name().trim()}>{copy.saveMode}</button></div>
+        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !name().trim() ? "true" : "false"}>{copy.saveMode}</button></div>
       </form>
-    </Dialog.Content></Dialog.Positioner>
+    </Dialog.Content>
   </Dialog.Root>;
 };

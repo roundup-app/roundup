@@ -215,9 +215,9 @@ run("u6239 Project tab drag", () => {
   /** Opens the Todos tab and unfolds its closed groups, so its rows show. */
   const todos = async () => {
     await shelfTab("todos");
-    await page.until(`() => Boolean(document.querySelector('.shelf [data-part="branch-control"]'))`);
+    await page.until(`() => Boolean(document.querySelector('.shelf .shelf-group-control'))`);
     await page.call(`() => {
-      for (const branch of document.querySelectorAll('.shelf [data-part="branch-control"][data-state="closed"]')) branch.click();
+      for (const branch of document.querySelectorAll('.shelf .shelf-group-control[aria-expanded="false"]')) branch.click();
       return null;
     }`);
   };

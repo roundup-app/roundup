@@ -53,7 +53,7 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
   const { factory, made } = fakeEmulators();
 
   const view = render(() => (
-    <DisplayClockContext.Provider value={() => () => 0}><ConnectedProjectContext.Provider value={connected}>
+    <DisplayClockContext value={() => () => 0}><ConnectedProjectContext value={connected}>
       <div class="window">
         <section class="rail"><Rail /></section>
         <section class="centre">
@@ -63,7 +63,7 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
         </section>
         <section class="shelf"><Todos /><Pads /></section>
       </div>
-    </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
+    </ConnectedProjectContext></DisplayClockContext>
   ));
 
   await connected.rail.settled();

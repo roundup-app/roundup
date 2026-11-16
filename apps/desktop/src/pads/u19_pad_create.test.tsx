@@ -1,6 +1,7 @@
 import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { flush } from "solid-js";
 import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Pads } from "./Pads";
@@ -13,7 +14,9 @@ const typeName = async (name: string) => {
   fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
   const field = await screen.findByLabelText<HTMLInputElement>("Pad name");
   fireEvent.input(field, { target: { value: name } });
+  flush();
   fireEvent.keyDown(field, { key: "Enter" });
+  flush();
 
   return field;
 };
@@ -27,6 +30,7 @@ describe("u19 create", () => {
     fireEvent.keyDown(await screen.findByLabelText("Pad name"), {
       key: "Escape",
     });
+    flush();
 
     expect([
       screen.queryByLabelText("Pad name"),
@@ -81,6 +85,7 @@ it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_creation_settlement_
   app.handlers["pad.create"] = () => reply.promise;
   const field = await typeName("  earlier é 🪁  ");
   fireEvent.input(field, { target: { value: "  newer 🌱  " } });
+  flush();
 
   if (outcome === "acknowledged") reply.resolve(padOf("earlier", USER));
   else reply.reject(outcome === "failed" ? new RpcError(-32602, "refused") : new Error("disconnected"));
@@ -92,7 +97,9 @@ it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_creation_settlement_
   if (outcome === "acknowledged") expect(records).toHaveLength(1);
   else expect(records.map(draft => [draft.value.name, draft.status])).toEqual([["  earlier é 🪁  ", outcome], ["  newer 🌱  ", "draft"]]);
   fireEvent.keyDown(field, { key: "Escape" });
+  flush();
   fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+  flush();
   expect(screen.getByLabelText<HTMLInputElement>("Pad name").value).toBe("  newer 🌱  ");
   expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
 });
@@ -100,17 +107,22 @@ it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_creation_settlement_
 it("u2773a_pads_creation_restores_exact_work", async () => {
   const { app, connected } = await openShelf([]);
   connected.rail.select(AGENT.id);
+  flush();
   fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+  flush();
   const field = screen.getByLabelText<HTMLInputElement>("Pad name");
   fireEvent.input(field, { target: { value: "  exact é 🪁  " } });
+  flush();
   field.setSelectionRange(2, 7, "backward");
   fireEvent.select(field);
+  flush();
   expect(connected.drafts.list().at(-1)?.value).toEqual({ name: "  exact é 🪁  ", home: AGENT.id });
   fireEvent.keyDown(field, { key: "Escape" });
   await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.at(-1).selection).toMatchObject({ start: 2, end: 7, direction: "backward" }));
   cleanup();
   const restored = await openShelf([], false, true);
   fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+  flush();
   const reopened = screen.getByLabelText<HTMLInputElement>("Pad name");
   await waitFor(() => expect(document.activeElement).toBe(reopened));
   expect([reopened.value, reopened.selectionStart, reopened.selectionEnd, reopened.selectionDirection]).toEqual(["  exact é 🪁  ", 2, 7, "backward"]);
@@ -137,6 +149,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     expect(clipboard).toHaveBeenCalledWith("  recoverable é 🪁  ");
     expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
     fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
+    flush();
     expect(connected.drafts.list()).toEqual([older]);
     expect(field.value).toBe("");
     writes.mockRestore();
@@ -154,14 +167,19 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   const { app, connected } = await openShelf([]);
   const destination = { surface: "pads", object: "creation", recipient: null };
   const a = connected.drafts.edit(destination, { name: "  earlier é 🪁  ", home: AGENT.id }, capturedCaret ? { start: 2, end: 7, direction: "backward" } : null, "ordinary").draft;
+  flush();
   connected.drafts.submit(a.revision);
+  flush();
   connected.drafts.edit(destination, { name: "newer 🌱", home: null }, null, "ordinary");
+  flush();
   connected.drafts.settle(a.revision, "failed");
+  flush();
   const retained = structuredClone(connected.drafts.list());
   cleanup();
-  render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext>);
   const calls = [...app.calls];
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  connected.drawer.open(() => <ConnectedProjectContext value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext>, "key");
+  flush();
   const field = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
   await waitFor(() => expect(document.activeElement).toBe(field));
   expect(field.value).toBe("  earlier é 🪁  ");
@@ -169,19 +187,26 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   if (capturedCaret) expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([2, 7, "backward"]);
 
   fireEvent.select(field);
+  flush();
   fireEvent.blur(field);
+  flush();
   connected.drawer.close("key");
+  flush();
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls).toEqual(calls);
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  connected.drawer.open(() => <ConnectedProjectContext value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext>, "key");
+  flush();
   const editing = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
   await waitFor(() => expect(document.activeElement).toBe(editing));
   const b = retained.at(-1)!;
   editing.setSelectionRange(3, 5, "forward");
   fireEvent.select(editing);
+  flush();
   expect(connected.drafts.list()).toContainEqual(b);
   fireEvent.input(editing, { target: { value: "edited A 🌱" } });
+  flush();
   connected.drawer.close("key");
+  flush();
   const { draftStorage } = await import("../state/storage");
   await waitFor(() => expect(draftStorage(connected.project.path).list().some(draft => draft.value.name === editing.value)).toBe(true));
   const durable = draftStorage(connected.project.path).list();

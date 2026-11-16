@@ -61,7 +61,7 @@ finally:
         const row = `[data-id="${child.id}"]`;
         await page.until(`() => !!document.querySelector('${branch}')`);
         expect(await page.call(`() => document.querySelector('${row}') === null`)).toBe(true);
-        await page.call(`() => document.querySelector('${branch} [data-part=branch-control]').click()`);
+        await page.call(`() => document.querySelector('${branch}').click()`);
         await page.until(`() => !!document.querySelector('${row}')`);
         const before = await app.rpc("terminal.screen", { id: child.terminal_id! });
         await writeFile(trigger, "request");

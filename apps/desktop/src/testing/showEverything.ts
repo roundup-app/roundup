@@ -30,7 +30,7 @@ export const showEverythingInApp = async (_name = /backend/, tab: "Todos" | "Pad
     return panel;
   });
 
-  for (const control of panel.querySelectorAll<HTMLElement>('[data-shelf-group] [data-part="branch-control"]')) {
+  for (const control of panel.querySelectorAll<HTMLElement>('[data-shelf-group] .shelf-group-control')) {
     if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") !== "false") continue;
     fireEvent.click(control);
     await waitFor(() => {

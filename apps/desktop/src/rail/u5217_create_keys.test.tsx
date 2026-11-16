@@ -17,7 +17,7 @@ it("u5217_plus_opens_ordered_creation_choices", async () => {
   expect(plus.hasAttribute("aria-keyshortcuts")).toBe(false);
   fireEvent.click(plus);
   const items = await screen.findAllByRole("menuitem");
-  expect(items.map(item => item.getAttribute("data-value"))).toEqual(["agent", "workstream", "mode"]);
+  expect(items.map(item => item.id.replace(/^.*-item-/, ""))).toEqual(["agent", "workstream", "mode"]);
 
   for (const [index, name] of (["agent.new", "workstream.new", "mode.new"] as const).entries()) {
     expect(items[index]!.querySelector("kbd")?.textContent).toBe(CHORDS[name].keys);

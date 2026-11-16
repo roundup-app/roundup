@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
-import type { JSX } from "solid-js";
-import { onCleanup } from "solid-js";
+import { onSettled } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { ShelfRow } from "./ShelfRow";
 
 /**
@@ -16,52 +16,60 @@ export const EntryRow = (props: {
   onEdit?: (field: HTMLInputElement) => void;
   onSubmit: (text: string) => void;
   onClose: (reason: "enter" | "escape" | "blur") => void;
-}) => (
-  <ShelfRow data-editing="true" glyph={props.glyph} class={`entry-row ${props.class}`}>
-    <input spellcheck={false} autocorrect="off" autocapitalize="off"
-      type="text"
-      class="entry-field field-inline"
-      aria-label={props.label}
-      placeholder={props.placeholder}
-      ref={(field) => {
-        field.value = props.initial?.text ?? "";
+}) => {
+  let input!: HTMLInputElement;
 
-        if (props.initial?.selection) {
-          const selection = props.initial.selection;
-          field.setSelectionRange(selection.start, selection.end, selection.direction);
-        }
+  onSettled(() => {
+    // The list grows above this row when an item lands, so keep the row in view as the list's height changes.
+    const list = new ResizeObserver(() => input.scrollIntoView({ block: "nearest" }));
 
-        // The list grows above this row when an item lands, so keep the row in view as the list's height changes.
-        const list = new ResizeObserver(() => field.scrollIntoView({ block: "nearest" }));
+    const focus = captureFocus(true);
+    queueMicrotask(() => {
+      focus(() => input.focus());
+      input.scrollIntoView({ block: "nearest" });
+      const section = input.closest("section");
 
-        const focus = captureFocus(true);
-        queueMicrotask(() => {
-          focus(() => field.focus());
-          field.scrollIntoView({ block: "nearest" });
-          const section = field.closest("section");
+      if (section) list.observe(section);
+    });
 
-          if (section) list.observe(section);
-        });
-        onCleanup(() => list.disconnect());
-      }}
-      onInput={(event) => props.onEdit?.(event.currentTarget)}
-      onSelect={(event) => { if (event.currentTarget.isConnected) props.onEdit?.(event.currentTarget); }}
-      onKeyDown={(key) => {
-        const field = key.currentTarget;
+    return () => list.disconnect();
+  });
 
-        props.onEdit?.(field);
+  return (
+    <ShelfRow data-editing="true" glyph={props.glyph} class={`entry-row ${props.class}`}>
+      <input spellcheck={false} autocorrect="off" autocapitalize="off"
+        type="text"
+        class="entry-field field-inline"
+        aria-label={props.label}
+        placeholder={props.placeholder}
+        ref={(field) => {
+          input = field;
+          field.value = props.initial?.text ?? "";
 
-        if (key.key === "Escape") props.onClose("escape");
-        else if (key.key !== "Enter") return;
-        else if (field.value.trim() === "") props.onClose("enter");
-        else {
-          props.onSubmit(field.value.trim());
-          field.value = "";
-        }
-      }}
-      onBlur={(event) => {
-        if (event.currentTarget.value.trim() === "") props.onClose("blur");
-      }}
-    />
-  </ShelfRow>
-);
+          if (props.initial?.selection) {
+            const selection = props.initial.selection;
+            field.setSelectionRange(selection.start, selection.end, selection.direction);
+          }
+        }}
+        onInput={(event) => props.onEdit?.(event.currentTarget)}
+        onSelect={(event) => { if (event.currentTarget.isConnected) props.onEdit?.(event.currentTarget); }}
+        onKeyDown={(key) => {
+          const field = key.currentTarget;
+
+          props.onEdit?.(field);
+
+          if (key.key === "Escape") props.onClose("escape");
+          else if (key.key !== "Enter") return;
+          else if (field.value.trim() === "") props.onClose("enter");
+          else {
+            props.onSubmit(field.value.trim());
+            field.value = "";
+          }
+        }}
+        onBlur={(event) => {
+          if (event.currentTarget.value.trim() === "") props.onClose("blur");
+        }}
+      />
+    </ShelfRow>
+  );
+};

@@ -1,10 +1,10 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
+import { alerts } from "../toasts/toastFixture";
 import { forkCopy } from "./copy";
 import { ForkSheet } from "./ForkSheet";
 
@@ -37,7 +37,7 @@ const tree = [
 
 const sources = () => [{ path: FIRST.path, name: FIRST.name, nodes: tree }, { path: SECOND.path, name: SECOND.name, nodes: [] }];
 
-afterEach(() => { batch(cleanup); vi.restoreAllMocks(); window.localStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
 
 const sheet = async (override: (app: ReturnType<typeof createFakeApp>) => void = () => {}) => {
   const app = createFakeApp();
@@ -98,7 +98,7 @@ describe("fs5979b the sheet is the Rail tree with every row ticked", () => {
   it("fs5979b_arrows_move_between_rows_and_space_ticks_the_focused_one", async () => {
     await sheet();
     const user = userEvent.setup();
-    const control = (name: string) => screen.getByText(name).closest<HTMLElement>("[data-part=branch-control], [data-part=item]")!;
+    const control = (name: string) => screen.getByText(name).closest<HTMLElement>("[role=treeitem]")!;
 
     control(FIRST.name).focus();
     await user.keyboard("{ArrowDown}");
@@ -131,10 +131,10 @@ describe("fs5979c the name and the colour", () => {
     expect(document.activeElement).toBe(field);
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, "build/login".length]);
     expect(screen.getAllByRole("radio")).toHaveLength(8);
-    await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "teal" })).checked).toBe(true));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "teal" }).getAttribute("aria-checked")).toBe("true"));
     screen.getByRole("radio", { name: "teal" }).focus();
     await userEvent.setup().keyboard("{ArrowRight}");
-    await waitFor(() => expect(inputOf(screen.getByRole("radio", { name: "blue" })).checked).toBe(true));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "blue" }).getAttribute("aria-checked")).toBe("true"));
   });
 
   it.each(["", "x".repeat(41), "a\u0007b"])("fs5979c_an_invalid_name_makes_no_fork", async (bad) => {
@@ -204,7 +204,7 @@ describe("fs5979e a failed Fork stays on the sheet", () => {
     fireEvent.input(field, { target: { value: "mine" } });
     fireEvent.submit(field.closest("form")!);
 
-    expect((await screen.findByRole("alert")).textContent).toBe(FULL_DISK.message);
+    await waitFor(() => expect(alerts().map(line => line.textContent)).toEqual([FULL_DISK.message]));
     expect(onClose).not.toHaveBeenCalled();
     expect(box("Agent one").getAttribute("aria-checked")).toBe("false");
     expect(inputOf(field).value).toBe("mine");

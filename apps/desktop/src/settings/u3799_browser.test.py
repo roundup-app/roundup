@@ -55,9 +55,9 @@ try:
     capture('U3799', 'refusal')
     # Explicit Light is observed once while the host remains in dark mode.
     browser('find', 'role', 'tab', 'click', '--name', 'Appearance', '--exact')
-    browser('wait', '--fn', 'Boolean(document.querySelector("input[type=radio][value=light]"))')
+    browser('wait', '--fn', 'Boolean(document.querySelector("[data-slot=segmented-control-item][aria-label=Light]"))')
     capture('U3805', 'system-dark')
-    browser('click', 'input[type=radio][value=light]')
+    browser('click', '[data-slot=segmented-control-item][aria-label=Light]')
     browser('wait', '--fn', 'document.documentElement.style.colorScheme==="light"')
     capture('U3805', 'light-on-dark-host')
     print('ok')

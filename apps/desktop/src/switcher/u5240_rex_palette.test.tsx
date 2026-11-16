@@ -226,9 +226,10 @@ it("u5240d_plain_enter_still_runs_the_command_once", async () => {
 });
 
 it("u5240e_record_mode_leaves_no_listener_behind", async () => {
-  await toCommand();
-
+  // The Terminal holds the focus as the Switcher opens: focus moved out of an open Switcher dismisses it.
   const { textarea, reached } = terminalField();
+
+  await toCommand();
 
   const probe = () => {
     const press = new KeyboardEvent("keydown", { code: "KeyJ", key: "j", metaKey: true, bubbles: true, cancelable: true });

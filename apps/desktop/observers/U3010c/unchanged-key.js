@@ -9,9 +9,9 @@ export default async function ({ list = 'shelf', quarter = false } = {}) {
 
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     await frame();
-    const group = document.querySelector('.shelf [data-shelf-group="unassigned"]');
+    const control = document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control');
 
-    if (group?.getAttribute('aria-expanded') !== 'true') group?.querySelector('[data-part="branch-control"]')?.click();
+    if (control?.getAttribute('aria-expanded') !== 'true') control?.click();
   }
 
   for (let n = 0; n < 180 && (rows().length < 3 || !rows()[2].getBoundingClientRect().height); n++) await frame();

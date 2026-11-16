@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { mountControl, WORKTREE } from "./harness";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -66,10 +67,13 @@ describe("U2539d", () => {
   it("u2539d_a_failed_open_shows_one_failure_line", async () => {
     const { app } = await open();
 
-    app.editorFailure = new RpcError(-32001, "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR");
+    const failure = new RpcError(-32001, "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR");
+
+    app.editorFailure = failure;
     fireEvent.dblClick(row("src/a.ts")!, { composed: true });
 
-    expect((await screen.findByRole("alert")).textContent).toContain("no code editor found");
+    await waitFor(() => expect(notices("alert")).toHaveLength(1));
+    expect(notices("alert")[0]!.textContent).toContain(failure.message);
     expect(screen.getByRole("dialog", { name: "Worktree" })).toBeTruthy();
   });
 });
@@ -78,7 +82,7 @@ it.each(["unrelated retry", "same retry", "dismiss"])("p3557c_failure_lifetime_c
   const { app } = await open();
   app.editorFailure = new RpcError(-32001, "editor refused; retry opening this file");
   fireEvent.dblClick(row("src/a.ts")!, { composed: true });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   app.editorFailure = null;
 
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -87,6 +91,6 @@ it.each(["unrelated retry", "same retry", "dismiss"])("p3557c_failure_lifetime_c
     await waitFor(() => expect(app.editorCalls).toHaveLength(1));
   }
 
-  await waitFor(() => expect(screen.queryByRole("alert") !== null).toBe(action === "unrelated retry"));
+  await waitFor(() => expect(notices("alert").length > 0).toBe(action === "unrelated retry"));
   expect(app.editorCalls.map(call => call.path)).toEqual(action === "dismiss" ? [] : [ `/p/.roundup/a/${action === "same retry" ? "src/a.ts" : "src/deep/b.ts"}`]);
 });

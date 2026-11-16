@@ -251,7 +251,7 @@ def reopen_surfaces():
             if surface == 'rail':
                 evaluate("(()=>{const b=document.querySelector('.rail-row[data-id=\"tokens\"] [data-pads-control]');if(b.getAttribute('aria-expanded')!=='true')b.click()})()")
             else:
-                evaluate("[...document.querySelectorAll('[data-part=branch-control]')].filter(b=>b.closest('.shelf-groups')&&b.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false').forEach(b=>b.click())")
+                evaluate("[...document.querySelectorAll('.shelf-group-control')].filter(b=>b.closest('.shelf-groups')&&b.getAttribute('aria-expanded')==='false').forEach(b=>b.click())")
                 wait('Boolean(document.querySelector(".shelf-done-line .todo-row-button"))')
                 evaluate("if(!document.querySelector(`.shelf [data-todo=\"${window.__testId}\"] input`)) document.querySelector('.shelf-done-line .todo-row-button').click()")
             scope = '.rail-tree ' if surface == 'rail' else '.shelf '

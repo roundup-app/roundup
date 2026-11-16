@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -13,6 +14,7 @@ import { todo, todoCallsTo as callsTo } from "../todos/testHarness";
 import { Help } from "./Help";
 import { pressOf } from "./chords";
 import { copy } from "./copy";
+import { notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -27,14 +29,14 @@ const mount = async () => {
 
   await showEverything(connected);
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <button data-testid="before">before</button>
-      <div role="tree" tabIndex={0} data-testid="rail" />
+      <div role="tree" tabindex={0} data-testid="rail" />
       <textarea class="xterm-helper-textarea" data-testid="terminal" />
       <Todos />
       <Capture onFile={undefined} />
       <Help />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   return { app, connected, store };
@@ -42,9 +44,15 @@ const mount = async () => {
 
 const field = (): HTMLTextAreaElement | null => screen.queryByRole<HTMLTextAreaElement>("textbox", { name: "Capture a Todo" });
 
-const chord = (target: Element) => fireEvent.keyDown(target, { code: "KeyT", key: "T", metaKey: true, shiftKey: true });
+const chord = (target: Element) => {
+  fireEvent.keyDown(target, { code: "KeyT", key: "T", metaKey: true, shiftKey: true });
+  flush();
+};
 
-const press = (input: HTMLElement, init: KeyboardEventInit = {}) => fireEvent.keyDown(input, { key: "Enter", code: "Enter", ...init });
+const press = (input: HTMLElement, init: KeyboardEventInit = {}) => {
+  fireEvent.keyDown(input, { key: "Enter", code: "Enter", ...init });
+  flush();
+};
 
 // Rule 10: u3713_leader_t_opens_a_focused_empty_field_without_changing_selection proves the removed leader alias test; the design critic owns help copy.
 // u3746_a_retry_after_a_refused_move_moves_the_created_todo_and_creates_none also proves the removed standalone refused-move retention observer.
@@ -53,6 +61,7 @@ describe("u3737 the chord opens the capture field", () => {
     const { connected } = await mount();
 
     connected.rail.select("a");
+    flush();
 
     for (const id of ["before", "rail", "terminal"]) {
       const from = screen.getByTestId(id);
@@ -123,6 +132,7 @@ describe("u3740 the field shows the Owner and Home", () => {
     const made = await mount();
 
     if (selected !== null) made.connected.rail.select(selected);
+    flush();
     chord(screen.getByTestId("before"));
     await waitFor(() => expect(field()).not.toBeNull());
 
@@ -134,6 +144,7 @@ describe("u3740 the field shows the Owner and Home", () => {
     for (const [selected, owner, home] of [["a", "a", "w"], ["b", "b", null], ["w", null, "w"], ["overview", null, null]] as const) {
       const { app } = await open(selected);
       fireEvent.input(field()!, { target: { value: "ship it" } });
+      flush();
       press(field()!);
       await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
       const creation = { title: "ship it", body: null, blockers: null };
@@ -148,7 +159,9 @@ describe("u3740 the field shows the Owner and Home", () => {
   it("u3740_selection_change_while_open_changes_the_filed_recipient", async () => {
     const { app, connected } = await open("a");
     connected.rail.select("b");
+    flush();
     fireEvent.input(field()!, { target: { value: "ship it" } });
+    flush();
     press(field()!);
     await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
     expect(callsTo(app, "todo.create")[0]?.params).toMatchObject({ owner: { kind: "agent", id: "b", parent: null } });
@@ -161,8 +174,9 @@ describe("u3740 the field shows the Owner and Home", () => {
     app.handlers["todo.create"] = () => Promise.resolve(todo(5));
     app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(-32001, "no such Workstream")) : Promise.resolve(todo(5));
     fireEvent.input(field()!, { target: { value: "stay" } });
+    flush();
     press(field()!);
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    await waitFor(() => expect(notices("alert")).toHaveLength(1));
     expect(field()?.value).toBe("stay");
     refuse = false;
     press(field()!);
@@ -178,10 +192,12 @@ describe("u3740 the field shows the Owner and Home", () => {
     app.handlers["todo.create"] = () => Promise.resolve(todo(5));
     app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(-32001, "no such Workstream")) : Promise.resolve(todo(5));
     fireEvent.input(field()!, { target: { value: "stay" } });
+    flush();
     press(field()!);
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    await waitFor(() => expect(notices("alert")).toHaveLength(1));
     refuse = false;
     fireEvent.input(field()!, { target: { value: "stay more" } });
+    flush();
     press(field()!);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(callsTo(app, "todo.create")).toHaveLength(2);

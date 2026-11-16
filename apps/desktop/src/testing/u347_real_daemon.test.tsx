@@ -19,7 +19,7 @@ it("u2744a_shelf_scope_no_scope_button", async () => {
     const frame = createShelfFrame(() => null, () => true, () => {});
     const tabs = createShelfTabs(frame);
 
-    return <ConnectedProjectContext.Provider value={connected}><Tabs.RootProvider value={tabs}><Shelf open={() => true} /></Tabs.RootProvider></ConnectedProjectContext.Provider>;
+    return <ConnectedProjectContext value={connected}><Tabs.RootProvider value={tabs}><Shelf open={() => true} /></Tabs.RootProvider></ConnectedProjectContext>;
   });
 
   for (const selected of [null, "w", "a", "r"]) {

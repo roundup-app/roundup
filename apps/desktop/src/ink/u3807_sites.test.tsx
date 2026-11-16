@@ -4,7 +4,8 @@ import { copy as recoveryCopy } from "../sharedCopy";
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createSignal, type JSX } from "solid-js";
+import { createSignal, flush } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { mountBubbles } from "../bubbles/bubblesFixture";
 import { ChooseProject } from "../window/FirstRun";
 import { RpcError } from "../app/seam";
@@ -66,7 +67,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
     mounted.app.handlers["message.reconcileWork"] = () => seed.plan;
   }
 
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><section>{site.render()}</section></ConnectedProjectContext.Provider>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><section>{site.render()}</section></ConnectedProjectContext>);
 
   if (site.method === "todo.unread") await within(view.container).findByText(copy.inboxEmpty);
 
@@ -98,8 +99,10 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: first Project", () =
   const [failure, setFailure] = createSignal<string | null>(null);
   const view = render(() => <section><ChooseProject app={createFakeApp()} onOpen={() => {}} failure={failure()} onChoose={() => {}} /></section>);
   setFailure(FAILURE);
+  flush();
   within(view.container).getByRole("alert");
   setFailure(null);
+  flush();
   expect(within(view.container).queryByRole("alert")).toBeNull();
 });
 
@@ -109,11 +112,14 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Rail", async () => {
   mounted.app.handlers["rail.rename"] = () => { throw new RpcError(-32003, FAILURE); };
 
   fireEvent.dblClick(within(surface).getByText("a"));
+  flush();
   const field = within(surface).getByRole("textbox", { name: "Name" });
   fireEvent.input(field, { target: { value: "renamed" } });
+  flush();
   fireEvent.keyDown(field, { key: "Enter" });
   await within(surface).findByRole("alert");
   fireEvent.click(within(surface).getByRole("button", { name: "Dismiss" }));
+  flush();
   expect(within(surface).queryByRole("alert")).toBeNull();
 });
 
@@ -125,10 +131,12 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () 
   app.handlers["ask.send"] = () => { throw new RpcError(-32003, FAILURE); };
 
   fireEvent.input(input()!, { target: { value: "keep this request" } });
+  flush();
   press("Enter", {}, input()!);
   await within(surface).findByRole("alert");
   app.handlers["ask.send"] = () => ({ id: "accepted", text: "retry", at: 0n, parts: [] });
   fireEvent.input(input()!, { target: { value: "retry" } });
+  flush();
   press("Enter", {}, input()!);
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
 });
@@ -146,7 +154,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async 
   const mounted = await mountControl();
   mounted.app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
   const notes = notesFor(mounted.app, mounted.connected.project.path, mounted.connected.drafts);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><DiffReader id="a" name="alpha" path="a.ts" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext.Provider>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><DiffReader id="a" name="alpha" path="a.ts" notes={notes} onEdited={() => {}} onBack={() => {}} onClose={() => {}} recover={() => {}} /></ConnectedProjectContext>);
   await within(view.container).findByText(/No remaining difference/);
   await cycle(view.container,
     () => { mounted.app.handlers["agent.compareFile"] = () => { throw new RpcError(-32003, FAILURE); };
@@ -171,7 +179,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext>);
   const surface = await within(document.body).findByRole("region", { name: "Import Claude Code" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
@@ -189,19 +197,19 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectSettings", as
   const mounted = await mountTodos([]);
   mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [] }, workstreamCap: 1, machine: null });
   mounted.connected.settingsView.show(document.body);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ProjectSettingsView /></ConnectedProjectContext.Provider>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><ProjectSettingsView /></ConnectedProjectContext>);
   const field = within(view.container).getByRole("textbox");
   await waitFor(() => expect(field).toHaveProperty("disabled", false));
   mounted.app.handlers["project.setWorkstreamCap"] = () => { throw new RpcError(-32003, FAILURE); };
 
   await cycle(view.container,
-    () => { fireEvent.input(field, { target: { value: "2" } }); fireEvent.keyDown(field, { key: "Enter" }); },
-    () => { fireEvent.input(field, { target: { value: "1" } }); fireEvent.keyDown(field, { key: "Enter" }); });
+    () => { fireEvent.input(field, { target: { value: "2" } }); flush(); fireEvent.keyDown(field, { key: "Enter" }); },
+    () => { fireEvent.input(field, { target: { value: "1" } }); flush(); fireEvent.keyDown(field, { key: "Enter" }); });
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo drawer", async () => {
   const mounted = await mountTodos([todo(1)]);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><TodoDrawer id={1} todos={mounted.todos} /></ConnectedProjectContext.Provider>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><TodoDrawer id={1} todos={mounted.todos} /></ConnectedProjectContext>);
   await within(view.container).findByRole("region", { name: "Activity" });
   const box = within(view.container).getByRole("checkbox", { name: "Complete todo 1" });
   const original = mounted.app.handlers["todo.complete"]!;
@@ -215,7 +223,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo drawer", async 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: New Workstream", async () => {
   const mounted = await mountTodos([todo(1)]);
   const [target] = createSignal<number | null>(1);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><NewWorkstream target={target} done={() => {}} returnTo={() => null} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={mounted.connected}><NewWorkstream target={target} done={() => {}} returnTo={() => null} /></ConnectedProjectContext>);
   const surface = await within(document.body).findByRole("dialog", { name: "New Workstream" });
   mounted.app.handlers["todo.startWorkstream"] = () => { throw new RpcError(-32003, FAILURE); };
 
@@ -238,7 +246,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Bubbles", async () =
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Switcher", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Switcher onFailure={() => {}} onOpen={() => {}} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={mounted.connected}><Switcher onFailure={() => {}} onOpen={() => {}} /></ConnectedProjectContext>);
   leaderKey("KeyK");
   await within(document.body).findByRole("combobox");
   const surface = document.querySelector<HTMLElement>(".switcher")!;
@@ -256,13 +264,13 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Pad drawer Saved", a
   const field = await openPad("notes");
   const surface = field.closest<HTMLElement>(".pad-body")!;
   app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
-  await cycle(surface, () => { fireEvent.input(field, { target: { value: "new" } }); fireEvent.focusOut(field); },
+  await cycle(surface, () => { fireEvent.input(field, { target: { value: "new" } }); flush(); fireEvent.focusOut(field); },
     () => fireEvent.input(field, { target: { value: "another" } }), "status");
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Capture", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Capture onFile={undefined} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={mounted.connected}><Capture onFile={undefined} /></ConnectedProjectContext>);
   fireEvent.keyDown(document.body, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   const surface = await within(document.body).findByRole("dialog");
   const field = within(surface).getByRole("textbox");
@@ -302,10 +310,11 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
   const mounted = await mountTodos([]);
   const path = mounted.connected.project.path;
   const draft = mounted.connected.drafts.edit({ surface: "header", object: path, recipient: null }, { name: "retained", base: "p" }, null, "ordinary").draft;
-  render(() => <ProjectDraftsContext.Provider value={() => mounted.connected.drafts}><Tabs.Root value={path}><Tabs.List>
+  render(() => <ProjectDraftsContext value={() => mounted.connected.drafts}><Tabs.Root value={path}><Tabs.List>
     <ProjectTab tab={{ path, name: "p", base: "p", busy: false, running: [], needsYou: 0, error: 0, exitText: null }} selected app={mounted.app} alerts="all" onAlerts={() => {}} recovery={{ project: path, revision: draft.revision }} onMark={() => {}} onClose={() => {}} onRename={() => Promise.resolve({ path, name: "p", revision: 1, status: "acknowledged", project: { path, name: "p" } })} />
-  </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>);
+  </Tabs.List></Tabs.Root></ProjectDraftsContext>);
   fireEvent.keyDown(await within(document.body).findByRole("textbox", { name: "Project name" }), { key: "Escape" });
+  flush();
   // U6544c: a tab's recovery is in its right-click menu.
   fireEvent.contextMenu(document.querySelector<HTMLElement>(".project-tab")!, { clientX: 40, clientY: 10 });
   await mounted.app.pickMenu(recoveryCopy.recoverDrafts);
@@ -319,14 +328,14 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal pane-failure", async () => {
   const mounted = await mountTodos([]);
   const [notice, setNotice] = createSignal<string | null>(null);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Pane notice={notice()} createEmulator={fakeEmulators().factory} /></ConnectedProjectContext.Provider>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><Pane notice={notice()} createEmulator={fakeEmulators().factory} /></ConnectedProjectContext>);
 
   await cycle(view.container, () => setNotice(FAILURE), () => setNotice(null));
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo field recovery and retry", async () => {
   const mounted = await mountTodos([todo(1)]);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><TodoDraftRecovery object="1" active /></ConnectedProjectContext.Provider>);
+  const view = render(() => <ConnectedProjectContext value={mounted.connected}><TodoDraftRecovery object="1" active /></ConnectedProjectContext>);
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
   mounted.connected.drafts.edit({ surface: "todos", object: "1", recipient: "title" }, { title: "retained" }, null, "ordinary");
   const place = (await within(view.container).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;

@@ -43,9 +43,9 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
     : act(copy.inboxOpen, () => props.actions.open(props.row));
 
   return <li class="inbox-item" data-row={props.row.key} data-arrived={props.row.arrived ? "" : undefined}>
-    <Collapsible.Root open={props.open} onOpenChange={props.toggle} lazyMount unmountOnExit>
+    <Collapsible.Root open={props.open} onOpenChange={props.toggle}>
       <div class="inbox-head">
-        <Collapsible.Trigger data-button="quiet" class="inbox-row" data-selected={props.selected} data-overview-item={item()} ref={props.head}>
+        <Collapsible.Trigger data-button="quiet" class="inbox-row" data-selected={String(props.selected)} data-overview-item={item()} ref={props.head}>
           <KindGlyph kind={status()?.kind ?? "idle"} />
           <span id={name} class="inbox-row-name">{entryName()}</span>
         </Collapsible.Trigger>

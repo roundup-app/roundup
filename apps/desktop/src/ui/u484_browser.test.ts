@@ -208,9 +208,9 @@ it("u3800a_one_drag_fixture", async () => {
   // Commissioned Shelf Pad consumer: pointer and keyboard use the real holder and RPC.
   await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("wait", "--fn", "!!document.querySelector('#shelf-tab-pads')");
-  await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected=true]')");
+  await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected]')");
   await browser("click", "#shelf-tab-pads");
-  await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group] [data-part=branch-control]')");
+  await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group] .shelf-group-control')");
   await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .sortable-handle').length >= 2");
   // U2744a: a Pad list is the one a group's own rows form, so Agent subgroups never mix into the order.
   const ownList = "[...document.querySelectorAll('.pads-tab .shelf-list')].find(list => list.querySelectorAll('[data-pad]').length >= 2)";
@@ -272,7 +272,7 @@ it("u3800a_one_drag_fixture", async () => {
   // Rail hover can open its target after U348's hold; leave it and choose the starting pane explicitly.
   await feed("leave");
   await browser("click", ".rail-row[data-id=tokens] .row-state");
-  await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'tokens'");
+  await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected]')?.dataset.id === 'tokens'");
   await feed("over");
   await browser("wait", "--fn", "!!document.querySelector('.pane-body.drop-over')");
   expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(1);
@@ -281,7 +281,7 @@ it("u3800a_one_drag_fixture", async () => {
   expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(0);
   await feed("over");
   await browser("click", ".rail-row[data-id=migrate] .row-state");
-  await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'migrate'");
+  await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected]')?.dataset.id === 'migrate'");
   expect(await read<number>("document.querySelectorAll('.drop-over').length")).toBe(0);
   await feed("over");
   const writes = "window.__fake.app.calls.filter(c=>c.method==='terminal.write').map(c=>({id:c.params.id,text:atob(c.params.data)}))";

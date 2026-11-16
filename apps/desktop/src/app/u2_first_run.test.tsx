@@ -53,7 +53,8 @@ describe("u2 first run", () => {
     app.projects = () => Promise.reject(new RpcError(-32603, "app is not ready"));
     renderApp(app);
 
-    expect((await screen.findByText("app is not ready")).className).toBe("ink");
+    // The ink line is a tooltip trigger, and ui-sdk keeps its hidden tooltip content in the page: the text query names the line.
+    expect((await screen.findByText("app is not ready", { selector: ".ink" })).className).toBe("ink");
   });
 
   it("u2_a_failed_chooser_shows_the_message_in_ink", async () => {
@@ -63,7 +64,7 @@ describe("u2 first run", () => {
 
     fireEvent.click(await screen.findByText("Choose Project…"));
 
-    expect((await screen.findByText("the chooser could not open")).className).toBe("ink");
+    expect((await screen.findByText("the chooser could not open", { selector: ".ink" })).className).toBe("ink");
   });
 
   it("u2_a_failed_open_project_shows_the_message_in_ink_in_place_of_the_prompt", async () => {
@@ -75,7 +76,7 @@ describe("u2 first run", () => {
 
     fireEvent.click(await screen.findByText("Choose Project…"));
 
-    expect(await screen.findByText(failure.message)).toBeTruthy();
+    expect(await screen.findByText(failure.message, { selector: ".ink" })).toBeTruthy();
     expect(screen.queryByText(windowCopy.openAFolderToStart)).toBeNull();
   });
 
@@ -86,7 +87,7 @@ describe("u2 first run", () => {
     const { container } = renderApp(app);
 
     fireEvent.click(await screen.findByText("Choose Project…"));
-    await screen.findByText("not a directory");
+    await screen.findByText("not a directory", { selector: ".ink" });
 
     expect(container.querySelectorAll(".ink").length).toBe(1);
   });
@@ -100,7 +101,7 @@ describe("u2 first run", () => {
 
     app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
 
-    expect((await within(region("Centre")).findByText("daemon is gone")).className).toBe("ink");
+    expect((await within(region("Centre")).findByText("daemon is gone", { selector: ".ink" })).className).toBe("ink");
   });
 
 

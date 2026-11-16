@@ -1,3 +1,4 @@
+import { bindLayer } from "@ui-sdk/core";
 import { outcomeOf } from "../app/seam";
 import { applying } from "../app/pending";
 import { captureFocus } from "../keys/focus";
@@ -12,7 +13,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { createDraftField, type Sent } from "../state/draftField";
 import { doesClearTodoFailure } from "../app/failureOf";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, Loading, onCleanup, Show, untrack } from "solid-js";
 
 import type { PadEditorHandle } from "../pads/PadRichEditor";
 import "../pads/styles.css";
@@ -132,36 +133,6 @@ export const EditableText = (props: {
   const draftDestination = untrack(() => ({ surface: "todos", object: String(props.todo.id), recipient: props.name }));
   const draft = createDraftField(connected.drafts, draftDestination, formSchema, untrack(() => props.revision === undefined ? undefined : { revision: props.revision }));
   const [failure, setFailure] = createSavedFailure(() => props.saved?.() ?? 0);
-  const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
-  onCleanup(connected.events.subscribe(event => {
-    if (doesClearTodoFailure(event, props.todo.id)) setFailure(null);
-  }));
-  const content = connected.drawer.content();
-  let alive = true;
-  onCleanup(() => { alive = false; });
-  const [editing, setEditing] = createSignal<Editing | null>(null);
-  const [typed, setTyped] = createSignal("");
-
-  createEffect(() => {
-    if (editing() && connected.drawer.content() === content) onCleanup(connected.drafts.editor(draftDestination));
-  });
-  createEffect(() => props.onFailure?.(failure(), () => setFailure(null)));
-
-  let container: HTMLDivElement | undefined;
-  const shown = () => container?.querySelector<HTMLElement>("p[tabindex], .todo-add-notes, .ProseMirror");
-  let savedFocus: ReturnType<typeof captureFocus> | undefined;
-  createEffect(on(() => props.todo[props.name], () => {
-    const focus = savedFocus;
-
-    if (props.name === "body") return;
-
-    savedFocus = undefined;
-
-    // The value change can run before Solid replaces Add notes with the saved prose.
-    queueMicrotask(() => {
-      if (alive && (document.activeElement === document.body || document.activeElement === shown()) && connected.drawer.content() === content) focus?.(() => shown()?.focus());
-    });
-  }, { defer: true }));
 
   // The form a new edit starts from: the captured change's values, else the Todo's own.
   const freshForm = (): Editing["form"] => {
@@ -172,7 +143,8 @@ export const EditableText = (props: {
       home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
   };
 
-  const startWith = () => {
+  /** What opening an edit now gives: the form to edit, or why the retained work cannot be reopened. */
+  const opening = (): { failure: string; editing: null } | { failure: null; editing: Editing } => {
     captureFocus(true);
 
     // A selected revision reopens whatever its status; otherwise only work still the user's to edit.
@@ -180,20 +152,55 @@ export const EditableText = (props: {
     const saved = props.revision !== undefined || followed?.status === "draft" || followed?.status === "failed" ? followed : undefined;
     const parsed = draft.value();
 
-    if (saved && !parsed.success) {
-      setRetentionFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
+    if (saved && !parsed.success) return { failure: copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"), editing: null };
+    const form = saved && parsed.success ? parsed.output : freshForm();
+
+    return { failure: null, editing: { form, text: form.text, recovered: saved !== undefined, selection: saved?.selection ?? null } };
+  };
+
+  const opened = untrack(() => props.revision === undefined ? undefined : opening());
+  const [retentionFailure, setRetentionFailure] = createSignal<string | null>(opened?.failure ?? null);
+  onCleanup(connected.events.subscribe(event => {
+    if (doesClearTodoFailure(event, props.todo.id)) setFailure(null);
+  }));
+  const content = untrack(connected.drawer.content);
+  let alive = true;
+  onCleanup(() => { alive = false; });
+  const [editing, setEditing] = createSignal<Editing | null>(opened?.editing ?? null);
+  const [typed, setTyped] = createSignal(opened?.editing?.form.text ?? "");
+
+  createEffect(createMemo(() => editing() !== null && connected.drawer.content() === content), active => active ? connected.drafts.editor(draftDestination) : undefined);
+  createEffect(failure, message => { untrack(() => props.onFailure?.(message, () => setFailure(null))); });
+
+  let container: HTMLDivElement | undefined;
+  const shown = () => container?.querySelector<HTMLElement>("p[tabindex], .todo-add-notes, .ProseMirror");
+  let savedFocus: ReturnType<typeof captureFocus> | undefined;
+  createEffect(createMemo(() => props.todo[props.name]), () => {
+    const focus = savedFocus;
+
+    if (props.name === "body") return;
+
+    savedFocus = undefined;
+
+    // The value change can run before Solid replaces Add notes with the saved prose.
+    queueMicrotask(() => {
+      if (alive && (document.activeElement === document.body || document.activeElement === shown()) && connected.drawer.content() === content) focus?.(() => shown()?.focus());
+    });
+  }, { defer: true });
+
+  const startWith = () => {
+    const next = opening();
+
+    if (next.editing === null) {
+      setRetentionFailure(next.failure);
 
       return;
     }
 
     setRetentionFailure(null);
-    const form = saved && parsed.success ? parsed.output : freshForm();
-
-    setTyped(form.text);
-    setEditing({ form, text: form.text, recovered: saved !== undefined, selection: saved?.selection ?? null });
+    setTyped(next.editing.form.text);
+    setEditing(next.editing);
   };
-
-  if (props.revision !== undefined) untrack(startWith);
 
   /** An acknowledged save clears the failure; when focus fell to the page, it returns to the shown text. */
   const acknowledge = (restoreFocus: boolean | undefined, retryFocus: ReturnType<typeof captureFocus>) => {
@@ -225,15 +232,16 @@ export const EditableText = (props: {
     const retain = (selectionChanged = false) => {
       const selected = selection();
 
-      draft.keep({ ...started.form, text: read() }, selected);
+      const kept = draft.keep({ ...started.form, text: read() }, selected);
 
       // A selected revision takes a moved caret only from the selection itself.
       if (props.revision === undefined || selectionChanged) draft.select(selected);
+
+      return kept;
     };
 
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
-    onCleanup(() => { left = true; });
     const select = () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); };
 
     const input = () => { if (!left) retain(); };
@@ -248,7 +256,7 @@ export const EditableText = (props: {
         return;
       }
 
-      retain();
+      const kept = retain();
 
       if (started.form.expected_change === null) {
         setFailure(copy.originalUnverified);
@@ -259,8 +267,8 @@ export const EditableText = (props: {
 
       const submittedValue = read();
       const expected = started.form.expected_change;
-      const status = draft.draft()?.status;
-      const unsendable = status ? copy.draftStatus[status] : copy.draftStatus.unknown;
+      const { status } = kept;
+      const unsendable = copy.draftStatus[status];
 
       if (status !== "draft" && status !== "failed") {
         setFailure(unsendable);
@@ -325,48 +333,55 @@ export const EditableText = (props: {
     // Explicit Save authorizes restored work; restoration alone never resumes blur submission.
     save = submit;
 
-    return { retain, blur, select, input, submit, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
+    return { retain, blur, select, input, submit, release: () => { left = true; }, keep: () => { if (!left && (read() !== started.form.base || started.recovered)) retain(); } };
   };
 
   const TitleField = () => {
     let input: HTMLTextAreaElement | undefined;
     let binding: ReturnType<typeof bind> | undefined;
-    let ending: "submit" | "cancel" = "cancel";
 
-    createEffect(on(editing, started => {
-      if (!started || !input) return;
-      // The user's own event started this edit, so any later choice outranks it. The shown title gives up focus now, as the
-      // title a field replaced did; an outranked editor closes before Ark focuses its field a frame later.
-      shown()?.blur();
-      const field = input;
-      binding = bind(started, field, () => field.value, () => ({ start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }), () => {
-        field.focus({ preventScroll: true });
+    /** A press or a focus move away from the title saves it, unless the work is restored or the target is one that keeps a draft: those leave it open, kept. */
+    const leave = (target: EventTarget | null) => {
+      if (editing()?.recovered || keepsDraft(target)) return void binding?.keep();
 
-        if (started.selection) field.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
-      }, () => { if (!started.recovered && editing() === started) setEditing(null); });
-    }));
+      void save?.();
+    };
 
-    const close = () => {
-      const submitting = ending === "submit";
-
-      ending = "cancel";
-
-      if (submitting) return void save?.();
-
+    const cancel = () => {
       binding?.keep();
       setEditing(null);
       queueFocus(() => shown()?.focus());
     };
 
+    createEffect(editing, started => {
+      if (!started || !input) return;
+      // The user's own event started this edit, so any later choice outranks it. The shown title gives up focus now, as the
+      // title a field replaced did; an outranked editor closes before the library focuses its field a frame later.
+      shown()?.blur();
+      const field = input;
+
+      const bound = bind(started, field, () => field.value, () => ({ start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }), () => {
+        field.focus({ preventScroll: true });
+
+        if (started.selection) field.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
+      }, () => { if (!started.recovered && editing() === started) setEditing(null); });
+
+      binding = bound;
+
+      // A press outside names its target even when that target takes no focus. It moves focus once this handler has returned, and a refused
+      // save reopens the field only if nothing outranks it, so the save starts after that move. Escape out of the field closes it like Escape in it.
+      const release = bindLayer(field, { onDismiss: (reason, event) => {
+        if (reason === "outside-press") { const target = event.target; setTimeout(() => leave(target)); }
+        else if (reason === "escape-key") cancel();
+      } });
+
+      return () => { release(); bound.release(); };
+    });
+
     return <Editable.Root edit={editing() !== null} activationMode="none" selectOnFocus={false} value={editing() ? typed() : props.todo[props.name]}
-      submitMode={editing()?.recovered ? "none" : "both"} onValueChange={({ value }) => setTyped(value)} placeholder={copy.noField(props.name)}
-      translations={{ edit: props.todo[props.name] || copy.noField(props.name) }} onEditChange={({ edit }) => { if (!edit) close(); }}
-      onInteractOutside={event => {
-        if (!editing()?.recovered && !keepsDraft(event.target)) return void (ending = "submit");
-        event.preventDefault();
-        binding?.keep();
-      }}>
-      <Editable.Context>{api => <Editable.Area style={{ display: "grid", width: "100%" }}>
+      submitMode="none" onValueChange={({ value }) => setTyped(value)} placeholder={copy.noField(props.name)}
+      translations={{ edit: props.todo[props.name] || copy.noField(props.name) }}>
+      <Editable.Area style={{ display: "grid", width: "100%" }}>
         <Editable.Preview asChild={preview => <p {...preview()} class={props.todo[props.name] === "" ? "light" : undefined} />} onDblClick={() => { if (!editing()) startWith(); }} onKeyDown={event => { if (event.key === "Enter" && !editing()) startWith(); }}
           style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", overflow: "visible", "text-overflow": "clip", "min-height": "1.4em" }} />
         <Editable.Input asChild={field => <textarea {...field()} class="field-inline" rows={1} ref={(element: HTMLTextAreaElement) => { input = element; }} />} spellcheck={false} autocorrect="off" autocapitalize="off"
@@ -379,12 +394,17 @@ export const EditableText = (props: {
             binding?.input();
           }}
           onSelect={() => binding?.select()}
+          // A focus move names its target; leaving for nothing (the window, a blur) is not leaving the field.
+          onFocusOut={event => { if (event.relatedTarget) leave(event.relatedTarget); }}
           onKeyDown={event => {
-            if (event.key === "Escape") event.stopPropagation();
-            else if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); ending = "submit"; api().submit(); }
+            if (event.key === "Escape") {
+              event.stopPropagation();
+
+              if (!event.isComposing) cancel();
+            } else if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); void save?.(); }
           }}
           style={{ "letter-spacing": "inherit", "line-height": "inherit", "text-align": "inherit", "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", padding: "0", "border-width": "0", resize: "none", overflow: "hidden", "caret-color": "var(--accent)" }} />
-      </Editable.Area>}</Editable.Context>
+      </Editable.Area>
     </Editable.Root>;
   };
 
@@ -393,9 +413,7 @@ export const EditableText = (props: {
     let handle: PadEditorHandle | undefined;
     let binding: ReturnType<typeof bind> | undefined;
     const started = rich.started;
-    createEffect(() => { const text = props.todo.body;
-
- if (!started) handle?.setText(text); });
+    createEffect(createMemo(() => props.todo.body), text => { if (!started) handle?.setText(text); });
 
     return <div ref={host} onFocusIn={event => { if (!started && event.target instanceof Element && event.target.matches(".ProseMirror")) startWith(); }} onDblClick={() => { if (!started) startWith(); }} onKeyDown={event => {
       // Crepe dismisses block menus in capture; a no-match slash query has already
@@ -404,7 +422,7 @@ export const EditableText = (props: {
       if (event.key === "Escape" && !(started && started.form.base === "" && !started.recovered && handle?.getText() === "")) { event.preventDefault(); event.stopPropagation(); }
       else if (started) key?.(event);
       else if (event.key === "Enter") { event.preventDefault(); startWith(); }
-    }}><Suspense><PadRichEditor item="todo" text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
+    }}><Loading><PadRichEditor item="todo" text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
       onChange={() => binding?.retain()}
       onText={() => binding?.retain()}
       onSelection={() => binding?.retain(true)}
@@ -427,7 +445,7 @@ export const EditableText = (props: {
 
           if (started.selection) handle!.restoreSelection(started.selection);
         });
-      }} /></Suspense></div>;
+      }} /></Loading></div>;
   };
 
   return (

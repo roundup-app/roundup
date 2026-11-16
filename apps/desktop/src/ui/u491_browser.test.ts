@@ -10,6 +10,13 @@ const load = async () => {
   await wait(`document.querySelectorAll('.app-splitter').length === 2`);
 };
 
+// The separator's `aria-valuetext` holds the width in px; `aria-valuenow` is that width as the percent of the measured root.
+const reports = (px: number) => `(() => {
+  const edge = document.querySelector('[aria-label="Resize Rail"]');
+  const root = document.querySelector('[data-layout-root]').getBoundingClientRect().width;
+  return parseInt(edge.getAttribute('aria-valuetext')) === ${px} && edge.getAttribute('aria-valuenow') === String(Math.round(${px} / root * 100));
+})()`;
+
 const key = async (name: string, key: string) => {
   await browser("focus", `[aria-label="${name}"]`);
   await browser("press", key);
@@ -18,13 +25,14 @@ const key = async (name: string, key: string) => {
 it("u491_controlled_pixels_follow_owner_and_root", async () => {
   await load();
   await read(`window.__providers.widths.rail.commit(352)`);
-  await wait(`document.querySelector('[aria-label="Resize Rail"]').getAttribute('aria-valuenow') === '352'`);
+  await wait(reports(352));
 
   for (const width of [1440, 1280]) {
     await browser("set", "viewport", String(width), "800");
     await wait(`document.querySelector('[data-layout-root]').getBoundingClientRect().width === ${width}`);
     await key("Resize Rail", "ArrowRight");
     await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === ${width === 1440 ? 368 : 384}`);
+    await wait(reports(width === 1440 ? 368 : 384));
   }
 
   expect(await read<string>(`document.querySelector('[aria-label=Draft]').value`)).toBe("Retained draft");

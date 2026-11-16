@@ -1,6 +1,6 @@
 import { openAsk } from "../ask/askFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { batch, createRoot, createSignal } from "solid-js";
+import { createRoot, createSignal, flush } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
@@ -14,7 +14,7 @@ import { captureActions, registerKeys } from "./registry";
 
 const disposals: (() => void)[] = [];
 
-afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); batch(cleanup); localStorage.clear(); });
+afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); cleanup(); localStorage.clear(); });
 
 const owner = (terminal: HTMLElement) => {
   const calls: Element[] = [];
@@ -51,6 +51,7 @@ it("u3787b_menu_and_key_share_one_action: Terminal Find from key", async () => {
   expect(find.calls).toEqual([]);
 
   fireEvent.keyDown(terminal, { code: "KeyF", key: "f", metaKey: true });
+  flush();
 
   expect(find.calls).toEqual([terminal]);
   expect(inactive.calls).toEqual([]);
@@ -78,6 +79,7 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
     expect(fireEvent.keyDown(editor, { code: "KeyF", key: "f", metaKey: true })).toBe(true);
   }
 
+  flush();
   openProjectPage("action:chord:⌘F", "/p");
 
   if (state !== "editor") captured.run();
@@ -106,6 +108,7 @@ it("u3787b_menu_and_key_share_one_action: row Switcher from key", async () => {
 it("u3787b_menu_and_key_share_one_action: Bubble minimise from key", async () => {
   const { connected, daemon, shells } = await mountNavigation(false, 0);
   connected().rail.select("home");
+  flush();
   daemon.handlers["terminal.open"] = () => {
     shells.push(info("shell", { owner: "home" }));
 
@@ -142,6 +145,7 @@ it.each([
   const resize = vi.spyOn(emulator, "setFontSize");
 
   fireEvent.keyDown(terminal, { key, code, metaKey: true });
+  flush();
 
   expect(emulator.fontSize).toBe(size);
   expect(resize).toHaveBeenCalledExactlyOnceWith(size);
@@ -158,6 +162,7 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
   const size = emulators.made.get("t-a2")!.fontSize;
   captured.run();
+  flush();
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
 
@@ -165,7 +170,8 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
 it("u3787b_menu_and_key_share_one_action: Rail rename from key captures the focused row", async () => {
   const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a2");
-  const row = document.querySelector<HTMLElement>('[data-id="a1"][data-part="item"]')!;
+  flush();
+  const row = document.querySelector<HTMLElement>('.rail-row[data-id="a1"]')!;
   row.focus();
   expect(document.activeElement).toBe(row);
 
@@ -180,7 +186,7 @@ it("u3787b_menu_and_key_share_one_action: Rail rename from key captures the focu
 
 it("u3787b_menu_and_key_share_one_action: Help from key returns focus without Terminal input", async () => {
   const { daemon } = await mountNavigation(false, 0);
-  const row = document.querySelector<HTMLElement>('[data-part="item"]')!;
+  const row = document.querySelector<HTMLElement>('.rail-row')!;
   row.focus();
   const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
   expect(document.activeElement).toBe(row);
@@ -207,9 +213,11 @@ it("u3787b_numbered_assignment_captures_one_todo_and_owner: ninth Agent from key
 
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number - 1}`, parent: null } }]));
   fireEvent.click(screen.getByLabelText("Add Todo: Overview", { selector: "button" }));
+  flush();
   screen.getByLabelText("New Todo title").focus();
   captured.run();
   openProjectPage(command);
+  flush();
   expect(daemon.calls.filter(call => call.method === "todo.assign")).toHaveLength(1);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
@@ -223,6 +231,7 @@ it("u3787b_menu_and_key_share_one_action: Pad Open from key captures the focused
   const selected = document.querySelector<HTMLButtonElement>('[data-pad="Selected"] .pad-name')!;
   const row = document.querySelector<HTMLButtonElement>('[data-pad="Focused"] .pad-name')!;
   fireEvent.click(selected);
+  flush();
   row.focus();
   expect(document.activeElement).toBe(row);
 
@@ -239,6 +248,7 @@ it("u3787b_menu_and_key_share_one_action: Pad Rename from key refuses its editin
   daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Focused" } });
   await showEverythingInApp(undefined, "Pads");
   fireEvent.click(document.querySelector<HTMLButtonElement>('[data-pad="Selected"] .pad-name')!);
+  flush();
   const row = document.querySelector<HTMLButtonElement>('[data-pad="Focused"] .pad-name')!;
   row.focus();
   const captured = captureActions(row).find(action => action.value === "action:chord:F2")!;
@@ -251,6 +261,7 @@ it("u3787b_menu_and_key_share_one_action: Pad Rename from key refuses its editin
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage("action:chord:F2");
+  flush();
   expect(screen.getAllByRole("textbox", { name: "Name" })).toEqual([field]);
   expect(daemon.calls.filter(call => call.method === "pad.rename" || call.method === "pad.write")).toEqual([]);
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
@@ -270,6 +281,7 @@ it("u3787b_menu_and_key_share_one_action: Add Todo from key retains its scope", 
   const { connected, daemon } = await creationScope();
   await showEverythingInApp();
   connected().rail.select("a1");
+  flush();
   const list = document.querySelector<HTMLElement>(".todos-tab")!;
   list.focus();
   const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
@@ -282,7 +294,9 @@ it("u3787b_menu_and_key_share_one_action: Add Todo from key retains its scope", 
   expect(fireEvent.keyDown(field, { key: "n", code: "KeyN" })).toBe(true);
   captured.run();
   openProjectPage("action:chord:N");
+  flush();
   fireEvent.input(field, { target: { value: "Captured work" } });
+  flush();
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.create").map(call => call.params)).toEqual([
     { title: "Captured work", body: null, blockers: null, owner: { kind: "agent", id: "a1", parent: null } },
@@ -301,6 +315,7 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
   captured.run();
   openProjectPage("action:chord:N");
+  flush();
   expect(captured.available()).toBe(false);
   expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2");
   expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
@@ -322,8 +337,10 @@ it("u3787b_menu_and_key_share_one_action: Project Rename from key captures the f
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage("action:chord:F2", "/p");
+  flush();
   expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([field]);
   fireEvent.input(field, { target: { value: "Renamed Project" } });
+  flush();
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith("/p", "Renamed Project", "p"));
   expect(document.activeElement?.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
@@ -333,6 +350,7 @@ it("u3787b_menu_and_key_share_one_action: Project Rename from key captures the f
   expect(retained.available()).toBe(false);
   retained.run();
   openProjectPage("action:chord:F2", "/p");
+  flush();
   expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([]);
 });
 
@@ -355,6 +373,7 @@ it.each([
   expect(field.querySelector(semantic)).toBeNull();
 
   fireEvent.keyDown(surface, { key, code, metaKey: true });
+  flush();
 
   expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
   expect(field.value).toContain(" untouched");
@@ -365,6 +384,7 @@ it.each([
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage(`action:chord:${chord}`);
+  flush();
   expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
@@ -389,6 +409,7 @@ it.each([
   expect(field.querySelector(semantic)).toBeNull();
 
   fireEvent.keyDown(surface, { key, code, metaKey: true, shiftKey, altKey });
+  flush();
 
   expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
   expect(document.activeElement).toBe(surface);
@@ -397,6 +418,7 @@ it.each([
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage(`action:chord:${chord}`);
+  flush();
   expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });

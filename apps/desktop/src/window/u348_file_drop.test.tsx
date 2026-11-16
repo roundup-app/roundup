@@ -77,7 +77,7 @@ const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"
   return { app, made };
 };
 
-const selected = () => document.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id");
+const selected = () => document.querySelector(".rail-row[data-selected]")?.getAttribute("data-id");
 
 const targets = () => [...document.querySelectorAll("[data-drop]")];
 

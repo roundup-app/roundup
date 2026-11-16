@@ -15,7 +15,7 @@ it.each([
   app.handlers[method] = () => answer.promise;
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   connected.showView(view);
-  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={connected}><AskBar /></ConnectedProjectContext>);
   await screen.findByRole("heading", { name: heading });
   expect(app.calls.filter(call => call.method === method)).toHaveLength(1);
   expect(screen.queryByRole("group", { name: title })).toBeNull();

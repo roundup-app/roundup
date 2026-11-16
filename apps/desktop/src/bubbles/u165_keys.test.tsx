@@ -1,4 +1,5 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
+import { flush } from "solid-js";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
@@ -13,6 +14,7 @@ afterEach(cleanup);
 
 const focusBubble = (id: string): void => {
   fireEvent.click(document.querySelector(`.terminal-tab[data-bubble="${id}"]`)!);
+  flush();
   bubble(id).querySelector<HTMLElement>("button")?.focus();
 };
 
@@ -120,5 +122,6 @@ describe("u165 the keys for bubbles", () => {
     expect(escape.defaultPrevented).toBe(false);
     expect(CHORD_ROWS.slice(0, 5).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T"]);
     fireEvent.keyDown(document.body, { key: "x" });
+    flush();
   });
 });

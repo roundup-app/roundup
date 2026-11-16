@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, onMount } from "solid-js";
+import { createEffect, onCleanup, onSettled } from "solid-js";
 import { Terminal } from "@xterm/xterm";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { FitAddon } from "@xterm/addon-fit";
@@ -42,7 +42,7 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
     });
   };
 
-  onMount(() => {
+  onSettled(() => {
     terminal.open(host);
     attachRenderer(terminal, () => new WebglAddon(), console.warn);
     dropInlineGround(host, disposers);
@@ -56,11 +56,12 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
     repaintTheme();
     const observer = new ResizeObserver(repaint);
     observer.observe(host);
-    const stop = followAppAppearance(repaintTheme);
-    onCleanup(() => { observer.disconnect(); stop(); });
+
+    return () => observer.disconnect();
   });
-  createEffect(() => {
-    Object.assign(terminal.options, props.type);
+  onCleanup(followAppAppearance(repaintTheme));
+  createEffect(() => props.type, type => {
+    Object.assign(terminal.options, type);
 
     if (host) repaint();
   });

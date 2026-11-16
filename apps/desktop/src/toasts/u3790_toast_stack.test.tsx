@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import css from "../ui/Toast.css?raw";
 import { agent, USER } from "../testing/nodes";
-import { TOAST_AGENT as AGENT, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
+import { TOAST_AGENT as AGENT, alerts, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
 
 const tree = () => [agent("a", "working", "x", { name: "scout" }), agent("b", "working", "x", { name: "mason" }), agent("c", "working", "x", { name: "tiler" })];
 
@@ -21,7 +21,12 @@ const cards = (view: { container: HTMLElement }) => [...view.container.querySele
 const bar = (card: HTMLElement) => card.querySelector<HTMLElement>(".app-toast-bar")!;
 
 
-const hover = (on: boolean) => fireEvent[on ? "mouseEnter" : "mouseLeave"](region());
+const hover = (on: boolean) => fireEvent[on ? "pointerEnter" : "pointerLeave"](region());
+
+/** The stack is fanned out into a list while hovered or focused, and folded into a pile otherwise. */
+const fanned = (card: HTMLElement) => card.hasAttribute("data-expanded");
+
+const index = (card: HTMLElement) => card.style.getPropertyValue("--toast-index");
 
 beforeEach(() => vi.useFakeTimers());
 
@@ -37,9 +42,9 @@ describe("u3790 every Toast has a time and shows it", () => {
     app.emit(status("a", "needs-you"));
     await settle();
     await vi.advanceTimersByTimeAsync(4900);
-    expect(cards(view)[0]!.dataset.state).toBe("open");
+    expect(cards(view)).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(100);
-    expect(cards(view)[0]!.dataset.state).toBe("closed");
+    expect(cards(view)).toHaveLength(0);
   });
 
   it("u3790_a_failure_toast_has_no_time_and_closes_on_dismissal", async () => {
@@ -50,10 +55,10 @@ describe("u3790 every Toast has a time and shows it", () => {
     fireEvent.click(screen.getByRole("button", { name: /Changed Todo/ }));
     await settle();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(screen.queryByRole("alert")).not.toBeNull();
-    fireEvent.click(within(screen.getByRole("alert").closest<HTMLElement>(".app-toast")!).getByRole("button", { name: "Dismiss" }));
+    expect(alerts()).toHaveLength(1);
+    fireEvent.click(within(alerts()[0]!.closest<HTMLElement>(".app-toast")!).getByRole("button", { name: "Dismiss" }));
     await vi.advanceTimersByTimeAsync(400);
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerts()).toHaveLength(0);
     expect(view.container.querySelector(".app-toast")).toBeNull();
   });
 
@@ -90,14 +95,13 @@ describe("u3791 the time pauses and resumes", () => {
     await vi.advanceTimersByTimeAsync(3000);
     pause();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(cards(view)[0]!.dataset.state).toBe("open");
-    expect(cards(view)[0]!.dataset.paused).toBeDefined();
+    expect(cards(view)).toHaveLength(1);
     expect(bar(cards(view)[0]!).style.animationPlayState).toBe("paused");
     resume();
     await vi.advanceTimersByTimeAsync(1900);
-    expect(cards(view)[0]!.dataset.state).toBe("open");
+    expect(cards(view)).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(100);
-    expect(cards(view)[0]!.dataset.state).toBe("closed");
+    expect(cards(view)).toHaveLength(0);
   };
 
   it("u3791_hover_pauses_and_leaving_resumes_from_what_was_left", async () => {
@@ -129,7 +133,8 @@ describe("u3791 the time pauses and resumes", () => {
     app.emit(status("a", "needs-you"));
     await settle();
     hover(true);
-    await settle();
+    // The library's own announcement timers run out within 300 ms; the card's time must not be among the rest.
+    await vi.advanceTimersByTimeAsync(300);
     expect(vi.getTimerCount()).toBe(0);
     expect(bar(cards(view)[0]!).style.animationPlayState).toBe("paused");
   });
@@ -152,9 +157,9 @@ describe("u3792 the cards stack and fan out", () => {
     const [front, middle, back] = cards(view);
 
     expect(front!.textContent).toContain("tiler");
-    expect([front, middle, back].map((card) => card!.style.getPropertyValue("--index"))).toEqual(["0", "1", "2"]);
-    expect(region().style.getPropertyValue("--gap")).toBe("8px");
-    expect([front, middle, back].every((card) => card!.dataset.overlap !== undefined)).toBe(true);
+    expect([front, middle, back].map((card) => index(card!))).toEqual(["0", "1", "2"]);
+    expect(region().style.getPropertyValue("--toast-count")).toBe("3");
+    expect([front, middle, back].some((card) => fanned(card!))).toBe(false);
   });
 
   it("u3792_hover_and_focus_fan_the_stack_into_a_list", async () => {
@@ -162,14 +167,14 @@ describe("u3792 the cards stack and fan out", () => {
 
     hover(true);
     await settle();
-    expect(cards(view).every((card) => card.dataset.stack !== undefined && card.dataset.overlap === undefined)).toBe(true);
+    expect(cards(view).every(fanned)).toBe(true);
     expect(cards(view).map((card) => card.textContent?.trim())).toEqual(["tiler Needs you", "mason Needs you", "scout Needs you"]);
     hover(false);
     await settle();
 
     actions()[0]!.focus();
     await settle();
-    expect(cards(view).every((card) => card.dataset.stack !== undefined)).toBe(true);
+    expect(cards(view).every(fanned)).toBe(true);
   });
 
   it("u3792_leaving_folds_it_back", async () => {
@@ -179,7 +184,7 @@ describe("u3792 the cards stack and fan out", () => {
     await settle();
     hover(false);
     await settle();
-    expect(cards(view).every((card) => card.dataset.overlap !== undefined)).toBe(true);
+    expect(cards(view).some(fanned)).toBe(false);
   });
 
   it("u3792_only_the_front_card_is_focusable_when_folded", async () => {
@@ -199,8 +204,8 @@ describe("u3792 the cards stack and fan out", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: "tiler: Needs you" }), { key: "Escape" });
     await vi.advanceTimersByTimeAsync(400);
     await settle();
-    expect(cards(view).map((card) => card.style.getPropertyValue("--index"))).toEqual(["0", "1"]);
-    expect(cards(view).every((card) => card.dataset.stack !== undefined)).toBe(true);
+    expect(cards(view).map(index)).toEqual(["0", "1"]);
+    expect(cards(view).every(fanned)).toBe(true);
   });
 });
 
@@ -216,9 +221,9 @@ describe("u3793 how the cards move", () => {
     const [front, behind] = cards(view);
 
     expect(front!.textContent).toContain("mason");
-    expect(front!.dataset.mounted).toBeDefined();
-    expect(behind!.style.getPropertyValue("--index")).toBe("1");
-    expect(behind!.dataset.sibling).toBeDefined();
+    expect(front!.hasAttribute("data-starting-style")).toBe(true);
+    expect(index(behind!)).toBe("1");
+    expect(behind!.hasAttribute("data-front")).toBe(false);
   });
 
   it("u3793_a_leaving_card_fades_and_sinks_while_the_rest_move_up", async () => {
@@ -228,11 +233,12 @@ describe("u3793 how the cards move", () => {
     await settle();
     app.emit(status("b", "needs-you"));
     await settle();
+    const remaining = cards(view)[1]!.textContent;
     fireEvent.keyDown(screen.getByRole("button", { name: "mason: Needs you" }), { key: "Escape" });
     await vi.advanceTimersByTimeAsync(0);
-    expect(cards(view)[0]!.dataset.state).toBe("closed");
-    await vi.advanceTimersByTimeAsync(400);
-    expect(cards(view).map((card) => card.style.getPropertyValue("--index"))).toEqual(["0"]);
+    expect(cards(view)).toHaveLength(1);
+    expect(cards(view)[0]!.textContent).toBe(remaining);
+    expect(cards(view).map(index)).toEqual(["0"]);
   });
 
   it("u3793_only_transform_and_opacity_animate", () => {

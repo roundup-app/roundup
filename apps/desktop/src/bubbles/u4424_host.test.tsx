@@ -1,4 +1,5 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
 import { subscribed } from "../terminal/paneHarness";

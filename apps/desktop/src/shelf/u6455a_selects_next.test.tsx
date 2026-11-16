@@ -1,11 +1,11 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 import { AGENT, openShelf, padOf } from "../pads/padsFixture";
 import { stubDialogLayout } from "./bulkQuestionHarness";
 
-afterEach(() => batch(cleanup));
+afterEach(() => cleanup());
 
 stubDialogLayout();
 
@@ -20,6 +20,7 @@ it("u6455a_backspace_keeps_deleting_the_next_row", async () => {
   };
 
   fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }));
+  flush();
   fireEvent.keyDown(todoRow(1)!, { key: "Backspace" });
   await waitFor(() => expect(todoRow(2)?.getAttribute("aria-pressed")).toBe("true"));
   fireEvent.keyDown(todoRow(2)!, { key: "Backspace" });
@@ -32,6 +33,7 @@ it("u6455a_backspace_keeps_deleting_the_next_row", async () => {
 it("u6455a_backspace_keeps_deleting_the_next_row_in_pads", async () => {
   const { app } = await openShelf([padOf("a", AGENT), padOf("b", AGENT), padOf("c", AGENT)]);
   fireEvent.click(await screen.findByRole("button", { name: "a" }));
+  flush();
   fireEvent.keyDown(screen.getByRole("button", { name: "a" }), { key: "Backspace" });
   await waitFor(() => expect(screen.getByRole("button", { name: "b" }).getAttribute("aria-pressed")).toBe("true"));
   fireEvent.keyDown(screen.getByRole("button", { name: "b" }), { key: "Backspace" });
@@ -49,6 +51,7 @@ it("u6455a_last_row_deleted_leaves_nothing_selected", async () => {
   };
 
   fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }));
+  flush();
   fireEvent.keyDown(todoRow(1)!, { key: "Backspace" });
   await waitFor(() => expect(todoRow(1)).toBeNull());
   expect(screen.queryAllByRole("button", { pressed: true })).toHaveLength(0);
@@ -63,7 +66,9 @@ it("u6455a_partial_failure_selects_only_failed_rows", async () => {
   };
 
   fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }));
+  flush();
   fireEvent.click(todoRow(2)!, { metaKey: true });
+  flush();
   fireEvent.keyDown(todoRow(2)!, { key: "Backspace" });
   await screen.findByText(/Could not delete/);
   await waitFor(() => expect(todoRow(1)).toBeNull());

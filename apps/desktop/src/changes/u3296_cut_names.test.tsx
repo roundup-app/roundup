@@ -49,7 +49,7 @@ it("u3296a_repeating_text_opens_no_tooltip", async () => {
   const [branch, base] = await facts();
 
   for (const dd of [branch!, base!]) {
-    fireEvent.pointerMove(dd, { pointerType: "mouse" });
+    fireEvent.pointerEnter(dd, { pointerType: "mouse" });
     dd.focus();
   }
 
@@ -89,7 +89,7 @@ it("u3296a_a_note_path_opens_no_tooltip", async () => {
   layout(400);
   const path = await notePath();
 
-  fireEvent.pointerMove(path, { pointerType: "mouse" });
+  fireEvent.pointerEnter(path, { pointerType: "mouse" });
   await new Promise((done) => setTimeout(done, 600));
   expect(screen.queryByRole("tooltip")).toBeNull();
 });

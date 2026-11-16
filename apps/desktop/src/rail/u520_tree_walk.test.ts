@@ -4,6 +4,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, mode, workstream, NOW } from "../testing/nodes";
 import * as topology from "../state/railTopology";
 import { createRailTree } from "./railTree";
+import { itemValues } from "./railFixture";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { captureDir } from "../testing/captures";
@@ -11,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
-/** U520: the Rail's keyboard walk is the real Ark TreeView's in headless Chromium; `tree-40` is Workstream → Workstream → Agent with a sibling after the first. */
+/** U520: the Rail's keyboard walk is the ui-sdk Tree's in headless Chromium; `tree-40` is Workstream → Workstream → Agent with a sibling after the first. */
 
 const found = chromePath();
 
@@ -77,7 +78,7 @@ run("u520 the Rail is a tree", () => {
     await page.until(`() => document.querySelector('.shelf')?.hidden === true`);
 
     // U4547a adds heading Tab stops; enter the first data row after its heading.
-    for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.matches('[role=tree] [data-part=item], [role=tree] [data-part=branch-control]:not(.section-head)') === true`)); tabs += 1) await page.press("Tab", "Tab");
+    for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.matches('[role=tree] [role=treeitem]:not(.section-head)') === true`)); tabs += 1) await page.press("Tab", "Tab");
 
     await at("backend");
     await press("ArrowDown");
@@ -105,7 +106,7 @@ run("u520 the Rail is a tree", () => {
     await page.until(`() => document.activeElement?.matches('.section-head') === true`);
     expect(await page.call<boolean>(`() => document.activeElement === document.querySelector('.rail-tree .section-head')`)).toBe(true);
     await press("End");
-    expect(await page.call<boolean>(`() => { const rows = [...document.querySelectorAll('[role=tree] [data-part=item], [role=tree] [data-part=branch-control]')].filter((row) => row.checkVisibility()); return rows.at(-1) === document.activeElement; }`)).toBe(true);
+    expect(await page.call<boolean>(`() => { const rows = [...document.querySelectorAll('[role=tree] [role=treeitem]')].filter((row) => row.checkVisibility()); return rows.at(-1) === document.activeElement; }`)).toBe(true);
     await press("Home");
     await page.until(`() => document.activeElement?.matches('.section-head') === true`);
     expect(await page.call<boolean>(`() => document.activeElement === document.querySelector('.rail-tree .section-head')`)).toBe(true);
@@ -138,7 +139,7 @@ run("u5483 folded children", () => {
     await page.scheme("dark");
     await page.load(walkHarness, 1512, 950);
     await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
-    await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
+    await page.call(`() => document.querySelector('[data-id="fold:auth"]').focus()`);
     await press("ArrowRight");
     await folded("fold:auth", "true");
     await press("ArrowRight");
@@ -164,7 +165,7 @@ run("u5483 folded children", () => {
       window.__fake.app.handlers['rail.tree'] = () => [...nodes, descendant];
       window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'rail.changed' });
     }`);
-    await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
+    await page.call(`() => document.querySelector('[data-id="fold:auth"]').focus()`);
     await press("ArrowRight");
     await folded("fold:auth", "true");
     await press("ArrowRight");
@@ -177,7 +178,7 @@ run("u5483 folded children", () => {
   it("u5483b_focus_survives_folding_and_return", async () => {
     await page.load(walkHarness, 1512, 950);
     await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
-    await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
+    await page.call(`() => document.querySelector('[data-id="fold:auth"]').focus()`);
     await press("ArrowRight");
     await folded("fold:auth", "true");
     await press("ArrowRight");
@@ -229,7 +230,7 @@ it("u5645a_one_topology_serves_rows_and_collection_at_40_and_400", async () => {
     createRoot(dispose => {
       const tree = createRailTree(connected, () => new Set(), () => undefined);
       expect(tree.rows().map(row => row.key)).toEqual(expected.map(id => `node:${id}`));
-      expect(tree.collection().getValues().filter(id => !id.startsWith("section:"))).toEqual(expected);
+      expect(itemValues(tree.items()).filter(id => !id.startsWith("section:"))).toEqual(expected);
       expect(tree.sectionRows().map(section => section.id)).toEqual(["workstreams", "modes", "agents"]);
       expect(tree.topology().nodes.every(node => connected.rail.nodes.includes(node))).toBe(true);
       tree.treeRows();

@@ -60,9 +60,8 @@ export const Help = (props: { projectOpen?: boolean }) => {
   return (
     <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }}
       initialFocusEl={() => panel ?? null}
-      finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
-      onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
-      <Dialog.Positioner><Dialog.Content class="help" aria-label={copy.help} ref={(element) => {
+      finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}>
+      <Dialog.Content class="help" aria-label={copy.help} ref={(element) => {
         panel = element;
         const focus = initialFocus;
 
@@ -82,7 +81,7 @@ export const Help = (props: { projectOpen?: boolean }) => {
         <p><KeyHint keys={SHELF_KEYS.cancel}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
         </section></Show>
         <div class="app-dialog-actions"><Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
-      </Dialog.Content></Dialog.Positioner>
+      </Dialog.Content>
     </Dialog.Root>
   );
 };

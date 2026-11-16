@@ -5,11 +5,11 @@ import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "./EmptyRail";
 import { failureOf } from "../app/failureOf";
-import { captureFocus, returnFocus } from "../keys/focus";
+import { captureFocus, provideFocusTarget, returnFocus } from "../keys/focus";
 import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
-import { createEffect, createMemo, createRoot, createSignal, For, on, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, For, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -18,8 +18,8 @@ import { Icon } from "../ink/Icon";
 import { CHORDS, type ActionValue } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
-import { TreeView, Trunks } from "../ui/TreeView";
-import { useTreeView } from "@ark-ui/solid/tree-view";
+import { AppTree, tabStop, Trunks } from "../ui/TreeView";
+import { TreeItem, TreeItemIndicator, createTreeController } from "@ui-sdk/solid/tree";
 import { useConnectedProject, type ConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { RailDialogs, type RailDialog } from "./dialogs";
@@ -37,7 +37,6 @@ import { contextMenu, openOnRelease, type MenuEntry } from "../ui/contextMenu";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { draftsOf } from "../state/railStorage";
 import { createRailDrag } from "./drag";
-import { createWritableMemo } from "@solid-primitives/memo";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { afterElseBefore } from "../keys/survivor";
 import { createRailTree, sameList, sections } from "./railTree";
@@ -209,9 +208,13 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     const under = taskParent();
 
     return task()?.destination ?? { surface: "rail-task", object: under ?? project.path, recipient: taskAction() === "note" ? under : null };
-  }, undefined, { equals: sameDestination });
+  }, { equals: sameDestination });
 
-  const compose = createMemo(on(composeDestination, destination => createDraftField(connected.drafts, destination, taskSchema)));
+  const compose = createMemo(() => {
+    const destination = composeDestination();
+
+    return untrack(() => createDraftField(connected.drafts, destination, taskSchema));
+  });
 
   const keepDraft = (text: string, selection = task()?.selection ?? null) =>
     compose().keep({ text, parent: taskParent(), model: null, effort: null, action: taskAction() }, selection);
@@ -230,7 +233,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   const endCompose = () => setComposing(false);
 
-  const { topology, sectionRows, rows, collection, settleCollection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, id => rowElement(id), () => container());
+  const { topology, sectionRows, rows, items, settleItems, branches, expanded, nodeRows, nodeIds, indexOf, treeRows, byKey, lifted, dropRules } = createRailTree(connected, unfolded, () => container());
 
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
@@ -238,14 +241,15 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
 
   const [container, setContainer] = createSignal<HTMLElement>();
+  provideFocusTarget("rail.selected", () => untrack(container)?.closest(".rail")?.querySelector<HTMLElement>("[data-selected].rail-row"));
   const [field, setField] = createSignal<HTMLTextAreaElement>();
 
-  /** The focusable element of the row `id`: its item, or the control of its branch. */
-  const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)?.closest<HTMLElement>(ROW) ?? container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"] [data-part="branch-control"]`) ?? undefined;
+  /** The focusable element of the row `id`: its tree item. */
+  const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`${ROW}[data-id="${CSS.escape(id)}"]`) ?? undefined;
 
   const [focused, setFocused] = createSignal<string | null>(null);
-  createEffect(on(rows, current => {
-    const id = focused();
+  createEffect(rows, current => {
+    const id = untrack(focused);
 
     if (!id || document.activeElement !== document.body && !container()?.contains(document.activeElement)) return;
     const visible = current.some(row => row.kind === "node" ? row.node.id === id : row.key === id);
@@ -274,7 +278,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     setFocused(target);
     // U3800g: the restore runs at the next frame, after the drop's task.
     requestAnimationFrame(() => rowElement(target)?.focus());
-  }));
+  });
 
   const openRow = (id: string) => {
     const node = rail.nodes.find(each => each.id === id);
@@ -287,41 +291,39 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     rail.select(destination);
   };
 
-  // The rows chosen: Zag's tree-view owns range, toggle, select-all and typeahead; opening a row replaces them.
-  const [selected, setSelected] = createWritableMemo<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
+  // The rows chosen: the tree owns range, toggle, select-all and typeahead; a plain press and opening a row replace them.
+  const [selected, setSelected] = createSignal<string[]>(() => rail.selected() === null ? [] : [rail.selected()!]);
   const isSelected = (id: string) => selected().includes(id);
 
-  /** A drawn, enabled data row: Zag's select-all also takes section and fold branches and the rows a closed branch holds. */
+  /** A drawn, enabled data row: the tree's select-all also takes section and fold branches and the rows a closed branch holds. */
   const selectable = (value: string) => rail.nodes.some(node => node.id === value) && rowElement(value)?.closest("[hidden], [inert], [aria-disabled=true]") === null;
 
-  const tree = useTreeView(() => ({
-    collection: collection(),
-    focusedValue: focused(),
-    onFocusChange: details => setFocused(details.focusedValue),
-    expandedValue: expanded(),
-    selectionMode: "multiple",
-    typeahead: true,
-    selectedValue: selected(),
-    onSelectionChange: details => setSelected(details.selectedValue.filter(selectable)),
-    expandOnClick: false,
-    onExpandedChange: details => {
-      const open = new Set(details.expandedValue);
+  const controller = createTreeController();
 
-      for (const id of collection().getBranchValues()) {
-        const section = sections.find(section => `section:${section.id}` === id);
+  const chooseRows = (next: string[], details: { reason: string; event?: Event | undefined }) => {
+    const press = details.reason === "item-press" && details.event instanceof MouseEvent && !details.event.ctrlKey && !details.event.metaKey && !details.event.shiftKey;
+    const pressed = press ? next.find(id => !selected().includes(id)) ?? selected().find(id => !next.includes(id)) : undefined;
 
-        if (section) rail.setSectionOpen(section.id, open.has(id));
-        else if (id.startsWith("fold:")) {
-          const parent = id.slice(5);
+    setSelected((pressed === undefined ? next : [pressed]).filter(selectable));
+  };
 
-          if (open.has(id) !== unfolded().has(parent)) setUnfolded(current => toggled(current, parent));
-        }
-        else if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+  const applyExpanded = (expandedValue: string[]) => {
+    const open = new Set(expandedValue);
+
+    for (const id of branches()) {
+      const section = sections.find(section => `section:${section.id}` === id);
+
+      if (section) rail.setSectionOpen(section.id, open.has(id));
+      else if (id.startsWith("fold:")) {
+        const parent = id.slice(5);
+
+        if (open.has(id) !== unfolded().has(parent)) setUnfolded(current => toggled(current, parent));
       }
-    },
-  }));
+      else if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+    }
+  };
 
-  const focusRow = (id: string) => tree().focus(id);
+  const focusRow = (id: string) => controller.focus(id);
 
   const selectedNodes = () => nodeRows().flatMap(row => isSelected(row.node.id) ? [row.node] : []);
 
@@ -521,14 +523,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
     const slow = setTimeout(() => setAsking(true), 500);
 
     // A retry runs from the failure line after this Rail may have closed, so the send's field lives in its own root until the reply settles.
-    const send = (call: () => ReturnType<typeof railCommand<string | null>>) => createRoot(async dispose => {
-      const field = createDraftField(connected.drafts, sent.destination, taskSchema, sent);
+    const send = async (call: () => ReturnType<typeof railCommand<string | null>>) => {
+      const { field, dispose } = createRoot(dispose => ({ field: createDraftField(connected.drafts, sent.destination, taskSchema, sent), dispose }));
 
       // Enter and Retry are the owner's own send, so a recovered task goes too.
       field.save();
 
       try { return await field.send(call); } finally { dispose(); }
-    });
+    };
 
     try {
       const outcome = await send(() => door === null
@@ -597,7 +599,8 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: { ...CHORDS["agent.new-with-prompt"], get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) createWorkstream(); else openCompose(args?.prompt); } }) },
+    // The spread copies the chord's keys once, as the key table is built; `what` stays live.
+    { action: untrack(() => ({ ...CHORDS["agent.new-with-prompt"], get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } })), match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) createWorkstream(); else openCompose(args?.prompt); } }) },
     { action: CHORDS["workstream.new"], capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS["mode.new"], capture: () => ({ available: canSpawn, invoke: () => setDialog({ kind: "create-mode" }) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
@@ -623,21 +626,35 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
 
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(
-    on(rail.selected, (id) => {
-      if (id === null || rail.restored()) return;
+    rail.selected,
+    (id) => {
+      if (id === null || untrack(rail.restored)) return;
 
       queueMicrotask(() => rowElement(id)?.scrollIntoView({ block: "nearest" }));
-    }),
+    },
   );
 
-  createEffect(() => {
+  const placed = createMemo(() => {
     const request = wanted();
 
-    if (request !== null && rail.nodes.some((node) => node.id === request.id)) {
-      request.focus(() => rail.select(request.id));
-      setWanted(null);
-    }
+    return request !== null && rail.nodes.some((node) => node.id === request.id) ? request : null;
   });
+
+  createEffect(placed, request => {
+    if (request === null) return;
+
+    request.focus(() => rail.select(request.id));
+    setWanted(null);
+  });
+
+  const guardCtrlClick = (element: HTMLElement) => {
+    const ctrlClick = ctrlClickGuard();
+    const disarm = () => { settleItems(); ctrlClick.disarm(); };
+
+    makeEventListener(element, "keydown", disarm, { capture: true });
+    makeEventListener(element, "pointerdown", ctrlClick.press, { capture: true });
+    makeEventListener(element, "click", ctrlClick.click, { capture: true });
+  };
 
   return (
     <>
@@ -652,17 +669,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         if (entries.length > 0) void contextMenu(app, entries, x, y);
       });
     }}>
-    <TreeView.RootProvider value={tree}
-      class="rail-tree" data-history-region="rail" tabindex="-1"
-      ref={(element) => {
-        setContainer(element);
-        const ctrlClick = ctrlClickGuard();
-        // Ark's keys walk the collection, so it shows the rows as drawn first.
-        makeEventListener(element, "keydown", () => { settleCollection(); ctrlClick.disarm(); }, { capture: true });
-        makeEventListener(element, "pointerdown", ctrlClick.press, { capture: true });
-        makeEventListener(element, "click", ctrlClick.click, { capture: true });
-      }}
-    >
+    <div class="rail-tree" data-history-region="rail" tabindex="-1" ref={element => { setContainer(element); guardCtrlClick(element); }}>
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
@@ -695,12 +702,14 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
           accepts: () => !pointerOutside(),
         }}
       >
-      <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
+      <AppTree<"multiple"> aria-label={copy.rail} aria-disabled={daemonExit() !== null ? "true" : undefined}
+        items={items()} mode="multiple" expandOnPress={false} controller={controller}
+        expanded={expanded()} onExpandedChange={applyExpanded}
+        value={selected()} onValueChange={chooseRows}
+      >
         <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
-          <TreeView.NodeProvider node={entryOf(`section:${section.id}`).node} indexPath={entryOf(`section:${section.id}`).indexPath}>
-          <TreeView.Branch class="rail-section" aria-label={section.label}>
-            <SectionHead icon={section.icon} label={section.label} disclosure={{ open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} />
-            <TreeView.BranchContent>
+          <div class="rail-section" role="group" aria-label={section.label}>
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ value: `section:${section.id}`, open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} />
         <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
             <Show when={byKey().get(key)}>
@@ -723,29 +732,26 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                       {(view) => {
                         // U3800d: a row reads its own subtree of the topology, so a move redraws only the rows whose subtree it changed.
                         const id = untrack(() => view().node.id);
-                        const below = createMemo(() => topology(), topology(), { equals: (a, b) => sameList(descendantsOf(a, id), descendantsOf(b, id)) });
+                        const below = createMemo(() => topology(), { equals: (a, b) => sameList(descendantsOf(a, id), descendantsOf(b, id)) });
 
                         return (
-                        <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
                         <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null} fixed={isMode(view().node)}>{(parts) =>
                         <RailRowView
                           row={view()}
                           topology={below()}
                           todoCount={todoCount(view().node.id)}
                           actions={actionsOf(view().node)}
-                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
-                          rootDivider={entryOf(view().node.id).branch && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
+                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.launching(view().node.id) ? "true" : "false"} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          rootDivider={branches().has(view().node.id) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
-                            const id = view().node.id;
                             copied.set(id, feedback);
 
                             return () => { if (copied.get(id) === feedback) copied.delete(id); };
                           }}
                           editing={editingName() === view().node.id}
-                          selected={isSelected(view().node.id)}
                           multiple={selected().length > 1}
                           tabbable={tabbableId() === view().node.id}
-                          branch={entryOf(view().node.id).branch}
+                          branch={branches().has(view().node.id)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onOpen={id => openRow(id ?? view().node.id)}
                           onFailure={(message) => {
@@ -756,7 +762,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                           onRename={(name) => {
                             const id = view().node.id;
 
-                            return rail.rename(id, name).then(() => failure.acknowledge(id));
+                            return rail.rename(id, name).then(() => { failure.acknowledge(id); });
                           }}
                           lifted={parts.isDragging()} folded={lifted() === view().node.id}
                           sortRef={parts.ref}
@@ -765,21 +771,19 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
                           onOpenMenu={(x, y) => void openSelectionMenu(view().node, x, y)}
                         />
                         }</Sortable.Item>
-                        </TreeView.NodeProvider>
                         );
                       }}
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <TreeView.NodeProvider node={entryOf(view().key).node} indexPath={entryOf(view().key).indexPath}>
-                          <TreeView.Branch data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}>
-                            <TreeView.BranchControl class="rail-fold row-wash row-wash-inert" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }} onClick={() => setUnfolded(open => toggled(open, view().key.slice(5)))}>
-                              <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
-                              <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
-                              <TreeView.BranchIndicator><Icon name="right" /></TreeView.BranchIndicator>
-                            </TreeView.BranchControl>
-                          </TreeView.Branch>
-                        </TreeView.NodeProvider>
+                        <TreeItem value={view().key} class="rail-fold row-wash row-wash-inert" data-id={view().key} aria-label={`${view().count}${view().group === "internal" ? copy.internalCount : copy.idleCount}`}
+                          style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}
+                          onClick={click => { if (!click.defaultPrevented) setUnfolded(open => toggled(open, view().key.slice(5))); }}
+                          render={tabStop(() => false)}>
+                          <Trunks depth={view().depth} trail={[...view().trail, false]} stem={view().open} />
+                          <span class="rail-fold-content"><KindGlyph kind={view().status} decorative /><span class="rail-fold-name">{view().count}{view().group === "internal" ? copy.internalCount : copy.idleCount}</span></span>
+                          <TreeItemIndicator><Icon name="right" /></TreeItemIndicator>
+                        </TreeItem>
                       )}
                     </Show>
                   </>
@@ -788,13 +792,11 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
             </Show>
           )}
         </For>
-            </TreeView.BranchContent>
-          </TreeView.Branch>
-          </TreeView.NodeProvider>
+          </div>
         </Show>}</For>
-      </TreeView.Tree>
+      </AppTree>
       </Sortable.Root>
-    </TreeView.RootProvider>
+    </div>
     </div>
 
       <RailRecovery recovery={recovery} revisions={revisions} destinationName={destinationName} open={recovering.open} setOpen={recovering.set} discard={revision => {

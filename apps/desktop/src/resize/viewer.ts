@@ -1,4 +1,4 @@
-import { createComputed, createRoot, createSignal, on, untrack } from "solid-js";
+import { createSignal, untrack } from "solid-js";
 import * as v from "valibot";
 import { storageOpened, storageSchema, storedValue } from "../state/storage";
 
@@ -24,10 +24,12 @@ export type Viewer = v.InferOutput<typeof schema>;
 
 const storage = storedValue("roundup:viewer", schema);
 
-const [written, setWritten] = createSignal<Viewer | null>(null);
-
 // A reopened store is the truth again; what this App wrote is read back from it.
-createRoot(() => createComputed(on(storageOpened, () => setWritten(null), { defer: true })));
+const [written, setWritten] = createSignal<Viewer | null>(() => {
+  storageOpened();
+
+  return null;
+});
 
 /** U100, U389, U390, U370, U373, U4698a: the viewer state, stored once for the App, so every Project shows the same layout. */
 export const viewer = (): Viewer => {

@@ -1,5 +1,5 @@
 /**
- * U6236c: the one reader of a floating surface's anchor box. A browser gives an element outside the document, or one that renders no box, `DOMRect(0, 0, 0, 0)`, which sends the surface to the window's top-left. This returns no box for those, so Ark falls back to the trigger it finds by id.
+ * U6236c: the one reader of a floating surface's anchor box. A browser gives an element outside the document, or one that renders no box, `DOMRect(0, 0, 0, 0)`, which sends the surface to the window's top-left. This returns no box for those, so the caller chooses where the surface goes.
  * `replacement` finds the live element when the captured one was replaced by a re-render.
  */
 export const anchorBox = (element: HTMLElement | null | undefined, replacement?: () => HTMLElement | null | undefined): DOMRect | null => {

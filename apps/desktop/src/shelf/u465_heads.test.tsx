@@ -19,7 +19,7 @@ const mount = async () => {
     const frame = createShelfFrame(() => connected.project.path, () => true, undefined);
     const tabs = createShelfTabs(frame);
 
-    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}>
+    return <DisplayClockContext value={now.subscribe}><ConnectedProjectContext value={connected}>
       <Tabs.RootProvider value={tabs}>
         <ProjectShelfTabs frame={frame} onToggle={frame.toggle} />
       </Tabs.RootProvider>
@@ -28,7 +28,7 @@ const mount = async () => {
           <Shelf open={frame.open} />
         </Tabs.RootProvider>
       </div>
-    </ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
+    </ConnectedProjectContext></DisplayClockContext>;
   });
 
   return within(await screen.findByRole("tablist", { name: "Bench" })).getAllByRole("tab");

@@ -10,9 +10,10 @@ import { isDoor } from "../state/doorNode";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "./copy";
-import { Show, createMemo, onCleanup, untrack, type JSX } from "solid-js";
+import { Show, createMemo, onCleanup, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { IconButton } from "../ui/IconButton";
-import { TreeView } from "../ui/TreeView";
+import { TreeItem } from "@ui-sdk/solid/tree";
 import { RowIcons } from "./RowIcons";
 import type { RowActions } from "./rows";
 import { ownKeys } from "./rows";
@@ -20,7 +21,6 @@ import { createCutTitle } from "../ui/cutTitle";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
-import { mergeProps } from "@zag-js/solid";
 import { Reveal, reads } from "../ink/RowStatus";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
@@ -29,14 +29,11 @@ import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
 import { isMode } from "./layout";
 import { descendantsOf, isWorkstream } from "../state/railTopology";
 import { rowKind, rowUnread } from "./rollup";
-import { Trunks } from "../ui/TreeView";
+import { Trunks, tabStop } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
 import type { RailTopology } from "../state/railTopology";
 import { PadsControl } from "./pads/AgentPads";
 import { createDraftField } from "../state/draftField";
-
-/** What Ark's item and branch control take for the row's own element. */
-type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 
 const nameSchema = v.object({ text: v.string(), base: v.string() });
 
@@ -84,7 +81,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       type="text"
       class="field-inline"
       aria-label={copy.name}
-      aria-invalid={conflict() || current()?.status === "failed" ? true : undefined}
+      aria-invalid={conflict() || current()?.status === "failed" ? "true" : undefined}
       value={value()}
       ref={(field) => {
         captureFocus(true);
@@ -98,7 +95,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       onInput={(event) => capture(event.currentTarget)}
       onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") capture(event.currentTarget); }}
       onClick={(event) => event.stopPropagation()}
-      on:keydown={(key) => {
+      onKeyDown={(key) => {
         if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
 
         if (key.key === "Escape") { key.preventDefault(); key.stopPropagation(); props.onCancel(); }
@@ -124,8 +121,8 @@ const WorktreeChips = (props: { id: string }) => {
 
   return <span class="worktree-chips row-secondary">
         <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
-        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
-        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.ci}>{ci => <span class="worktree-chip" role="img" data-state={ci().state} data-stale={String(ci().stale)} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiGlyph(ci().state)} {copy.ci}<Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
+        <Show when={facts()?.pr}>{pr => <span class="worktree-chip" role="img" data-state="pr" data-stale={String(pr().stale)} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>}</Show>
         <Show when={worktreeFailure()}><span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span></Show>
   </span>;
 };
@@ -154,7 +151,7 @@ const FoldedCount = (props: { folded: boolean; topology: RailTopology; id: strin
 export const RailRowView = (props: {
   actions: RowActions; doorAction?: JSX.Element;
   topology: RailTopology; todoCount: number;
-  row: NodeRow; rootDivider?: boolean; selected: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
+  row: NodeRow; rootDivider?: boolean; multiple: boolean; tabbable: boolean; branch: boolean;
   copyWith?: (feedback: ReturnType<typeof createCopyFeedback>) => () => void;
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void; onOpen: (id?: string) => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
@@ -207,11 +204,10 @@ export const RailRowView = (props: {
 
   const unread = createMemo(() => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null));
   const level = createMemo(() => alertLevel(props.topology, props.row.node));
-  const selected = createMemo(() => props.selected);
   const multiple = createMemo(() => props.multiple);
   const tabbable = createMemo(() => props.tabbable);
   const rootDivider = createMemo(() => props.rootDivider ?? false);
-  const pending = createMemo(() => connected.rail.pendingOf(props.row.node.id) ? true : undefined);
+  const pending = createMemo<"true" | undefined>(() => connected.rail.pendingOf(props.row.node.id) ? "true" : undefined);
 
   const queuedBadge = () => {
     const queued = workstream() ? connected.queue.entryOf(props.row.node.id) : null;
@@ -223,14 +219,12 @@ export const RailRowView = (props: {
   const exhaustedResume = () => resumeWait()?.at === null && doorStatus()?.kind === "error";
 
   const rowProps = () => ({
-    class: "rail-row", classList: { "row-wash": true, "rail-root-divider": rootDivider() }, "data-id": props.row.node.id,
+    class: rootDivider() ? "rail-row row-wash rail-root-divider" : "rail-row row-wash", "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
-    "data-selected": selected() ? "true" : undefined,
     "data-multiple": multiple() ? "true" : undefined,
-    tabIndex: tabbable() ? 0 : -1,
     "data-mode": isMode(props.row.node) ? "true" : undefined,
     "data-worktree": worktree() ? "true" : undefined,
-    "data-editing": props.editing, "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
+    "data-editing": String(props.editing), "aria-busy": pending(), "data-kind": kind() ?? undefined, "data-lifted": String(props.lifted),
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {
       if (!(event.target instanceof Element) || event.target.closest("button, input") || props.lifted) return;
@@ -254,10 +248,12 @@ export const RailRowView = (props: {
     props.onOpen();
   };
 
-  const row = (mine: (extra: RowProps) => RowProps) => <div {...mergeProps({ onClick: choose }, mine(rowProps()))} ref={el => { element = el; props.sortRef(el); }}>
+  const label = () => [props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && doorStatus() ? [statusLabel()] : [])].join(copy.comma);
+
+  return <TreeItem value={props.row.node.id} aria-label={label()} {...rowProps()} onClick={choose} ref={el => { element = el; props.sortRef(el); }} render={tabStop(tabbable)}>
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
-      <Show when={folds()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+      <Show when={folds()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={props.row.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
       <Show when={statusRead()}>{status => <span class="row-status" data-state="status" data-cut={statusCut[1]() ? "" : undefined} ref={statusCut[0]}><Reveal status={status()} {...(status().kind === "error" ? {} : { label: statusLabel() })} live={false} split /></span>}</Show>
@@ -271,7 +267,7 @@ export const RailRowView = (props: {
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
-        <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
+        <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={props.row.collapsed ? "false" : "true"} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       </span>
     </p>
     <Show when={workstream() && !connected.rail.launching(props.row.node.id) && waiting()}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
@@ -301,13 +297,5 @@ export const RailRowView = (props: {
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
     <Show when={attribution()}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
     <Show when={!workstream() && !exhaustedResume() && !connected.rail.dismissed(props.row.node)}><FailureLine status={doorStatus()} dismiss={() => connected.rail.dismiss(props.row.node)} recover={{ run: () => props.onOpen(props.row.node.id), label: copy.openTerminal }} /></Show>
-  </div>;
-
-  return <>
-    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && doorStatus() ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(isMode(props.row.node) ? [copy.modeWord] : []), ...(!workstream() && doorStatus() ? [statusLabel()] : [])].join(copy.comma)}>
-        <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
-      </TreeView.Branch>
-    </Show>
-  </>;
+  </TreeItem>;
 };

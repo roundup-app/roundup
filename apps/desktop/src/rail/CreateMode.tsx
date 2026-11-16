@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onSettled } from "solid-js";
 import * as v from "valibot";
 import { applying } from "../app/pending";
 import { createDraftField, type Sent } from "../state/draftField";
@@ -15,7 +15,7 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
   const schema = v.strictObject({ name: v.string(), text: v.string(), id: v.nullable(v.string()), request: v.string() });
   drafts.validate(destination.surface, schema);
   drafts.registerRecovery(destination.surface, () => "available");
-  onCleanup(drafts.editor(destination));
+  onSettled(() => drafts.editor(destination));
   const field = createDraftField(drafts, destination, schema);
   const request = crypto.randomUUID();
 
@@ -83,14 +83,14 @@ export const CreateMode = (props: { onClose: () => void; onCreated: (id: string,
   };
 
   return <Dialog.Root open={open()} finalFocusEl={() => created === null ? null : props.finalFocus(created)} onOpenChange={({ open }) => { if (!open) { setOpen(false); props.onClose(); } }}>
-    <Dialog.Positioner><Dialog.Content class="app-dialog-form mode-prompt-dialog">
+    <Dialog.Content class="app-dialog-form mode-prompt-dialog">
       <Dialog.Title>{copy.newMode}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>
         <Field.Root disabled={busy()}><Field.Label>{copy.name}</Field.Label><Field.Input type="text" value={value().name} onInput={event => edit({ name: event.currentTarget.value })} /></Field.Root>
         <Field.Root disabled={busy()} class="mode-prompt-field"><Field.Label>{copy.modePrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck={false} autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.modePromptHint}</Field.HelperText></Field.Root>
         <ReservedLine message={line.message()} dismiss={dismissLine} recover={drafts.problem() ? { run: () => void drafts.retry(), label: copy.railDraftRetry } : undefined} />
-        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !value().name.trim() || !value().text.trim()}>{copy.createMode}</button></div>
+        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !value().name.trim() || !value().text.trim() ? "true" : "false"}>{copy.createMode}</button></div>
       </form>
-    </Dialog.Content></Dialog.Positioner>
+    </Dialog.Content>
   </Dialog.Root>;
 };

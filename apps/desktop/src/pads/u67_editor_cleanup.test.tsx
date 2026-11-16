@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { Editor, EditorStatus } from "@milkdown/kit/core";
 import { afterEach, expect, it, vi } from "vitest";
 import PadRichEditor from "./PadRichEditor";
+import { notices } from "../testing/notices";
 
 afterEach(() => {
   cleanup();
@@ -15,7 +16,7 @@ it("u67_a_failed_editor_reports_creation_failure_without_destroying", async () =
   const destroy = vi.spyOn(editor, "destroy");
   const view = render(() => <PadRichEditor text="" readonly={false} onChange={vi.fn()} onText={vi.fn()} onBlur={vi.fn()} onReady={vi.fn()} />);
 
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   // U6249d E2: the editor is mounted once more before the failure shows, and no more than once.
   expect(create).toHaveBeenCalledTimes(2);
   view.unmount();
@@ -31,7 +32,7 @@ it("u6249d_an_editor_that_opens_on_the_second_mount_shows_no_failure", async () 
 
   try {
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toHaveLength(0);
   } finally {
     view.unmount();
   }

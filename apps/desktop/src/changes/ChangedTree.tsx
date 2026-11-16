@@ -1,5 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { createSignal, For, onCleanup, onMount } from "solid-js";
+import { createSignal, For, onSettled, untrack } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -44,7 +44,7 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
   };
 
   const initialFocus = props.initialFocus ?? captureFocus();
-  onMount(() => {
+  onSettled(() => {
     let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
     let gone = false;
     let stopScroll: (() => void) | undefined;
@@ -78,7 +78,7 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
       tree.render({ containerWrapper: mount });
 
       if (props.selected) tree.scrollToPath(props.selected);
-      // Ark cannot discover tabbable rows inside Pierre’s shadow root; enter its roving row after render.
+      // Pierre’s rows sit in a shadow root that a roving-focus wrapper cannot see into; enter its roving row after render.
       const shadow = mount.querySelector("file-tree-container")?.shadowRoot;
 
       if (shadow) {
@@ -157,13 +157,14 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
       choose(row?.dataset.itemPath ?? null);
     };
 
-    const element = host();
+    const element = untrack(host);
 
     element?.addEventListener("click", onSelect);
     element?.addEventListener("focusin", onSelect);
     element?.addEventListener("keydown", onKeyDown);
     element?.addEventListener("dblclick", onDoubleClick);
-    onCleanup(() => {
+
+    return () => {
       gone = true;
       element?.removeEventListener("click", onSelect);
       element?.removeEventListener("focusin", onSelect);
@@ -172,7 +173,7 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
       stopScroll?.();
       stopRows?.();
       tree?.cleanUp();
-    });
+    };
   });
 
   return (

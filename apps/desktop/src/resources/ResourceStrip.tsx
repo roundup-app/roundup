@@ -2,7 +2,7 @@ import { makeEventListener } from "@solid-primitives/event-listener";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import { createRestartable } from "../ink/restartable";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
 import { useConnectedProject } from "../state/connectedProject";
@@ -55,7 +55,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   const [result, setResult] = createRestartable<Resources | null>(own, null);
   const [failed, setFailed] = createRestartable(own, false);
 
-  const live = () => hasView("resources") && visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node));
+  const live = createMemo(() => hasView("resources") && visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node)));
 
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
 
@@ -64,10 +64,8 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   // No call is pending twice at once, and none is made while the strip is not shown.
   let pending = false;
 
-  createEffect(() => {
-    const selected = own();
-
-    if (!live()) return;
+  createEffect(() => [own(), live()] as const, ([selected, running]) => {
+    if (!running) return;
 
     let current = true;
 
@@ -98,10 +96,10 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
 
     const timer = setInterval(poll, POLL_MS);
 
-    onCleanup(() => {
+    return () => {
       current = false;
       clearInterval(timer);
-    });
+    };
   });
 
   const mine = () => {
@@ -111,7 +109,7 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
   };
 
   return (<>
-    <Show when={hasView("resources") && own() !== null}><section class="resource-inspection" aria-label={copy.resources} aria-busy={live() && result() === null && !failed()}>
+    <Show when={hasView("resources") && own() !== null}><section class="resource-inspection" aria-label={copy.resources} aria-busy={live() && result() === null && !failed() ? "true" : "false"}>
       <div class="resource-values"><Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
         <Show when={!failed() && (!mine() || [sizeText(mine()?.memory_bytes), cpuText(mine()?.cpu_percent), sizeText(mine()?.disk_bytes)].every(value => value === MISSING))}><ReservedLine status={result() === null && live() ? copy.resourcesLoading : copy.resourcesEmpty} /></Show>
       </div>

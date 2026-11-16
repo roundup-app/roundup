@@ -1,7 +1,7 @@
 import { captureFocus } from "../keys/focus";
 import type { ActivationSource } from "../keys/registry";
-import { batch, createSignal } from "solid-js";
-import type { Accessor, JSX } from "solid-js";
+import { createSignal, type Accessor } from "solid-js";
+import type { JSX } from "@solidjs/web";
 
 export type DrawerContent = () => JSX.Element;
 
@@ -41,7 +41,7 @@ export const createDrawer = (): DrawerState => {
       return () => setSize(null);
     },
     surface,
-    open: (next, from = "pointer", side) => batch(() => { captureFocus(true); setSurface(side ?? null); setSource(from); setContent(() => next); }),
-    close: (from = "pointer") => batch(() => { setSource(from); setContent(null); }),
+    open: (next, from = "pointer", side) => { captureFocus(true); setSurface(side ?? null); setSource(from); setContent(() => next); },
+    close: (from = "pointer") => { setSource(from); setContent(null); },
   };
 };

@@ -1,3 +1,3 @@
-import { Tooltip } from "@ark-ui/solid/tooltip";
+import { Tooltip } from "@ui-sdk/solid/tooltip";
 
-export const Example = () => <Tooltip.Root />;
+export const Example = () => <Tooltip />;

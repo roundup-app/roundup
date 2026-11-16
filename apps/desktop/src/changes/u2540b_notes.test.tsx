@@ -12,6 +12,7 @@ import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 
 import { VirtualizedFileDiff, processFile } from "@pierre/diffs";
 import { createTwoFilesPatch } from "diff";
+import { notices } from "../testing/notices";
 
 // ESM exports are non-configurable: spy mode records the scenario's library calls while executing the real implementation.
 // eslint-disable-next-line anti-slop/no-module-mocking
@@ -203,7 +204,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: memory } });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(before);
   fireEvent.click(screen.getByRole("button", { name: "Review recovery options" }));
   await waitFor(() => { if (screen.queryByRole("dialog", { name: "Worktree" })) throw new Error("Previous dialog remains mounted"); });
@@ -230,7 +231,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "temporary" } });
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: memory } });
   fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   blockedWrite.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
   const recovered = await screen.findByRole("dialog", { name: "Recover notes" });
@@ -255,7 +256,7 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   if (original) localStorage.setItem("roundup:drafts:/p", original);
   const read = cause === "unreadable" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
   await openDiff();
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "retain exact newer" } });
   read?.mockRestore();
@@ -348,7 +349,7 @@ it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "first editor work" } });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   blockedWrite.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Recover notes" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover notes" });
@@ -368,7 +369,7 @@ it("u2773e_changes_connection_replacement_keeps_memory", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  original memory e\u0301\n🐝  " } });
-  await screen.findByRole("alert");
+  await waitFor(() => expect(notices("alert")).not.toHaveLength(0));
   first.view.unmount();
   write.mockRestore();
   const next = await openDiff("/p", first.connected.drafts);

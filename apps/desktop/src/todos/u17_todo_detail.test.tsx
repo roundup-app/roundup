@@ -2,7 +2,7 @@ import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
-import { assertKind, leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
+import { assertKind, historyLoaded, leaveTitle, mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 import { USER } from "../testing/nodes";
 
 afterEach(() => {
@@ -36,6 +36,7 @@ const openDrawerOf = async (title: RegExp, todos = shelf(), reducedMotion = true
   fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
   await within(drawer()).findByRole("region", { name: "Activity" });
+  await historyLoaded(mounted.app);
 
   return mounted;
 };
@@ -204,7 +205,7 @@ describe("u17 Todo detail", () => {
 
     await leaveTitle();
 
-    await within(drawer()).findByText(/title is empty/);
+    await within(drawer()).findByRole("alert", { name: /title is empty/ });
     expect(within(drawer()).getByRole("textbox", { name: "Title" })).toHaveProperty("value", "typed");
   });
 
@@ -215,7 +216,7 @@ describe("u17 Todo detail", () => {
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
     await waitFor(() => expect(drawer().dataset.mounted).toBe("false"));
-    expect(drawer().textContent).toBe("");
+    expect(within(drawer()).queryAllByText(/\S/)).toEqual([]);
   });
 
   it("u17_two_quick_blocker_picks_both_land_the_second_built_on_the_first", async () => {

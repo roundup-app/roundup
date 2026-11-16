@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { mountTodos, todo, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(cleanup);
@@ -10,7 +10,8 @@ it("u3296c_selecting_a_todo_opens_no_tooltip", async () => {
   const first = rowOf(3).querySelector<HTMLButtonElement>(".todo-row-button")!;
   const second = rowOf(4).querySelector<HTMLButtonElement>(".todo-row-button")!;
 
-  fireEvent.pointerMove(first, { pointerType: "mouse" });
+  vi.spyOn(first, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 20));
+  fireEvent.pointerEnter(first, { pointerType: "mouse", clientX: 10, clientY: 10 });
   fireEvent.click(first);
   first.focus();
   fireEvent.keyDown(first, { key: "ArrowDown" });

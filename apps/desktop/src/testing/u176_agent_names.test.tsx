@@ -2,6 +2,7 @@ import { copy as recoveryCopy } from "../sharedCopy";
 import { copy as railCopy } from "../rail/copy";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
@@ -62,8 +63,10 @@ describe("u2773 Rail task destinations", () => {
     await waitFor(() => expect(document.activeElement).toBe(task()));
   };
 
-  const type = (text: string) => fireEvent.input(task(), { target: { value: text } });
-  const submit = () => fireEvent.keyDown(task(), { key: "Enter" });
+  // Solid 2 batches writes: each event settles before the next read sees what it wrote.
+  const type = (text: string) => { fireEvent.input(task(), { target: { value: text } }); flush(); };
+
+  const submit = () => { fireEvent.keyDown(task(), { key: "Enter" }); flush(); };
 
   const select = async (id: string) => {
     await waitFor(() => expect(document.querySelector(`[data-id="${id}"] .name`)).not.toBeNull());
@@ -94,6 +97,7 @@ describe("u2773 Rail task destinations", () => {
     type(" left\ne\u0301 😀 ");
     task().setSelectionRange(2, 7, "backward");
     fireEvent.select(task());
+    flush();
     fireEvent.keyDown(task(), { key: "Escape" });
     await select(sibling.id);
     await openTask();
@@ -139,7 +143,8 @@ describe("u2773 Rail task destinations", () => {
     await waitFor(() => expect(document.querySelector(`[data-id="${replacement.id}"] .name`)).not.toBeNull());
     const calls = vi.spyOn(left, "rpc");
     submit();
-    expect(screen.getByRole("alert").textContent).toContain(railCopy.railDraftUnavailable);
+    // ui-sdk keeps an empty assertive announcer in the page; the alert that carries the text is the one under test.
+    expect(screen.getByText(railCopy.railDraftUnavailable, { selector: '[role="alert"]' })).toBeDefined();
     expect(task().value).toBe(" exact removed\n😀 ");
     expect(calls.mock.calls.filter(([method]) => method === "agent.spawn" || method === "message.send")).toEqual([]);
   }, 120_000);
@@ -154,8 +159,10 @@ describe("u2773 Rail persisted edits", () => {
     app.handlers["rail.tree"] = () => tree;
     render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     fireEvent.dblClick(await screen.findByText("Original target", { selector: ".rail-row .name" }));
+    flush();
     const name = screen.getByLabelText<HTMLInputElement>("Name");
     fireEvent.input(name, { target: { value: " exact e\u0301 😀 " } });
+    flush();
     tree = [{ ...node, name: "Changed elsewhere" }];
     app.emit(event({ name: "rail.changed" }));
     expect((await screen.findByText(railCopy.railDraftConflict)).tabIndex).toBe(-1);

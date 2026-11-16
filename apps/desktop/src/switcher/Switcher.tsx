@@ -1,14 +1,15 @@
 import { isDoor } from "../state/doorNode";
 import type { KeyText } from "../keys/chords";
-import { useDialog } from "@ark-ui/solid/dialog";
+import { Dialog, DialogContent } from "@ui-sdk/solid/dialog";
 import { captureFocus, focusTarget, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
-import { lazy, batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { lazy, createEffect, createMemo, createSignal, flush, For, onCleanup, Show, untrack } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import type { RpcError } from "../app/seam";
 import type { ActionRow } from "@contracts/action/ActionRow";
+import { createReply } from "../state/read";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { errorCause, shownKind } from "../ink/FailureLine";
@@ -71,31 +72,22 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     return problem && (problem.destination === null || problem.destination.surface === destination.surface) ? problem : null;
   });
 
-  const restored = v.safeParse(v.string(), current()?.value.query);
+  // The draft this mount starts from, read once.
+  const retained = untrack(current);
+  const restored = v.safeParse(v.string(), retained?.value.query);
   const [text, setText] = createSignal(restored.success ? restored.output : "");
   const feedback = createCopyFeedback();
   const copied = feedback.copied;
-  createEffect(on(() => [text(), current()?.revision], feedback.reset));
+  createEffect(createMemo(() => JSON.stringify([text(), current()?.revision])), feedback.reset);
   const [copyFailure, setCopyFailure] = createSignal<{ revision: string | null } | null>(null);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let restoring = false;
-  let savedSelection = current()?.selection ?? null;
+  let savedSelection = retained?.selection ?? null;
   let input: HTMLInputElement | undefined;
-  let panel: HTMLElement | undefined;
+  const [panel, setPanel] = createSignal<HTMLElement>();
 
-  // Where focus goes when the Switcher closes; only Escape leaves it to Ark's return to the opener.
+  // Where focus goes when the Switcher closes; only Escape leaves it to the Dialog's return to the opener.
   let closing: Closing = { kind: "restore" };
-
-  const dialog = useDialog(() => ({
-    open: open(), modal: false, trapFocus: true, preventScroll: false,
-    restoreFocus: true, closeOnInteractOutside: true,
-    "aria-label": copy.switcherLabel,
-    initialFocusEl: () => openingFocus.target(() => input),
-    finalFocusEl: () => finalFocus(closing),
-    // A background layer closing is not a parent dismissal of this independent dialog.
-    onRequestDismiss: event => event.preventDefault(),
-    onOpenChange: details => { if (!details.open) close({ kind: "restore" }); },
-  }));
 
   const [opening, setOpening] = createSignal<{ selected: string | null; actions: ReturnType<typeof captureActions> }>({ selected: null, actions: [] });
 
@@ -111,14 +103,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const byValue = createMemo(() => new Map([...entries(), ...items()].map(entry => [entry.value, entry])));
 
   // UA9: the Daemon's User actions, read when the Project connects and on each `action.userChanged`, so opening calls nothing; a failed read shows none and says nothing (UA12).
-  const [userRows, { refetch: readUserRows }] = createResource(
-    () => app.rpc("action.userList", null).catch((): ActionRow[] => []),
-    { initialValue: [] },
-  );
+  const answer = createReply(() => true, (): Promise<ActionRow[]> => app.rpc("action.userList", null).catch((): ActionRow[] => []));
 
-  // UA13: the resource ignores superseded replies; false also keeps same-turn events from being coalesced.
-  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") void readUserRows(false); }));
-  const userActions = createMemo(() => userActionsOf(userRows()));
+  // UA13: a superseded reply is ignored, so each event's read is the one that lands.
+  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") answer.refetch(); }));
+  const userActions = createMemo(() => userActionsOf(answer.reply() ?? []));
 
   const shown = createMemo(() => [
     ...matching(entries(), text()),
@@ -147,10 +136,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   /** The key a command shows: its live row, so a key just saved shows at once. */
   const keysOf = (action: { value: string; name: string; keys: KeyText }) => action.value.startsWith("action:leader") ? action.keys : CHORD_ROWS.find(row => row.name === action.name)?.keys ?? action.keys;
 
-  createEffect(() => {
-    const list = shown();
-
-    if (!list.some((entry) => entry.value === highlighted())) setHighlighted(list[0]?.value ?? null);
+  createEffect(() => [shown(), highlighted()] as const, ([list, value]) => {
+    if (!list.some((entry) => entry.value === value)) setHighlighted(list[0]?.value ?? null);
   });
 
   const retain = (): void => {
@@ -184,21 +171,23 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const retentionLine = dismissable(() => retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null);
 
-  const restoreFocusOnRemoval = (element: HTMLElement): void => {
+  const restoreFocusOnRemoval = () => {
+    let element: HTMLElement | undefined;
+
     onCleanup(() => {
       // Removing a focused recovery action must leave the query ready for typing.
-      if (element.contains(document.activeElement)) restoreQueryFocus();
+      if (element?.contains(document.activeElement)) restoreQueryFocus();
     });
+
+    return (node: HTMLElement): void => { element = node; };
   };
 
-  createEffect(on(retentionProblem, (problem, previous) => {
+  createEffect(retentionProblem, (problem, previous) => {
     if (!problem && previous) restoreQueryFocus();
-  }, { defer: true }));
+  }, { defer: true });
 
-  createEffect(() => {
-    const failure = copyFailure();
-
-    if (failure && failure.revision !== (current()?.revision ?? null)) setCopyFailure(null);
+  createEffect(() => [copyFailure(), current()?.revision ?? null] as const, ([failure, revision]) => {
+    if (failure && failure.revision !== revision) setCopyFailure(null);
   });
 
   const copyQuery = (): void => {
@@ -218,7 +207,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     setOpen(false);
   };
 
-  const choose = (entry: Entry): void => batch(() => {
+  const choose = (entry: Entry): void => {
     close(entry.kind === "todo" || entry.kind === "pad" ? { kind: "item" } : { kind: "pane", terminal: entry.kind === "terminal" ? entry.terminal.id : null });
     props.onFailure(null);
 
@@ -242,20 +231,22 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     if (entry.kind === "terminal") {
       rail.select(entry.terminal.owner === project.path ? null : entry.terminal.owner);
+      // The Bubble is listed once the selection settles; the reveal reads that list.
+      flush();
       window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: entry.terminal.id }));
 
       return;
     }
 
     if (entry.kind === "node") rail.select(entry.node.id);
-  });
+  };
 
   const [making, setMaking] = createSignal(false);
   const [makeFailure, setMakeFailure] = createSignal<string | null>(null);
   // An invalidated captured action must never turn its query into a create request.
   const makeName = () => openingSurvives() && shown().length === 0 && matching(opening().actions, text()).length === 0 ? text().trim() : "";
 
-  createEffect(on(text, () => setMakeFailure(null), { defer: true }));
+  createEffect(text, () => { setMakeFailure(null); }, { defer: true });
 
   /** U5241a: a query nothing matches names a new Workstream; the Switcher closes once the Daemon made it. */
   const make = async (): Promise<void> => {
@@ -297,6 +288,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       // originating surface and captured owner are still mounted.
       closing = { kind: "action", focus: null };
       setDispatching(true);
+      // The modal layer's `active` reads `dispatching`, so it must be released before the action asks whether a modal is open.
+      flush();
 
       try { action.run(); }
       finally {
@@ -315,7 +308,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry) choose(entry);
   };
 
-  createEffect(() => { if (open() && !dispatching() && modalOutside(panel)) close({ kind: "pane", terminal: null }); });
+  createEffect(createMemo(() => open() && !dispatching() && panel() !== undefined && modalOutside(panel())), outside => { if (outside) close({ kind: "pane", terminal: null }); });
 
   let openingFocus = captureFocus();
 
@@ -338,17 +331,17 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   // U5240a: the direct chord opens from anywhere, a focused Terminal included; the open Switcher's layer closes it again.
   registerKeys({ kind: "app" }, [{ action: CHORDS["switcher.open"], searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: () => show() }) }]);
 
-  const switcherScope = { kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true } as const;
+  const switcherScope = { kind: "layer", element: panel, active: () => open() && !dispatching(), modal: true } as const;
 
   registerKeys(switcherScope, [
     { chords: SWITCHER_CLOSE, run: () => close({ kind: "restore" }) },
     { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => pressOf(event) === CHORDS["switcher.open"]?.presses[0], run: event => { if (!event.repeat) close({ kind: "restore" }); } },
     { chords: SWITCHER_RECORD, when: canRecord, run: () => { setRefusal(null); setRecording(highlightedCommand()!.value); } },
-    ...strandedSwitcherKeys({ panel: () => panel, recording, values: () => shown().map(entry => entry.value), highlighted, highlight: setHighlighted, choose: chooseValue, focusInput: () => input?.focus() }),
+    ...strandedSwitcherKeys({ panel, recording, values: () => shown().map(entry => entry.value), highlighted, highlight: setHighlighted, choose: chooseValue, focusInput: () => input?.focus() }),
   ]);
 
   // U5240d: recording is a modal layer of its own, so no other chord runs and nothing reaches a Terminal; it ends with the layer.
-  registerKeys({ kind: "layer", element: () => panel, active: () => recording() !== null, modal: true, parent: switcherScope }, [
+  registerKeys({ kind: "layer", element: panel, active: () => recording() !== null, modal: true, parent: switcherScope }, [
     { chords: ["Escape"], run: () => { setRecording(null); setRefusal(null); } },
     { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => !isModifier(event), run: event => {
       const value = recording();
@@ -380,21 +373,28 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   </span>;
 
   return (
-    <Show when={open()}>
-      <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
-        <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close({ kind: "pane", terminal: null })} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
+    <Dialog open={open()} modal="trap-focus" closeOnOutsidePress onOpenChange={isOpen => { if (!isOpen) close({ kind: "restore" }); }}>
+      <DialogContent class="switcher" aria-label={copy.switcherLabel} initialFocus={() => openingFocus.target(() => input)} finalFocus={() => finalFocus(closing)} ref={setPanel}>
+        <Combobox.Root autoFocus={false} focusScope={panel} onDismiss={() => close({ kind: "pane", terminal: null })} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
-        }} inputEvents={{ // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
-          input: () => { restoring = false; setText(input?.value ?? text()); retain(); },
-          select: ({ target: element }) => {
-            // Native select follows Ark's focus selection and controlled-value caret update.
-            if (restoring && element instanceof HTMLInputElement && element.isConnected && document.activeElement === element) {
-              restoring = false;
-
-              if (savedSelection) element.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
-            } else retain();
+        }} inputEvents={{ // Only native edits replace recovery text.
+          input: () => {
+            restoring = false;
+            setText(input?.value ?? text());
+            // `retain` reads the query just typed.
+            flush();
+            retain();
           },
-          focus: () => setNameFocused(true),
+          select: retain,
+          focus: () => {
+            setNameFocused(true);
+
+            if (!restoring || !input) return;
+            restoring = false;
+
+            // The field takes the retained caret as it gains focus: ui-sdk's input fires no native select event to restore it.
+            if (savedSelection) input.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
+          },
           keydown: event => {
             if (event.key !== "Enter" || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || makeName() === "") return;
             event.preventDefault(); void make();
@@ -404,9 +404,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           blur: (event) => {
             setNameFocused(false);
 
-            // Zag can retain its trap until the selecting Combobox batch ends.
+            // The focus trap can retain focus until the selecting Combobox batch ends.
             // Keep only the focus destination requested by this synchronous action.
-            if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget) && closing.kind === "action") closing = { kind: "action", focus: event.relatedTarget };
+            if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel()?.contains(event.relatedTarget) && closing.kind === "action") closing = { kind: "action", focus: event.relatedTarget };
 
             // A recovery action must run before blur can retry storage and remove its target.
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
@@ -435,10 +435,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <ReservedLine message={retentionLine.message()} dismiss={() => { retentionLine.dismiss(); restoreQueryFocus(); }} recover={{ run: () => { drafts.retry(); }, label: copy.retryStorage }} action={<>
           <Show when={text() !== "" && !copyFailure()}>
-            <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
+            <button data-button="quiet" ref={restoreFocusOnRemoval()} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           </Show>
           <Show when={text() !== ""}>
-            <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => {
+            <button data-button="quiet" ref={restoreFocusOnRemoval()} onClick={() => {
               const draft = current();
 
               if (draft) drafts.discard(draft.revision);
@@ -447,10 +447,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           </Show>
         </>} />
         <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null} dismiss={() => { setCopyFailure(null); restoreQueryFocus(); }} action={<>
-          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
+          <button data-button="quiet" ref={restoreFocusOnRemoval()} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
         </>} />
         <Show when={refusal()}>{shown => <ReservedLine message={shown().cause} dismiss={() => { setRefusal(null); restoreQueryFocus(); }} />}</Show>
-      </section>
-    </Show>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -1,5 +1,5 @@
-import { render } from "solid-js/web";
 import { createSignal, For } from "solid-js";
+import { render } from "@solidjs/web";
 import { Sortable, type SortableMove } from "./sortable";
 import type { TreeRow } from "./treeDrop";
 import "../tokens.css";
@@ -40,7 +40,7 @@ const u535Fixture = () => {
       }}
       onOrderChange={() => { order(orders() + 1); }}>
       <For each={rows()}>{(row, index) => <Sortable.Item id={row.id} index={index()}>{(parts) =>
-        <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={parts.isDragging()}>
+        <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={String(parts.isDragging())}>
           <span>{row.id}</span>
           <Sortable.Handle ref={parts.handleRef} label={`Move ${row.id}`} />
         </div>

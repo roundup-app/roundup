@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Status } from "@contracts/Status";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -17,7 +18,7 @@ const status = (kind: Status["kind"], label: string, since = NOW): Status => ({ 
 const mount = async (terminals: TerminalInfo[]) => {
   const m = await mountTodos([], true, [agent("a", "error", "crashed", { name: "alpha", can_resume: true, status: status("error", "crashed", NOW - 5) })]);
   m.app.handlers["terminal.list"] = () => terminals;
-  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext value={m.connected}><AskBar /></ConnectedProjectContext>);
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });
@@ -72,6 +73,7 @@ it("ps11_routine_kinds_add_no_entry_and_no_interruption", async () => {
   m.app.emit(event({ name: "terminal.status", data: { id: "1", status: status("working", "building") } }));
   m.app.emit(event({ name: "terminal.status", data: { id: "2", status: null } }));
   await Promise.resolve();
+  flush();
 
   expect(rows()).toEqual(["a:a"]);
   expect(rows().length).toBe(1);

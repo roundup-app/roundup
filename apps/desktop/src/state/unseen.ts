@@ -1,6 +1,5 @@
 import { isDoor } from "./doorNode";
-import { createEffect, createSignal, createResource, onCleanup } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createSignal, onCleanup, untrack, type Accessor } from "solid-js";
 import * as v from "valibot";
 import type { AppSeam } from "../app/seam";
 import type { Events } from "../app/events";
@@ -62,15 +61,16 @@ export const createUnseen = (
   const finishStorage = storedValue(`roundup:finish-times:${publications?.path ?? ""}`, finishTimesSchema);
   const [finishTimes, setFinishTimes] = createSignal(finishStorage.read() ?? {});
 
-  const retainFinish = (id: string, status: Status) => {
-    const previous = finishTimes()[id];
-
+  const retainFinish = (id: string, status: Pick<Status, "kind" | "finished" | "since">) => {
     // A working Status dates the new work, never the earlier finish.
-    if ((status.kind !== "idle" && status.kind !== "done" && status.kind !== "blocked") || BigInt(status.finished) <= BigInt(previous?.count ?? "0")) return;
-    const next = { ...finishTimes(), [id]: { count: status.finished, at: status.since } };
+    if (status.kind !== "idle" && status.kind !== "done" && status.kind !== "blocked") return;
+    // SAFETY: the updater below assigns it; flow analysis does not follow an assignment made inside a callback.
+    let next = undefined as ReturnType<typeof finishTimes> | undefined;
 
-    setFinishTimes(next);
-    finishStorage.write(next);
+    // Several Agents finish in one tree: each retention starts from the one before it.
+    setFinishTimes(all => BigInt(status.finished) <= BigInt(all[id]?.count ?? "0") ? all : next = { ...all, [id]: { count: status.finished, at: status.since } });
+
+    if (next) finishStorage.write(next);
   };
 
   if (publications) {
@@ -87,10 +87,8 @@ export const createUnseen = (
     onCleanup(stop);
   }
 
-  createEffect(() => {
-    for (const node of nodes()) {
-      if (isDoor(node) && node.status) retainFinish(node.id, node.status);
-    }
+  createEffect(() => nodes().flatMap(node => isDoor(node) && node.status ? [{ id: node.id, kind: node.status.kind, finished: node.status.finished, since: node.status.since }] : []), retained => {
+    for (const { id, ...status } of retained) retainFinish(id, status);
   });
 
   const saved = storage.read();
@@ -98,29 +96,33 @@ export const createUnseen = (
   const [baselined, setBaselined] = createSignal(saved !== null);
 
   const acknowledge = (changes: Acknowledged) => {
-    const next = { ...read(), ...changes };
+    let next!: Acknowledged;
 
-    setRead(next);
+    setRead(all => next = { ...all, ...changes });
     storage.write(next);
   };
 
   createEffect(() => {
     const tree = nodes();
 
-    if (baselined() || tree.length === 0) return;
+    if (baselined() || tree.length === 0) return undefined;
+
+    return Object.fromEntries(tree.map((node) => [node.id, finishes(node).toString()]));
+  }, counts => {
+    if (!counts) return;
 
     setBaselined(true);
-    acknowledge(Object.fromEntries(tree.map((node) => [node.id, finishes(node).toString()])));
+    acknowledge(counts);
   });
 
   createEffect(() => {
     const node = viewing() ? nodes().find((each) => each.id === selected()) : undefined;
 
-    if (!node || !baselined()) return;
+    if (!node || !baselined()) return undefined;
 
-    const count = finishes(node).toString();
-
-    if (BigInt(read()[node.id] ?? "0") < finishes(node)) acknowledge({ [node.id]: count });
+    return BigInt(read()[node.id] ?? "0") < finishes(node) ? { [node.id]: finishes(node).toString() } : undefined;
+  }, changes => {
+    if (changes) acknowledge(changes);
   });
 
   const publicationStorage = storedValue(`roundup:seen-publications:${publications?.path ?? ""}`, publicationsSchema);
@@ -128,7 +130,11 @@ export const createUnseen = (
   const [seenPublications, setSeenPublications] = createSignal(retained);
   const [publicationFailure, setPublicationFailure] = createSignal<string | null>(null);
 
-  const [catalogue, { refetch }] = createResource(async (_key, { value }): Promise<Deliverable[]> => {
+  const [catalogue, setCatalogue] = createSignal<Deliverable[]>();
+  const [loading, setLoading] = createSignal(true);
+  let requested = 0;
+
+  const list = async (): Promise<Deliverable[] | null> => {
     if (!publications) return [];
 
     try {
@@ -150,20 +156,38 @@ export const createUnseen = (
       if (!(error instanceof Error)) throw error;
       setPublicationFailure(error.message);
 
-      return value ?? [];
+      return null;
     }
-  });
+  };
+
+  // The catalogue keeps its last list through a failed or later read; only the newest read lands.
+  const load = async () => {
+    const mine = ++requested;
+    const records = await list();
+
+    if (mine !== requested) return;
+
+    setCatalogue(previous => records ?? previous ?? []);
+    setLoading(false);
+  };
+
+  const reload = () => {
+    setLoading(true);
+    void load();
+  };
+
+  void untrack(load);
 
   if (publications) {
     const stop = publications.events.subscribe(event => {
-      if (event.name === "deliverable.changed") void refetch();
+      if (event.name === "deliverable.changed") reload();
     });
 
     onCleanup(stop);
   }
 
   createEffect(() => {
-    if (!viewing() || selected() === null) return;
+    if (!viewing() || selected() === null) return undefined;
 
     const next = { ...seenPublications() };
     let changed = false;
@@ -175,10 +199,12 @@ export const createUnseen = (
       }
     }
 
-    if (changed) {
-      setSeenPublications(next);
-      publicationStorage.write(next);
-    }
+    return changed ? next : undefined;
+  }, next => {
+    if (!next) return;
+
+    setSeenPublications(next);
+    publicationStorage.write(next);
   });
 
   const of = (id: string): boolean => {
@@ -203,8 +229,8 @@ export const createUnseen = (
     publications: {
       records: () => catalogue() ?? [],
       failure: publicationFailure,
-      loading: () => catalogue.loading,
-      reload: () => void refetch(),
+      loading,
+      reload,
     },
     below: (id) => descendantsOf(nodes(), id).some((node) => of(node.id)),
     any: () => nodes().some((node) => of(node.id)),

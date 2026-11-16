@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, flush, Show } from "solid-js";
 import { returnFocus } from "../keys/focus";
 import { registerKeys } from "../keys/registry";
 import { LEADER } from "../keys/chords";
@@ -30,7 +30,12 @@ export const ProjectPicker = (props: { projects: Pick<ProjectsState, "tabs" | "s
 
   return (
     <Show when={open()}><section class="switcher" ref={element => { panel = element; }}>
-      <Combobox.Root items={matches()} inputValue={query()} onInput={setQuery} highlightedValue={highlighted()} onHighlightChange={setHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => panel} onDismiss={dismiss} onSelect={path => { setOpen(false); props.projects.select(path); }} />
+      <Combobox.Root items={matches()} inputValue={query()} onInput={setQuery} highlightedValue={highlighted()} onHighlightChange={setHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => panel} onDismiss={dismiss} onSelect={path => {
+        setOpen(false);
+        // The switch asks for focus only when no modal layer is open: the picker must have closed before it reads that.
+        flush();
+        props.projects.select(path);
+      }} />
     </section></Show>
   );
 };

@@ -1,6 +1,6 @@
-import { batch } from "solid-js";
 import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountTodos, todo } from "../../todos/testHarness";
 import { RpcError } from "../../app/seam";
@@ -14,7 +14,7 @@ import { mountApp, rpcCalls, select } from "../../testing/appFixture";
 import { openTabs, tab } from "../../header/stripFixture";
 import { openLane } from "../../todos/laneBrowser";
 
-afterEach(() => batch(cleanup));
+afterEach(cleanup);
 
 const open = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120, clientY: 80 });
 
@@ -165,6 +165,7 @@ it("u3515a_send_offers_other_project_receivers_in_rail_order", async () => {
 
   rail.select("b");
   rail.toggleCollapsed("w2");
+  flush();
   fireEvent.contextMenu(document.querySelector('.rail-row[data-id="a"]')!, { clientX: 120, clientY: 80 });
   expect(entry(app, copy.sendToAgentMenu).children?.map(child => child.label)).toEqual(["w1", "b", "w2", "c", "root"]);
   expect(foreign.app.shownMenus).toEqual([]);
@@ -194,7 +195,7 @@ it("u3515a_source_identity_follows_the_object_not_selection", async () => {
       await app.closeMenu();
     }
 
-    batch(cleanup); window.localStorage.clear();
+    cleanup(); window.localStorage.clear();
   }
 });
 
@@ -236,7 +237,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
         await waitFor(() => expect(document.querySelector('[data-dnd-placeholder]')).toBeNull());
         expect(actionCalls(app)).toEqual([]);
       } finally {
-        batch(cleanup);
+        cleanup();
 
         if (animations) Object.defineProperty(document, "getAnimations", animations);
         else Reflect.deleteProperty(document, "getAnimations");
@@ -292,7 +293,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${tab}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
           const group = tab === "pads" ? "unassigned" : "me";
           await lane.until(`!!document.querySelector('.shelf [data-shelf-group="${group}"] ${row}')`);
-          await lane.evaluate(`(() => { const group = document.querySelector('.shelf [data-shelf-group="${group}"]'); if (group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part="branch-control"]').click(); return true; })()`);
+          await lane.evaluate(`(() => { const control = document.querySelector('.shelf [data-shelf-group="${group}"] .shelf-group-control'); if (control.getAttribute('aria-expanded') === 'false') control.click(); return true; })()`);
 
           const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
             const point = element => { const box = element.getBoundingClientRect(); return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }; };
@@ -333,9 +334,9 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       const { app, connected } = await openShelf([padOf("mine", USER)]);
       app.handlers["rail.tree"] = () => [];
       await connected.rail.refresh();
-      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control');
 
-      if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
+      if (me?.getAttribute("aria-expanded") === "false") fireEvent.click(me);
       screen.getByRole("button", { name: "mine" }).focus();
       const button = screen.getByRole("button", { name: "mine" });
       fireEvent.contextMenu(button);
@@ -355,9 +356,9 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       const { app, connected } = await mountTodos([todo(1, { owner: USER, title: "review" })]);
       app.handlers["rail.tree"] = () => [];
       await connected.rail.refresh();
-      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control');
 
-      if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
+      if (me?.getAttribute("aria-expanded") === "false") fireEvent.click(me);
       const button = await screen.findByRole("button", { name: /Idle #1 / });
       fireEvent.contextMenu(button);
       expect(app.menuLabels()).not.toContain(copy.sendToAgentMenu);
@@ -374,7 +375,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       expect(screen.queryByRole("menu")).toBeNull();
       fireEvent.keyDown(button, { key: "a", code: "KeyA" });
       const menu = await screen.findByRole("menu");
-      expect(within(menu).getAllByRole("menuitem").map(item => item.getAttribute("data-value"))).not.toContain("me");
+      expect(within(menu).getAllByRole("menuitem").map(item => item.id.replace(/^.*-item-/, ""))).not.toContain("me");
       expect(within(menu).getByRole("menuitem", { name: copy.newWorkstreamOffer }).getAttribute("aria-disabled")).not.toBe("true");
       expect(actionCalls(app)).toEqual([]);
     } },
@@ -383,7 +384,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
   for (const each of cases) {
     try { await each.run(); }
     catch (error) { throw new Error(each.name, { cause: error }); }
-    finally { batch(cleanup); window.localStorage.clear(); }
+    finally { cleanup(); window.localStorage.clear(); }
   }
 }, 60_000);
 
@@ -459,7 +460,7 @@ it.each([
       const { app, connected } = await openShelf([padOf("notes", { kind: "agent", id: "a", parent: null })]);
       app.handlers["rail.tree"] = () => [agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })];
       await connected.rail.refresh();
-      const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="a"] [data-part="branch-control"]');
+      const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="a"] .shelf-group-control');
 
       if (disclosure?.getAttribute("aria-expanded") === "false") fireEvent.click(disclosure);
 
@@ -473,7 +474,7 @@ it.each([
     mount: async () => {
       const owner = { kind: "agent" as const, id: "a", parent: null };
       const { app } = await mountTodos([1, 2, 3].map(id => todo(id, { owner, creator: owner })), true, [agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 }), workstream("other", { order: 2 })]);
-      const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="a"] [data-part="branch-control"]');
+      const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="a"] .shelf-group-control');
 
       if (disclosure?.getAttribute("aria-expanded") === "false") fireEvent.click(disclosure);
       const todos = screen.getByRole("region", { name: copy.todos });

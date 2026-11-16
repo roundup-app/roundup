@@ -1,5 +1,6 @@
 import { cleanup } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createRoot } from "solid-js";
 import * as xtermModule from "@xterm/xterm";
 import type { Terminal } from "@xterm/xterm";
 import type { Snapshot } from "@contracts/terminal/Snapshot";
@@ -23,7 +24,7 @@ describe("x14 the App's output subscription", () => {
     const spy = vi.spyOn(xtermModule, "Terminal");
     const real = createXtermEmulators();
     // jsdom cannot open an xterm view; an unopened Terminal still takes `write`, which is the call under test.
-    const screens = createScreens(connected, (id) => ({ ...real(id), show: () => ({ cols: 80, rows: 24 }) }));
+    const screens = createRoot(() => createScreens(connected, (id) => ({ ...real(id), show: () => ({ cols: 80, rows: 24 }) })));
 
     screens.emulatorFor("t-a");
 
@@ -111,7 +112,7 @@ describe("x14 the App's output subscription", () => {
   it("x14_app_disposal_releases_only_its_output_subscription", async () => {
     const { app, connected } = await connectFakeProject([node("a"), node("b")], [info("t-a"), info("t-b")]);
     const { factory, made } = fakeEmulators();
-    const screens = createScreens(connected, factory);
+    const screens = createRoot(() => createScreens(connected, factory));
 
     // The Daemon's screen is current up to the bytes its Terminal has printed.
     app.handlers["terminal.snapshot"] = ({ id }) => snapshotOf("", app.outputPositions.get(id) ?? 0);

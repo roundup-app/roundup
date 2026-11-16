@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { AppSettings } from "./AppSettings";
 import { appSettings, saveAppSettings } from "./preferences";
@@ -64,6 +65,7 @@ it("u5232b_a_change_survives_a_reload_and_reaches_every_tab", async () => {
 it("u5232b_an_invalid_field_falls_back_alone", () => {
   localStorage.setItem("roundup:app-settings", JSON.stringify({ stateAlerts: { done: { alert: "yes", sound: true }, working: 3 } }));
   useBrowserStorage(localStorage);
+  flush();
 
   const { stateAlerts } = appSettings();
 

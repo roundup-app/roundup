@@ -1,8 +1,8 @@
 import { makeEventListenerStack } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, For, on, onCleanup } from "solid-js";
-import { Portal } from "solid-js/web";
+import { createEffect, createMemo, For, onCleanup } from "solid-js";
+import { Portal } from "@solidjs/web";
 import { provideFocusTarget } from "../keys/focus";
 import { registerKeys } from "../keys/registry";
 import { Panel } from "../ui/Panel";
@@ -43,6 +43,8 @@ export const Bubble = (props: {
   screens: Screens;
   name: string;
   place: Place;
+  /** False until the Bubbles layer has stored this Terminal's first place; `place` is the default meanwhile. */
+  placed: boolean;
   origin: { left: number; top: number };
   extent(): Extent;
   setPlace(id: string, place: Place): void;
@@ -75,27 +77,26 @@ export const Bubble = (props: {
     props.screens.hide(id());
   });
 
-  // A Terminal is viewed while its Bubble is open; a folded or closed one gathers unseen output.
-  createEffect(() => { if (!props.preparing) props.screens.viewing(id(), !place().min); });
+  // A Terminal is viewed while its Bubble is open; a folded or closed one gathers unseen output. The default place is open, so a Bubble not yet placed is not viewed: its stored place may fold it.
+  createEffect(() => props.preparing || !props.placed ? null : { id: id(), open: !place().min }, viewing => { if (viewing) props.screens.viewing(viewing.id, viewing.open); });
 
-  const mount = (host: HTMLDivElement) => {
-    body = host;
-    provideFocusTarget(`bubble.${id()}`, () => host.querySelector<HTMLElement>("textarea"));
+  const mount = () => {
+    provideFocusTarget(`bubble.${id()}`, () => body?.querySelector<HTMLElement>("textarea"));
+    createEffect(createMemo(() => props.preparing ? null : id()), terminal => {
+      if (terminal !== null && body) props.screens.resize(terminal, props.screens.show(terminal, body, false));
+    });
 
-    props.hostRef?.(host, () => restoreResize === undefined);
-    createEffect(on(() => props.preparing ? null : id(), terminal => {
-      if (terminal !== null) props.screens.resize(terminal, props.screens.show(terminal, host, false));
-    }));
+    const watched = typeof ResizeObserver !== "undefined" ? makeResizeObserver(refitNextFrame) : undefined;
 
-    if (typeof ResizeObserver !== "undefined") {
-      const watched = makeResizeObserver(refitNextFrame);
-
-      watched.observe(host);
-    }
+    return (host: HTMLDivElement) => {
+      body = host;
+      props.hostRef?.(host, () => restoreResize === undefined);
+      watched?.observe(host);
+    };
   };
 
   // A bubble that was folded is fitted again when it comes back.
-  createEffect(on(() => place().min, (folded) => { if (!folded) refitNextFrame(); }, { defer: true }));
+  createEffect(createMemo(() => place().min), (folded) => { if (!folded) refitNextFrame(); }, { defer: true });
 
   const [listen, clearListeners] = makeEventListenerStack(window);
 
@@ -186,9 +187,7 @@ export const Bubble = (props: {
   let panel: HTMLElement | undefined;
 
   // The browser top layer orders by the last `showPopover`, so a restored bubble is the topmost layer and no z-index ranks it (U2307b).
-  createEffect(() => {
-    const open = !place().min;
-
+  createEffect(() => !place().min, open => {
     if (!panel?.showPopover) return;
 
     if (open && !panel.matches(":popover-open")) panel.showPopover();
@@ -196,8 +195,7 @@ export const Bubble = (props: {
   });
 
   /** U2307a: a primary press outside the bubble minimises it; its own tab or chip toggles it, and the press still reaches its target. */
-  const dismissed = (event: { detail: { originalEvent: Event } }): void => {
-    const press = event.detail.originalEvent;
+  const dismissed = (press: Event): void => {
     const target = press.target;
 
     if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
@@ -227,7 +225,7 @@ export const Bubble = (props: {
               </span>
               <span class="bubble-name">{props.name}</span>
             </header>
-            <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} dismiss={() => props.screens.dismiss(id())} recover={retry() ? { run: () => retry()?.() } : undefined} />
+            <div class="bubble-body" tabindex="-1" ref={mount()} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} dismiss={() => props.screens.dismiss(id())} recover={retry() ? { run: () => retry()?.() } : undefined} />
           </section>
           <For each={ZONES}>{(zone) => (
             <span class="bubble-zone" data-zone={zone.name} data-zone-of={id()} aria-hidden="true" hidden={place().min}

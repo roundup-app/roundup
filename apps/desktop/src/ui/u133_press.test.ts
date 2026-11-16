@@ -3,7 +3,7 @@ import { browser, read, url, wait } from "./tabsBrowser";
 
 const controls = [
   ["Button", "button", "Enter"], ["Button", "button", " "],
-  ["Checkbox", "input", " "], ["Switch", "input", " "],
+  ["Checkbox", "button", " "], ["Switch", "button", " "],
   ["Tab", "button[data-value=second]", "Enter"], ["Tab", "button[data-value=second]", " "],
 ];
 

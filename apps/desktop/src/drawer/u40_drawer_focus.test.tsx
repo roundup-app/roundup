@@ -48,10 +48,10 @@ const mountPaneWithDrawer = async () => {
   };
 
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Pane createEmulator={() => emulator} />
       <DrawerHost drawer={connected.drawer} reducedMotion={connected.reducedMotion} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   connected.rail.select("a");

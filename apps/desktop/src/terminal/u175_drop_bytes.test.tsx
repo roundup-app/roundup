@@ -22,7 +22,7 @@ const dropOnRealEmulator = async (bracketed: boolean) => {
   }));
 
   const { container } = render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Pane createEmulator={(id) => {
         const made = real(id);
 
@@ -30,7 +30,7 @@ const dropOnRealEmulator = async (bracketed: boolean) => {
 
         return made;
       }} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   connected.rail.select("a");

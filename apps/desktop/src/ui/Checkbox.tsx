@@ -1,24 +1,33 @@
 import "./Field.css";
-import { makeEventListener } from "@solid-primitives/event-listener";
 import "./Checkbox.css";
-import { Checkbox as ArkCheckbox } from "@ark-ui/solid/checkbox";
-import Check from "lucide-solid/icons/check";
-import Minus from "lucide-solid/icons/minus";
-import { createEffect, type JSX } from "solid-js";
+import { Checkbox as UiCheckbox, CheckboxIndicator } from "@ui-sdk/solid/checkbox";
+import Check from "@lucide/solid/icons/check";
+import Minus from "@lucide/solid/icons/minus";
+import { onSettled } from "solid-js";
+import type { JSX } from "@solidjs/web";
 
-/** A labelled on/off choice over Ark's Checkbox; Space toggles it and the caller owns the value. */
-export const Checkbox = (props: { class?: string; inputRef?: (element: HTMLInputElement) => void; onKeyDown?: JSX.EventHandlerUnion<HTMLInputElement, KeyboardEvent>; onClickCapture?: (event: MouseEvent) => void; checked: boolean | "indeterminate"; invalid?: boolean; disabled?: boolean; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => (
-  <ArkCheckbox.Root class={`app-checkbox ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled} invalid={props.invalid}
-    onCheckedChange={(details) => props.onCheckedChange(details.checked === true)}>
-    <ArkCheckbox.Control class="app-checkbox-box"><ArkCheckbox.Indicator><Check aria-hidden="true" /></ArkCheckbox.Indicator><ArkCheckbox.Indicator indeterminate><Minus aria-hidden="true" /></ArkCheckbox.Indicator></ArkCheckbox.Control>
-    <ArkCheckbox.Label class="app-checkbox-label">{props.children}</ArkCheckbox.Label>
-    <ArkCheckbox.HiddenInput asChild={(input) => <input {...input()} onKeyDown={props.onKeyDown} ref={element => { props.inputRef?.(element);
-      const click = props.onClickCapture;
+/** A labelled on/off choice over ui-sdk's Checkbox; Space toggles it and the caller owns the value. */
+export const Checkbox = (props: { class?: string; controlRef?: (element: HTMLButtonElement) => void; onKeyDown?: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent>; onClickCapture?: (event: MouseEvent) => void; checked: boolean | "indeterminate"; invalid?: boolean; disabled?: boolean; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => {
+  let control: HTMLButtonElement | undefined;
 
-      if (click) {
-        makeEventListener(element, "click", click, true);
-      }
+  onSettled(() => {
+    const click = props.onClickCapture;
+    const element = control;
 
-      createEffect(() => { element.indeterminate = props.checked === "indeterminate"; }); }} style="" />} />
-  </ArkCheckbox.Root>
-);
+    if (!click || !element) return;
+    // listener-owner: onSettled refuses onCleanup, so the cleanup it returns removes this.
+    element.addEventListener("click", click, true);
+
+    return () => element.removeEventListener("click", click, true);
+  });
+
+  return (
+    <label class={`app-checkbox ${props.class ?? ""}`} data-disabled={props.disabled ? "" : undefined} data-invalid={props.invalid ? "" : undefined}>
+      <UiCheckbox class="app-checkbox-box" ref={element => { control = element; props.controlRef?.(element); }} checked={props.checked} disabled={props.disabled ?? false} data-invalid={props.invalid ? "" : undefined} aria-invalid={props.invalid ? "true" : undefined}
+        onKeyDown={props.onKeyDown} onCheckedChange={checked => props.onCheckedChange(checked === true)}>
+        <CheckboxIndicator>{state => state.indeterminate ? <Minus aria-hidden="true" /> : <Check aria-hidden="true" />}</CheckboxIndicator>
+      </UiCheckbox>
+      <span class="app-checkbox-label">{props.children}</span>
+    </label>
+  );
+};

@@ -1,16 +1,17 @@
-import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo } from "../todos/testHarness";
 import { AGENT, openShelf, padOf } from "../pads/padsFixture";
 import { stubDialogLayout } from "./bulkQuestionHarness";
 
-afterEach(() => batch(cleanup));
+afterEach(() => cleanup());
 
 stubDialogLayout();
 
 const strand = (row: HTMLElement) => {
   fireEvent.click(row);
+  flush();
   row.blur();
   expect(document.activeElement).toBe(document.body);
 };

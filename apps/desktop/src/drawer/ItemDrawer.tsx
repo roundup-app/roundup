@@ -1,5 +1,5 @@
-import { createResource, createSignal, ErrorBoundary, onCleanup, Show } from "solid-js";
-import type { JSX } from "solid-js";
+import { createMemo, createSignal, Errored, Loading, onCleanup, refresh, Show, untrack } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { Event } from "@contracts/Event";
 import { copy } from "./copy";
 import { dismissable, ReservedLine } from "../ink/ReservedLine";
@@ -34,11 +34,13 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
   const lineOf = (history: Parameters<typeof lastTouchLine>[0]) =>
     (props.sentence ? padTouchSentence : lastTouchLine)(history, connected.rail.nameOf);
 
-  const [loaded, { refetch }] = createResource(async () => {
-    const history = await connected.app.rpc("provenance.history", { item: props.item });
+  const first = untrack(() => props.item);
 
-    return { line: lineOf(history), value: await props.read() };
-  });
+  const loaded = createMemo(() => untrack(async () => {
+    const history = await connected.app.rpc("provenance.history", { item: first });
+
+    return { line: untrack(() => lineOf(history)), value: await untrack(props.read) };
+  }));
 
   const refreshHistory = async () => {
     const mine = ++latest;
@@ -61,10 +63,12 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
   const historyLine = dismissable(failure);
 
   return (
-    <ErrorBoundary fallback={(error: Error, reset) => (
-      <ReservedLine message={error.message} blocked recover={{ run: () => { void refetch(); reset(); }, label: copy.tryAgain }} />
-    )}>
-      <Show when={loaded()}>
+    <Errored fallback={(error, reset) => {
+      const failed = error();
+
+      return <ReservedLine message={failed instanceof Error ? failed.message : String(failed)} blocked recover={{ run: () => { refresh(loaded); reset(); }, label: copy.tryAgain }} />;
+    }}>
+      <Loading><Show when={loaded()}>
         {(item) => (
           <>
             {props.children(item().value)}
@@ -78,7 +82,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
             </Show>
           </>
         )}
-      </Show>
-    </ErrorBoundary>
+      </Show></Loading>
+    </Errored>
   );
 };

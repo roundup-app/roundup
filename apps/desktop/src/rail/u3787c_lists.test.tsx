@@ -10,7 +10,7 @@ const kinds = [workstream, (id: string) => agent(id, "idle", "ready"), terminal]
 // Opening inventory: the open Project mounts Rail; double-click and F2 open each node rename.
 it.each(kinds)("u3787c_each_list_selects_only_visible_rows_%#", async make => {
   const { rail, app, connected } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((id, order) => ({ ...make(`row-${order}`), name: id, order })));
-  const selected = () => [...document.querySelectorAll<HTMLElement>(".rail-row[data-selected=true]")].map(row => row.querySelector(".name")?.textContent);
+  const selected = () => [...document.querySelectorAll<HTMLElement>(".rail-row[data-selected]")].map(row => row.querySelector(".name")?.textContent);
   const before = app.calls.length;
   // U3787c's Rail clause: a range starts at the earliest chosen row, and ⌘⇧-click toggles as ⌘-click does.
   fireEvent.click(rowOf("Alpha"), { metaKey: true });
@@ -81,10 +81,10 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   await press("終 e\u0301 😀", "ArrowUp", "Delta");
   await press("Delta", "ArrowDown", "終 e\u0301 😀");
   fireEvent.keyDown(rowOf("終 e\u0301 😀"), { key: "a", metaKey: true });
-  await waitFor(() => expect(document.querySelectorAll(".rail-row[data-selected=true]")).toHaveLength(5));
+  await waitFor(() => expect(document.querySelectorAll(".rail-row[data-selected]")).toHaveLength(5));
   // U3787c's Rail clause: a name prefix moves focus only; the selection and the open row stay.
   await press("終 e\u0301 😀", "G", "Gamma");
-  expect(document.querySelectorAll(".rail-row[data-selected=true]")).toHaveLength(5);
+  expect(document.querySelectorAll(".rail-row[data-selected]")).toHaveLength(5);
   expect(rail.selected()).toBe("row-1");
 });
 
@@ -93,9 +93,9 @@ it("u3787c_a_rail_range_with_nothing_selected_starts_at_the_top_and_skips_folded
   fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
   await waitFor(() => expect(document.querySelector('.rail-row[data-id="hidden"]')).toBeNull());
   fireEvent.click(rowOf("Gamma"), { shiftKey: true });
-  await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma"]));
+  await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma"]));
   fireEvent.keyDown(rowOf("Gamma"), { key: "a", metaKey: true });
-  await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma", "Delta", "End"]));
+  await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma", "Delta", "End"]));
 });
 
 it.each(kinds)("u3787c_navigation_and_selection_skip_ineligible_rows_%#", async make => {
@@ -108,5 +108,5 @@ it.each(kinds)("u3787c_navigation_and_selection_skip_ineligible_rows_%#", async 
   fireEvent.keyDown(rowOf("Alpha"), { key: "ArrowDown" });
   await waitFor(() => expect(document.activeElement).toBe(rowOf("Beta")));
   fireEvent.keyDown(rowOf("Beta"), { key: "a", metaKey: true });
-  await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["Alpha", "Beta"]));
+  await waitFor(() => expect([...document.querySelectorAll(".rail-row[data-selected] .name")].map(row => row.textContent)).toEqual(["Alpha", "Beta"]));
 });

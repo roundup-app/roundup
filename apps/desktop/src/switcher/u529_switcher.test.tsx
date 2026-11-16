@@ -1,14 +1,17 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { copy } from "./copy";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { batch, createSignal, Show } from "solid-js";
+import { createSignal, flush, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
 
-afterEach(() => { batch(cleanup); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
-const type = (text: string) => fireEvent.input(field()!, { target: { value: text } });
+const type = (text: string) => {
+  fireEvent.input(field()!, { target: { value: text } });
+  flush();
+};
 
 describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
   it("u529_cmd_k_lists_agents_doors_groups_and_terminals_and_filters_as_you_type", async () => {
@@ -101,6 +104,7 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
 
   await waitFor(() => expect(document.activeElement).toBe(input));
   fireEvent.input(input, { target: { value: exact } });
+  flush();
   input.setSelectionRange(2, 9, "backward");
   const selection = { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection };
   const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
@@ -117,6 +121,7 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   // Explicit reopening remounts the field; the owner restores selection through the fresh native ref.
   const previous = input;
   setOpen(false);
+  flush();
   setOpen(true);
   await waitFor(() => expect(document.activeElement).toBe(input));
   expect(input).not.toBe(previous);
@@ -158,7 +163,9 @@ it("u2773a_queries_restores_exact_work", async () => {
   expect(connected.rail.selected()).toBe("ann");
   expect(app.calls.length).toBe(calls);
 
-  batch(cleanup);
+  // The query reaches storage before the App starts again.
+  await waitFor(() => expect(localStorage.getItem("roundup:drafts:/p")).toContain("東京"));
+  cleanup();
   const reopened = await mountSwitcher("ann");
   const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
   origin.focus();
@@ -206,7 +213,8 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   dialog.getByRole("button", { name: "Try again" }).focus();
   fireEvent.click(document.activeElement!);
   await waitFor(() => expect(dialog.queryByRole("alert")).toBeNull());
-  expect(JSON.parse(localStorage.getItem(key)!).drafts.at(-1).value.query).toBe(exact);
+  // The retry writes the record after the failure line leaves.
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).drafts.at(-1)?.value.query).toBe(exact));
   expect(field()!.value).toBe(exact);
   expect(document.activeElement).toBe(field());
   expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
@@ -217,6 +225,7 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   await dialog.findByRole("alert");
   refuse.mockRestore();
   fireEvent.click(dialog.getByRole("button", { name: "Discard query" }));
+  flush();
   expect(field()!.value).toBe("");
   await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).drafts).toEqual([]));
   expect(app.calls.length).toBe(calls);

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import * as registry from "../keys/registry";
-import { batch, createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "../testing/menuProbe";
@@ -22,7 +22,7 @@ import { useBrowserStorage } from "../state/storage";
 import { agent, event, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
-afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); batch(cleanup); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
 type Pending = { resolve: () => void; reject: (error: Error) => void };
 
@@ -92,6 +92,7 @@ const activate = (row: HTMLElement, how: "enter" | "pointer"): void => {
     fireEvent.pointerUp(row, { button: 0, pointerType: "mouse" });
     fireEvent.click(row);
   } else switcherKey("Enter", {}, field()!);
+  flush();
 };
 
 // App owns the surviving notice; the real Rail captures each original spawn contract.
@@ -273,10 +274,12 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   if (row.label === "Agent with prompt") {
     const prompt = await screen.findByLabelText<HTMLTextAreaElement>("Work", { selector: '[role="textbox"], textarea' });
     fireEvent.input(prompt, { target: { value: " A\ne\u0301 🧭 " } });
+    flush();
     submitted = connected.drafts.list().find(entry => entry.destination.surface === "rail-task");
     switcherKey("Enter", {}, prompt);
     await waitFor(() => expect(ofMethod()).toHaveLength(1));
     fireEvent.input(prompt, { target: { value: " newer\n😀 " } });
+    flush();
     newer = connected.drafts.list().find(entry => entry.destination.surface === "rail-task" && entry.revision !== submitted?.revision);
     switcherKey("Escape", {}, prompt);
   }
@@ -359,6 +362,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       app.handlers["rail.tree"] = () => [workstream("elsewhere", { name: "Workstream" })];
       await connected.rail.refresh();
       connected.rail.select("elsewhere");
+      flush();
       complete();
       app.handlers["rail.createWorkstream"] = () => workstream("created");
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
@@ -408,6 +412,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       connected.rail.select("elsewhere");
+      flush();
       native.show = async () => { nativeCalls.push(undefined); };
 
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
@@ -426,6 +431,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     openSwitcher();
     await waitFor(() => expect(field()?.value).toBe(query));
     switcherKey("Escape", {}, field()!);
+    flush();
     expect(connected.drafts.list()).toEqual(drafts);
 
     return;
@@ -450,6 +456,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(ofMethod()).toHaveLength(1);
       expect(connected.drafts.list()).toEqual(drafts);
       connected.rail.select("elsewhere");
+      flush();
 
       if (row.method === "terminal.open") app.handlers["terminal.open"] = () => ({ terminal_id: "9" });
       else app.handlers["terminal.close"] = () => null;
@@ -526,7 +533,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="Create"]')?.getAttribute("aria-disabled")).toBeNull());
       const recovery = connected.rail.commandFailure.retry();
 
-      if (row.owner !== "App") batch(cleanup);
+      if (row.owner !== "App") cleanup();
       expect(connected.rail.commandFailure.retry()).toBe(recovery);
 
       if (submitted) {
@@ -534,7 +541,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
         expect(connected.drafts.list()).toContainEqual(newer);
       }
 
-      if (row.owner !== "App") render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+      if (row.owner !== "App") render(() => <ConnectedProjectContext value={connected}><Rail /></ConnectedProjectContext>);
       app.handlers["agent.spawn"] = () => agent("recovered", "idle", "idle");
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
 

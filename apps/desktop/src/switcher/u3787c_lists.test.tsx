@@ -1,4 +1,5 @@
 import { fireEvent, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { expect, it } from "vitest";
 import { mountApp } from "../testing/appFixture";
 import { info } from "../testing/nodes";
@@ -10,7 +11,12 @@ const inventory = [{ opening: "⌘K then K", open: () => leaderKey("KeyK") }];
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.switcher [data-value="${id}"]`)!;
 
-const selected = () => [...document.querySelectorAll('.switcher [aria-selected="true"]')].map(element => element.getAttribute("data-value"));
+// `aria-selected` follows the highlight; the content selection is `data-row-selected`.
+const selected = () => {
+  flush();
+
+  return [...document.querySelectorAll('.switcher [data-row-selected="true"]')].map(element => element.getAttribute("data-value"));
+};
 
 const ids = ["a", "r", "b", "terminal:1", "terminal:2"];
 
@@ -62,7 +68,7 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   expect(selected()).toEqual(ids);
   expect(document.querySelector('.switcher [role="listbox"]')?.getAttribute("aria-multiselectable")).toBe("true");
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
-  expect(document.querySelector(".rail-row[data-selected=true]")).toBeNull();
+  expect(document.querySelector(".rail-row[data-selected]")).toBeNull();
   expect(app.calls.slice(before)).toEqual([]);
 });
 

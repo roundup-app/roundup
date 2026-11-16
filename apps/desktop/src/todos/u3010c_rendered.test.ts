@@ -33,13 +33,13 @@ afterAll(async () => { await page?.close(); });
 const setup = async (reduced: boolean) => {
   await page.scheme("dark", undefined, reduced ? "motion" : undefined);
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
-  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
+  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('.rail-row[data-branch][aria-expanded]')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
   }`);
   await page.call(`() => {
-    document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
+    document.querySelector('.shelf [data-shelf-group="unassigned"] .shelf-group-control')?.click();
   }`);
   await page.until(`() => document.querySelectorAll(".shelf .todo-list .todo-row-button").length > 2`);
 };

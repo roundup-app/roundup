@@ -1,5 +1,5 @@
 import "./ProjectOpening.css";
-import { createComputed, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import { Dialog } from "../ui/Dialog";
 import type { ProjectsState } from "../state/projects";
 import { RpcError, type ActionRequest, type ActionReply, type AppSeam } from "../app/seam";
@@ -127,13 +127,13 @@ export const createProjectOpening = (projects: ProjectsState, forProject: (path:
 export const ProjectOpening = (props: { opening: ReturnType<typeof createProjectOpening> }) => {
   let returnFocus: HTMLElement | null = null;
 
-  createComputed(() => {
+  createEffect(() => {
     const pending = props.opening.pending();
     const focused = document.activeElement;
 
     // A failed open replaces consent before Ark can return focus; keep its connected background target.
-    if (pending && focused instanceof HTMLElement && focused !== document.body && !focused.closest('[role="dialog"]')) returnFocus = focused;
-  });
+    return pending && focused instanceof HTMLElement && focused !== document.body && !focused.closest('[role="dialog"]') ? focused : null;
+  }, focused => { if (focused) returnFocus = focused; });
 
   return <Dialog.Root finalFocusEl={() => returnFocus?.isConnected && returnFocus.checkVisibility() ? returnFocus : document.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')} open={props.opening.pending() !== undefined} instant onOpenChange={details => {
     const pending = props.opening.pending();
@@ -152,7 +152,7 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
 
  return current.kind === "failure" ? current : undefined; };
 
-      return <Dialog.Positioner><Dialog.Content class="app-dialog-form project-opening">
+      return <Dialog.Content class="app-dialog-form project-opening">
         <Dialog.Title>{pending().kind === "failure" ? copy.openProjectFailed : copy.openProjectTitle}</Dialog.Title>
         <Dialog.Description>
           <Show when={confirmation()} fallback={<Show when={failure()}>{failure => <>{failure().message} {copy.openProjectRetry}</>}</Show>}>
@@ -166,7 +166,7 @@ export const ProjectOpening = (props: { opening: ReturnType<typeof createProject
             <button type="button" data-button="primary" onClick={() => confirmation.choose(true)}>{copy.openProjectChoice}</button>
           </>}</Show>
         </footer>
-      </Dialog.Content></Dialog.Positioner>;
+      </Dialog.Content>;
     }}</Show>
   </Dialog.Root>;
 };

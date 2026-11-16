@@ -186,7 +186,7 @@ p {
   bottom: 0;
   z-index: 1;
   width: var(--space-2);
-  cursor: col-resize;
+  cursor: ew-resize;
   touch-action: none;
 }
 

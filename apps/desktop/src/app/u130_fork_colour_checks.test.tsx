@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -9,7 +8,7 @@ import { seedApp } from "../testing/seeds";
 const COLOURS = ["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"] as const;
 
 afterEach(() => {
-  batch(cleanup);
+  cleanup();
   delete document.documentElement.dataset.forkColour;
   delete document.documentElement.dataset.mode;
 });
@@ -30,13 +29,13 @@ describe("u130 fork colour checks", () => {
       document.documentElement.dataset.mode = mode;
       const live = await statuses();
 
-      batch(cleanup);
+      cleanup();
 
       for (const colour of COLOURS) {
         document.documentElement.dataset.forkColour = colour;
         const forked = await statuses();
 
-        batch(cleanup);
+        cleanup();
 
         for (const id of CHECK_IDS) if (live[id] === "pass") expect([mode, colour, id, forked[id]]).toEqual([mode, colour, id, "pass"]);
       }

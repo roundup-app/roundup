@@ -39,7 +39,7 @@ it.each(["agents-10", "tree-40"])("u5742a_rendered_rail_choices_and_controls_%s"
       await wait("!!document.activeElement?.closest('.pane-screen')");
       await browser("keyboard", "type", "marker");
       await wait("window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'marker'");
-      expect(await read("window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === 't-' + document.querySelector('.rail-row[data-selected=true]').dataset.id)")).toBe(true);
+      expect(await read("window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === 't-' + document.querySelector('.rail-row[data-selected]').dataset.id)")).toBe(true);
     }
 
     await capture("U5742a", `${seed}-chosen`);

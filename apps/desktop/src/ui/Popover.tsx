@@ -1,64 +1,80 @@
 import { captureFocus } from "../keys/focus";
-import { Popover as ArkPopover, usePopoverContext } from "@ark-ui/solid/popover";
-import { createComputed, createContext, createSignal, on, onMount, useContext } from "solid-js";
-import { dialogOwned, floatingControl } from "./Dialog";
+import type { ComponentProps } from "@solidjs/web";
+import { Popover as UiPopover, PopoverContent, PopoverTrigger, type PopoverContentProps, type PopoverProps } from "@ui-sdk/solid/popover";
+import { createContext, createEffect, createSignal, omit, useContext } from "solid-js";
+import { createFloatingControl } from "./Dialog";
+import "./Trigger.css";
 import "./Popover.css";
 
-const Owner = createContext<{ setElement: (element: HTMLElement) => void; focus: () => ReturnType<typeof captureFocus>; close: () => void }>();
+type Permission = ReturnType<typeof captureFocus>;
+
+const Owner = createContext<{ setTrigger: (element: HTMLElement) => void; initialFocus: () => Permission; initialTarget: () => HTMLElement; finalFocus: () => NonNullable<PopoverContentProps["finalFocus"]>; close: () => void } | null>(null);
+
+type RootProps = Omit<PopoverProps, "open" | "defaultOpen" | "onOpenChange"> & {
+  open?: boolean | undefined;
+  defaultOpen?: boolean | undefined;
+  onOpenChange?: ((details: { open: boolean }) => void) | undefined;
+  initialFocus?: Permission | undefined;
+  initialFocusEl?: (() => HTMLElement | null | undefined) | undefined;
+  finalFocusEl?: (() => HTMLElement | null | undefined) | undefined;
+  /** Whether a press or focus outside closes the popover. */
+  closeOnInteractOutside?: boolean | undefined;
+};
+
+const dismissals = new Set(["outside-press", "focus-out"]);
+
+const inside = () => {
+  const owner = useContext(Owner);
+
+  if (!owner) throw new Error("Popover parts belong inside Popover.Root");
+
+  return owner;
+};
 
 /** A popover that never takes the keyboard on opening and closes on Escape, outside interaction or a modal opening. */
 export const Popover = {
-  ...ArkPopover,
-  initialFocus: () => useContext(Owner)?.focus(),
+  initialFocus: () => useContext(Owner)?.initialFocus(),
   dismiss: () => useContext(Owner)?.close,
-  Root: (props: ArkPopover.RootProps & { initialFocus?: ReturnType<typeof captureFocus> | undefined }) => {
-    const [element, setElement] = createSignal<HTMLElement>();
-    const control = floatingControl(props, element);
-    let initialFocus = captureFocus();
-    let finalFocus = captureFocus();
+  Root: (props: RootProps) => {
+    const [trigger, setTrigger] = createSignal<HTMLElement>();
+    const control = createFloatingControl(props, trigger);
+    let initial: Permission | undefined;
     let returnFocus = true;
+    const initialFocus = () => initial ??= props.initialFocus ?? captureFocus(true);
+    const active = () => document.activeElement instanceof HTMLElement ? document.activeElement : document.body;
 
-    createComputed(on(control.open, open => {
-      if (open) { initialFocus = props.initialFocus ?? captureFocus(true); returnFocus = true; }
-      else finalFocus = captureFocus();
-    }));
-
-    return <Owner.Provider value={{ setElement, focus: () => initialFocus, close: () => { if (control.open()) { returnFocus = false; control.change({ open: false }); } } }}><ArkPopover.Root lazyMount unmountOnExit autoFocus={false} modal={false} closeOnEscape {...props} open={control.open()} onOpenChange={control.change}
-      initialFocusEl={() => {
-        let target: HTMLElement | null | false = false;
-        initialFocus(() => { target = props.initialFocusEl?.() ?? null; });
-
-        return target;
-      }} finalFocusEl={() => returnFocus ? finalFocus.target(() => props.finalFocusEl?.() ?? element()) : (document.activeElement instanceof HTMLElement ? document.activeElement : document.body)} /></Owner.Provider>;
-  },
-  Trigger: (props: ArkPopover.TriggerProps) => {
-    const owner = useContext(Owner);
-    const popover = usePopoverContext();
-
-    // Ark's asChild omits refs; its public trigger id still identifies the rendered button.
-    onMount(() => {
-      const id = popover().getTriggerProps({ value: props.value }).id;
-      const element = id ? document.getElementById(id) : null;
-
-      if (element) owner?.setElement(element);
+    createEffect(control.open, open => {
+      if (open) returnFocus = true;
+      else initial = undefined;
     });
 
-    return <ArkPopover.Trigger {...props} ref={(element: HTMLButtonElement) => {
-      owner?.setElement(element);
+    const owner = {
+      setTrigger,
+      initialFocus,
+      initialTarget: () => props.initialFocusEl ? initialFocus().target(() => props.initialFocusEl?.()) : active(),
+      finalFocus: () => returnFocus ? props.finalFocusEl ?? "trigger" : "none",
+      close: () => { if (control.open()) { returnFocus = false; control.change({ open: false }); } },
+    };
 
-      // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
-      (props.ref as ((element: HTMLButtonElement) => void) | undefined)?.(element);
-    }} />;
+    const rest = omit(props, "open", "defaultOpen", "onOpenChange", "initialFocus", "initialFocusEl", "finalFocusEl", "closeOnInteractOutside");
+
+    return <Owner value={owner}>
+      <UiPopover {...rest} open={control.open()}
+        onOpenChange={(open, details) => {
+          if (!open && props.closeOnInteractOutside === false && dismissals.has(details.reason)) details.cancel();
+          else control.change({ open });
+        }} />
+    </Owner>;
   },
-  Anchor: (props: ArkPopover.AnchorProps) => {
-    const owner = useContext(Owner);
+  Trigger: (props: ComponentProps<typeof PopoverTrigger>) => {
+    const owner = inside();
 
-    return <ArkPopover.Anchor {...props} ref={(element: HTMLDivElement) => {
-      owner?.setElement(element);
-
-      // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
-      (props.ref as ((element: HTMLDivElement) => void) | undefined)?.(element);
-    }} />;
+    return <PopoverTrigger {...props} ref={[props.ref, owner.setTrigger]} />;
   },
-  Content: (props: ArkPopover.ContentProps) => <ArkPopover.Content {...props} data-dialog-owned={dialogOwned() || undefined} class={`app-popover ${props.class ?? ""}`} />,
+  Content: (props: Omit<ComponentProps<typeof PopoverContent>, "class"> & { class?: string | undefined }) => {
+    const owner = inside();
+    const rest = omit(props, "class", "initialFocus", "finalFocus");
+
+    return <PopoverContent {...rest} initialFocus={owner.initialTarget} finalFocus={owner.finalFocus()} class={["app-popover", props.class]} />;
+  },
 };

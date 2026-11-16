@@ -66,7 +66,6 @@
 }
 
 /* U3517c: the shell viewport shares the Terminal canvas ground. */
-.bubble-body,
 .bubble .xterm-viewport.xterm-viewport,
 .bubble .xterm-scrollable-element.xterm-scrollable-element {
   background-color: var(--terminal-background);
@@ -253,23 +252,22 @@
   background: none;
 }
 
-.terminal-tab-editor [data-part="input"] {
+.terminal-tab-editor [data-slot="editable-input"] {
   min-width: 0;
-  field-sizing: content;
   cursor: pointer;
 }
 
 /* The field is a click target to the checks: it keeps a hover and a pressed rule that paint nothing new (U2234). */
-.terminal-tab-editor [data-part="input"]:hover {
+.terminal-tab-editor [data-slot="editable-input"]:hover {
   color: inherit;
 }
 
-.terminal-tab-editor [data-part="input"]:active {
+.terminal-tab-editor [data-slot="editable-input"]:active {
   color: var(--ink-pressed);
   transition-duration: var(--duration-instant);
 }
 
-.terminal-tab-editor [data-part="preview"] {
+.terminal-tab-editor [data-slot="editable-preview"] {
   text-overflow: clip;
 }
 
@@ -308,7 +306,7 @@
   height: fit-content;
 }
 
-.bubble-recovery.draft-recovery [data-part="title"] {
+.bubble-recovery.draft-recovery [data-slot$="dialog-title"] {
   font-size: var(--text-title);
   font-weight: 600;
 }

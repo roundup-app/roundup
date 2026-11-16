@@ -1,11 +1,13 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { flush } from "solid-js";
 import { RpcError } from "../app/seam";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { event, info, node } from "../testing/nodes";
 import { mountPane } from "./paneHarness";
 import { Pane } from "./Pane";
+import { notice, notices } from "../testing/notices";
 
 afterEach(cleanup);
 
@@ -14,6 +16,7 @@ describe("u38 empty Pane", () => {
     const { connected } = await mountPane([node("a")]);
 
     connected.rail.select("a");
+    flush();
 
     expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();
   });
@@ -23,11 +26,13 @@ describe("u38 empty Pane", () => {
 
     app.outputFailure = new RpcError(-32603, "channel refused");
     connected.rail.select("a");
+    flush();
     await screen.findByRole("alert", { name: /^Terminal output stopped\.\s+channel refused$/ });
     connected.rail.select(null);
+    flush();
 
-    expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    expect(notices("alert")).toHaveLength(1);
+    expect(notice("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
   it("u38_a_failed_initial_rail_tree_shows_no_empty_pane_text", async () => {
@@ -40,9 +45,9 @@ describe("u38 empty Pane", () => {
     const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Pane notice={connected.rail.failure()} />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     ));
 
     expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();

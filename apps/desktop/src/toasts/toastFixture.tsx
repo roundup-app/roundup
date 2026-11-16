@@ -1,6 +1,6 @@
 // fallow-ignore-file duplicate-export -- AGENT and todo are toast-specific fixtures; Pad and Todo tests import their own fixtures directly.
-import { fireEvent, render } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { createSignal, flush } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Kind } from "@contracts/Kind";
 import type { Pad } from "@contracts/pad/Pad";
@@ -32,6 +32,9 @@ export const UNREADABLE = "Daemon unavailable";
 export const status = (id: string, kind: Kind) =>
   event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind === "error" ? FAILURE : kind, since: NOW, finished: "0" } } });
 
+/** The failure lines on screen. ui-sdk's hidden announcer is an alert too, and no line. */
+export const alerts = (options?: { hidden?: boolean }) => screen.queryAllByRole("alert", options).filter((node) => !node.hasAttribute("data-ui-sdk-announcer"));
+
 export const by = (actor: Actor, data: Parameters<typeof event>[0]) => ({ ...event(data), actor });
 
 /** The Toasts on a fake Daemon: `front` is whether roundup is the app in front, `sounds` counts the chimes. */
@@ -49,27 +52,33 @@ export const mountToasts = async (tree: RailNode[], options: { unreadable?: true
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => options.reducedMotion ?? false, () => NOW);
   const [front, setFront] = createSignal(options.front ?? true);
+  /** Whether roundup is in front changes at once, as it does when the user switches windows. */
+  const moveFront = (value: boolean) => { setFront(value); flush(); };
+
   const sounds: number[] = [];
   const shown: string[] = [];
   const alertFailures: (string | null)[] = [];
   let queue!: ReturnType<typeof createToastQueue>;
 
-  if (options.selected !== undefined) connected.rail.select(options.selected);
+  if (options.selected !== undefined) {
+    connected.rail.select(options.selected);
+    flush();
+  }
 
   const view = render(() => {
     queue = createToastQueue(front, () => sounds.push(Date.now()));
     watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle, createStateAlerts(alert => app.stateAlert(alert), front, message => alertFailures.push(message)), queue.suppress, () => options.project ?? "all");
 
     return (
-      <ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext value={connected}>
         <Toasts queue={queue} />
         <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext>
     );
   });
 
   const toasts = () => [...view.container.querySelectorAll<HTMLElement>(".app-toast-action")];
 
-  return { alertFailures, app, connected, view, queue, sounds, shown, toasts, setFront, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
+  return { alertFailures, app, connected, view, queue, sounds, shown, toasts, setFront: moveFront, leaveWindow: () => moveFront(false), comeBack: () => { moveFront(true); fireEvent(window, new Event("focus")); } };
 };
 

@@ -158,7 +158,7 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
 
       await wait("!!document.querySelector('.pads-tab .shelf-group-control')");
 
-      if (await read("document.querySelector('.pads-tab .shelf-group-control').getAttribute('data-state') === 'closed'")) await browser("click", '.pads-tab .shelf-group-control');
+      if (await read("document.querySelector('.pads-tab .shelf-group-control').getAttribute('aria-expanded') === 'false'")) await browser("click", '.pads-tab .shelf-group-control');
       const pad = await read("document.querySelector('.pads-tab [data-pad]')?.getAttribute('data-pad')");
       await browser("focus", `[data-pad=${JSON.stringify(pad)}] .pad-name`);
       await browser("press", "Enter");
@@ -186,7 +186,7 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout
       await wait("!!document.querySelector('[role=menuitem]')");
       await browser("find", "role", "menuitem", "click", "--name", "Work progress", "--exact");
       await wait("!!document.querySelector('.progress-row')");
-      await browser("click", '.progress-earlier [data-part=trigger]');
+      await browser("click", '.progress-earlier [data-slot="collapsible-trigger"]');
       await snap("work-progress-results");
       await controls("work-progress-control", ".progress-section");
       await load("tree-40", "&view=made");

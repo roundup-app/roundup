@@ -33,7 +33,7 @@ describe("a3564a a Door's native prompt is attended to in its own Terminal in th
     fireEvent.click(row.querySelector(".name")!);
     const id = requesting.id;
 
-    await waitFor(() => expect(rail.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id")).toBe(id));
+    await waitFor(() => expect(rail.querySelector(".rail-row[data-selected]")?.getAttribute("data-id")).toBe(id));
     fireEvent.keyDown(rail.querySelector(`.rail-row[data-id="${id}"]`)!, { key: "Enter" });
     await waitFor(() => expect(emulators.made.get(requesting.terminal_id!)?.host?.contains(document.activeElement)).toBe(true));
     expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();

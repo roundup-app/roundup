@@ -3,6 +3,7 @@ import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
 import { afterEach, expect, it, vi } from "vitest";
+import { createRoot } from "solid-js";
 import { createXtermEmulators } from "./emulator";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 
@@ -157,7 +158,7 @@ it("z3788a_osc52_copies_once_and_reports_failure", async () => {
   const { createScreens } = await import("./screens");
   const { lazyXtermEmulators } = await import("./lazyEmulator");
   const { app, connected } = await connectFakeProject([terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
-  const screens = createScreens(connected, lazyXtermEmulators());
+  const screens = createRoot(() => createScreens(connected, lazyXtermEmulators()));
   const emulator = screens.emulatorFor("t-a");
   await emulator.ready;
   const output = () => new Promise<void>(resolve => emulator.write(new TextEncoder().encode("\x1b]52;c;Y2Fmw6kg5LiW55WM\x07after"), resolve));
@@ -257,7 +258,7 @@ it("z3788a_images_keep_output_and_input_usable", async () => {
       await page.until("window.__terminals.has('t-tokens')");
       await page.browser("focus", '.rail-row[data-id="migrate"]');
       await page.browser("press", "Enter");
-      await page.until("document.querySelector('.rail-row[data-id=migrate]')?.dataset.selected === 'true'");
+      await page.until("document.querySelector('.rail-row[data-id=migrate]')?.hasAttribute('data-selected')");
       await page.browser("set", "viewport", "1400", "900");
       await page.browser("set", "viewport", "1512", "950");
       await page.until("(() => { const e = window.__terminals.get('t-migrate'); e.selectTurn(0, false); return e.selection().includes('Images complete'); })()");

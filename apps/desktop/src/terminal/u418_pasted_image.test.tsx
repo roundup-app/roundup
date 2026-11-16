@@ -1,6 +1,6 @@
 import { pasteEvent, imageFile } from "../testing/clipboard";
 import { cleanup, render, screen } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -8,6 +8,7 @@ import { info, terminal } from "../testing/nodes";
 import { createXtermEmulators } from "./emulator";
 import { Pane } from "./Pane";
 import { callsTo, connectFakeProject, mountPane } from "./paneHarness";
+import { notices } from "../testing/notices";
 
 const PATH = "/Users/me/Library/Caches/roundup-pasted/pasted-1-abcd1234.png";
 
@@ -39,6 +40,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     const { app, connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     press(container.querySelector("[data-terminal]")!);
 
     await vi.waitFor(() => expect(emulators.get("t-a")!.pasted).toEqual([QUOTED]));
@@ -46,7 +48,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     expect(app.savedImages[0]!.type).toBe("image/png");
     expect([...app.savedImages[0]!.bytes]).toEqual([...BYTES]);
     expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: btoa(QUOTED) }]);
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(notices("alert")).toHaveLength(0);
   });
 
   it("u418_text_wins_over_an_image", async () => {
@@ -54,6 +56,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     const { app, connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     press(container.querySelector("[data-terminal]")!);
 
     await vi.waitFor(() => expect(emulators.get("t-a")!.pasted).toEqual(["words"]));
@@ -67,9 +70,11 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     const failure = new RpcError(-32002, "the image is 30 MiB, over the 20 MiB a paste can save");
     app.saveImageFailure = failure;
     connected.rail.select("a");
+    flush();
     press(container.querySelector("[data-terminal]")!);
 
-    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
+    await vi.waitFor(() => expect(notices("alert")).toHaveLength(1));
+    expect(notices("alert")[0]!.textContent).toContain(failure.message);
     expect(emulators.get("t-a")!.pasted).toEqual([]);
     expect(callsTo(app, "terminal.write")).toEqual([]);
   });
@@ -79,9 +84,10 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     const { app, connected, container } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     press(container.querySelector("[data-terminal]")!);
 
-    await screen.findByRole("alert");
+    await vi.waitFor(() => expect(notices("alert")).not.toHaveLength(0));
     expect(callsTo(app, "terminal.write")).toEqual([]);
     expect(app.savedImages).toEqual([]);
   });
@@ -91,14 +97,15 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     const { connected, container, emulators } = await mountPane([terminal("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    flush();
     const target = container.querySelector("[data-terminal]")!;
 
     press(target);
-    await screen.findByRole("alert");
+    await vi.waitFor(() => expect(notices("alert")).not.toHaveLength(0));
 
     current.files = [image("image/webp")];
     press(target);
-    await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await vi.waitFor(() => expect(notices("alert")).toHaveLength(0));
     expect(emulators.get("t-a")!.pasted).toEqual([QUOTED]);
   });
 
@@ -107,6 +114,7 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     const { app, connected, container } = await mountPane([terminal("a")], [info("t-a", { running: false, exit_code: 0 })]);
 
     connected.rail.select("a");
+    flush();
     press(container.querySelector("[data-terminal]")!);
     await settle();
 
@@ -120,7 +128,9 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     const { app, connected, container } = await mountPane([terminal("a")], [info("t-a")], 0, exit);
 
     connected.rail.select("a");
+    flush();
     setExit({ code: 1 });
+    flush();
     press(container.querySelector("[data-terminal]")!);
     await settle();
 
@@ -141,7 +151,7 @@ it("u418_a_pasted_image_writes_one_bracketed_paste", async () => {
   }));
 
   const { container } = render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <ConnectedProjectContext value={connected}>
       <Pane createEmulator={(id) => {
         const made = real(id);
 
@@ -149,10 +159,11 @@ it("u418_a_pasted_image_writes_one_bracketed_paste", async () => {
 
         return made;
       }} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext>
   ));
 
   connected.rail.select("a");
+  flush();
   container.querySelector<HTMLElement>(".pane-body")!.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
   await vi.waitFor(() => expect(emulators.get("t-a")).toBeDefined());
 

@@ -1,5 +1,5 @@
 import { createEffect, createMemo, onCleanup } from "solid-js";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../state/railTopology";
@@ -55,7 +55,7 @@ export const WindowBar = (props: {
     writing = false;
   };
 
-  createEffect(() => { title(); void write(); });
+  createEffect(title, () => { void write(); });
 
   const empty = (target: EventTarget | null) => target instanceof Element && !target.closest('button, input, [role="tab"], [role="tablist"], [role="dialog"], [role="alertdialog"], [role="menu"], .traffic-lights');
 

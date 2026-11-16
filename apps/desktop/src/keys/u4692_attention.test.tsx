@@ -1,7 +1,7 @@
 import "../pads/PadRichEditor";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { batch } from "solid-js";
+import { flush } from "solid-js";
 import { App } from "../App";
 import type { ConnectedProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -14,16 +14,20 @@ import { appSettings } from "../settings/preferences";
 import { endLeader } from "./registry";
 import { openAsk } from "../ask/askFixture";
 
-afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { cleanup(); endLeader(); localStorage.clear(); sessionStorage.clear(); });
 
 const press = (options: KeyboardEventInit = {}) => {
   const event = new KeyboardEvent("keydown", { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true, bubbles: true, cancelable: true, ...options });
   document.activeElement!.dispatchEvent(event);
+  flush();
 
   return event;
 };
 
-const key = (code: string, options: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement!, { key: code.replace("Key", "").toLowerCase(), code, ...options });
+const key = (code: string, options: KeyboardEventInit = {}) => {
+  fireEvent.keyDown(document.activeElement!, { key: code.replace("Key", "").toLowerCase(), code, ...options });
+  flush();
+};
 
 const draft = "  Exact unfinished 🦉\nkeep  ";
 
@@ -77,7 +81,7 @@ const shelf = async () => {
   showShelfTab("Todos");
 
   const group = await waitFor(() => {
-    const group = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+    const group = document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control');
     expect(group).not.toBeNull();
 
  return group!;
@@ -89,8 +93,10 @@ const shelf = async () => {
 it.each(["rail", "centre", "shelf", "triage", "pad", "drawer", "watch", "door", "shell"])("u4692_the_direct_chord_reaches_attention_from_each_focus_place: %s", async place => {
   const { daemon, connected } = await open();
   connected().rail.select("home");
+  flush();
   const nested = document.querySelector<HTMLElement>('.rail-row[data-id="nested"]')!;
   fireEvent.click(within(nested).getByRole("button", { name: "Collapse" }));
+  flush();
 
   let target: HTMLElement;
 
@@ -149,6 +155,7 @@ it("u4692_a_repeating_chord_jumps_once", async () => {
   for (let i = 0; i < 20; i++) expect(press({ repeat: true }).defaultPrevented).toBe(true);
   expect(connected().rail.selected()).toBe("need");
   fireEvent.keyUp(document.activeElement!, { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true });
+  flush();
   press(); await destination("next");
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
@@ -187,6 +194,7 @@ it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_
   const { connected, daemon } = await open();
   await openAsk();
   fireEvent.input(screen.getByLabelText("Ask", { selector: '[role="textbox"]' }), { target: { value: draft } });
+  flush();
   key("Escape", { key: "Escape" });
   await waitFor(() => expect(document.querySelectorAll('[role="textbox"][aria-label="Ask"]')).toHaveLength(0));
   document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!.focus();
@@ -225,6 +233,7 @@ it("u4692_jump_preserves_unsubmitted_input", async () => {
 
   connected().drafts.edit({ surface: "pads", object: "notes-1", recipient: null }, { originalName: "notes", source: draft, base: "saved", baseRevision: 1 }, null, "ordinary");
   connected().rail.select("home");
+  flush();
   showShelfTab("Pads");
   const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
   pad.focus();
@@ -276,7 +285,7 @@ it("u4692_rendered_direct_jump_and_discovery", async () => {
       })()`);
       await lane.evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true, bubbles: true, cancelable: true }))`);
       await lane.until("!!document.activeElement.closest('.pane-screen')");
-      expect(await lane.evaluate("!!document.querySelector('.rail-row[data-selected=true]')")).toBe(true);
+      expect(await lane.evaluate("!!document.querySelector('.rail-row[data-selected]')")).toBe(true);
       await lane.capture("U4692", `from-${place}`);
     }
 
@@ -307,7 +316,7 @@ it("u4692a_rendered_hint_places", async () => {
     await lane.evaluate("window.__select(null)");
     await lane.browser("click", "#shelf-tab-pads");
     await lane.until("!!document.querySelector('.pads-tab [data-shelf-group]')");
-    await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group]')) if (group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part=branch-control]').click(); })()`);
+    await lane.evaluate(`(() => { for (const control of document.querySelectorAll('.pads-tab [data-shelf-group] .shelf-group-control')) if (control.getAttribute('aria-expanded') === 'false') control.click(); })()`);
     await lane.until("!!document.querySelector('.pad-inset .pad-name')");
     await lane.browser("focus", ".pad-inset .pad-name");
     await lane.capture("U4692a", "shelf-pad");
@@ -323,6 +332,6 @@ it("u4692a_rendered_hint_places", async () => {
     await lane.capture("U4692a", "bubble");
     await lane.evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true, bubbles: true, cancelable: true }))`);
     await lane.until("!!document.activeElement.closest('.pane-screen')");
-    expect(await lane.evaluate("!!document.querySelector('.rail-row[data-selected=true]')")).toBe(true);
+    expect(await lane.evaluate("!!document.querySelector('.rail-row[data-selected]')")).toBe(true);
   } finally { await lane.close(); }
 }, 60_000);

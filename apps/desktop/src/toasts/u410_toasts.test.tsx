@@ -1,4 +1,4 @@
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { createToastQueue } from "./queue";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -88,7 +88,7 @@ describe("u410 which events make a Toast", () => {
 
 describe("u411 what a Toast shows and how it leaves", () => {
   it.each(["needs-you", "error", "extension"] as const)("u411_a_toast_shows_glyph_name_and_one_line: %s", async (kind) => {
-    const { app, toasts, view } = await mountToasts(tree());
+    const { app, toasts } = await mountToasts(tree());
 
     const update = kind === "extension"
       ? by(USER, { name: "extension.problem", data: { extension: "Workspace tools", cause: "Command could not start" } })
@@ -108,7 +108,18 @@ describe("u411 what a Toast shows and how it leaves", () => {
 
     expect(toast.tagName).toBe("BUTTON");
     expect(toast.querySelector(".glyph")?.getAttribute("aria-hidden")).toBe("true");
-    expect(view.container.querySelector("[role=status]")?.getAttribute("aria-live")).toBe("polite");
+  });
+
+  it("u411_the_library_region_is_the_only_announcer", async () => {
+    const { app, toasts, view } = await mountToasts(tree());
+
+    app.emit(status("a", "needs-you"));
+    await settle();
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(toasts()).toHaveLength(1);
+    expect(view.container.querySelector("[aria-live], [role=status], [role=alert]")).toBeNull();
+    expect([...document.querySelectorAll("[data-ui-sdk-announcer]")].flatMap((region) => region.textContent ? [region.textContent] : [])).toEqual(["scout. Needs you"]);
   });
 
   it("u411_it_hides_after_five_seconds", async () => {
@@ -146,8 +157,9 @@ describe("u411 what a Toast shows and how it leaves", () => {
     await settle();
     await vi.advanceTimersByTimeAsync(6000);
 
-    expect(view.container.querySelector("[aria-label*=bell i], [aria-label*=notification i], ul, ol")).toBeNull();
-    expect(screen.queryByText(/scout/)).toBeNull();
+    expect(view.container.querySelector("[aria-label*=bell i], [aria-label*=notification i], ul, ol > *")).toBeNull();
+    // The library's hidden announcer keeps the last announcement until the next one; it is the one place the words stay.
+    expect(screen.queryByText(/scout/, { ignore: "[data-ui-sdk-announcer]" })).toBeNull();
   });
 });
 
@@ -241,16 +253,17 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
   });
 
   it.each(["focus", "visibilitychange"])("z3788c_owner_cleanup_prevents_duplicate_work: %s", (event) => {
-    const mount = () => createRoot(dispose => {
+    const mount = () => {
       const front = vi.fn(() => false);
       const sound = vi.fn();
-      const queue = createToastQueue(front, sound);
+      const { queue, dispose } = createRoot(dispose => ({ queue: createToastQueue(front, sound), dispose }));
 
       queue.push({ key: "b", item: "agent:b", kind: "error", name: "mason", line: "Failed", selected: false, open: () => null });
+      flush();
       front.mockReturnValue(true).mockClear();
 
       return { front, sound, queue, dispose };
-    });
+    };
 
     const previous = mount();
 
@@ -260,6 +273,7 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
 
     try {
       fireEvent(event === "focus" ? window : document, new Event(event));
+      flush();
 
       expect(previous.front).not.toHaveBeenCalled();
       expect(current.queue.shown()).toBe(1);

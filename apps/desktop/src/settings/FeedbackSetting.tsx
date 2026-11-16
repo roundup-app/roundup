@@ -16,7 +16,7 @@ export const FeedbackSetting = (props: { onFailure: (message: string | null) => 
 
   return <Field.Root class="settings-field settings-field-stacked" invalid={invalid()}>
     <Field.Label>{copy.feedbackIssue}</Field.Label>
-    <Field.Input value={text()} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => setText(event.currentTarget.value)} onBlur={() => void commit()}
+    <Field.Input value={text()} spellcheck="false" autocorrect="off" autocapitalize="off" onInput={event => setText(event.currentTarget.value)} onBlur={() => void commit()}
       onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) void commit(); }} />
     <Field.HelperText>{copy.feedbackIssueHint}</Field.HelperText>
     <Field.ErrorText>{copy.feedbackIssueInvalid}</Field.ErrorText>

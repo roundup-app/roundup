@@ -2,10 +2,9 @@ import { provideFocusTarget } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
-import { createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
-import type { Accessor, JSX } from "solid-js";
-import { useTabsContext, useTabs } from "@ark-ui/solid/tabs";
-import { Tabs } from "../ui/Tabs";
+import { createMemo, createSignal, For, lazy, onSettled, Show, type Accessor } from "solid-js";
+import type { JSX } from "@solidjs/web";
+import { Tabs, useTabs, useTabsContext } from "../ui/Tabs";
 
 import { ShelfActions } from "./BulkDelete";
 import { SectionHead } from "../ink/SectionHead";
@@ -24,9 +23,8 @@ const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Defe
 
 const Todos = lazy(() => import("../todos/Todos").then(module => ({ default: module.Todos })));
 
-/** U373: one Ark state connects the window bar's triggers to the Shelf's panels. */
+/** U373: one Tabs state connects the window bar's triggers to the Shelf's panels. */
 export const createShelfTabs = (frame: ShelfFrame) => useTabs(() => ({
-  id: "shelf",
   value: frame.tab(),
   ids: { trigger: (tab: string) => `shelf-tab-${tab}`, content: (tab: string) => `shelf-panel-${tab}` },
   onValueChange: ({ value }) => {
@@ -39,30 +37,40 @@ export const createShelfTabs = (frame: ShelfFrame) => useTabs(() => ({
 type ShelfTabsProps = { frame: ShelfFrame; onToggle: (source: ActivationSource) => void; counts?: Accessor<Partial<Record<ShelfTab, number>>> };
 
 /** U373: the Shelf controls stay available in the window bar even when its panel is hidden. */
-export const ShelfTabs = (props: ShelfTabsProps) => (
-  <Tabs.List class="shelf-tabs" ref={element => provideFocusTarget("shelf.tabs", element)} data-history-region="shelf" aria-label={copy.shelfLabel}>
-    <For each={SHELF_TABS}>{(tab) => (
-      <Tabs.Trigger value={tab.value} class="shelf-tab"
-        aria-selected={props.frame.open() && props.frame.tab() === tab.value}
-        aria-expanded={props.frame.open() && props.frame.tab() === tab.value}
-        data-open={props.frame.open() && props.frame.tab() === tab.value}
-        onPointerDown={(event) => { if (event.button === 0) event.preventDefault(); }}
-        onClick={(event) => {
-          // Ark's Safari click focus must not take focus back after closing.
-          event.preventDefault();
+export const ShelfTabs = (props: ShelfTabsProps) => {
+  let list: HTMLDivElement | undefined;
 
-          if (!props.frame.open() || props.frame.tab() === tab.value) props.onToggle(activationSource(event));
-          props.frame.setTab(tab.value);
+  provideFocusTarget("shelf.tabs", () => list);
 
-          if (props.frame.open()) event.currentTarget.focus({ preventScroll: true });
-        }}
-      >
-        <SectionHead icon={tab.icon} label={tab.label} />
-        <Show when={(props.counts?.()[tab.value] ?? 0) > 0}><span class="shelf-count">{props.counts?.()[tab.value]}</span></Show>
-      </Tabs.Trigger>
-    )}</For>
-  </Tabs.List>
-);
+  return (
+    <Tabs.List class="shelf-tabs" ref={list} data-history-region="shelf" aria-label={copy.shelfLabel}>
+      <For each={SHELF_TABS}>{(tab) => {
+        const shown = () => props.frame.open() && props.frame.tab() === tab.value ? "true" : "false";
+
+        return (
+          <Tabs.Trigger value={tab.value} class="shelf-tab"
+            render={(trigger) => <button {...trigger} aria-selected={shown()} />}
+            aria-expanded={shown()}
+            data-open={shown()}
+            onPointerDown={(event) => { if (event.button === 0) event.preventDefault(); }}
+            onClick={(event) => {
+              // The toggle below decides what a press does, so the library's own press must not run.
+              event.preventDefault();
+
+              if (!props.frame.open() || props.frame.tab() === tab.value) props.onToggle(activationSource(event));
+              props.frame.setTab(tab.value);
+
+              if (props.frame.open()) event.currentTarget.focus({ preventScroll: true });
+            }}
+          >
+            <SectionHead icon={tab.icon} label={tab.label} />
+            <Show when={(props.counts?.()[tab.value] ?? 0) > 0}><span class="shelf-count">{props.counts?.()[tab.value]}</span></Show>
+          </Tabs.Trigger>
+        );
+      }}</For>
+    </Tabs.List>
+  );
+};
 
 /** U373: counts share the lists' existing per-Project readers and scope. */
 export const ProjectShelfTabs = (props: ShelfTabsProps) => {
@@ -87,7 +95,7 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
     setBottom(area.scrollTop + area.clientHeight < area.scrollHeight - 1);
   };
 
-  onMount(() => {
+  onSettled(() => {
     measure();
 
     if (typeof ResizeObserver === "undefined" || !area) return;
@@ -98,7 +106,7 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
 
     for (const child of area.children) observer.observe(child);
 
-    onCleanup(() => observer.disconnect());
+    return () => observer.disconnect();
   });
 
   return (
@@ -120,7 +128,7 @@ export const Shelf = (props: { open: Accessor<boolean> }) => {
   return (
     <>
       <div class="shelf-bar" data-shelf-scope ref={setLine}><span class="shelf-scope-name" hidden={tabs().value !== "pads"}>{connected.project.name}</span></div>
-      <ShelfActions.Provider value={{ mount: actions, open: props.open, scope: line }}>
+      <ShelfActions value={{ mount: actions, open: props.open, scope: line }}>
       <ScrollShadow>
         <For each={SHELF_TABS}>
           {(tab) => (
@@ -133,7 +141,7 @@ export const Shelf = (props: { open: Accessor<boolean> }) => {
         </For>
       </ScrollShadow>
       <div ref={setActions} />
-      </ShelfActions.Provider>
+      </ShelfActions>
     </>
   );
 };

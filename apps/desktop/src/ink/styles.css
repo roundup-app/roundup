@@ -94,7 +94,7 @@ p.ink[role="alert"] {
 }
 
 /* Keep the title above the expanded row hit area so it receives tooltip pointer events. */
-:is(.todo-row-button, .pad-name) [data-scope="tooltip"][data-part="trigger"] {
+:is(.todo-row-button, .pad-name) [data-slot="tooltip-trigger"] {
   position: relative;
   z-index: 1;
 }
@@ -382,13 +382,13 @@ p.ink[role="alert"] {
 .kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
 .kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
 
-.section-head[data-part="branch-control"] {
+.section-head[role="treeitem"] {
   width: 100%;
   gap: var(--space-2);
   color: var(--grey);
 }
 
-.section-head [data-part="branch-indicator"][data-state="open"] {
+.section-head [data-slot="tree-indicator"][data-expanded] {
   transform: rotate(90deg);
 }
 
@@ -396,7 +396,7 @@ p.ink[role="alert"] {
 .empty-state-actions [data-button="primary"] { --grey: var(--button-key-ink); }
 
 .section-head:focus-visible { color: var(--text); }
-.section-head [data-part="branch-indicator"] { margin-left: auto; }
+.section-head [data-slot="tree-indicator"] { margin-left: auto; }
 
 .empty-state-actions [data-button] { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); white-space: nowrap; --button-inline: var(--space-2); }
 
@@ -411,4 +411,4 @@ p.ink[role="alert"] {
 
 /* U6398a: the chevron turns only during a pointer fold's projection, so a key fold snaps (M1). */
 [data-fold-motion] { --fold-turn: var(--duration-layout); }
-.section-head [data-part="branch-indicator"] { transition: transform var(--fold-turn, var(--duration-instant)) var(--easing-out); }
+.section-head [data-slot="tree-indicator"] { transition: transform var(--fold-turn, var(--duration-instant)) var(--easing-out); }

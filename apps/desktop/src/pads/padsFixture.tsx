@@ -119,15 +119,15 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
   render(() => {
     const now = createNow(() => 0, () => false);
 
-    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}><Content /></ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
+    return <DisplayClockContext value={now.subscribe}><ConnectedProjectContext value={connected}><Content /></ConnectedProjectContext></DisplayClockContext>;
   });
 
   await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
-  const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+  const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] .shelf-group-control');
 
-  if (disclosure?.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") {
+  if (disclosure?.getAttribute("aria-expanded") === "false") {
     fireEvent.click(disclosure);
-    await waitFor(() => expect(disclosure.closest("[data-shelf-group]")?.querySelector("[data-part=branch-content]")?.hasAttribute("hidden")).toBe(false));
+    await waitFor(() => expect(disclosure.closest("[data-shelf-group]")?.querySelector(".shelf-group-body")?.hasAttribute("hidden")).toBe(false));
   }
 
   return {
@@ -164,7 +164,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
 
   if (recovery) {
     const { connected, pads, revision } = recovery;
-    connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
+    connected.drawer.open(() => <ConnectedProjectContext value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext>, "key");
   } else {
     const row = await waitFor(() => {
       const row = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
@@ -174,7 +174,9 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     });
 
     for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
-      if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+      const control = group.querySelector<HTMLElement>(".shelf-group-control");
+
+      if (group.contains(row) && control?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
     }
 
     const button = await within(row.parentElement!).findByRole("button", { name });

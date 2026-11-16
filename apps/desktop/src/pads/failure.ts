@@ -1,5 +1,4 @@
-import { createSignal } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createSignal, type Accessor } from "solid-js";
 
 /** A failure whose recovery differs from the generic one carries its kind; the kind, never the message text, picks the action. */
 export type FailureKind = "source-mapping";

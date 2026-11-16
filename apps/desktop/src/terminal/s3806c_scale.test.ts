@@ -90,7 +90,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
   let screens!: Screens;
 
   const mounted = render(() => {
-    if (hostKind !== "Bubble") return createComponent(ConnectedProjectContext.Provider, {
+    if (hostKind !== "Bubble") return createComponent(ConnectedProjectContext, {
       value: connected,
       get children() { return createComponent(Pane, { createEmulator: factory, screensRef: value => { screens = value; } }); },
     });
@@ -98,7 +98,7 @@ it.each(["Agent", "Door", "Bubble"].flatMap(host => [false, true].map(webgl => (
     screens = createScreens(connected, factory);
 
     return createComponent(Bubble, {
-      id: "t-a", screens, name: "Shell", get place() { return place(); },
+      id: "t-a", screens, name: "Shell", get place() { return place(); }, placed: true,
       origin: { left: 0, top: 0 }, extent: () => ({ width: 1000, height: 800 }),
       setPlace() {}, readOnly: () => false, close: async () => {}, menu() {}, toggleMinimised() {},
     });

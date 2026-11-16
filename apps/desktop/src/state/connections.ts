@@ -1,5 +1,4 @@
-import { createEffect, createMemo, createResource, mapArray, on, onCleanup, untrack } from "solid-js";
-import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createRoot, createSignal, getOwner, mapArray, onCleanup, runWithOwner, untrack, type Accessor } from "solid-js";
 import type { ShelfRequest } from "./projectView";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Requested } from "@contracts/project/Requested";
@@ -66,11 +65,17 @@ const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connecti
 
   if (!project) return () => ({ kind: "connecting" });
 
+  // The effects below create roots and watches in their apply, which has no ambient owner: they belong to this connection.
+  const owner = getOwner();
   let registration = new AbortController();
   onCleanup(() => registration.abort());
-  createEffect(() => { if (tab()?.exit) registration.abort(); });
+  // A tab replaced with the same exit must not abort the registration a newer connect made.
+  const exitOf = createMemo(() => tab()?.exit);
+  createEffect(exitOf, exit => { if (exit) registration.abort(); });
 
-  const [attempt] = createResource(() => tab()?.generation, async (generation): Promise<Attempt> => {
+  const [attempt, setAttempt] = createSignal<Attempt>(null);
+
+  const connect = async (generation: number): Promise<Attempt> => {
     const exit = tab()?.exit;
 
     try {
@@ -82,7 +87,7 @@ const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connecti
       const open = await connectProject({ ...calls, serveActions: async (answer, invalidated) => {
         await calls.serveActions?.(request => (request.method === "project.open" || request.method === "project.start")
           ? deps.onOpen(request, captured.signal) : answer(request), () => { captured.abort(); invalidated?.(); });
-      } }, project, deps.reducedMotion, deps.now, () => tab()?.generation === generation ? tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), deps.drafts(path), () => deps.viewing(path), deps.clock, { app: deps.app, open: deps.open, nodes: deps.nodes, show: deps.openIn }, deps.openShelf);
+      } }, project, deps.reducedMotion, deps.now, () => tab()?.generation === generation ? tab()?.exit ?? null : { code: null, recovery: "connecting" }, railStorage(path), deps.drafts(path), () => deps.viewing(path), deps.clock, { app: deps.app, open: deps.open, nodes: deps.nodes, show: deps.openIn }, deps.openShelf, owner);
 
       if (tab()?.generation !== generation) {
         open.stopTerminalScheme();
@@ -99,53 +104,69 @@ const createConnection = (path: string, deps: ConnectionDeps): Accessor<Connecti
 
       return { kind: "failed", error: failure };
     }
+  };
+
+  // A newer generation ends the owner of the one it replaces, and drops its answer.
+  const generationOf = createMemo(() => tab()?.generation);
+  createEffect(generationOf, generation => {
+    if (generation === undefined) return;
+
+    let superseded = false;
+
+    return runWithOwner(owner, () => createRoot(dispose => {
+      void connect(generation).then(result => { if (!superseded) setAttempt(result); });
+
+      return () => {
+        superseded = true;
+        dispose();
+      };
+    }));
   });
 
   // A failed replacement keeps the last valid connection while the native owner retries.
-  const connection = createMemo<Connection>(previous => {
-    const latest = attempt.latest;
+  const connection = createMemo<Connection>((previous: Connection = { kind: "connecting" }) => {
+    const latest = attempt();
 
     if (!latest) return previous;
 
     return latest.kind === "connected" ? latest : { kind: "failed", error: latest.error, last: connectedOf(previous) ?? null };
-  }, { kind: "connecting" });
+  });
 
   const open = createMemo(() => connectedOf(connection()));
 
-  createEffect(() => open()?.worktrees.watch(() => deps.active(path)));
-  createEffect(() => open()?.machines.watch(() => deps.active(path)));
+  createEffect(open, current => {
+    if (!current) return;
+
+    return runWithOwner(owner, () => createRoot(dispose => {
+      current.worktrees.watch(() => deps.active(path));
+      current.machines.watch(() => deps.active(path));
+
+      return dispose;
+    }));
+  });
 
   // M8: rename keeps its request Event; open completes through the registered App relay.
-  createEffect(on(open, (current) => {
+  createEffect(open, current => {
     if (!current) return;
 
     const config = () => void applyConfig(current.app, (file, cause) => deps.configFailure(path, file, cause));
 
     config();
 
-    const stop = current.events.subscribe((event) => {
+    return current.events.subscribe((event) => {
       if (event.name === "project.requested") deps.onRequested(event.data);
       else if (event.name === "config.changed") config();
     });
-
-    onCleanup(stop);
-  }));
+  });
 
   // U410: the Events of this Project that make a Toast.
-  createEffect(() => {
-    const current = open();
-
+  createEffect(open, current => {
     if (!current) return;
 
-    // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => deps.watch(current)));
+    return runWithOwner(owner, () => deps.watch(current));
   });
 
-  createEffect(() => {
-    const current = open();
-
-    if (current) onCleanup(current.stopTerminalScheme);
-  });
+  createEffect(open, current => current?.stopTerminalScheme);
 
   return connection;
 };

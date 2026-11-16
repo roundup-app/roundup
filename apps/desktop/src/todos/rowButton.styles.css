@@ -219,7 +219,6 @@
   max-height: min(var(--available-height, 100vh), calc(var(--space-6) * 8));
   overflow-y: auto;
   overscroll-behavior: contain;
-  z-index: var(--layer-menu);
 }
 
 .pad-inset .shelf-glyph { color: var(--grey); }
@@ -270,11 +269,11 @@
   }
 }
 
-/* U3809: Ark owns branch disclosure; each row already carries its absolute tree indent. */
+/* U3809: each row already carries its absolute tree indent; a group body folds by grid rows. */
 .todo-list .todo-dependency { cursor: auto; margin-block: 0; }
-.todo-dependency [data-part="branch-content"] { padding-inline-start: 0; }
-.todo-dependency [data-part="branch-content"] { display: grid; grid-template-rows: 1fr; }
-.todo-dependency [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
+.todo-dependency .todo-group-body { padding-inline-start: 0; }
+.todo-dependency .todo-group-body { display: grid; grid-template-rows: 1fr; }
+.todo-dependency .todo-group-body[inert] { grid-template-rows: 0fr; }
 .todo-group-content { min-height: 0; overflow: hidden; }
 
 .todo-row [data-group-toggle] {
@@ -287,7 +286,7 @@
 .todo-row .app-progress { margin-block: var(--space-1); font-size: var(--text-caption); color: var(--grey); }
 .todo-row .app-progress-track { height: calc(var(--space-1) / 2); }
 
-.todo-list .todo-dependency[data-depth="1"]:not(:first-child) { margin-top: 0; }
+.todo-list .todo-dependency[data-level="1"]:not(:first-child) { margin-top: 0; }
 
 @media (prefers-reduced-motion: no-preference) {
  .todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
