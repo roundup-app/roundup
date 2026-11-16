@@ -294,7 +294,7 @@ const PadRows = (props: {
   const isSelected = (incarnation: string) => picked[incarnation] === true;
 
   return (
-    <Sortable.Root class="shelf-list" ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
+    <Sortable.Root class="shelf-list" role="list" ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
           <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} isSelected={isSelected} {...props} />}</Sortable.Item>
@@ -394,7 +394,8 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; isSelected: (
               ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message, copy.link), () => props.onItemFailure(pad, null, copy.link), copied),
               { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(false, pad.incarnation); } },
             ], x, y))}
-            class="pad-inset"
+            // A row the list owns, with no tab stop of its own, so the drag library stamps it neither a button nor a second tab stop (U7276c).
+            class="pad-inset" role="listitem" tabindex="-1"
             glyph={<Icon name={PAD_ICON} />}
           >
             <div class="pad-row-head">
