@@ -756,6 +756,8 @@
   position: absolute;
   inset-block: 0;
   inset-inline-end: calc(var(--rail-edge) + 6ch + var(--rail-gap));
+  inline-size: 0;
+  min-inline-size: 0;
   justify-content: flex-end;
 }
 .rail-row .row-tail:has(.rail-group-chevron) {
