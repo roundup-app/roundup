@@ -84,6 +84,24 @@ const Root = (props: {
     if (edge) props.onHighlightChange(edge.value);
   };
 
+  // Tab picks a form's highlighted choice; content rows keep it as focus travel.
+  const pickHighlighted = (event: KeyboardEvent) => {
+    const value = highlighted();
+
+    if (props.contentRow || event.shiftKey || event.isComposing || value === null) return;
+
+    event.preventDefault();
+    pick(value);
+  };
+
+  /** The keys the field handles itself, by `KeyboardEvent.key`; ui-sdk's Command owns the rest. */
+  const keys = new Map<string, (event: KeyboardEvent) => void>([
+    ["Escape", event => { event.preventDefault(); event.stopPropagation(); dismiss?.(); }],
+    ["Home", jumpToEdge],
+    ["End", jumpToEdge],
+    ["Tab", pickHighlighted],
+  ]);
+
   onSettled(() => {
     const element = input;
 
@@ -140,27 +158,7 @@ const Root = (props: {
     onValueChange={(value, details) => { if (details.reason === "item-hover") details.cancel(); else props.onHighlightChange(value); }}
     onQueryChange={(query, details) => { if (details.reason === "escape-key") details.cancel(); else props.onInput(query); }}>
     <CommandInput class="app-combobox-input" aria-label={props.label} placeholder={props.placeholder} spellcheck={false} autocorrect="off" autocapitalize="off"
-      onKeyDown={event => {
-        if (event.key === "Escape") {
-          event.preventDefault(); event.stopPropagation();
-          dismiss?.();
-
-          return;
-        }
-
-        if (event.key === "Home" || event.key === "End") {
-          jumpToEdge(event);
-
-          return;
-        }
-
-        const value = highlighted();
-
-        if (!props.contentRow && event.key === "Tab" && !event.shiftKey && !event.isComposing && value !== null) {
-          event.preventDefault();
-          pick(value);
-        }
-      }} ref={element => {
+      onKeyDown={event => keys.get(event.key)?.(event)} ref={element => {
         input = element;
         makeEventListener(element, "input", event => props.inputEvents?.input?.(event));
         makeEventListener(element, "select", event => props.inputEvents?.select?.(event));
