@@ -2,6 +2,7 @@ import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
+import { ResumeBar } from "./continuation/ResumeBar";
 import { createProjectPanes } from "./terminal/ProjectPanes";
 import { InProject } from "./window/InProject";
 import { ProjectCentre } from "./window/ProjectCentre";
@@ -432,7 +433,7 @@ export const App = (props: {
 
   const panes = createProjectPanes({
     active: projects.active, connectionOf, createEmulator: () => props.createEmulator ?? lazyXtermEmulators(), observeTerminal: (path, id) => props.observeTerminal?.(path, id),
-    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
+    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }), top: active => <ResumeBar notify={toasts.notify} active={active} />,
   });
 
   return (

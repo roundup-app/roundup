@@ -204,6 +204,7 @@ export const copy = {
   todo: word.todo,
   newTodoTitle: "New Todo title",
   resume: "Resume",
+  resumeUnfinished: "Resume unfinished work",
   copy: "Copy",
   comma: ", ",
   unreadResult: "Unread result",
