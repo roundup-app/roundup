@@ -17,7 +17,7 @@ use crate::wire::{CLOSE, CREDIT, DATA, RESIZE, frame, read_frame};
 /// The protocol generation roundup speaks and pins.
 pub const GENERATION: u64 = 1;
 /// CH7077g: the oldest herdr-core this build runs on, the version of `schema/herdr-core-*.json`.
-pub const MIN_CORE: &str = "0.1.20";
+pub const MIN_CORE: &str = "0.1.21";
 /// What the remote shell runs for `connect_ssh`.
 const REMOTE_CONNECT: &str = "env -i PATH=\"$PATH\" HOME=\"$HOME\" USER=\"$USER\" LOGNAME=\"$LOGNAME\" SHELL=\"$SHELL\" LANG=\"${LANG:-C.UTF-8}\" herdr-core connect";
 /// Exit status of a shell that finds no `herdr-core` on its PATH.
@@ -365,6 +365,11 @@ impl Conn {
     /// `machine.add` for an ssh name; returns the core's answer.
     pub async fn machine_add(&self, name: &str) -> Result<Value> {
         self.call("machine.add", json!({"name": name})).await
+    }
+
+    /// `machine.rm` for a listed name: herdr-core forgets the machine.
+    pub async fn machine_rm(&self, name: &str) -> Result<Value> {
+        self.call("machine.rm", json!({"name": name})).await
     }
 }
 

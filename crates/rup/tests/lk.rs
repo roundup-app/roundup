@@ -1,4 +1,4 @@
-//! LK1 to LK5 (`scenarios/rup-ext.md`): `link.read` on the real `rupd`, the way `rup link read` calls it.
+//! LK1 to LK6 (`scenarios/rup-ext.md`): `link.read` on the real `rupd`, the way `rup link read` calls it.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -91,6 +91,10 @@ async fn lk1_a_link_for_another_project_is_not_found_and_never_resolved_here() {
         .await
         .unwrap();
     let own = key(&client).await;
+    // The App's own connection keeps this answer (LK6); it registers as the App does.
+    let mut app = project.client().await;
+    app.take_requests().unwrap();
+    app.request("action.serve", Value::Null).await.unwrap();
     assert!(own.starts_with(&format!(
         "{}-",
         project.dir.path().canonicalize().unwrap().file_name().unwrap().to_string_lossy()
@@ -473,4 +477,180 @@ async fn lk5_an_agent_outside_the_reach_is_forbidden() {
         .unwrap_err();
 
     assert_eq!(err.code, code::FORBIDDEN);
+}
+
+fn ext(id: &str) -> IdentifyParams {
+    IdentifyParams {
+        actor: Actor {
+            kind: ActorKind::Ext,
+            id: id.into(),
+            parent: None,
+        },
+    }
+}
+
+/// An App registered with `a`'s Daemon that answers a relayed `link.read` as the App does: from the
+/// open Project the link's key names, as an Ext Actor there, or NOT_FOUND naming the key.
+async fn app_for(a: &daemon::Project, open: Vec<(String, std::path::PathBuf)>) {
+    let mut app = a.client().await;
+    let mut requests = app.take_requests().unwrap();
+    app.request("action.serve", Value::Null).await.unwrap();
+    tokio::spawn(async move {
+        while let Some(request) = requests.recv().await {
+            let url = request["params"]["url"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            let wanted = url.rsplit("project=").next().unwrap_or_default().to_owned();
+            let line = match open.iter().find(|(key, _)| *key == wanted) {
+                None => json!({"jsonrpc":"2.0","id":request["id"],"error":{"code":code::NOT_FOUND,
+                    "message":format!("Project {wanted} is not open")}}),
+                Some((_, socket)) => {
+                    let b = Client::connect(socket).await.unwrap();
+                    b.request("daemon.identify", ext("app")).await.unwrap();
+                    match read(&b, &url).await {
+                        Ok(result) => json!({"jsonrpc":"2.0","id":request["id"],"result":result}),
+                        Err(err) => json!({"jsonrpc":"2.0","id":request["id"],
+                            "error":{"code":err.code,"message":err.message}}),
+                    }
+                }
+            };
+            app.reply(&line).await.unwrap();
+        }
+    });
+}
+
+#[tokio::test]
+async fn lk6_each_kind_of_an_open_projects_link_reads_what_b_reads() {
+    let a = daemon::start(&[]);
+    let b = daemon::start(&[]);
+    let b_user = b.client().await;
+    let b_key = key(&b_user).await;
+    app_for(&a, vec![(b_key.clone(), b.socket().to_path_buf())]).await;
+    b_user
+        .request("pad.create", json!({"name": "notes", "text": "from b"}))
+        .await
+        .unwrap();
+    let todo = b_user
+        .request("todo.create", json!({"title": "In B"}))
+        .await
+        .unwrap();
+    let ws = b_user
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "ws", "parent": null}),
+        )
+        .await
+        .unwrap();
+    let ws = ws["id"].as_str().unwrap();
+    let opened = b_user.request("terminal.open", json!({})).await.unwrap();
+    let terminal = opened["terminal_id"].as_str().unwrap();
+    let caller = a.client().await;
+    caller
+        .request("daemon.identify", ext("caller"))
+        .await
+        .unwrap();
+    let outside = b.client().await;
+    outside
+        .request("daemon.identify", ext("caller"))
+        .await
+        .unwrap();
+
+    for url in [
+        link("pad", "notes", &b_key),
+        link("todo", &todo["id"].to_string(), &b_key),
+        link("workstream", ws, &b_key),
+        link("terminal", terminal, &b_key),
+    ] {
+        let through_a = read(&caller, &url).await.unwrap();
+        assert_eq!(through_a, read(&outside, &url).await.unwrap(), "{url}");
+    }
+
+    b_user
+        .request("pad.write", json!({"name": "notes", "text": "edited"}))
+        .await
+        .unwrap();
+    let again = read(&caller, &link("pad", "notes", &b_key)).await.unwrap();
+    assert_eq!(again["pad"]["text"], "edited");
+}
+
+#[tokio::test]
+async fn lk6_a_foreign_agent_link_gives_no_more_than_an_outside_caller_gets() {
+    let a = daemon::start(&[]);
+    let b = daemon::start(&[]);
+    let (a_user, b_user) = (a.client().await, b.client().await);
+    let b_key = key(&b_user).await;
+    app_for(&a, vec![(b_key.clone(), b.socket().to_path_buf())]).await;
+    let b_agent = b.spawn_agent(&b_user).await;
+    let a_agent = a.spawn_agent(&a_user).await;
+    let caller = as_agent(&a, &a_agent.id).await;
+
+    let err = read(&caller, &link("agent", &b_agent.id, &b_key))
+        .await
+        .unwrap_err();
+
+    assert_eq!(err.code, code::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn lk6_a_link_to_a_project_that_is_not_open_names_it() {
+    let a = daemon::start(&[]);
+    app_for(&a, vec![]).await;
+    let caller = a.client().await;
+    caller
+        .request("daemon.identify", ext("caller"))
+        .await
+        .unwrap();
+
+    let err = read(&caller, &link("pad", "notes", "gone-0123456789abcdef"))
+        .await
+        .unwrap_err();
+
+    assert_eq!(err.code, code::NOT_FOUND);
+    assert!(
+        err.message.contains("gone-0123456789abcdef"),
+        "{}",
+        err.message
+    );
+    assert!(err.message.contains("not open"), "{}", err.message);
+}
+
+#[tokio::test]
+async fn lk6_no_app_is_app_closed() {
+    let a = daemon::start(&[]);
+    let a_user = a.client().await;
+
+    let err = read(&a_user, &link("pad", "notes", "b-0123456789abcdef"))
+        .await
+        .unwrap_err();
+
+    assert_eq!(err.code, code::APP_CLOSED);
+}
+
+#[tokio::test]
+async fn lk6_no_write_reaches_another_project() {
+    let a = daemon::start(&[]);
+    let b = daemon::start(&[]);
+    let (a_user, b_user) = (a.client().await, b.client().await);
+    let b_key = key(&b_user).await;
+    app_for(&a, vec![(b_key.clone(), b.socket().to_path_buf())]).await;
+    b_user
+        .request("pad.create", json!({"name": "notes", "text": "b"}))
+        .await
+        .unwrap();
+    let a_agent = a.spawn_agent(&a_user).await;
+    let caller = as_agent(&a, &a_agent.id).await;
+
+    // The relay carries link.read only: a write method of A's Daemon never reaches B.
+    let err = caller
+        .request("action.run", json!({"name": "pad.write", "args": []}))
+        .await
+        .unwrap_err();
+
+    assert_eq!(err.code, code::FORBIDDEN);
+    let pad = b_user
+        .request("pad.read", json!({"name": "notes"}))
+        .await
+        .unwrap();
+    assert_eq!(pad["text"], "b");
 }

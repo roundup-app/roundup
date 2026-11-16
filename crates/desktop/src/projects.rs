@@ -153,6 +153,10 @@ impl AppState {
         self.shared.store.recent_projects()
     }
 
+    pub(crate) fn config(&self) -> &Config {
+        &self.shared.config
+    }
+
     pub async fn claude_binary(&self) -> Option<crate::facts::ClaudeBinary> {
         crate::facts::claude_binary(&self.shared.config).await
     }
@@ -316,6 +320,26 @@ impl AppState {
         }
         let client = self.access(path).await?.client;
         self.bounded(method, client.request(method, params)).await
+    }
+
+    /// LK6: `link.read` of `url` on the Project's Daemon as an Ext Actor, which has no Reach there.
+    pub async fn link_read(&self, path: &str, url: &str) -> Result<Value, RpcError> {
+        let socket = self.access(path).await?.socket;
+        let client = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let ext = contracts::IdentifyParams {
+            actor: contracts::Actor {
+                kind: contracts::ActorKind::Ext,
+                id: "app".into(),
+                parent: None,
+            },
+        };
+        self.bounded("daemon.identify", client.request("daemon.identify", ext))
+            .await?;
+        self.bounded(
+            "link.read",
+            client.request("link.read", serde_json::json!({ "url": url })),
+        )
+        .await
     }
 
     /// Sends every Event of the Project's Daemon to `channel`, in the Daemon's order, until the Daemon or the webview goes away.

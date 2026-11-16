@@ -2,6 +2,7 @@
 
 use super::*;
 use claude_code::Permission;
+use handoff::Takes;
 use rail::NewAgent;
 
 /// Where a launch's conversation comes from.
@@ -50,6 +51,8 @@ struct SpawnRequest {
     cwd: String,
     machine: Option<String>,
     permission: Permission,
+    /// H7200a: the caller's row, which the new Agent takes the place of.
+    before: Option<String>,
 }
 
 /// DCL9: an Agent's spawn names Job or Consult; the user's names none.
@@ -116,8 +119,24 @@ impl Agents {
 
     /// Put a new Agent in the Rail and start Claude Code for it in a Terminal.
     pub(super) async fn spawn(&self, ctx: &Ctx, params: SpawnParams) -> Result<RailNode, RpcError> {
+        self.spawn_in(ctx, params, None).await
+    }
+
+    /// `spawn`, taking over the place of `takes` when it names one (H7200a): the new Agent sits
+    /// under that row's parent, ahead of it, and has no spawner.
+    pub(super) async fn spawn_in(
+        &self,
+        ctx: &Ctx,
+        params: SpawnParams,
+        takes: Option<&Takes>,
+    ) -> Result<RailNode, RpcError> {
         let named = params.machine.clone();
         let mut request = self.spawn_request(ctx, params)?;
+        if let Some(takes) = takes {
+            request.parent.clone_from(&takes.parent);
+            request.spawner = None;
+            request.before.clone_from(&takes.before);
+        }
         if let Some(machine) = &named {
             self.shared.terminals.require_reachable(machine).await?;
         } else if request.machine.is_none() {
@@ -228,6 +247,7 @@ impl Agents {
                 None => self.shared.rail().get_machine()?,
             },
             permission: params.permission_mode.into(),
+            before: None,
         })
     }
 
@@ -344,6 +364,12 @@ impl Agents {
         })?;
         if let Some(lean) = &request.lean {
             Launcher::save_lean(&self.dir, &node.id, lean)?;
+        }
+        if let Some(before) = &request.before {
+            rail.take_place(
+                crate::rail::agent_id(&node.id)?,
+                crate::rail::agent_id(before)?,
+            )?;
         }
         let attempt = rail.allocate_attempt(crate::rail::agent_id(&node.id)?)?;
         self.shared.mark_starting(&node.id, attempt.clone());

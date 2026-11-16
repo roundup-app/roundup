@@ -520,7 +520,7 @@ mod tests {
             tokio::io::AsyncBufReadExt::read_line(&mut r, &mut line)
                 .await
                 .unwrap();
-            let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
+            let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.21","methods":[]}}"#;
             core_w
                 .write_all(format!("{hello}\n").as_bytes())
                 .await
@@ -716,7 +716,7 @@ mod tests {
             tokio::io::AsyncBufReadExt::read_line(&mut r, &mut line)
                 .await
                 .unwrap();
-            let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.20","methods":[]}}"#;
+            let hello = r#"{"id":0,"jsonrpc":"2.0","result":{"generation":1,"version":"0.1.21","methods":[]}}"#;
             core_w
                 .write_all(format!("{hello}\n").as_bytes())
                 .await

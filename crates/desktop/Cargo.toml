@@ -27,6 +27,7 @@ native = { path = "../native" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
 rupd = { path = "../rupd" }
+semver = "1"
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon"] }

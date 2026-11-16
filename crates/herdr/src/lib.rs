@@ -8,6 +8,7 @@ mod exec;
 mod file;
 mod stream;
 mod types;
+mod update;
 mod wire;
 
 pub use conn::{Conn, GENERATION, MIN_CORE, display};
@@ -16,6 +17,7 @@ pub use exec::Exec;
 pub use file::Edit;
 pub use stream::{Sender, Stream};
 pub use types::{Ev, Event, Hello, Machine};
+pub use update::{older, update_machine};
 
 #[cfg(test)]
 mod tests;

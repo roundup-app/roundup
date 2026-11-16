@@ -26,17 +26,17 @@ pub struct Profile {
 static DOOR: Profile = Profile {
     tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
     // A41: a `/command` sent to a Door runs there.
-    bundled_plugins: &["hope", "hunch", "hold"],
+    bundled_plugins: &["hope", "hunch", "hold", "roundup"],
 };
 
 static SCOUT: Profile = Profile {
     tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
-    bundled_plugins: &["hope", "hunch", "hold"],
+    bundled_plugins: &["hope", "hunch", "hold", "roundup"],
 };
 
 static AGENT: Profile = Profile {
     tools: None,
-    bundled_plugins: &["hope", "hunch", "hold"],
+    bundled_plugins: &["hope", "hunch", "hold", "roundup"],
 };
 
 /// LC1: the one table of launch profiles, a row for each lean Role.

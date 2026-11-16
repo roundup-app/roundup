@@ -1,10 +1,9 @@
-import { isDoor, isYolo } from "../../state/doorNode";
+import { hasConversation, isDoor, isYolo } from "../../state/doorNode";
 import { alertLevel } from "../alertLevel";
 import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../copy";
 import { createSignal } from "solid-js";
-import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { failureOf } from "../../app/failureOf";
 import { applying } from "../../app/pending";
@@ -20,11 +19,14 @@ import type { Known, Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
 import type { MenuEntry } from "../../ui/contextMenu";
 import { offered } from "./entries";
+import { createModeRestart } from "./modeRestart";
 import type { Candidate } from "./entries";
 
 /** What the Rail's confirm is about, with the data its answer needs. A removal's consequences are read before anything is asked. */
 export type Confirming =
   | { kind: "stop"; node: RailNode; exit: ExitState | null }
+  /** U7191b: Restart of a Door that is mid-turn asks as Stop does. */
+  | { kind: "restart"; node: RailNode; exit: ExitState | null }
   /** U367: `removal` is what removing a Workstream goes and stays, `"reading"` while it is read; an Agent has none. */
   | { kind: "remove"; node: RailNode; exit: ExitState | null; removal: Removal | "reading" | null; losses: string[]; removed?: (() => void) | undefined }
   | { kind: "reading-selection" }
@@ -55,50 +57,31 @@ const needsConfirmation = (node: RailNode, exit: ExitState | null) =>
   isDoor(node) && isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
+/** H7200f: an Agent that is idle or needs you may be handed off; a Door never is. */
+const canHandOff = (node: RailNode, exit: ExitState | null) =>
+  node.kind === "agent" && exit === null && (node.status?.kind === "idle" || node.status?.kind === "needs-you");
+
+/** H7200f: the user's own `/handoff`, typed into the Agent; the Agent then calls `agent.handoff` itself. */
+const handOff = async ({ app, rail }: Pick<RailMenuDeps, "app" | "rail">, node: RailNode) => { await railCommand(rail, { item: node.id, call: () => app.rpc("agent.prompt", { id: node.id, text: "/handoff" }) }); };
+
 export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, rename, queue, extra, feedback, known }: RailMenuDeps) => {
   const [state, setState] = createSignal<Confirming | null>(null);
   let removingSelection = false;
   const resuming = new Set<string>();
-  const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
+  const { restartMode, restartRow, restartPending } = createModeRestart(app, rail, (node, exit) => requestRestart(node, exit));
 
   const lossesOf = (chosen: readonly RailNode[]) => chosen.flatMap(node => [
     ...(isDoor(node) && node.worktree ? [copy.removeWorktreeLoss(node.name)] : []),
     ...((isDoor(node) && node.terminal_id !== null && rail.exitOf(node) === null) || rail.terminals().some(t => t.running && t.owner === node.id) ? [copy.removeProcessLoss(node.name)] : []),
   ]);
 
-  const restartMode = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
-    if (restarts[id]?.pending) return { kind: "pending" };
-    setRestarts(id, { request, pending: true });
-
-    try {
-      const outcome = await railCommand(rail, {
-        item: id,
-        draw: () => rail.launch(id),
-        call: () => app.rpc("agent.restartMode", { id, request }),
-        terminals: true,
-        retry: () => { void restartMode(id); },
-      });
-
-      if (outcome.kind === "applied") {
-        setRestarts(id, undefined);
-
-        return { kind: "acknowledged" };
-      }
-
-      return { kind: outcome.kind === "refused" ? "failed" : "unknown", message: outcome.error.message };
-    } finally {
-      if (restarts[id]) setRestarts(id, { request, pending: false });
-    }
-  };
-
   const close = () => {
     setState(null);
   };
 
   /** U2694g: pointer menus address their row without activating it. */
-  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) => {
-    return contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
-  };
+  const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void, more: MenuEntry[] = []) =>
+    contextMenu(app, [...entries(node, exit, removed), ...more], x, y);
 
   /** One stop path: the menu's item, the Rail's icon and the confirm's answer all end here. */
   const stopNow = (node: RailNode) => {
@@ -107,40 +90,24 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     void railCommand(rail, { item: node.id, draw: () => rail.drawExit(node.id, { kind: "signal" }), call: () => app.rpc("agent.stop", { id: node.id }), terminals: true });
   };
 
-  /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
-  const requestStop = (node: RailNode, exit: ExitState | null) => {
+  /** U428, U7191b: Stop and Restart end the run, so a `working`, `needs-you` or `blocked` Agent asks first and any other Agent acts at once. */
+  const askFirst = (kind: "stop" | "restart", now: (node: RailNode) => void | Promise<void>) => (node: RailNode, exit: ExitState | null) => {
     if (state() !== null) return;
 
-    if (needsConfirmation(node, exit)) setState({ kind: "stop", node, exit });
-    else stopNow(node);
+    if (needsConfirmation(node, exit)) setState({ kind, node, exit });
+    else void now(node);
   };
 
-  const resume = async (id: string) => {
-    if (resuming.has(id)) return;
+  /** U7191a: Restart resumes the same conversation in the mode it ran in, through the one `agent.resume` path. */
+  const restartNow = (node: RailNode) => {
+    close();
 
-    resuming.add(id);
-
-    try {
-      await railCommand(rail, {
-        item: id,
-        // U5991a: the row shows running now; the refresh or a failure lifts the pending change.
-        draw: () => {
-          const release = rail.launch(id);
-          const lift = rail.drawExit(id, null);
-
-          return () => { lift(); release(); };
-        },
-        call: () => app.rpc("agent.resume", { id }),
-        unknown: async () => {
-          await rail.refresh({ terminals: true });
-
-          if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
-        },
-      });
-    } finally { resuming.delete(id); }
+    return restart(node, isYolo(node) ? "yolo" : "normal");
   };
 
-  const isResumable = (node: RailNode, exit: ExitState | null) => isDoor(node) && node.can_resume && !isRunning(node, exit);
+  /** U428: the Rail's stop icon. */
+  const requestStop = askFirst("stop", stopNow);
+  const requestRestart = askFirst("restart", restartNow);
 
   const remove = async (current: Removing, scope: "this" | "all") => {
     const id = current.node.id;
@@ -289,15 +256,42 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
     switch (current.kind) {
       case "stop": return stopNow(current.node);
+      case "restart": return restartNow(current.node);
       case "remove": return remove(current, scope);
       case "remove-selection": return removeSelection(current);
       case "reading-selection": return;
     }
   };
 
-  /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line. */
+  /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line (U7191c). An exited row is selected, and a reply lost after the send refreshes the row and shows the failure, with no second start while one is pending. */
   const restart = async (node: RailNode, mode: "normal" | "yolo"): Promise<void> => {
-    await railCommand(rail, { item: node.id, draw: () => rail.launch(node.id), call: () => app.rpc("agent.resume", { id: node.id, mode }) });
+    const id = node.id;
+    const exited = !isRunning(node, rail.exitOf(node));
+
+    if (resuming.has(id)) return;
+
+    resuming.add(id);
+
+    if (exited) rail.select(id);
+
+    try {
+      await railCommand(rail, {
+        item: id,
+        // U5991a: the row shows running now; the refresh or a failure lifts the pending change.
+        draw: () => {
+          const release = rail.launch(id);
+          const lift = exited ? rail.drawExit(id, null) : () => {};
+
+          return () => { lift(); release(); };
+        },
+        call: () => app.rpc("agent.resume", { id, mode }),
+        unknown: async () => {
+          await rail.refresh({ terminals: true });
+
+          if (rail.failure() !== null) onFailure(copy.resumeOutcomeUnknownTheDaemonMayHaveResumed, id);
+        },
+      });
+    } finally { resuming.delete(id); }
   };
 
   /** A5214a: `agent.makeWorkstream`; the row then shows as a Workstream, or the Daemon's message shows. */
@@ -347,15 +341,13 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
 
     return [
       renameEntry(node),
-      { when: isYolo(node) && !isMode(node) && running, id: "restart", label: copy.restart, run: () => restart(node, "normal") },
+      // U7191a: a Mode without a conversation types its saved prompt on Restart; `R` reaches Modes only.
+      { when: hasConversation(node) || isMode(node), id: "restart", label: copy.restart, shortcut: isMode(node) ? "R" : undefined, run: () => restartRow(node.id) },
+      { when: isYolo(node) && !isMode(node) && running, id: "normal", label: copy.startNormal, run: () => restart(node, "normal") },
       // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
       { when: !isYolo(node) && (running || (isDoor(node) && node.can_resume)), id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") },
+      { when: canHandOff(node, exit), id: "hand-off", label: copy.handOff, run: () => handOff({ app, rail }, node) },
       { when: running, id: "stop", label: copy.stop, run: () => requestStop(node, exit) },
-      { when: isResumable(node, exit), id: "resume", label: copy.resume, run: () => {
-        rail.select(node.id);
-
-        return resume(node.id);
-      } },
     ];
   };
 
@@ -387,12 +379,12 @@ export const createRailMenu = ({ app, rail, onFailure, acknowledge, storage, ren
     requestRemove,
     requestRemoveSelection,
     restartMode,
+    restartRow,
     makeWorkstream,
-    restartPending: (id: string) => restarts[id]?.pending ?? false,
+    restartPending,
     requestStop,
+    requestRestart,
     isRunning,
-    requestResume: (node: RailNode) => void resume(node.id),
-    isResumable,
   };
 };
 

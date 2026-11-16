@@ -1,11 +1,20 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  changes: "Changes",
+  versus: "vs",
+  changeGroups: "Repositories and branches",
+  changedFilesList: "Changed files",
+  compareFrom: "From",
+  compareTo: "To",
   changesStale: "Changes are stale",
   changedFiles: (count: number) => `${count} changed ${count === 1 ? "file" : "files"}`,
   reviewChanges: sharedCopy.reviewChanges,
   dismissFailure: sharedCopy.dismissFailure,
   comparisonRenderFailed: "Comparison failed · reopen the file to retry.",
+  addedLines: sharedCopy.plus,
+  removedLines: (count: number) => `-${count}`,
+  groupLabel: sharedCopy.dotted,
   diff: "Diff",
   loadingDiff: "Loading diff…",
   noDifference: "No remaining difference",

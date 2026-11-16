@@ -8,7 +8,7 @@ use contracts::agent::RailNode;
 use rpc::code;
 use serde_json::{Value, json};
 
-use super::daemon::{Project, h21_poll, needs_you, rail_tree, signal, start};
+use super::daemon::{Project, needs_you, poll_until, rail_tree, signal, start};
 use super::{actor, agent_in_as, client_as, start_door};
 
 pub(super) const STOP: &str = "Stop";
@@ -45,7 +45,7 @@ pub(super) async fn messages(user: &rpc::Client, to: &str, prefix: &str) -> Vec<
 
 /// The notes of `to` once at least `least` are there.
 pub(super) async fn notes(user: &rpc::Client, to: &str, prefix: &str, least: usize) -> Vec<Value> {
-    h21_poll("the notes", async || {
+    poll_until("the notes", async || {
         let found = messages(user, to, prefix).await;
         (found.len() >= least).then_some(found)
     })
@@ -233,7 +233,7 @@ async fn e2704a_wake_and_attention_notes_use_names() {
         .unwrap();
     drive(&s.user, &child, WORK).await;
     drive(&s.user, &child, FAIL).await;
-    h21_poll("named attention note", async || {
+    poll_until("named attention note", async || {
         let notes = messages(&s.user, &s.w, "[digest]").await;
         notes
             .iter()
@@ -398,7 +398,7 @@ async fn b43_error_and_needs_you_reach_a_non_door_parent() {
     let d = agent_in_as(&s.project, &s.w).await;
     needs_you(&s.user, &d).await;
     let n = name_of(&s.user, &d).await;
-    h21_poll("the needs-you note", async || {
+    poll_until("the needs-you note", async || {
         let found = messages(&s.user, &s.w, "[digest]").await;
         found
             .iter()
@@ -476,7 +476,7 @@ async fn b43_the_note_is_outside_b22s_caps() {
 
 /// The lines of the fake `claude`'s prompt log that took up an inbox entry (B50), once `least` are there.
 pub(super) async fn typed(log: &std::path::Path, least: usize) -> Vec<Value> {
-    h21_poll("the typed prompts", async || {
+    poll_until("the typed prompts", async || {
         let lines: Vec<Value> = std::fs::read_to_string(log)
             .unwrap_or_default()
             .lines()
@@ -505,7 +505,7 @@ async fn b42_the_note_goes_through_the_inbox_at_the_next_idle() {
     ask(&s.as_w, &[&s.a], false).await.unwrap();
     let note = &notes(&s.user, &s.w, "[wake]", 1).await[0];
     let id = note["id"].as_u64().unwrap();
-    let prompt = h21_poll("the wake prompt", async || {
+    let prompt = poll_until("the wake prompt", async || {
         typed(&prompts, 1)
             .await
             .iter()
@@ -515,7 +515,7 @@ async fn b42_the_note_goes_through_the_inbox_at_the_next_idle() {
     .await;
     // B41 retains a finish even if alpha resumes before firing; delivery preserves that note.
     assert_eq!(prompt, note["body"].as_str().unwrap());
-    h21_poll("the note to be delivered", async || {
+    poll_until("the note to be delivered", async || {
         (status_of(&s.user, id).await == "delivered").then_some(())
     })
     .await;
@@ -665,7 +665,7 @@ async fn b44_a_note_in_flight_at_the_kill_is_written_again_not_made_again() {
     let id = notes(&user0, &door, "[wake]", 1).await[0]["id"]
         .as_u64()
         .unwrap();
-    let first = h21_poll("the wake inbox entry", async || {
+    let first = poll_until("the wake inbox entry", async || {
         let entries = typed(&prompts, 1).await;
         entries
             .into_iter()
@@ -683,11 +683,11 @@ async fn b44_a_note_in_flight_at_the_kill_is_written_again_not_made_again() {
         .unwrap();
     assert_eq!(m["status"], "pending", "{m}");
     start_again(&user, &door).await;
-    h21_poll("the note to be delivered", async || {
+    poll_until("the note to be delivered", async || {
         (status_of(&user, id).await == "delivered").then_some(())
     })
     .await;
-    let again = h21_poll("the wake inbox retry", async || {
+    let again = poll_until("the wake inbox retry", async || {
         let entries: Vec<_> = typed(&prompts, 2)
             .await
             .into_iter()

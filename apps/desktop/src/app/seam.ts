@@ -28,6 +28,18 @@ export const daemonExitedSchema = v.object({ path: v.string(), ...daemonExitSche
 
 export type ListedProject = v.InferOutput<typeof listedProjectSchema>;
 
+const updateRowSchema = v.object({ version: v.string(), ready: v.nullable(v.string()) });
+
+/** U7208d: what `updates` answers and `updates-changed` carries. `roundup` is `null` on a build with no update feed and `core` when no herdr-core runs; `ready` is the newer version, if any. */
+export const updateFactsSchema = v.object({ roundup: v.nullable(updateRowSchema), core: v.nullable(updateRowSchema) });
+
+export type UpdateFacts = v.InferOutput<typeof updateFactsSchema>;
+
+/** U7208f: the page `open-app-settings` names; no payload opens App Settings as it was. */
+export const appSettingsPageSchema = v.nullish(v.literal("updates"));
+
+export type AppSettingsPage = NonNullable<v.InferOutput<typeof appSettingsPageSchema>>;
+
 export type DaemonExited = v.InferOutput<typeof daemonExitedSchema>;
 
 export type Project = v.InferOutput<typeof projectSchema>;
@@ -72,6 +84,7 @@ export type OutputSubscription = { offset: number; release(): Promise<void> };
 export const actionRequestSchema = v.variant("method", [
   v.object({ id: v.number(), method: v.literal("action.list"), params: v.optional(v.nullable(v.object({}))) }),
   v.object({ id: v.number(), method: v.literal("action.run"), params: v.object({ name: v.string(), args: v.array(v.object({ key: v.string(), value: v.string() })) }) }),
+  v.object({ id: v.number(), method: v.literal("link.read"), params: v.object({ url: v.string() }) }),
   v.object({ id: v.number(), method: v.literal("project.open"), params: v.object({ path: v.string(), machine: v.optional(v.string()), source: v.string(), agent: v.nullable(v.object({ id: v.string(), name: v.string() })) }) }),
   v.object({ id: v.number(), method: v.literal("project.start"), params: v.object({ kind: v.picklist(["agent", "workstream", "mode"]), name: v.string(), prompt: v.string(), path: v.string(), source: v.string(), agent: v.object({ id: v.string(), name: v.string() }) }) }),
 ]);
@@ -114,6 +127,9 @@ export const SEAM_COMMANDS = [
   "canonical_project_path",
   "close_project",
   "exit_for_update",
+  "updates",
+  "install_update",
+  "update_core",
   "feedback_capture",
   "fork_branch",
   "fork_colour",
@@ -123,6 +139,7 @@ export const SEAM_COMMANDS = [
   "fork_recolour",
   "rename_project",
   "rpc",
+  "link_read",
   "subscribe",
   "action_serve",
   "action_answer",
@@ -248,6 +265,8 @@ export type App = {
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;
+  /** LK6: `link.read` of `url` on the Project's Daemon as an outside caller, for a read another Project asked of the App. */
+  linkRead?(path: string, url: string): Promise<object>;
   /** Resolves filesystem aliases without opening a Project or changing its saved path. */
   canonicalProjectPath(path: string): Promise<string>;
   /** Ends the Project's Daemon and its Agents and Terminals. */
@@ -285,6 +304,14 @@ export type App = {
   openInEditor(path: string, line?: number, editor?: string): Promise<void>;
   /** U6372a: the code editors of Settings' choice that LaunchServices finds installed, in list order. */
   listEditors(): Promise<EditorChoice[]>;
+  /** U7208d: the versions of roundup and herdr-core, and the newer ones ready. */
+  updates(): Promise<UpdateFacts>;
+  /** U7208b: installs the ready roundup version, leaves every Daemon and relaunches. Rejects with the cause, changing nothing, when it cannot. */
+  installUpdate(): Promise<void>;
+  /** U7208c: runs `herdr-core update` and resolves the facts it left. Rejects with the last line the program printed when it fails. */
+  updateCore(): Promise<UpdateFacts>;
+  /** U7208d: the App looked for newer versions again; the facts it left. */
+  onUpdatesChanged(listener: (facts: UpdateFacts) => void): Unsubscribe;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
   savePastedImage(image: PastedImage): Promise<string>;
   /** Pops the macOS system menu at `x`, `y` (window CSS pixels) and resolves the chosen item's id, or `null` when it closes with no choice (U2694a). */
@@ -311,8 +338,8 @@ export type App = {
   onForkSheet(listener: () => void): Unsubscribe;
   /** U7210a: the application menu's `Send feedback…`; no payload. */
   onFeedback(listener: () => void): Unsubscribe;
-  /** Opens the app-wide center settings view; no payload. */
-  onAppSettings(listener: () => void): Unsubscribe;
+  /** Opens the app-wide center settings view, on the Updates page when the payload is "updates" (U7208f). */
+  onAppSettings(listener: (page: AppSettingsPage | null) => void): Unsubscribe;
   onDaemonExited(listener: (exit: DaemonExited) => void): Unsubscribe;
   /** The calls into that Project's Daemon, with its path filled in. */
   forProject(path: string): AppSeam;

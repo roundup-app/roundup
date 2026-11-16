@@ -24,7 +24,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   expect(row.textContent).toContain(comment.body);
   // The row is read from `todo.unread`, makes no Message call and sets no Rail Kind.
   expect(todoCallsTo(m.app, "todo.unread").length).toBeGreaterThan(0);
-  expect(m.app.calls.some((call) => call.method.startsWith("message."))).toBe(false);
+  expect(m.app.calls.some((call) => call.method.startsWith("message.") && call.method !== "message.reconcileWork")).toBe(false);
 
   // A comment that arrives while the Inbox is open joins it; a deleted Todo's leaves it.
   m.store.comments!.set(2, [line(2, "blocked on CI")]);

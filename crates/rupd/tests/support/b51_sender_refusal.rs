@@ -15,6 +15,8 @@ async fn b51_a_note_repeating_the_last_one_is_refused_and_made_no_record() {
                     (run.entries() == [format!("rup-{first}")]).then_some(())
                 })
                 .await;
+                // TS1: a delivered note starts a turn that the Agent's Stop ends.
+                run.idle_edge().await;
                 run.kind = next_kind;
                 let err = run.try_note("same").await.unwrap_err();
                 assert_eq!(err.code, rpc::code::CONFLICT);
@@ -36,6 +38,7 @@ async fn b51_a_note_repeating_the_last_one_is_refused_and_made_no_record() {
                         .then_some(())
                 })
                 .await;
+                run.idle_edge().await;
                 let again = run.note("same").await;
                 until("taken up", async || {
                     (run.entries().len() == 3).then_some(())
@@ -57,6 +60,8 @@ async fn b51_other_senders_and_a_new_attempt_keep_distinct_messages() {
     run.kind = "question";
     let first = run.note("same").await;
     until("first", async || (run.entries().len() == 1).then_some(())).await;
+    // TS1: a delivered note starts a turn that the Agent's Stop ends.
+    run.idle_edge().await;
     run.identify_sender("daemon").await;
     let second = run.note("same").await;
     until("different sender", async || {

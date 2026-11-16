@@ -998,6 +998,7 @@ dependencies = [
  "provenance",
  "rpc",
  "rupd",
+ "semver",
  "serde",
  "serde_json",
  "tauri",
@@ -1967,6 +1968,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
 ]

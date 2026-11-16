@@ -63,9 +63,9 @@ describe("u428 an Agent row's icons", () => {
     fireEvent.contextMenu(rowOf("a"));
     expect(app.menuLabels()).not.toContain("Stop");
     await app.closeMenu();
-    fireEvent.click(within(rowOf("a")).getByRole("button", { name: "Resume" }));
+    fireEvent.click(within(rowOf("a")).getByRole("button", { name: "Restart" }));
 
-    await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]));
+    await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]));
   });
 
   it("u428_open_folder_prefers_the_worktree", async () => {

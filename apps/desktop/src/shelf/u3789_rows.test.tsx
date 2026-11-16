@@ -511,8 +511,12 @@ it("u4275a_state_updates_without_row_activation", async () => {
   const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
 
   for (const kind of ["idle", "working", "needs-you", "blocked", "error"] as const) {
-    setStatus("tokens", kind, kind);
-    await waitFor(() => expect(row.querySelector('.row-state [role=img]')?.getAttribute("aria-label")).toBe(kind === "needs-you" ? copy.needsYouGlyph : kind[0]!.toUpperCase() + kind.slice(1)));
+    const identity = kind === "needs-you" ? copy.needsYouGlyph : kind[0]!.toUpperCase() + kind.slice(1);
+    const label = `${kind} detail`;
+
+    setStatus("tokens", kind, label);
+    // U7205a: the glyph's accessible name is the state identity then the status words, so a name left over from the previous state fails.
+    await waitFor(() => expect(row.querySelector('.row-state [role=img]')?.getAttribute("aria-label")).toBe(`${identity}, ${label}`));
   }
 
   fireEvent.click(document.querySelector('.shelf-done-line .todo-row-button')!);
@@ -569,9 +573,9 @@ it("u4275b_row_actions_keep_menu_semantics_resume", async () => {
   await app.rpc("agent.stop", {id:"tokens"});
   emit({ actor: {kind:"user",id:"you",parent:null}, name:"rail.changed" });
   const row = document.querySelector('.rail-row[data-id="tokens"]')!;
-  await waitFor(() => expect(row.querySelector('[aria-label="Resume"]')).not.toBeNull());
-  fireEvent.click(row.querySelector('[aria-label="Resume"]')!);
-  await waitFor(() => expect(rpcCalls(app, "agent.resume")).toEqual([{id:"tokens"}]));
+  await waitFor(() => expect(row.querySelector('[aria-label="Restart"]')).not.toBeNull());
+  fireEvent.click(row.querySelector('[aria-label="Restart"]')!);
+  await waitFor(() => expect(rpcCalls(app, "agent.resume")).toEqual([{id:"tokens",mode:"normal"}]));
 });
 
 

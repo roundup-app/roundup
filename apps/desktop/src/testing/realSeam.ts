@@ -2,7 +2,7 @@ import { projectMenu } from "./menuProbe";
 import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
-import { INTERNAL_CODE, projectSchema, rpcFailureSchema, RpcError } from "../app/seam";
+import { INTERNAL_CODE, appSettingsPageSchema, projectSchema, rpcFailureSchema, RpcError } from "../app/seam";
 import { probeMenu, probeQuestion, probeRemovalQuestion } from "./menuProbe";
 import type { AppSeam, DaemonExited, OutputSubscription } from "../app/seam";
 
@@ -222,6 +222,10 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
       throw new RpcError(-32001, "no code editor found; choose one in Settings");
     },
     listEditors: async () => [],
+    updates: async () => ({ roundup: null, core: null }),
+    installUpdate: async () => {},
+    updateCore: async () => ({ roundup: null, core: null }),
+    onUpdatesChanged: () => () => {},
     showContextMenu: async (items) => probeMenu(items),
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
@@ -333,9 +337,11 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
       return () => window.removeEventListener("open-feedback", listener);
     },
     onAppSettings: (listener) => {
-      window.addEventListener("open-app-settings", listener);
+      const receive = (event: Event) => listener(v.parse(appSettingsPageSchema, event instanceof CustomEvent ? event.detail : undefined) ?? null);
 
-      return () => window.removeEventListener("open-app-settings", listener);
+      window.addEventListener("open-app-settings", receive);
+
+      return () => window.removeEventListener("open-app-settings", receive);
     },
     onFileDrop: () => () => {},
     onDaemonExited: (listener) => {

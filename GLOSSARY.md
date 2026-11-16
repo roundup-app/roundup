@@ -50,6 +50,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | ReservedLine | none | — |
 | Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
 | Update exit (`exit_for_update`, `updater`, `Offered`) | Update available | — |
+| Updates (`updates`, `install_update`, `update_core`, event `updates-changed`, `Updates`, `core_update`, `roundup:updates-told`: the versions of roundup and herdr-core and which are ready) | Updates | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
@@ -62,6 +63,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Workstream state (`WorkstreamState`, `RailNode.workstream_state`; apart from the Door's own Status Kind) | same | — |
 | Group (`NodeKind::Group`, `GroupParams`, `rail.group`, `Rail::group`) | same | — |
 | Mode (`agent.createMode`, `agent.setModePrompt`, `agent.restartMode`, `RailNode.mode_prompt`, `CreateModeParams`, `ModePromptParams`, `ModeRestartParams`) | same | — |
+| Handoff (`agent.handoff`, `agent_handoff`, `HandoffParams`, `/handoff`, `Daemon::handoff`, `Agents::start_handoff`, `Agents::end_caller`) | Hand off | — |
 | Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
 | Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
@@ -96,6 +98,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Finish count (`Status.finished`, `finished`) | same | — |
 | Unseen (`unseen`, `UnseenState`) | Unread result | — |
 | Resume (`ResumeParams`, `ResumeMode`) | same | — |
+| Conversation fact (`RailNode.has_conversation`) | same | — |
 | Turn resume (`ResumeWait`, `RailNode.resume`) | `resumes 14:05` | — |
 | YOLO (`yolo`, `Permission::Bypass`) | same | — |
 | Launch facts (`LaunchFacts`, `Permission`; `Request` to the Launcher; `Launch`, `Origin`, `Attach` to a start) | none | — |
@@ -276,7 +279,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Machine (`Machine`, `machine.list`, `machine.add`, `project.setMachine`, a Project's, Agent's or Terminal's `machine`, a Machine's `reachable`) | same | — |
+| Machine (`Machine`, `machine.list`, `machine.add`, `machine.remove`, `machine.update`, a Machine's `outdated`, `project.setMachine`, a Project's, Agent's or Terminal's `machine`, a Machine's `reachable`) | same | — |
 | Exec (`herdr::Conn::exec`, `worktree::Machines`) | same | — |
 | Bridge (`Bridges`, `bridge::Link`) | same | tunnel |
 | Spool (`rup`'s `spool`, `~/.rupq/spool`) | same | — |

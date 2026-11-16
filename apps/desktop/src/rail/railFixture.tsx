@@ -19,6 +19,7 @@ import { DockBadge } from "./DockBadge";
 import { attentionHolders } from "./attention";
 import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
+import { copy } from "./copy";
 
 // Drafts survive unmount; unrelated layout fixtures retain their existing lifecycle.
 afterEach(() => {
@@ -40,12 +41,14 @@ export const mountRail = async (
   neighbors: RailNeighbors = {},
   pads: Pad[] = [],
   project = { name: "p", path: "/p" },
+  setup?: (app: ReturnType<typeof createFakeApp>) => void,
 ) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => terminals;
   app.handlers["pad.list"] = () => pads;
   app.handlers["machine.list"] = () => neighbors.machines ?? [];
+  setup?.(app);
 
   const [now, setNow] = createSignal(NOW);
   const connected = await connectProject(app, project, reducedMotion, now, daemonExit);
@@ -121,6 +124,11 @@ export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(
 export const chooseAction = async (app: ReturnType<typeof createFakeApp>, name: string, label: string) => {
   fireEvent.contextMenu(rowOf(name), { clientX: 1, clientY: 1 });
   await app.pickMenu(label);
+};
+
+/** The exited row's play icon, labelled Restart: it sends `agent.resume {id, mode}` (U428, U7191a). */
+export const resumeRow = (name: string): void => {
+  fireEvent.click(within(rowOf(name)).getByRole("button", { name: copy.restart }));
 };
 
 /** Chooses a creation kind through the shared footer menu. */

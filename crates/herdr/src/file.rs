@@ -1,5 +1,5 @@
 //! MC32: a file read or written where a core is, through the file methods its `hello` lists
-//! (`file.read`, `file.write`, `file.edit` on 0.1.20), never through an exec of `cat` or `tee`.
+//! (`file.read`, `file.write`, `file.edit` on 0.1.21), never through an exec of `cat` or `tee`.
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;

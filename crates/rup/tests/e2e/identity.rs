@@ -480,12 +480,12 @@ pub(super) async fn u2773a_captured_ask_never_reaches_equal_named_replacement() 
     user.request("rail.rename", json!({"id":a,"name":"Renamed again"}))
         .await
         .unwrap();
-    h21_poll("captured Ask delivery", async || {
+    poll_until("captured Ask delivery", async || {
         let asks = user.request("ask.list", Value::Null).await.unwrap();
         (asks[0]["parts"][0]["state"] == "typed").then_some(())
     })
     .await;
-    let lines = h21_poll("exact Ask prompt", async || {
+    let lines = poll_until("exact Ask prompt", async || {
         let lines: Vec<Value> = std::fs::read_to_string(&prompts)
             .unwrap_or_default()
             .lines()
@@ -519,7 +519,7 @@ pub(super) async fn u2773a_captured_ask_never_reaches_equal_named_replacement() 
         .await
         .unwrap();
     assert_ne!(intentional["id"], accepted["id"]);
-    h21_poll("two intentional equal-text prompts", async || {
+    poll_until("two intentional equal-text prompts", async || {
         let count = std::fs::read_to_string(&prompts)
             .unwrap_or_default()
             .lines()

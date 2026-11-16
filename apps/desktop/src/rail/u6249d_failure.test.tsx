@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, door, NOW } from "../testing/nodes";
+import { copy } from "../ink/copy";
 import { mountRail, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
@@ -9,29 +10,18 @@ const LABEL = "Claude could not sign in; open its Terminal, sign in, then retry.
 
 const failed = (id: string, extra = {}) => agent(id, "error", "x", { status: { kind: "error", label: LABEL, since: NOW, finished: "0" }, ...extra });
 
-const lineOf = (name: string) => rowOf(name).querySelector("[data-failure]");
-
 it("u6249d_failure_is_dismissable_and_on_one_row", async () => {
   const { rail } = await mountRail([failed("one"), failed("two")]);
 
-  // × removes the line it sits on, and only that one.
-  expect(lineOf("one")).not.toBeNull();
-  fireEvent.click(within(rowOf("one")).getByRole("button", { name: "Dismiss" }));
-  await settled();
-  expect(lineOf("one")).toBeNull();
-  expect(lineOf("two")).not.toBeNull();
-
-  // Escape on the focused row removes its line, as the Dismiss does.
+  // U7205a: the reason is the glyph's name, in no line of the row; Escape on the focused row dismisses it.
+  expect(rowOf("one").querySelector("[data-failure]")).toBeNull();
+  expect(rowOf("two").querySelector(".row-state [role=img]")?.getAttribute("aria-label")).toContain(LABEL);
   rowOf("two").focus();
   fireEvent.keyDown(rowOf("two"), { key: "Escape" });
   await settled();
-  expect(lineOf("two")).toBeNull();
-  expect(rail.nodes.filter(node => rail.dismissed(node))).toHaveLength(2);
-
-  // A dismissed failure shows nothing, selected or not.
-  fireEvent.click(rowOf("one"));
-  await settled();
-  expect(lineOf("one")).toBeNull();
+  expect(rail.nodes.filter(node => rail.dismissed(node))).toHaveLength(1);
+  expect(rowOf("two").querySelector(".row-state [role=img]")?.getAttribute("aria-label")).toContain(copy.dismissedFailure(LABEL));
+  expect(rowOf("one").querySelector(".row-state [role=img]")?.getAttribute("aria-label")).toContain(LABEL);
 });
 
 it("u6249d_failure_is_dismissable_and_on_one_row: a child's line is on its row, the Workstream's only while folded", async () => {

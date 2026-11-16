@@ -4,7 +4,7 @@ import { RpcError } from "../../app/seam";
 import { agent, mode, workstream, doorOf } from "../../testing/nodes";
 import { mountRailAndPane } from "../../terminal/paneHarness";
 import { copy } from "../copy";
-import { chooseAction, chooseFooter, itemOf, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
+import { chooseAction, chooseFooter, itemOf, mountRail, railCallsTo, resumeRow, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -21,7 +21,7 @@ const exited = (id: string) => agent(id, "done", "finished", { terminal_id: null
 const launches: [string, (mounted: Mounted) => Promise<string>][] = [
   ["resume", async mounted => {
     mounted.app.handlers["agent.resume"] = never;
-    await chooseAction(mounted.app, "old", "Resume");
+    resumeRow("old");
 
     return "old";
   }],
@@ -70,7 +70,7 @@ it("u6000b_starting_stays_until_the_daemon_reports_a_later_status", async () => 
 
   mounted.app.handlers["agent.resume"] = () => new Promise(resolve => { answer = () => resolve(tree[0]!); });
   await settled();
-  await chooseAction(mounted.app, "old", "Resume");
+  resumeRow("old");
   await waitFor(() => expect(startingOf(mounted, "old")).toBe(true));
   tree[0] = agent("old", "working", "starting", { terminal_id: "t-old" });
   answer();
@@ -99,7 +99,7 @@ it.each([
   };
 
   await settled();
-  await chooseAction(mounted.app, "old", "Resume");
+  resumeRow("old");
   await screen.findByText(failure instanceof RpcError ? failure.message : copy.resumeOutcomeUnknownTheDaemonMayHaveResumed);
   expect(rowOf("old")).toBeTruthy();
   expect(startingOf(mounted, "old")).toBe(false);
@@ -117,7 +117,7 @@ it.each([
 
   const before = railCallsTo(mounted.app, "rail.tree").length;
 
-  await chooseAction(mounted.app, "old", "Resume");
+  resumeRow("old");
   await waitFor(() => expect(railCallsTo(mounted.app, "rail.tree").length).toBe(before + refreshes));
   await settled();
 
@@ -146,8 +146,8 @@ it("u6000d_launches_fired_while_one_is_pending_all_reach_the_daemon_in_order", a
   chord("n");
   chord("n");
   await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(2));
-  await chooseAction(mounted.app, "old", "Resume");
-  await chooseAction(mounted.app, "other", "Resume");
+  resumeRow("old");
+  resumeRow("other");
   // A New Agent fired while the selected row's own resume is pending.
   mounted.rail.select("old");
   chord("n");
@@ -162,11 +162,11 @@ it("u6000a_a_starting_door_row_no_longer_reads_door_stopped", async () => {
 
   mounted.app.handlers["rail.startDoor"] = never;
   await settled();
-  expect(rowOf("ws").querySelector(".rail-waiting")).not.toBeNull();
+  expect((rowOf("ws").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).toContain("Door stopped");
   void mounted.rail.startDoor("ws");
 
   await waitFor(() => expect(startingOf(mounted, "ws")).toBe(true));
-  expect(rowOf("ws").querySelector(".rail-waiting")).toBeNull();
+  expect((rowOf("ws").querySelector(".row-state [role=img]")?.getAttribute("aria-label") ?? "")).not.toContain("Door stopped");
 });
 
 it("u6000a_every_launch_renders_starting_before_its_call_answers_new_workstream", async () => {

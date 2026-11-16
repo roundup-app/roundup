@@ -188,7 +188,8 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(scroll).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(field);
   await waitFor(() => expect(app.calls.some((call) => call.method === "terminal.snapshot")).toBe(true));
-  expect(app.calls.map((call) => call.method).sort()).toEqual([
+  // U7211a: the stopped Doors' unfinished-work reads (message.reconcileWork) follow the first tree; they change none of it; U7186c's rail rows read their owned changes the same way.
+  expect(app.calls.map((call) => call.method).filter((method) => method !== "message.reconcileWork" && method !== "agent.ownedChanges").sort()).toEqual([
     "action.userList", "ask.list", "config.read", "daemon.ping", "deliverable.list", "machine.list", "pad.list", "rail.tree", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "workstream.queue",
   ]);
   field.remove();

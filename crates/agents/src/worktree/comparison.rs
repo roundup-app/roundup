@@ -15,8 +15,18 @@ impl Git {
         if !worktree.path.is_dir() {
             return Err(WorktreeError::Missing(worktree.path.display().to_string()).into());
         }
-        let dir = &worktree.path;
         let base = self.comparison_base(worktree)?;
+        Ok(ChangedFiles {
+            files: self.files_against(&worktree.path, &base)?,
+        })
+    }
+
+    /// The files `dir`'s working tree differs in from `base`, outside `.roundup/`, sorted by path.
+    pub(super) fn files_against(
+        &self,
+        dir: &Path,
+        base: &str,
+    ) -> Result<Vec<ChangedFile>, RpcError> {
         let diff = [
             "--no-optional-locks",
             "diff",
@@ -25,13 +35,13 @@ impl Git {
             "-M",
         ];
         let names = self
-            .run(dir, &[&diff[..], &["-z", "--name-status", &base]].concat())
+            .run(dir, &[&diff[..], &["-z", "--name-status", base]].concat())
             .map_err(failed)?;
         let patch = self
-            .run(dir, &[&diff[..], &["-U0", &base]].concat())
+            .run(dir, &[&diff[..], &["-U0", base]].concat())
             .map_err(failed)?;
         let counts = self
-            .run(dir, &[&diff[..], &["--numstat", &base]].concat())
+            .run(dir, &[&diff[..], &["--numstat", base]].concat())
             .map_err(failed)?;
         // Git quotes unusual paths without -z, so each count record occupies one line even for a rename.
         // Counts also classify a pure binary rename, whose patch has no binary marker or hunk.
@@ -72,7 +82,7 @@ impl Git {
         }
         files.retain(|file| !file.path.starts_with(".roundup/"));
         files.sort_by(|a, b| a.path.cmp(&b.path));
-        Ok(ChangedFiles { files })
+        Ok(files)
     }
 
     fn comparison_base(&self, worktree: &Worktree) -> Result<String, RpcError> {
@@ -180,7 +190,7 @@ impl Git {
 
 /// The new-side first line of the first hunk of one `git diff -U0` section; `None` for a binary
 /// file, 1 for a change with no hunk (a pure rename or mode change).
-fn first_changed_line(section: &str) -> Option<u32> {
+pub(super) fn first_changed_line(section: &str) -> Option<u32> {
     if section
         .lines()
         .any(|line| line.starts_with("Binary files "))
@@ -221,7 +231,7 @@ fn validate_comparison_path(path: &str) -> Result<(), RpcError> {
     Ok(())
 }
 
-fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcError> {
+pub(super) fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcError> {
     use rustix::fs::{Mode, OFlags, open, openat};
     validate_comparison_path(path)?;
     let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK;
@@ -265,7 +275,7 @@ fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcErr
     Err(invalid("unsafe_path", "missing file"))
 }
 
-fn file_content(bytes: Option<Vec<u8>>) -> contracts::agent::FileContent {
+pub(super) fn file_content(bytes: Option<Vec<u8>>) -> contracts::agent::FileContent {
     use contracts::agent::FileContent;
     use sha2::{Digest, Sha256};
     let Some(bytes) = bytes else {

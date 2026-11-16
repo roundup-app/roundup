@@ -11,6 +11,12 @@
   padding-inline: var(--space-2);
 }
 
+/* U7211a: every Pane reserves one line above its Terminal, so what the line says moves nothing (U3807), covers no output (U7192) and keeps the first PTY grid the fitted one (U4590). */
+.pane-top {
+  flex: none;
+  min-block-size: var(--line);
+}
+
 .pane-body {
   position: relative;
   flex: 1;
@@ -140,7 +146,9 @@
   overscroll-behavior: contain;
 }
 
+/* U7186c: the Terminal's own layers (xterm sets z-index 2 and 5) stay under the Changes view that fills the Pane. */
 .pane-origin {
+  isolation: isolate;
   display: flex;
   flex: 1;
   min-height: 0;
@@ -229,4 +237,3 @@
   border-bottom: var(--hairline-width) solid currentColor;
   pointer-events: none;
 }
-

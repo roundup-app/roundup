@@ -25,7 +25,7 @@ const failureOf = (items: Item[]): [string, string] | null => {
 const stateWords = (items: Item[]) => {
   if (items.some(i => i.state === "outdated")) return copy.skillOutdated;
 
-  if (on(items)) return copy.skillCurrent;
+  if (on(items)) return copy.upToDate;
 
   if (items.every(i => i.state === "missing")) return copy.skillMissing;
 
@@ -88,7 +88,7 @@ export const SkillSetting = (props: { app: App }) => {
         </>}</Show>
       </div>
       <Show when={list().some(i => i.state === "outdated")}>
-        <button class="word" data-button="quiet" type="button" disabled={busy()} onClick={() => void run("skill.setup")}>{copy.skillUpdate}</button>
+        <button class="word" data-button="quiet" type="button" disabled={busy()} onClick={() => void run("skill.setup")}>{copy.update}</button>
       </Show>
     </div>
   </>}</Show>;

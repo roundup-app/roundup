@@ -150,14 +150,28 @@ impl Agents {
     async fn agent_changed_files(
         &self,
         ctx: &Ctx,
-        p: contracts::agent::NodeId,
+        p: contracts::agent::ChangedFilesParams,
     ) -> Result<contracts::agent::ChangedFiles, RpcError> {
-        let shared = &self.shared;
-        {
-            let NodeId { id } = p;
-            shared.guard_reach(&ctx.actor, &id, true)?;
-            self.changed_files(&id).await
-        }
+        let contracts::agent::ChangedFilesParams { id, from, to } = p;
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
+        self.changed_files(&id, endpoints(from, to)?).await
+    }
+
+    async fn project_compare_refs(
+        &self,
+        _ctx: &Ctx,
+    ) -> Result<contracts::agent::CompareRefs, RpcError> {
+        self.compare_refs().await
+    }
+
+    async fn agent_owned_changes(
+        &self,
+        ctx: &Ctx,
+        p: contracts::agent::NodeId,
+    ) -> Result<contracts::agent::OwnedChanges, RpcError> {
+        let NodeId { id } = p;
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
+        self.owned_changes(&id).await
     }
 
     async fn agent_compare_file(
@@ -167,9 +181,9 @@ impl Agents {
     ) -> Result<contracts::agent::FileComparison, RpcError> {
         let shared = &self.shared;
         {
-            let contracts::agent::CompareFileParams { id, path } = p;
+            let contracts::agent::CompareFileParams { id, path, from, to } = p;
             shared.guard_reach(&ctx.actor, &id, true)?;
-            self.compare_file(&id, &path).await
+            self.compare_file(&id, &path, endpoints(from, to)?).await
         }
     }
 
@@ -652,5 +666,26 @@ impl Agents {
         Err(RpcError::forbidden(
             "selection removal requires the Project Daemon",
         ))
+    }
+}
+
+/// `from` and `to` together or neither (U7186b).
+fn endpoints(
+    from: Option<contracts::agent::CompareEndpoint>,
+    to: Option<contracts::agent::CompareEndpoint>,
+) -> Result<
+    Option<(
+        contracts::agent::CompareEndpoint,
+        contracts::agent::CompareEndpoint,
+    )>,
+    RpcError,
+> {
+    match (from, to) {
+        (Some(from), Some(to)) => Ok(Some((from, to))),
+        (None, None) => Ok(None),
+        _ => Err(RpcError::new(
+            rpc::code::INVALID_PARAMS,
+            "endpoints: give both from and to",
+        )),
     }
 }

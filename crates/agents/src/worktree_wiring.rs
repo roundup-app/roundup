@@ -1,7 +1,9 @@
 use super::*;
 use crate::pr_checks::{Conclusion, Evidence, Gap};
 use crate::worktree::WorktreeError;
-use contracts::agent::{WorktreeCheckConclusion, WorktreeEvidence, WorktreeRequiredCheck};
+use contracts::agent::{
+    CompareEndpoint, WorktreeCheckConclusion, WorktreeEvidence, WorktreeRequiredCheck,
+};
 
 impl Agents {
     /// G3: how far the Agent's Worktree is from its Base. Reads only.
@@ -49,7 +51,20 @@ impl Agents {
     }
 
     /// U2539a: what the Agent's Worktree changed against its Base. Reads only.
-    pub(super) async fn changed_files(&self, id: &str) -> Result<ChangedFiles, RpcError> {
+    pub(super) async fn changed_files(
+        &self,
+        id: &str,
+        ends: Option<(CompareEndpoint, CompareEndpoint)>,
+    ) -> Result<ChangedFiles, RpcError> {
+        if let Some((from, to)) = ends {
+            self.shared.node(id)?;
+            let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
+            return tokio::task::spawn_blocking(move || {
+                git.compare_endpoints(&project, &from, &to)
+            })
+            .await
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?;
+        }
         let record = self.shared.node(id)?.worktree();
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
@@ -61,12 +76,50 @@ impl Agents {
             .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
     }
 
+    /// U7186b: every worktree state and branch head of the Project's repository.
+    pub(super) async fn compare_refs(&self) -> Result<contracts::agent::CompareRefs, RpcError> {
+        let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
+        tokio::task::spawn_blocking(move || git.compare_refs(&project))
+            .await
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?
+    }
+
+    /// U7186a: what the Agent's recorded file writes leave changed against the default branch.
+    pub(super) async fn owned_changes(
+        &self,
+        id: &str,
+    ) -> Result<contracts::agent::OwnedChanges, RpcError> {
+        self.shared.node(id)?;
+        let edits: Vec<String> = self
+            .shared
+            .runs()
+            .agent(id)
+            .map(|agent| agent.facts.edits.iter().cloned().collect())
+            .unwrap_or_default();
+        let git = self.shared.git.bounded();
+        let groups = tokio::task::spawn_blocking(move || git.owned_groups(&edits))
+            .await
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?;
+        Ok(contracts::agent::OwnedChanges { groups })
+    }
+
     /// U2540a: read one comparison within the assigned Worktree.
     pub(super) async fn compare_file(
         &self,
         id: &str,
         path: &str,
+        ends: Option<(CompareEndpoint, CompareEndpoint)>,
     ) -> Result<contracts::agent::FileComparison, RpcError> {
+        if let Some((from, to)) = ends {
+            self.shared.node(id)?;
+            let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
+            let path = path.to_owned();
+            return tokio::task::spawn_blocking(move || {
+                git.compare_endpoints_file(&project, &from, &to, &path)
+            })
+            .await
+            .map_err(|err| RpcError::from(WorktreeError::Failed(err.to_string())))?;
+        }
         let record = self
             .shared
             .node(id)?

@@ -30,6 +30,8 @@ export type DoorFacts = {
 	 *  start in flight. `false` for a Terminal.
 	 */
 	can_resume: boolean,
+	/**  U7191b: the Daemon holds a saved conversation (A21) for this Agent or Door, running or exited; Restart resumes it. `false` for a Terminal. */
+	has_conversation: boolean,
 	/**  Permission prompts are off for the last acknowledged Attempt; cleared on reopen. */
 	yolo: boolean,
 	/**  E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is no Door, a Terminal, and an Agent with no live Terminal. */

@@ -30,7 +30,7 @@ async fn a3516b_start_context_carries_the_brief() {
             .unwrap(),
     )
     .unwrap();
-    daemon::h21_poll("the user's initial prompt", async || {
+    daemon::poll_until("the user's initial prompt", async || {
         std::fs::read_to_string(&prompts).ok()
     })
     .await;

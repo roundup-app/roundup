@@ -216,7 +216,9 @@ async fn a5717a_surviving_attempt_retains_automatic_message_admission() {
                 before.push(run.message(*id).await);
             }
             received.extend(ids.iter().map(|id| format!("rup-{id}")));
+            // TS1: a written batch starts a turn, and the next waits for the Stop that ends it.
             until("recovered automatic batch", async || {
+                run.idle_edge().await;
                 (run.entries() == received).then_some(())
             })
             .await;
@@ -353,7 +355,9 @@ async fn a5717c_explicit_resume_and_restart_require_fresh_input() {
         // U6260b: the conversation had the user's input, so the resume stays admitted.
         let ids = run.automatic(0).await;
         let expected: Vec<String> = ids.iter().map(|id| format!("rup-{id}")).collect();
+        // TS1: the first note starts a turn, and the rest wait for the Stop that ends it.
         until("automatic input after resume", async || {
+            run.idle_edge().await;
             (run.entries() == expected).then_some(())
         })
         .await;
