@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 const mount = async (
-  check: Check = ready,
+  check: Check | Promise<Check> = ready,
   capture: () => Promise<FeedbackReport> = async () => report(),
 ) => {
   const app = createFakeApp();
@@ -231,6 +231,13 @@ it("u7210b_the_dialog_shows_the_field_the_checkbox_the_versions_and_two_buttons"
   expect(
     screen.getAllByRole("button").map((button) => button.textContent),
   ).toEqual([copy.close, copy.send]);
+});
+
+it("u7210b_the_checkbox_keeps_its_row_while_gh_is_checked", async () => {
+  await mount(new Promise<Check>(() => {}));
+  await open();
+  expect(screen.getByRole("checkbox", { name: copy.attach })).toBeTruthy();
+  expect(refused()).toBe(true);
 });
 
 it("u7210b_send_waits_for_text", async () => {

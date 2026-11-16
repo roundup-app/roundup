@@ -61,9 +61,9 @@ export const createFeedbackSession = (props: {
 
   const shot = () => opened()?.capture?.shot ?? null;
 
-  /** The screenshot is offered only where Send is, and only to a `gh` that attaches it. */
+  /** The checkbox holds its row while `gh` is asked, so the dialog does not grow under the caret; it shows only where Send is, and only for a `gh` that attaches. */
   const attached = () =>
-    shot() !== null && check()?.attach === true && blocked() === null;
+    shot() !== null && blocked() === null && check()?.attach !== false;
 
   const noShotLine = () => {
     const cause = opened()?.cause;
