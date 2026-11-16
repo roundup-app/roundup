@@ -85,7 +85,7 @@ export const watchMenuBar = (options: {
 
       const terminalRows = attention.flatMap(entry => entry.kind !== "terminal" ? [] : [{
         path: tab.project.path, id: `terminal:${entry.terminal.id}`, action: { kind: "terminal" as const, path: tab.project.path, terminal: entry.terminal.id }, waiting: true, since: entry.status.since,
-        state: stateOf(entry.status.kind, true), label: sentence(nameOf(entry.terminal)), subtitle: menuBarCopy.subtitle(short(statusText(entry.status)), project),
+        state: stateOf(entry.status.kind, true), label: literal(nameOf(entry.terminal)), subtitle: menuBarCopy.subtitle(short(statusText(entry.status)), project),
       }]);
 
       return [...terminalRows, ...connection.rail.nodes.flatMap(node => {

@@ -33,13 +33,15 @@ it("u7189a_the_dock_count_equals_the_menu_bars_waiting_rows", async () => {
     web: [agent("pane", "working", "running", { terminal_id: "t-pane" }), agent("broken", "error", "failed")],
   });
 
-  await listing(app, "api", () => [info("free", { status: blocked }), info("ended", { owner: "stopped", running: false, exit_code: 1, status: failed }), info("busy", { status: { ...blocked, kind: "working" } })]);
+  await listing(app, "api", () => [info("free", { title: "npm run dev --port 5199", status: blocked }), info("ended", { owner: "stopped", running: false, exit_code: 1, status: failed }), info("busy", { status: { ...blocked, kind: "working" } })]);
   await listing(app, "web", () => [info("t-pane", { owner: "pane", status: blocked })]);
 
   // Four in api (two Agents, a free Terminal, a stopped Agent's ended Terminal) and one in web; a Quiet or unstarted node, an Agent's own pane and a working Terminal count nowhere.
   await waitFor(() => expect(waiting(app)).toHaveLength(5));
   expect(app.badges.at(-1)).toBe(5);
   expect(waiting(app).flatMap(action => action.kind === "terminal" ? [action.terminal] : []).toSorted()).toEqual(["ended", "free"]);
+  // A Terminal's row names it as the Bubble does, not with an Agent's name rewritten into a sentence.
+  expect(app.menuBar?.entries.find(entry => entry.action?.kind === "terminal" && entry.action.terminal === "free")?.label).toBe("npm run dev --port 5199");
 });
 
 it("u7189b_opening_a_waiting_terminal_clears_it_until_its_status_changes", async () => {
