@@ -21,6 +21,8 @@ import type { DrawerState } from "../drawer/drawer";
 import { createWorktreeState } from "./worktrees";
 import { createMachines } from "./machines";
 import { createAsks } from "./asks";
+import { createContinuation } from "./continuation";
+import type { Continuation } from "./continuation";
 import type { AsksState, AskRouting } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
@@ -120,6 +122,8 @@ export type ConnectedProject = ProjectView & {
   unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
+  /** U7211: the Agents with unfinished work, and the user's choice to resume it. */
+  continuation: Continuation;
   importing: ReturnType<typeof createImport>;
   worktrees: ReturnType<typeof createWorktreeState>;
   /** MC3, MC15: the Machines Agents run on. */
@@ -152,7 +156,7 @@ const reads = new Set<RpcMethodName>([
   "agent.worktreeState", "machine.list", "agent.changedFiles", "agent.compareFile", "agent.spawnPrompt",
   "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
   "project.get", "project.resources", "models.list", "import.list", "project.importDiscover",
-  "message.get", "message.list",
+  "message.get", "message.list", "message.reconcileWork",
   "route.list", "ask.list",
   "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
   "provenance.history", "provenance.touched",
@@ -249,6 +253,7 @@ export const connectProject = async (
 
   const unseen = inChildren(() => createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path, observedAt: clock() }));
   const queue = inChildren(() => createQueue(app, events, rail));
+  const continuation = inChildren(() => createContinuation(app, project.path, () => rail.nodes, () => daemonExit() === null));
 
   const asks = inChildren(() => createAsks(app, events, { path: project.path, target: () => {
     if (!viewing() || settingsView.open() || daemonExit() !== null) return null;
@@ -271,7 +276,7 @@ export const connectProject = async (
 
   const projectView = createProjectView(rail.selected, openShelf);
 
-  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
+  return { ...projectView, project, drafts, app, events, rail, held, terminalScheme, unseen, queue, continuation, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), machines: createMachines(app, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopChildren(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
