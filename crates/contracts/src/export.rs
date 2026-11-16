@@ -255,6 +255,8 @@ pub fn types() -> specta::Types {
         .register::<crate::message::ResultTarget>()
         .register::<crate::message::ResultCheck>()
         .register::<crate::message::ResultState>()
+        .register::<crate::message::ConfidenceLevel>()
+        .register::<crate::message::ResultConfidence>()
         .register::<crate::message::ReportParams>()
         .register::<crate::message::ResultId>()
         .register::<crate::message::AcceptResultParams>()

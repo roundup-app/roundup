@@ -394,6 +394,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Published target (`PublishedTarget`, `ExternalAvailability`) | same | — |
 | Resolution (`Resolution`, `UnavailableCause`) | same | — |
 | Result report (`ResultReport`, `ReportParams`, `message.report`) | same | — |
+| Result confidence (`ResultConfidence`, `ConfidenceLevel`) | same | — |
 | Result acceptance (`ResultAcceptance`, `AcceptResultParams`, `message.acceptResult`) | same | — |
 | Result check (`ResultCheck`, `ResultObservation`, `message.verifyResult`) | same | — |
 | Continuation (`ContinuationAction`, `ContinuationChoice`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`) | same | — |
