@@ -12,10 +12,12 @@ type Seen = { keys: ReadonlyMap<string, string>; open: ReadonlyMap<string, reado
 /** A resume that failed, good only while its Door stays in the state it failed at. */
 type Failed = { cause: Error; door: string | undefined };
 
-type Resumed = "resumed" | "nothing" | "failed";
-
-/** What a resume of every Agent came to. */
+/** What resuming Agents came to. */
 export type Tally = { resumed: number; failed: number };
+
+const none: Tally = { resumed: 0, failed: 0 };
+
+const sum = (tallies: readonly Tally[]): Tally => tallies.reduce((total, each) => ({ resumed: total.resumed + each.resumed, failed: total.failed + each.failed }), none);
 
 const unread: Seen = { keys: new Map(), open: new Map() };
 
@@ -62,8 +64,8 @@ export const createContinuation = (app: AppSeam, project: string, nodes: Accesso
   /** One request id carries one payload, and survives a failure so the Daemon answers a retry from what it accepted. */
   const requestFor = (id: string, actions: readonly ContinuationAction[]): ResumeWorkParams => {
     const identity = actions.map(action => action.id).join("\n");
-    const held = requests.get(id);
-    const request = held?.identity === identity ? held.request : crypto.randomUUID();
+    const earlier = requests.get(id);
+    const request = earlier?.identity === identity ? earlier.request : crypto.randomUUID();
     const [only] = actions;
 
     requests.set(id, { identity, request });
@@ -73,10 +75,10 @@ export const createContinuation = (app: AppSeam, project: string, nodes: Accesso
 
   const handled = (id: string) => mutate(previous => ({ keys: previous?.keys ?? new Map(), open: new Map(previous?.open).set(id, []) }));
 
-  const resume = async (id: string): Promise<Resumed> => {
+  const resume = async (id: string): Promise<Tally> => {
     const actions = open(id);
 
-    if (actions.length === 0 || busy().has(id) || !live()) return "nothing";
+    if (actions.length === 0 || busy().has(id) || !live()) return none;
 
     setFailed(previous => new Map([...previous].filter(([each]) => each !== id)));
     setBusy(previous => new Set(previous).add(id));
@@ -87,23 +89,19 @@ export const createContinuation = (app: AppSeam, project: string, nodes: Accesso
       requests.delete(id);
       handled(id);
 
-      return answer.decision === null ? "nothing" : "resumed";
+      return answer.decision === null ? none : { resumed: 1, failed: 0 };
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailed(previous => new Map(previous).set(id, { cause: thrown, door: doors().get(id) }));
 
-      return "failed";
+      return { resumed: 0, failed: 1 };
     } finally {
       setBusy(previous => new Set([...previous].filter(each => each !== id)));
     }
   };
 
-  const resumeAll = async (): Promise<Tally> => {
-    const outcomes = await Promise.all(agents().map(resume));
-
-    return { resumed: outcomes.filter(outcome => outcome === "resumed").length, failed: outcomes.filter(outcome => outcome === "failed").length };
-  };
+  const resumeAll = async (): Promise<Tally> => sum(await Promise.all(agents().map(resume)));
 
   return {
     /** How many Agents have unfinished work, dismissed or not. */
@@ -113,9 +111,9 @@ export const createContinuation = (app: AppSeam, project: string, nodes: Accesso
     busy: (id: string) => busy().has(id),
     /** Why the last resume of this Agent failed, until it works again or its Door changes. */
     failure: (id: string): Error | null => {
-      const held = failed().get(id);
+      const last = failed().get(id);
 
-      return held !== undefined && held.door === doors().get(id) ? held.cause : null;
+      return last !== undefined && last.door === doors().get(id) ? last.cause : null;
     },
     /** Why the read of unfinished work failed. */
     readFailure: (): Error | null => seen.error instanceof Error ? seen.error : null,
