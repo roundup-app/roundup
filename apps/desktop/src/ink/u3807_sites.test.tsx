@@ -11,10 +11,8 @@ import { ChooseProject } from "../window/FirstRun";
 import { RpcError } from "../app/seam";
 import { Pads } from "../pads/Pads";
 import { Inbox } from "../inbox/Inbox";
-import { WorkProgress } from "../orders/WorkProgress";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { agent, event, USER } from "../testing/nodes";
-import { progressSeed } from "../testing/progressSeed";
 import { TodoComments } from "../todos/TodoComments";
 import { TodoRefs } from "../todos/TodoRefs";
 import { mountAskBar, input, openAsk, press } from "../ask/askFixture";
@@ -49,23 +47,16 @@ const FAILURE = "Cannot read work: try again";
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
-const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.getHistory" | "todo.refs" | "pad.list" | "message.progress"; render: () => JSX.Element; refresh: (mounted: Mounted) => void; role?: "status" }[] = [
+const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.getHistory" | "todo.refs" | "pad.list"; render: () => JSX.Element; refresh: (mounted: Mounted) => void; role?: "status" }[] = [
   { site: "Inbox", method: "todo.unread", render: () => <Inbox />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
   { site: "Todo comments", method: "todo.comments", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
   { site: "Todo history", method: "todo.getHistory", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
-  { site: "Work progress", method: "message.progress", render: () => <WorkProgress id="a" />, refresh: m => m.app.emit(event({ name: "rail.changed" })) },
 ];
 
 it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site", async (site) => {
   const mounted = await mountTodos([todo(1)]);
-
-  if (site.method === "message.progress") {
-    const seed = progressSeed({ project: mounted.connected.project.path, agent: "a" });
-    mounted.app.handlers["message.progress"] = () => seed.progress;
-    mounted.app.handlers["message.reconcileWork"] = () => seed.plan;
-  }
 
   const view = render(() => <ConnectedProjectContext value={mounted.connected}><section>{site.render()}</section></ConnectedProjectContext>);
 
@@ -78,9 +69,6 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
   if (site.method === "pad.list") await waitFor(() => expect(view.container.querySelector(".empty-state")).not.toBeNull());
 
-
-  if (site.method === "message.progress") await within(view.container).findByRole("region", { name: "Progress" });
-
   const original = mounted.app.handlers[site.method];
   mounted.app.handlers[site.method] = () => { throw new RpcError(-32003, FAILURE); };
 
@@ -88,7 +76,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   const alert = await within(view.container).findByRole(site.role ?? "alert");
   const place = alert.closest<HTMLElement>(".reserved-line")!;
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /^(?!Clear|Dismiss)/ });
+  const retry = within(place).queryByRole("button", { name: /^(?!Clear|Dismiss)/ });
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);

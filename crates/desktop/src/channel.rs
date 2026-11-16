@@ -46,6 +46,20 @@ impl Channel {
         self != Self::Source
     }
 
+    /// AI7152a: the name this build carries and the colour of its icon's plate.
+    pub fn identity(self) -> contracts::identity::ChannelIdentity {
+        match self {
+            Self::Stable => contracts::identity::STABLE,
+            Self::Dev => contracts::identity::DEV,
+            Self::Source => contracts::identity::SOURCE,
+        }
+    }
+
+    /// AI7152a: the plate colour a running build sets its Dock icon to; Stable keeps `artwork.png`.
+    pub fn dock_colour(self) -> Option<contracts::data::ForkColour> {
+        (self != Self::Stable).then(|| self.identity().colour)
+    }
+
     /// The herdr-core session its Daemons' Terminals live in; `None` keeps the Daemon's default.
     pub(crate) fn core_session(self) -> Option<&'static str> {
         (self == Self::Dev).then_some("roundup-dev")
@@ -118,6 +132,53 @@ mod tests {
                 assert!(updater.is_null(), "Source has no feed");
             }
         }
+    }
+
+    #[test]
+    fn ai7152a_each_config_names_its_channel_and_dock_icon() {
+        let builds = [
+            (None, Channel::Source),
+            (Some("tauri.stable.conf.json"), Channel::Stable),
+            (Some("tauri.dev.conf.json"), Channel::Dev),
+        ];
+        for (overlay, channel) in builds {
+            let config = merged(overlay);
+            // Tauri writes CFBundleName, CFBundleDisplayName and the `.app` file name from `productName`.
+            assert_eq!(config["productName"], channel.identity().app, "{overlay:?}");
+        }
+        // The bundle icon the build overlay leaves: Dev and Source their own plate, Stable the artwork.
+        let bundle = |overlay| {
+            let mut config = merged(overlay);
+            let base: serde_json::Value = serde_json::from_str(
+                &std::fs::read_to_string(
+                    Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.bundle.conf.json"),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            json_patch::merge(&mut config, &base);
+            if let Some(overlay) = overlay {
+                let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(overlay);
+                let overlay = serde_json::from_str(&std::fs::read_to_string(path).unwrap());
+                json_patch::merge(&mut config, &overlay.unwrap());
+            }
+            config["bundle"]["icon"][0].as_str().unwrap().to_owned()
+        };
+        assert_eq!(bundle(Some("tauri.stable.conf.json")), "icons/icon@2x.png");
+        assert_eq!(bundle(Some("tauri.dev.conf.json")), "icons/dev@2x.png");
+        assert_eq!(
+            bundle(Some("tauri.source.conf.json")),
+            "icons/source@2x.png"
+        );
+        assert_eq!(Channel::Stable.dock_colour(), None);
+        assert_eq!(
+            Channel::Dev.dock_colour(),
+            Some(contracts::data::ForkColour::Violet)
+        );
+        assert_eq!(
+            Channel::Source.dock_colour(),
+            Some(contracts::data::ForkColour::Blue)
+        );
     }
 
     fn fork(home: &Path, folder: &str, name: &str) {

@@ -39,8 +39,6 @@ const emptyReads: Handlers = {
   "ask.list": () => [],
   "deliverable.list": () => [],
   "provenance.history": () => [],
-  "message.progress": () => ({ instructions: { project: "/project", home: null, current: null, revisions: [], deliveries: [] }, results: [] }),
-  "message.reconcileWork": ({ id }) => ({ agent: id, actions: [], blocked: [], context: [], pending_checks: [] }),
 };
 
 /** One `selectOutput` call: the listener stays here after `release`, so a test can call it late. */
@@ -506,6 +504,9 @@ export const createFakeApp = (): FakeApp => {
     },
     forkBranch: async () => "fork",
     forkMake: async () => {},
+    forkList: async () => [],
+    forkRename: async () => {},
+    forkRecolour: async () => {},
     onForkSheet: (listener) => {
       window.addEventListener("open-fork-sheet", listener);
 

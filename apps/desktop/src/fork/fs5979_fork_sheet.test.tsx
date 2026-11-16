@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ForkColour } from "@contracts/data/ForkColour";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
@@ -130,11 +131,11 @@ describe("fs5979c the name and the colour", () => {
     await waitFor(() => expect(field.value).toBe("build/login"));
     expect(document.activeElement).toBe(field);
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, "build/login".length]);
-    expect(screen.getAllByRole("radio")).toHaveLength(8);
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
     await waitFor(() => expect(screen.getByRole("radio", { name: "teal" }).getAttribute("aria-checked")).toBe("true"));
     screen.getByRole("radio", { name: "teal" }).focus();
     await userEvent.setup().keyboard("{ArrowRight}");
-    await waitFor(() => expect(screen.getByRole("radio", { name: "blue" }).getAttribute("aria-checked")).toBe("true"));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "pink" }).getAttribute("aria-checked")).toBe("true"));
   });
 
   it.each(["", "x".repeat(41), "a\u0007b"])("fs5979c_an_invalid_name_makes_no_fork", async (bad) => {
@@ -212,5 +213,113 @@ describe("fs5979e a failed Fork stays on the sheet", () => {
     fireEvent.submit(field.closest("form")!);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(forkMake).toHaveBeenCalledTimes(2);
+  });
+});
+
+const listed = (name: string, colour: ForkColour, path = `/h/forks/${name}`) => ({ name, colour, path, collides: null });
+
+describe("ai7152d the Fork sheet offers only free colours", () => {
+  it("ai7152d_the_first_free_colour_is_chosen_and_taken_ones_are_not_offered", async () => {
+    await sheet(app => { app.forkList = async () => [listed("a", "teal")]; });
+    await waitFor(() => expect(screen.getAllByRole("radio")).toHaveLength(4));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "red" }).getAttribute("aria-checked")).toBe("true"));
+  });
+
+  it("ai7152d_a_colliding_name_shows_the_holder_and_makes_no_fork", async () => {
+    const forkMake = vi.fn(async () => {});
+    await sheet(app => { app.forkMake = forkMake; app.forkList = async () => [listed("main", "red")]; });
+    const field = await screen.findByLabelText("Name");
+
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
+    await userEvent.setup().clear(field);
+    await userEvent.setup().type(field, "MAIN {Enter}");
+    await screen.findByText(/held by Fork at \/h\/forks\/main/);
+    expect(forkMake).not.toHaveBeenCalled();
+  });
+
+  it("ai7152d_every_colour_taken_says_so_and_makes_no_fork", async () => {
+    const forkMake = vi.fn(async () => {});
+    const rest: ForkColour[] = ["red", "amber", "green", "teal", "pink"];
+    await sheet(app => { app.forkMake = forkMake; app.forkList = async () => rest.map(colour => listed(colour, colour)); });
+    await screen.findByText(forkCopy.colourTaken);
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    await userEvent.setup().type(await screen.findByLabelText("Name"), "{Enter}");
+    expect(forkMake).not.toHaveBeenCalled();
+  });
+
+  it("ai7152d_a_fork_make_refusal_keeps_the_sheet_open", async () => {
+    const onClose = vi.fn();
+    const refusal = new Error('name "mine" is held by the Fork at /h/forks/mine; colour teal is held by Dev');
+    const app = createFakeApp();
+
+    app.forkMake = vi.fn(async () => { throw refusal; });
+    render(() => <ForkSheet app={app} open sources={sources} onClose={onClose} />);
+    const field = await screen.findByLabelText("Name");
+
+    await waitFor(() => expect(inputOf(field).value).toBe("fork"));
+    fireEvent.input(field, { target: { value: "mine" } });
+    fireEvent.submit(field.closest("form")!);
+
+    await waitFor(() => expect(alerts().map(line => line.textContent)).toEqual([refusal.message]));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("ai7152e_the_list_marks_a_colliding_fork", async () => {
+    await sheet(app => { app.forkList = async () => [{ ...listed("old", "teal"), collides: "Roundup Dev" }, listed("fine", "red")]; });
+    await screen.findByText("Roundup Dev holds the same name or colour.");
+    expect(screen.getAllByText(/holds the same name or colour/)).toHaveLength(1);
+  });
+  it("ai7152e_each_row_renames_and_recolours_through_the_seam", async () => {
+    const forkRename = vi.fn(async () => {});
+    const forkRecolour = vi.fn(async () => {});
+    const forkList = vi.fn(async () => [listed("old", "teal")]);
+    await sheet(app => { app.forkRename = forkRename; app.forkRecolour = forkRecolour; app.forkList = forkList; });
+    const user = userEvent.setup();
+    const first = within(await screen.findByRole("listitem"));
+    await user.click(first.getByRole("button", { name: forkCopy.rename }));
+    const field = first.getByLabelText(forkCopy.renameField("old"));
+    await user.clear(field);
+    await user.type(field, "fresh{Enter}");
+    await waitFor(() => expect(forkRename).toHaveBeenCalledWith("/h/forks/old", "fresh"));
+    // A change reloads the list, which draws its rows again.
+    await waitFor(() => expect(forkList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByLabelText(forkCopy.renameField("old"))).toBeNull());
+    const row = within(await screen.findByRole("listitem"));
+    await user.click(row.getByRole("button", { name: forkCopy.recolour }));
+    await user.click(row.getByRole("radio", { name: "red" }));
+    await waitFor(() => expect(forkRecolour).toHaveBeenCalledWith("/h/forks/old", "red"));
+    expect(forkRename).toHaveBeenCalledTimes(1);
+    expect(forkRecolour).toHaveBeenCalledTimes(1);
+  });
+
+  it("ai7152e_a_refused_recolour_reads_in_the_row_and_keeps_the_choices", async () => {
+    const refusal = "colour red is held by Dev";
+    const forkRecolour = vi.fn(async () => { throw new Error(refusal); });
+    await sheet(app => { app.forkRecolour = forkRecolour; app.forkList = async () => [listed("old", "teal")]; });
+    const user = userEvent.setup();
+    const row = within(await screen.findByRole("listitem"));
+    await user.click(row.getByRole("button", { name: forkCopy.recolour }));
+    await user.click(row.getByRole("radio", { name: "red" }));
+    await row.findByRole("alert");
+    expect(forkRecolour).toHaveBeenCalledTimes(1);
+    expect(row.getAllByRole("radio")).toHaveLength(5);
+  });
+
+  it("ai7152e_a_refused_rename_reads_as_the_fields_error_and_keeps_the_editor", async () => {
+    const refusal = 'name "dev" is held by Dev';
+    await sheet(app => { app.forkRename = async () => { throw new Error(refusal); };
+
+ app.forkList = async () => [listed("old", "teal")]; });
+    const user = userEvent.setup();
+    const row = within(await screen.findByRole("listitem"));
+    await user.click(row.getByRole("button", { name: forkCopy.rename }));
+    const field = row.getByLabelText(forkCopy.renameField("old"));
+    await user.clear(field);
+    await user.type(field, "dev{Enter}");
+    const message = await row.findByText(refusal);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(field.getAttribute("aria-describedby")).toContain(message.id);
+    expect(row.getByRole("button", { name: forkCopy.rename }).getAttribute("aria-expanded")).toBe("true");
   });
 });

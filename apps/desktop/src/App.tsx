@@ -2,7 +2,9 @@ import pRetry from "p-retry";
 import { createProjectOpening, ProjectOpening } from "./window/ProjectOpening";
 import { isTextEntry } from "./keys/focus";
 import { focusPane } from "./bubbles/focus";
-import Hourglass from "@lucide/solid/icons/hourglass";
+import { createProjectPanes } from "./terminal/ProjectPanes";
+import { InProject } from "./window/InProject";
+import { ProjectCentre } from "./window/ProjectCentre";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
@@ -17,7 +19,6 @@ import { CHORDS, LEADER, chordsOf } from "./keys/chords";
 import { copy } from "./app/copy";
 import "./buttons.css";
 import { lazy, createEffect, createMemo, createRoot, createSignal, createUniqueId, For, getOwner, onCleanup, onSettled, runWithOwner, Show, untrack, type Accessor } from "solid-js";
-import type { JSX } from "@solidjs/web";
 import { ChooseProject, EmptyShelf } from "./window/FirstRun";
 import { EmptyRail } from "./rail/EmptyRail";
 import { Layout } from "./window/Layout";
@@ -36,7 +37,7 @@ import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
 import { ReservedLine } from "./ink/ReservedLine";
-import { dismissable, failureLine } from "./ink/ReservedLine";
+import { dismissable } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
@@ -46,7 +47,6 @@ import { createStateAlerts } from "./rail/stateAlerts";
 import { Rail } from "./rail/Rail";
 import { createRailPeek } from "./rail/peek";
 import { createRailSlide } from "./rail/slide";
-import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { createLeader } from "./keys/Leader";
 import type { LinkContent } from "@contracts/link/LinkContent";
@@ -54,24 +54,20 @@ import { Capture } from "./todos/Capture";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
-import { createProjectDrafts, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
+import { createProjectDrafts, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
-import { connectedEntries, connectedOf, createConnections } from "./state/connections";
+import { connectedEntries, connectedOf, createConnections, failedOf } from "./state/connections";
 import { lazyXtermEmulators } from "./terminal/lazyEmulator";
 import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
+import { AskBar } from "./ask/AskBar";
+import { Feedback } from "./feedback/Feedback";
 import { createToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
-import { Bubbles } from "./bubbles/Bubbles";
-import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
 import { ProjectPicker } from "./switcher/ProjectPicker";
-import { Feedback } from "./feedback/Feedback";
-import { Pane } from "./terminal/Pane";
-import type { Screens } from "./terminal/screens";
-import { ResourceStrip } from "./resources/ResourceStrip";
 import type { ShelfRequest } from "./state/projectView";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/Shelf";
@@ -95,13 +91,6 @@ const linkedItem = (content: LinkContent, onLateFailure: (message: string) => vo
     : content.kind === "todo" ? <TodoHost id={content.todo.id} /> : null;
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
-
-/** Project regions show loading until their connection is ready, and failure if setup fails. */
-const InProject = (props: { open: ConnectedProject | undefined; failure?: Error | undefined; failed?: (failure: Error) => JSX.Element; pending?: JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
-  <Show when={props.open} keyed fallback={<Show when={props.failure} keyed fallback={props.pending}>{(failure) => props.failed?.(failure)}</Show>}>
-    {(open) => <ConnectedProjectContext value={open}>{props.children(open)}</ConnectedProjectContext>}
-  </Show>
-);
 
 // The fold helper loads after mount so Motion's layout projection stays out of the entry bundle (R3800).
 const documentMotion = (reducedMotion: Accessor<boolean>) => {
@@ -293,11 +282,7 @@ export const App = (props: {
 
   const activeConnection = createMemo(() => connectionOf(projects.active() ?? ""));
 
-  const activeFailure = createMemo(() => {
-    const connection = connections().get(projects.active() ?? "");
-
-    return connection?.kind === "failed" && !connection.last ? connection.error : undefined;
-  });
+  const activeFailure = createMemo(() => failedOf(connections().get(projects.active() ?? "")));
 
   const activeBusy = () => projects.tabs().length > 0 && activeConnection() === undefined && activeFailure() === undefined;
 
@@ -363,7 +348,7 @@ export const App = (props: {
     available: () => activeConnection() != null,
     invoke: () => railSlide.set(!widths.collapsed(), "key"),
   }) }]);
-  const railHandle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
+  const railToggle = () => projects.tabs().length > 0 ? { collapsed: widths.collapsed(), onToggle: () => railSlide.set(!widths.collapsed(), "click") } : undefined;
   const railPeeking = createRailPeek(widths.collapsed, () => document.querySelector(".rail"));
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement, connection: activeConnection });
@@ -440,7 +425,10 @@ export const App = (props: {
 
   createDockBadge({ app: untrack(() => props.app), rails: () => connectedEntries(connections()).map(([path, connection]) => ({ alerts: projectAlerts.level(path), nodes: attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed) })), onFailure: hide });
 
-  const emulators = () => props.createEmulator ?? lazyXtermEmulators();
+  const panes = createProjectPanes({
+    active: projects.active, connectionOf, createEmulator: () => props.createEmulator ?? lazyXtermEmulators(), observeTerminal: (path, id) => props.observeTerminal?.(path, id),
+    arrival: projects.arrival, focusPane, notice: jumpFailure, openObject: (url, surface) => routeNativeOpen({ kind: "link", url, surface }),
+  });
 
   return (
     <ReducedMotionContext value={props.reducedMotion}><DisplayClockContext value={now.subscribe}><ProjectDraftsContext value={drafts}><Show when={projects.loaded()}>
@@ -479,7 +467,7 @@ export const App = (props: {
             /></Show>
           </WindowBar>
         }
-        railHandle={railHandle()}
+        railToggle={railToggle()}
         railPeeking={railPeeking()}
         railSlide={railSlide.motion()}
         railStrip={<InProject open={activeConnection()} failure={activeFailure()}>{() => <RailStrip />}</InProject>}
@@ -493,7 +481,7 @@ export const App = (props: {
                 {() => (
                   <>
                     <AttentionKey />
-                    <Rail />
+                    <Rail {...(railToggle() ? { toggle: railToggle()! } : {})} />
                   </>
                 )}
               </InProject>
@@ -524,40 +512,11 @@ export const App = (props: {
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
-            <InProject open={activeConnection()} failure={activeFailure()} failed={failure => failureLine(failure, () => void projects.reopen(projects.active()!))} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
-              {(open) => {
-                const tracked = emulators();
-                const [screens, setScreens] = createSignal<Screens>();
-                const arrived = projects.arrival(open.project.path);
-
-                // U6371a: the Pane's effects have run by the next microtask; a user's own focus move since the switch has voided the request.
-                if (arrived) queueMicrotask(() => arrived(() => {
-                  const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
-
-                  if (id) screens()?.emulatorFor(id).focus();
-                  else focusPane();
-                }));
-
-                return (
-                  <div class="centre-stack">
-                    <div class="project-center-area">
-                    <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} openObject={(url, surface) => routeNativeOpen({ kind: "link", url, surface })} />
-                    <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
-                    <Feedback notify={toasts.notify} />
-                    <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
-                    </div>
-                    <ProjectSettingsView />
-                    </div>
-                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip returnFocus={() => { const selectedNode = open.rail.nodes.find(node => node.id === open.rail.selected()); const id = selectedNode && isDoor(selectedNode) ? selectedNode.terminal_id : undefined;
-
-                      if (id) screens()?.emulatorFor(id).focus();
-                      else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
-                  </div>
-                );
-              }}
-            </InProject>
+            <ProjectCentre panes={panes} open={activeConnection()} failure={activeFailure()} retry={() => void projects.reopen(projects.active()!)}>
+              <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
+              <Feedback notify={toasts.notify} />
+              <Switcher notify={toasts.notify} onFailure={setJumpFailure} onOpen={() => { if (frame.open() && frame.overlaid()) shelfFocus.toggle("key"); }} />
+            </ProjectCentre>
           </Show>
           </div>
           <Show when={forkAsked()}><ForkSheet app={props.app} open={forkOpen()} sources={forkSources} onClose={() => setForkOpen(false)} /></Show>

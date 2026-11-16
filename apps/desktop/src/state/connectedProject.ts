@@ -153,7 +153,7 @@ const reads = new Set<RpcMethodName>([
   "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
   "project.get", "project.resources", "models.list", "import.list", "project.importDiscover",
   "message.get", "message.list",
-  "message.progress", "message.reconcileWork", "route.list", "ask.list",
+  "route.list", "ask.list",
   "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
   "provenance.history", "provenance.touched",
   "workstream.queue",

@@ -97,6 +97,28 @@
   min-height: 0;
 }
 
+.pane-stack {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* U7155a: every shown Project's Pane keeps its size; the inactive ones only stop painting. */
+.pane-host,
+.project-pending {
+  position: absolute;
+  inset: 0;
+}
+
+.pane-host {
+  display: flex;
+  flex-direction: column;
+}
+
+/* IP7168d: `visibility` still intersects the viewport, the one thing xterm's renderer pause reads; a Pane moved above it
+   pauses its Terminals and keeps its size, which `display` would not. */
+.pane-host[data-inactive] { visibility: hidden; translate: 0 -200vh; }
+
 .project-center-area {
   position: relative;
   display: flex;

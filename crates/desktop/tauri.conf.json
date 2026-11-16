@@ -1,6 +1,6 @@
 {
   "plugins": { "deep-link": { "desktop": { "schemes": ["roundup-source"] } } },
-  "productName": "roundup",
+  "productName": "Roundup Source",
   "identifier": "dev.roundup.app.source",
   "build": {
     "devUrl": "http://localhost:5173",

@@ -66,7 +66,8 @@ export function createToast(policy: {
 export function ToastProvider(props: { toast: ReturnType<typeof createToast>; label: string }) {
   onCleanup(() => props.toast.remove());
 
-  return <ToastRegion toaster={props.toast.store} aria-label={props.label} class="app-toasts" maxVisible={Infinity} data-newest-first={props.toast.newestFirst}>
+  // U7192: the stack sits at the top right, below the window bar, so no card covers the input at the bottom.
+  return <ToastRegion toaster={props.toast.store} side="top" aria-label={props.label} class="app-toasts" maxVisible={Infinity} data-newest-first={props.toast.newestFirst}>
     {(card) => {
       const meta = metaOf(card);
 

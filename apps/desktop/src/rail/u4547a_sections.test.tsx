@@ -29,7 +29,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 it("u4547a_sections_partition_the_tree", async () => {
   await mountRail(tree());
   expect(rowNames()).toEqual(["plain", "plain-child", "plain-second", "mode", "mode-child", "root"]);
-  const sections = heads().map(head => head.parentElement!);
+  const sections = heads().map(head => head.closest<HTMLElement>(".rail-section")!);
   expect(sections.map(section => within(section!).getAllByRole("treeitem").filter(row => row.hasAttribute("data-id")).map(row => row.getAttribute("data-id"))))
     .toEqual([["plain", "plain-child", "plain-second"], ["mode", "mode-child"], ["root"]]);
 });
@@ -115,7 +115,7 @@ it("u5645c_sections_and_stable_order_survive_mode_prompt_clearing", async () => 
     mode("mode", "Saved", { order: 2 }), node("mode-child", { parent: "mode" }), node("root", { order: 3 })];
 
   const { rail, app } = await mountRail(nodes());
-  const members = () => heads().map(head => [...head.parentElement!.querySelectorAll(".rail-row")].map(row => row.getAttribute("data-id")));
+  const members = () => heads().map(head => [...head.closest<HTMLElement>(".rail-section")!.querySelectorAll(".rail-row")].map(row => row.getAttribute("data-id")));
   expect(members()).toEqual([["plain", "nested"], ["mode", "mode-child"], ["root"]]);
   app.handlers["rail.tree"] = () => nodes().map(node => node.id === "mode" ? { ...node, mode_prompt: "" } : node);
   await rail.refresh();

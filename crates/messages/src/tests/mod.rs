@@ -17,6 +17,7 @@ mod b_push_tests;
 mod b_resume_tests;
 mod dcl_tests;
 mod inv_tests;
+mod ip7168_tests;
 mod routes;
 mod send;
 mod u3782_tests;

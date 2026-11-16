@@ -210,71 +210,15 @@ p {
   left: calc(var(--rail-width) - var(--space-1) - var(--hairline-width));
 }
 
-/* U6228h: the Rail's handle, a half-disc on the Rail's trailing hairline at the Rail's vertical middle. Its hit area is the disc plus --space-2 on the Rail side; it shows while the pointer is over the Rail, its edge or itself, or while it holds keyboard focus, and takes no pointer while hidden. It rides a slide on the edge's own duration. */
-.rail-handle {
-  position: absolute;
-  top: 50%;
-  left: calc(var(--rail-width) - var(--space-2));
-  z-index: var(--layer-drawer);
-  width: var(--space-5);
-  height: var(--space-6);
-  translate: 0 -50%;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-crossfade) var(--easing-out);
-}
-
-.rail-handle[data-slide] {
-  transition: opacity var(--duration-crossfade) var(--easing-out), left var(--rail-slide-duration, var(--duration-drawer)) var(--easing-out);
-}
-
-.rail-handle[data-collapsed]:not([data-peek]) { left: calc(var(--rail-strip-width) - var(--space-2)); }
-
-.rail-handle[data-peek] { left: calc(var(--rail-peek-width) - var(--space-2)); }
-
-.rail-handle[data-slide="key"] { --rail-slide-duration: var(--duration-key); }
-
-.rail-handle[data-slide="fade"] { --rail-slide-duration: var(--duration-reduced); }
-
-.columns:has(.rail:hover, .rail-edge:hover, .rail-handle:hover) .rail-handle:not([data-dragging]),
-.rail-handle:has(:focus-visible) {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.rail-handle-button {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 0 0 0 var(--space-2);
-  cursor: pointer;
-}
-
-.rail-handle-button::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--space-4);
+/* U7156a: the Rail's toggle trails the WORKSTREAMS header, and sits at the top of the strip; both ride the sliding Rail, so the button has no position or transition of its own. */
+.rail-strip-head {
+  display: flex;
+  flex: none;
+  align-self: flex-start;
+  justify-content: center;
   box-sizing: border-box;
-  border: var(--hairline-width) solid var(--hairline);
-  border-left: 0;
-  border-top-right-radius: var(--radius-pill);
-  border-bottom-right-radius: var(--radius-pill);
-  background-color: var(--rail-ground);
-}
-
-.rail-handle-button .icon { position: relative; }
-
-.rail-handle-button:focus-visible { outline: none; }
-
-.rail-handle-button:focus-visible::before {
-  border-color: var(--accent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rail-handle, .rail-handle[data-slide] { transition: none; }
+  width: var(--rail-strip-width);
+  padding-top: var(--space-2);
 }
 
 /* The Shelf's leading hairline is drawn here, so it slides with the Shelf: the slot is the Shelf's own width and transform. */
@@ -405,6 +349,8 @@ p {
 }
 .window[data-rail="closed"] { --fill-rail: 0rem; }
 .window[data-shelf-mode="reserved"][data-shelf-shown="true"]:not([data-shelf-maximised="true"]) { --fill-reserve: var(--shelf-span); }
+/* U7192: a shown Shelf holds the top right under the window bar, so the Toast stack ends at its leading edge, clear of its header controls. */
+.window[data-shelf-shown="true"] { --toast-inset: var(--shelf-span); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
   --drawer-bottom: var(--rail-actions-height);
@@ -514,9 +460,10 @@ p {
 
 
 
-/* U3800b: the one file target under the pointer (a Rail row, a Project tab, or the Terminal pane as it reports `drop-over`) takes the drop look of a Sortable slot, a dashed --accent edge inside its rectangle; other targets paint nothing, and no size changes (U5, U46). */
+/* U3800b: the one file target under the pointer (a Rail row, a Project tab, or the Terminal pane or Bubble as it reports `drop-over`) takes the drop look of a Sortable slot, a dashed --accent edge inside its rectangle; other targets paint nothing, and no size changes (U5, U46). */
 .project-tab[data-drop="hover"]::after,
 .pane-body.drop-over::after,
+.bubble-body.drop-over::after,
 .rail-row[data-drop="hover"]::after {
   content: "";
   position: absolute;

@@ -29,7 +29,6 @@ Agent-owned Pad names retain their ownership restriction. `pads/u3789a_pad_renam
 | --- | --- |
 | Project / Terminal tabs | Native/library tab semantics; `header/u184_close.test.tsx`, `bubbles/u511a_rename.test.tsx` |
 | Form pickers / action menus | Single-value/native command semantics; `ui/Combobox.tsx`, `ui/contextMenu.ts`, `switcher/u2572_actions.test.tsx` |
-| Work progress report | Report prose with explicit evidence links; existing progress observers |
 | Resource summaries / Terminal output | Read-only measurements / vendor-owned input and output; `resources/u408_strip.test.tsx`, Terminal typing observers |
 
 Gates: P3/P9 forbid attention or starts from selection; P6/P11 preserve original identities, exact drafts, recovery and Terminal input ownership; P14 forbids usage/cost data. Observers assert focus, selection, call counts and contracts. Rendered captures judge D2/D5/D6/D9; behavioral tests make no layout assertions. All keyboard/pointer feedback remains instant, using existing Tokens and controls.

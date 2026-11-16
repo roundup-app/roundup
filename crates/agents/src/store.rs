@@ -156,6 +156,7 @@ impl Agents {
                     observed: Default::default(),
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
+                    stop_model: Arc::new(launcher.stop_judge()),
                 },
                 scan: Scan::new(scan_interval_from_env()),
                 wiring,
@@ -573,6 +574,7 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
+                stop_model: Arc::new(crate::stop_judge::Absent),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             wiring: crate::Quiet::default().shared(),
@@ -629,6 +631,7 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
+                stop_model: Arc::new(crate::stop_judge::Absent),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             wiring: crate::Quiet::default().shared(),
@@ -648,6 +651,22 @@ pub(super) mod tests {
             .runs()
             .put(&id, Slot::Running(Run::fixture(Arc::new(|| 0), true)));
         id
+    }
+
+    /// `shared`, with the stop judge's model replaced and the handle a spawned judge needs to fold
+    /// its answer back in. The caller holds the only `Arc`.
+    pub(crate) fn with_stop_model(
+        shared: Arc<Shared>,
+        model: impl crate::StopModel + 'static,
+    ) -> Arc<Shared> {
+        let Ok(mut shared) = Arc::try_unwrap(shared) else {
+            panic!("a second holder of Shared");
+        };
+        shared.events.stop_model = Arc::new(model);
+        Arc::new_cyclic(|me| {
+            shared.me = me.clone();
+            shared
+        })
     }
 
     /// A plain Agent node with a Terminal, with no watcher, for a test that drives `remove` directly.
@@ -703,6 +722,7 @@ pub(super) mod tests {
                 observed: Default::default(),
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
+                stop_model: Arc::new(crate::stop_judge::Absent),
             },
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             wiring: crate::Quiet::default().shared(),

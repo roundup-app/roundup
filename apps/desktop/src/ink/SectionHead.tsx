@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import type { ComponentProps } from "@solidjs/web";
+import type { ComponentProps, JSX } from "@solidjs/web";
 import { TreeItem, TreeItemIndicator } from "@ui-sdk/solid/tree";
 import { tabStop } from "../ui/TreeView";
 import { Icon } from "./Icon";
@@ -9,9 +9,11 @@ export const SectionHead = (props: {
   icon: ComponentProps<typeof Icon>["name"];
   label: string;
   disclosure?: { value: string; open: boolean; setOpen(open: boolean): void };
+  /** A control after the heading, beside it, never inside its button. */
+  trailing?: JSX.Element;
 }) => (
   <Show when={props.disclosure} fallback={<div class="section-head"><Icon name={props.icon} /><span>{props.label}</span></div>}>
-    {(disclosure) => <TreeItem value={disclosure().value} aria-label={props.label} class="section-head" data-button="quiet" render={tabStop(() => true)} onClick={event => {
+    {(disclosure) => <div class="section-head-row"><TreeItem value={disclosure().value} aria-label={props.label} class="section-head" data-button="quiet" render={tabStop(() => true)} onClick={event => {
       if (!event.defaultPrevented) disclosure().setOpen(!disclosure().open);
     }} onKeyDown={event => {
       if (event.key === "Enter" || event.key === " ") {
@@ -27,6 +29,6 @@ export const SectionHead = (props: {
     }}>
       <Icon name={props.icon} /><span>{props.label}</span>
       <TreeItemIndicator><Icon name="right" /></TreeItemIndicator>
-    </TreeItem>}
+    </TreeItem>{props.trailing}</div>}
   </Show>
 );

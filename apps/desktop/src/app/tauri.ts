@@ -11,7 +11,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
 import { actionRequestSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, retryRead, rpcFailureSchema, RpcError } from "./seam";
 import { copy } from "./copy";
-import type { App, CaptureAction, CaptureState, OutputMessage, Unsubscribe } from "./seam";
+import type { App, ForkListed, CaptureAction, CaptureState, OutputMessage, Unsubscribe } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -188,6 +188,13 @@ export const createTauriApp = (): App => {
     forkBranch: () => parsedCommand(v.string(), "fork_branch", {}),
     forkMake: async (params) => {
       await command("fork_make", params);
+    },
+    forkList: () => parsedCommand(v.array(v.object({ path: v.string(), name: v.string(), colour: v.picklist(["red", "orange", "amber", "green", "teal", "blue", "violet", "pink"]), collides: v.nullable(v.string()) })), "fork_list", {}),
+    forkRename: async (path, name) => {
+      await command("fork_rename", { path, name });
+    },
+    forkRecolour: async (path, colour) => {
+      await command("fork_recolour", { path, colour });
     },
     onForkSheet: (listener) => subscribe(() => listen("open-fork-sheet", listener)),
     onAppSettings: (listener) => subscribe(() => listen("open-app-settings", listener)),

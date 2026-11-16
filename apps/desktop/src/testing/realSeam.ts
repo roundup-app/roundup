@@ -318,6 +318,9 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     },
     forkBranch: async () => "fork",
     forkMake: async () => {},
+    forkList: async () => [],
+    forkRename: async () => {},
+    forkRecolour: async () => {},
     onForkSheet: (listener) => {
       window.addEventListener("open-fork-sheet", listener);
 

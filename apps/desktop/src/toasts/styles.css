@@ -1,4 +1,4 @@
-/* U414: the Toaster positions the stack above the resource strip; its wrapper holds no box. */
+/* U414, U7192: the Toaster positions the stack at the window's top right, below the window bar; its wrapper holds no box. */
 .toasts {
   display: contents;
 }

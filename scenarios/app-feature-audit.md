@@ -16,7 +16,7 @@ Policy: enumerate all these surfaces, including conditional, empty, stopped, err
 | --- | --- |
 | App entry and navigation | First run, Project choice/open/close/reopen, Project tabs, Rail and row actions, Workstreams, Doors, Agents, Modes, switcher and requested centre views |
 | Working and reviewing | Ask, native attention routes, Inbox, Terminals and their controls, Shelf, Todos and Drawer, Pads and editing, changed-file tree, diffs and line notes, outputs and links |
-| Inspection and configuration | Resource inspection, work progress, history, notifications/alerts, App Settings and Project Settings, every section and individual setting, help and recovery surfaces |
+| Inspection and configuration | Resource inspection, history, notifications/alerts, App Settings and Project Settings, every section and individual setting, help and recovery surfaces |
 | Native and keyboard entry points | App, Project, Edit and other native menus, context menus, confirmations/dialogs, chord catalogue, leader keys, local bindings and named actions, including actions available only in particular states |
 | `rup` | Every leaf command and explicit top-level command, help/discovery, stream commands and `actions`/`do`; record role restrictions and the method/action reached |
 | MCP | Actual `tools/list` for an Agent and a Door, including Door-only tools, mapped to method and input schema; distinguish CLI-only commands and methods deliberately not offered as tools |

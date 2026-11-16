@@ -200,6 +200,13 @@ p.ink[role="alert"] {
   letter-spacing: calc(var(--space-1) / 4);
 }
 
+.section-head-row {
+  display: flex;
+  align-items: center;
+}
+
+.section-head-row .section-head { flex: 1; min-width: 0; }
+
 .section-head span {
   flex: none;
   white-space: nowrap;

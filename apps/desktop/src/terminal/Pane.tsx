@@ -20,6 +20,7 @@ import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "./fontSize";
+import { createFileDrop } from "./fileDrop";
 import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
@@ -254,46 +255,10 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
 
   provideFocusTarget("pane.terminal", () => untrack(screen)?.querySelector<HTMLElement>("textarea, [tabindex]"));
 
-  // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
+  // U162: the window's native File drop. The ring shows only while a drop would be taken.
   let body: HTMLElement | undefined;
 
-  const takesDrop = (): string | null => {
-    const id = terminalId();
-
-    return id !== null && connected.daemonExit() === null && !screens.exited(id) ? id : null;
-  };
-
-  const [dropOver, setDropOver] = createRestartable(takesDrop, false);
-
-  const inBody = (x: number, y: number): boolean => {
-    const box = body?.getBoundingClientRect();
-
-    if (body === undefined || box === undefined || x < box.left || x >= box.right || y < box.top || y >= box.bottom) return false;
-
-    // An open Drawer sits over the pane, so the rectangle alone would take its drops.
-    const hit = document.elementFromPoint?.(x, y);
-
-    return hit === undefined || (hit !== null && body.contains(hit));
-  };
-
-  const unlistenDrop = connected.app.onFileDrop((drop) => {
-    const id = takesDrop();
-
-    if (drop.phase === "leave" || id === null || !inBody(drop.x, drop.y)) {
-      setDropOver(false);
-
-      return;
-    }
-
-    setDropOver(drop.phase === "over");
-
-    if (drop.phase === "drop") {
-      screens.emulatorFor(id).focus();
-      screens.pastePaths(id, drop.paths);
-    }
-  });
-
-  onCleanup(unlistenDrop);
+  const dropOver = createFileDrop(connected, () => screens, terminalId, () => body);
 
   // A Card appearing, growing or going changes the Terminal's room without a window resize.
   const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : makeResizeObserver(refitNextFrame);

@@ -2,7 +2,6 @@ import { useTodoList } from "../todos/todoList";
 import { usePadList } from "../pads/padList";
 import { createAgentPads } from "./pads/AgentPads";
 import { createMove, MovePicker } from "./MovePicker";
-import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "./EmptyRail";
 import { failureOf } from "../app/failureOf";
 import { captureFocus, provideFocusTarget, returnFocus } from "../keys/focus";
@@ -39,6 +38,7 @@ import { draftsOf } from "../state/railStorage";
 import { createRailDrag } from "./drag";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { afterElseBefore } from "../keys/survivor";
+import { RailToggle } from "./RailToggle";
 import { createRailTree, sameList, sections } from "./railTree";
 import { RailRecovery } from "./RailRecovery";
 import { RailFooter } from "./RailFooter";
@@ -100,7 +100,7 @@ const ctrlClickGuard = () => {
   };
 };
 
-export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) => {
+export const Rail = (props: { collapse?: () => void; peeked?: boolean; toggle?: { collapsed: boolean; onToggle: () => void } } = {}) => {
   const connected = useConnectedProject();
   const { app, project, rail, daemonExit } = connected;
 
@@ -136,13 +136,6 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
         { when: node.kind === "agent" && node.can_make_workstream, id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } },
         { when: node.kind === "agent" && node.can_save_as_mode, id: "save-as-mode", label: copy.saveAsMode, run: () => { setDialog({ kind: "save-as-mode", id: node.id }); } },
         { when: isMode(node), id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartMode(node.id); } },
-        {
-          when: node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null,
-          id: "progress", label: copy.workProgress, run: () => {
-            rowElement(node.id)?.focus({ preventScroll: true });
-            connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
-          },
-        },
         { when: isMode(node), id: "mode-prompt", label: copy.modePromptMenu, run: () => { setDialog({ kind: "opening-prompt", id: node.id }); } },
         { id: "folder", label: copy.openFolder, run: actions.folder },
         { id: "editor", label: copy.openInEditor, run: actions.editor },
@@ -709,7 +702,7 @@ export const Rail = (props: { collapse?: () => void; peeked?: boolean } = {}) =>
       >
         <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
           <div class="rail-section" role="group" aria-label={section.label}>
-            <SectionHead icon={section.icon} label={section.label} disclosure={{ value: `section:${section.id}`, open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} />
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ value: `section:${section.id}`, open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} trailing={section.id === "workstreams" && props.toggle ? <RailToggle collapsed={props.toggle.collapsed} onToggle={props.toggle.onToggle} /> : undefined} />
         <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
             <Show when={byKey().get(key)}>

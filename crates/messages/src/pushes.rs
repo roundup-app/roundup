@@ -4,7 +4,7 @@
 //! a weight, kept in its payload, and a rollup or a merge weighs what it holds.
 
 use crate::Error;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use contracts::Actor;
@@ -27,6 +27,9 @@ const MORE_BYTES: usize = 512;
 #[derive(Default)]
 pub(crate) struct Ledger {
     metas: HashMap<String, Slot>,
+    /// The `push_slots` rows as last read or written, by Door, so a write that would change none
+    /// is not made.
+    stored: BTreeMap<String, String>,
 }
 
 #[derive(Default, serde::Serialize, serde::Deserialize)]
@@ -46,25 +49,39 @@ impl Ledger {
     /// The slots stored in `push_slots`, as they were when the Daemon last ran (DCL8): a change
     /// `Seen` recorded as told and kept back here is sent after a restart, not lost.
     pub(crate) fn load(db: &rusqlite::Connection) -> Self {
-        let metas = db
+        let stored: BTreeMap<String, String> = db
             .prepare("SELECT door, slot FROM push_slots")
             .and_then(|mut stmt| {
                 stmt.query_map([], |row| {
                     Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
                 })?
-                .collect::<rusqlite::Result<Vec<_>>>()
+                .collect::<rusqlite::Result<_>>()
             })
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|(meta, json)| Some((meta, serde_json::from_str(&json).ok()?)))
+            .unwrap_or_default();
+        let metas = stored
+            .iter()
+            .filter_map(|(meta, json)| Some((meta.clone(), serde_json::from_str(json).ok()?)))
             .collect();
-        Self { metas }
+        Self { metas, stored }
     }
 
-    /// Writes each slot through, and drops the rows of those that are gone. A refused write
-    /// is returned and leaves the stored rows as they were (DCL10a).
+    /// Writes each slot through, and drops the rows of those that are gone; a write that would
+    /// leave every row as it is, and replaces no `push_intents` row, makes no transaction. A
+    /// refused write is returned and leaves the stored rows as they were (DCL10a).
     /// `queued` names the Door and child whose `push_intents` row this write replaces (DCL4).
-    fn save(&self, inner: &Inner, queued: Option<(&str, &str)>) -> rusqlite::Result<()> {
+    fn save(&mut self, inner: &Inner, queued: Option<(&str, &str)>) -> rusqlite::Result<()> {
+        let rows = self
+            .metas
+            .iter()
+            .map(|(meta, slot)| {
+                let json = serde_json::to_string(slot)
+                    .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+                Ok((meta.clone(), json))
+            })
+            .collect::<rusqlite::Result<BTreeMap<_, _>>>()?;
+        if queued.is_none() && rows == self.stored {
+            return Ok(());
+        }
         let store = lock(&inner.store);
         let tx = store.db.unchecked_transaction()?;
         if let Some((door, child)) = queued {
@@ -74,19 +91,19 @@ impl Ledger {
             )?;
         }
         tx.execute("DELETE FROM push_slots", [])?;
-        for (meta, slot) in &self.metas {
-            let json = serde_json::to_string(slot)
-                .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+        for (meta, json) in &rows {
             tx.execute(
                 "INSERT INTO push_slots (door, slot) VALUES (?1, ?2)",
                 rusqlite::params![meta, json],
             )?;
         }
-        tx.commit()
+        tx.commit()?;
+        self.stored = rows;
+        Ok(())
     }
 
     /// `save`, logging a refused write; the entries stay waiting in memory.
-    fn persist(&self, inner: &Inner, queued: Option<(&str, &str)>) {
+    fn persist(&mut self, inner: &Inner, queued: Option<(&str, &str)>) {
         if let Err(err) = self.save(inner, queued) {
             crate::log_failure("push ledger", &err.to_string());
         }
@@ -402,6 +419,7 @@ async fn push_locked(
         .map_or(1, |at| slot.waiting.remove(at).2 + 1);
     slot.waiting
         .push((subagent.to_owned(), entry.clone(), weight));
+    inner.work.notify_one();
     ledger.persist(inner, Some((meta, subagent)));
     if quiet {
         return;
@@ -537,11 +555,12 @@ async fn fold_pending(inner: &Arc<Inner>, door: &str) {
 }
 
 /// B22(a): at the window's end, the changes kept back go out as one Message.
-pub(crate) async fn flush(inner: &Arc<Inner>) {
-    IN_LEDGER.scope((), flush_locked(inner)).await;
+pub(crate) async fn flush(inner: &Arc<Inner>) -> bool {
+    IN_LEDGER.scope((), flush_locked(inner)).await
 }
 
-async fn flush_locked(inner: &Arc<Inner>) {
+/// Whether the ledger still holds a slot, which only a later pass can send or let go.
+async fn flush_locked(inner: &Arc<Inner>) -> bool {
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();
     for slot in ledger.metas.values_mut() {
@@ -567,6 +586,7 @@ async fn flush_locked(inner: &Arc<Inner>) {
         .metas
         .retain(|_, slot| !slot.sent.is_empty() || !slot.waiting.is_empty());
     ledger.persist(inner, None);
+    !ledger.metas.is_empty()
 }
 
 async fn roll_up(

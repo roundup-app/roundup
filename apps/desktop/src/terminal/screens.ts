@@ -22,6 +22,8 @@ export type Screens = {
   show(id: string, host: HTMLElement, focus?: boolean): Size;
   /** The Terminal leaves the pane: only its output subscription is released, and nothing it still sends reaches the emulator. */
   hide(id: string): void;
+  /** IP7168d: draws every Terminal this Pane shows now; a Pane shown again calls it so its first frame holds the output that arrived while it was hidden. */
+  redraw(): void;
   /** Tells the Daemon the size of the Terminal's pane. A Terminal that has exited, or a Daemon that has, takes no resize. */
   resize(id: string, size: Size, changedOnly?: boolean): void;
   setFontSize(size: number): void;
@@ -268,10 +270,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     emulatorFor,
     show,
     hide,
+    redraw: () => { for (const holder of holders.values()) if (holder.host) holder.emulator.redraw?.(); },
     resize,
-    setFontSize: (size) => {
-      for (const holder of holders.values()) holder.emulator.setFontSize(size);
-    },
+    setFontSize: (size) => { for (const holder of holders.values()) holder.emulator.setFontSize(size); },
     isAtBottom: (id) => holderFor(id).atBottom(),
     returnToBottom: (id) => holderFor(id).returnToBottom(),
     copy: clipboard.copy,

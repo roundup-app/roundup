@@ -1,4 +1,4 @@
-import { captureFocus } from "../keys/focus";
+import { captureFocus, focusTarget } from "../keys/focus";
 import type { RailState } from "../state/rail";
 import type { App, AppSeam, FileDrop, Unsubscribe } from "../app/seam";
 
@@ -60,7 +60,7 @@ export const createDropTargets = (
 
     if (node === undefined || rail === undefined) return null;
 
-    return rail.exitOf(node) === null ? document.querySelector(".pane-body") : null;
+    return rail.exitOf(node) === null ? focusTarget("pane.terminal")?.closest(".pane-body") ?? null : null;
   };
 
   const open = (element: HTMLElement) => {
