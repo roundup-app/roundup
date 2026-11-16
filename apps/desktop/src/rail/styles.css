@@ -112,30 +112,23 @@
   line-height: 1.15;
 }
 
-/* U6640b: a long status keeps one line, cut with …. */
-.rail-row .row-status {
-  flex: 1 1 0;
-  container-type: inline-size;
-  display: flex;
-  min-width: 0;
-  overflow: hidden;
+/* U7205c: the age is the row's last item, a fixed slot at the end edge, so its right edge never depends on which chips or icons a row shows. */
+.rail-row .row-age {
+  flex: none;
+  box-sizing: border-box;
+  inline-size: var(--space-6);
+  text-align: end;
   white-space: nowrap;
   color: var(--grey);
-  font-size: var(--text-row);
-  line-height: 1.15;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
 }
-
-.rail-row .row-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
-/* The status's right edge is fixed across rest, hover, focus and selection: the row's gap before the tail is dropped (gap moves to margins, none after the status), and the quick icons reveal in the tail's one constant slot. */
-.rail-row .line:has(.row-status) { gap: 0; }
-.rail-row:has(.row-status) :is(.name, .row-status) { margin-inline-start: var(--rail-gap); }
-/* pre keeps the separator's leading space, which a flex item would collapse. */
-.rail-row :is(.row-status-sep, .row-status-age) { flex: none; white-space: pre; }
-/* The name keeps its content width up to 60% of the row; the status takes all the shrink, so only the label is cut. */
-.rail-row:has(.row-status) .name { flex: 0 0 auto; max-width: 60%; }
-/* The tail keeps its one slot in every state, so the status's width never changes. The label gives way first, with its separator, once it would show under a glyph and …; the age stays until it no longer fits, then the row stays at the name. */
-@container (max-width: 12ch) { .row-status-label, .row-status-sep { display: none; } }
-@container (max-width: 4ch) { .row-status-age { display: none; } }
+.rail-row :is(.row-slot, .row-state, .row-tail) { flex: none; }
+.rail-row .row-slot { display: inline-flex; align-items: center; justify-content: center; inline-size: var(--space-4); color: var(--grey); }
+.rail-row :is(.machine-icon, .attribution-icon) { display: inline-flex; align-items: center; cursor: default; }
+.rail-row .machine-icon[data-offline] { color: var(--red); }
+.rail-row .name { flex: 1 1 0; }
 
 [data-part="branch-control"].rail-row .name,
 .rail-row[data-mode] .name {
@@ -477,32 +470,6 @@
   color: var(--grey);
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
-}
-.machine-chip, .machine-status {
-  white-space: nowrap;
-  cursor: default;
-  color: var(--grey);
-  font-size: var(--text-caption);
-}
-/* The hostname gives way first but never below 8ch, and shows on hover, focus and selection in its reserved space; every chip ends on the row's right edge. */
-.machine-chip {
-  flex: 0 1000 auto;
-  min-width: min(8ch, 100%);
-  max-inline-size: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-inline-start: auto;
-  opacity: 0;
-  pointer-events: none;
-}
-.rail-row:is(:hover, :focus-within, [data-selected="true"]) .machine-chip { opacity: 1; pointer-events: auto; }
-.machine-status {
-  flex: none;
-  margin-inline-start: var(--space-2);
-  color: var(--grey);
-}
-@container (width < env(--query-name-minimal)) {
-  .machine-chip, .machine-status { display: none; }
 }
 .worktree-chips {
   display: flex;
@@ -851,15 +818,6 @@
   width: var(--rail-slot);
   min-width: var(--rail-slot);
   padding-inline: 0;
-}
-
-/* Source names occupy a reserved secondary line and follow the Rail reveal policy. */
-.rail-row .rail-attribution {
-  visibility: hidden;
-}
-
-.rail-row:is(:hover, :focus-within, [data-selected="true"]) .rail-attribution {
-  visibility: visible;
 }
 
 /* U6248c: a waiting resume is one grey caption line; an exhausted one is the single error line, wrapping under Resume like the delivery failure. */

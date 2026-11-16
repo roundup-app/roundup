@@ -13,3 +13,16 @@ export const Age = (props: { updatedAt: number }) => {
 
   return <span class="item-age">{age(props.updatedAt, now())}</span>;
 };
+
+/** U7205c: a Rail row's age in short units, `<n>s`, `<n>m`, `<n>h` or `<n>d`, on U4709a's boundaries; past 7 days it keeps counting days. */
+export const railAge = (since: number, now: number): string => {
+  const span = elapsed(since, now);
+
+  if (span.unit === "now") return copy.railAge.seconds(Math.floor(Math.max(0, now - since) / 1000));
+
+  if (span.unit === "minutes") return copy.railAge.minutes(span.value);
+
+  if (span.unit === "hours") return copy.railAge.hours(span.value);
+
+  return copy.railAge.days(Math.floor(Math.max(0, now - since) / 86_400_000));
+};

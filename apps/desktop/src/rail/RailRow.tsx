@@ -21,11 +21,12 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { mergeProps } from "@zag-js/solid";
-import { Reveal, reads } from "../ink/RowStatus";
-import { createCut } from "../ink/Tip";
-import { Tip } from "../ui/Tip";
+import { LABELS } from "../ink/KindGlyph";
+import { railAge } from "../shelf/Age";
+import { useDisplayNow } from "../state/clock";
+import { Tip, type TriggerProps } from "../ui/Tip";
 import { KindGlyph } from "../ink/KindGlyph";
-import { FailureLine, Line as FailureCause } from "../ink/FailureLine";
+import { errorCause, Line as FailureCause } from "../ink/FailureLine";
 import { isMode } from "./layout";
 import { descendantsOf, isWorkstream } from "../state/railTopology";
 import { rowKind, rowUnread } from "./rollup";
@@ -130,16 +131,27 @@ const WorktreeChips = (props: { id: string }) => {
   </span>;
 };
 
-/** MC3, MC15: the Machine an Agent runs on as a chip, and its offline status; no chip for this Mac while it is the only one. */
-const MachineChip = (props: { node: RailNode }) => {
+/** U7205d: the Machine of an Agent on another Machine as one server icon in its fixed slot; the name, or offline, is its Tooltip and accessible name. An Agent on this Mac shows nothing. */
+const MachineIcon = (props: { node: RailNode }) => {
   const connected = useConnectedProject();
-  const machine = () => props.node.kind === "agent" ? props.node.machine : undefined;
-  const shown = () => props.node.kind !== "agent" || props.node.status === null ? null : machine() ?? (connected.machines.any() ? copy.thisMac : null);
+  const machine = () => props.node.kind === "agent" && props.node.status !== null ? props.node.machine : undefined;
+  const text = (name: string) => connected.machines.offline(name) ? copy.machineOffline : name;
 
-  return <Show when={shown()}>{name => <>
-    <Tip text={name()}>{trigger => <span {...trigger()} class="machine-chip" role="img" aria-label={name()}>{name()}</span>}</Tip>
-    <Show when={machine() !== undefined && connected.machines.offline(machine()!)}><span class="machine-status" role="img" aria-label={copy.machineOfflineState(name())}>{copy.machineOffline}</span></Show>
-  </>}</Show>;
+  return <Show when={machine()}>{name => <span class="row-slot row-machine">
+    <Tip text={text(name())}>{trigger => <span {...trigger()} class="machine-icon" data-offline={connected.machines.offline(name()) ? "" : undefined} role="img" aria-label={text(name())}><Icon name="server" /></span>}</Tip>
+  </span>}</Show>;
+};
+
+/** U7205e: who started the row as one icon in its fixed slot; the full text is its Tooltip and accessible name. */
+const AttributionIcon = (props: { text: string }) => <span class="row-slot row-attribution">
+  <Tip text={props.text}>{trigger => <span {...trigger()} class="attribution-icon" role="img" aria-label={props.text}><Icon name="started" /></span>}</Tip>
+</span>;
+
+/** U7205c: the age in the row's one trailing slot. */
+const RowAge = (props: { since: number | undefined }) => {
+  const now = useDisplayNow(() => false);
+
+  return <span class="row-age">{props.since === undefined ? "" : railAge(props.since, now())}</span>;
 };
 
 /** The count a row shows for children it hides: those folded under it while a drag holds it (U6550a), else its collapsed Agents. */
@@ -200,10 +212,25 @@ export const RailRowView = (props: {
     return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
   };
 
-  // R17: the App's clock is live while a connected project has a working Agent; a row adds no demand, so a stopped Daemon's stale working row ticks nothing.
-  // U6640a, U6640b: the label and age sit in the row on one line, cut with …; the full text is in the Terminal.
-  const statusRead = () => reads(doorStatus(), connected.rail.dismissed(props.row.node)) ? doorStatus() : null;
-  const statusCut = createCut(() => statusLabel());
+  // U7205a: the glyph's Tooltip and accessible name carry the status words, an error's reason included; the row shows none.
+  const glyphText = () => {
+    const shown = kind() ?? "idle";
+    const status = doorStatus();
+    const cause = errorCause(status, connected.rail.dismissed(props.row.node));
+
+    return [LABELS[shown], cause ?? (statusLabel() !== LABELS[shown] ? statusLabel() : "")].filter(Boolean).join(copy.comma);
+  };
+
+  let glyphFocus: Pick<TriggerProps, "onFocusIn" | "onFocusOut"> | undefined;
+
+  // The row takes keyboard focus for its glyph, so the glyph's Tooltip opens on it as well.
+  const glyphFocusOn = (event: FocusEvent, handler: JSX.EventHandlerUnion<HTMLElement, FocusEvent> | undefined) => {
+    const { target, currentTarget } = event;
+
+    if (target !== currentTarget || !(currentTarget instanceof HTMLElement) || !(target instanceof Element) || !(handler instanceof Function)) return;
+    // SAFETY: the guards above narrow currentTarget to an HTMLElement and target to an Element, the event type the handler takes.
+    handler(event as FocusEvent & { currentTarget: HTMLElement; target: Element });
+  };
 
   const unread = createMemo(() => rowUnread(props.topology, props.row.node, id => connected.unseen.of(id), isContainer() && props.row.collapsed !== null));
   const level = createMemo(() => alertLevel(props.topology, props.row.node));
@@ -219,9 +246,6 @@ export const RailRowView = (props: {
     return queued ? queued.entry.start.kind === "afterTodo" ? copy.afterBadge(queued.entry.start.todo) : copy.queuedBadge(queued.place) : null;
   };
 
-  // U6248c: an exhausted resume shows its cause once, in the line that carries Resume.
-  const exhaustedResume = () => resumeWait()?.at === null && doorStatus()?.kind === "error";
-
   const rowProps = () => ({
     class: "rail-row", classList: { "row-wash": true, "rail-root-divider": rootDivider() }, "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
@@ -236,6 +260,8 @@ export const RailRowView = (props: {
       if (!(event.target instanceof Element) || event.target.closest("button, input") || props.lifted) return;
       props.onEditing(true);
     },
+    onFocusIn: (event: FocusEvent) => glyphFocusOn(event, glyphFocus?.onFocusIn),
+    onFocusOut: (event: FocusEvent) => glyphFocusOn(event, glyphFocus?.onFocusOut),
     onKeyDown: (event: KeyboardEvent) => {
       if (event.target !== event.currentTarget || event.key !== "F2" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat) return;
       event.preventDefault(); event.stopPropagation(); props.onEditing(true);
@@ -258,21 +284,26 @@ export const RailRowView = (props: {
     <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={folds()}><IconButton class="rail-chevron row-control" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
-      <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
+      <Tip text={glyphText()}>{(trigger, focus) => {
+        glyphFocus = focus;
+
+        return <span {...trigger()} class="row-state"><KindGlyph kind={kind() ?? "idle"} label={glyphText()} /></span>;
+      }}</Tip>
       {name()}
-      <Show when={statusRead()}>{status => <span class="row-status" data-state="status" data-cut={statusCut[1]() ? "" : undefined} ref={statusCut[0]}><Reveal status={status()} {...(status().kind === "error" ? {} : { label: statusLabel() })} live={false} split /></span>}</Show>
-      <Show when={!isGroup()}><MachineChip node={props.row.node} /></Show>
       <Show when={level() !== "default" && level()}>{level => <span class="alert-level" data-state="alert-level">{level()}</span>}</Show>
       <FoldedCount folded={props.folded} topology={props.topology} id={props.row.node.id} hidden={props.row.collapsed?.agents.length} />
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && worktree()}><WorktreeChips id={props.row.node.id} /></Show>
+      <Show when={attribution()}>{source => <AttributionIcon text={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
+      <Show when={!isGroup()}><MachineIcon node={props.row.node} /></Show>
       <span class="row-tail">
         <Show when={!isGroup()}><RowIcons actions={props.actions}>{props.doorAction}</RowIcons></Show>
         <Show when={!isContainer()}><span class="row-controls"><span class="row-control-slot"><PadsControl count={props.todoCount} agent={props.row.node.id} /></span></span></Show>
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
         <Show when={isGroup()}><IconButton class="rail-group-chevron" aria-label={props.row.collapsed ? copy.expand : copy.collapse} aria-expanded={!props.row.collapsed} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       </span>
+      <RowAge since={doorStatus()?.since} />
     </p>
     <Show when={workstream() && !connected.rail.launching(props.row.node.id) && waiting()}>{count => <ReservedLine class="rail-waiting" status={copy.doorStoppedWaiting(count())} />}</Show>
     <Show when={unreachable()}>{reached => {
@@ -299,8 +330,6 @@ export const RailRowView = (props: {
       {at => <ReservedLine class="rail-resume" status={copy.resumesAt(doorStatus()?.label ?? "", at())} />}
     </Show>}</Show>
     <Show when={workstream() && connected.rail.doorFailure(props.row.node.id)}>{cause => <FailureCause label={cause()} class="rail-door-failure" />}</Show>
-    <Show when={attribution()}>{source => <ReservedLine class="rail-attribution" status={copy.startedBy(source().agent_name, source().project_name)} />}</Show>
-    <Show when={!workstream() && !exhaustedResume() && !connected.rail.dismissed(props.row.node)}><FailureLine status={doorStatus()} dismiss={() => connected.rail.dismiss(props.row.node)} recover={{ run: () => props.onOpen(props.row.node.id), label: copy.openTerminal }} /></Show>
   </div>;
 
   return <>
