@@ -1,11 +1,15 @@
 import { createResource, createSignal, For, Show } from "solid-js";
 import type { Machine } from "@contracts/machine/Machine";
+import { queueFocus } from "../keys/focus";
 import { answerOf, type App } from "../app/seam";
-import { Field } from "../ui/Field";
 import { ReservedLine } from "../ink/ReservedLine";
+import { AddMachineDialog } from "./AddMachineDialog";
 import { copy } from "./copy";
+import { machineFailure } from "./machineFailure";
 
-/** MC70: the page that lists the Machines, adds one and removes one; it is no sidebar, Rail level or dialog. */
+type Page = { machines: Machine[]; version: string; failure: string | null };
+
+/** MC70: the page that lists the Machines; adding is a dialog, and it is no sidebar, Rail level or panel. */
 export const MachinesSettings = (props: { app: App; project: () => string | null }) => {
   const calls = () => {
     const path = props.project();
@@ -13,24 +17,47 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     return path === null ? null : props.app.forProject(path);
   };
 
-  const [listed, { mutate }] = createResource(calls, async project => await project.rpc("machine.list", null).catch((): Machine[] => []));
-  const [host, setHost] = createSignal("");
-  const [addFailure, setAddFailure] = createSignal<string | null>(null);
-  const [updating, setUpdating] = createSignal<ReadonlySet<string>>(new Set());
-  const [rowFailure, setRowFailure] = createSignal<{ name: string; hint: string } | null>(null);
+  const read = async (project: ReturnType<App["forProject"]>): Promise<Page> => {
+    try {
+      const { machines, version } = await project.rpc("machine.list", null);
 
-  const add = async () => {
-    const name = host().trim();
+      return { machines, version, failure: null };
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      return { machines: [], version: "", failure: machineFailure(error, "list") };
+    }
+  };
+
+  const [listed, { mutate }] = createResource(calls, read);
+
+  const [hosts] = createResource(calls, async project => await project.rpc("machine.sshHosts", null).catch((): string[] => []));
+  const [adding, setAdding] = createSignal(false);
+  let trigger: HTMLButtonElement | undefined;
+
+  const [updating, setUpdating] = createSignal<ReadonlySet<string>>(new Set());
+  const [rowFailure, setRowFailure] = createSignal<{ name: string; sentence: string } | null>(null);
+
+  const closeAdd = () => { setAdding(false); queueFocus(() => trigger?.focus({ preventScroll: true })); };
+
+  const machines = () => listed()?.machines ?? [];
+
+  const setMachines = (next: Machine[]) => mutate(page => ({ machines: next, version: page?.version ?? "", failure: null }));
+
+  /** The sentence for a failure to add, or null once the Machine is on the page. */
+  const add = async (name: string): Promise<string | null> => {
     const project = calls();
 
-    if (name === "" || project === null) return;
+    if (project === null) return null;
 
     try {
-      mutate(await project.rpc("machine.add", { name }));
-      setHost("");
-      setAddFailure(null);
+      setMachines(await project.rpc("machine.add", { name }));
+
+      return null;
     } catch (error) {
-      setAddFailure(error instanceof Error ? error.message : String(error));
+      if (!(error instanceof Error)) throw error;
+
+      return machineFailure(error, "add", name);
     }
   };
 
@@ -40,14 +67,16 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     if (project === null || updating().has(name) || !answerOf(await props.app.ask(copy.machineRemoveQuestion(name))).accepted) return;
 
     try {
-      mutate(await project.rpc("machine.remove", { name }));
+      setMachines(await project.rpc("machine.remove", { name }));
       setRowFailure(null);
     } catch (error) {
-      setRowFailure({ name, hint: error instanceof Error ? error.message : String(error) });
+      if (!(error instanceof Error)) throw error;
+
+      setRowFailure({ name, sentence: machineFailure(error, "remove", name) });
     }
   };
 
-  /** MC75: one CLI run at a time per row; a failure shows the CLI's last line and offers Update again. */
+  /** MC75: one CLI run at a time per row; a failure shows its sentence and offers Update again. */
   const update = async (name: string) => {
     const project = calls();
 
@@ -57,9 +86,11 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     setRowFailure(failure => failure?.name === name ? null : failure);
 
     try {
-      mutate(await project.rpc("machine.update", { name }));
+      setMachines(await project.rpc("machine.update", { name }));
     } catch (error) {
-      setRowFailure({ name, hint: (error instanceof Error ? error.message : String(error)).replace(/^update_failed: /, "") });
+      if (!(error instanceof Error)) throw error;
+
+      setRowFailure({ name, sentence: machineFailure(error, "update", name) });
     } finally {
       setUpdating(set => { const next = new Set(set); next.delete(name);
 
@@ -67,28 +98,37 @@ export const MachinesSettings = (props: { app: App; project: () => string | null
     }
   };
 
-  return <>
+  const failure = () => listed()?.failure ?? null;
+  const unadded = () => (hosts() ?? []).filter(host => !machines().some(machine => machine.name === host));
+
+  return <div class="settings-machines-page">
+    <p class="settings-hint settings-machines-note">{copy.machinesIntro}</p>
     <ul class="settings-machines settings-rows" aria-label={copy.settingsMachines}>
-      <li class="settings-machine"><span class="settings-machine-name">{copy.thisMac}</span></li>
-      <For each={listed() ?? []}>{machine => <li class="settings-machine">
+      <li class="settings-machine">
+        <span class="settings-machine-name">{copy.thisComputer}</span>
+        <span class="settings-machine-state" data-state={failure() === null && listed() !== undefined ? "online" : "offline"}>
+          <span class="settings-machine-dot" aria-hidden="true" />
+          {failure() === null && listed() !== undefined ? copy.machineConnected(listed()?.version ?? "") : copy.machineNotConnected}
+        </span>
+        <Show when={failure()}>{sentence => <ReservedLine message={sentence()} blocked />}</Show>
+      </li>
+      <For each={machines()}>{machine => <li class="settings-machine">
         <span class="settings-machine-name">{machine.name}</span>
-        <span class="settings-machine-state" data-state={machine.reachable === false ? "offline" : "online"}>{machine.reachable === false ? copy.machineOffline : copy.machineOnline}</span>
+        <span class="settings-machine-state" data-state={machine.reachable === false ? "offline" : "online"}>
+          <span class="settings-machine-dot" aria-hidden="true" />
+          {machine.reachable === false ? copy.machineOffline : copy.machineOnline}
+        </span>
         <Show when={machine.outdated === true}>
           <button class="settings-machine-update" data-button="quiet" type="button" aria-label={copy.machineUpdateLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void update(machine.name)}>{updating().has(machine.name) ? copy.machineUpdating : copy.update}</button>
         </Show>
         <button class="settings-machine-remove" data-button="quiet" type="button" aria-label={copy.machineRemoveLabel(machine.name)} aria-disabled={updating().has(machine.name)} onClick={() => void remove(machine.name)}>{copy.machineRemove}</button>
-        <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{failure => <ReservedLine message={failure().hint} dismiss={() => setRowFailure(null)} />}</Show>
+        <Show when={rowFailure()?.name === machine.name ? rowFailure() : null}>{row => <ReservedLine message={row().sentence} dismiss={() => setRowFailure(null)} />}</Show>
       </li>}</For>
     </ul>
+    <Show when={listed() !== undefined && failure() === null && machines().length === 0}><p class="settings-hint settings-machines-note">{copy.noOtherMachines}</p></Show>
     <Show when={props.project() !== null} fallback={<p class="settings-hint settings-machines-note">{copy.machinesNeedProject}</p>}>
-      <Field.Root class="settings-field" invalid={addFailure() !== null}>
-        <Field.Label>{copy.machineAdd}</Field.Label>
-        <Field.Input value={host()} spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.machineAdd}
-          onInput={event => setHost(event.currentTarget.value)}
-          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); void add(); } }} />
-        <Field.HelperText>{copy.machineAddHint}</Field.HelperText>
-        <ReservedLine message={addFailure()} dismiss={() => setAddFailure(null)} />
-      </Field.Root>
+      <button ref={element => { trigger = element; }} class="settings-machines-add" data-button="add" type="button" onClick={() => setAdding(true)}>{copy.addMachine}</button>
+      <AddMachineDialog open={adding()} hosts={unadded()} add={add} close={closeAdd} finalFocus={() => trigger ?? null} />
     </Show>
-  </>;
+  </div>;
 };

@@ -83,6 +83,7 @@ import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { ShortcutFileExport as link_ShortcutFileExport } from "./link/ShortcutFileExport";
 import type { AddParams as machine_AddParams } from "./machine/AddParams";
 import type { Machine as machine_Machine } from "./machine/Machine";
+import type { MachineList as machine_MachineList } from "./machine/MachineList";
 import type { RemoveParams as machine_RemoveParams } from "./machine/RemoveParams";
 import type { UpdateParams as machine_UpdateParams } from "./machine/UpdateParams";
 import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
@@ -306,7 +307,8 @@ export type RpcMethods = {
   "daemon.getNaming": { params: null; result: project_NamingSettings };
   "daemon.setNaming": { params: project_NamingSettings; result: null };
   "data.fork": { params: data_ForkParams; result: data_ForkResult };
-  "machine.list": { params: null; result: machine_Machine[] };
+  "machine.list": { params: null; result: machine_MachineList };
+  "machine.sshHosts": { params: null; result: string[] };
   "machine.add": { params: machine_AddParams; result: machine_Machine[] };
   "machine.remove": { params: machine_RemoveParams; result: machine_Machine[] };
   "machine.update": { params: machine_UpdateParams; result: machine_Machine[] };

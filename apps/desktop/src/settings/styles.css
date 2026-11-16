@@ -427,3 +427,18 @@
 .settings-footnote { margin: var(--space-2) var(--space-4) 0; }
 /* U7157d: the reset button sits in the row's right-hand column. */
 .settings-field .settings-reset-button { justify-self: end; }
+/* MC70: the page's buttons and the Add dialog's use the App's UI font; the global mono for action captions does not reach them. */
+.settings-machines-page [data-button], .add-machine [data-button] { font-family: var(--font-ui); }
+.settings-machine-state { display: inline-flex; align-items: center; gap: var(--space-1); }
+.settings-machine-dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-round); background: var(--grey); }
+.settings-machine-state[data-state="online"] .settings-machine-dot { background: var(--accent); }
+.settings-machines-add { margin: var(--space-3) var(--space-4); }
+.add-machine { width: min(28rem, 100vw - var(--space-6)); }
+.add-machine .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
+.add-machine p.ink[role="alert"] { white-space: normal; overflow: visible; text-overflow: clip; }
+.add-machine .reserved-content { align-items: flex-start; }
+.add-machine-hosts h3 { margin: 0; font-size: var(--text-small); font-weight: 500; color: var(--grey); }
+.add-machine-hosts ul { margin: 0; padding: 0; list-style: none; }
+.add-machine-host { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) 0; }
+.add-machine-entry { display: flex; gap: var(--space-2); align-items: center; }
+.add-machine-entry input { flex: 1; min-width: 0; }

@@ -11,7 +11,7 @@ afterEach(cleanup);
 /** The Rail shows `StartMachine` only while `names()` is non-empty (MC76); this mirrors that gate. */
 const shown = async (list: Machine[]) => {
   const app = createFakeApp();
-  app.handlers["machine.list"] = () => list;
+  app.handlers["machine.list"] = () => ({ machines: list, version: "0.1.21" });
   const [tick] = createSignal(0);
 
   const machines = createRoot(() => {
