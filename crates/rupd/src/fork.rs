@@ -80,8 +80,9 @@ pub(crate) fn fork(root: &Path, params: &ForkRequest) -> Result<ForkResult, RpcE
         )));
     }
     let plan = plan(&source, params.projects.as_deref())?;
+    let open = read_open(&source)?;
     fs::create_dir_all(&target).map_err(|e| failed(&target, e))?;
-    let done = copy_all(&source, &target, params, &plan);
+    let done = copy_all(&source, &target, params, &plan, open);
     if done.is_err() {
         let _ = if existed {
             fs::read_dir(&target).map(|entries| {
@@ -224,6 +225,7 @@ fn copy_all(
     target: &Path,
     params: &ForkParams,
     plan: &[Keep],
+    open: Option<serde_json::Value>,
 ) -> Result<ForkResult, RpcError> {
     let prefs = source.join("preferences.db");
     if prefs.exists() {
@@ -251,6 +253,13 @@ fn copy_all(
             }
         }
     }
+    if let Some(open) = open {
+        let kept: BTreeSet<&str> = projects.iter().map(|p| p.key.as_str()).collect();
+        let text =
+            serde_json::to_string(&narrowed(source, open, &kept)).map_err(RpcError::internal)?;
+        let path = target.join("projects.json");
+        fs::write(&path, text).map_err(|e| failed(&path, e))?;
+    }
     let record = ForkRecord {
         name: params.name.clone(),
         colour: params.colour,
@@ -266,6 +275,43 @@ fn copy_all(
         projects,
         refused,
     })
+}
+
+/// FK5977g: the live `projects.json`, `None` when the live folder has none.
+fn read_open(source: &Path) -> Result<Option<serde_json::Value>, RpcError> {
+    let path = source.join("projects.json");
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(failed(&path, e)),
+    };
+    match serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(value) if value.is_object() => Ok(Some(value)),
+        _ => Err(invalid(format!("{} cannot be parsed", path.display()))),
+    }
+}
+
+/// Keeps the `open` and `recent` entries and the `names` whose Project the Fork holds, in live order.
+fn narrowed(
+    source: &Path,
+    mut file: serde_json::Value,
+    kept: &BTreeSet<&str>,
+) -> serde_json::Value {
+    let in_fork = |path: &str| {
+        crate::data::project_data(source, Path::new(path))
+            .ok()
+            .and_then(|dir| dir.file_name().map(|n| n.to_string_lossy().into_owned()))
+            .is_some_and(|key| kept.contains(key.as_str()))
+    };
+    for field in ["open", "recent"] {
+        if let Some(list) = file.get_mut(field).and_then(|v| v.as_array_mut()) {
+            list.retain(|v| v.as_str().is_some_and(in_fork));
+        }
+    }
+    if let Some(names) = file.get_mut("names").and_then(|v| v.as_object_mut()) {
+        names.retain(|path, _| in_fork(path));
+    }
+    file
 }
 
 /// Opens `db` to read. A database at rest has no `-wal`; opening it normally would create that
