@@ -68,6 +68,7 @@ export const CONTRACT = {
     "link.read": "f2614e7b71299ebb",
     "machine.add": "99db1ff4fa51f901",
     "machine.list": "433e152f21107246",
+    "machine.remove": "e4d3af8da0097251",
     "message.acceptResult": "a6dca4e5af9c812c",
     "message.drop": "5016380ce53c6e0a",
     "message.get": "1de0012e412ba03d",

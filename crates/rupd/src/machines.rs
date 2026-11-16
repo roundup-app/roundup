@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use contracts::machine::{AddParams, Machine};
+use contracts::machine::{AddParams, Machine, RemoveParams};
 use rpc::RpcError;
 use serde_json::Value;
 
@@ -168,6 +168,23 @@ impl Daemon {
         }
         self.listed_now(&core).await
     }
+
+    /// MC71: forgets `name` in the core, then answers the core's list as it stands. This Mac is
+    /// no entry of the core's list and is refused. Agents and Spools of roundup stay.
+    pub(super) async fn machine_remove(
+        &self,
+        _conn: &mut Conn,
+        params: RemoveParams,
+    ) -> Result<Vec<Machine>, RpcError> {
+        if params.name.trim().eq_ignore_ascii_case("This Mac") {
+            return Err(RpcError::internal(
+                "this_mac: This Mac cannot be removed".to_owned(),
+            ));
+        }
+        let core = self.machine_core.open().await.map_err(failed)?;
+        core.machine_rm(&params.name).await.map_err(failed)?;
+        self.listed_now(&core).await
+    }
 }
 
 #[cfg(test)]
@@ -245,6 +262,12 @@ mod tests {
                                 .lock()
                                 .push(req["params"]["name"].as_str().unwrap().to_owned());
                         }
+                        let refused =
+                            req["method"] == "machine.rm" && req["params"]["name"] == "pinned";
+                        if req["method"] == "machine.rm" && !refused {
+                            let gone = req["params"]["name"].as_str().unwrap().to_owned();
+                            names.lock().retain(|n| *n != gone);
+                        }
                         let machines: Vec<Value> = names
                             .lock()
                             .iter()
@@ -255,7 +278,11 @@ mod tests {
                         } else {
                             json!({"added": true})
                         };
-                        let reply = json!({"jsonrpc":"2.0","id":req["id"],"result":result});
+                        let reply = if refused {
+                            json!({"jsonrpc":"2.0","id":req["id"],"error":{"code":-32000,"message":"machine is pinned","data":{"kind":"pinned","hint":"stop its terminals first"}}})
+                        } else {
+                            json!({"jsonrpc":"2.0","id":req["id"],"result":result})
+                        };
                         core_w.write_all(&frame(&reply)).await.unwrap();
                     }
                 });
@@ -398,6 +425,64 @@ mod tests {
             .map(|m| m["name"].as_str().unwrap())
             .collect();
         assert_eq!(names, ["roundup-ci-control", "build-box"]);
+    }
+
+    #[tokio::test]
+    async fn mc71_remove_calls_machine_rm_after_confirm_and_drops_the_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, seen) = fake_core();
+        let mut daemon = daemon_in(dir.path());
+        daemon.machine_core = core;
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":1,"method":"machine.remove","params":{"name":"roundup-ci-control"}}"#,
+        )
+        .await;
+        let rms: Vec<Value> = seen
+            .lock()
+            .iter()
+            .filter(|r| r["method"] == "machine.rm")
+            .cloned()
+            .collect();
+        assert_eq!(rms.len(), 1);
+        assert_eq!(rms[0]["params"], json!({"name": "roundup-ci-control"}));
+        assert_eq!(reply["result"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn mc71_a_refused_rm_carries_the_cores_hint_and_keeps_the_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _, _, list) = counted_core(&["pinned"]);
+        let mut daemon = daemon_in(dir.path());
+        daemon.machine_core = core;
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":1,"method":"machine.remove","params":{"name":"pinned"}}"#,
+        )
+        .await;
+        let message = reply["error"]["message"].as_str().unwrap();
+        assert!(message.contains("stop its terminals first"), "{message}");
+        assert_eq!(*list.lock(), ["pinned"]);
+    }
+
+    #[tokio::test]
+    async fn mc71_this_mac_cannot_be_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, seen) = fake_core();
+        let mut daemon = daemon_in(dir.path());
+        daemon.machine_core = core;
+        let reply = ask(
+            &daemon,
+            r#"{"jsonrpc":"2.0","id":1,"method":"machine.remove","params":{"name":"This Mac"}}"#,
+        )
+        .await;
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with("this_mac")
+        );
+        assert!(seen.lock().is_empty());
     }
 
     #[tokio::test]
