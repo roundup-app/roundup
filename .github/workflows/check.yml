@@ -464,7 +464,7 @@ jobs:
           path: ${{ env.DAEMON_BINARIES }}
           key: ${{ steps.key.outputs.key }}
 
-  # L89: the web tests in up to 22 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
+  # L89: the web tests in up to 24 shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.

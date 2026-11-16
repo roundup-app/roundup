@@ -61,6 +61,8 @@ test("ci7295a_web_runs_get_the_fewest_shards_within_the_time_budget", () => {
   expect(shardCount(apps, measured, 100, 9)).toBe(2);
   // The serial file adds its whole 92 s to the shard it joins: only a fourth shard holds it within 100 s.
   expect(shardCount(Object.keys(measured), measured, 100, 9, serial)).toBe(4);
-  // No count meets a budget below the longest file: the cap.
-  expect(shardCount(apps, measured, 50, 9)).toBe(9);
+  // A budget below the slowest file rises to that file's own time: more shards would end it no sooner.
+  expect(shardCount(apps, measured, 50, 9)).toBe(2);
+  // The cap holds when the budget wants more shards.
+  expect(shardCount(apps, measured, 100, 1)).toBe(1);
 });

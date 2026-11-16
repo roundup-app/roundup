@@ -23,7 +23,7 @@ WEB_BUDGET_SECONDS = 720
 
 # A full run's lanes: check.yml's rust matrix and its full web matrix, `MAX_SHARDS` in loop/affected.py. A copy, since
 # this file also runs from a copy outside the checkout (README).
-LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 23)]
+LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 25)]
 
 
 def overlap(rows):

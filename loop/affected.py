@@ -60,9 +60,10 @@ PATH_ATTRIBUTE = re.compile(r'\bpath\s*=\s*"([^"]+)"')
 INCLUDE = re.compile(r'\binclude!\(\s*"([^"]+)"')
 LIBRARIES = {'lib', 'rlib', 'dylib', 'cdylib', 'staticlib', 'proc-macro'}
 
-# CI7295a: a full web run in this many shards keeps each one's measured time near 200 s (`shardCount` of
-# apps/desktop/src/testing/shardSequencer.ts); it caps a PR's count, which check's `plan` sizes by measured time.
-MAX_SHARDS = 22
+# CI7295a: a full web run in this many shards keeps each one's modelled time under 190 s (`shardCount` of
+# apps/desktop/src/testing/shardSequencer.ts), a test step near 220 s on the runner (run 43967384873); it caps a PR's
+# count, which check's `plan` sizes by measured time.
+MAX_SHARDS = 24
 
 
 def shards(count):
