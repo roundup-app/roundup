@@ -265,7 +265,7 @@ print(json.dumps(call(2,'rail.setAlertLevel',{'project':os.getcwd(),'id':os.envi
     ]);
     let c = p.client().await;
     let a = p.spawn_agent(&c).await;
-    let output = daemon::h21_poll("the Agent peer's response", async || {
+    let output = daemon::poll_until("the Agent peer's response", async || {
         std::fs::read_to_string(&report)
             .ok()
             .and_then(|s| serde_json::from_str::<Value>(&s).ok())

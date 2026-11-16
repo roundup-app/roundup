@@ -29,7 +29,7 @@ use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
 use daemon::{
-    Project, TEN_IDLE_BOUND, entry_of, h21_poll, next, next_kind, rail_tree, signal, start,
+    Project, TEN_IDLE_BOUND, entry_of, next, next_kind, poll_until, rail_tree, signal, start,
     start_door, wait_until_idle,
 };
 use identity::*;
@@ -527,7 +527,7 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     )
     .unwrap();
     // A4452: the inbox receipt, then idle, bound startup without any typed prompt.
-    h21_poll("startup coordination receipt", async || {
+    poll_until("startup coordination receipt", async || {
         let messages = client
             .request("message.list", json!({"to":agent.id}))
             .await
@@ -540,7 +540,7 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
             .cloned()
     })
     .await;
-    h21_poll("startup coordination stopped", async || {
+    poll_until("startup coordination stopped", async || {
         rail_tree(&client)
             .await
             .into_iter()
