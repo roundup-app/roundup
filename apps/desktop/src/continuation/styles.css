@@ -8,6 +8,14 @@
   flex: 0 1 auto;
 }
 
+/* U7211a: the line covers the Terminal's top inset plus whole rows, never half of one: its height is that inset and the rows it spans. */
+.pane-top .reserved-line.resume-bar:not([data-empty]) {
+  --resume-rows: 1;
+  block-size: calc(var(--space-2) + var(--resume-rows) * var(--text-terminal) * var(--line-terminal));
+  min-block-size: 0;
+  max-block-size: none;
+}
+
 .reserved-line.resume-bar:not([data-empty]) {
   background: var(--ground);
   pointer-events: auto;
