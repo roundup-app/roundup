@@ -178,9 +178,7 @@ export const createTauriApp = (): App => {
     },
     listEditors: () => parsedCommand(v.array(v.object({ id: v.string(), name: v.string() })), "list_editors", {}),
     updates: () => parsedCommand(updateFactsSchema, "updates", {}),
-    installUpdate: async () => {
-      await command("install_update", {});
-    },
+    installUpdate: () => command<void>("install_update", {}),
     updateCore: () => parsedCommand(updateFactsSchema, "update_core", {}),
     onUpdatesChanged: (listener) => subscribe(() => listen("updates-changed", event => listener(v.parse(updateFactsSchema, event.payload)))),
     showContextMenu: (items, x, y) => parsedCommand(v.nullable(v.string()), "show_context_menu", { items, x, y }),
