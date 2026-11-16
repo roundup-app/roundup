@@ -151,5 +151,12 @@ export const nameOf = (terminal: TerminalInfo): string => terminal.title?.trim()
 /** The window event a Switcher entry for Terminal `detail` sends: show its bubble, restoring it, and focus its emulator (U529). */
 export const REVEAL_BUBBLE = "roundup:reveal-bubble";
 
+/** U529, U7189: show a Terminal as its Switcher entry does: select its owner (the Project root when the Project owns it), then reveal its bubble. The owner has seen its status then, so it leaves the attention list. */
+export const revealTerminal = (rail: { select(id: string | null): void; dismiss(terminal: TerminalInfo): void }, project: string, terminal: TerminalInfo): void => {
+  rail.dismiss(terminal);
+  rail.select(terminal.owner === project ? null : terminal.owner);
+  window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: terminal.id }));
+};
+
 /** U511: the name the user gave a Terminal wins over its default; clearing it brings the default back. */
 export const shownName = (terminal: TerminalInfo, place: Place | undefined): string => place?.name || nameOf(terminal);

@@ -1,0 +1,18 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "systemMessage": "You read the last message a coding agent wrote when its turn ended"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_stop_judge",
+            "name": "StructuredOutput",
+            "arguments": "{\"question\": \"\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -14,7 +14,7 @@ import { CopyButton } from "../ui/CopyButton";
 import { InboxRow } from "./InboxRow";
 import type { AgentRow, RowActions } from "./InboxRow";
 import { sectionsOf } from "./rows";
-import { nameOf, REVEAL_BUBBLE } from "../bubbles/places";
+import { nameOf, revealTerminal } from "../bubbles/places";
 import { statusText } from "../terminal/programStatus";
 import "./inbox.styles.css";
 
@@ -164,8 +164,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
 
       if (row.terminal) {
         // The Switcher's way to a Terminal (U529): select its owner, then reveal its bubble.
-        rail.select(row.terminal.owner === project.path ? null : row.terminal.owner);
-        window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: row.terminal.id }));
+        revealTerminal(rail, project.path, row.terminal);
       } else rail.select(row.node.id);
     },
     busy: (row) => busy().has(row.key),

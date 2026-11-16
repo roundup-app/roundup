@@ -53,7 +53,7 @@ export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: strin
     return row === null ? null : props.rowElement(row) ?? null;
   };
 
-  return <NativeAlert app={app} open={question() !== null}
+  return <NativeAlert app={app} key="rail-confirm" open={question() !== null}
     question={question() ?? idle}
     onConfirm={(answer) => {
       const kept = props.menu.confirming();
