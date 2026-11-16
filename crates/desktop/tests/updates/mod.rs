@@ -115,12 +115,23 @@ fn u7208d_updates_answers_the_versions_and_what_is_ready() {
     );
 
     go.send(()).unwrap();
-    let facts = looked.recv_timeout(WAIT).expect("the look sent no facts");
-
+    let expected = json!({"roundup": null, "core": {"version": "0.1.21", "ready": "0.1.22"}});
+    let deadline = std::time::Instant::now() + WAIT;
+    let answered = loop {
+        let facts = invoke(&webview, "updates", json!({})).unwrap();
+        if facts == expected || std::time::Instant::now() > deadline {
+            break facts;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
     assert_eq!(
-        facts,
-        json!({"roundup": null, "core": {"version": "0.1.21", "ready": "0.1.22"}})
+        answered, expected,
+        "the look never named the feed's version"
     );
-    assert_eq!(invoke(&webview, "updates", json!({})).unwrap(), facts);
+
+    let sent = looked
+        .recv_timeout(WAIT)
+        .expect("the look named the version but sent no `updates-changed`");
+    assert_eq!(sent, expected);
     assert_eq!(fx.file("ran"), "", "a look never runs herdr-core update");
 }

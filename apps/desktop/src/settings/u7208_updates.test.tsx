@@ -56,9 +56,7 @@ it("u7208a_updates_page_shows_both_rows_with_their_state", async () => {
     await row(copy.roundup).findByText(copy.updateName(copy.roundup, "0.4.0")),
   ).toBeTruthy();
   expect(
-    row(copy.roundup).getByText(
-      copy.updateReady("0.5.0", copy.updateKeepsAgents),
-    ),
+    row(copy.roundup).getByText(copy.updateReady("0.5.0", copy.settingsAgents)),
   ).toBeTruthy();
   expect(button(copy.roundup)).toHaveLength(1);
   expect(
@@ -71,7 +69,7 @@ it("u7208a_updates_page_shows_both_rows_with_their_state", async () => {
 
   app.emitUpdates({ roundup: { version: "0.5.0", ready: null }, core: null });
   await waitFor(() =>
-    expect(row(copy.roundup).getByText(copy.updateUpToDate)).toBeTruthy(),
+    expect(row(copy.roundup).getByText(copy.upToDate)).toBeTruthy(),
   );
   expect(button(copy.roundup)).toHaveLength(0);
   expect(row(copy.herdrCore).getByText(copy.updateNotFound)).toBeTruthy();
@@ -81,7 +79,7 @@ it("u7208a_updates_page_shows_both_rows_with_their_state", async () => {
   await waitFor(() =>
     expect(screen.queryByRole("group", { name: copy.roundup })).toBeNull(),
   );
-  expect(row(copy.herdrCore).getByText(copy.updateUpToDate)).toBeTruthy();
+  expect(row(copy.herdrCore).getByText(copy.upToDate)).toBeTruthy();
   expect(screen.queryByText(copy.updatesFootnote)).toBeNull();
 });
 
@@ -93,7 +91,9 @@ it("u7208a_search_finds_each_update_row_with_its_button", async () => {
   expect(
     await screen.findByRole("button", { name: copy.updateCore }),
   ).toBeTruthy();
-  expect(screen.queryAllByRole("button", { name: copy.updateRoundup })).toHaveLength(0);
+  expect(
+    screen.queryAllByRole("button", { name: copy.updateRoundup }),
+  ).toHaveLength(0);
 
   fireEvent.input(search, { target: { value: "roundup" } });
   expect(
@@ -121,9 +121,7 @@ it("u7208b_a_failed_install_shows_its_cause_and_keeps_the_button", async () => {
   expect(installs).toBe(1);
 
   finish();
-  await waitFor(() =>
-    expect(press).toHaveProperty("disabled", false),
-  );
+  await waitFor(() => expect(press).toHaveProperty("disabled", false));
 
   app.installUpdate = async () => {
     installs += 1;
@@ -136,9 +134,7 @@ it("u7208b_a_failed_install_shows_its_cause_and_keeps_the_button", async () => {
   expect(installs).toBe(2);
   expect(press).toHaveProperty("disabled", false);
   expect(
-    row(copy.roundup).getByText(
-      copy.updateReady("0.5.0", copy.updateKeepsAgents),
-    ),
+    row(copy.roundup).getByText(copy.updateReady("0.5.0", copy.settingsAgents)),
   ).toBeTruthy();
 });
 
@@ -147,9 +143,7 @@ it("u7208c_the_core_row_shows_the_new_version_or_the_failure", async () => {
   const noSpace = new RpcError(INTERNAL_CODE, "no space left on device");
 
   app.coreUpdateFailure = noSpace;
-  fireEvent.click(
-    await screen.findByRole("button", { name: copy.updateCore }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: copy.updateCore }));
   expect(await row(copy.herdrCore).findByText(noSpace.message)).toBeTruthy();
   expect(
     row(copy.herdrCore).getByRole("button", { name: copy.updateCore }),
@@ -167,7 +161,7 @@ it("u7208c_the_core_row_shows_the_new_version_or_the_failure", async () => {
       copy.updateName(copy.herdrCore, "0.1.22"),
     ),
   ).toBeTruthy();
-  expect(row(copy.herdrCore).getByText(copy.updateUpToDate)).toBeTruthy();
+  expect(row(copy.herdrCore).getByText(copy.upToDate)).toBeTruthy();
   expect(button(copy.herdrCore)).toHaveLength(0);
   expect(screen.queryByText(noSpace.message)).toBeNull();
   expect(app.coreUpdates).toBe(2);

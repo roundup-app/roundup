@@ -2,7 +2,6 @@ import { createEffect, untrack } from "solid-js";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "../state/storage";
 import { PROGRAMS, type Updates } from "../state/updates";
-import { copy as sharedCopy } from "../sharedCopy";
 import { copy } from "./copy";
 import type { ToastQueue } from "./queue";
 
@@ -13,8 +12,8 @@ const schema = storageSchema(
 );
 
 const names = {
-  roundup: sharedCopy.roundup,
-  core: sharedCopy.herdrCore,
+  roundup: copy.roundup,
+  core: copy.herdrCore,
 } as const;
 
 /** U7208e: one Toast per ready version not yet told, whether the facts came at launch or from an hourly look; its card shows Settings on Updates. */

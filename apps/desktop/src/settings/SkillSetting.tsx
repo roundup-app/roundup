@@ -25,7 +25,7 @@ const failureOf = (items: Item[]): [string, string] | null => {
 const stateWords = (items: Item[]) => {
   if (items.some(i => i.state === "outdated")) return copy.skillOutdated;
 
-  if (on(items)) return copy.skillCurrent;
+  if (on(items)) return copy.upToDate;
 
   if (items.every(i => i.state === "missing")) return copy.skillMissing;
 

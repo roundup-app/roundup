@@ -7,7 +7,7 @@ const shown = {
   roundup: {
     name: copy.roundup,
     button: copy.updateRoundup,
-    keeps: copy.updateKeepsAgents,
+    keeps: copy.settingsAgents,
   },
   core: {
     name: copy.herdrCore,
@@ -33,7 +33,7 @@ export const UpdateRow = (props: { program: Program; updates: Updates }) => {
 
     if (ready) return copy.updateReady(ready, own().keeps);
 
-    return row() ? copy.updateUpToDate : copy.updateNotFound;
+    return row() ? copy.upToDate : copy.updateNotFound;
   };
 
   return (
