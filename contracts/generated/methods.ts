@@ -20,6 +20,7 @@ import type { ModePromptParams as agent_ModePromptParams } from "./agent/ModePro
 import type { ModeRestartParams as agent_ModeRestartParams } from "./agent/ModeRestartParams";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
+import type { OwnedChanges as agent_OwnedChanges } from "./agent/OwnedChanges";
 import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
 import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { RedoParams as agent_RedoParams } from "./agent/RedoParams";
@@ -196,6 +197,7 @@ export type RpcMethods = {
   "agent.interrupt": { params: agent_NodeId; result: null };
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
   "agent.changedFiles": { params: agent_NodeId; result: agent_ChangedFiles };
+  "agent.ownedChanges": { params: agent_NodeId; result: agent_OwnedChanges };
   "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.discard": { params: agent_NodeId; result: null };
