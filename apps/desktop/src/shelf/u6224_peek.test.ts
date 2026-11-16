@@ -32,10 +32,11 @@ const watchPeeks = () => evaluate<boolean>(`(() => {
 
 const everPeeked = () => evaluate<boolean>("window.__peeked");
 
-/** One event, dispatched at once on the element: the Bench reacts to it alone, with no pointer move around it. */
+/** One event, dispatched at once on the element: the Bench reacts to it alone, with no pointer move around it.
+ * The key is ArrowDown: U7158 sends a typed character to the centre Terminal before the Bench hears it. */
 const dispatch = (selector: string, event: string) => evaluate<{ phase: string; prevented: boolean }>(`(() => {
   const target = document.querySelector('${selector}');
-  const notPrevented = target.dispatchEvent(new ${event.startsWith("pointer") ? "PointerEvent" : event.startsWith("drag") ? "DragEvent" : "KeyboardEvent"}('${event}', { bubbles: true, cancelable: true, pointerType: 'mouse', key: 'x' }));
+  const notPrevented = target.dispatchEvent(new ${event.startsWith("pointer") ? "PointerEvent" : event.startsWith("drag") ? "DragEvent" : "KeyboardEvent"}('${event}', { bubbles: true, cancelable: true, pointerType: 'mouse', key: 'ArrowDown' }));
   return { phase: document.querySelector('.window').dataset.shelf, prevented: !notPrevented };
 })()`);
 
